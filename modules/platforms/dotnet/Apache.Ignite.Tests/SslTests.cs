@@ -97,10 +97,14 @@ public class SslTests : IgniteTestsBase
     }
 
     [Test]
+    [SuppressMessage("Security", "CA5398:Avoid hardcoded SslProtocols values", Justification = "Tests.")]
     public void TestSslOnClientWithoutSslOnServerThrows()
     {
         var cfg = GetConfig();
-        cfg.SslStreamFactory = new SslStreamFactory();
+        cfg.SslStreamFactory = new SslStreamFactory
+        {
+            SslProtocols = SslProtocols.Tls13 | SslProtocols.Tls12
+        };
 
         var ex = Assert.ThrowsAsync<AggregateException>(async () => await IgniteClient.StartAsync(cfg));
         Assert.IsInstanceOf<IgniteClientConnectionException>(ex?.GetBaseException());
@@ -127,6 +131,7 @@ public class SslTests : IgniteTestsBase
             SslStreamFactory = new SslStreamFactory
             {
                 SkipServerCertificateValidation = true,
+                CheckCertificateRevocation = true
             }
         };
 

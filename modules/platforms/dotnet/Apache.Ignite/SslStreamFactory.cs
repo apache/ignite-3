@@ -35,14 +35,6 @@ public sealed class SslStreamFactory : ISslStreamFactory
     public const SslProtocols DefaultSslProtocols = SslProtocols.None;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="SslStreamFactory"/> class.
-    /// </summary>
-    public SslStreamFactory()
-    {
-        SslProtocols = DefaultSslProtocols;
-    }
-
-    /// <summary>
     /// Gets or sets the certificate file (pfx) path.
     /// <para />
     /// Java certificates can be converted with <c>keytool</c>:
@@ -71,7 +63,7 @@ public sealed class SslStreamFactory : ISslStreamFactory
     /// Gets or sets the SSL protocols.
     /// </summary>
     [DefaultValue(DefaultSslProtocols)]
-    public SslProtocols SslProtocols { get; set; }
+    public SslProtocols SslProtocols { get; set; } = DefaultSslProtocols;
 
     /// <inheritdoc />
     public SslStream Create(Stream stream, string targetHost)
