@@ -106,8 +106,8 @@ public class SslTests : IgniteTestsBase
             SslProtocols = SslProtocols.Tls13 | SslProtocols.Tls12
         };
 
-        var ex = Assert.CatchAsync<Exception>(async () => await IgniteClient.StartAsync(cfg));
-        Assert.IsInstanceOf<IgniteClientConnectionException>(ex?.GetBaseException());
+        var ex = Assert.ThrowsAsync<AggregateException>(async () => await IgniteClient.StartAsync(cfg));
+        Assert.IsInstanceOf<IgniteClientConnectionException>(ex?.InnerException);
     }
 
     [Test]
@@ -118,8 +118,8 @@ public class SslTests : IgniteTestsBase
             Endpoints = { SslEndpoint }
         };
 
-        var ex = Assert.CatchAsync<Exception>(async () => await IgniteClient.StartAsync(cfg));
-        Assert.IsInstanceOf<IgniteClientConnectionException>(ex?.GetBaseException());
+        var ex = Assert.ThrowsAsync<AggregateException>(async () => await IgniteClient.StartAsync(cfg));
+        Assert.IsInstanceOf<IgniteClientConnectionException>(ex?.InnerException);
     }
 
     [Test]
