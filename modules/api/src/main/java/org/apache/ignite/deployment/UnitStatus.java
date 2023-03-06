@@ -18,11 +18,11 @@
 package org.apache.ignite.deployment;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.tostring.S;
 
@@ -123,7 +123,7 @@ public class UnitStatus {
     public static class UnitStatusBuilder {
 
         private final String id;
-        private final Map<Version, List<String>> versionToConsistentIds = new HashMap<>();
+        private final Map<Version, List<String>> versionToConsistentIds = new TreeMap<>(Version::compareTo);
 
         /**
          * Constructor.

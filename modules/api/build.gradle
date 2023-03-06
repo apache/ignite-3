@@ -18,6 +18,7 @@
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 
 dependencies {
@@ -30,6 +31,14 @@ dependencies {
     testImplementation libs.hamcrest.optional
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
+
+    testFixturesAnnotationProcessor project(":ignite-configuration-annotation-processor")
+    testFixturesAnnotationProcessor libs.micronaut.inject.annotation.processor
+    testFixturesImplementation project(":ignite-core")
+    testFixturesImplementation testFixtures(project(":ignite-core"))
+    testFixturesImplementation project(":ignite-configuration")
+    testFixturesImplementation libs.hamcrest.core
+    testFixturesImplementation libs.micronaut.junit5
 }
 
 description = 'ignite-api'
