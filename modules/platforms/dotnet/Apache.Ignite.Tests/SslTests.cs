@@ -152,7 +152,7 @@ public class SslTests : IgniteTestsBase
 
     private class CustomSslStreamFactory : ISslStreamFactory
     {
-        public SslStream? Create(Stream stream, string targetHost)
+        public SslStream Create(Stream stream, string targetHost)
         {
             var sslStream = new SslStream(
                 innerStream: stream,
