@@ -66,7 +66,7 @@ public final class TpchQueries {
     }
 
     private static String loadFromResource(String resource) {
-        try (InputStream is = TpchBenchmark.class.getClassLoader().getResourceAsStream(resource)) {
+        try (InputStream is = TpchQueries.class.getClassLoader().getResourceAsStream(resource)) {
             if (is == null) {
                 throw new IllegalArgumentException("Resource does not exist: " + resource);
             }
