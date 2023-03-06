@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Network;
 
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using Ignite.Network;
 
@@ -25,4 +26,5 @@ internal sealed record SslInfo(
     string NegotiatedCipherSuiteName,
     bool IsMutuallyAuthenticated,
     X509Certificate? LocalCertificate,
-    X509Certificate? RemoteCertificate) : ISslInfo;
+    X509Certificate? RemoteCertificate,
+    SslProtocols SslProtocol) : ISslInfo;

@@ -503,7 +503,8 @@ namespace Apache.Ignite.Internal
                     sslStream.NegotiatedCipherSuite.ToString(),
                     sslStream.IsMutuallyAuthenticated,
                     sslStream.LocalCertificate,
-                    sslStream.RemoteCertificate)
+                    sslStream.RemoteCertificate,
+                    sslStream.SslProtocol)
                 : null;
 
         private async ValueTask SendRequestAsync(PooledArrayBuffer? request, ClientOp op, long requestId)

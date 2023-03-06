@@ -18,8 +18,10 @@
 namespace Apache.Ignite.Tests;
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net.Security;
+using System.Security.Authentication;
 using System.Threading.Tasks;
 using Log;
 using NUnit.Framework;
@@ -30,6 +32,7 @@ using NUnit.Framework;
 public class SslTests : IgniteTestsBase
 {
     [Test]
+    [SuppressMessage("Security", "CA5398:Avoid hardcoded SslProtocols values", Justification = "Tests")]
     public async Task TestSslWithoutClientAuthentication()
     {
         var cfg = new IgniteClientConfiguration
@@ -46,6 +49,7 @@ public class SslTests : IgniteTestsBase
         Assert.IsNotNull(sslInfo);
         Assert.IsFalse(sslInfo!.IsMutuallyAuthenticated);
         Assert.AreEqual(TlsCipherSuite.TLS_AES_256_GCM_SHA384.ToString(), sslInfo.NegotiatedCipherSuiteName);
+        Assert.AreEqual(SslProtocols.Tls13, sslInfo.SslProtocol);
         Assert.AreEqual("127.0.0.1", sslInfo.TargetHostName);
         Assert.IsNull(sslInfo.LocalCertificate);
         Assert.AreEqual(
@@ -62,7 +66,7 @@ public class SslTests : IgniteTestsBase
             SslStreamFactory = new SslStreamFactory
             {
                 SkipServerCertificateValidation = true,
-                CertificatePath = "TODO",
+                CertificatePath = "truststore.pfx",
                 CertificatePassword = "changeit"
             }
         };

@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Network;
 
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 
 /// <summary>
@@ -49,4 +50,9 @@ public interface ISslInfo
     /// Gets a value indicating whether both server and client have been authenticated.
     /// </summary>
     bool IsMutuallyAuthenticated { get; }
+
+    /// <summary>
+    /// Gets the SSL protocol.
+    /// </summary>
+    SslProtocols SslProtocol { get; }
 }
