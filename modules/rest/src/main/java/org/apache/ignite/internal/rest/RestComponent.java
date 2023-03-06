@@ -22,14 +22,9 @@ import static io.micronaut.context.env.Environment.BARE_METAL;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.http.server.exceptions.ServerStartupException;
 import io.micronaut.http.ssl.ClientAuthentication;
-import io.micronaut.openapi.annotation.OpenAPIInclude;
 import io.micronaut.runtime.Micronaut;
 import io.micronaut.runtime.exceptions.ApplicationStartupException;
 import io.netty.handler.ssl.ClientAuth;
-import io.swagger.v3.oas.annotations.OpenAPIDefinition;
-import io.swagger.v3.oas.annotations.info.Contact;
-import io.swagger.v3.oas.annotations.info.Info;
-import io.swagger.v3.oas.annotations.info.License;
 import java.net.BindException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -41,12 +36,6 @@ import java.util.Map;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
-import org.apache.ignite.internal.rest.api.cluster.TopologyApi;
-import org.apache.ignite.internal.rest.api.configuration.ClusterConfigurationApi;
-import org.apache.ignite.internal.rest.api.configuration.NodeConfigurationApi;
-import org.apache.ignite.internal.rest.api.metric.NodeMetricApi;
-import org.apache.ignite.internal.rest.api.node.NodeManagementApi;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.rest.configuration.RestSslConfiguration;
 import org.apache.ignite.internal.rest.configuration.RestSslView;
@@ -62,19 +51,6 @@ import org.jetbrains.annotations.Nullable;
  * <p>It is started on port 10300 by default but it is possible to change this in configuration itself. Refer to default config file in
  * resources for the example.
  */
-@OpenAPIDefinition(info = @Info(
-        title = "Ignite REST module",
-        version = "3.0.0-SNAPSHOT",
-        license = @License(name = "Apache 2.0", url = "https://ignite.apache.org"),
-        contact = @Contact(email = "user@ignite.apache.org")))
-@OpenAPIInclude(classes = {
-        ClusterConfigurationApi.class,
-        NodeConfigurationApi.class,
-        ClusterManagementApi.class,
-        NodeManagementApi.class,
-        NodeMetricApi.class,
-        TopologyApi.class
-})
 public class RestComponent implements IgniteComponent {
 
     /** Unavailable port. */

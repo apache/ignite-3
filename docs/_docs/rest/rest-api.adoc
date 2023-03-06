@@ -15,7 +15,7 @@
 
 = Ignite REST API
 
-The Apache Ignite 3 clusters provide an link:https://www.openapis.org/[OpenAPI] specification that can be used to work with Ignite 3 by standard REST methods. The link:https://github.com/apache/ignite-3/tree/main/modules/rest/openapi/openapi.yaml[openapi.yaml,window=_blank] specification file for the version is included with its release.
+The Apache Ignite 3 clusters provide an link:https://www.openapis.org/[OpenAPI] specification that can be used to work with Ignite 3 by standard REST methods. The link:https://github.com/apache/ignite-3/tree/main/modules/rest-api/openapi/openapi.yaml[openapi.yaml,window=_blank] specification file for the version is included with its release.
 
 We recommend that you generate client code in your project language by using an link:https://github.com/OpenAPITools/openapi-generator[OpenAPI code generator,window=_blank]. Below is the example of how you can do this for a Java project.
 
@@ -35,7 +35,7 @@ We recommend that you generate client code in your project language by using an 
         <goal>generate</goal>
       </goals>
       <configuration>
-        <inputSpec>https://github.com/apache/ignite-3/tree/main/modules/rest/openapi/openapi.yaml</inputSpec>
+        <inputSpec>https://github.com/apache/ignite-3/tree/main/modules/rest-api/openapi/openapi.yaml</inputSpec>
         <generatorName>java</generatorName>
         <apiPackage>org.apache.ignite.rest.client.api</apiPackage>
         <invokerPackage>org.apache.ignite.rest.client.invoker</invokerPackage>

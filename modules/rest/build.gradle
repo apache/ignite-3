@@ -26,7 +26,7 @@ description = 'ignite-rest'
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.micronaut.inject.annotation.processor
-    annotationProcessor libs.micronaut.openapi
+    annotationProcessor libs.auto.service
 
     implementation project(':ignite-api')
     implementation project(':ignite-configuration')
@@ -49,14 +49,12 @@ dependencies {
     implementation libs.auto.service.annotations
     implementation libs.typesafe.config
 
-    annotationProcessor libs.auto.service
-
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testAnnotationProcessor libs.micronaut.inject.annotation.processor
 
     testImplementation project(':ignite-configuration')
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation libs.slf4j.jdk14
     testImplementation libs.micronaut.junit5
     testImplementation libs.micronaut.http.client
@@ -80,9 +78,4 @@ dependencies {
     integrationTestImplementation libs.micronaut.http.client
     integrationTestImplementation libs.micronaut.http.server.netty
     integrationTestImplementation libs.typesafe.config
-}
-
-compileJava {
-    options.fork = true
-    options.forkOptions.jvmArgs += '-Dmicronaut.openapi.config.file=openapi/openapi.properties'
 }

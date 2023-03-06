@@ -32,6 +32,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * REST command for initializing a cluster.
  */
+@Schema(description = "Cluster initialization data.")
 public class InitCommand {
     @Schema(description = "A list of RAFT metastorage nodes.")
     private final Collection<String> metaStorageNodes;
