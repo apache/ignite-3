@@ -82,7 +82,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock;
 
-    public volatile long token;
+    /** Last applied schema version. */
+    private volatile long appliedVer;
 
     /**
      * Constructor.
@@ -132,7 +133,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                 listeners.forEach(SchemaUpdateListener::onSchemaUpdated);
 
-                this.token = token;
+                this.appliedVer = token;
 
                 calciteSchemaVv.complete(token, newCalciteSchema);
             } finally {
@@ -165,7 +166,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     public long lastAppliedVersion() {
-        return token;
+        return appliedVer;
     }
 
     /** {@inheritDoc} */
@@ -368,15 +369,13 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         // TODO Use the actual zone ID after implementing https://issues.apache.org/jira/browse/IGNITE-18426.
         IgniteDistribution distribution = IgniteDistributions.affinity(colocationColumns, table.tableId(), table.tableId());
 
-        IgniteTableImpl tbl = new IgniteTableImpl(
+        return new IgniteTableImpl(
                 new TableDescriptorImpl(colDescriptors, distribution),
                 table.internalTable(),
                 replicaService,
                 clock,
                 schemaRegistry
         );
-
-        return tbl;
     }
 
     private DefaultValueStrategy convertDefaultValueProvider(DefaultValueProvider defaultValueProvider) {

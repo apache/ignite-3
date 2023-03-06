@@ -224,6 +224,8 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         ResultSet<SqlRow> rs = sql(ignite0, "SELECT * FROM " + TABLE_NAME + " WHERE valint > 0");
 
         assertTrue(rs.hasNext());
+
+        rs.close();
     }
 
     /**

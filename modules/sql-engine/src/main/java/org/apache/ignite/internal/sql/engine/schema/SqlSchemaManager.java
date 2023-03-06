@@ -40,13 +40,13 @@ public interface SqlSchemaManager {
     IgniteTable tableById(UUID id);
 
     /**
-     * Wait for {@code ver} schema version.
+     * Wait for {@code ver} schema version, just a stub, need to be removed after IGNITE-18733.
      * This is a blocking operation.
      */
     void waitActualSchema(long ver);
 
     /**
-     * Return last applied schema version.
+     * Return last applied schema version, just a stub, need to be removed after IGNITE-18733.
      *
      * @return Current version.
      */
