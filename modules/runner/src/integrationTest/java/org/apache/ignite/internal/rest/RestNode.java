@@ -20,6 +20,7 @@ package org.apache.ignite.internal.rest;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Path;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -145,10 +146,11 @@ public class RestNode {
     private static String getResourcePath(String resource) {
         try {
             URL url = ItRestSslTest.class.getClassLoader().getResource(resource);
+            Objects.requireNonNull(url, "Resource " + resource + " not found.");
             Path path = Path.of(url.toURI()); // Properly extract file system path from the "file:" URL
             return path.toString().replace("\\", "\\\\"); // Escape backslashes for the config parser
         } catch (URISyntaxException e) {
-            return "";
+            throw new RuntimeException(e); // Shouldn't happen since URL is obtained from the class loader
         }
     }
 }
