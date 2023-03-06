@@ -40,7 +40,9 @@ import org.apache.ignite.lang.ByteArray;
  * Util class for Distribution Zones flow.
  */
 public class DistributionZonesUtil {
+    /** Key prefix for zone's data nodes and trigger keys. */
     private static final String DISTRIBUTION_ZONE_DATA_NODES_PREFIX = "distributionZone.dataNodes.";
+
     /** Key prefix for zone's data nodes. */
     private static final String DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "value.";
 
@@ -52,6 +54,7 @@ public class DistributionZonesUtil {
     private static final String DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX =
             DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "scaleDownChangeTrigger.";
 
+    /** Key prefix for zones' logical topology nodes and logical topology version. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX = "distributionZones.logicalTopology.";
 
     /** Key prefix for zones' logical topology nodes. */
@@ -70,6 +73,7 @@ public class DistributionZonesUtil {
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY =
             new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION);
 
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}. */
     private static final ByteArray DISTRIBUTION_ZONES_DATA_NODES_KEY =
             new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_PREFIX);
 
@@ -92,6 +96,11 @@ public class DistributionZonesUtil {
         return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX);
     }
 
+    /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX}.
+     *
+     * @return ByteArray representation.
+     */
     public static ByteArray zoneLogicalTopologyPrefix() {
         return new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX);
     }
@@ -125,8 +134,7 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * The key needed for processing an event about zone's data node propagation on scale up.
-     * With this key we can be sure that event was triggered only once.
+     * The key prefix needed for processing an event about zone's data node propagation on scale up.
      */
     public static ByteArray zoneScaleUpChangeTriggerKey() {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX);
@@ -141,8 +149,7 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * The key needed for processing an event about zone's data node propagation on scale down.
-     * With this key we can be sure that event was triggered only once.
+     * The key prefix needed for processing an event about zone's data node propagation on scale down.
      */
     public static ByteArray zoneScaleDownChangeTriggerKey() {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX);
@@ -303,22 +310,18 @@ public class DistributionZonesUtil {
      * Utility method to check if one byte array starts with a specified sequence
      * of bytes.
      *
-     * @param array
-     *          The array to check
-     * @param prefix
-     *          The prefix bytes to test for
-     * @return true if the array starts with the bytes from the prefix
+     * @param array The array to check.
+     * @param prefix The prefix bytes to test for.
+     * @return {@code true} if the array starts with the bytes from the prefix.
      */
     public static boolean startsWith(byte[] array, byte[] prefix) {
-        if (array == prefix) {
-            return true;
-        }
         if (array == null || prefix == null) {
             return false;
         }
+
         int prefixLength = prefix.length;
 
-        if (prefix.length > array.length) {
+        if (prefixLength > array.length) {
             return false;
         }
 

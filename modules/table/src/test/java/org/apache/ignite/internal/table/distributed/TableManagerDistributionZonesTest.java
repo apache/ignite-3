@@ -39,6 +39,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -129,14 +130,16 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
         MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
 
         doAnswer(invocation -> {
-            WatchListener listener = invocation.getArgument(1);
+            ByteArray key = invocation.getArgument(0);
 
-            if (watchListener == null) {
-                watchListener = listener;
+            WatchListener watchListener = invocation.getArgument(1);
+
+            if (Arrays.equals(key.bytes(), zoneDataNodesKey().bytes())) {
+                this.watchListener = watchListener;
             }
 
             return null;
-        }).when(metaStorageManager).registerPrefixWatch(any(), any());
+        }).when(metaStorageManager).registerExactWatch(any(), any());
 
         tablesConfiguration = mock(TablesConfiguration.class);
 
