@@ -178,6 +178,7 @@ namespace Apache.Ignite.Internal
 
                 if (configuration.SslStreamFactory is { } sslStreamFactory)
                 {
+                    // TODO: Check if created successfully and throw better exception when not.
                     stream = sslStreamFactory.Create(stream, endPoint.Host);
                 }
 
