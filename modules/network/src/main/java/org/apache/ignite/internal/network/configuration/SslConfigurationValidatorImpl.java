@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import io.netty.handler.ssl.ClientAuth;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
@@ -39,9 +40,13 @@ public class SslConfigurationValidatorImpl implements Validator<SslConfiguration
         if (ssl.enabled()) {
             validateKeyStore(ctx, ".keyStore", "Key store", ssl.keyStore());
 
-            ClientAuth clientAuth = ClientAuth.valueOf(ssl.clientAuth().toUpperCase());
-            if (clientAuth != ClientAuth.NONE) {
-                validateKeyStore(ctx, ".trustStore", "Trust store", ssl.trustStore());
+            try {
+                ClientAuth clientAuth = ClientAuth.valueOf(ssl.clientAuth().toUpperCase());
+                if (clientAuth != ClientAuth.NONE) {
+                    validateKeyStore(ctx, ".trustStore", "Trust store", ssl.trustStore());
+                }
+            } catch (IllegalArgumentException e) {
+                ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Incorrect client auth parameter " + ssl.clientAuth()));
             }
         }
     }
@@ -59,8 +64,12 @@ public class SslConfigurationValidatorImpl implements Validator<SslConfiguration
         if (nullOrBlank(keyStorePath)) {
             ctx.addIssue(new ValidationIssue(ctx.currentKey() + keyName, type + " path must not be blank"));
         } else {
-            if (!Files.exists(Path.of(keyStorePath))) {
-                ctx.addIssue(new ValidationIssue(ctx.currentKey() + keyName, type + " file doesn't exist at " + keyStorePath));
+            try {
+                if (!Files.exists(Path.of(keyStorePath))) {
+                    ctx.addIssue(new ValidationIssue(ctx.currentKey() + keyName, type + " file doesn't exist at " + keyStorePath));
+                }
+            } catch (InvalidPathException e) {
+                ctx.addIssue(new ValidationIssue(ctx.currentKey() + keyName, type + " file path is incorrect: " + keyStorePath));
             }
         }
     }

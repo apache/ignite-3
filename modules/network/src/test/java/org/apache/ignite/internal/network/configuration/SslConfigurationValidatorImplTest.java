@@ -81,6 +81,14 @@ class SslConfigurationValidatorImplTest {
     }
 
     @Test
+    public void incorrectAuthType(@WorkDirectory Path workDir) throws IOException {
+        KeyStoreView keyStore = createValidKeyStoreConfig(workDir);
+        StubSslView sslView = new StubSslView(true, "foo", keyStore, null);
+
+        validate(sslView, "Incorrect client auth parameter foo");
+    }
+
+    @Test
     public void validKeyStoreConfig(@WorkDirectory Path workDir) throws IOException {
         KeyStoreView keyStore = createValidKeyStoreConfig(workDir);
         validate(new StubSslView(true, "NONE", keyStore, null), (String[]) null);
