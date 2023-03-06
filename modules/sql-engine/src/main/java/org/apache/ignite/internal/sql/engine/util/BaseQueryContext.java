@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.UUID;
-import java.util.function.Supplier;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.config.CalciteConnectionConfigImpl;
 import org.apache.calcite.config.CalciteConnectionProperty;
@@ -293,8 +292,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
         private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
 
         private long plannerTimeout;
-
-        private Supplier<Long> lastStorageVersion;
 
         public Builder frameworkConfig(FrameworkConfig frameworkCfg) {
             this.frameworkCfg = Objects.requireNonNull(frameworkCfg);

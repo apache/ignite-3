@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;

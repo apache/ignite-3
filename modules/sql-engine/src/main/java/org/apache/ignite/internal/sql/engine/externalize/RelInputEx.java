@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.externalize;
 
 import java.util.List;
-import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelInput;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;

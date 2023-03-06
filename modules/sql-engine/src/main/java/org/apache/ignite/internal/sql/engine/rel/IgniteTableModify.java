@@ -28,7 +28,6 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rex.RexNode;
-import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
@@ -119,5 +118,5 @@ public class IgniteTableModify extends TableModify implements IgniteRel {
         return super.explainTerms(pw)
                 .itemIf("tableId", getTable().unwrap(IgniteTable.class).id().toString(),
                 pw.getDetailLevel() == ALL_ATTRIBUTES);
-        }
+    }
 }
