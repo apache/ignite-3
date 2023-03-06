@@ -55,10 +55,6 @@ abstract class StorageOperation {
      *
      * @param storageInfo Storage information in the format "table=user, partitionId=1".
      */
-    String createOperationInProcessErrorMessage(String storageInfo) {
-        return isFinalOperation() ? createStorageInProgressOfCloseErrorMessage(storageInfo) : inProcessErrorMessage(storageInfo);
-    }
-
     abstract String inProcessErrorMessage(String storageInfo);
 
     /**
@@ -155,11 +151,7 @@ abstract class StorageOperation {
     static class CloseStorageOperation extends StorageOperation {
         @Override
         String inProcessErrorMessage(String storageInfo) {
-            return StorageOperation.createStorageInProgressOfCloseErrorMessage(storageInfo);
+            return "Storage is in the process of closing: [" + storageInfo + ']';
         }
-    }
-
-    private static String createStorageInProgressOfCloseErrorMessage(String storageInfo) {
-        return "Storage is in the process of closing: [" + storageInfo + ']';
     }
 }

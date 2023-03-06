@@ -391,11 +391,11 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
     }
 
     private void throwExceptionDependingOnOperation(StorageOperation operation, int partitionId) {
-        throw new StorageException(operation.createOperationInProcessErrorMessage(createStorageInfo(partitionId)));
+        throw new StorageException(operation.inProcessErrorMessage(createStorageInfo(partitionId)));
     }
 
     private void throwExceptionDependingOnOperationForRebalance(StorageOperation operation, int partitionId) {
-        throw new StorageRebalanceException(operation.createOperationInProcessErrorMessage(createStorageInfo(partitionId)));
+        throw new StorageRebalanceException(operation.inProcessErrorMessage(createStorageInfo(partitionId)));
     }
 
     private String createStorageDoesNotExistErrorMessage(int partitionId) {
