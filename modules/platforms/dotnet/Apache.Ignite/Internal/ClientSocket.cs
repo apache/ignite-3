@@ -30,6 +30,7 @@ namespace Apache.Ignite.Internal
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
+    using Ignite.Network;
     using Log;
     using Network;
     using Proto;
@@ -308,7 +309,7 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private static ConnectionContext ReadHandshakeResponse(MsgPackReader reader, IPEndPoint endPoint, SslInfo? sslInfo)
+        private static ConnectionContext ReadHandshakeResponse(MsgPackReader reader, IPEndPoint endPoint, ISslInfo? sslInfo)
         {
             var serverVer = new ClientProtocolVersion(reader.ReadInt16(), reader.ReadInt16(), reader.ReadInt16());
 
@@ -494,7 +495,7 @@ namespace Apache.Ignite.Internal
             return recommendedHeartbeatInterval;
         }
 
-        private static SslInfo? GetSslInfo(Stream stream) =>
+        private static ISslInfo? GetSslInfo(Stream stream) =>
             stream is SslStream sslStream
                 ? new SslInfo(
                     sslStream.TargetHostName,
