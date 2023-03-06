@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import org.apache.ignite.deployment.UnitStatus;
 import org.apache.ignite.deployment.version.Version;
 
