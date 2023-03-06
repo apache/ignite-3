@@ -917,7 +917,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
 
             return allOf(futures).thenApply(unused -> tablesById);
-        }).join();
+        });
     }
 
     private boolean isLocalPeer(Peer peer) {
