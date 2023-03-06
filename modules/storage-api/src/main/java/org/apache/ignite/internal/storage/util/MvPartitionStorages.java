@@ -391,83 +391,19 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
     }
 
     private void throwExceptionDependingOnOperation(StorageOperation operation, int partitionId) {
-        if (operation instanceof CreateStorageOperation) {
-            throw new StorageException(createStorageInProgressOfCreationErrorMessage(partitionId));
-        } else if (operation instanceof DestroyStorageOperation) {
-            throw new StorageException(createStorageInProgressOfDestructionErrorMessage(partitionId));
-        } else if (operation instanceof StartRebalanceStorageOperation) {
-            throw new StorageRebalanceException(createStorageInProgressOfStartRebalanceErrorMessage(partitionId));
-        } else if (operation instanceof AbortRebalanceStorageOperation) {
-            throw new StorageRebalanceException(createStorageInProgressOfAbortRebalanceErrorMessage(partitionId));
-        } else if (operation instanceof FinishRebalanceStorageOperation) {
-            throw new StorageRebalanceException(createStorageInProgressOfFinishRebalanceErrorMessage(partitionId));
-        } else if (operation instanceof CleanupStorageOperation) {
-            throw new StorageException(createStorageInProgressOfCleanupErrorMessage(partitionId));
-        } else if (operation instanceof CloseStorageOperation || operation.isFinalOperation()) {
-            throw new StorageException(createStorageInProgressOfCloseErrorMessage(partitionId));
-        } else {
-            throw new StorageException(createUnknownOperationErrorMessage(partitionId, operation));
-        }
+        throw new StorageException(operation.createOperationInProcessErrorMessage(createStorageInfo(partitionId)));
     }
 
     private void throwExceptionDependingOnOperationForRebalance(StorageOperation operation, int partitionId) {
-        if (operation instanceof CreateStorageOperation) {
-            throw new StorageRebalanceException(createStorageInProgressOfCreationErrorMessage(partitionId));
-        } else if (operation instanceof DestroyStorageOperation) {
-            throw new StorageRebalanceException(createStorageInProgressOfDestructionErrorMessage(partitionId));
-        } else if (operation instanceof StartRebalanceStorageOperation) {
-            throw new StorageRebalanceException(createStorageInProgressOfStartRebalanceErrorMessage(partitionId));
-        } else if (operation instanceof AbortRebalanceStorageOperation) {
-            throw new StorageRebalanceException(createStorageInProgressOfAbortRebalanceErrorMessage(partitionId));
-        } else if (operation instanceof FinishRebalanceStorageOperation) {
-            throw new StorageRebalanceException(createStorageInProgressOfFinishRebalanceErrorMessage(partitionId));
-        } else if (operation instanceof CleanupStorageOperation) {
-            throw new StorageRebalanceException(createStorageInProgressOfCleanupErrorMessage(partitionId));
-        } else if (operation instanceof CloseStorageOperation || operation.isFinalOperation()) {
-            throw new StorageException(createStorageInProgressOfCloseErrorMessage(partitionId));
-        } else {
-            throw new StorageRebalanceException(createUnknownOperationErrorMessage(partitionId, operation));
-        }
+        throw new StorageRebalanceException(operation.createOperationInProcessErrorMessage(createStorageInfo(partitionId)));
     }
 
     private String createStorageDoesNotExistErrorMessage(int partitionId) {
         return "Storage does not exist: [" + createStorageInfo(partitionId) + ']';
     }
 
-    private String createStorageInProgressOfCreationErrorMessage(int partitionId) {
-        return "Storage is in process of being created: [" + createStorageInfo(partitionId) + ']';
-    }
-
-    private String createStorageInProgressOfDestructionErrorMessage(int partitionId) {
-        return "Storage is already in process of being destroyed: [" + createStorageInfo(partitionId) + ']';
-    }
-
-    private String createStorageInProgressOfStartRebalanceErrorMessage(int partitionId) {
-        return "Storage in the process of starting a rebalance: [" + createStorageInfo(partitionId) + ']';
-    }
-
-    private String createStorageInProgressOfAbortRebalanceErrorMessage(int partitionId) {
-        return "Storage in the process of aborting a rebalance: [" + createStorageInfo(partitionId) + ']';
-    }
-
-    private String createStorageInProgressOfFinishRebalanceErrorMessage(int partitionId) {
-        return "Storage in the process of finishing a rebalance: [" + createStorageInfo(partitionId) + ']';
-    }
-
     private String createStorageInProgressOfRebalanceErrorMessage(int partitionId) {
         return "Storage in the process of rebalance: [" + createStorageInfo(partitionId) + ']';
-    }
-
-    private String createStorageInProgressOfCleanupErrorMessage(int partitionId) {
-        return "Storage is in process of being cleaned up: [" + createStorageInfo(partitionId) + ']';
-    }
-
-    private String createUnknownOperationErrorMessage(int partitionId, StorageOperation operation) {
-        return "Unknown operation: [" + createStorageInfo(partitionId) + ", operation=" + operation + ']';
-    }
-
-    private String createStorageInProgressOfCloseErrorMessage(int partitionId) {
-        return "Storage is in the process of closing: [" + createStorageInfo(partitionId) + ']';
     }
 
     private static @Nullable StorageOperation completeOperation(StorageOperation operation) {

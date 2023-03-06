@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -105,7 +106,11 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         busyLock.block();
 
         try {
-            IgniteUtils.closeAllManually(mvPartitionStorages.getAllForCloseOrDestroy().get(10, TimeUnit.SECONDS).stream());
+            CompletableFuture<List<AbstractPageMemoryMvPartitionStorage>> allForCloseOrDestroy
+                    = mvPartitionStorages.getAllForCloseOrDestroy();
+
+            // 10 seconds is taken by analogy with shutdown of thread pool, in general this should be fairly fast.
+            IgniteUtils.closeAllManually(allForCloseOrDestroy.get(10, TimeUnit.SECONDS).stream());
         } catch (Exception e) {
             throw new StorageException("Failed to stop PageMemory table storage: " + getTableName(), e);
         }

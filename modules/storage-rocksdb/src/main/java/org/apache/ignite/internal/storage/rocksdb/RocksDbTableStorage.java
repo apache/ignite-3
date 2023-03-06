@@ -362,6 +362,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         try {
             mvPartitionStorages
                     .getAllForCloseOrDestroy()
+                    // 10 seconds is taken by analogy with shutdown of thread pool, in general this should be fairly fast.
                     .get(10, TimeUnit.SECONDS)
                     .forEach(mvPartitionStorage -> resources.add(mvPartitionStorage::close));
 
