@@ -65,175 +65,175 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
 
     enum TestCase {
         /**
-         * Query: SELECT AVG(val0) FROM test
+         * Query: SELECT AVG(val0) FROM test.
          *
          * <p>Distribution: single
          */
         CASE_1("SELECT AVG(val0) FROM test", schema(single())),
         /**
-         * Query: SELECT AVG(val0) FROM test
+         * Query: SELECT AVG(val0) FROM test.
          *
          * <p>Distribution: hash(0)
          */
         CASE_1A("SELECT AVG(val0) FROM test", schema(hash())),
         /**
-         * Query: SELECT AVG(DISTINCT val0) FROM test
+         * Query: SELECT AVG(DISTINCT val0) FROM test.
          *
          * <p>Distribution: single
          */
         CASE_2_1("SELECT AVG(DISTINCT val0) FROM test", schema(single())),
         /**
-         * Query: SELECT AVG(DISTINCT val0) FROM test
+         * Query: SELECT AVG(DISTINCT val0) FROM test.
          *
          * <p>Distribution: hash(0)
          */
         CASE_2_1A("SELECT AVG(DISTINCT val0) FROM test", schema(hash())),
         /**
-         * Query: SELECT COUNT(DISTINCT val0) FROM test
+         * Query: SELECT COUNT(DISTINCT val0) FROM test.
          *
          * <p>Distribution: single
          */
         CASE_2_2("SELECT COUNT(DISTINCT val0) FROM test", schema(single())),
         /**
-         * Query: SELECT COUNT(DISTINCT val0) FROM test
+         * Query: SELECT COUNT(DISTINCT val0) FROM test.
          *
          * <p>Distribution: hash(0)
          */
         CASE_2_2A("SELECT COUNT(DISTINCT val0) FROM test", schema(hash())),
         /**
-         * Query: SELECT SUM(DISTINCT val0) FROM test
+         * Query: SELECT SUM(DISTINCT val0) FROM test.
          *
          * <p>Distribution: single
          */
         CASE_2_3("SELECT SUM(DISTINCT val0) FROM test", schema(single())),
         /**
-         * Query: SELECT SUM(DISTINCT val0) FROM test
+         * Query: SELECT SUM(DISTINCT val0) FROM test.
          *
          * <p>Distribution: hash(0)
          */
         CASE_2_3A("SELECT SUM(DISTINCT val0) FROM test", schema(hash())),
         /**
-         * Query: SELECT MIN(DISTINCT val0) FROM test
+         * Query: SELECT MIN(DISTINCT val0) FROM test.
          *
          * <p>Distribution: single
          */
         CASE_3_1("SELECT MIN(DISTINCT val0) FROM test", schema(single())),
         /**
-         * Query: SELECT MIN(DISTINCT val0) FROM test
+         * Query: SELECT MIN(DISTINCT val0) FROM test.
          *
          * <p>Distribution: hash(0)
          */
         CASE_3_1A("SELECT MIN(DISTINCT val0) FROM test", schema(hash())),
         /**
-         * Query: SELECT MAX(DISTINCT val0) FROM test
+         * Query: SELECT MAX(DISTINCT val0) FROM test.
          *
          * <p>Distribution: single
          */
         CASE_3_2("SELECT MAX(DISTINCT val0) FROM test", schema(single())),
         /**
-         * Query: SELECT MAX(DISTINCT val0) FROM test
+         * Query: SELECT MAX(DISTINCT val0) FROM test.
          *
          * <p>Distribution: hash(0)
          */
         CASE_3_2A("SELECT MAX(DISTINCT val0) FROM test", schema(hash())),
         /**
-         * Query: SELECT AVG(val0) FROM test GROUP BY grp0
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp0.
          *
          * <p>Distribution single
          */
         CASE_5("SELECT AVG(val0) FROM test GROUP BY grp0", schema(single())),
         /**
-         * Query: SELECT AVG(val0) FROM test GROUP BY grp0
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp0.
          *
          * <p>Distribution hash
          */
         CASE_5A("SELECT AVG(val0) FROM test GROUP BY grp0", schema(hash())),
         /**
-         * Query: SELECT AVG(val0) FROM test GROUP BY grp1, grp0
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp1, grp0.
          *
          * <p>Distribution single
          */
         CASE_6("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(single())),
         /**
-         * Query: SELECT AVG(val0) FROM test GROUP BY grp1, grp0
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp1, grp0.
          *
          * <p>Distribution hash(0)
          */
         CASE_6A("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(hash())),
         /**
-         * Query: SELECT COUNT(DISTINCT val0) FROM test GROUP BY grp0
+         * Query: SELECT COUNT(DISTINCT val0) FROM test GROUP BY grp0.
          *
          * <p>Distribution single
          */
         CASE_7_1("SELECT COUNT(DISTINCT val0) FROM test GROUP BY grp0", schema(single())),
         /**
-         * Query: SELECT COUNT(DISTINCT val0) FROM test GROUP BY grp0
+         * Query: SELECT COUNT(DISTINCT val0) FROM test GROUP BY grp0.
          *
          * <p>Distribution hash(0)
          */
         CASE_7_1A("SELECT COUNT(DISTINCT val0) FROM test GROUP BY grp0", schema(hash())),
         /**
-         * Query: SELECT grp0, COUNT(DISTINCT val0) as v1 FROM test GROUP BY grp0
+         * Query: SELECT grp0, COUNT(DISTINCT val0) as v1 FROM test GROUP BY grp0.
          *
          * <p>Distribution single
          */
         CASE_7_2("SELECT grp0, COUNT(DISTINCT val0) as v1 FROM test GROUP BY grp0", schema(single())),
         /**
-         * Query: SELECT grp0, COUNT(DISTINCT val0) as v1 FROM test GROUP BY grp0
+         * Query: SELECT grp0, COUNT(DISTINCT val0) as v1 FROM test GROUP BY grp0.
          *
          * <p>Distribution hash(0)
          */
         CASE_7_2A("SELECT grp0, COUNT(DISTINCT val0) as v1 FROM test GROUP BY grp0", schema(hash())),
         /**
-         * Query: SELECT AVG(DISTINCT val0) FROM test GROUP BY grp0
+         * Query: SELECT AVG(DISTINCT val0) FROM test GROUP BY grp0.
          *
          * <p>Distribution single
          */
         CASE_7_3("SELECT AVG(DISTINCT val0) FROM test GROUP BY grp0", schema(single())),
         /**
-         * Query: SELECT AVG(DISTINCT val0) FROM test GROUP BY grp0
+         * Query: SELECT AVG(DISTINCT val0) FROM test GROUP BY grp0.
          *
          * <p>Distribution hash(0)
          */
         CASE_7_3A("SELECT AVG(DISTINCT val0) FROM test GROUP BY grp0", schema(hash())),
         /**
-         * Query: SELECT SUM(DISTINCT val0) FROM test GROUP BY grp0
+         * Query: SELECT SUM(DISTINCT val0) FROM test GROUP BY grp0.
          *
          * <p>Distribution single
          */
         CASE_7_4("SELECT SUM(DISTINCT val0) FROM test GROUP BY grp0", schema(single())),
         /**
-         * Query: SELECT SUM(DISTINCT val0) FROM test GROUP BY grp0
+         * Query: SELECT SUM(DISTINCT val0) FROM test GROUP BY grp0.
          *
          * <p>Distribution hash(0)
          */
         CASE_7_4A("SELECT SUM(DISTINCT val0) FROM test GROUP BY grp0", schema(hash())),
         /**
-         * Query: SELECT MIN(DISTINCT val0) FROM test GROUP BY val1
+         * Query: SELECT MIN(DISTINCT val0) FROM test GROUP BY val1.
          *
          * <p>Distribution single
          */
         CASE_8_1("SELECT MIN(DISTINCT val0) FROM test GROUP BY val1", schema(single())),
         /**
-         * Query: SELECT MIN(DISTINCT val0) FROM test GROUP BY val1
+         * Query: SELECT MIN(DISTINCT val0) FROM test GROUP BY val1.
          *
          * <p>Distribution hash(0)
          */
         CASE_8_1A("SELECT MIN(DISTINCT val0) FROM test GROUP BY val1", schema(hash())),
         /**
-         * Query: SELECT MAX(DISTINCT val0) FROM test GROUP BY val1
+         * Query: SELECT MAX(DISTINCT val0) FROM test GROUP BY val1.
          *
          * <p>Distribution single
          */
         CASE_8_2("SELECT MAX(DISTINCT val0) FROM test GROUP BY val1", schema(single())),
         /**
-         * Query: SELECT MAX(DISTINCT val0) FROM test GROUP BY val1
+         * Query: SELECT MAX(DISTINCT val0) FROM test GROUP BY val1.
          *
          * <p>Distribution hash(0)
          */
         CASE_8_2A("SELECT MAX(DISTINCT val0) FROM test GROUP BY val1", schema(hash())),
         /**
-         * Query: SELECT AVG(val0) FROM test GROUP BY grp0
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp0.
          *
          * <p>Index on (grp0, grp1)
          *
@@ -241,7 +241,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
          */
         CASE_9("SELECT AVG(val0) FROM test GROUP BY grp0", schema(single(), index("grp0_grp1", 3, 4))),
         /**
-         * Query: SELECT AVG(val0) FROM test GROUP BY grp0
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp0.
          *
          * <p>Index on (grp0, grp1)
          *
@@ -249,31 +249,31 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
          */
         CASE_9A("SELECT AVG(val0) FROM test GROUP BY grp0", schema(hash(), index("grp0_grp1", 3, 4))),
         /**
-         * Query: SELECT AVG(val0) FROM test GROUP BY grp0, grp1
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp0, grp1.
          *
          * <p>Distribution single
          */
         CASE_10("SELECT AVG(val0) FROM test GROUP BY grp0, grp1", schema(single(), index("grp0_grp1", 3, 4))),
         /**
-         * Query: SELECT AVG(val0) FROM test GROUP BY grp0, grp1
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp0, grp1.
          *
          * <p>Distribution hash(0)
          */
         CASE_10A("SELECT AVG(val0) FROM test GROUP BY grp0, grp1", schema(hash(), index("grp0_grp1", 3, 4))),
         /**
-         * Query: SELECT AVG(val0) FROM test GROUP BY grp1, grp0
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp1, grp0.
          *
          * <p>Distribution single
          */
         CASE_11("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(single(), index("grp0_grp1", 3, 4))),
         /**
-         * Query: SELECT AVG(val0) FROM test GROUP BY grp1, grp0
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp1, grp0.
          *
          * <p>Distribution hash(0)
          */
         CASE_11A("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(hash(), index("grp0_grp1", 3, 4))),
         /**
-         * Query: SELECT DISTINCT val0, val1 FROM test
+         * Query: SELECT DISTINCT val0, val1 FROM test.
          *
          * <p>Index on val0
          *
@@ -281,7 +281,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
          */
         CASE_12("SELECT DISTINCT val0, val1 FROM test", schema(single(), index("val0", 1))),
         /**
-         * Query: SELECT DISTINCT val0, val1 FROM test
+         * Query: SELECT DISTINCT val0, val1 FROM test.
          *
          * <p>Index on val0
          *
@@ -289,7 +289,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
          */
         CASE_12A("SELECT DISTINCT val0, val1 FROM test", schema(hash(), index("val0", 1))),
         /**
-         * Query: SELECT DISTINCT grp0, grp1 FROM test
+         * Query: SELECT DISTINCT grp0, grp1 FROM test.
          *
          * <p>Index on (grp0, grp1)
          *
@@ -297,7 +297,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
          */
         CASE_13("SELECT DISTINCT grp0, grp1 FROM test", schema(single(), index("grp0_grp1", 3, 4))),
         /**
-         * Query: SELECT DISTINCT grp0, grp1 FROM test
+         * Query: SELECT DISTINCT grp0, grp1 FROM test.
          *
          * <p>Index on (grp0, grp1)
          *
@@ -305,31 +305,31 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
          */
         CASE_13A("SELECT DISTINCT grp0, grp1 FROM test", schema(hash(), index("grp0_grp1", 3, 4))),
         /**
-         * Query: SELECT val0 FROM test WHERE VAL1 = (SELECT AVG(val1) FROM test)
+         * Query: SELECT val0 FROM test WHERE VAL1 = (SELECT AVG(val1) FROM test).
          *
          * <p>Distribution single
          */
         CASE_14("SELECT val0 FROM test WHERE VAL1 = (SELECT AVG(val1) FROM test)", schema(single())),
         /**
-         * Query: SELECT val0 FROM test WHERE VAL1 = (SELECT AVG(val1) FROM test)
+         * Query: SELECT val0 FROM test WHERE VAL1 = (SELECT AVG(val1) FROM test).
          *
          * <p>Distribution hash(0)
          */
         CASE_14A("SELECT val0 FROM test WHERE VAL1 = (SELECT AVG(val1) FROM test)", schema(hash())),
         /**
-         * Query: SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)
+         * Query: SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test).
          *
          * <p>Distribution single
          */
         CASE_15("SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)", schema(single())),
         /**
-         * Query: SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)
+         * Query: SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test).
          *
          * <p>Distribution hash(0)
          */
         CASE_15A("SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)", schema(hash())),
         /**
-         * Query: SELECT ID FROM test WHERE VAL0 IN (SELECT VAL0 FROM test)
+         * Query: SELECT ID FROM test WHERE VAL0 IN (SELECT VAL0 FROM test).
          *
          * <p>Index on val0 DESC
          *
@@ -337,7 +337,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
          */
         CASE_16("SELECT ID FROM test WHERE VAL0 IN (SELECT VAL0 FROM test)", schema(single(), indexByVal0Desc())),
         /**
-         * Query: SELECT ID FROM test WHERE VAL0 IN (SELECT VAL0 FROM test)
+         * Query: SELECT ID FROM test WHERE VAL0 IN (SELECT VAL0 FROM test).
          *
          * <p>Index on val0 DESC
          *
@@ -345,92 +345,92 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
          */
         CASE_16A("SELECT ID FROM test WHERE VAL0 IN (SELECT VAL0 FROM test)", schema(hash(), indexByVal0Desc())),
         /**
-         * Query: SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test
+         * Query: SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test.
          *
          * <p>Distribution single
          */
         CASE_17("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test", schema(single())),
         /**
-         * Query: SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test
+         * Query: SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test.
          *
          * <p>Distribution hash(0)
          */
         CASE_17A("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test", schema(hash())),
         /**
-         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1.
          *
          * <p>Distribution single
          */
         CASE_18_1("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1", schema(single())),
         /**
-         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1.
          *
          * <p>Distribution hash(0)
          */
         CASE_18_1A("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1", schema(hash())),
         /**
-         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1, val0
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1, val0.
          *
          * <p>Distribution single
          */
         CASE_18_2("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1, val0", schema(single())),
         /**
-         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1, val0
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1, val0.
          *
          * <p>Distribution hash(0)
          */
         CASE_18_2A("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1, val0", schema(hash())),
         /**
-         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val1, val0 ORDER BY val0, val1
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val1, val0 ORDER BY val0, val1.
          *
          * <p>Distribution single
          */
         CASE_18_3("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val1, val0 ORDER BY val0, val1", schema(single())),
         /**
-         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val1, val0 ORDER BY val0, val1
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val1, val0 ORDER BY val0, val1.
          *
          * <p>Distribution hash(0)
          */
         CASE_18_3A("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val1, val0 ORDER BY val0, val1", schema(hash())),
 
         /**
-         * SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0
+         * SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0.
          *
          * <p>Distribution single
          */
         CASE_19_1("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0", schema(single())),
         /**
-         * SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0
+         * SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0.
          *
          * <p>Distribution hash(0)
          */
         CASE_19_1A("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0", schema(hash())),
         /**
-         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1.
          *
          * <p>Distribution single
          */
         CASE_19_2("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1", schema(single())),
         /**
-         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1.
          *
          * <p>Distribution hash(0)
          */
         CASE_19_2A("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1", schema(hash())),
         /**
-         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1, cnt
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1, cnt.
          *
          * <p>Distribution single
          */
         CASE_20("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1, cnt", schema(single())),
         /**
-         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1, cnt
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1, cnt.
          *
          * <p>Distribution hash(0)
          */
         CASE_20A("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1, cnt", schema(hash())),
         /**
-         * Query: SELECT /*+ EXPAND_DISTINCT_AGG *&#47; SUM(DISTINCT val0), AVG(DISTINCT val1) FROM test GROUP BY grp0
+         * Query: SELECT /*+ EXPAND_DISTINCT_AGG *&#47; SUM(DISTINCT val0), AVG(DISTINCT val1) FROM test GROUP BY grp0.
          *
          * <p>Index on val0
          *
@@ -439,7 +439,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
         CASE_21("SELECT /*+ EXPAND_DISTINCT_AGG */ SUM(DISTINCT val0), AVG(DISTINCT val1) FROM test GROUP BY grp0",
                 schema(single(), index("idx_val0", 3, 1), index("idx_val1", 3, 2))),
         /**
-         * Query: SELECT /*+ EXPAND_DISTINCT_AGG *&#47; SUM(DISTINCT val0), AVG(DISTINCT val1) FROM test GROUP BY grp0
+         * Query: SELECT /*+ EXPAND_DISTINCT_AGG *&#47; SUM(DISTINCT val0), AVG(DISTINCT val1) FROM test GROUP BY grp0.
          *
          * <p>Index on val0
          *
@@ -449,7 +449,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
                 schema(hash(), index("idx_val0", 3, 1), index("idx_val1", 3, 2))),
         /**
          * Query: SELECT SUM(VAL_TINYINT), SUM(VAL_SMALLINT), SUM(VAL_INT), SUM(VAL_BIGINT), SUM(VAL_DECIMAL), SUM(VAL_FLOAT),
-         * SUM(VAL_DOUBLE) FROM test GROUP BY grp
+         * SUM(VAL_DOUBLE) FROM test GROUP BY grp.
          *
          * <p>Distribution single
          */
@@ -457,7 +457,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
                 + "SUM(VAL_DOUBLE) FROM test GROUP BY grp", schemaWithAllNumerics(single())),
         /**
          * Query: SELECT SUM(VAL_TINYINT), SUM(VAL_SMALLINT), SUM(VAL_INT), SUM(VAL_BIGINT), SUM(VAL_DECIMAL), SUM(VAL_FLOAT),
-         * SUM(VAL_DOUBLE) FROM test GROUP BY grp
+         * SUM(VAL_DOUBLE) FROM test GROUP BY grp.
          *
          * <p>Distribution hash(0)
          */

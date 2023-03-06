@@ -166,7 +166,6 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
     @Test
     public void distinctWithoutAggregate() throws Exception {
         checkGroupWithNoAggregateSingle(TestCase.CASE_12);
-
         checkGroupWithNoAggregateHash(TestCase.CASE_12A);
     }
 
@@ -176,7 +175,6 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
     @Test
     public void distinctWithoutAggregateUseIndex() throws Exception {
         checkGroupWithNoAggregateSingle(TestCase.CASE_13);
-
         checkGroupWithNoAggregateHash(TestCase.CASE_13A);
     }
 
@@ -261,11 +259,11 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
     public void groupsWithOrderByGroupColumns() throws Exception {
         checkGroupsWithOrderByGroupColumnsSingle(TestCase.CASE_18_1, TraitUtils.createCollation(List.of(0, 1)));
         checkGroupsWithOrderByGroupColumnsSingle(TestCase.CASE_18_2, TraitUtils.createCollation(List.of(1, 0)));
-//        checkGroupsWithOrderByGroupColumnsSingle(TestCase.CASE_18_3, TraitUtils.createCollation(List.of(0, 1)));
+        // checkGroupsWithOrderByGroupColumnsSingle(TestCase.CASE_18_3, TraitUtils.createCollation(List.of(0, 1)));
 
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_1A, TraitUtils.createCollation(List.of(0, 1)));
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_2A, TraitUtils.createCollation(List.of(1, 0)));
-//        checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_3A, TraitUtils.createCollation(List.of(0, 1)));
+        // checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_3A, TraitUtils.createCollation(List.of(0, 1)));
     }
 
     /**

@@ -29,9 +29,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedSortAggregate;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -161,7 +159,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
 
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_9A);
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_10A);
-//        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_11A);
+        // checkAggWithGroupByIndexColumnsHash(TestCase.CASE_11A);
     }
 
     /**
@@ -276,11 +274,11 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
     public void groupsWithOrderByGroupColumns() throws Exception {
         checkGroupsWithOrderByGroupColumnsSingle(TestCase.CASE_18_1, TraitUtils.createCollation(List.of(0, 1)));
         checkGroupsWithOrderByGroupColumnsSingle(TestCase.CASE_18_2, TraitUtils.createCollation(List.of(1, 0)));
-//        checkGroupsWithOrderByGroupColumnsSingle(TestCase.CASE_18_3, TraitUtils.createCollation(List.of(0, 1)));
+        // checkGroupsWithOrderByGroupColumnsSingle(TestCase.CASE_18_3, TraitUtils.createCollation(List.of(0, 1)));
 
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_1A, TraitUtils.createCollation(List.of(0, 1)));
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_2A, TraitUtils.createCollation(List.of(1, 0)));
-//        checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_3A, TraitUtils.createCollation(List.of(0, 1)));
+        // checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_3A, TraitUtils.createCollation(List.of(0, 1)));
     }
 
     /**
@@ -531,5 +529,4 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         ))
         );
     }
-
 }
