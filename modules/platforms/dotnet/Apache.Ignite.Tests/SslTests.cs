@@ -40,13 +40,17 @@ public class SslTests : IgniteTestsBase
     private static readonly string CertificatePath = Path.Combine(
         TestUtils.RepoRootDir, "modules", "runner", "src", "integrationTest", "resources", "ssl", "client.pfx");
 
+    private static string SslEndpoint => "127.0.0.1:" + (ServerPort + 2);
+
+    private static string SslEndpointWithClientAuth => "127.0.0.1:" + (ServerPort + 3);
+
     [Test]
     [SuppressMessage("Security", "CA5398:Avoid hardcoded SslProtocols values", Justification = "Tests")]
     public async Task TestSslWithoutClientAuthentication()
     {
         var cfg = new IgniteClientConfiguration
         {
-            Endpoints = { "127.0.0.1:" + (ServerPort + 1) },
+            Endpoints = { SslEndpoint },
             SslStreamFactory = new SslStreamFactory { SkipServerCertificateValidation = true }
         };
 
@@ -69,7 +73,7 @@ public class SslTests : IgniteTestsBase
     {
         var cfg = new IgniteClientConfiguration
         {
-            Endpoints = { "127.0.0.1:" + (ServerPort + 2) },
+            Endpoints = { SslEndpointWithClientAuth },
             SslStreamFactory = new SslStreamFactory
             {
                 SkipServerCertificateValidation = true,
@@ -96,7 +100,6 @@ public class SslTests : IgniteTestsBase
     public void TestSslOnClientWithoutSslOnServerThrows()
     {
         var cfg = GetConfig();
-
         cfg.SslStreamFactory = new SslStreamFactory();
 
         var ex = Assert.ThrowsAsync<AggregateException>(async () => await IgniteClient.StartAsync(cfg));
@@ -108,7 +111,7 @@ public class SslTests : IgniteTestsBase
     {
         var cfg = new IgniteClientConfiguration
         {
-            Endpoints = { "127.0.0.1:" + (ServerPort + 1) }
+            Endpoints = { SslEndpoint }
         };
 
         var ex = Assert.ThrowsAsync<AggregateException>(async () => await IgniteClient.StartAsync(cfg));
@@ -120,7 +123,7 @@ public class SslTests : IgniteTestsBase
     {
         var cfg = new IgniteClientConfiguration
         {
-            Endpoints = { "127.0.0.1:" + (ServerPort + 2) },
+            Endpoints = { SslEndpointWithClientAuth },
             SslStreamFactory = new SslStreamFactory
             {
                 SkipServerCertificateValidation = true,
@@ -136,7 +139,7 @@ public class SslTests : IgniteTestsBase
     {
         var cfg = new IgniteClientConfiguration
         {
-            Endpoints = { "127.0.0.1:" + (ServerPort + 1) },
+            Endpoints = { SslEndpoint },
             SslStreamFactory = new CustomSslStreamFactory()
         };
 
