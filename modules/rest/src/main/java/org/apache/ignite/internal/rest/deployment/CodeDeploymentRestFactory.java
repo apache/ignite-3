@@ -27,10 +27,10 @@ import org.apache.ignite.internal.rest.RestFactory;
  * Factory of {@link DeploymentManagementController}.
  */
 @Factory
-public class DeploymentCodeRestFactory implements RestFactory {
+public class CodeDeploymentRestFactory implements RestFactory {
     private final IgniteDeployment igniteDeployment;
 
-    public DeploymentCodeRestFactory(IgniteDeployment igniteDeployment) {
+    public CodeDeploymentRestFactory(IgniteDeployment igniteDeployment) {
         this.igniteDeployment = igniteDeployment;
     }
 

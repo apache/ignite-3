@@ -49,9 +49,12 @@ public interface DeploymentCodeApi {
     /**
      * Deploy unit REST method.
      */
-    @Operation(operationId = "deployUnit", description = "Deploy provided unit to node.")
+    @Operation(operationId = "deployUnit", description = "Deploy provided unit to the cluster.")
     @ApiResponse(responseCode = "200", description = "Unit deployed successfully.",
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(type = "boolean"))
+    )
+    @ApiResponse(responseCode = "409", description = "Unit with same identifier and version already deployed.",
+            content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
     )
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
