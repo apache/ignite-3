@@ -34,7 +34,7 @@ public class RestFactoriesDestroyer implements BeanDestroyedEventListener<RestFa
     public void onDestroyed(BeanDestroyedEvent<RestFactory> event) {
         RestFactory bean = event.getBean();
         if (bean != null) {
-            LOG.info("Destroy rest factory " + bean);
+            LOG.debug("Destroy rest factory " + bean);
             bean.cleanResources();
         }
     }
