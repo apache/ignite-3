@@ -123,4 +123,19 @@ public class SslTests : IgniteTestsBase
         // TODO: Test server cert validation?
         Assert.Fail("TODO");
     }
+
+    [Test]
+    public async Task TestSslStreamFactoryReturnsNullDisablesSsl()
+    {
+        var cfg = GetConfig();
+        cfg.SslStreamFactory = new NullStreamFactory();
+
+        using var client = await IgniteClient.StartAsync(cfg);
+        Assert.IsNull(client.GetConnections().Single().SslInfo);
+    }
+
+    private class NullStreamFactory : ISslStreamFactory
+    {
+        public SslStream? Create(Stream stream, string targetHost) => null;
+    }
 }

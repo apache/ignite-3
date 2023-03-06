@@ -33,7 +33,7 @@ public interface ISslStreamFactory
     /// <param name="stream">The underlying raw stream.</param>
     /// <param name="targetHost">Target host.</param>
     /// <returns>
-    /// SSL stream.
+    /// SSL stream, or null if SSL is not enabled.
     /// </returns>
-    SslStream Create(Stream stream, string targetHost);
+    SslStream? Create(Stream stream, string targetHost);
 }

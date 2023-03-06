@@ -176,10 +176,10 @@ namespace Apache.Ignite.Internal
 
                 Stream stream = new NetworkStream(socket, ownsSocket: true);
 
-                if (configuration.SslStreamFactory is { } sslStreamFactory)
+                if (configuration.SslStreamFactory is { } sslStreamFactory &&
+                    sslStreamFactory.Create(stream, endPoint.Host) is { } sslStream)
                 {
-                    // TODO: Check if created successfully and throw better exception when not.
-                    stream = sslStreamFactory.Create(stream, endPoint.Host);
+                    stream = sslStream;
                 }
 
                 var context = await HandshakeAsync(stream, endPoint.EndPoint)
