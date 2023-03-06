@@ -223,18 +223,23 @@ public class Loza implements RaftManager {
             RaftGroupEventsListener raftGrpEvtsLsnr,
             RaftGroupOptions groupOptions
     ) {
-        if (LOG.isInfoEnabled()) {
+//        if (LOG.isInfoEnabled()) {
             LOG.info("Start new raft node={} with initial configuration={}", nodeId, configuration);
-        }
+//        }
 
-        boolean started = raftServer.startRaftNode(nodeId, configuration, raftGrpEvtsLsnr, lsnr, groupOptions);
+        new Thread(() -> {
+            boolean started = raftServer.startRaftNode(nodeId, configuration, raftGrpEvtsLsnr, lsnr, groupOptions);
 
-        if (!started) {
-            throw new IgniteInternalException(IgniteStringFormatter.format(
-                    "Raft group on the node is already started [nodeId={}]",
-                    nodeId
-            ));
-        }
+            if (!started) {
+                throw new IgniteInternalException(IgniteStringFormatter.format(
+                        "Raft group on the node is already started [nodeId={}]",
+                        nodeId
+                ));
+            }
+        }).start();
+
+
+        System.out.println("Group started");
 
         return startRaftGroupServiceInternal(nodeId.groupId(), configuration);
     }

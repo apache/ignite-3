@@ -690,8 +690,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Restarts the node which stores some data.
      */
-    @Disabled("IGNITE-18203 The test goes to deadlock in cluster restart, because indexes are required to apply RAFT commands on restart, "
-            + "but the table have not started yet.")
+//    @Disabled("IGNITE-18203 The test goes to deadlock in cluster restart, because indexes are required to apply RAFT commands on restart, "
+//            + "but the table have not started yet.")
     @Test
     public void nodeWithDataTest() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
@@ -700,6 +700,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         stopNode(0);
 
+        System.out.println(">>> Restart");
         ignite = startNode(0);
 
         checkTableWithData(ignite, TABLE_NAME);
@@ -1041,7 +1042,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param replicas Replica factor.
      */
     private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas) throws InterruptedException {
-        createTableWithData(nodes, name, replicas, 10);
+        createTableWithData(nodes, name, replicas, 1);
     }
 
     /**

@@ -352,8 +352,9 @@ public class TableImpl implements Table {
 
     private void awaitIndexes() {
         // TODO: replace with actual call to ids supplier
+        System.out.println("!!! Before");
         List<UUID> indexIds = List.of(pkId()); // activeIndexIds.get();
-
+        System.out.println("!!! After");
         List<CompletableFuture<?>> toWait = new ArrayList<>();
 
         for (UUID indexId : indexIds) {

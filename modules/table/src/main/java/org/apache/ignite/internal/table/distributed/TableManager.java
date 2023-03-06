@@ -690,6 +690,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param assignmentsCtx Change assignment event.
      */
     private void updateAssignmentInternal(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
+        System.out.printf(">>>>>> Start table");
         ExtendedTableConfiguration tblCfg = assignmentsCtx.config(ExtendedTableConfiguration.class);
 
         UUID tblId = tblCfg.id().value();
@@ -917,7 +918,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
 
             return allOf(futures).thenApply(unused -> tablesById);
-        });
+        }).join();
     }
 
     private boolean isLocalPeer(Peer peer) {
