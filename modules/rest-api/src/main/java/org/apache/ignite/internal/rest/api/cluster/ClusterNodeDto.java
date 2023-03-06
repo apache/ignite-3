@@ -83,11 +83,6 @@ public class ClusterNodeDto {
         return name;
     }
 
-    /**
-     * Returns the network address of this node.
-     *
-     * @return Network address of this node.
-     */
     @JsonGetter("address")
     public NetworkAddressDto address() {
         return address;

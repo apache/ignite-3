@@ -157,7 +157,7 @@ paths:
       operationId: updateClusterConfiguration
       parameters: []
       requestBody:
-        description: the cluster configuration to update
+        description: The cluster configuration to update.
         content:
           text/plain:
             schema:
@@ -261,8 +261,7 @@ paths:
       operationId: updateNodeConfiguration
       parameters: []
       requestBody:
-        description: the node configuration to update. This is represented as a plain
-          text
+        description: The node configuration to update.
         content:
           text/plain:
             schema:
@@ -659,8 +658,31 @@ components:
           description: A list of authentication providers.
           items:
             $ref: '#/components/schemas/AuthenticationProviderConfigDto'
+      description: REST representation of AuthenticationConfig.
     AuthenticationProviderConfigDto:
       type: object
+      description: REST representation of AuthenticationProviderConfig.
+      discriminator:
+        propertyName: type
+        mapping:
+          basic: '#/components/schemas/BasicAuthenticationProviderConfig'
+      oneOf:
+      - $ref: '#/components/schemas/BasicAuthenticationProviderConfig'
+    BasicAuthenticationProviderConfig:
+      type: object
+      properties:
+        login:
+          type: string
+          description: Login.
+        password:
+          type: string
+          description: Password.
+        name:
+          type: string
+          description: Provider name.
+        type:
+          type: string
+      description: REST representation of BasicAuthenticationProviderConfig.
     ClusterNode:
       type: object
       properties:
@@ -725,6 +747,7 @@ components:
           description: The name of the cluster.
         authenticationConfig:
           $ref: '#/components/schemas/AuthenticationConfig'
+      description: Cluster initialization data.
     InvalidParam:
       type: object
       properties:
