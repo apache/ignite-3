@@ -66,7 +66,7 @@ public class SslTests : IgniteTestsBase
             SslStreamFactory = new SslStreamFactory
             {
                 SkipServerCertificateValidation = true,
-                CertificatePath = "truststore.pfx",
+                CertificatePath = "keystore.pfx",
                 CertificatePassword = "changeit"
             }
         };
@@ -100,6 +100,13 @@ public class SslTests : IgniteTestsBase
     [Test]
     public void TestMissingClientCertThrows()
     {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestCustomSslStreamFactory()
+    {
+        // TODO: Test server cert validation?
         Assert.Fail("TODO");
     }
 }
