@@ -290,6 +290,42 @@ class WorkDirectoryExtensionTest {
     }
 
     /**
+     * Test class for the {@link #testSystemPropertyWithMultipleTests()} test.
+     */
+    @ExtendWith(SystemPropertiesExtension.class)
+    @ExtendWith(WorkDirectoryExtension.class)
+    @WithSystemProperty(key = WorkDirectoryExtension.KEEP_WORK_DIR_PROPERTY, value = "SystemPropertiesTestWithMultipleTests.test1,"
+            + "SystemPropertiesTestWithMultipleTests.test2")
+    static class SystemPropertiesTestWithMultipleTests {
+        private static Path file1;
+
+        private static Path file2;
+
+        @WorkDirectory
+        static Path workDir;
+
+        @AfterAll
+        static void verify() {
+            assertTrue(Files.exists(file1));
+            assertTrue(Files.exists(file2));
+
+            IgniteUtils.deleteIfExists(file1.getParent());
+        }
+
+        @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
+        @Test
+        void test1() throws IOException {
+            file1 = Files.createFile(workDir.resolve("foo"));
+        }
+
+        @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
+        @Test
+        void test2() throws IOException {
+            file2 = Files.createFile(workDir.resolve("bar"));
+        }
+    }
+
+    /**
      * Tests that a work directory can be preserved when a special system property is set.
      */
     @Test
@@ -302,7 +338,15 @@ class WorkDirectoryExtensionTest {
      */
     @Test
     void testSystemPropertyWithStaticWorkDir() {
-        assertExecutesSuccessfully(SystemPropertiesTestWithStaticWorkDir.class);
+        assertExecutesSuccessfully(SystemPropertiesTestWithMultipleTests.class);
+    }
+
+    /**
+     * Tests that a static work directory can be preserved when a special system property is set.
+     */
+    @Test
+    void testSystemPropertyWithMultipleTests() {
+        assertExecutesSuccessfully(SystemPropertiesTestWithMultipleTests.class);
     }
 
     /**
