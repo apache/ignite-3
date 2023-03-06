@@ -39,4 +39,10 @@
       <ProjectReference Include="..\Apache.Ignite\Apache.Ignite.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Update="truststore.pfx">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
 </Project>

@@ -35,7 +35,6 @@ public class SslTests : IgniteTestsBase
         var cfg = new IgniteClientConfiguration
         {
             Endpoints = { "127.0.0.1:" + (ServerPort + 1) },
-            Logger = new ConsoleLogger { MinLevel = LogLevel.Trace },
             SslStreamFactory = new SslStreamFactory { SkipServerCertificateValidation = true }
         };
 
@@ -60,7 +59,6 @@ public class SslTests : IgniteTestsBase
         var cfg = new IgniteClientConfiguration
         {
             Endpoints = { "127.0.0.1:" + (ServerPort + 2) },
-            Logger = new ConsoleLogger { MinLevel = LogLevel.Trace },
             SslStreamFactory = new SslStreamFactory
             {
                 SkipServerCertificateValidation = true,
@@ -93,5 +91,11 @@ public class SslTests : IgniteTestsBase
 
         var ex = Assert.ThrowsAsync<AggregateException>(async () => await IgniteClient.StartAsync(cfg));
         Assert.IsInstanceOf<IgniteClientConnectionException>(ex?.GetBaseException());
+    }
+
+    [Test]
+    public void TestMissingClientCertThrows()
+    {
+        Assert.Fail("TODO");
     }
 }
