@@ -62,9 +62,9 @@ public class ExistingDataStorageValidatorTest {
                 createMockedStorageEngineFactory(dataStorage2)
         ));
 
-        validate(validator, annotation, mockValidationContext(UNKNOWN_DATA_STORAGE, UNKNOWN_DATA_STORAGE), null);
-        validate(validator, annotation, mockValidationContext(dataStorage1, dataStorage1), null);
-        validate(validator, annotation, mockValidationContext(dataStorage2, dataStorage2), null);
+        validate(validator, annotation, mockValidationContext(UNKNOWN_DATA_STORAGE, UNKNOWN_DATA_STORAGE));
+        validate(validator, annotation, mockValidationContext(dataStorage1, dataStorage1));
+        validate(validator, annotation, mockValidationContext(dataStorage2, dataStorage2));
     }
 
     private DataStorageModule createMockedStorageEngineFactory(String name) {

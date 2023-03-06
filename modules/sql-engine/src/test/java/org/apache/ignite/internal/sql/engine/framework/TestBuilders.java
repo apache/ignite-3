@@ -311,6 +311,18 @@ public class TestBuilders {
         /** {@inheritDoc} */
         @Override
         public TestTable build() {
+            if (distribution == null) {
+                throw new IllegalArgumentException("Distribution is not specified");
+            }
+
+            if (name == null) {
+                throw new IllegalArgumentException("Name is not specified");
+            }
+
+            if (columns.isEmpty()) {
+                throw new IllegalArgumentException("Table must contain at least one column");
+            }
+
             return new TestTable(
                     new TableDescriptorImpl(columns, distribution), name, dataProviders, size
             );
