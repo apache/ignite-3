@@ -344,7 +344,7 @@ paths:
     post:
       tags:
       - deployment
-      description: Deploy provided unit to node.
+      description: Deploy provided unit to the cluster.
       operationId: deployUnit
       parameters: []
       requestBody:
@@ -375,6 +375,12 @@ paths:
             application/json:
               schema:
                 type: boolean
+        "409":
+          description: Unit with same identifier and version already deployed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
         "500":
           description: Internal error.
           content:
