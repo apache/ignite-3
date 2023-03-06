@@ -40,7 +40,7 @@ public class SslTests : IgniteTestsBase
     private static readonly string CertificatePath = Path.Combine(
         TestUtils.RepoRootDir, "modules", "runner", "src", "integrationTest", "resources", "ssl", "client.pfx");
 
-    private static string SslEndpoint => "127.0.0.1:" + (ServerPort + 2);
+    private static string SslEndpoint => "localhost:" + (ServerPort + 2);
 
     private static string SslEndpointWithClientAuth => "127.0.0.1:" + (ServerPort + 3);
 
@@ -63,7 +63,7 @@ public class SslTests : IgniteTestsBase
         Assert.IsFalse(sslInfo!.IsMutuallyAuthenticated);
         Assert.AreEqual(TlsCipherSuite.TLS_AES_256_GCM_SHA384.ToString(), sslInfo.NegotiatedCipherSuiteName);
         Assert.AreEqual(SslProtocols.Tls13, sslInfo.SslProtocol);
-        Assert.AreEqual("127.0.0.1", sslInfo.TargetHostName);
+        Assert.AreEqual("localhost", sslInfo.TargetHostName);
         Assert.IsNull(sslInfo.LocalCertificate);
         StringAssert.Contains(CertificateIssuer, sslInfo.RemoteCertificate!.Issuer);
     }
