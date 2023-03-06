@@ -24,9 +24,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.validation.TestValidationUtil;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(WorkDirectoryExtension.class)
 class SslConfigurationValidatorImplTest {
 
     @Test
@@ -54,41 +57,41 @@ class SslConfigurationValidatorImplTest {
     }
 
     @Test
-    public void nullTrustStorePath(@TempDir Path tmpDir) throws IOException {
-        validate(createTrustStoreConfig(tmpDir, "PKCS12", null, "changeIt"),
+    public void nullTrustStorePath(@WorkDirectory Path workDir) throws IOException {
+        validate(createTrustStoreConfig(workDir, "PKCS12", null, "changeIt"),
                 "Trust store path must not be blank");
     }
 
     @Test
-    public void emptyTrustStorePath(@TempDir Path tmpDir) throws IOException {
-        validate(createTrustStoreConfig(tmpDir, "PKCS12", "", "changeIt"),
+    public void emptyTrustStorePath(@WorkDirectory Path workDir) throws IOException {
+        validate(createTrustStoreConfig(workDir, "PKCS12", "", "changeIt"),
                 "Trust store path must not be blank");
     }
 
     @Test
-    public void nullTrustStoreType(@TempDir Path tmpDir) throws IOException {
-        validate(createTrustStoreConfig(tmpDir, null, "/path/to/keystore.p12", null),
+    public void nullTrustStoreType(@WorkDirectory Path workDir) throws IOException {
+        validate(createTrustStoreConfig(workDir, null, "/path/to/keystore.p12", null),
                 "Trust store type must not be blank", "Trust store file doesn't exist at /path/to/keystore.p12");
     }
 
     @Test
-    public void blankTrustStoreType(@TempDir Path tmpDir) throws IOException {
-        validate(createTrustStoreConfig(tmpDir, "", "/path/to/keystore.p12", null),
+    public void blankTrustStoreType(@WorkDirectory Path workDir) throws IOException {
+        validate(createTrustStoreConfig(workDir, "", "/path/to/keystore.p12", null),
                 "Trust store type must not be blank", "Trust store file doesn't exist at /path/to/keystore.p12");
     }
 
     @Test
-    public void validKeyStoreConfig(@TempDir Path tmpDir) throws IOException {
-        KeyStoreView keyStore = createValidKeyStoreConfig(tmpDir);
+    public void validKeyStoreConfig(@WorkDirectory Path workDir) throws IOException {
+        KeyStoreView keyStore = createValidKeyStoreConfig(workDir);
         validate(new StubSslView(true, "NONE", keyStore, null), (String[]) null);
     }
 
     @Test
-    public void validTrustStoreConfig(@TempDir Path tmpDir) throws IOException {
-        Path trustStorePath = tmpDir.resolve("truststore.jks");
+    public void validTrustStoreConfig(@WorkDirectory Path workDir) throws IOException {
+        Path trustStorePath = workDir.resolve("truststore.jks");
         Files.createFile(trustStorePath);
 
-        validate(createTrustStoreConfig(tmpDir, "JKS", trustStorePath.toAbsolutePath().toString(), null), (String[]) null);
+        validate(createTrustStoreConfig(workDir, "JKS", trustStorePath.toAbsolutePath().toString(), null), (String[]) null);
     }
 
     private static void validate(SslView config, String ... errorMessagePrefixes) {
@@ -101,14 +104,14 @@ class SslConfigurationValidatorImplTest {
         return new StubSslView(true, "NONE", new StubKeyStoreView(type, path, password), null);
     }
 
-    private static SslView createTrustStoreConfig(Path tmpDir, String type, String path, String password) throws IOException {
-        KeyStoreView keyStore = createValidKeyStoreConfig(tmpDir);
+    private static SslView createTrustStoreConfig(Path workDir, String type, String path, String password) throws IOException {
+        KeyStoreView keyStore = createValidKeyStoreConfig(workDir);
         KeyStoreView trustStore = new StubKeyStoreView(type, path, password);
         return new StubSslView(true, "OPTIONAL", keyStore, trustStore);
     }
 
-    private static KeyStoreView createValidKeyStoreConfig(Path tmpDir) throws IOException {
-        Path keyStorePath = tmpDir.resolve("keystore.p12");
+    private static KeyStoreView createValidKeyStoreConfig(Path workDir) throws IOException {
+        Path keyStorePath = workDir.resolve("keystore.p12");
         Files.createFile(keyStorePath);
 
         return new StubKeyStoreView("PKCS12", keyStorePath.toAbsolutePath().toString(), null);
