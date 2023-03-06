@@ -49,5 +49,6 @@ public class RestConfigurationSchema {
 
     /** SSL configuration. */
     @ConfigValue
+    @RestSslConfigurationValidator
     public RestSslConfigurationSchema ssl;
 }

@@ -15,21 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.configuration;
+package org.apache.ignite.internal.rest.configuration;
 
-import org.apache.ignite.configuration.validation.ValidationContext;
-import org.apache.ignite.configuration.validation.Validator;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * SSL configuration validator implementation.
+ * Annotation to validate REST SSL configuration.
  */
-public class SslConfigurationValidatorImpl implements Validator<SslConfigurationValidator, SslView> {
-
-    public static final SslConfigurationValidatorImpl INSTANCE = new SslConfigurationValidatorImpl();
-
-    @Override
-    public void validate(SslConfigurationValidator annotation, ValidationContext<SslView> ctx) {
-        SslView ssl = ctx.getNewValue();
-        AbstractSslConfigurationValidator.validateSsl(ctx, ssl);
-    }
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface RestSslConfigurationValidator {
 }

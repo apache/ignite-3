@@ -17,32 +17,20 @@
 
 package org.apache.ignite.internal.rest.configuration;
 
-import com.google.auto.service.AutoService;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Set;
-import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
+import org.apache.ignite.internal.network.configuration.AbstractSslConfigurationValidator;
 
 /**
- * {@link ConfigurationModule} for node-local configuration provided by ignite-rest.
+ * REST SSL configuration validator implementation.
  */
-@AutoService(ConfigurationModule.class)
-public class RestConfigurationModule implements ConfigurationModule {
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
-    }
+public class RestSslConfigurationValidatorImpl implements Validator<RestSslConfigurationValidator, RestSslView> {
+
+    static final RestSslConfigurationValidatorImpl INSTANCE = new RestSslConfigurationValidatorImpl();
 
     @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return Collections.singleton(RestConfiguration.KEY);
-    }
-
-    @Override
-    public Set<Validator<?, ?>> validators() {
-        return Set.of(RestSslConfigurationValidatorImpl.INSTANCE);
+    public void validate(RestSslConfigurationValidator annotation, ValidationContext<RestSslView> ctx) {
+        RestSslView ssl = ctx.getNewValue();
+        AbstractSslConfigurationValidator.validateSsl(ctx, ssl);
     }
 }
