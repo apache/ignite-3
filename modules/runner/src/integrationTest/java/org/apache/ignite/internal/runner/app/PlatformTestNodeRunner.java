@@ -166,9 +166,9 @@ public class PlatformTestNodeRunner {
         IgniteUtils.deleteIfExists(BASE_PATH);
         Files.createDirectories(BASE_PATH);
 
-        var sslPassword = "changeit";
-        var trustStorePath = ItSslTest.class.getClassLoader().getResource("ssl/truststore.jks").getPath();
-        var keyStorePath = ItSslTest.class.getClassLoader().getResource("ssl/keystore.p12").getPath();
+        var sslPassword = "123456";
+        var trustStorePath = ItSslTest.class.getClassLoader().getResource("ssl/trust.jks").getPath();
+        var keyStorePath = ItSslTest.class.getClassLoader().getResource("ssl/server.jks").getPath();
 
         List<CompletableFuture<Ignite>> igniteFutures = nodesBootstrapCfg.entrySet().stream()
                 .map(e -> {

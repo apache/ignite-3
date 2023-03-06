@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests;
 
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using System.Net.Security;
 using System.Security.Authentication;
@@ -52,8 +53,9 @@ public class SslTests : IgniteTestsBase
         Assert.AreEqual(SslProtocols.Tls13, sslInfo.SslProtocol);
         Assert.AreEqual("127.0.0.1", sslInfo.TargetHostName);
         Assert.IsNull(sslInfo.LocalCertificate);
-        Assert.AreEqual(
-            "E=dev@ignite.apache.org, CN=ignite.apache.org, OU=dev, O=apache ignite, L=London, S=US, C=US",
+
+        StringAssert.Contains(
+            "E=dev@ignite.apache.org, OU=Apache Ignite CA, O=The Apache Software Foundation, CN=ignite.apache.org",
             sslInfo.RemoteCertificate!.Issuer);
     }
 
@@ -66,8 +68,9 @@ public class SslTests : IgniteTestsBase
             SslStreamFactory = new SslStreamFactory
             {
                 SkipServerCertificateValidation = true,
-                CertificatePath = "keystore.pfx",
-                CertificatePassword = "changeit"
+                CertificatePath = Path.Combine(
+                    TestUtils.RepoRootDir, "modules", "runner", "src", "integrationTest", "resources", "ssl", "client.pfx"),
+                CertificatePassword = "123456"
             }
         };
 
@@ -77,13 +80,17 @@ public class SslTests : IgniteTestsBase
         var sslInfo = connection.SslInfo;
 
         Assert.IsNotNull(sslInfo);
-        Assert.IsFalse(sslInfo!.IsMutuallyAuthenticated);
+        Assert.IsTrue(sslInfo!.IsMutuallyAuthenticated);
         Assert.AreEqual(TlsCipherSuite.TLS_AES_256_GCM_SHA384.ToString(), sslInfo.NegotiatedCipherSuiteName);
         Assert.AreEqual("127.0.0.1", sslInfo.TargetHostName);
-        Assert.IsNull(sslInfo.LocalCertificate);
-        Assert.AreEqual(
-            "E=dev@ignite.apache.org, CN=ignite.apache.org, OU=dev, O=apache ignite, L=London, S=US, C=US",
+
+        StringAssert.Contains(
+            "E=dev@ignite.apache.org, OU=Apache Ignite CA, O=The Apache Software Foundation, CN=ignite.apache.org",
             sslInfo.RemoteCertificate!.Issuer);
+
+        StringAssert.Contains(
+            "E=dev@ignite.apache.org, OU=Apache Ignite CA, O=The Apache Software Foundation, CN=ignite.apache.org",
+            sslInfo.LocalCertificate!.Issuer);
     }
 
     [Test]
