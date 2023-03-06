@@ -241,11 +241,13 @@ public class DdlCommandHandler {
             tableChange.changeDataStorage(dataStorageManager.tableDataStorageConsumer(cmd.dataStorage(), cmd.dataStorageOptions()));
 
             if (cmd.partitions() != null) {
-                tableChange.changePartitions(cmd.partitions());
+                throw new RuntimeException("Change partitions not implemented yet");
+//                tableChange.changePartitions(cmd.partitions());
             }
 
             if (cmd.replicas() != null) {
-                tableChange.changeReplicas(cmd.replicas());
+                throw new RuntimeException("Change replicas not implemented yet");
+//                tableChange.changeReplicas(cmd.replicas());
             }
 
             if (cmd.zone() != null) {

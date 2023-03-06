@@ -51,13 +51,14 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
 
     @Override
     protected TxStateRocksDbTableStorage createTableStorage() {
-        return new TxStateRocksDbTableStorage(
-                tableConfig,
-                workDir,
-                new ScheduledThreadPoolExecutor(1),
-                Executors.newFixedThreadPool(1),
-                () -> 1_000
-        );
+        throw new RuntimeException("Not fixed yet in this branch");
+//        return new TxStateRocksDbTableStorage(
+//                tableConfig,
+//                workDir,
+//                new ScheduledThreadPoolExecutor(1),
+//                Executors.newFixedThreadPool(1),
+//                () -> 1_000
+//        );
     }
 
     @Test

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.index;
 
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
@@ -36,11 +37,13 @@ public class TestHashIndexStorageTest extends AbstractHashIndexStorageTest {
             @InjectConfiguration(
                     value = "mock.tables.foo.dataStorage.name = " + TestStorageEngine.ENGINE_NAME
             )
-            TablesConfiguration tablesConfig
+            TablesConfiguration tablesConfig,
+            @InjectConfiguration
+            DistributionZonesConfiguration distributionZonesConfiguration
     ) {
         TableConfiguration tableConfig = tablesConfig.tables().get("foo");
 
-        var storage = new TestMvTableStorage(tableConfig, tablesConfig);
+        var storage = new TestMvTableStorage(tableConfig, tablesConfig, distributionZonesConfiguration.defaultDistributionZone().partitions().value());
 
         initialize(storage, tablesConfig);
     }

@@ -55,6 +55,8 @@ public class TestMvTableStorage implements MvTableStorage {
 
     private final TableConfiguration tableCfg;
 
+    private final int partitions;
+
     private final TablesConfiguration tablesCfg;
 
     /**
@@ -92,11 +94,12 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     /** Constructor. */
-    public TestMvTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
+    public TestMvTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg, int partitions) {
         this.tableCfg = tableCfg;
         this.tablesCfg = tablesCfg;
+        this.partitions = partitions;
 
-        mvPartitionStorages = new MvPartitionStorages<>(tableCfg.value());
+        mvPartitionStorages = new MvPartitionStorages<>(tableCfg.value(), partitions);
     }
 
     @Override
@@ -194,6 +197,11 @@ public class TestMvTableStorage implements MvTableStorage {
     @Override
     public TablesConfiguration tablesConfiguration() {
         return tablesCfg;
+    }
+
+    @Override
+    public int partitions() {
+        return 0;
     }
 
     @Override

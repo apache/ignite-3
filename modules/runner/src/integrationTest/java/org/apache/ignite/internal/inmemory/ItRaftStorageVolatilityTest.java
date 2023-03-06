@@ -38,6 +38,7 @@ import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.raft.configuration.EntryCountBudgetChange;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
@@ -230,6 +231,15 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createTableWithMaxOneInMemoryEntryAllowed(String tableName) {
+        String zoneName = "zone1";
+        var distributionZoneCfgBuilder = new DistributionZoneConfigurationParameters.Builder(zoneName)
+                .partitions(1);
+        var distributionZoneCfg = distributionZoneCfgBuilder.build();
+
+        node(0).distributionZoneManager().createZone(distributionZoneCfg).join();
+
+        int zoneId = node(0).distributionZoneManager().getZoneId(zoneName);
+
         TableDefinition tableDef = SchemaBuilders.tableBuilder("PUBLIC", tableName).columns(
                 SchemaBuilders.column("ID", ColumnType.INT32).build(),
                 SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build()
@@ -237,7 +247,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
         await(((TableManager) node(0).tables()).createTableAsync(tableName, tableChange -> {
             SchemaConfigurationConverter.convert(tableDef, tableChange)
-                    .changePartitions(1)
+                    .changeZoneId(zoneId)
                     .changeDataStorage(storageChange -> {
                         storageChange.convert(VolatilePageMemoryDataStorageChange.class);
                     });

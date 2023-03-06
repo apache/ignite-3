@@ -62,6 +62,7 @@ import org.apache.ignite.internal.configuration.notifications.ConfigurationStora
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -191,6 +192,9 @@ public class TableManagerTest extends IgniteAbstractTest {
     private TablesConfiguration tblsCfg;
 
     @InjectConfiguration
+    private DistributionZonesConfiguration distributionZonesConfiguration;
+
+    @InjectConfiguration
     private PersistentPageMemoryStorageEngineConfiguration storageEngineConfig;
 
     @Mock
@@ -267,10 +271,10 @@ public class TableManagerTest extends IgniteAbstractTest {
         ).withPrimaryKey("key").build();
 
         tblsCfg.tables().change(tablesChange -> {
+            createDistributionZone(1, REPLICAS, PARTITIONS);
             tablesChange.create(scmTbl.name(), tableChange -> {
                 (SchemaConfigurationConverter.convert(scmTbl, tableChange))
-                        .changeReplicas(REPLICAS)
-                        .changePartitions(PARTITIONS);
+                        .changeZoneId(1);
 
                 tableChange.changeDataStorage(c -> c.convert(PersistentPageMemoryDataStorageChange.class));
 
@@ -291,6 +295,16 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertNotNull(tableManager.table(scmTbl.name()));
 
         checkTableDataStorage(tblsCfg.tables().value(), PersistentPageMemoryStorageEngine.ENGINE_NAME);
+    }
+
+    private void createDistributionZone(int zoneId, int replicas, int partitions) {
+        distributionZonesConfiguration.distributionZones().change(zones -> {
+            zones.create("zone1", ch -> {
+                ch.changeZoneId(zoneId);
+                ch.changePartitions(partitions);
+                ch.changeReplicas(replicas);
+            });
+        });
     }
 
     /**
@@ -352,13 +366,13 @@ public class TableManagerTest extends IgniteAbstractTest {
         tableManager.beforeNodeStop();
         tableManager.stop();
 
+        createDistributionZone(1, REPLICAS, PARTITIONS);
         Consumer<TableChange> createTableChange = (TableChange change) ->
                 SchemaConfigurationConverter.convert(SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_FOR_DROP_NAME).columns(
                                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                                 SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
                         ).withPrimaryKey("key").build(), change)
-                        .changeReplicas(REPLICAS)
-                        .changePartitions(PARTITIONS);
+                        .changeZoneId(1);
 
         final Function<TableChange, Boolean> addColumnChange = (TableChange change) -> {
             change.changeColumns(cols -> {
@@ -571,11 +585,11 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertNotNull(table);
 
+        createDistributionZone(1, REPLICAS, PARTITIONS);
         assertThrows(RuntimeException.class,
                 () -> await(tblManagerFut.join().createTableAsync(DYNAMIC_TABLE_NAME,
                         tblCh -> SchemaConfigurationConverter.convert(scmTbl, tblCh)
-                                .changeReplicas(REPLICAS)
-                                .changePartitions(PARTITIONS))));
+                                .changeZoneId(1))));
 
         assertSame(table, tblManagerFut.join().table(scmTbl.name()));
     }
@@ -685,10 +699,10 @@ public class TableManagerTest extends IgniteAbstractTest {
             return completedFuture(true);
         });
 
+        createDistributionZone(1, REPLICAS, PARTITIONS);
         CompletableFuture<Table> tbl2Fut = tableManager.createTableAsync(tableDefinition.name(),
                 tblCh -> SchemaConfigurationConverter.convert(tableDefinition, tblCh)
-                        .changeReplicas(REPLICAS)
-                        .changePartitions(PARTITIONS)
+                        .changeZoneId(1)
         );
 
         assertTrue(createTblLatch.await(10, TimeUnit.SECONDS));
@@ -715,6 +729,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 "test",
                 revisionUpdater,
                 tblsCfg,
+                distributionZonesConfiguration,
                 clusterService,
                 rm,
                 replicaMgr,
@@ -731,14 +746,15 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new HybridClockImpl(),
                 new OutgoingSnapshotsManager(clusterService.messagingService())
         ) {
+
             @Override
-            protected MvTableStorage createTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
-                return Mockito.spy(super.createTableStorage(tableCfg, tablesCfg));
+            protected MvTableStorage createTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg, int partitions) {
+                return Mockito.spy(super.createTableStorage(tableCfg, tablesCfg, partitions));
             }
 
             @Override
-            protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg) {
-                return Mockito.spy(super.createTxStateTableStorage(tableCfg));
+            protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg, int partitions) {
+                return Mockito.spy(super.createTxStateTableStorage(tableCfg, partitions));
             }
         };
 

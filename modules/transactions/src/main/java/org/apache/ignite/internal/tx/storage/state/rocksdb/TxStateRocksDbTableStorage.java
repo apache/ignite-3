@@ -60,6 +60,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     /** Column family name for transaction states. */
     private static final String TX_STATE_CF = new String(RocksDB.DEFAULT_COLUMN_FAMILY, StandardCharsets.UTF_8);
 
+
     /** Rocks DB instance. */
     private volatile RocksDB db;
 
@@ -84,6 +85,8 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     /** Table configuration. */
     private final TableConfiguration tableCfg;
 
+    private final int partitions;
+
     /** RocksDB flusher instance. */
     private volatile RocksDbFlusher flusher;
 
@@ -100,7 +103,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
 
     /** Supplier for the value of delay for scheduled database flush. */
     private final IntSupplier flushDelaySupplier;
-
+    
     /**
      * Constructor.
      *
@@ -110,12 +113,14 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
      */
     public TxStateRocksDbTableStorage(
             TableConfiguration tableCfg,
+            int partitions,
             Path dbPath,
             ScheduledExecutorService scheduledExecutor,
             ExecutorService threadPool,
             IntSupplier flushDelaySupplier
     ) {
         this.tableCfg = tableCfg;
+        this.partitions = partitions;
         this.dbPath = dbPath;
         this.scheduledExecutor = scheduledExecutor;
         this.threadPool = threadPool;
@@ -194,7 +199,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
                 this::refreshPersistedIndexes
             );
 
-            storages = new AtomicReferenceArray<>(tableCfg.value().partitions());
+            storages = new AtomicReferenceArray<>(partitions);
 
             this.dbOptions = new DBOptions()
                     .setCreateIfMissing(true)

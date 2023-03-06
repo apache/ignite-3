@@ -153,7 +153,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public RocksDbTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg) throws StorageException {
+    public RocksDbTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg, int partitions) throws StorageException {
         RocksDbDataStorageView dataStorageView = (RocksDbDataStorageView) tableCfg.dataStorage().value();
 
         assert dataStorageView.name().equals(ENGINE_NAME) : dataStorageView.name();
@@ -168,6 +168,6 @@ public class RocksDbStorageEngine implements StorageEngine {
             throw new StorageException("Failed to create table store directory for " + tableCfg.name().value(), e);
         }
 
-        return new RocksDbTableStorage(this, tablePath, dataRegion, tableCfg, tablesCfg);
+        return new RocksDbTableStorage(this, tablePath, dataRegion, tableCfg, tablesCfg, partitions);
     }
 }

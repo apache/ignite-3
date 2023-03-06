@@ -35,16 +35,24 @@ public class DistributionZoneConfigurationParameters {
     /** Data nodes auto adjust scale down timeout. */
     private final Integer dataNodesAutoAdjustScaleDown;
 
+    private final Integer replicas;
+
+    private final Integer partitions;
+
     /**
      * The constructor.
      */
     private DistributionZoneConfigurationParameters(
             String name,
+            Integer replicas,
+            Integer partitions,
             Integer dataNodesAutoAdjust,
             Integer dataNodesAutoAdjustScaleUp,
             Integer dataNodesAutoAdjustScaleDown
     ) {
         this.name = name;
+        this.replicas = replicas;
+        this.partitions = partitions;
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
@@ -86,6 +94,14 @@ public class DistributionZoneConfigurationParameters {
         return dataNodesAutoAdjustScaleDown;
     }
 
+    public Integer replicas() {
+        return replicas;
+    }
+
+    public Integer partitions() {
+        return partitions;
+    }
+
     /**
      * Builder for distribution zone configuration.
      */
@@ -101,6 +117,10 @@ public class DistributionZoneConfigurationParameters {
 
         /** Data nodes auto adjust scale down timeout. */
         private Integer dataNodesAutoAdjustScaleDown;
+
+        private Integer replicas;
+
+        private Integer partitions;
 
         /**
          * Constructor.
@@ -152,6 +172,21 @@ public class DistributionZoneConfigurationParameters {
             return this;
         }
 
+        /** */
+        public Builder replicas(int replicas) {
+            this.replicas = replicas;
+
+            return this;
+        }
+
+        /** */
+        public Builder partitions(int partitions) {
+            this.partitions = partitions;
+
+            return this;
+        }
+
+
         /**
          * Builds the distribution zone configuration.
          *
@@ -170,6 +205,8 @@ public class DistributionZoneConfigurationParameters {
 
             return new DistributionZoneConfigurationParameters(
                     name,
+                    replicas,
+                    partitions,
                     dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown

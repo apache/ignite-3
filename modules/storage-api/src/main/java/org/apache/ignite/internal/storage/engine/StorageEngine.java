@@ -51,5 +51,5 @@ public interface StorageEngine {
      * @param tablesCfg Tables configuration.
      * @throws StorageException If an error has occurs while creating the table.
      */
-    MvTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg) throws StorageException;
+    MvTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg, int partitions) throws StorageException;
 }

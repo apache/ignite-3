@@ -98,6 +98,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     /** Data region for the table. */
     private final RocksDbDataRegion dataRegion;
+    private final int partitions;
 
     /** RocksDB flusher instance. */
     private volatile RocksDbFlusher flusher;
@@ -148,13 +149,15 @@ public class RocksDbTableStorage implements MvTableStorage {
             Path tablePath,
             RocksDbDataRegion dataRegion,
             TableConfiguration tableCfg,
-            TablesConfiguration tablesCfg
+            TablesConfiguration tablesCfg,
+            int partitions
     ) {
         this.engine = engine;
         this.tablePath = tablePath;
         this.tableCfg = tableCfg;
         this.dataRegion = dataRegion;
         this.tablesCfg = tablesCfg;
+        this.partitions = partitions;
     }
 
     /**
@@ -200,6 +203,11 @@ public class RocksDbTableStorage implements MvTableStorage {
     @Override
     public TablesConfiguration tablesConfiguration() {
         return tablesCfg;
+    }
+
+    @Override
+    public int partitions() {
+        return partitions;
     }
 
     @Override
@@ -283,7 +291,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                 throw new StorageException("Failed to initialize RocksDB instance", e);
             }
 
-            MvPartitionStorages<RocksDbMvPartitionStorage> mvPartitionStorages = new MvPartitionStorages<>(tableCfg.value());
+            MvPartitionStorages<RocksDbMvPartitionStorage> mvPartitionStorages = new MvPartitionStorages<>(tableCfg.value(), partitions);
 
             for (int partitionId : meta.getPartitionIds()) {
                 // There is no need to wait for futures, since there will be no parallel operations yet.
@@ -312,7 +320,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         try {
             TableView tableCfgView = configuration().value();
 
-            for (int partitionId = 0; partitionId < tableCfgView.partitions(); partitionId++) {
+            for (int partitionId = 0; partitionId < partitions; partitionId++) {
                 RocksDbMvPartitionStorage partition = mvPartitionStorages.get(partitionId);
 
                 if (partition != null) {

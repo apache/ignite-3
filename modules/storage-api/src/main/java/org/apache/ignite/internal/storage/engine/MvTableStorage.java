@@ -157,6 +157,12 @@ public interface MvTableStorage extends ManuallyCloseable {
     TablesConfiguration tablesConfiguration();
 
     /**
+     * Partitions
+     * @return partitions.
+     */
+    int partitions();
+
+    /**
      * Starts the storage.
      *
      * @throws StorageException If an error has occurred during the start of the storage.

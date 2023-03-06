@@ -55,6 +55,8 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     protected final TablesConfiguration tablesCfg;
 
+    protected final int partitions;
+
     protected volatile MvPartitionStorages<AbstractPageMemoryMvPartitionStorage> mvPartitionStorages;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -68,14 +70,20 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      * @param tableCfg Table configuration.
      * @param tablesCfg Tables configuration.
      */
-    protected AbstractPageMemoryTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
+    protected AbstractPageMemoryTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg, int partitions) {
         this.tableCfg = tableCfg;
         this.tablesCfg = tablesCfg;
+        this.partitions = partitions;
     }
 
     @Override
     public TableConfiguration configuration() {
         return tableCfg;
+    }
+
+    @Override
+    public int partitions() {
+        return partitions;
     }
 
     @Override
@@ -91,7 +99,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     @Override
     public void start() throws StorageException {
         busy(() -> {
-            mvPartitionStorages = new MvPartitionStorages(tableCfg.value());
+            mvPartitionStorages = new MvPartitionStorages(tableCfg.value(), partitions);
 
             return null;
         });

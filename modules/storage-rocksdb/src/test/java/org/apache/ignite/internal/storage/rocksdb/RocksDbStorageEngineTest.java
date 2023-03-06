@@ -27,6 +27,7 @@ import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfiguration;
@@ -66,9 +67,11 @@ public class RocksDbStorageEngineTest {
             @InjectConfiguration(
                     value = "mock.tables.foo.dataStorage.name=" + RocksDbStorageEngine.ENGINE_NAME
             )
-            TablesConfiguration tablesConfig
+            TablesConfiguration tablesConfig,
+            @InjectConfiguration
+            DistributionZonesConfiguration distributionZonesConfiguration
     ) {
-        MvTableStorage table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
+        MvTableStorage table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig, distributionZonesConfiguration.defaultDistributionZone().partitions().value());
 
         table.start();
 
@@ -88,7 +91,9 @@ public class RocksDbStorageEngineTest {
             @InjectConfiguration(
                     value = "mock.tables.foo.dataStorage{name=" + RocksDbStorageEngine.ENGINE_NAME + ", dataRegion=foobar}"
             )
-            TablesConfiguration tablesConfig
+            TablesConfiguration tablesConfig,
+            @InjectConfiguration
+            DistributionZonesConfiguration distributionZonesConfiguration
     ) {
         String customRegionName = "foobar";
 
@@ -97,7 +102,7 @@ public class RocksDbStorageEngineTest {
 
         assertThat(engineConfigChangeFuture, willCompleteSuccessfully());
 
-        MvTableStorage table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
+        MvTableStorage table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig, distributionZonesConfiguration.defaultDistributionZone().partitions().value());
 
         table.start();
 

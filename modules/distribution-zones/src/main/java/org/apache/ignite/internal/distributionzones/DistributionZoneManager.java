@@ -125,6 +125,10 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Id of the default distribution zone. */
     public static final int DEFAULT_ZONE_ID = 0;
 
+    public static final int DEFAULT_REPLICA_COUNT = 1;
+
+    public static final int DEFAULT_PARTITION_COUNT = 25;
+
     /** Default infinite value for the distribution zones' timers. */
     public static final int INFINITE_TIMER_VALUE = Integer.MAX_VALUE;
 
@@ -261,6 +265,18 @@ public class DistributionZoneManager implements IgniteComponent {
             zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
                 try {
                     zonesListChange.create(distributionZoneCfg.name(), zoneChange -> {
+                        if (distributionZoneCfg.partitions() == null) {
+                            zoneChange.changePartitions(DEFAULT_PARTITION_COUNT);
+                        } else {
+                            zoneChange.changePartitions(distributionZoneCfg.partitions());
+                        }
+
+                        if (distributionZoneCfg.replicas() == null) {
+                            zoneChange.changeReplicas(DEFAULT_REPLICA_COUNT);
+                        } else {
+                            zoneChange.changeReplicas(distributionZoneCfg.replicas());
+                        }
+
                         if (distributionZoneCfg.dataNodesAutoAdjust() == null) {
                             zoneChange.changeDataNodesAutoAdjust(INFINITE_TIMER_VALUE);
                         } else {
@@ -503,12 +519,19 @@ public class DistributionZoneManager implements IgniteComponent {
             // Init timers after restart.
             zonesState.putIfAbsent(DEFAULT_ZONE_ID, new ZoneState(executor));
 
-            zonesConfiguration.distributionZones().value().namedListKeys()
-                    .forEach(zoneName -> {
-                        int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
+            // TODO: KKK NPE on the fresh node witn no distributionZones
+            try {
+                if (zonesConfiguration.distributionZones().value() != null) {
+                    zonesConfiguration.distributionZones().value().namedListKeys()
+                            .forEach(zoneName -> {
+                                int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
 
-                        zonesState.putIfAbsent(zoneId, new ZoneState(executor));
-                    });
+                                zonesState.putIfAbsent(zoneId, new ZoneState(executor));
+                            });
+                }
+            } catch (Throwable th) {
+                // no-op
+            }
 
             logicalTopologyService.addEventListener(topologyEventListener);
 
@@ -714,6 +737,12 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param distributionZoneCfg Distribution zone configuration.
      */
     private static void updateZoneChange(DistributionZoneChange zoneChange, DistributionZoneConfigurationParameters distributionZoneCfg) {
+        if (distributionZoneCfg.replicas() != null) {
+            zoneChange.changeReplicas(distributionZoneCfg.replicas());
+        }
+        if (distributionZoneCfg.partitions() != null) {
+            zoneChange.changePartitions(distributionZoneCfg.partitions());
+        }
         if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
             zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
             zoneChange.changeDataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE);

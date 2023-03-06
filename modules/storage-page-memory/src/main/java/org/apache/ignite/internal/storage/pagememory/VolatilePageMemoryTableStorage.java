@@ -53,10 +53,11 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     public VolatilePageMemoryTableStorage(
             TableConfiguration tableCfg,
             TablesConfiguration tablesCfg,
+            int partitions,
             VolatilePageMemoryDataRegion dataRegion,
             GradualTaskExecutor destructionExecutor
     ) {
-        super(tableCfg, tablesCfg);
+        super(tableCfg, tablesCfg, partitions);
 
         this.dataRegion = dataRegion;
         this.destructionExecutor = destructionExecutor;

@@ -62,10 +62,10 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
      *
      * @param tableView Table configuration.
      */
-    public MvPartitionStorages(TableView tableView) {
+    public MvPartitionStorages(TableView tableView, int partitions) {
         this.tableView = tableView;
 
-        storageByPartitionId = new AtomicReferenceArray<>(tableView.partitions());
+        storageByPartitionId = new AtomicReferenceArray<>(partitions);
     }
 
     /**

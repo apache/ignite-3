@@ -52,11 +52,11 @@ public class TestStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public MvTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg) throws StorageException {
+    public MvTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg, int partitions) throws StorageException {
         String dataStorageName = tableCfg.dataStorage().name().value();
 
         assert dataStorageName.equals(ENGINE_NAME) : dataStorageName;
 
-        return spy(new TestMvTableStorage(tableCfg, tablesCfg));
+        return spy(new TestMvTableStorage(tableCfg, tablesCfg, partitions));
     }
 }

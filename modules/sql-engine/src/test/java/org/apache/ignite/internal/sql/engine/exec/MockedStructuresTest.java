@@ -51,6 +51,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
@@ -152,6 +153,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** Tables configuration. */
     @InjectConfiguration
     private TablesConfiguration tblsCfg;
+
+    @InjectConfiguration
+    private DistributionZonesConfiguration dstZnsCfg;
 
     TableManager tblManager;
 
@@ -554,6 +558,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 "",
                 revisionUpdater,
                 tblsCfg,
+                dstZnsCfg,
                 cs,
                 rm,
                 mock(ReplicaManager.class),

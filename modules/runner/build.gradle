@@ -95,6 +95,7 @@ dependencies {
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
     integrationTestAnnotationProcessor libs.auto.service
+    integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-affinity')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-raft-api')

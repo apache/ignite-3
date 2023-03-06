@@ -73,10 +73,11 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     public PersistentPageMemoryTableStorage(
             TableConfiguration tableCfg,
             TablesConfiguration tablesCfg,
+            int partitions,
             PersistentPageMemoryStorageEngine engine,
             PersistentPageMemoryDataRegion dataRegion
     ) {
-        super(tableCfg, tablesCfg);
+        super(tableCfg, tablesCfg, partitions);
 
         this.engine = engine;
         this.dataRegion = dataRegion;
@@ -98,6 +99,11 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     @Override
     public boolean isVolatile() {
         return false;
+    }
+
+    @Override
+    public int partitions() {
+        return partitions;
     }
 
     @Override

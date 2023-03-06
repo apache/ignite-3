@@ -30,6 +30,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
+import org.intellij.lang.annotations.JdkConstants.InputEventMask;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -54,9 +56,12 @@ public class PartitionAccessImplTest {
     @InjectConfiguration("mock.tables.foo {}")
     private TablesConfiguration tablesConfig;
 
+    @InjectConfiguration
+    private DistributionZonesConfiguration distributionZonesConfiguration;
+
     @Test
     void testMinMaxLastAppliedIndex() {
-        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig);
+        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig, distributionZonesConfiguration.defaultDistributionZone().partitions().value());
         TestTxStateTableStorage txStateTableStorage = new TestTxStateTableStorage();
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
@@ -97,7 +102,7 @@ public class PartitionAccessImplTest {
 
     @Test
     void testMinMaxLastAppliedTerm() {
-        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig);
+        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig, distributionZonesConfiguration.defaultDistributionZone().partitions().value());
         TestTxStateTableStorage txStateTableStorage = new TestTxStateTableStorage();
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
@@ -138,7 +143,7 @@ public class PartitionAccessImplTest {
 
     @Test
     void testAddWrite() {
-        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig);
+        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig, distributionZonesConfiguration.defaultDistributionZone().partitions().value());
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
 
@@ -177,7 +182,7 @@ public class PartitionAccessImplTest {
 
     @Test
     void testAddWriteCommitted() {
-        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig);
+        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig, distributionZonesConfiguration.defaultDistributionZone().partitions().value());
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
 
