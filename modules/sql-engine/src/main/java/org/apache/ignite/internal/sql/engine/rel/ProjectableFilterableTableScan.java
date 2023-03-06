@@ -129,7 +129,6 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
                 .item("table", table.getQualifiedName())
                 .itemIf("tableId", table.unwrap(IgniteTable.class).id().toString(),
                 pw.getDetailLevel() == ALL_ATTRIBUTES));
-        //return explainTerms0(super.explainTerms(pw));
     }
 
     /** {@inheritDoc} */
