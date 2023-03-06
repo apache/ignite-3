@@ -690,6 +690,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param assignmentsCtx Change assignment event.
      */
     private void updateAssignmentInternal(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
+        System.out.println("A");
         ExtendedTableConfiguration tblCfg = assignmentsCtx.config(ExtendedTableConfiguration.class);
 
         UUID tblId = tblCfg.id().value();
