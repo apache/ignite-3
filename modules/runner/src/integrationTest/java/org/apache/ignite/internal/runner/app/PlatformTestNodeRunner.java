@@ -63,6 +63,9 @@ public class PlatformTestNodeRunner {
     /** Test node name 2. */
     private static final String NODE_NAME2 = PlatformTestNodeRunner.class.getCanonicalName() + "_2";
 
+    /** Test node name 3. */
+    private static final String NODE_NAME3 = PlatformTestNodeRunner.class.getCanonicalName() + "_3";
+
     private static final String SCHEMA_NAME = "PUBLIC";
 
     private static final String TABLE_NAME = "TBL1";
@@ -85,7 +88,7 @@ public class PlatformTestNodeRunner {
                     + "  \"network\": {\n"
                     + "    \"port\":3344,\n"
                     + "    \"nodeFinder\": {\n"
-                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                     + "    }\n"
                     + "  }\n"
                     + "}",
@@ -100,14 +103,36 @@ public class PlatformTestNodeRunner {
                     + "      enabled: true,\n"
                     + "      keyStore: {\n"
                     + "        path: \"KEYSTORE_PATH\",\n"
-                    + "        password: \"KEYSTORE_PASS\"\n"
+                    + "        password: \"SSL_STORE_PASS\"\n"
                     + "      }\n"
                     + "    }\n"
                     + "  },\n"
                     + "  \"network\": {\n"
                     + "    \"port\":3345,\n"
                     + "    \"nodeFinder\": {\n"
-                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                    + "    }\n"
+                    + "  }\n"
+                    + "}",
+
+            NODE_NAME3, "{\n"
+                    + "  \"clientConnector\":{"
+                    + "    \"port\": 10944,"
+                    + "    \"portRange\":1,"
+                    + "    \"idleTimeout\":3000,"
+                    + "    \"sendServerExceptionStackTraceToClient\":true, "
+                    + "    \"ssl\": {\n"
+                    + "      enabled: true,\n"
+                    + "      keyStore: {\n"
+                    + "        path: \"KEYSTORE_PATH\",\n"
+                    + "        password: \"SSL_STORE_PASS\"\n"
+                    + "      }\n"
+                    + "    }\n"
+                    + "  },\n"
+                    + "  \"network\": {\n"
+                    + "    \"port\":3346,\n"
+                    + "    \"nodeFinder\": {\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                     + "    }\n"
                     + "  }\n"
                     + "}"
@@ -145,7 +170,8 @@ public class PlatformTestNodeRunner {
                     String nodeName = e.getKey();
                     String config = e.getValue()
                             .replace("KEYSTORE_PATH", keyStorePath)
-                            .replace("KEYSTORE_PASS", sslPassword);
+                            .replace("TRUSTSTORE_PATH", trustStorePath)
+                            .replace("SSL_STORE_PASS", sslPassword);
 
                     return IgnitionManager.start(nodeName, config, BASE_PATH.resolve(nodeName));
                 })
