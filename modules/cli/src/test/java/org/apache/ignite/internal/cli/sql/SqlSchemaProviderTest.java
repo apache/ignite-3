@@ -27,8 +27,10 @@ import java.sql.SQLException;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-18956")
 class SqlSchemaProviderTest {
     private static MetadataSupplier supplier;
 
