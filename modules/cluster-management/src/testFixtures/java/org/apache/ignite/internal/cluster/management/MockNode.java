@@ -29,6 +29,7 @@ import org.apache.ignite.internal.cluster.management.configuration.ClusterManage
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
@@ -61,6 +62,8 @@ public class MockNode {
 
     private final ClusterManagementConfiguration cmgConfiguration;
 
+    private final SecurityConfiguration securityConfiguration;
+
     private final List<IgniteComponent> components = new ArrayList<>();
 
     private CompletableFuture<Void> startFuture;
@@ -74,13 +77,15 @@ public class MockNode {
             NodeFinder nodeFinder,
             Path workDir,
             RaftConfiguration raftConfiguration,
-            ClusterManagementConfiguration cmgConfiguration
+            ClusterManagementConfiguration cmgConfiguration,
+            SecurityConfiguration securityConfiguration
     ) {
         this.testInfo = testInfo;
         this.nodeFinder = nodeFinder;
         this.workDir = workDir;
         this.raftConfiguration = raftConfiguration;
         this.cmgConfiguration = cmgConfiguration;
+        this.securityConfiguration = securityConfiguration;
 
         try {
             init(addr.port());
@@ -102,19 +107,23 @@ public class MockNode {
 
         var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
 
+        var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
+        distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
+
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
                 clusterService,
                 raftManager,
                 clusterStateStorage,
                 logicalTopologyService,
-                cmgConfiguration
-        );
+                cmgConfiguration,
+                distributedConfigurationUpdater);
 
         components.add(vaultManager);
         components.add(clusterService);
         components.add(raftManager);
         components.add(clusterStateStorage);
+        components.add(distributedConfigurationUpdater);
         components.add(clusterManager);
     }
 

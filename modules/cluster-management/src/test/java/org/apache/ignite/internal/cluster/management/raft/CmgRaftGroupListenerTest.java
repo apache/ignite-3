@@ -17,12 +17,16 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
-import static org.apache.ignite.internal.cluster.management.ClusterState.clusterState;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
+import static org.apache.ignite.internal.cluster.management.network.auth.Authentication.authentication;
+import static org.apache.ignite.security.AuthenticationConfig.disabled;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -34,6 +38,7 @@ import static org.mockito.Mockito.verify;
 
 import java.io.Serializable;
 import java.nio.file.Paths;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -69,13 +74,12 @@ public class CmgRaftGroupListenerTest {
 
     private final ClusterTag clusterTag = clusterTag(msgFactory, "cluster");
 
-    private final ClusterState state = clusterState(
-            msgFactory,
-            Set.of("foo"),
-            Set.of("bar"),
-            IgniteProductVersion.CURRENT_VERSION,
-            clusterTag
-    );
+    private final ClusterState state = msgFactory.clusterState()
+            .cmgNodes(Set.copyOf(Set.of("foo")))
+            .metaStorageNodes(Set.copyOf(Set.of("bar")))
+            .version(IgniteProductVersion.CURRENT_VERSION.toString())
+            .clusterTag(clusterTag)
+            .build();
 
     private final ClusterNodeMessage node = msgFactory.clusterNodeMessage().id("foo").name("bar").host("localhost").port(666).build();
 
@@ -144,6 +148,41 @@ public class CmgRaftGroupListenerTest {
         assertTrue(listener.onSnapshotLoad(Paths.get("/unused")));
 
         verify(logicalTopology).fireTopologyLeap();
+    }
+
+    @Test
+    void absentAuthConfigUpdateErasesAuthConfig() {
+        ClusterState clusterState = msgFactory.clusterState()
+                .cmgNodes(Set.copyOf(Set.of("foo")))
+                .metaStorageNodes(Set.copyOf(Set.of("bar")))
+                .version(IgniteProductVersion.CURRENT_VERSION.toString())
+                .clusterTag(clusterTag)
+                .restAuthToApply(authentication(msgFactory, disabled()))
+                .build();
+
+        listener.onWrite(iterator(msgFactory.initCmgStateCommand().node(node).clusterState(clusterState).build()));
+
+        Collection<String> cmgNodes = clusterState.cmgNodes();
+        Collection<String> msNodes = clusterState.metaStorageNodes();
+        IgniteProductVersion igniteVersion = clusterState.igniteVersion();
+        ClusterTag clusterTag1 = clusterState.clusterTag();
+        ClusterState clusterStateToUpdate = msgFactory.clusterState()
+                .cmgNodes(Set.copyOf(cmgNodes))
+                .metaStorageNodes(Set.copyOf(msNodes))
+                .version(igniteVersion.toString())
+                .clusterTag(clusterTag1)
+                .build();
+
+        listener.onWrite(iterator(msgFactory.updateClusterStateCommand().clusterState(clusterStateToUpdate).build()));
+        ClusterState updatedClusterState = listener.storage().getClusterState();
+        assertAll(
+                () -> assertNull(updatedClusterState.restAuthToApply()),
+                () -> assertEquals(updatedClusterState.cmgNodes(), clusterState.cmgNodes()),
+                () -> assertEquals(updatedClusterState.metaStorageNodes(), clusterState.metaStorageNodes()),
+                () -> assertEquals(updatedClusterState.version(), clusterState.version()),
+                () -> assertEquals(updatedClusterState.igniteVersion(), clusterState.igniteVersion()),
+                () -> assertEquals(updatedClusterState.clusterTag(), clusterState.clusterTag())
+        );
     }
 
     private static <T extends Command> Iterator<CommandClosure<T>> iterator(T obj) {

@@ -35,6 +35,7 @@ public class ClusterManagementRestFactory implements RestFactory {
 
     private ClusterManagementGroupManager cmgManager;
 
+    /** Constructor. */
     public ClusterManagementRestFactory(ClusterService clusterService, ClusterManagementGroupManager cmgManager) {
         this.clusterService = clusterService;
         this.cmgManager = cmgManager;
