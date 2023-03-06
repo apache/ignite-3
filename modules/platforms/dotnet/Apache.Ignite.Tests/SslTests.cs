@@ -113,8 +113,8 @@ public class SslTests : IgniteTestsBase
             }
         };
 
-        var ex = Assert.ThrowsAsync<AggregateException>(async () => await IgniteClient.StartAsync(cfg));
-        Assert.IsInstanceOf<IgniteClientConnectionException>(ex?.GetBaseException());
+        var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await IgniteClient.StartAsync(cfg));
+        StringAssert.Contains("bad certificate", ex!.ToString());
     }
 
     [Test]
