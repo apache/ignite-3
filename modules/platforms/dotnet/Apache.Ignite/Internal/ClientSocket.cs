@@ -172,7 +172,12 @@ namespace Apache.Ignite.Internal
             try
             {
                 await socket.ConnectAsync(endPoint.EndPoint).ConfigureAwait(false);
-                logger?.Debug($"Socket connection established: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}, starting handshake...");
+
+                if (logger?.IsEnabled(LogLevel.Debug) == true)
+                {
+                    logger.Debug(
+                        $"Socket connection established: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}, starting handshake...");
+                }
 
                 Stream stream = new NetworkStream(socket, ownsSocket: true);
 
@@ -180,13 +185,21 @@ namespace Apache.Ignite.Internal
                     sslStreamFactory.Create(stream, endPoint.Host) is { } sslStream)
                 {
                     stream = sslStream;
+
+                    if (logger?.IsEnabled(LogLevel.Debug) == true)
+                    {
+                        logger.Debug($"SSL connection established: {sslStream.NegotiatedCipherSuite}");
+                    }
                 }
 
                 var context = await HandshakeAsync(stream, endPoint.EndPoint)
                     .WaitAsync(configuration.SocketTimeout)
                     .ConfigureAwait(false);
 
-                logger?.Debug($"Handshake succeeded: {context}.");
+                if (logger?.IsEnabled(LogLevel.Debug) == true)
+                {
+                    logger.Debug($"Handshake succeeded: {context}.");
+                }
 
                 return new ClientSocket(stream, configuration, context, assignmentChangeCallback, logger);
             }

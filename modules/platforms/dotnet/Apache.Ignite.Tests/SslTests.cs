@@ -24,6 +24,7 @@ using System.Linq;
 using System.Net.Security;
 using System.Security.Authentication;
 using System.Threading.Tasks;
+using Log;
 using NUnit.Framework;
 
 /// <summary>
@@ -74,7 +75,8 @@ public class SslTests : IgniteTestsBase
                 SkipServerCertificateValidation = true,
                 CertificatePath = CertificatePath,
                 CertificatePassword = CertificatePassword
-            }
+            },
+            Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
         };
 
         using var client = await IgniteClient.StartAsync(cfg);
