@@ -219,7 +219,7 @@ public class TestMvTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> startRebalancePartition(int partitionId) {
-        return mvPartitionStorages.startRebalace(partitionId, mvPartitionStorage -> {
+        return mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
             mvPartitionStorage.startRebalance();
 
             testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::startRebalance);

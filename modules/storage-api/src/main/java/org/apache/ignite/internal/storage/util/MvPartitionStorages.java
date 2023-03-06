@@ -55,7 +55,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
 
     private final ConcurrentMap<Integer, StorageOperation> operationByPartitionId = new ConcurrentHashMap<>();
 
-    private final ConcurrentMap<Integer, CompletableFuture<Void>> rebalaceFutureByPartitionId = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, CompletableFuture<Void>> rebalanceFutureByPartitionId = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -212,7 +212,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
      * @throws StorageRebalanceException If the storage does not exist or another operation is already in progress.
      * @throws StorageRebalanceException If rebalancing is already in progress.
      */
-    public CompletableFuture<Void> startRebalace(int partitionId, Function<T, CompletableFuture<Void>> startRebalanceStorageFunction) {
+    public CompletableFuture<Void> startRebalance(int partitionId, Function<T, CompletableFuture<Void>> startRebalanceStorageFunction) {
         operationByPartitionId.compute(partitionId, (partId, operation) -> {
             checkStorageExistsForRebalance(partitionId);
 
@@ -220,7 +220,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                 throwExceptionDependingOnOperationForRebalance(operation, partitionId);
             }
 
-            if (rebalaceFutureByPartitionId.containsKey(partitionId)) {
+            if (rebalanceFutureByPartitionId.containsKey(partitionId)) {
                 throw new StorageRebalanceException(createStorageInProgressOfRebalanceErrorMessage(partitionId));
             }
 
@@ -231,7 +231,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                 .thenCompose(unused -> {
                     CompletableFuture<Void> startRebalanceFuture = startRebalanceStorageFunction.apply(get(partitionId));
 
-                    CompletableFuture<Void> old = rebalaceFutureByPartitionId.put(partitionId, startRebalanceFuture);
+                    CompletableFuture<Void> old = rebalanceFutureByPartitionId.put(partitionId, startRebalanceFuture);
 
                     assert old == null : createStorageInfo(partitionId);
 
@@ -268,7 +268,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
 
         return completedFuture(null)
                 .thenCompose(unused -> {
-                    CompletableFuture<Void> rebalanceFuture = rebalaceFutureByPartitionId.remove(partitionId);
+                    CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
 
                     if (rebalanceFuture == null) {
                         return completedFuture(null);
@@ -305,7 +305,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                 throwExceptionDependingOnOperationForRebalance(operation, partitionId);
             }
 
-            if (!rebalaceFutureByPartitionId.containsKey(partitionId)) {
+            if (!rebalanceFutureByPartitionId.containsKey(partitionId)) {
                 throw new StorageRebalanceException("Storage rebalancing did not start: [" + createStorageInfo(partitionId) + ']');
             }
 
@@ -314,7 +314,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
 
         return completedFuture(null)
                 .thenCompose(unused -> {
-                    CompletableFuture<Void> rebalanceFuture = rebalaceFutureByPartitionId.remove(partitionId);
+                    CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
 
                     assert rebalanceFuture != null : createStorageInfo(partitionId);
 

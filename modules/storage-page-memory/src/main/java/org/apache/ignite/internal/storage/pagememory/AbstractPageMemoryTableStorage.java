@@ -217,7 +217,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> startRebalancePartition(int partitionId) {
-        return inBusyLock(busyLock, () -> mvPartitionStorages.startRebalace(partitionId, mvPartitionStorage -> {
+        return inBusyLock(busyLock, () -> mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
             mvPartitionStorage.startRebalance();
 
             return clearStorageAndUpdateDataStructures(mvPartitionStorage)

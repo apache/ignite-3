@@ -313,7 +313,7 @@ public class MvPartitionStoragesTest {
         CompletableFuture<Void> finishStartRebalanceMvStorage = new CompletableFuture<>();
 
         CompletableFuture<?> startRebalanceFuture = runAsync(() ->
-                assertThat(mvPartitionStorages.startRebalace(0, mvStorage -> {
+                assertThat(mvPartitionStorages.startRebalance(0, mvStorage -> {
                     startStartRebalanceMvStorage.complete(null);
 
                     return finishStartRebalanceMvStorage;
@@ -355,7 +355,7 @@ public class MvPartitionStoragesTest {
         // What if there is an error during the operation?
 
         assertThat(
-                mvPartitionStorages.startRebalace(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
+                mvPartitionStorages.startRebalance(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
                 willFailFast(RuntimeException.class)
         );
 
@@ -422,7 +422,7 @@ public class MvPartitionStoragesTest {
         invokeAbortFunction.set(false);
 
         assertThat(
-                mvPartitionStorages.startRebalace(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
+                mvPartitionStorages.startRebalance(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
                 willFailFast(RuntimeException.class)
         );
 
@@ -513,7 +513,7 @@ public class MvPartitionStoragesTest {
         assertThat(abortRebalanceMvStorage(0), willCompleteSuccessfully());
 
         assertThat(
-                mvPartitionStorages.startRebalace(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
+                mvPartitionStorages.startRebalance(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
                 willFailFast(RuntimeException.class)
         );
 
@@ -589,7 +589,7 @@ public class MvPartitionStoragesTest {
         CompletableFuture<Void> destroy1StorageFuture = mvPartitionStorages.destroy(1, storage -> destroyStorageOperationFuture);
         CompletableFuture<Void> clear2StorageFuture = mvPartitionStorages.clear(2, storage -> clearStorageOperationFuture);
 
-        CompletableFuture<Void> startRebalance3StorageFuture = mvPartitionStorages.startRebalace(
+        CompletableFuture<Void> startRebalance3StorageFuture = mvPartitionStorages.startRebalance(
                 3,
                 storage -> startRebalanceStorageOperationFuture
         );
@@ -666,7 +666,7 @@ public class MvPartitionStoragesTest {
     }
 
     private CompletableFuture<Void> startRebalanceMvStorage(int partitionId) {
-        return mvPartitionStorages.startRebalace(partitionId, mvStorage -> completedFuture(null));
+        return mvPartitionStorages.startRebalance(partitionId, mvStorage -> completedFuture(null));
     }
 
     private CompletableFuture<Void> abortRebalanceMvStorage(int partitionId) {
