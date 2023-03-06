@@ -226,10 +226,11 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        [TestCase(1, "")]
-        [TestCase(2, "_2")]
-        [TestCase(3, "")]
+        [TestCase(1, "_4")]
         [TestCase(5, "_2")]
+        [TestCase(9, "_3")]
+        [TestCase(10, "")]
+        [TestCase(11, "_2")]
         public async Task TestExecuteColocated(long key, string nodeName)
         {
             var keyTuple = new IgniteTuple { [KeyCol] = key };
