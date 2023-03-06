@@ -26,7 +26,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesPrefix;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -466,7 +466,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tablesCfg.tables().any().replicas().listen(this::onUpdateReplicas);
 
         // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
-        metaStorageMgr.registerPrefixWatch(zoneDataNodesPrefix(), distributionZonesDataNodesListener);
+        metaStorageMgr.registerExactWatch(zoneDataNodesKey(), distributionZonesDataNodesListener);
 
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);

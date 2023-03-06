@@ -33,10 +33,10 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateDataNodesAndTriggerKeys;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneLogicalTopologyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesDataNodesPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -764,7 +764,7 @@ public class DistributionZoneManager implements IgniteComponent {
             logicalTopologyService.addEventListener(topologyEventListener);
 
             metaStorageManager.registerPrefixWatch(zoneLogicalTopologyPrefix(), topologyWatchListener);
-            metaStorageManager.registerPrefixWatch(zoneDataNodesPrefix(), dataNodesWatchListener);
+            metaStorageManager.registerPrefixWatch(zonesDataNodesPrefix(), dataNodesWatchListener);
 
             initDataNodesFromVaultManager();
 
@@ -1259,8 +1259,6 @@ public class DistributionZoneManager implements IgniteComponent {
                 }
 
                 try {
-                    assert evt.entryEvents().size() == 2 : evt.entryEvents().size();
-
                     int zoneId = 0;
 
                     Set<String> newDataNodes = null;
@@ -1272,19 +1270,26 @@ public class DistributionZoneManager implements IgniteComponent {
                     for (EntryEvent event : evt.entryEvents()) {
                         Entry e = event.newEntry();
 
-                        if (startsWith(e.key(), zoneDataNodesPrefix().bytes())) {
+                        if (startsWith(e.key(), zoneDataNodesKey().bytes())) {
                             zoneId = extractZoneId(e.key());
 
-                            newDataNodes = fromBytes(e.value());
+                            byte[] dataNodesBytes = e.value();
+
+                            if (dataNodesBytes != null) {
+                                newDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesBytes));
+                            } else {
+                                newDataNodes = emptySet();
+                            }
                         } else if (startsWith(e.key(), zoneScaleUpChangeTriggerKey().bytes())) {
-                            scaleUpRevision = bytesToLong(e.value());
+                            if (e.value() != null) {
+                                scaleUpRevision = bytesToLong(e.value());
+                            }
                         } else if (startsWith(e.key(), zoneScaleDownChangeTriggerKey().bytes())) {
-                            scaleDownRevision = bytesToLong(e.value());
+                            if (e.value() != null) {
+                                scaleDownRevision = bytesToLong(e.value());
+                            }
                         }
                     }
-
-                    assert newDataNodes != null;
-                    assert scaleUpRevision > 0 || scaleDownRevision > 0;
 
                     synchronized (dataNodesMutex) {
                         DataNodes dataNodesMeta = dataNodes.get(zoneId);

@@ -88,7 +88,7 @@ public class DistributionZonesUtil {
      *
      * @return ByteArray representation.
      */
-    public static ByteArray zoneDataNodesPrefix() {
+    public static ByteArray zoneDataNodesKey() {
         return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX);
     }
 
@@ -164,7 +164,7 @@ public class DistributionZonesUtil {
         return DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY;
     }
 
-    static ByteArray zonesDataNodesKey() {
+    static ByteArray zonesDataNodesPrefix() {
         return DISTRIBUTION_ZONES_DATA_NODES_KEY;
     }
 

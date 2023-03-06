@@ -22,11 +22,12 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneLogicalTopologyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesDataNodesPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -114,7 +115,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
             if (Arrays.equals(key.bytes(), zoneLogicalTopologyPrefix().bytes())) {
                 topologyWatchListener = watchListener;
-            } else if (Arrays.equals(key.bytes(), zoneDataNodesPrefix().bytes())) {
+            } else if (Arrays.equals(key.bytes(), zonesDataNodesPrefix().bytes())) {
                 dataNodesWatchListener = watchListener;
             }
 
@@ -662,7 +663,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
     }
 
     private void dataNodesWatchListenerOnUpdate(int zoneId, Set<String> nodes, boolean isScaleUp, long scaleRevision, long rev) {
-        byte[] newDataNodes = toBytes(nodes);
+        byte[] newDataNodes = toBytes(toDataNodesMap(nodes));
         byte[] newScaleRevision = longToBytes(scaleRevision);
 
         Entry newEntry0 = new EntryImpl(zoneDataNodesKey(zoneId).bytes(), newDataNodes, rev, 1);
