@@ -37,7 +37,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -59,7 +59,7 @@ import org.junit.jupiter.api.Test;
  */
 @Disabled("IGNITE-18203 The test goes to deadlock in cluster restart, because indexes are required to apply RAFT commands on restart , "
         + "but the table have not started yet.")
-public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegrationTest {
+public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassIntegrationTest {
 
     private final Object[][] dataSet = {
             {1, "Igor", 10d},

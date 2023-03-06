@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
+import static org.apache.ignite.security.AuthenticationConfig.disabled;
 
 import java.util.Collection;
 import java.util.List;
@@ -39,6 +40,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalState;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.network.CmgMessageHandlerFactory;
+import org.apache.ignite.internal.cluster.management.network.auth.Authentication;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.ClusterStateMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
@@ -72,6 +74,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.security.AuthenticationConfig;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -126,6 +129,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /** Handles cluster initialization flow. */
     private final ClusterInitializer clusterInitializer;
 
+    private final DistributedConfigurationUpdater distributedConfigurationUpdater;
+
     /**
      * Whether we attempted to complete join (i.e. send JoinReady command) on Ignite node start.
      *
@@ -147,13 +152,14 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             RaftManager raftManager,
             ClusterStateStorage clusterStateStorage,
             LogicalTopology logicalTopology,
-            ClusterManagementConfiguration configuration
-    ) {
+            ClusterManagementConfiguration configuration,
+            DistributedConfigurationUpdater distributedConfigurationUpdater) {
         this.clusterService = clusterService;
         this.raftManager = raftManager;
         this.clusterStateStorage = clusterStateStorage;
         this.logicalTopology = logicalTopology;
         this.configuration = configuration;
+        this.distributedConfigurationUpdater = distributedConfigurationUpdater;
 
         this.localStateStorage = new LocalStateStorage(vault);
         this.clusterInitializer = new ClusterInitializer(clusterService);
@@ -171,12 +177,29 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             Collection<String> cmgNodeNames,
             String clusterName
     ) throws NodeStoppingException {
+        initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, disabled());
+    }
+
+    /**
+     * Initializes the cluster that this node is present in.
+     *
+     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
+     * @param cmgNodeNames Names of nodes that will host the Cluster Management Group.
+     * @param clusterName Human-readable name of the cluster.
+     * @param authenticationConfig REST authentication configuration.
+     */
+    public void initCluster(
+            Collection<String> metaStorageNodeNames,
+            Collection<String> cmgNodeNames,
+            String clusterName,
+            AuthenticationConfig authenticationConfig
+    ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            clusterInitializer.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName).get();
+            clusterInitializer.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, authenticationConfig).get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
@@ -325,13 +348,13 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private ClusterState createClusterState(CmgInitMessage msg) {
-        return ClusterState.clusterState(
-                msgFactory,
-                msg.cmgNodes(),
-                msg.metaStorageNodes(),
-                IgniteProductVersion.CURRENT_VERSION,
-                clusterTag(msgFactory, msg.clusterName())
-        );
+        return msgFactory.clusterState()
+                .cmgNodes(Set.copyOf(msg.cmgNodes()))
+                .metaStorageNodes(Set.copyOf(msg.metaStorageNodes()))
+                .version(IgniteProductVersion.CURRENT_VERSION.toString())
+                .clusterTag(clusterTag(msgFactory, msg.clusterName()))
+                .restAuthToApply(msg.restAuthToApply())
+                .build();
     }
 
     /**
@@ -364,6 +387,50 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 .whenComplete((v, e) -> {
                     if (e != null) {
                         LOG.warn("Error when executing onLeaderElected callback", e);
+                    }
+                });
+
+        raftServiceAfterJoin().thenCompose(this::pushAuthenticationConfigToCluster);
+    }
+
+    private CompletableFuture<Void> pushAuthenticationConfigToCluster(CmgRaftService service) {
+        return service.readClusterState()
+                .thenCompose(state -> {
+                    if (state == null) {
+                        LOG.info("No CMG state found in the Raft storage");
+                        return completedFuture(null);
+                    } else if (state.restAuthToApply() == null) {
+                        // auth config has already been successfully pushed to the distributed configuration
+                        LOG.info("No REST auth configuration found in the Raft storage");
+                        return completedFuture(null);
+                    } else {
+                        //TODO https://issues.apache.org/jira/browse/IGNITE-18943
+                        LOG.info("REST auth configuration found in the Raft storage, going to apply it");
+                        Authentication restAuthToApply = state.restAuthToApply();
+                        return distributedConfigurationUpdater.updateRestAuthConfiguration(restAuthToApply)
+                                .thenCompose(unused -> removeAuthConfigFromClusterState(service));
+                    }
+                });
+    }
+
+    private CompletableFuture<Void> removeAuthConfigFromClusterState(CmgRaftService service) {
+        return service.readClusterState()
+                .thenCompose(state -> {
+                    Collection<String> cmgNodes = state.cmgNodes();
+                    Collection<String> msNodes = state.metaStorageNodes();
+                    IgniteProductVersion igniteVersion = state.igniteVersion();
+                    ClusterTag clusterTag = state.clusterTag();
+                    ClusterState clusterState = msgFactory.clusterState()
+                            .cmgNodes(Set.copyOf(cmgNodes))
+                            .metaStorageNodes(Set.copyOf(msNodes))
+                            .version(igniteVersion.toString())
+                            .clusterTag(clusterTag)
+                            .build();
+                    return service.updateClusterState(clusterState);
+                })
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.warn("Error when removing REST auth configuration", e);
                     }
                 });
     }

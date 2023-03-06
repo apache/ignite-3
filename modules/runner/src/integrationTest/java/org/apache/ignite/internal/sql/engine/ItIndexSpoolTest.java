@@ -34,8 +34,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Index spool test.
  */
-public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
-    private static final IgniteLogger LOG = Loggers.forClass(AbstractBasicIntegrationTest.class);
+public class ItIndexSpoolTest extends ClusterPerClassIntegrationTest {
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterPerClassIntegrationTest.class);
 
     /**
      * After each.

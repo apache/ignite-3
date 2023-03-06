@@ -37,10 +37,12 @@ import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -74,6 +76,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItMetaStorageWatchTest extends IgniteAbstractTest {
+
+    @InjectConfiguration
+    private static SecurityConfiguration securityConfiguration;
+
     private static class Node {
         private final List<IgniteComponent> components = new ArrayList<>();
 
@@ -82,6 +88,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         private final MetaStorageManager metaStorageManager;
 
         private final ClusterManagementGroupManager cmgManager;
+
+        private final DistributedConfigurationUpdater distributedConfigurationUpdater;
 
         Node(ClusterService clusterService, Path dataPath) {
             var vaultManager = new VaultManager(new InMemoryVaultService());
@@ -109,13 +117,19 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
+            distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
+
+            components.add(distributedConfigurationUpdater);
+
             this.cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
-                    cmgConfiguration
+                    cmgConfiguration,
+                    distributedConfigurationUpdater
             );
 
             components.add(cmgManager);
