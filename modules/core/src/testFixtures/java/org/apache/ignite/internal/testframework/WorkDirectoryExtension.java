@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -97,6 +98,9 @@ public class WorkDirectoryExtension
 
     /** Name of the work directory that will be injected into {@link BeforeAll} methods or static members. */
     private static final String STATIC_FOLDER_NAME = "static";
+
+    /** Pattern for the {@link #KEEP_WORK_DIR_PROPERTY}. */
+    private static final Pattern PATTERN = Pattern.compile("\\b\\w+(?:\\.\\w+)?(?:,\\b\\w+(?:\\.\\w+)?)*\\b");
 
     /**
      * Creates and injects a temporary directory into a static field.
@@ -260,12 +264,20 @@ public class WorkDirectoryExtension
         Set<String> keepWorkDirForTests;
 
         if (keepWorkDirStr != null) {
+            if (!keepWorkDirPropertyValid(keepWorkDirStr)) {
+                throw new IllegalArgumentException(KEEP_WORK_DIR_PROPERTY + " value " + keepWorkDirStr + " doesn't match pattern");
+            }
+
             keepWorkDirForTests = Arrays.stream(keepWorkDirStr.split(",")).collect(toSet());
         } else {
             keepWorkDirForTests = Collections.emptySet();
         }
 
         return keepWorkDirForTests.contains(testName);
+    }
+
+    static boolean keepWorkDirPropertyValid(String property) {
+        return PATTERN.matcher(property).matches();
     }
 
     private static void zipDirectory(Path source, Path target) {

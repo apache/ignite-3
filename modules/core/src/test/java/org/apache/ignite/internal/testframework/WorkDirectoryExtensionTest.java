@@ -19,6 +19,7 @@ package org.apache.ignite.internal.testframework;
 
 import static org.apache.ignite.internal.testframework.JunitExtensionTestUtils.assertExecutesSuccessfully;
 import static org.apache.ignite.internal.testframework.JunitExtensionTestUtils.assertExecutesWithFailure;
+import static org.apache.ignite.internal.testframework.WorkDirectoryExtension.keepWorkDirPropertyValid;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.not;
@@ -344,6 +345,22 @@ class WorkDirectoryExtensionTest {
     @Test
     void testSystemPropertyWithMultipleTests() {
         assertExecutesSuccessfully(SystemPropertiesTestWithMultipleTests.class);
+    }
+
+    /**
+     * Tests {@link WorkDirectoryExtension#keepWorkDirPropertyValid}.
+     */
+    @Test
+    void testKeepWorkDirectoryPattern() {
+        assertTrue(keepWorkDirPropertyValid("Foo"));
+        assertTrue(keepWorkDirPropertyValid("Foo.bar"));
+        assertTrue(keepWorkDirPropertyValid("Foo,Foo"));
+        assertTrue(keepWorkDirPropertyValid("Foo.bar,Foo"));
+        assertTrue(keepWorkDirPropertyValid("Foo.bar,Foo.bar"));
+
+        assertFalse(keepWorkDirPropertyValid("Foo#bar"));
+        assertFalse(keepWorkDirPropertyValid("Foo.bar, Foo"));
+        assertFalse(keepWorkDirPropertyValid("Foo ,Foo.bar"));
     }
 
     /**
