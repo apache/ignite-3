@@ -60,7 +60,7 @@ namespace Apache.Ignite.Tests.Compute
         {
             var res = (await Client.GetClusterNodesAsync()).OrderBy(x => x.Name).ToList();
 
-            Assert.AreEqual(2, res.Count);
+            Assert.AreEqual(3, res.Count);
 
             Assert.IsNotEmpty(res[0].Id);
             Assert.IsNotEmpty(res[1].Id);
@@ -120,11 +120,13 @@ namespace Apache.Ignite.Tests.Compute
             IDictionary<IClusterNode, Task<string>> taskMap = Client.Compute.BroadcastAsync<string>(nodes, NodeNameJob, "123");
             var res1 = await taskMap[nodes[0]];
             var res2 = await taskMap[nodes[1]];
+            var res3 = await taskMap[nodes[2]];
 
-            Assert.AreEqual(2, taskMap.Count);
+            Assert.AreEqual(3, taskMap.Count);
 
             Assert.AreEqual(nodes[0].Name + "123", res1);
             Assert.AreEqual(nodes[1].Name + "123", res2);
+            Assert.AreEqual(nodes[2].Name + "123", res3);
         }
 
         [Test]
