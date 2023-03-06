@@ -28,7 +28,7 @@ import org.apache.ignite.internal.rest.RestFactory;
  */
 @Factory
 public class CodeDeploymentRestFactory implements RestFactory {
-    private final IgniteDeployment igniteDeployment;
+    private IgniteDeployment igniteDeployment;
 
     public CodeDeploymentRestFactory(IgniteDeployment igniteDeployment) {
         this.igniteDeployment = igniteDeployment;
@@ -38,5 +38,10 @@ public class CodeDeploymentRestFactory implements RestFactory {
     @Singleton
     public IgniteDeployment deployment() {
         return igniteDeployment;
+    }
+
+    @Override
+    public void cleanResources() {
+        igniteDeployment = null;
     }
 }

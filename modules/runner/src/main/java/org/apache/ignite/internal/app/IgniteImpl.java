@@ -38,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerModule;
@@ -525,12 +526,13 @@ public class IgniteImpl implements Ignite {
         AuthenticationConfiguration authConfiguration = clusterCfgMgr.configurationRegistry()
                 .getConfiguration(SecurityConfiguration.KEY)
                 .authentication();
-        RestFactory presentationsFactory = new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
-        RestFactory clusterManagementRestFactory = new ClusterManagementRestFactory(clusterSvc, cmgMgr);
-        RestFactory nodeManagementRestFactory = new NodeManagementRestFactory(lifecycleManager, () -> name);
-        RestFactory nodeMetricRestFactory = new MetricRestFactory(metricManager);
-        AuthProviderFactory authProviderFactory = new AuthProviderFactory(authConfiguration);
-        RestFactory deploymentCodeRestFactory = new CodeDeploymentRestFactory(deploymentManager);
+
+        Supplier<RestFactory> presentationsFactory = () -> new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
+        Supplier<RestFactory> clusterManagementRestFactory = () -> new ClusterManagementRestFactory(clusterSvc, cmgMgr);
+        Supplier<RestFactory> nodeManagementRestFactory = () -> new NodeManagementRestFactory(lifecycleManager, () -> name);
+        Supplier<RestFactory> nodeMetricRestFactory = () -> new MetricRestFactory(metricManager);
+        Supplier<RestFactory> authProviderFactory = () -> new AuthProviderFactory(authConfiguration);
+        Supplier<RestFactory> deploymentCodeRestFactory = () -> new CodeDeploymentRestFactory(deploymentManager);
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
         return new RestComponent(
                 List.of(presentationsFactory,

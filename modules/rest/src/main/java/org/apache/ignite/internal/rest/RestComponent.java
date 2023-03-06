@@ -31,6 +31,7 @@ import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -61,7 +62,7 @@ public class RestComponent implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(RestComponent.class);
 
     /** Factories that produce beans needed for REST controllers. */
-    private final List<RestFactory> restFactories;
+    private final List<Supplier<RestFactory>> restFactories;
 
     private final RestConfiguration restConfiguration;
 
@@ -77,7 +78,7 @@ public class RestComponent implements IgniteComponent {
     /**
      * Creates a new instance of REST module.
      */
-    public RestComponent(List<RestFactory> restFactories, RestConfiguration restConfiguration) {
+    public RestComponent(List<Supplier<RestFactory>> restFactories, RestConfiguration restConfiguration) {
         this.restFactories = restFactories;
         this.restConfiguration = restConfiguration;
     }
@@ -180,17 +181,17 @@ public class RestComponent implements IgniteComponent {
         return micronaut
                 .properties(properties)
                 .banner(false)
-                .mapError(ServerStartupException.class, this::mapServerStartupException)
+                .mapError(ServerStartupException.class, RestComponent::mapServerStartupException)
                 .mapError(ApplicationStartupException.class, ex -> -1);
     }
 
     private void setFactories(Micronaut micronaut) {
         for (var factory : restFactories) {
-            micronaut.singletons(factory);
+            micronaut.singletons(factory.get());
         }
     }
 
-    private int mapServerStartupException(ServerStartupException exception) {
+    private static int mapServerStartupException(ServerStartupException exception) {
         if (exception.getCause() instanceof BindException) {
             return -1; // -1 forces the micronaut to throw an ApplicationStartupException
         } else {
