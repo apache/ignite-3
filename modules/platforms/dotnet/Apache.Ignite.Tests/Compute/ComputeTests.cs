@@ -88,7 +88,11 @@ namespace Apache.Ignite.Tests.Compute
         {
             var res = await Client.Compute.ExecuteAsync<string>(await Client.GetClusterNodesAsync(), NodeNameJob);
 
-            CollectionAssert.Contains(new[] { PlatformTestNodeRunner, PlatformTestNodeRunner + "_2" }, res);
+            var expectedNodeNames = Enumerable.Range(1, 4)
+                .Select(x => x == 1 ? PlatformTestNodeRunner : PlatformTestNodeRunner + "_" + x)
+                .ToList();
+
+            CollectionAssert.Contains(expectedNodeNames, res);
         }
 
         [Test]
