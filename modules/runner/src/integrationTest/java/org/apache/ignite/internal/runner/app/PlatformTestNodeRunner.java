@@ -66,6 +66,9 @@ public class PlatformTestNodeRunner {
     /** Test node name 3. */
     private static final String NODE_NAME3 = PlatformTestNodeRunner.class.getCanonicalName() + "_3";
 
+    /** Test node name 4. */
+    private static final String NODE_NAME4 = PlatformTestNodeRunner.class.getCanonicalName() + "_4";
+
     private static final String SCHEMA_NAME = "PUBLIC";
 
     private static final String TABLE_NAME = "TBL1";
@@ -88,14 +91,25 @@ public class PlatformTestNodeRunner {
                     + "  \"network\": {\n"
                     + "    \"port\":3344,\n"
                     + "    \"nodeFinder\": {\n"
-                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
                     + "    }\n"
                     + "  }\n"
                     + "}",
 
             NODE_NAME2, "{\n"
+                    + "  \"clientConnector\":{\"port\": 10943,\"portRange\":1,\"idleTimeout\":3000,"
+                    + "\"sendServerExceptionStackTraceToClient\":true},"
+                    + "  \"network\": {\n"
+                    + "    \"port\":3345,\n"
+                    + "    \"nodeFinder\": {\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
+                    + "    }\n"
+                    + "  }\n"
+                    + "}",
+
+            NODE_NAME3, "{\n"
                     + "  \"clientConnector\":{"
-                    + "    \"port\": 10943,"
+                    + "    \"port\": 10944,"
                     + "    \"portRange\":1,"
                     + "    \"idleTimeout\":3000,"
                     + "    \"sendServerExceptionStackTraceToClient\":true, "
@@ -108,16 +122,16 @@ public class PlatformTestNodeRunner {
                     + "    }\n"
                     + "  },\n"
                     + "  \"network\": {\n"
-                    + "    \"port\":3345,\n"
+                    + "    \"port\":3346,\n"
                     + "    \"nodeFinder\": {\n"
-                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
                     + "    }\n"
                     + "  }\n"
                     + "}",
 
-            NODE_NAME3, "{\n"
+            NODE_NAME4, "{\n"
                     + "  \"clientConnector\":{"
-                    + "    \"port\": 10944,"
+                    + "    \"port\": 10945,"
                     + "    \"portRange\":1,"
                     + "    \"idleTimeout\":3000,"
                     + "    \"sendServerExceptionStackTraceToClient\":true, "
@@ -135,9 +149,9 @@ public class PlatformTestNodeRunner {
                     + "    }\n"
                     + "  },\n"
                     + "  \"network\": {\n"
-                    + "    \"port\":3346,\n"
+                    + "    \"port\":3347,\n"
                     + "    \"nodeFinder\": {\n"
-                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
                     + "    }\n"
                     + "  }\n"
                     + "}"
