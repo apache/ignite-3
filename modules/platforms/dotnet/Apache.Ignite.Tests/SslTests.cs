@@ -32,6 +32,14 @@ using NUnit.Framework;
 /// </summary>
 public class SslTests : IgniteTestsBase
 {
+    private const string CertificatePassword = "123456";
+
+    private const string CertificateIssuer =
+        "E=dev@ignite.apache.org, OU=Apache Ignite CA, O=The Apache Software Foundation, CN=ignite.apache.org";
+
+    private static readonly string CertificatePath = Path.Combine(
+        TestUtils.RepoRootDir, "modules", "runner", "src", "integrationTest", "resources", "ssl", "client.pfx");
+
     [Test]
     [SuppressMessage("Security", "CA5398:Avoid hardcoded SslProtocols values", Justification = "Tests")]
     public async Task TestSslWithoutClientAuthentication()
@@ -53,10 +61,7 @@ public class SslTests : IgniteTestsBase
         Assert.AreEqual(SslProtocols.Tls13, sslInfo.SslProtocol);
         Assert.AreEqual("127.0.0.1", sslInfo.TargetHostName);
         Assert.IsNull(sslInfo.LocalCertificate);
-
-        StringAssert.Contains(
-            "E=dev@ignite.apache.org, OU=Apache Ignite CA, O=The Apache Software Foundation, CN=ignite.apache.org",
-            sslInfo.RemoteCertificate!.Issuer);
+        StringAssert.Contains(CertificateIssuer, sslInfo.RemoteCertificate!.Issuer);
     }
 
     [Test]
@@ -68,9 +73,8 @@ public class SslTests : IgniteTestsBase
             SslStreamFactory = new SslStreamFactory
             {
                 SkipServerCertificateValidation = true,
-                CertificatePath = Path.Combine(
-                    TestUtils.RepoRootDir, "modules", "runner", "src", "integrationTest", "resources", "ssl", "client.pfx"),
-                CertificatePassword = "123456"
+                CertificatePath = CertificatePath,
+                CertificatePassword = CertificatePassword
             }
         };
 
@@ -83,14 +87,8 @@ public class SslTests : IgniteTestsBase
         Assert.IsTrue(sslInfo!.IsMutuallyAuthenticated);
         Assert.AreEqual(TlsCipherSuite.TLS_AES_256_GCM_SHA384.ToString(), sslInfo.NegotiatedCipherSuiteName);
         Assert.AreEqual("127.0.0.1", sslInfo.TargetHostName);
-
-        StringAssert.Contains(
-            "E=dev@ignite.apache.org, OU=Apache Ignite CA, O=The Apache Software Foundation, CN=ignite.apache.org",
-            sslInfo.RemoteCertificate!.Issuer);
-
-        StringAssert.Contains(
-            "E=dev@ignite.apache.org, OU=Apache Ignite CA, O=The Apache Software Foundation, CN=ignite.apache.org",
-            sslInfo.LocalCertificate!.Issuer);
+        StringAssert.Contains(CertificateIssuer, sslInfo.RemoteCertificate!.Issuer);
+        StringAssert.Contains(CertificateIssuer, sslInfo.LocalCertificate!.Issuer);
     }
 
     [Test]
