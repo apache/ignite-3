@@ -24,7 +24,6 @@ using System.Linq;
 using System.Net.Security;
 using System.Security.Authentication;
 using System.Threading.Tasks;
-using Log;
 using NUnit.Framework;
 
 /// <summary>
@@ -105,7 +104,17 @@ public class SslTests : IgniteTestsBase
     [Test]
     public void TestMissingClientCertThrows()
     {
-        Assert.Fail("TODO");
+        var cfg = new IgniteClientConfiguration
+        {
+            Endpoints = { "127.0.0.1:" + (ServerPort + 2) },
+            SslStreamFactory = new SslStreamFactory
+            {
+                SkipServerCertificateValidation = true,
+            }
+        };
+
+        var ex = Assert.ThrowsAsync<AggregateException>(async () => await IgniteClient.StartAsync(cfg));
+        Assert.IsInstanceOf<IgniteClientConnectionException>(ex?.GetBaseException());
     }
 
     [Test]
