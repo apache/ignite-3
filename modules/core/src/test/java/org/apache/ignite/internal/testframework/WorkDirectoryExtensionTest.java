@@ -31,8 +31,10 @@ import static org.junit.platform.testkit.engine.TestExecutionResultConditions.me
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Set;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -204,16 +206,33 @@ class WorkDirectoryExtensionTest {
 
         private static Path file2;
 
+        private static Path file3;
+
+        private static final String TMP_PATH;
+
+        static {
+            try {
+                TMP_PATH = Files.createTempDirectory("testdir").toString();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
         @AfterAll
-        static void verify() throws IOException {
+        static void verify() {
             assertTrue(Files.exists(file1));
             assertFalse(Files.exists(file2));
+            assertFalse(Files.exists(file3));
+            assertTrue(Files.exists(Paths.get(TMP_PATH)));
 
-            Files.delete(file1);
+            IgniteUtils.deleteIfExists(file1.getParent());
+            IgniteUtils.deleteIfExists(Paths.get(TMP_PATH));
+
+            System.clearProperty(WorkDirectoryExtension.ARTIFACT_DIR_PROPERTY);
         }
 
         @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
-        @WithSystemProperty(key = WorkDirectoryExtension.KEEP_WORK_DIR_PROPERTY, value = "true")
+        @WithSystemProperty(key = WorkDirectoryExtension.KEEP_WORK_DIR_PROPERTY, value = "SystemPropertiesTest.test1")
         @Test
         void test1(@WorkDirectory Path workDir) throws IOException {
             file1 = Files.createFile(workDir.resolve("foo"));
@@ -224,6 +243,50 @@ class WorkDirectoryExtensionTest {
         void test2(@WorkDirectory Path workDir) throws IOException {
             file2 = Files.createFile(workDir.resolve("foo"));
         }
+
+        @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
+        @WithSystemProperty(key = WorkDirectoryExtension.KEEP_WORK_DIR_PROPERTY, value = "SystemPropertiesTest.test3")
+        @Test
+        void test3(@WorkDirectory Path workDir) throws IOException {
+            file3 = Files.createFile(workDir.resolve("foo"));
+
+            System.setProperty(WorkDirectoryExtension.ARTIFACT_DIR_PROPERTY, TMP_PATH);
+        }
+    }
+
+    /**
+     * Test class for the {@link #testSystemPropertyWithStaticWorkDir()} test.
+     */
+    @ExtendWith(SystemPropertiesExtension.class)
+    @ExtendWith(WorkDirectoryExtension.class)
+    @WithSystemProperty(key = WorkDirectoryExtension.KEEP_WORK_DIR_PROPERTY, value = "SystemPropertiesTestWithStaticWorkDir")
+    static class SystemPropertiesTestWithStaticWorkDir {
+        private static Path file1;
+
+        private static Path file2;
+
+        @WorkDirectory
+        static Path workDir;
+
+        @AfterAll
+        static void verify() {
+            assertTrue(Files.exists(file1));
+            assertTrue(Files.exists(file2));
+
+            IgniteUtils.deleteIfExists(file1.getParent());
+        }
+
+        @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
+        @Test
+        void test1() throws IOException {
+            file1 = Files.createFile(workDir.resolve("foo"));
+        }
+
+        @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
+        @Test
+        void test2() throws IOException {
+            file2 = Files.createFile(workDir.resolve("bar"));
+        }
     }
 
     /**
@@ -232,6 +295,14 @@ class WorkDirectoryExtensionTest {
     @Test
     void testSystemProperty() {
         assertExecutesSuccessfully(SystemPropertiesTest.class);
+    }
+
+    /**
+     * Tests that a static work directory can be preserved when a special system property is set.
+     */
+    @Test
+    void testSystemPropertyWithStaticWorkDir() {
+        assertExecutesSuccessfully(SystemPropertiesTestWithStaticWorkDir.class);
     }
 
     /**
