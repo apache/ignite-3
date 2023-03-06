@@ -301,9 +301,6 @@ class WorkDirectoryExtensionTest {
 
         private static Path file2;
 
-        @WorkDirectory
-        static Path workDir;
-
         @AfterAll
         static void verify() {
             assertTrue(Files.exists(file1));
@@ -314,13 +311,13 @@ class WorkDirectoryExtensionTest {
 
         @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
         @Test
-        void test1() throws IOException {
+        void test1(@WorkDirectory Path workDir) throws IOException {
             file1 = Files.createFile(workDir.resolve("foo"));
         }
 
         @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
         @Test
-        void test2() throws IOException {
+        void test2(@WorkDirectory Path workDir) throws IOException {
             file2 = Files.createFile(workDir.resolve("bar"));
         }
     }
