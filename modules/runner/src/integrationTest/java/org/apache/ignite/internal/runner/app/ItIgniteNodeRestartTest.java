@@ -52,9 +52,11 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -63,6 +65,7 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
+import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
@@ -161,6 +164,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private static ClusterManagementConfiguration clusterManagementConfiguration;
+
+    @InjectConfiguration
+    private static SecurityConfiguration securityConfiguration;
 
     private final List<String> clusterNodesNames = new ArrayList<>();
 
@@ -271,14 +277,17 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+        var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
+        distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
+
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
                 clusterSvc,
                 raftMgr,
                 clusterStateStorage,
                 logicalTopology,
-                clusterManagementConfiguration
-        );
+                clusterManagementConfiguration,
+                distributedConfigurationUpdater);
 
         var metaStorageMgr = new MetaStorageManagerImpl(
                 vault,
@@ -371,6 +380,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 replicaMgr,
                 txManager,
                 metaStorageMgr,
+                distributedConfigurationUpdater,
                 clusterCfgMgr,
                 dataStorageManager,
                 schemaManager,
@@ -530,7 +540,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         if (initNeeded) {
             String nodeName = clusterNodesNames.get(0);
 
-            IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
+            InitParameters initParameters = InitParameters.builder()
+                    .destinationNodeName(nodeName)
+                    .metaStorageNodeNames(List.of(nodeName))
+                    .clusterName("cluster")
+                    .build();
+            IgnitionManager.init(initParameters);
         }
 
         assertThat(future, willCompleteSuccessfully());
@@ -586,7 +601,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         if (initNeeded) {
             String nodeName = clusterNodesNames.get(0);
 
-            IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
+            InitParameters initParameters = InitParameters.builder()
+                    .destinationNodeName(nodeName)
+                    .metaStorageNodeNames(List.of(nodeName))
+                    .clusterName("cluster")
+                    .build();
+            IgnitionManager.init(initParameters);
         }
 
         return futures.stream()

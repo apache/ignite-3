@@ -66,7 +66,9 @@ namespace Apache.Ignite.Tests
 
         private bool _disposed;
 
-        private Socket? _handler;
+        private volatile Socket? _handler;
+
+        private volatile bool _dropNewConnections;
 
         public FakeServer(
             Func<int, bool>? shouldDropConnection = null,
@@ -117,7 +119,11 @@ namespace Apache.Ignite.Tests
 
         public long? LastSqlTxId { get; set; }
 
-        public bool DropNewConnections { get; set; }
+        public bool DropNewConnections
+        {
+            get => _dropNewConnections;
+            set => _dropNewConnections = value;
+        }
 
         public bool SendInvalidMagic { get; set; }
 
@@ -435,6 +441,9 @@ namespace Apache.Ignite.Tests
 
                 if (DropNewConnections)
                 {
+                    handler.Disconnect(true);
+                    _handler = null;
+
                     continue;
                 }
 

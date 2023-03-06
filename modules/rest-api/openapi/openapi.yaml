@@ -157,6 +157,7 @@ paths:
       operationId: updateClusterConfiguration
       parameters: []
       requestBody:
+        description: The cluster configuration to update.
         content:
           text/plain:
             schema:
@@ -260,6 +261,7 @@ paths:
       operationId: updateNodeConfiguration
       parameters: []
       requestBody:
+        description: The node configuration to update.
         content:
           text/plain:
             schema:
@@ -436,6 +438,42 @@ paths:
                 $ref: '#/components/schemas/Problem'
 components:
   schemas:
+    AuthenticationConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: If Security is enabled.
+        providers:
+          type: array
+          description: A list of authentication providers.
+          items:
+            $ref: '#/components/schemas/AuthenticationProviderConfigDto'
+      description: REST representation of AuthenticationConfig.
+    AuthenticationProviderConfigDto:
+      type: object
+      description: REST representation of AuthenticationProviderConfig.
+      discriminator:
+        propertyName: type
+        mapping:
+          basic: '#/components/schemas/BasicAuthenticationProviderConfig'
+      oneOf:
+      - $ref: '#/components/schemas/BasicAuthenticationProviderConfig'
+    BasicAuthenticationProviderConfig:
+      type: object
+      properties:
+        login:
+          type: string
+          description: Login.
+        password:
+          type: string
+          description: Password.
+        name:
+          type: string
+          description: Provider name.
+        type:
+          type: string
+      description: REST representation of BasicAuthenticationProviderConfig.
     ClusterNode:
       type: object
       properties:
@@ -498,6 +536,9 @@ components:
         clusterName:
           type: string
           description: The name of the cluster.
+        authenticationConfig:
+          $ref: '#/components/schemas/AuthenticationConfig'
+      description: Cluster initialization data.
     InvalidParam:
       type: object
       properties:

@@ -60,6 +60,7 @@ dependencies {
     implementation libs.okhttp.logging
     implementation libs.threetenbp
     implementation libs.swagger.legacy.annotations
+    implementation libs.progressBar
 
     testAnnotationProcessor libs.picocli.annotation.processor
     testAnnotationProcessor libs.micronaut.inject.annotation.processor
@@ -110,7 +111,7 @@ dependencies {
 ext.generatedClientDir = layout.buildDirectory.dir("swagger/client")
 
 task copyOpenapiDefinition(type: Copy) {
-    from("$rootDir/modules/rest/openapi")
+    from("$rootDir/modules/rest-api/openapi")
     into("$buildDir/customOpenapiDefinition/")
 }
 

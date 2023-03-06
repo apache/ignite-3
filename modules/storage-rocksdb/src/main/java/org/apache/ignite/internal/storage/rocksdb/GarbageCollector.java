@@ -105,8 +105,6 @@ class GarbageCollector {
             throws RocksDBException {
         ColumnFamilyHandle partCf = helper.partCf;
 
-        boolean newAndPrevTombstones = false;
-
         // Try find previous value for the row id.
         ByteBuffer keyBuffer = MV_KEY_BUFFER.get();
         keyBuffer.clear();
@@ -117,7 +115,7 @@ class GarbageCollector {
             it.seek(keyBuffer);
 
             if (invalid(it)) {
-                return false;
+                return isNewValueTombstone;
             }
 
             keyBuffer.clear();
@@ -126,28 +124,30 @@ class GarbageCollector {
 
             RowId readRowId = helper.getRowId(keyBuffer, ROW_ID_OFFSET);
 
-            if (readRowId.equals(rowId)) {
-                // Found previous value.
-                assert keyLen == MAX_KEY_SIZE; // Can not be write-intent.
+            if (!readRowId.equals(rowId)) {
+                return isNewValueTombstone;
+            }
 
-                if (isNewValueTombstone) {
-                    // If new value is a tombstone, lets check if previous value was also a tombstone.
-                    int valueSize = it.value(EMPTY_DIRECT_BUFFER);
+            // Found previous value.
+            assert keyLen == MAX_KEY_SIZE; // Can not be write-intent.
 
-                    newAndPrevTombstones = valueSize == 0;
-                }
+            if (isNewValueTombstone) {
+                // If new value is a tombstone, lets check if previous value was also a tombstone.
+                int valueSize = it.value(EMPTY_DIRECT_BUFFER);
 
-                if (!newAndPrevTombstones) {
-                    keyBuffer.clear();
-
-                    helper.putGcKey(keyBuffer, rowId, timestamp);
-
-                    writeBatch.put(gcQueueCf, keyBuffer, EMPTY_DIRECT_BUFFER);
+                if (valueSize == 0) {
+                    return true;
                 }
             }
+
+            keyBuffer.clear();
+
+            helper.putGcKey(keyBuffer, rowId, timestamp);
+
+            writeBatch.put(gcQueueCf, keyBuffer, EMPTY_DIRECT_BUFFER);
         }
 
-        return newAndPrevTombstones;
+        return false;
     }
 
     /**

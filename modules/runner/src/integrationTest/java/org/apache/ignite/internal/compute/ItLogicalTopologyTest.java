@@ -32,8 +32,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.AbstractClusterIntegrationTest;
 import org.apache.ignite.internal.Cluster.NodeKnockout;
+import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
@@ -48,7 +48,7 @@ import org.junit.jupiter.api.TestInfo;
  * Integration tests for functionality of logical topology events subscription.
  */
 @SuppressWarnings("resource")
-class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
+class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     private final BlockingQueue<Event> events = new LinkedBlockingQueue<>();
 
     private final LogicalTopologyEventListener listener = new LogicalTopologyEventListener() {

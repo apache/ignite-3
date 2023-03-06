@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.configuration;
+package org.apache.ignite.internal.cli.core.call;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Annotation to validate whole key store configuration.
+ * Call that represents an asynchronous action that can be performed given an input.
+ * It can be REST call, dictionary lookup or whatever.
  */
-@Target(ElementType.FIELD)
-@Retention(RetentionPolicy.RUNTIME)
-public @interface KeyStoreConfigurationValidator {
+@FunctionalInterface
+public interface AsyncCall<IT extends CallInput, OT> {
+    CompletableFuture<CallOutput<OT>> execute(IT input);
 }

@@ -62,6 +62,6 @@ public class KnownDataStorageValidatorTest {
 
         DataStorageView value = dataStorageConfig.value();
 
-        validate(new KnownDataStorageValidator(), annotation, mockValidationContext(value, value), null);
+        validate(new KnownDataStorageValidator(), annotation, mockValidationContext(value, value));
     }
 }

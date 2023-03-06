@@ -34,8 +34,8 @@ public class PowerOfTwoValidatorTest {
 
         PowerOfTwoValidator validator = new PowerOfTwoValidator();
 
-        validate(validator, powerOfTwo, mockValidationContext(null, 1), null);
-        validate(validator, powerOfTwo, mockValidationContext(null, 1L), null);
+        validate(validator, powerOfTwo, mockValidationContext(null, 1));
+        validate(validator, powerOfTwo, mockValidationContext(null, 1L));
     }
 
     @Test

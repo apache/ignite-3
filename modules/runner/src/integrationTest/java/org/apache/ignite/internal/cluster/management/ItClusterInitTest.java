@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -58,18 +59,37 @@ public class ItClusterInitTest extends IgniteAbstractTest {
 
         String nodeName = nodeNames.get(0);
 
-        IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(nodeName)
+                .metaStorageNodeNames(List.of(nodeName))
+                .clusterName("cluster")
+                .build();
+
+        IgnitionManager.init(initParameters);
 
         // init is idempotent
-        IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
+        IgnitionManager.init(initParameters);
+
+        InitParameters initParametersWithWrongNodesList1 = InitParameters.builder()
+                .destinationNodeName(nodeName)
+                .metaStorageNodeNames(nodeNames)
+                .clusterName("cluster")
+                .build();
 
         // init should fail if the list of nodes is different
-        Exception e = assertThrows(InitException.class, () -> IgnitionManager.init(nodeName, nodeNames, "cluster"));
+        Exception e = assertThrows(InitException.class, () -> IgnitionManager.init(initParametersWithWrongNodesList1));
 
         assertThat(e.getMessage(), containsString("Init CMG request denied, reason: CMG node names do not match."));
 
+
+        InitParameters initParametersWithWrongNodesList2 = InitParameters.builder()
+                .destinationNodeName(nodeName)
+                .metaStorageNodeNames(List.of(nodeName))
+                .clusterName("new name")
+                .build();
+
         // init should fail if cluster names are different
-        e = assertThrows(InitException.class, () -> IgnitionManager.init(nodeName, List.of(nodeName), "new name"));
+        e = assertThrows(InitException.class, () -> IgnitionManager.init(initParametersWithWrongNodesList2));
 
         assertThat(e.getMessage(), containsString("Init CMG request denied, reason: Cluster names do not match."));
     }
