@@ -43,26 +43,28 @@ public:
     compute() = delete;
 
     /**
-     * Executes single SQL statement asynchronously and returns rows.
+     * Executes a compute job represented by the given class on one of the specified nodes asynchronously.
      *
-     * @param tx Optional transaction. If nullptr implicit transaction for this single operation is used.
-     * @param statement Statement to execute.
-     * @param args Arguments for the statement.
-     * @param callback A callback called on operation completion with SQL result set.
+     * @param nodes Nodes to use for the job execution.
+     * @param job_class_name Java class name of the job to execute.
+     * @param args Job arguments.
+     * @param callback A callback called on operation completion with job execution result.
      */
-    IGNITE_API void execute_async(std::vector<cluster_node> nodes, std::string_view job_class_name, std::vector<primitive> args,
-        ignite_callback<std::optional<primitive>> callback);
+    IGNITE_API void execute_async(const std::vector<cluster_node>& nodes, std::string_view job_class_name,
+        std::vector<primitive> args, ignite_callback<std::optional<primitive>> callback);
 
     /**
-     * Executes single SQL statement and returns rows.
+     * Executes a compute job represented by the given class on one of the specified nodes.
      *
-     * @param tx Optional transaction. If nullptr implicit transaction for this single operation is used.
-     * @param statement Statement to execute.
-     * @param args Arguments for the statement.
-     * @return SQL result set.
+     * @param nodes Nodes to use for the job execution.
+     * @param job_class_name Java class name of the job to execute.
+     * @param args Job arguments.
+     * @return Job execution result.
      */
-    IGNITE_API std::optional<primitive> execute(std::vector<cluster_node> nodes, std::string_view job_class_name, std::vector<primitive> args) {
-        return sync<std::optional<primitive>>([this, nodes = std::move(nodes), job_class_name, args = std::move(args)](auto callback) mutable {
+    IGNITE_API std::optional<primitive> execute(std::vector<cluster_node> nodes, std::string_view job_class_name,
+        std::vector<primitive> args) {
+        return sync<std::optional<primitive>>(
+            [this, nodes = std::move(nodes), job_class_name, args = std::move(args)](auto callback) mutable {
             execute_async(std::move(nodes), job_class_name, std::move(args), std::move(callback));
         });
     }

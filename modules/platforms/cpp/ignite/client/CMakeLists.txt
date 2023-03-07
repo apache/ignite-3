@@ -33,6 +33,7 @@ set(SOURCES
     detail/cluster_connection.cpp
     detail/utils.cpp
     detail/node_connection.cpp
+    detail/compute/compute_impl.cpp
     detail/sql/sql_impl.cpp
     detail/table/table_impl.cpp
     detail/table/tables_impl.cpp
