@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import java.util.HashMap;
+import org.apache.ignite.internal.metrics.AtomicLongMetric;
 import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
@@ -43,14 +44,17 @@ public class ClientHandlerMetricSource implements MetricSource {
         BytesReceived
      */
 
-    private final LongAdderMetric connectionsInitiated =
-            new LongAdderMetric("connections.initiated", "Total initiated client connections");
+    private final AtomicLongMetric connectionsInitiated =
+            new AtomicLongMetric("connections.initiated", "Total initiated client connections");
 
-    private final LongAdderMetric sessionsAccepted =
-            new LongAdderMetric("sessions.accepted", "Total accepted client sessions");
+    private final AtomicLongMetric sessionsAccepted =
+            new AtomicLongMetric("sessions.accepted", "Total accepted client sessions");
 
-    private final LongAdderMetric sessionsRejected =
-            new LongAdderMetric("sessions.rejected", "Total rejected client sessions");
+    private final AtomicLongMetric sessionsActive =
+            new AtomicLongMetric("sessions.active", "Active client sessions");
+
+    private final AtomicLongMetric sessionsRejected =
+            new AtomicLongMetric("sessions.rejected", "Total rejected client sessions");
 
     private boolean enabled;
 
@@ -59,15 +63,19 @@ public class ClientHandlerMetricSource implements MetricSource {
         return SOURCE_NAME;
     }
 
-    public LongAdderMetric connectionsInitiated() {
+    public AtomicLongMetric connectionsInitiated() {
         return connectionsInitiated;
     }
 
-    public LongAdderMetric sessionsAccepted() {
+    public AtomicLongMetric sessionsAccepted() {
         return sessionsAccepted;
     }
 
-    public LongAdderMetric sessionsRejected() {
+    public AtomicLongMetric sessionsActive() {
+        return sessionsActive;
+    }
+
+    public AtomicLongMetric sessionsRejected() {
         return sessionsRejected;
     }
 

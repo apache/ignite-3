@@ -251,6 +251,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             write(packer, ctx);
 
             metrics.sessionsAccepted().increment();
+            metrics.sessionsActive().increment();
         } catch (Throwable t) {
             packer.close();
 
