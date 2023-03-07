@@ -711,6 +711,24 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         }
     }
 
+    @Test
+    void testCloseStartedRebalance() {
+        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
+
+        assertDoesNotThrow(mvPartitionStorage::close);
+    }
+
+    @Test
+    void testDestroyStartedRebalance() {
+        getOrCreateMvPartition(PARTITION_ID);
+
+        assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
+
+        assertThat(tableStorage.destroyPartition(PARTITION_ID), willCompleteSuccessfully());
+    }
+
     private static void createTestIndexes(TablesConfiguration tablesConfig) {
         List<IndexDefinition> indexDefinitions = List.of(
                 SchemaBuilders.sortedIndex(SORTED_INDEX_NAME)
