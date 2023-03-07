@@ -58,6 +58,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -568,7 +569,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 schemaManager,
                 null,
                 clock,
-                mock(OutgoingSnapshotsManager.class)
+                mock(OutgoingSnapshotsManager.class),
+                mock(TopologyAwareRaftGroupServiceFactory.class)
         );
 
         tableManager.start();

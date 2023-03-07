@@ -463,7 +463,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 storageUpdateHandler,
                                                 peer -> assignment.equals(peer.consistentId()),
                                                 CompletableFuture.completedFuture(schemaManager)
-                                        )
+                                        ),
+                                        raftSvc,
+                                        safeTime
                                 );
                             } catch (NodeStoppingException e) {
                                 fail("Unexpected node stopping", e);

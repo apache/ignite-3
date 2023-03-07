@@ -26,6 +26,7 @@ dependencies {
     implementation project(':ignite-raft-api')
     implementation project(':ignite-configuration')
     implementation project(':ignite-network-api')
+    implementation project(':ignite-placement-driver')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
 

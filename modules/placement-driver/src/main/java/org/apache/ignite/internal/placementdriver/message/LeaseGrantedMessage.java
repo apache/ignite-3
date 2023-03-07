@@ -27,6 +27,9 @@ import org.apache.ignite.network.annotations.Transferable;
 @Transferable(PlacementDriverMessageGroup.LEASE_GRANTED_MESSAGE)
 public interface LeaseGrantedMessage extends PlacementDriverReplicaMessage {
     @Marshallable
+    HybridTimestamp leaseStartTime();
+
+    @Marshallable
     HybridTimestamp leaseExpirationTime();
 
     boolean force();

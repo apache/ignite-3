@@ -891,7 +891,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     replicaMgr.startReplica(replicaGrpId,
                                             new PartitionReplicaListener(
                                                     partitionStorage,
-                                                    (TopologyAwareRaftGroupService) updatedRaftGroupService,
+                                                    updatedRaftGroupService,
                                                     txManager,
                                                     lockMgr,
                                                     scanRequestExecutor,
@@ -907,7 +907,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     storageUpdateHandler,
                                                     this::isLocalPeer,
                                                     schemaManager.schemaRegistry(causalityToken, tblId)
-                                            )
+                                            ),
+                                            updatedRaftGroupService,
+                                            safeTime
                                     );
                                 } catch (NodeStoppingException ex) {
                                     throw new AssertionError("Loza was stopped before Table manager", ex);
@@ -2059,7 +2061,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             replicaMgr.startReplica(replicaGrpId,
                                     new PartitionReplicaListener(
                                             mvPartitionStorage,
-                                            (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId),
+                                            internalTable.partitionRaftGroupService(partId),
                                             txManager,
                                             lockMgr,
                                             scanRequestExecutor,
@@ -2075,7 +2077,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             storageUpdateHandler,
                                             TableManager.this::isLocalPeer,
                                             completedFuture(schemaManager.schemaRegistry(tblId))
-                                    )
+                                    ),
+                                    internalTable.partitionRaftGroupService(partId),
+                                    safeTime
                             );
                         } catch (NodeStoppingException e) {
                             // no-op

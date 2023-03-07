@@ -29,7 +29,7 @@ public interface LeaseGrantedMessageResponse extends PlacementDriverReplicaMessa
     boolean accepted();
 
     @Marshallable
-    HybridTimestamp leaseValidUntil();
+    HybridTimestamp leaseExpirationTime();
 
     String redirectProposal();
 }

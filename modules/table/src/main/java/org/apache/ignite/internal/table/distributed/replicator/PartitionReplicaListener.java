@@ -46,7 +46,6 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -54,12 +53,9 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
-import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
-import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.command.HybridTimestampMessage;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -126,7 +122,6 @@ import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -161,7 +156,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final MvPartitionStorage mvDataStorage;
 
     /** Raft client. */
-    private final TopologyAwareRaftGroupService raftClient;
+    private final RaftGroupService raftClient;
 
     /** Tx manager. */
     private final TxManager txManager;
@@ -232,7 +227,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
-            TopologyAwareRaftGroupService raftClient,
+            RaftGroupService raftClient,
             TxManager txManager,
             LockManager lockManager,
             Executor scanRequestExecutor,
@@ -270,75 +265,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
-
-        raftClient.subscribeLeader(this::onLeaderElected);
-    }
-
-    CompletableFuture<AtomicReference<ClusterNode>> leaderFuture = new CompletableFuture<>();
-    AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
-    PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
-    volatile HybridTimestamp leaseExpirationTime = null;
-    final Object leaseAcceptanceMutex = new Object();
-
-    private void onLeaderElected(ClusterNode clusterNode, Long aLong) {
-        leaderRef.set(clusterNode);
-
-        if (!leaderFuture.isDone()) {
-            leaderFuture.complete(leaderRef);
-        }
-    }
-
-    private CompletableFuture<ClusterNode> leaderFuture() {
-        return leaderFuture.thenApply(AtomicReference::get);
-    }
-
-    private CompletableFuture<LeaseGrantedMessageResponse> processLeaseGrantedMessage(LeaseGrantedMessage msg) {
-        return leaderFuture().thenApply(leader -> {
-            if (msg.force()) {
-                LeaseGrantedMessageResponse resp = acceptLease(msg.leaseExpirationTime());
-
-                if (!leader.equals(localNode())) {
-                    raftClient.transferLeadership(new Peer(leader.name()));
-                }
-
-                return resp;
-            } else {
-                if (isPrimary() || leader.equals(localNode())) {
-                    return acceptLease(msg.leaseExpirationTime());
-                } else {
-                    return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                            .accepted(false)
-                            .redirectProposal(leader.name())
-                            .build();
-                }
-            }
-        });
-    }
-
-    private LeaseGrantedMessageResponse acceptLease(HybridTimestamp leaseExpirationTime) {
-        synchronized (leaseAcceptanceMutex) {
-            HybridTimestamp t = this.leaseExpirationTime;
-
-            if (t.compareTo(leaseExpirationTime) < 0) {
-                this.leaseExpirationTime = leaseExpirationTime;
-            }
-        }
-
-        return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                .accepted(true)
-                .build();
-    }
-
-    private ClusterNode localNode() {
-
-    }
-
-    // TODO use this in PartitionReplicaListener.invoke after IGNITE-18856 and IGNITE-18859 are done
-    private boolean isPrimary() {
-        HybridTimestamp leaseExpirationTime = this.leaseExpirationTime;
-        HybridTimestamp now = hybridClock.now();
-
-        return now.compareTo(leaseExpirationTime) < 0;
     }
 
     /** {@inheritDoc} */
