@@ -494,11 +494,11 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Checks that the node is primary in a passed timestamp.
+     * Checks that the node is primary and {@code timestamp} is already passed in the reference system of the current node.
      *
-     * @param isPrimary True is the node is primary, false otherwise.
+     * @param isPrimary True if the node is primary, false otherwise.
      * @param timestamp Timestamp to check.
-     * @return True if the timestamp is already come and node in primary, otherwise false.
+     * @return True if the timestamp is already passed in the reference system of the current node and node is primary, false otherwise.
      */
     private boolean isPrimaryInTimestamp(Boolean isPrimary, HybridTimestamp timestamp) {
         return isPrimary && hybridClock.now().compareTo(timestamp) > 0;
