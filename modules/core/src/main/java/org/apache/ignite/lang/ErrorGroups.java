@@ -99,6 +99,9 @@ public class ErrorGroups {
 
         /** Client SSL configuration error. */
         public static final int CLIENT_SSL_CONFIGURATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(9);
+
+        /** Client handshake header error. */
+        public static final int HANDSHAKE_HEADER_ERR = CLIENT_ERR_GROUP.registerErrorCode(10);
     }
 
     /** SQL error group. */

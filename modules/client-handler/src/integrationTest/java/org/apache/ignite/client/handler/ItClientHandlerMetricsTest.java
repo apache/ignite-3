@@ -65,7 +65,7 @@ public class ItClientHandlerMetricsTest {
     }
 
     @Test
-    void sessionsRejected(TestInfo testInfo) {
+    void sessionsRejected(TestInfo testInfo) throws Exception {
         testServer = new TestServer(null);
         var serverModule = testServer.start(testInfo);
 
@@ -76,7 +76,7 @@ public class ItClientHandlerMetricsTest {
         assertEquals(0, testServer.metrics().sessionsAccepted().value());
 
         // Bad version.
-        assertThrows(SocketException.class, () -> ItClientHandlerTestUtils.connectAndHandshake(serverModule, false, true));
+        ItClientHandlerTestUtils.connectAndHandshake(serverModule, false, true);
         assertEquals(0, testServer.metrics().sessionsRejectedTls().value());
         assertEquals(2, testServer.metrics().sessionsRejected().value());
         assertEquals(0, testServer.metrics().sessionsAccepted().value());

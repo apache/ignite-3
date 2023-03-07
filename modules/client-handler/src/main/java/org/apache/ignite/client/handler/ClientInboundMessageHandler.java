@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.HANDSHAKE_HEADER_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
@@ -26,6 +27,7 @@ import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.handler.codec.DecoderException;
 import java.util.BitSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -532,6 +534,14 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         if (cause instanceof SSLException || cause.getCause() instanceof SSLException) {
             metrics.sessionsRejectedTls().increment();
+        }
+
+        if (cause instanceof DecoderException && cause.getCause() instanceof IgniteException) {
+            var err = (IgniteException)cause.getCause();
+
+            if (err.code() == HANDSHAKE_HEADER_ERR) {
+                metrics.sessionsRejected().increment();
+            }
         }
 
         LOG.warn("Exception in client connector pipeline: " + cause.getMessage(), cause);
