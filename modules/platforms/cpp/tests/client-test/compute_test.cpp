@@ -43,6 +43,19 @@ protected:
         // remove all
     }
 
+    /**
+     * Get specific node.
+     * @param id Node id.
+     * @return Node.
+     */
+    cluster_node get_node(size_t id) {
+        auto nodes = m_client.get_cluster_nodes();
+        std::sort(nodes.begin(), nodes.end(), [] (const auto &n1, const auto &n2) {
+            return n1.get_name() < n2.get_name();
+        });
+        return nodes[id];
+    }
+
     /** Ignite client. */
     ignite_client m_client;
 };
@@ -75,4 +88,15 @@ TEST_F(compute_test, execute_on_random_node) {
 
     ASSERT_TRUE(result.has_value());
     EXPECT_THAT(result.value().get<std::string>(), ::testing::StartsWith(PLATFORM_TEST_NODE_RUNNER));
+}
+
+TEST_F(compute_test, execute_on_specific_node) {
+    auto res1 = m_client.get_compute().execute({get_node(0)}, NODE_NAME_JOB, {"-", 11});
+    auto res2 = m_client.get_compute().execute({get_node(1)}, NODE_NAME_JOB, {":", 22});
+
+    ASSERT_TRUE(res1.has_value());
+    ASSERT_TRUE(res2.has_value());
+
+    EXPECT_EQ(res1.value().get<std::string>(), PLATFORM_TEST_NODE_RUNNER + "-_11");
+    EXPECT_EQ(res2.value().get<std::string>(), PLATFORM_TEST_NODE_RUNNER + "_2:_22");
 }
