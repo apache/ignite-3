@@ -104,6 +104,8 @@ public class ClientHandlerModule implements IgniteComponent {
      * @param igniteCompute Compute.
      * @param clusterService Cluster.
      * @param bootstrapFactory Bootstrap factory.
+     * @param sql SQL.
+     * @param clusterIdSupplier ClusterId supplier.
      * @param clientHandlerMetricSource Metric source.
      */
     public ClientHandlerModule(
