@@ -25,8 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.net.Socket;
 import java.net.SocketException;
 import java.nio.file.Path;
 import java.security.KeyStore;
@@ -43,15 +41,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.msgpack.core.MessagePack;
 
 /** SSL client integration test. */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItSslClientHandlerTest {
-
-    /** Magic bytes. */
-    private static final byte[] MAGIC = {0x49, 0x47, 0x4E, 0x49};
-
     private ClientHandlerModule serverModule;
 
     private TestServer testServer;
@@ -110,6 +103,7 @@ public class ItSslClientHandlerTest {
         // Then
         assertThrows(SocketException.class, this::performAndCheckMagic);
 
+        // TODO: Separate test class for metrics.
         assertEquals(1, testServer.metrics().sessionsRejectedTls().value());
         assertEquals(0, testServer.metrics().sessionsRejected().value());
         assertEquals(0, testServer.metrics().sessionsAccepted().value());
@@ -130,38 +124,6 @@ public class ItSslClientHandlerTest {
     }
 
     private void performAndCheckMagic() throws IOException {
-        int serverPort = serverModule.localAddress().getPort();
-
-        try (var sock = new Socket("127.0.0.1", serverPort)) {
-            OutputStream out = sock.getOutputStream();
-
-            // Magic: IGNI
-            out.write(MAGIC);
-
-            // Handshake.
-            var packer = MessagePack.newDefaultBufferPacker();
-            packer.packInt(0);
-            packer.packInt(0);
-            packer.packInt(0);
-            packer.packInt(7); // Size.
-
-            packer.packInt(3); // Major.
-            packer.packInt(0); // Minor.
-            packer.packInt(0); // Patch.
-
-            packer.packInt(2); // Client type: general purpose.
-
-            packer.packBinaryHeader(0); // Features.
-            packer.packMapHeader(0); // Extensions.
-
-            out.write(packer.toByteArray());
-            out.flush();
-
-            // Read response.
-            var unpacker = MessagePack.newDefaultUnpacker(sock.getInputStream());
-            var magic = unpacker.readPayload(4);
-
-            assertArrayEquals(MAGIC, magic);
-        }
+        ItClientHandlerTestUtils.connectAndHandshake(serverModule);
     }
 }

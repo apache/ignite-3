@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.client.handler.ItClientHandlerTestUtils.MAGIC;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -40,9 +41,6 @@ import org.msgpack.core.MessagePack;
  * Client connector integration tests with real sockets.
  */
 public class ItClientHandlerTest {
-    /** Magic bytes. */
-    private static final byte[] MAGIC = {0x49, 0x47, 0x4E, 0x49};
-
     private ClientHandlerModule serverModule;
 
     private TestServer testServer;
