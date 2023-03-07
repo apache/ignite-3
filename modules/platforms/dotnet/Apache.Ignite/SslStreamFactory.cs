@@ -35,16 +35,12 @@ public sealed class SslStreamFactory : ISslStreamFactory
     public const SslProtocols DefaultSslProtocols = SslProtocols.None;
 
     /// <summary>
-    /// Gets or sets the certificate file (pfx) path.
-    /// <para />
-    /// Java certificates can be converted with <c>keytool</c>:
-    /// <c>keytool -importkeystore -srckeystore thekeystore.jks -srcstoretype JKS
-    /// -destkeystore thekeystore.pfx -deststoretype PKCS12</c>.
+    /// Gets or sets the certificate file path (see <see cref="X509Certificate2"/>).
     /// </summary>
     public string? CertificatePath { get; set; }
 
     /// <summary>
-    /// Gets or sets the certificate file password.
+    /// Gets or sets the certificate file password (see <see cref="X509Certificate2"/>).
     /// </summary>
     public string? CertificatePassword { get; set; }
 
