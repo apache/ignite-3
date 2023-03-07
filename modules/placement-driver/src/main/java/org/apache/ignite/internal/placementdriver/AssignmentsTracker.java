@@ -60,10 +60,7 @@ public class AssignmentsTracker {
     /** Metastorage manager. */
     private final MetaStorageManager msManager;
 
-    /**
-     * Configuration.
-     * TODO: The property is removed after assignments will moved to Metastorage.
-     */
+    /** Tables configuration. */
     private final TablesConfiguration tablesCfg;
 
     /** Map replication group id to assignment nodes. */

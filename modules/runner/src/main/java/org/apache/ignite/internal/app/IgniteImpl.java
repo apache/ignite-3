@@ -208,6 +208,7 @@ public class IgniteImpl implements Ignite {
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
 
+    // TODO: IGNITE-16985 Design table management flow
     // /** Placement driver manager. */
     //private final PlacementDriverManager placementDriverMgr;
 
@@ -402,6 +403,7 @@ public class IgniteImpl implements Ignite {
 
         TablesConfiguration tablesConfiguration = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
+        // TODO: IGNITE-16985 Design table management flow
         // placementDriverMgr = new PlacementDriverManager(
         //         metaStorageMgr,
         //         vaultMgr,

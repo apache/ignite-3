@@ -242,7 +242,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
             Lease leaseRenew = ByteUtils.fromBytes(fut.join().value());
 
-            return lease.getStopLeas().compareTo(leaseRenew.getStopLeas()) < 0;
+            return lease.getLeaseExpirationTime().compareTo(leaseRenew.getLeaseExpirationTime()) < 0;
 
         }, 10_000));
     }
@@ -262,7 +262,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
             Lease lease = ByteUtils.fromBytes(fut.join().value());
 
-            return lease.getStopLeas().compareTo(clock.now()) < 0;
+            return lease.getLeaseExpirationTime().compareTo(clock.now()) < 0;
 
         }, 10_000));
 
@@ -275,7 +275,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
             Lease lease = ByteUtils.fromBytes(fut.join().value());
 
-            return lease.getStopLeas().compareTo(clock.now()) > 0;
+            return lease.getLeaseExpirationTime().compareTo(clock.now()) > 0;
 
         }, 10_000));
     }

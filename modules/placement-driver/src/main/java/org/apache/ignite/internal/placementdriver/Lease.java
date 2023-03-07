@@ -29,8 +29,26 @@ public class Lease implements Serializable {
     /** A node that holds a lease until {@code stopLeas}. */
     private ClusterNode leaseholder;
 
-    /** Timestamp to finish the lease. */
-    private HybridTimestamp stopLeas;
+    /** Timestamp to expiration the lease. */
+    private HybridTimestamp leaseExpirationTime;
+
+    /**
+     * Default constructor.
+     */
+    public Lease() {
+        this(null, null);
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param leaseholder Lease holder.
+     * @param leaseExpirationTime Lease expiration timestamp.
+     */
+    public Lease(ClusterNode leaseholder, HybridTimestamp leaseExpirationTime) {
+        this.leaseholder = leaseholder;
+        this.leaseExpirationTime = leaseExpirationTime;
+    }
 
     /**
      * Get a leaseholder node.
@@ -51,28 +69,28 @@ public class Lease implements Serializable {
     }
 
     /**
-     * Gets a lease finis timestamp.
+     * Gets a lease expiration timestamp.
      *
-     * @return Lease finish timestamp or {@code null} if nothing holds the lease.
+     * @return Lease expiration timestamp or {@code null} if nothing holds the lease.
      */
-    public HybridTimestamp getStopLeas() {
-        return stopLeas;
+    public HybridTimestamp getLeaseExpirationTime() {
+        return leaseExpirationTime;
     }
 
     /**
-     * Sets a lease stop timestamp.
+     * Sets a lease expiration timestamp.
      *
-     * @param stopLeas Lease stop timestamp.
+     * @param leaseExpirationTime Lease expiration timestamp.
      */
-    public void setStopLeas(HybridTimestamp stopLeas) {
-        this.stopLeas = stopLeas;
+    public void setLeaseExpirationTime(HybridTimestamp leaseExpirationTime) {
+        this.leaseExpirationTime = leaseExpirationTime;
     }
 
     @Override
     public String toString() {
-        return "ReplicationGroup{"
-                + "leaseHolder=" + leaseholder
-                + ", stopLeas=" + stopLeas
+        return "Lease {"
+                + "leaseholder=" + leaseholder
+                + ", leaseExpirationTime=" + leaseExpirationTime
                 + '}';
     }
 }

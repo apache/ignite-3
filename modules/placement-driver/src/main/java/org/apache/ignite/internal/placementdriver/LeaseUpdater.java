@@ -42,18 +42,23 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterNode;
 
 /**
- * A processor to manger leases.
- * The process is started when placement driver activates and stopped when it deactivates.
+ * A processor to manger leases. The process is started when placement driver activates and stopped when it deactivates.
  */
 public class LeaseUpdater {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(LeaseUpdater.class);
 
+    /**
+     * Cluster cLock skew.
+     * TODO: IGNITE-18978 Method to comparison timestamps with clock skew.
+     */
+    private static final long CLOCK_SKEW = 7L;
+
     /** Update attempts interval in milliseconds. */
     private static final long UPDATE_LEASE_MS = 200L;
 
     /** Lease holding interval. */
-    public static final long LEASE_PERIOD = 10 * UPDATE_LEASE_MS;
+    private static final long LEASE_PERIOD = 10 * UPDATE_LEASE_MS;
 
     /** Metastorage manager. */
     private final MetaStorageManager msManager;
@@ -70,11 +75,14 @@ public class LeaseUpdater {
     /** Cluster clock. */
     private final HybridClock clock;
 
-    /** Node name. */
-    private String nodeName;
+    /** Closure to update leases. */
+    private final Updater updater;
 
     /** Dedicated thread to update leases. */
-    private Thread updaterTread;
+    private volatile Thread updaterTread;
+
+    /** Node name. */
+    private String nodeName;
 
     /**
      * The constructor.
@@ -100,6 +108,7 @@ public class LeaseUpdater {
 
         this.assignmentsTracker = new AssignmentsTracker(vaultManager, msManager, tablesConfiguration);
         this.topologyTracker = new TopologyTracker(topologyService);
+        this.updater = new Updater();
     }
 
     /**
@@ -125,52 +134,78 @@ public class LeaseUpdater {
      */
     public void activate() {
         //TODO: IGNITE-18879 Implement lease maintenance.
-        updaterTread = new Thread(NamedThreadFactory.threadPrefix(nodeName, "lease-updater")) {
-            @Override
-            public void run() {
-                while (!isInterrupted()) {
-                    for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : assignmentsTracker.assignments().entrySet()) {
-                        ReplicationGroupId grpId = entry.getKey();
-
-                        Lease lease = leaseTracker.getLease(grpId);
-
-                        HybridTimestamp now = clock.now();
-
-                        if (lease.getStopLeas() == null || now.getPhysical() > (lease.getStopLeas().getPhysical() - LEASE_PERIOD / 2)) {
-                            var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
-
-                            var newTs = new HybridTimestamp(now.getPhysical() + LEASE_PERIOD, 0);
-
-                            ClusterNode holder = nextLeaseHolder(entry.getValue());
-
-                            if (lease.getLeaseholder() == null && holder != null
-                                    || lease.getLeaseholder() != null && lease.getLeaseholder().equals(holder)
-                                    || holder != null && (lease.getStopLeas() == null || now.getPhysical() > lease.getStopLeas().getPhysical())) {
-                                byte[] leaseRaw = ByteUtils.toBytes(lease);
-
-                                Lease renewedLease = new Lease();
-                                renewedLease.setStopLeas(newTs);
-                                renewedLease.setLeaseholder(holder);
-
-                                msManager.invoke(
-                                        or(notExists(leaseKey), value(leaseKey).eq(leaseRaw)),
-                                        put(leaseKey, ByteUtils.toBytes(renewedLease)),
-                                        noop()
-                                );
-                            }
-                        }
-                    }
-
-                    try {
-                        Thread.sleep(UPDATE_LEASE_MS);
-                    } catch (InterruptedException e) {
-                        LOG.warn("Lease updater is interrupted");
-                    }
-                }
-            }
-        };
+        updaterTread = new Thread(updater, NamedThreadFactory.threadPrefix(nodeName, "lease-updater"));
 
         updaterTread.start();
+    }
+
+    /**
+     * Runnable to update lease in Metastorage.
+     */
+    private class Updater implements Runnable {
+        @Override
+        public void run() {
+            while (!updaterTread.isInterrupted()) {
+                for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : assignmentsTracker.assignments().entrySet()) {
+                    ReplicationGroupId grpId = entry.getKey();
+
+                    Lease lease = leaseTracker.getLease(grpId);
+
+                    HybridTimestamp now = clock.now();
+
+                    // Nothing holds the lease.
+                    if (lease.getLeaseExpirationTime() == null
+                            // The lease is near to expiration.
+                            || now.getPhysical() > (lease.getLeaseExpirationTime().getPhysical() - LEASE_PERIOD / 2)) {
+                        var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
+
+                        var newTs = new HybridTimestamp(now.getPhysical() + LEASE_PERIOD, 0);
+
+                        ClusterNode candidate = nextLeaseHolder(entry.getValue());
+
+                        // Now nothing is holding the lease, and new lease is being granted.
+                        if (lease.getLeaseholder() == null && candidate != null
+                                // The lease is prolongation
+                                || lease.getLeaseholder() != null && lease.getLeaseholder().equals(candidate)
+                                // New lease is being granted, and the previous lease is expired.
+                                || candidate != null && (lease.getLeaseExpirationTime() == null
+                                || compareWithClockSkew(now, lease.getLeaseExpirationTime()) > 0)) {
+                            byte[] leaseRaw = ByteUtils.toBytes(lease);
+
+                            Lease renewedLease = new Lease(candidate, newTs);
+
+                            msManager.invoke(
+                                    or(notExists(leaseKey), value(leaseKey).eq(leaseRaw)),
+                                    put(leaseKey, ByteUtils.toBytes(renewedLease)),
+                                    noop()
+                            );
+                        }
+                    }
+                }
+
+                try {
+                    Thread.sleep(UPDATE_LEASE_MS);
+                } catch (InterruptedException e) {
+                    LOG.warn("Lease updater is interrupted");
+                }
+            }
+        }
+    }
+
+    /**
+     * Compares two timestamps with the clock skew.
+     * TODO: IGNITE-18978 Method to comparison timestamps with clock skew.
+     *
+     * @param ts1 First timestamp.
+     * @param ts2 Second timestamp.
+     * @return Result of comparison.
+     */
+    private static int compareWithClockSkew(HybridTimestamp ts1, HybridTimestamp ts2) {
+        if (ts1.getPhysical() - CLOCK_SKEW < ts2.getPhysical() && ts1.getPhysical() + CLOCK_SKEW < ts2.getPhysical()) {
+            return 0;
+        }
+
+        return ts1.compareTo(ts2);
     }
 
     /**
