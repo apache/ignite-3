@@ -1076,15 +1076,15 @@ public class NodeImpl implements Node, RaftServerService {
 
             fsmCaller.onCommitted(commitIdx);
 
-            try {
-                applyCommitLatch.await();
+//            try {
+//                applyCommitLatch.await();
 
                 fsmCaller.removeLastAppliedLogIndexListener(lnsr);
-            } catch (InterruptedException e) {
-                LOG.error("Fail to apply committed updates.", e);
-
-                return false;
-            }
+//            } catch (InterruptedException e) {
+//                LOG.error("Fail to apply committed updates.", e);
+//
+//                return false;
+//            }
         }
 
         if (!this.rpcClientService.init(this.options)) {
