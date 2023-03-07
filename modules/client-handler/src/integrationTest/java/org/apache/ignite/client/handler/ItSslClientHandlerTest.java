@@ -109,7 +109,10 @@ public class ItSslClientHandlerTest {
 
         // Then
         assertThrows(SocketException.class, this::performAndCheckMagic);
+
         assertEquals(1, testServer.metrics().sessionsRejectedTls().value());
+        assertEquals(0, testServer.metrics().sessionsRejected().value());
+        assertEquals(0, testServer.metrics().sessionsAccepted().value());
     }
 
     @Test
