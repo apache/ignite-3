@@ -48,6 +48,8 @@ public class TestServer {
 
     private final TestSslConfig testSslConfig;
 
+    private final ClientHandlerMetricSource metrics = new ClientHandlerMetricSource();
+
     TestServer(@Nullable TestSslConfig testSslConfig) {
         this.testSslConfig = testSslConfig;
         this.configurationManager = new ConfigurationManager(
@@ -92,11 +94,15 @@ public class TestServer {
 
         var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTablesInternal.class), mock(IgniteTransactions.class),
                 registry, mock(IgniteCompute.class), clusterService, bootstrapFactory, mock(IgniteSql.class),
-                () -> CompletableFuture.completedFuture(UUID.randomUUID()), new ClientHandlerMetricSource());
+                () -> CompletableFuture.completedFuture(UUID.randomUUID()), metrics);
 
         module.start();
 
         return module;
+    }
+
+    ClientHandlerMetricSource metrics() {
+        return metrics;
     }
 
     private ClientConnectorConfiguration clientConnectorConfig() {

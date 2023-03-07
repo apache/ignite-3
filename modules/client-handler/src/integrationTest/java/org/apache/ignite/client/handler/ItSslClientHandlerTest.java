@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.netty.handler.ssl.util.SelfSignedCertificate;
@@ -108,6 +109,7 @@ public class ItSslClientHandlerTest {
 
         // Then
         assertThrows(SocketException.class, this::performAndCheckMagic);
+        assertEquals(1, testServer.metrics().sessionsRejectedTls().value());
     }
 
     @Test
