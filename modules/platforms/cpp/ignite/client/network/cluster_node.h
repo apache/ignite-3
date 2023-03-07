@@ -73,6 +73,25 @@ public:
         return m_address;
     }
 
+    /**
+     * Compare to another instance.
+     *
+     * @param other Another instance.
+     * @return Negative value if less, positive if larger and zero, if equals
+     *   another instance.
+     */
+    [[nodiscard]] int compare(const cluster_node &other) const {
+        auto name_comp = m_name.compare(other.m_name);
+        if (name_comp)
+            return name_comp;
+
+        auto id_comp = m_id.compare(other.m_id);
+        if (id_comp)
+            return id_comp;
+
+        return m_address.compare(other.m_address);
+    }
+
 private:
     /** Local ID. */
     std::string m_id{};
@@ -83,5 +102,71 @@ private:
     /** Address. */
     network::end_point m_address{};
 };
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if equal.
+ */
+inline bool operator==(const cluster_node &val1, const cluster_node &val2) {
+    return val1.compare(val2) == 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if not equal.
+ */
+inline bool operator!=(const cluster_node &val1, const cluster_node &val2) {
+    return !(val1 == val2);
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if less.
+ */
+inline bool operator<(const cluster_node &val1, const cluster_node &val2) {
+    return val1.compare(val2) < 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if less or equal.
+ */
+inline bool operator<=(const cluster_node &val1, const cluster_node &val2) {
+    return val1.compare(val2) <= 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if greater.
+ */
+inline bool operator>(const cluster_node &val1, const cluster_node &val2) {
+    return val1.compare(val2) > 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if greater or equal.
+ */
+inline bool operator>=(const cluster_node &val1, const cluster_node &val2) {
+    return val1.compare(val2) >= 0;
+}
 
 } // namespace ignite

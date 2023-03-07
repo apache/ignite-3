@@ -100,3 +100,5 @@ TEST_F(compute_test, execute_on_specific_node) {
     EXPECT_EQ(res1.value().get<std::string>(), PLATFORM_TEST_NODE_RUNNER + "-_11");
     EXPECT_EQ(res2.value().get<std::string>(), PLATFORM_TEST_NODE_RUNNER + "_2:_22");
 }
+
+

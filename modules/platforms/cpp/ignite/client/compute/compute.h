@@ -25,6 +25,9 @@
 
 #include <memory>
 #include <utility>
+#include <vector>
+#include <map>
+#include <set>
 
 namespace ignite {
 
@@ -61,12 +64,39 @@ public:
      * @param args Job arguments.
      * @return Job execution result.
      */
-    IGNITE_API std::optional<primitive> execute(std::vector<cluster_node> nodes, std::string_view job_class_name,
-        const std::vector<primitive>& args) {
-        return sync<std::optional<primitive>>(
-            [this, nodes = std::move(nodes), job_class_name, args](auto callback) mutable {
-            execute_async(std::move(nodes), job_class_name, args, std::move(callback));
+    IGNITE_API std::optional<primitive> execute(
+        const std::vector<cluster_node>& nodes, std::string_view job_class_name, const std::vector<primitive>& args) {
+        return sync<std::optional<primitive>>([this, nodes, job_class_name, args](auto callback) mutable {
+            execute_async(nodes, job_class_name, args, std::move(callback));
         });
+    }
+
+    /**
+     * Executes a compute job represented by the given class on all of the specified nodes asynchronously.
+     *
+     * @param nodes Nodes to use for the job execution.
+     * @param job_class_name Java class name of the job to execute.
+     * @param args Job arguments.
+     * @param callback A callback called on operation completion with jobs execution result.
+     */
+    IGNITE_API void broadcast_async(const std::set<cluster_node>& nodes, std::string_view job_class_name,
+        const std::vector<primitive>& args,
+        ignite_callback<std::map<cluster_node, ignite_result<std::optional<primitive>>>> callback);
+
+    /**
+     * Executes a compute job represented by the given class on one of the specified nodes.
+     *
+     * @param nodes Nodes to use for the job execution.
+     * @param job_class_name Java class name of the job to execute.
+     * @param args Job arguments.
+     * @return Job execution result.
+     */
+    IGNITE_API std::map<cluster_node, ignite_result<std::optional<primitive>>> broadcast(
+        const std::set<cluster_node>& nodes, std::string_view job_class_name, const std::vector<primitive>& args) {
+        return sync<std::map<cluster_node, ignite_result<std::optional<primitive>>>>(
+            [this, nodes, job_class_name, args](auto callback) mutable {
+                broadcast_async(nodes, job_class_name, args, std::move(callback));
+            });
     }
 
 private:

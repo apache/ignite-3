@@ -49,6 +49,38 @@ void inline check_non_empty(const T &cont, const std::string& title) {
         throw ignite_error(title + " can not be empty");
 }
 
+void compute::broadcast_async(const std::set<cluster_node>& nodes, std::string_view job_class_name,
+    const std::vector<primitive>& args,
+    ignite_callback<std::map<cluster_node, ignite_result<std::optional<primitive>>>> callback) {
+    typedef std::map<cluster_node, ignite_result<std::optional<primitive>>> result_type;
+
+    check_non_empty(nodes, "Nodes set");
+    check_non_empty(job_class_name, "Job class name");
+
+    struct result_group {
+        explicit result_group(std::int32_t cnt, ignite_callback<result_type> &&cb) : m_cnt(cnt), m_callback(cb) {}
+
+        std::mutex m_mutex;
+        result_type m_res_map;
+        ignite_callback<result_type> m_callback;
+        std::int32_t m_cnt{0};
+    };
+
+    auto shared_res = std::make_shared<result_group>(std::int32_t(nodes.size()), std::move(callback));
+
+    for (const auto &node : nodes) {
+        m_impl->execute_on_one_node(node, job_class_name, args, [node, shared_res](auto &&res) {
+            auto &val = *shared_res;
+
+            std::lock_guard<std::mutex> lock(val.m_mutex);
+            val.m_res_map.emplace(node, res);
+            --val.m_cnt;
+            if (val.m_cnt == 0)
+                val.m_callback(std::move(val.m_res_map));
+        });
+    }
+}
+
 void compute::execute_async(const std::vector<cluster_node>& nodes, std::string_view job_class_name,
     const std::vector<primitive>& args, ignite_callback<std::optional<primitive>> callback) {
     check_non_empty(nodes, "Nodes container");
