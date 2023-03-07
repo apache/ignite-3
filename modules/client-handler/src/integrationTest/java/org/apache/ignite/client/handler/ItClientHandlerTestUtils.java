@@ -37,13 +37,19 @@ class ItClientHandlerTestUtils {
     static final byte[] MAGIC = {0x49, 0x47, 0x4E, 0x49};
 
     static void connectAndHandshake(ClientHandlerModule serverModule) throws IOException {
+        connectAndHandshake(serverModule, false, false);
+    }
+
+    static void connectAndHandshake(ClientHandlerModule serverModule, boolean skipMagic, boolean badVersion) throws IOException {
         int serverPort = serverModule.localAddress().getPort();
 
         try (var sock = new Socket("127.0.0.1", serverPort)) {
             OutputStream out = sock.getOutputStream();
 
             // Magic: IGNI
-            out.write(MAGIC);
+            if (!skipMagic) {
+                out.write(MAGIC);
+            }
 
             // Handshake.
             var packer = MessagePack.newDefaultBufferPacker();
@@ -52,7 +58,7 @@ class ItClientHandlerTestUtils {
             packer.packInt(0);
             packer.packInt(7); // Size.
 
-            packer.packInt(3); // Major.
+            packer.packInt(badVersion ? 42 : 3); // Major.
             packer.packInt(0); // Minor.
             packer.packInt(0); // Patch.
 
