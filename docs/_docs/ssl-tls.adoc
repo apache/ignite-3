@@ -88,6 +88,30 @@ var url =
 
 == Client Configuration
 
+== Java
+
+To enable SSL in your Java clients, use the `IgniteClient` class and pass the ssl configuration to it:
+
+[source,Java]
+----
+var sslConfiguration = SslConfiguration.builder()
+                        .enabled(true)
+                        .trustStoreType("JKS")
+                        .trustStorePath(trustStorePath)
+                        .trustStorePassword(password)
+                        .clientAuth(REQUIRE)
+                        .keyStorePath(keyStorePath)
+                        .keyStorePassword(password)
+                        .build();
+
+try (IgniteClient client = IgniteClient.builder()
+    .addresses("localhost:10800")
+    .ssl(sslConfiguration)
+    .build()
+)
+----
+
+
 === .NET
 
 Add the `IgniteClientConfiguration.SslStreamFactory` property of type `ISslStreamFactory`.
@@ -105,7 +129,7 @@ var cfg = new IgniteClientConfiguration { SslStreamFactory = new() }
 
 == CLI
 
-You can enable SSL on the CLI side using the `cli config set` command:
+To SSL on the CLI side, use the `cli config set` command:
 
 [source,shell]
 ----
@@ -115,6 +139,7 @@ cli config set cli.trust-store.password=<password>
 ----
 
 Store the CLI security configuration in a separate file with permission settings that protect it from unauthorized read/write operations. This configuration file must match profiles from the common configuration file.
+
 
 == Network Configuration
 
