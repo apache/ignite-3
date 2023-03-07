@@ -39,6 +39,8 @@ import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleContainer;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
@@ -111,9 +113,7 @@ public class ClientTableCommon {
             return;
         }
 
-        var schema = ((SchemaAware) tuple).schema();
-
-        writeTuple(packer, tuple, schema, false, part);
+        writeTuple(packer, tuple, false, part);
     }
 
     /**
@@ -121,40 +121,36 @@ public class ClientTableCommon {
      *
      * @param packer     Packer.
      * @param tuple      Tuple.
-     * @param schema     Tuple schema.
      * @param skipHeader Whether to skip the tuple header.
      * @param part       Which part of tuple to write.
      * @throws IgniteException on failed serialization.
      */
-    public static void writeTuple(
+    private static void writeTuple(
             ClientMessagePacker packer,
             Tuple tuple,
-            SchemaDescriptor schema,
             boolean skipHeader,
             TuplePart part
     ) {
         assert tuple != null;
+        assert tuple instanceof SchemaAware : "Tuple must be a SchemaAware: " + tuple.getClass();
+        assert part != TuplePart.VAL : "TuplePart.VAL is not supported";
+
+        var schema = ((SchemaAware) tuple).schema();
+
+        assert schema != null : "Schema must not be null: " + tuple.getClass();
 
         if (!skipHeader) {
             packer.packInt(schema.version());
         }
 
-        // TODO IGNITE-17636 Avoid conversion, copy BinaryTuple from storage to client.
-        var builder = new BinaryTupleBuilder(columnCount(schema, part), true);
+        assert tuple instanceof BinaryTupleContainer : "Tuple must be a BinaryTupleContainer: " + tuple.getClass();
 
-        if (part != TuplePart.VAL) {
-            for (var col : schema.keyColumns().columns()) {
-                writeColumnValue(builder, tuple, col);
-            }
-        }
+        BinaryTuple binaryTuple = ((BinaryTupleContainer) tuple).binaryTuple();
 
-        if (part != TuplePart.KEY) {
-            for (var col : schema.valueColumns().columns()) {
-                writeColumnValue(builder, tuple, col);
-            }
-        }
+        assert binaryTuple != null : "Binary tuple must not be null: " + tuple.getClass();
 
-        packer.packBinaryTuple(builder);
+        int elementCount = part == TuplePart.KEY ? schema.keyColumns().length() : -1;
+        packer.packBinaryTuple(binaryTuple, elementCount);
     }
 
     /**
@@ -206,7 +202,7 @@ public class ClientTableCommon {
             assert tuple != null;
             assert schema.version() == ((SchemaAware) tuple).schema().version();
 
-            writeTuple(packer, tuple, schema, skipHeader, part);
+            writeTuple(packer, tuple, skipHeader, part);
         }
     }
 
@@ -247,7 +243,7 @@ public class ClientTableCommon {
             assert schema.version() == ((SchemaAware) tuple).schema().version();
 
             packer.packBoolean(true);
-            writeTuple(packer, tuple, schema, skipHeader, part);
+            writeTuple(packer, tuple, skipHeader, part);
         }
     }
 
@@ -260,6 +256,7 @@ public class ClientTableCommon {
      * @return Tuple.
      */
     public static Tuple readTuple(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) {
+        // TODO IGNITE-18925: Read BinaryTuple as Row, avoid unnecessary back and forth conversion.
         SchemaDescriptor schema = readSchema(unpacker, table);
 
         return readTuple(unpacker, keyOnly, schema);
@@ -556,7 +553,6 @@ public class ClientTableCommon {
     private static int columnCount(SchemaDescriptor schema, TuplePart part) {
         switch (part) {
             case KEY: return schema.keyColumns().length();
-            case VAL: return schema.valueColumns().length();
             default: return schema.length();
         }
     }

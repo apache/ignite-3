@@ -52,9 +52,11 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -63,6 +65,7 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
+import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
@@ -89,6 +92,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
@@ -160,6 +164,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private static ClusterManagementConfiguration clusterManagementConfiguration;
+
+    @InjectConfiguration
+    private static SecurityConfiguration securityConfiguration;
 
     private final List<String> clusterNodesNames = new ArrayList<>();
 
@@ -270,14 +277,17 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+        var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
+        distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
+
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
                 clusterSvc,
                 raftMgr,
                 clusterStateStorage,
                 logicalTopology,
-                clusterManagementConfiguration
-        );
+                clusterManagementConfiguration,
+                distributedConfigurationUpdater);
 
         var metaStorageMgr = new MetaStorageManagerImpl(
                 vault,
@@ -370,6 +380,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 replicaMgr,
                 txManager,
                 metaStorageMgr,
+                distributedConfigurationUpdater,
                 clusterCfgMgr,
                 dataStorageManager,
                 schemaManager,
@@ -529,7 +540,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         if (initNeeded) {
             String nodeName = clusterNodesNames.get(0);
 
-            IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
+            InitParameters initParameters = InitParameters.builder()
+                    .destinationNodeName(nodeName)
+                    .metaStorageNodeNames(List.of(nodeName))
+                    .clusterName("cluster")
+                    .build();
+            IgnitionManager.init(initParameters);
         }
 
         assertThat(future, willCompleteSuccessfully());
@@ -585,7 +601,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         if (initNeeded) {
             String nodeName = clusterNodesNames.get(0);
 
-            IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
+            InitParameters initParameters = InitParameters.builder()
+                    .destinationNodeName(nodeName)
+                    .metaStorageNodeNames(List.of(nodeName))
+                    .clusterName("cluster")
+                    .build();
+            IgnitionManager.init(initParameters);
         }
 
         return futures.stream()
@@ -898,6 +919,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * metastorage group starts again.
      */
     @Test
+    @Disabled(value = "https://issues.apache.org/jira/browse/IGNITE-18919")
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
     public void testMetastorageStop() throws InterruptedException {
         int cfgGap = 4;
@@ -972,6 +994,25 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         checkTableWithData(newNode, "t1");
         checkTableWithData(newNode, "t2");
+    }
+
+    /**
+     * The test for updating cluster configuration with the default value.
+     * Check that new nodes will be able to synchronize the local cluster configuration.
+     */
+    @Test
+    public void updateClusterCfgWithDefaultValue() {
+        IgniteImpl ignite = startNode(0);
+
+        RocksDbStorageEngineConfiguration dbStorageEngineConfiguration = ignite.clusterConfiguration()
+                .getConfiguration(RocksDbStorageEngineConfiguration.KEY);
+        int defaultValue = dbStorageEngineConfiguration.flushDelayMillis().value();
+        CompletableFuture<Void> update = dbStorageEngineConfiguration.flushDelayMillis().update(defaultValue);
+        assertThat(update, willCompleteSuccessfully());
+
+        stopNode(0);
+
+        startNodes(3);
     }
 
     /**

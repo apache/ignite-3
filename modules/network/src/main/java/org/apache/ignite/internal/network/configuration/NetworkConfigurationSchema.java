@@ -76,5 +76,6 @@ public class NetworkConfigurationSchema {
 
     /** SSL configuration.*/
     @ConfigValue
+    @SslConfigurationValidator
     public SslConfigurationSchema ssl;
 }

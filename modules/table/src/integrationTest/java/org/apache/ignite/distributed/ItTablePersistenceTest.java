@@ -373,7 +373,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
 
-                    StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(0, partitionDataStorage, Map::of);
+                    StorageUpdateHandler storageUpdateHandler =
+                            new StorageUpdateHandler(0, partitionDataStorage, Map::of, tableCfg.dataStorage());
 
                     PartitionListener listener = new PartitionListener(
                             partitionDataStorage,

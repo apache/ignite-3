@@ -244,8 +244,26 @@ namespace Apache.Ignite.Tests.Transactions
             Assert.IsFalse(res.HasValue);
         }
 
+        [Test]
+        public async Task TestReadOnlyTxAttributes()
+        {
+            await using var tx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
+
+            Assert.IsTrue(tx.IsReadOnly);
+        }
+
+        [Test]
+        public async Task TestReadWriteTxAttributes()
+        {
+            await using var tx = await Client.Transactions.BeginAsync();
+
+            Assert.IsFalse(tx.IsReadOnly);
+        }
+
         private class CustomTx : ITransaction
         {
+            public bool IsReadOnly => false;
+
             public ValueTask DisposeAsync()
             {
                 return new ValueTask(Task.CompletedTask);

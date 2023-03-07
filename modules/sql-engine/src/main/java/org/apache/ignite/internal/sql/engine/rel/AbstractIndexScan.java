@@ -57,7 +57,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
      *
      * @param input Serialized representation.
      */
-    protected AbstractIndexScan(RelInput input) {
+    AbstractIndexScan(RelInput input) {
         super(input);
         idxName = input.getString("index");
         type = input.getEnum("type", IgniteIndex.Type.class);

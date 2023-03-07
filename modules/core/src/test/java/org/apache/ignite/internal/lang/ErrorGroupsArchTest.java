@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.lang;
 
-import com.tngtech.archunit.base.Optional;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaField;
 import com.tngtech.archunit.core.importer.Location;
@@ -30,6 +29,7 @@ import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.Set;
 import org.apache.ignite.internal.lang.ErrorGroupsArchTest.CoreLocationProvider;
 import org.apache.ignite.lang.ErrorGroups;

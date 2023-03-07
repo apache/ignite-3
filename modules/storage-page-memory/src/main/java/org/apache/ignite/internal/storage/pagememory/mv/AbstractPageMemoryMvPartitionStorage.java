@@ -751,11 +751,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param goingToDestroy If the closure is in preparation for destruction.
      */
     private void close(boolean goingToDestroy) {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
-            StorageState state = this.state.get();
+        StorageState previous = state.getAndSet(StorageState.CLOSED);
 
-            assert state == StorageState.CLOSED : IgniteStringFormatter.format("{}, state={}", createStorageInfo(), state);
-
+        if (previous == StorageState.CLOSED) {
             return;
         }
 

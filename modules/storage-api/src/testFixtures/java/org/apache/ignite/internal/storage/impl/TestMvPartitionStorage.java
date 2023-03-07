@@ -259,7 +259,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         });
     }
 
-    private VersionChain resolveCommittedVersionChain(VersionChain committedVersionChain) {
+    private @Nullable VersionChain resolveCommittedVersionChain(VersionChain committedVersionChain) {
         VersionChain nextChain = committedVersionChain.next;
 
         if (nextChain != null) {
@@ -271,6 +271,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             // Calling it from the compute is fine. Concurrent writes of the same row are impossible, and if we call the compute closure
             // several times, the same tuple will be inserted into the GC queue (timestamp and rowId don't change in this case).
             gcQueue.add(committedVersionChain);
+        } else {
+            if (committedVersionChain.row == null) {
+                // If there is only one version, and it is a tombstone, then remove the chain.
+                return null;
+            }
         }
 
         return committedVersionChain;
@@ -546,8 +551,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void close() {
-        assert !rebalance;
-
         closed = true;
 
         clear0();

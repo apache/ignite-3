@@ -45,7 +45,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
 
 /** Dynamic parameters checks. */
-public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
+public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
     private static final ThreadLocalRandom RND = ThreadLocalRandom.current();
 
     @BeforeEach

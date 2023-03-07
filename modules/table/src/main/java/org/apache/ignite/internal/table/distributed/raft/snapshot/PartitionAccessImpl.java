@@ -17,19 +17,19 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
-import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
+import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -48,9 +48,11 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     private final TxStateTableStorage txStateTableStorage;
 
-    private final Supplier<Collection<TableSchemaAwareIndexStorage>> indexes;
-
     private final RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
+
+    private final StorageUpdateHandler storageUpdateHandler;
+
+    private final MvGc mvGc;
 
     /**
      * Constructor.
@@ -58,18 +60,21 @@ public class PartitionAccessImpl implements PartitionAccess {
      * @param partitionKey Partition key.
      * @param mvTableStorage Multi version table storage.
      * @param txStateTableStorage Table transaction state storage.
-     * @param indexes Index storages supplier.
+     * @param storageUpdateHandler Storage update handler.
+     * @param mvGc Garbage collector for multi-versioned storages and their indexes in the background.
      */
     public PartitionAccessImpl(
             PartitionKey partitionKey,
             MvTableStorage mvTableStorage,
             TxStateTableStorage txStateTableStorage,
-            Supplier<Collection<TableSchemaAwareIndexStorage>> indexes
+            StorageUpdateHandler storageUpdateHandler,
+            MvGc mvGc
     ) {
         this.partitionKey = partitionKey;
         this.mvTableStorage = mvTableStorage;
         this.txStateTableStorage = txStateTableStorage;
-        this.indexes = indexes;
+        this.storageUpdateHandler = storageUpdateHandler;
+        this.mvGc = mvGc;
     }
 
     @Override
@@ -119,7 +124,7 @@ public class PartitionAccessImpl implements PartitionAccess {
         mvPartitionStorage.runConsistently(() -> {
             mvPartitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
 
-            addToIndexes(row, rowId);
+            storageUpdateHandler.addToIndexes(row, rowId);
 
             return null;
         });
@@ -132,7 +137,7 @@ public class PartitionAccessImpl implements PartitionAccess {
         mvPartitionStorage.runConsistently(() -> {
             mvPartitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
 
-            addToIndexes(row, rowId);
+            storageUpdateHandler.addToIndexes(row, rowId);
 
             return null;
         });
@@ -173,14 +178,15 @@ public class PartitionAccessImpl implements PartitionAccess {
     @Override
     public CompletableFuture<Void> startRebalance() {
         // TODO: IGNITE-18619 Fix it, we should have already waited for the indexes to be created
-        indexes.get();
+        storageUpdateHandler.waitIndexes();
 
         TxStateStorage txStateStorage = getTxStateStorage(partitionId());
 
-        return CompletableFuture.allOf(
-                mvTableStorage.startRebalancePartition(partitionId()),
-                txStateStorage.startRebalance()
-        );
+        return mvGc.removeStorage(toTablePartitionId(partitionKey))
+                .thenCompose(unused -> CompletableFuture.allOf(
+                        mvTableStorage.startRebalancePartition(partitionId()),
+                        txStateStorage.startRebalance()
+                ));
     }
 
     @Override
@@ -190,7 +196,7 @@ public class PartitionAccessImpl implements PartitionAccess {
         return CompletableFuture.allOf(
                 mvTableStorage.abortRebalancePartition(partitionId()),
                 txStateStorage.abortRebalance()
-        );
+        ).thenAccept(unused -> mvGc.addStorage(toTablePartitionId(partitionKey), storageUpdateHandler));
     }
 
     @Override
@@ -202,7 +208,7 @@ public class PartitionAccessImpl implements PartitionAccess {
         return CompletableFuture.allOf(
                 mvTableStorage.finishRebalancePartition(partitionId(), lastAppliedIndex, lastAppliedTerm, configBytes),
                 txStateStorage.finishRebalance(lastAppliedIndex, lastAppliedTerm)
-        );
+        ).thenAccept(unused -> mvGc.addStorage(toTablePartitionId(partitionKey), storageUpdateHandler));
     }
 
     private MvPartitionStorage getMvPartitionStorage(int partitionId) {
@@ -221,11 +227,7 @@ public class PartitionAccessImpl implements PartitionAccess {
         return txStateStorage;
     }
 
-    private void addToIndexes(@Nullable BinaryRow binaryRow, RowId rowId) {
-        if (binaryRow == null) {
-            return;
-        }
-
-        indexes.get().forEach(index -> index.put(binaryRow, rowId));
+    private static TablePartitionId toTablePartitionId(PartitionKey partitionKey) {
+        return new TablePartitionId(partitionKey.tableId(), partitionKey.partitionId());
     }
 }

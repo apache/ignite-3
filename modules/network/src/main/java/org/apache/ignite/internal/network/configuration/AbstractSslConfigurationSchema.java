@@ -44,11 +44,9 @@ public class AbstractSslConfigurationSchema {
 
     /** SSL keystore configuration. */
     @ConfigValue
-    @KeyStoreConfigurationValidator
     public KeyStoreConfigurationSchema keyStore;
 
     /** SSL truststore configuration. */
     @ConfigValue
-    @KeyStoreConfigurationValidator
     public KeyStoreConfigurationSchema trustStore;
 }

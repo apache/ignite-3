@@ -26,7 +26,7 @@ description = 'ignite-rest'
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.micronaut.inject.annotation.processor
-    annotationProcessor libs.micronaut.openapi
+    annotationProcessor libs.auto.service
 
     implementation project(':ignite-api')
     implementation project(':ignite-configuration')
@@ -35,44 +35,50 @@ dependencies {
     implementation project(':ignite-network')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-metrics')
+    implementation project(':ignite-code-deployment')
+    implementation project(':ignite-security')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.http.server.netty
     implementation libs.micronaut.openapi
+    implementation libs.micronaut.security
+    implementation libs.micronaut.security.annotations
+    // TODO It might worth shadowing reactor library https://issues.apache.org/jira/browse/IGNITE-18942
+    implementation libs.micronaut.reactor
+    implementation libs.micronaut.reactor.http.client
     implementation libs.jackson.databind
     implementation libs.auto.service.annotations
     implementation libs.typesafe.config
-
-    annotationProcessor libs.auto.service
 
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testAnnotationProcessor libs.micronaut.inject.annotation.processor
 
     testImplementation project(':ignite-configuration')
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-configuration')))
-    testImplementation libs.hamcrest.core
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation libs.slf4j.jdk14
     testImplementation libs.micronaut.junit5
     testImplementation libs.micronaut.http.client
+    testImplementation libs.mockito.core
+    testImplementation libs.hamcrest.core
+    testImplementation libs.hamcrest.optional
 
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
     integrationTestAnnotationProcessor testFixtures(project(':ignite-core'))
-    integrationTestAnnotationProcessor testFixtures(project(':ignite-cluster-management'))
 
     integrationTestImplementation project(':ignite-rest-api')
     integrationTestImplementation project(':ignite-network')
     integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-security')
+    integrationTestImplementation project(':ignite-code-deployment')
+    integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
+    integrationTestImplementation testFixtures(project(':ignite-configuration'))
+    integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation libs.micronaut.junit5
     integrationTestImplementation libs.micronaut.test
     integrationTestImplementation libs.micronaut.http.client
     integrationTestImplementation libs.micronaut.http.server.netty
     integrationTestImplementation libs.typesafe.config
-}
-
-compileJava {
-    options.fork = true
-    options.forkOptions.jvmArgs += '-Dmicronaut.openapi.config.file=openapi/openapi.properties'
 }

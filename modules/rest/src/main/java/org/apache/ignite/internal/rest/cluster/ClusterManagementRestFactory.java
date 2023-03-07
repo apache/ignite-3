@@ -31,10 +31,11 @@ import org.apache.ignite.network.TopologyService;
  */
 @Factory
 public class ClusterManagementRestFactory implements RestFactory {
-    private final ClusterService clusterService;
+    private ClusterService clusterService;
 
-    private final ClusterManagementGroupManager cmgManager;
+    private ClusterManagementGroupManager cmgManager;
 
+    /** Constructor. */
     public ClusterManagementRestFactory(ClusterService clusterService, ClusterManagementGroupManager cmgManager) {
         this.clusterService = clusterService;
         this.cmgManager = cmgManager;
@@ -56,5 +57,11 @@ public class ClusterManagementRestFactory implements RestFactory {
     @Singleton
     public TopologyService topologyService() {
         return clusterService.topologyService();
+    }
+
+    @Override
+    public void cleanResources() {
+        clusterService = null;
+        cmgManager = null;
     }
 }

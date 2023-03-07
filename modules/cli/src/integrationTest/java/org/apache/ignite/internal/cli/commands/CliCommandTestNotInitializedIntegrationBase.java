@@ -24,7 +24,7 @@ import io.micronaut.context.ApplicationContext;
 import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import org.apache.ignite.internal.cli.IntegrationTestBase;
+import org.apache.ignite.internal.cli.CliIntegrationTestBase;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
@@ -46,7 +46,7 @@ import picocli.CommandLine;
  * Integration test base for cli commands. Setup commands, ignite cluster, and provides useful fixtures and assertions. Note: ignite cluster
  * won't be initialized. If you want to use initialized cluster use {@link CliCommandTestInitializedIntegrationBase}.
  */
-public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTestBase {
+public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationTestBase {
     /** Correct ignite jdbc url. */
     protected static final String JDBC_URL = "jdbc:ignite:thin://127.0.0.1:10800";
 

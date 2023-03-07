@@ -53,6 +53,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -71,6 +73,7 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -110,6 +113,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class PartitionCommandListenerTest {
     /** Key count. */
     private static final int KEY_COUNT = 100;
@@ -173,7 +177,7 @@ public class PartitionCommandListenerTest {
      * Initializes a table listener before tests.
      */
     @BeforeEach
-    public void before() {
+    public void before(@InjectConfiguration DataStorageConfiguration dsCfg) {
         NetworkAddress addr = new NetworkAddress("127.0.0.1", 5003);
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
@@ -188,7 +192,7 @@ public class PartitionCommandListenerTest {
 
         Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes = () -> Map.of(pkStorage.id(), pkStorage);
 
-        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(0, partitionDataStorage, indexes);
+        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(0, partitionDataStorage, indexes, dsCfg);
 
         commandListener = new PartitionListener(
                 partitionDataStorage,
@@ -273,14 +277,12 @@ public class PartitionCommandListenerTest {
      * the maximal last applied index among storages to all storages.
      */
     @Test
-    public void testOnSnapshotSavePropagateLastAppliedIndexAndTerm() {
-        ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
-
+    public void testOnSnapshotSavePropagateLastAppliedIndexAndTerm(@InjectConfiguration DataStorageConfiguration dsCfg) {
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
 
         Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes = () -> Map.of(pkStorage.id(), pkStorage);
 
-        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(PARTITION_ID, partitionDataStorage, indexes);
+        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(PARTITION_ID, partitionDataStorage, indexes, dsCfg);
 
         PartitionListener testCommandListener = new PartitionListener(
                 partitionDataStorage,
