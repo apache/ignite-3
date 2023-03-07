@@ -50,11 +50,11 @@ void inline check_non_empty(const T &cont, const std::string& title) {
 }
 
 void compute::execute_async(const std::vector<cluster_node>& nodes, std::string_view job_class_name,
-    std::vector<primitive> args, ignite_callback<std::optional<primitive>> callback) {
+    const std::vector<primitive>& args, ignite_callback<std::optional<primitive>> callback) {
     check_non_empty(nodes, "Nodes container");
     check_non_empty(job_class_name, "Job class name");
 
-    m_impl->execute_on_one_node(get_random_element(nodes), job_class_name, std::move(args), std::move(callback));
+    m_impl->execute_on_one_node(get_random_element(nodes), job_class_name, args, std::move(callback));
 }
 
 } // namespace ignite

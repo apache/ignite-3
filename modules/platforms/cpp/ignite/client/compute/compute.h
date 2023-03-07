@@ -51,7 +51,7 @@ public:
      * @param callback A callback called on operation completion with job execution result.
      */
     IGNITE_API void execute_async(const std::vector<cluster_node>& nodes, std::string_view job_class_name,
-        std::vector<primitive> args, ignite_callback<std::optional<primitive>> callback);
+        const std::vector<primitive>& args, ignite_callback<std::optional<primitive>> callback);
 
     /**
      * Executes a compute job represented by the given class on one of the specified nodes.
@@ -62,10 +62,10 @@ public:
      * @return Job execution result.
      */
     IGNITE_API std::optional<primitive> execute(std::vector<cluster_node> nodes, std::string_view job_class_name,
-        std::vector<primitive> args) {
+        const std::vector<primitive>& args) {
         return sync<std::optional<primitive>>(
-            [this, nodes = std::move(nodes), job_class_name, args = std::move(args)](auto callback) mutable {
-            execute_async(std::move(nodes), job_class_name, std::move(args), std::move(callback));
+            [this, nodes = std::move(nodes), job_class_name, args](auto callback) mutable {
+            execute_async(std::move(nodes), job_class_name, args, std::move(callback));
         });
     }
 

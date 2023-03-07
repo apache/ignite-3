@@ -17,10 +17,9 @@
 
 #pragma once
 
+#include "ignite/client/detail/cluster_connection.h"
 #include "ignite/client/network/cluster_node.h"
 #include "ignite/client/primitive.h"
-#include "ignite/client/transaction/transaction.h"
-#include "ignite/common/config.h"
 #include "ignite/common/ignite_result.h"
 
 #include <memory>
@@ -35,31 +34,28 @@ class compute_impl {
     friend class ignite_client;
 
 public:
-    // Delete
-    compute_impl() = delete;
+    /**
+     * Constructor.
+     *
+     * @param connection Connection.
+     */
+    explicit compute_impl(std::shared_ptr<cluster_connection> connection)
+        : m_connection(std::move(connection)) {}
 
     /**
-     * Executes single SQL statement asynchronously and returns rows.
+     * Executes a compute job represented by the given class on the specified node asynchronously.
      *
-     * @param tx Optional transaction. If nullptr implicit transaction for this single operation is used.
-     * @param statement Statement to execute.
-     * @param args Arguments for the statement.
-     * @param callback A callback called on operation completion with SQL result set.
+     * @param node Node to use for the job execution.
+     * @param job_class_name Java class name of the job to execute.
+     * @param args Job arguments.
+     * @param callback A callback called on operation completion with job execution result.
      */
-    void execute_on_one_node(cluster_node nodes, std::string_view job_class_name, std::vector<primitive> args,
+    void execute_on_one_node(cluster_node node, std::string_view job_class_name, const std::vector<primitive>& args,
         ignite_callback<std::optional<primitive>> callback);
 
 private:
-//    /**
-//     * Constructor
-//     *
-//     * @param impl Implementation
-//     */
-//    explicit compute(std::shared_ptr<detail::compute_impl> impl)
-//        : m_impl(std::move(impl)) {}
-//
-//    /** Implementation. */
-//    std::shared_ptr<detail::compute_impl> m_impl;
+    /** Cluster connection. */
+    std::shared_ptr<cluster_connection> m_connection;
 };
 
 } // namespace ignite::detail
