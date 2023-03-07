@@ -20,12 +20,9 @@ package org.apache.ignite.client.handler.configuration;
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Set;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
-import org.apache.ignite.internal.network.configuration.SslConfigurationValidatorImpl;
 
 /**
  * {@link ConfigurationModule} for node-local configuration provided by client-handler.
@@ -40,10 +37,5 @@ public class ClientHandlerConfigurationModule implements ConfigurationModule {
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
         return Collections.singleton(ClientConnectorConfiguration.KEY);
-    }
-
-    @Override
-    public Set<Validator<?, ?>> validators() {
-        return Set.of(SslConfigurationValidatorImpl.INSTANCE);
     }
 }
