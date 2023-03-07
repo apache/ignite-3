@@ -56,6 +56,15 @@ protected:
         return nodes[id];
     }
 
+    /**
+     * Get nodes as set.
+     * @return Nodes in set.
+     */
+    std::set<cluster_node> get_node_set() {
+        auto nodes = m_client.get_cluster_nodes();
+        return {nodes.begin(), nodes.end()};
+    }
+
     /** Ignite client. */
     ignite_client m_client;
 };
@@ -100,5 +109,28 @@ TEST_F(compute_test, execute_on_specific_node) {
     EXPECT_EQ(res1.value().get<std::string>(), PLATFORM_TEST_NODE_RUNNER + "-_11");
     EXPECT_EQ(res2.value().get<std::string>(), PLATFORM_TEST_NODE_RUNNER + "_2:_22");
 }
+
+TEST_F(compute_test, execute_broadcast_one_node) {
+    auto res = m_client.get_compute().broadcast({get_node(1)}, NODE_NAME_JOB, {"42"});
+
+    ASSERT_EQ(res.size(), 1);
+
+    EXPECT_EQ(res.begin()->first, get_node(1));
+
+    ASSERT_TRUE(res.begin()->second.has_value());
+    EXPECT_EQ(res.begin()->second.value(), PLATFORM_TEST_NODE_RUNNER + "_242");
+}
+
+TEST_F(compute_test, execute_broadcast_all_nodes) {
+    auto res = m_client.get_compute().broadcast(get_node_set(), NODE_NAME_JOB, {"42"});
+
+    ASSERT_EQ(res.size(), 2);
+
+    EXPECT_EQ(res[get_node(0)].value(), get_node(0).get_name() + "42");
+    EXPECT_EQ(res[get_node(1)].value(), get_node(1).get_name() + "42");
+}
+
+
+
 
 
