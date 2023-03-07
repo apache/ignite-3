@@ -959,11 +959,10 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
 
             List<RowCountingIndex> idxs = injectRowCountingIndex("T", "T_IDX");
 
-            String sql = "SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter') */ t1.i1, t2.i1 "
-                    + "FROM t t1 "
-                    + "LEFT JOIN t t2 ON t1.i2 = t2.i1";
+            String sql = "SELECT t1.i1, t2.i1 FROM t t1 LEFT JOIN t t2 ON t1.i2 = t2.i1";
 
             assertQuery(sql)
+                    .disableRules("NestedLoopJoinConverter", "MergeJoinConverter")
                     .matches(containsSubPlan("IgniteCorrelatedNestedLoopJoin"))
                     .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .returns(0, null)
