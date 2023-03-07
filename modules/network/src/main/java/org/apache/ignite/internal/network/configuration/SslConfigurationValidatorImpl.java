@@ -30,13 +30,13 @@ import org.apache.ignite.configuration.validation.Validator;
 /**
  * SSL configuration validator implementation.
  */
-public class SslConfigurationValidatorImpl implements Validator<SslConfigurationValidator, SslView> {
+public class SslConfigurationValidatorImpl implements Validator<SslConfigurationValidator, AbstractSslView> {
 
     public static final SslConfigurationValidatorImpl INSTANCE = new SslConfigurationValidatorImpl();
 
     @Override
-    public void validate(SslConfigurationValidator annotation, ValidationContext<SslView> ctx) {
-        SslView ssl = ctx.getNewValue();
+    public void validate(SslConfigurationValidator annotation, ValidationContext<AbstractSslView> ctx) {
+        AbstractSslView ssl = ctx.getNewValue();
         if (ssl.enabled()) {
             validateKeyStore(ctx, ".keyStore", "Key store", ssl.keyStore());
 
@@ -51,7 +51,7 @@ public class SslConfigurationValidatorImpl implements Validator<SslConfiguration
         }
     }
 
-    private static void validateKeyStore(ValidationContext<SslView> ctx, String keyName, String type, KeyStoreView keyStore) {
+    private static void validateKeyStore(ValidationContext<AbstractSslView> ctx, String keyName, String type, KeyStoreView keyStore) {
         String keyStorePath = keyStore.path();
         if (nullOrBlank(keyStorePath) && nullOrBlank(keyStore.password())) {
             return;

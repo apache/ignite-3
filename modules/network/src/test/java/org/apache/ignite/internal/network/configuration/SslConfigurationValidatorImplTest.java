@@ -102,17 +102,17 @@ class SslConfigurationValidatorImplTest {
         validate(createTrustStoreConfig(workDir, "JKS", trustStorePath.toAbsolutePath().toString(), null), (String[]) null);
     }
 
-    private static void validate(SslView config, String ... errorMessagePrefixes) {
+    private static void validate(AbstractSslView config, String ... errorMessagePrefixes) {
         var ctx = mockValidationContext(null, config);
         TestValidationUtil.validate(SslConfigurationValidatorImpl.INSTANCE, mock(SslConfigurationValidator.class), ctx,
                 errorMessagePrefixes);
     }
 
-    private static SslView createKeyStoreConfig(String type, String path, String password) {
+    private static AbstractSslView createKeyStoreConfig(String type, String path, String password) {
         return new StubSslView(true, "NONE", new StubKeyStoreView(type, path, password), null);
     }
 
-    private static SslView createTrustStoreConfig(Path workDir, String type, String path, String password) throws IOException {
+    private static AbstractSslView createTrustStoreConfig(Path workDir, String type, String path, String password) throws IOException {
         KeyStoreView keyStore = createValidKeyStoreConfig(workDir);
         KeyStoreView trustStore = new StubKeyStoreView(type, path, password);
         return new StubSslView(true, "OPTIONAL", keyStore, trustStore);
