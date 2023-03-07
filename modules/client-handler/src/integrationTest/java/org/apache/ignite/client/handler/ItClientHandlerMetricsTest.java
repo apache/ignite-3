@@ -71,14 +71,23 @@ public class ItClientHandlerMetricsTest {
 
         // Bad MAGIC.
         assertThrows(SocketException.class, () -> ItClientHandlerTestUtils.connectAndHandshake(serverModule, true, false));
-        assertEquals(0, testServer.metrics().sessionsRejectedTls().value());
         assertEquals(1, testServer.metrics().sessionsRejected().value());
-        assertEquals(0, testServer.metrics().sessionsAccepted().value());
 
         // Bad version.
         ItClientHandlerTestUtils.connectAndHandshake(serverModule, false, true);
-        assertEquals(0, testServer.metrics().sessionsRejectedTls().value());
         assertEquals(2, testServer.metrics().sessionsRejected().value());
+
+        assertEquals(0, testServer.metrics().sessionsRejectedTls().value());
         assertEquals(0, testServer.metrics().sessionsAccepted().value());
+        assertEquals(0, testServer.metrics().sessionsActive().value());
+    }
+
+    @Test
+    void sessionsAccepted(TestInfo testInfo) throws Exception {
+        testServer = new TestServer(null);
+        var serverModule = testServer.start(testInfo);
+
+        ItClientHandlerTestUtils.connectAndHandshake(serverModule);
+        assertEquals(1, testServer.metrics().sessionsAccepted().value());
     }
 }
