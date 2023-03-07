@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.gc;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.thread.NamedThreadFactory.threadPrefix;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.concurrent.CompletableFuture;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups.GarbageCollector;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Garbage collector for multi-versioned storages and their indexes in the background.
@@ -98,7 +100,7 @@ public class MvGc implements ManuallyCloseable {
                 30,
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),
-                new NamedThreadFactory(nodeName, LOG)
+                new NamedThreadFactory(threadPrefix(nodeName, "mv-gc"), LOG)
         );
     }
 
@@ -193,17 +195,34 @@ public class MvGc implements ManuallyCloseable {
 
     private void scheduleGcForStorage(TablePartitionId tablePartitionId) {
         executor.submit(() -> inBusyLock(() -> {
-            GcStorageHandler storageHandler = storageHandlerByPartitionId.get(tablePartitionId);
+            CompletableFuture<Void> future = new CompletableFuture<>();
+
+            GcStorageHandler storageHandler = storageHandlerByPartitionId.compute(tablePartitionId, (tablePartId, gcStorageHandler) -> {
+                if (gcStorageHandler == null) {
+                    // Storage has been removed from garbage collection.
+                    return null;
+                }
+
+                CompletableFuture<Void> inProgressFuture = gcStorageHandler.gcInProgressFuture.get();
+
+                if (inProgressFuture == null || inProgressFuture.isDone()) {
+                    boolean casResult = gcStorageHandler.gcInProgressFuture.compareAndSet(inProgressFuture, future);
+
+                    assert casResult : tablePartId;
+                } else {
+                    inProgressFuture.whenComplete((unused, throwable) -> scheduleGcForStorage(tablePartitionId));
+                }
+
+                return gcStorageHandler;
+            });
 
             if (storageHandler == null) {
                 // Storage has been removed from garbage collection.
                 return;
             }
 
-            CompletableFuture<Void> future = new CompletableFuture<>();
-
-            if (!storageHandler.gcInProgressFuture.compareAndSet(null, future)) {
-                // In parallel, another task has already begun collecting garbage.
+            if (storageHandler.gcInProgressFuture.get() != future) {
+                // Someone in parallel is already collecting garbage, we will try once again after completion of gcInProgressFuture.
                 return;
             }
 
@@ -227,8 +246,6 @@ public class MvGc implements ManuallyCloseable {
                 if (!future.isCompletedExceptionally()) {
                     future.complete(null);
                 }
-
-                storageHandler.gcInProgressFuture.set(null);
             }
 
             scheduleGcForStorage(tablePartitionId);
@@ -253,5 +270,13 @@ public class MvGc implements ManuallyCloseable {
 
             return null;
         });
+    }
+
+    /**
+     * Schedule a new garbage collection for all storages.
+     */
+    @TestOnly
+    void scheduleGcForAllStorages() {
+        inBusyLock(this::initNewGcBusy);
     }
 }
