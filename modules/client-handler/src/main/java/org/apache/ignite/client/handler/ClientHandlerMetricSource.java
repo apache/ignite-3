@@ -17,7 +17,11 @@
 
 package org.apache.ignite.client.handler;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import org.apache.ignite.internal.metrics.AtomicLongMetric;
 import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.Metric;
@@ -59,6 +63,14 @@ public class ClientHandlerMetricSource implements MetricSource {
     private final AtomicLongMetric sessionsRejectedTls =
             new AtomicLongMetric("sessions.rejectedTls", "Total sessions rejected due to TLS handshake errors");
 
+    private final List<Metric> metrics = Arrays.asList(
+            connectionsInitiated,
+            sessionsAccepted,
+            sessionsActive,
+            sessionsRejected,
+            sessionsRejectedTls
+    );
+
     private boolean enabled;
 
     @Override
@@ -88,13 +100,15 @@ public class ClientHandlerMetricSource implements MetricSource {
 
     @Override
     public synchronized @Nullable MetricSet enable() {
-        var metrics = new HashMap<String, Metric>();
+        var metricSet = new HashMap<String, Metric>(metrics.size());
 
-        metrics.put("sessions.total", connectionsInitiated);
+        for (var metric : metrics) {
+            metricSet.put(metric.name(), metric);
+        }
 
         enabled = true;
 
-        return new MetricSet(SOURCE_NAME, metrics);
+        return new MetricSet(SOURCE_NAME, metricSet);
     }
 
     /** {@inheritDoc} */
