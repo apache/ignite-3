@@ -17,12 +17,11 @@
 
 #pragma once
 
-#include "connecting_context.h"
-#include "linux_async_client.h"
-
-#include <ignite/network/async_handler.h>
-#include <ignite/network/end_point.h>
-#include <ignite/network/tcp_range.h>
+#include "ignite/network/detail/linux/connecting_context.h"
+#include "ignite/network/detail/linux/linux_async_client.h"
+#include "ignite/network/async_handler.h"
+#include "ignite/network/tcp_range.h"
+#include "ignite/common/end_point.h"
 
 #include <cstdint>
 #include <ctime>

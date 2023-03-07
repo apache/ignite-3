@@ -21,6 +21,7 @@ set(TARGET ${PROJECT_NAME})
 
 set(SOURCES
     ignite_client.cpp
+    compute/compute.cpp
     sql/sql.cpp
     sql/result_set.cpp
     table/key_value_view.cpp
@@ -41,6 +42,8 @@ set(PUBLIC_HEADERS
     ignite_client.h
     ignite_client_configuration.h
     ignite_logger.h
+    compute/compute.h
+    network/cluster_node.h
     sql/sql.h
     table/ignite_tuple.h
     table/key_value_view.h

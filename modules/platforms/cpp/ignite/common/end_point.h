@@ -67,7 +67,7 @@ struct end_point {
     std::string host;
 
     /** TCP port. */
-    uint16_t port = 0;
+    uint16_t port{0};
 };
 
 /**
