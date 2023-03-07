@@ -1086,11 +1086,6 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
         }
 
         @Override
-        public Publisher<BinaryRow> lookup(int partId, @Nullable InternalTransaction tx, BinaryTuple key, @Nullable BitSet columns) {
-            return delegate.lookup(partId, tx, key, columns);
-        }
-
-        @Override
         public Publisher<BinaryRow> lookup(int partId, UUID txId, PrimaryReplica recipient, BinaryTuple key, @Nullable BitSet columns) {
             return delegate.lookup(partId, txId, recipient, key, columns);
         }
@@ -1105,14 +1100,6 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
         public Publisher<BinaryRow> scan(int partId, UUID txId, PrimaryReplica recipient, @Nullable BinaryTuplePrefix leftBound,
                 @Nullable BinaryTuplePrefix rightBound, int flags, @Nullable BitSet columnsToInclude) {
             Publisher<BinaryRow> pub =  delegate.scan(partId, txId, recipient, leftBound, rightBound, flags, columnsToInclude);
-
-            return wrap(pub);
-        }
-
-        @Override
-        public Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx, @Nullable BinaryTuplePrefix leftBound,
-                @Nullable BinaryTuplePrefix rightBound, int flags, @Nullable BitSet columnsToInclude) {
-            Publisher<BinaryRow> pub = delegate.scan(partId, tx, leftBound, rightBound, flags, columnsToInclude);
 
             return wrap(pub);
         }
