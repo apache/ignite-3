@@ -17,8 +17,50 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.net.SocketException;
+import java.nio.file.Path;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
+
 /**
  * Client handler metrics tests.
  */
+@ExtendWith(WorkDirectoryExtension.class)
 public class ItClientHandlerMetricsTest {
+    private TestServer testServer;
+
+    @WorkDirectory
+    private Path workDir;
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (testServer != null) {
+            testServer.tearDown();
+        }
+    }
+
+    @Test
+    void sessionsRejectedTls(TestInfo testInfo) throws Exception {
+        testServer = new TestServer(
+                TestSslConfig.builder()
+                        .keyStorePath(ItClientHandlerTestUtils.generateKeystore(workDir))
+                        .keyStorePassword("changeit")
+                        .build()
+        );
+
+        var serverModule = testServer.start(testInfo);
+
+        assertThrows(SocketException.class, () -> ItClientHandlerTestUtils.connectAndHandshake(serverModule));
+
+        assertEquals(1, testServer.metrics().sessionsRejectedTls().value());
+        assertEquals(0, testServer.metrics().sessionsRejected().value());
+        assertEquals(0, testServer.metrics().sessionsAccepted().value());
+    }
 }

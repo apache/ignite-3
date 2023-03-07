@@ -19,9 +19,17 @@ package org.apache.ignite.client.handler;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
+import io.netty.handler.ssl.util.SelfSignedCertificate;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.nio.file.Path;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import org.msgpack.core.MessagePack;
 
 class ItClientHandlerTestUtils {
@@ -64,4 +72,19 @@ class ItClientHandlerTestUtils {
         }
     }
 
+    static String generateKeystore(Path workDir)
+            throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
+        var keyStorePkcs12Path = workDir.resolve("keystore.p12").toAbsolutePath().toString();
+        var cert = new SelfSignedCertificate("localhost");
+
+        KeyStore ks = KeyStore.getInstance("PKCS12");
+        ks.load(null, null);
+        ks.setKeyEntry("key", cert.key(), "changeit".toCharArray(), new Certificate[]{cert.cert()});
+
+        try (FileOutputStream fos = new FileOutputStream(keyStorePkcs12Path)) {
+            ks.store(fos, "changeit".toCharArray());
+        }
+
+        return keyStorePkcs12Path;
+    }
 }

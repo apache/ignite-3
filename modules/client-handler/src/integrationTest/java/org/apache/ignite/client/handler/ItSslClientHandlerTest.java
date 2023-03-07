@@ -17,21 +17,13 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.client.handler.ItClientHandlerTestUtils.generateKeystore;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import io.netty.handler.ssl.util.SelfSignedCertificate;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.SocketException;
 import java.nio.file.Path;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteException;
@@ -56,18 +48,7 @@ public class ItSslClientHandlerTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        keyStorePkcs12Path = workDir.resolve("keystore.p12").toAbsolutePath().toString();
-        generateKeystore(new SelfSignedCertificate("localhost"));
-    }
-
-    private void generateKeystore(SelfSignedCertificate cert)
-            throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
-        KeyStore ks = KeyStore.getInstance("PKCS12");
-        ks.load(null, null);
-        ks.setKeyEntry("key", cert.key(), "changeit".toCharArray(), new Certificate[]{cert.cert()});
-        try (FileOutputStream fos = new FileOutputStream(keyStorePkcs12Path)) {
-            ks.store(fos, "changeit".toCharArray());
-        }
+        keyStorePkcs12Path = generateKeystore(workDir);
     }
 
     @AfterEach
@@ -102,11 +83,6 @@ public class ItSslClientHandlerTest {
 
         // Then
         assertThrows(SocketException.class, this::performAndCheckMagic);
-
-        // TODO: Separate test class for metrics.
-        assertEquals(1, testServer.metrics().sessionsRejectedTls().value());
-        assertEquals(0, testServer.metrics().sessionsRejected().value());
-        assertEquals(0, testServer.metrics().sessionsAccepted().value());
     }
 
     @Test
