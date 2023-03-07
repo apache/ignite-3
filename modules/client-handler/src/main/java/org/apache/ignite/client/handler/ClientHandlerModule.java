@@ -266,6 +266,7 @@ public class ClientHandlerModule implements IgniteComponent {
         @Override
         public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
             if (evt instanceof IdleStateEvent && ((IdleStateEvent) evt).state() == IdleState.READER_IDLE) {
+                // TODO: timeout metric
                 ctx.close();
             }
         }

@@ -37,7 +37,7 @@ public class ClientHandlerMetricSource implements MetricSource {
         SessionsActive +
         SessionsAccepted +
         SessionsRejected +
-        SessionsRejectedTls
+        SessionsRejectedTls +
         SessionsRejectedTimeout
         RequestsProcessed
         RequestsFailed
@@ -61,7 +61,10 @@ public class ClientHandlerMetricSource implements MetricSource {
             new AtomicLongMetric("sessions.rejected", "Total sessions rejected due to handshake errors");
 
     private final AtomicLongMetric sessionsRejectedTls =
-            new AtomicLongMetric("sessions.rejectedTls", "Total sessions rejected due to TLS handshake errors");
+            new AtomicLongMetric("sessions.rejected.tls", "Total sessions rejected due to TLS handshake errors");
+
+    private final AtomicLongMetric sessionsRejectedTimeout =
+            new AtomicLongMetric("sessions.rejected.timeout", "Total sessions rejected by timeout");
 
     private final List<Metric> metrics = Arrays.asList(
             connectionsInitiated,
@@ -96,6 +99,10 @@ public class ClientHandlerMetricSource implements MetricSource {
 
     public AtomicLongMetric sessionsRejectedTls() {
         return sessionsRejectedTls;
+    }
+
+    public AtomicLongMetric sessionsRejectedTimeout() {
+        return sessionsRejectedTimeout;
     }
 
     @Override
