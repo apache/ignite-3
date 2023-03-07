@@ -946,7 +946,7 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
-     * Gets a hybrid clock specific of the node.
+     * Returns the node's hybrid clock.
      *
      * @return Hybrid clock.
      */
