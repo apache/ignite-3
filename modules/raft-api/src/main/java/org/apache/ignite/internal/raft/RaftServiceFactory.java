@@ -23,8 +23,8 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
-public interface RaftServiceFactory {
-    CompletableFuture<RaftGroupService> startRaftGroupService(
+public interface RaftServiceFactory<T extends RaftGroupService> {
+    CompletableFuture<T> startRaftGroupService(
             ReplicationGroupId groupId,
             PeersAndLearners peersAndLearners,
             RaftConfiguration raftConfiguration,

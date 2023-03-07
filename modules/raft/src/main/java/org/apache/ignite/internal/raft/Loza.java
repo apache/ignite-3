@@ -153,12 +153,12 @@ public class Loza implements RaftManager {
     }
 
     @Override
-    public CompletableFuture<RaftGroupService> startRaftGroupNode(
+    public <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNode(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
-            RaftServiceFactory factory
+            RaftServiceFactory<T> factory
     ) throws NodeStoppingException {
         return startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, RaftGroupOptions.defaults(), factory);
     }
@@ -194,13 +194,13 @@ public class Loza implements RaftManager {
      * @param raftServiceFactory If not null, used for creation of raft group service.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    public CompletableFuture<RaftGroupService> startRaftGroupNode(
+    public <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNode(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
             RaftGroupOptions groupOptions,
-            @Nullable RaftServiceFactory raftServiceFactory
+            @Nullable RaftServiceFactory<T> raftServiceFactory
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
@@ -230,10 +230,10 @@ public class Loza implements RaftManager {
     }
 
     @Override
-    public CompletableFuture<RaftGroupService> startRaftGroupService(
+    public <T extends RaftGroupService> CompletableFuture<T> startRaftGroupService(
             ReplicationGroupId groupId,
             PeersAndLearners configuration,
-            RaftServiceFactory factory
+            RaftServiceFactory<T> factory
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
@@ -246,13 +246,13 @@ public class Loza implements RaftManager {
         }
     }
 
-    private CompletableFuture<RaftGroupService> startRaftGroupNodeInternal(
+    private <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNodeInternal(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
             RaftGroupEventsListener raftGrpEvtsLsnr,
             RaftGroupOptions groupOptions,
-            @Nullable RaftServiceFactory raftServiceFactory
+            @Nullable RaftServiceFactory<T> raftServiceFactory
     ) {
         if (LOG.isInfoEnabled()) {
             LOG.info("Start new raft node={} with initial configuration={}", nodeId, configuration);
@@ -268,7 +268,7 @@ public class Loza implements RaftManager {
         }
 
         return raftServiceFactory == null
-                ? startRaftGroupServiceInternal(nodeId.groupId(), configuration)
+                ? (CompletableFuture<T>) startRaftGroupServiceInternal(nodeId.groupId(), configuration)
                 : raftServiceFactory.startRaftGroupService(nodeId.groupId(), configuration, raftConfiguration, executor);
     }
 

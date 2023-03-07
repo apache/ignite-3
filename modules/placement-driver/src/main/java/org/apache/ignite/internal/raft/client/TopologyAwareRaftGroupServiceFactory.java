@@ -23,7 +23,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -31,7 +30,7 @@ import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 /**
  * Factory for creation {@link TopologyAwareRaftGroupService}.
  */
-public class TopologyAwareRaftGroupServiceFactory implements RaftServiceFactory {
+public class TopologyAwareRaftGroupServiceFactory implements RaftServiceFactory<TopologyAwareRaftGroupService> {
     private final ClusterService clusterService;
 
     private final LogicalTopologyService logicalTopologyService;
@@ -56,22 +55,22 @@ public class TopologyAwareRaftGroupServiceFactory implements RaftServiceFactory 
     }
 
     @Override
-    public CompletableFuture<RaftGroupService> startRaftGroupService(
+    public CompletableFuture<TopologyAwareRaftGroupService> startRaftGroupService(
             ReplicationGroupId groupId,
             PeersAndLearners peersAndLearners,
             RaftConfiguration raftConfiguration,
             ScheduledExecutorService raftClientExecutor
     ) {
         return TopologyAwareRaftGroupService.start(
-                groupId,
-                clusterService,
-                raftMessagesFactory,
-                raftConfiguration,
-                peersAndLearners,
-                true,
-                raftClientExecutor,
-                logicalTopologyService,
-                true
-        );
+                    groupId,
+                    clusterService,
+                    raftMessagesFactory,
+                    raftConfiguration,
+                    peersAndLearners,
+                    true,
+                    raftClientExecutor,
+                    logicalTopologyService,
+                    true
+            ).thenApply(TopologyAwareRaftGroupService.class::cast);
     }
 }

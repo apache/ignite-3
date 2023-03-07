@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.replicator;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.Set;
@@ -32,6 +33,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.exception.ReplicaIsAlreadyStartedException;
@@ -282,10 +284,10 @@ public class ReplicaManager implements IgniteComponent {
 
         replicas.compute(replicaGrpId, (replicationGroupId, replicaFut) -> {
             if (replicaFut == null) {
-                return CompletableFuture.completedFuture(newReplica);
+                return completedFuture(newReplica);
             } else {
                 if (replicaFut.isDone() && !replicaFut.isCancelled() && !replicaFut.isCompletedExceptionally()) {
-                    return CompletableFuture.completedFuture(newReplica);
+                    return completedFuture(newReplica);
                 }
 
                 replicaFut.complete(newReplica);
@@ -301,10 +303,10 @@ public class ReplicaManager implements IgniteComponent {
      * Stops a replica by the partition group id.
      *
      * @param replicaGrpId Replication group id.
-     * @return True if the replica is found and closed, false otherwise.
+     * @return Future containing true if the replica is found and closed, false otherwise.
      * @throws NodeStoppingException If the node is stopping.
      */
-    public boolean stopReplica(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
+    public CompletableFuture<Boolean> stopReplica(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
@@ -320,17 +322,19 @@ public class ReplicaManager implements IgniteComponent {
      * Internal method for stopping a replica.
      *
      * @param replicaGrpId Replication group id.
-     * @return True if the replica is found and closed, false otherwise.
+     * @return Future containing true if the replica is found and closed, false otherwise.
      */
-    private boolean stopReplicaInternal(ReplicationGroupId replicaGrpId) {
-        return replicas.remove(replicaGrpId) != null;
+    private CompletableFuture<Boolean> stopReplicaInternal(ReplicationGroupId replicaGrpId) {
+        CompletableFuture<Replica> replicaFuture = replicas.remove(replicaGrpId);
+
+        return replicaFuture == null ? completedFuture(false) : replicaFuture.thenApply(Replica::stop).thenApply(v -> true);
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
         clusterNetSvc.messagingService().addMessageHandler(ReplicaMessageGroup.class, handler);
-        clusterNetSvc.messagingService().addMessageHandler(PlacementDriverReplicaMessage.class, placementDriverMessageHandler);
+        clusterNetSvc.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, placementDriverMessageHandler);
         messageGroupsToHandle.forEach(mg -> clusterNetSvc.messagingService().addMessageHandler(mg, handler));
         scheduledIdleSafeTimeSyncExecutor.scheduleAtFixedRate(
                 this::idleSafeTimeSync,

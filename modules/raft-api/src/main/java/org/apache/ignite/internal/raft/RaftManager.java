@@ -54,12 +54,12 @@ public interface RaftManager extends IgniteComponent {
      * @param factory Service factory.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    CompletableFuture<RaftGroupService> startRaftGroupNode(
+    <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNode(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
-            RaftServiceFactory factory
+            RaftServiceFactory<T> factory
     ) throws NodeStoppingException;
 
     /**
@@ -105,9 +105,9 @@ public interface RaftManager extends IgniteComponent {
      * @return Future that will be completed with an instance of a Raft group service.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    CompletableFuture<RaftGroupService> startRaftGroupService(
+    <T extends RaftGroupService> CompletableFuture<T> startRaftGroupService(
             ReplicationGroupId groupId,
             PeersAndLearners configuration,
-            RaftServiceFactory factory
+            RaftServiceFactory<T> factory
     ) throws NodeStoppingException;
 }

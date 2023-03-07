@@ -106,11 +106,7 @@ public class PlacementDriverManager implements IgniteComponent {
                                     replicationGroupId,
                                     PeersAndLearners.fromConsistentIds(placementDriverNodes),
                                     topologyAwareRaftGroupServiceFactory
-                                ).thenCompose(client -> {
-                                    TopologyAwareRaftGroupService topologyAwareClient = (TopologyAwareRaftGroupService) client;
-
-                                    return topologyAwareClient.subscribeLeader(this::onLeaderChange).thenApply(v -> topologyAwareClient);
-                                });
+                                ).thenCompose(client -> client.subscribeLeader(this::onLeaderChange).thenApply(v -> client));
                         } catch (NodeStoppingException e) {
                             return failedFuture(e);
                         }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.distributed;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
@@ -44,6 +45,9 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -57,6 +61,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -156,6 +161,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     protected Map<String, TxStateStorage> txStateStorages;
 
+    private Map<String, ClusterService> clusterServices;
+
     protected final List<ClusterService> cluster = new CopyOnWriteArrayList<>();
 
     private ScheduledThreadPoolExecutor executor;
@@ -227,9 +234,14 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         var nodeFinder = new StaticNodeFinder(localAddresses);
 
+        clusterServices = new HashMap<>(nodes);
+
         nodeFinder.findNodes().parallelStream()
-                .map(addr -> startNode(testInfo, addr.toString(), addr.port(), nodeFinder))
-                .forEach(cluster::add);
+                .forEach(addr -> {
+                    ClusterService svc = startNode(testInfo, addr.toString(), addr.port(), nodeFinder);
+                    cluster.add(svc);
+                    clusterServices.put(svc.topologyService().localMember().name(), svc);
+                });
 
         for (ClusterService node : cluster) {
             assertTrue(waitForTopology(node, nodes, 1000));
@@ -429,6 +441,12 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes = () -> Map.of(pkStorage.get().id(), pkStorage.get());
                 StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(partId, partitionDataStorage, indexes, dsCfg);
 
+                TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                        clusterServices.get(assignment),
+                        logicalTopologyService(clusterServices.get(assignment)),
+                        Loza.FACTORY
+                );
+
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
                         new RaftNodeId(grpId, configuration.peer(assignment)),
                         configuration,
@@ -438,7 +456,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                 txStateStorage,
                                 safeTime
                         ),
-                        RaftGroupEventsListener.noopLsnr
+                        RaftGroupEventsListener.noopLsnr,
+                        topologyAwareRaftGroupServiceFactory
                 ).thenAccept(
                         raftSvc -> {
                             try {
@@ -462,7 +481,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 placementDriver,
                                                 storageUpdateHandler,
                                                 peer -> assignment.equals(peer.consistentId()),
-                                                CompletableFuture.completedFuture(schemaManager)
+                                                completedFuture(schemaManager)
                                         ),
                                         raftSvc,
                                         safeTime
@@ -514,6 +533,30 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         return clients;
     }
 
+    private LogicalTopologyService logicalTopologyService(ClusterService clusterService) {
+        return new LogicalTopologyService() {
+            @Override
+            public void addEventListener(LogicalTopologyEventListener listener) {
+
+            }
+
+            @Override
+            public void removeEventListener(LogicalTopologyEventListener listener) {
+
+            }
+
+            @Override
+            public CompletableFuture<LogicalTopologySnapshot> logicalTopologyOnLeader() {
+                return completedFuture(new LogicalTopologySnapshot(1, clusterService.topologyService().allMembers()));
+            }
+
+            @Override
+            public CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader() {
+                return completedFuture(Set.copyOf(clusterService.topologyService().allMembers()));
+            }
+        };
+    }
+
     /**
      * Returns a raft manager for a group.
      *
@@ -547,13 +590,14 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
+
         for (Entry<String, Loza> entry : raftServers.entrySet()) {
             Loza rs = entry.getValue();
 
             ReplicaManager replicaMgr = replicaManagers.get(entry.getKey());
 
             for (ReplicationGroupId grp : replicaMgr.startedGroups()) {
-                replicaMgr.stopReplica(grp);
+                replicaMgr.stopReplica(grp).join();
             }
 
             for (RaftNodeId nodeId : rs.localNodes()) {

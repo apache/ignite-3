@@ -69,6 +69,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -729,7 +730,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 sm = new SchemaManager(revisionUpdater, tblsCfg, msm),
                 budgetView -> new LocalLogStorageFactory(),
                 new HybridClockImpl(),
-                new OutgoingSnapshotsManager(clusterService.messagingService())
+                new OutgoingSnapshotsManager(clusterService.messagingService()),
+                mock(TopologyAwareRaftGroupServiceFactory.class)
         ) {
             @Override
             protected MvTableStorage createTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {

@@ -81,6 +81,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
@@ -329,6 +330,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         SchemaManager schemaManager = new SchemaManager(registry, tblCfg, metaStorageMgr);
 
+        TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                clusterSvc,
+                new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
+                Loza.FACTORY
+        );
+
         TableManager tableManager = new TableManager(
                 name,
                 registry,
@@ -347,7 +354,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 schemaManager,
                 view -> new LocalLogStorageFactory(),
                 hybridClock,
-                new OutgoingSnapshotsManager(clusterSvc.messagingService())
+                new OutgoingSnapshotsManager(clusterSvc.messagingService()),
+                topologyAwareRaftGroupServiceFactory
         );
 
         var indexManager = new IndexManager(tblCfg, schemaManager, tableManager);

@@ -28,7 +28,7 @@ import org.apache.ignite.network.annotations.MessageGroup;
 @MessageGroup(groupType = GROUP_TYPE, groupName = GROUP_NAME)
 public interface PlacementDriverMessageGroup {
     /** Placement driver message group type. */
-    short GROUP_TYPE = 10;
+    short GROUP_TYPE = 11;
 
     String GROUP_NAME = "PlacementDriverMessages";
 

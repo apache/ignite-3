@@ -95,6 +95,12 @@ public class Replica {
         this.safeTime = safeTime;
         this.raftClient = raftClient;
         this.localNodeSupplier = localNodeSupplier;
+
+        raftClient.subscribeLeader(this::onLeaderElected);
+    }
+
+    public CompletableFuture<Void> stop() {
+        return raftClient.unsubscribeLeader();
     }
 
     /**
