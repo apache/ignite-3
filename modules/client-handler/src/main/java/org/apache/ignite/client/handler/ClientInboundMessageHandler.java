@@ -252,6 +252,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             metrics.sessionsAccepted().increment();
             metrics.sessionsActive().increment();
+
+            ctx.channel().closeFuture().addListener(f -> metrics.sessionsActive().decrement());
         } catch (Throwable t) {
             packer.close();
 

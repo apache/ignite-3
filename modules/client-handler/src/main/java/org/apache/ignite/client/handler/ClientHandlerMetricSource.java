@@ -30,7 +30,7 @@ public class ClientHandlerMetricSource implements MetricSource {
     private static final String SOURCE_NAME = "client-handler";
 
     /*
-        SessionsActive
+        SessionsActive +
         SessionsAccepted +
         SessionsRejected +
         SessionsRejectedTls
