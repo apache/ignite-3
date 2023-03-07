@@ -26,7 +26,7 @@ The Apache Ignite 3.x REST security configuration is as follows:
     "dualProtocol": false,
     "httpToHttpsRedirection": false,
     "ssl": {
-        "enabled": false,
+        "enabled": true,
         "port": 10400,
         "portRange": 100,
         "keyStore": {
