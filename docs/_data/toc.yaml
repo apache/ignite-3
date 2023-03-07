@@ -41,6 +41,8 @@
       url: sql-reference/ddl
     - title: Data Manipulation Language (DML)
       url: sql-reference/dml
+    - title: Distribution Zones
+      url: sql-reference/distribution-zones
     - title: Supported Operators and Functions
       url: sql-reference/operators-and-functions
 - title: REST
