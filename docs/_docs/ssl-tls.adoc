@@ -42,37 +42,16 @@ The Apache Ignite 3.x REST security configuration is as follows:
 
 Apache Ignite 3.x Client implementation is based on the Netty framework, which supports configuration for security connections via `SSLContextBuilder`.
 
-=== Client-side Configuration
-
-[source,java]
-----
-SslContextBuilder sslBuilder = SslContextBuilder
-   .forClient()
-   .keyManager(getKeyManagerFactory())
-   .trustManager(getTrustManagerFactory());
-}
-----
-
 === Server-side Configuration
 
-[source,java]
-----
-SslContextBuilder builder = SslContextBuilder.forServer(certChainInput, keyInput)
-    .ciphers(getCiphers(), getCiphersFilter())
-    .sessionTimeout(serverSslConfig.getSessionTimeout())
-    .sslProvider(sslProvider);
-.trustManager(trustedCerts.toArray(new X509Certificate[0]))
-    .clientAuth(serverSslConfig.getClientAuth());
-----
-
-Introduce the client configuration on the Apache Ignite 3.x server side and map it to Netty Security Context:
+The default way to configure SSL on the server side is to update the configuration with SSL properties:
 
 [source,json]
 ----
 "clientConnector": {
     "ssl": {
-        "enabled": false,
-        "clientAuth": "none",
+        "enabled": true,
+        "clientAuth": "require",
         "keyStore": {
             "type": "PKCS12",
             "path": "must not be empty",
@@ -87,9 +66,27 @@ Introduce the client configuration on the Apache Ignite 3.x server side and map 
 }
 ----
 
-If you have enabled SSL for `clientConnector`, set the corresponding properties in link:https://github.com/apache/ignite-3/blob/be6c8b290894dbd6f88eaaa2a2aafc3eff300855/modules/jdbc/src/main/java/org/apache/ignite/internal/jdbc/ConnectionProperties.java[ConnectionProperties].
+If you have enabled SSL for `clientConnector`, and want to use JDBC, set the corresponding properties in your code:
 
-== Platform Clients
+[source,java]
+----
+var url =
+    "jdbc:ignite:thin://{address}:{port}"
+        + "?sslEnabled=true"
+        + "&trustStorePath=" + trustStorePath
+        + "&trustStoreType=JKS"
+        + "&trustStorePassword=" + password
+        + "&clientAuth=require"
+        + "&keyStorePath=" + keyStorePath
+        + "&keyStoreType=PKCS12"
+        + "&keyStorePassword=" + password;
+        try (Connection conn = DriverManager.getConnection(url)) {
+            // Other actions.
+        }
+----
+
+
+== Client Configuration
 
 === .NET
 
@@ -106,28 +103,7 @@ Basic usage without client authorization:
 var cfg = new IgniteClientConfiguration { SslStreamFactory = new() }
 ----
 
-== CLI Configuration
-
-The CLI, uses OkHTTP to communicate with Apache Ignite 3.x. To enable SSL, create `SSLSocketFactory` and pass it to the `OkHttpClient` builder:
-
-[source,java]
-----
-X509TrustManager trustManager;
-SSLSocketFactory sslSocketFactory;
-try {
-    trustManager = trustManagerForCertificates(trustedCertificatesInputStream());
-    SSLContext sslContext = SSLContext.getInstance("TLS");
-    sslContext.init(null, new TrustManager[] { trustManager }, null);
-    sslSocketFactory = sslContext.getSocketFactory();
-}
-catch (GeneralSecurityException e) {
-    throw new RuntimeException(e);
-}
-
-client = new OkHttpClient.Builder()
-    .sslSocketFactory(sslSocketFactory, trustManager)
-    .build();
-----
+== CLI
 
 You can enable SSL on the CLI side using the `cli config set` command:
 
@@ -148,7 +124,7 @@ The node network is based on the Netty framework. The configuration is the same 
 ----
 "network": {
     "ssl": {
-        "enabled": false,
+        "enabled": true,
         "clientAuth": "none",
         "keyStore": {
             "type": "PKCS12",
@@ -178,13 +154,13 @@ clientConnector.ssl: {
   enabled: true,
   clientAuth: "require",
   keyStore: {
-    path: "keyStorePath",
-    password: "password"
+    path: "must not be empty",
+    password: "may be empty"
   },
   trustStore: {
     type: "JKS",
-    password: "password",
-    path: "trustStorePath"
+    path: "must not be empty",
+    password: "may be empty"
   }
 }
 ----
