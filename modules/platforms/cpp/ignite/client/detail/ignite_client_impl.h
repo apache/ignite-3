@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <ignite/client/detail/compute/compute_impl.h>
 #include <ignite/client/detail/cluster_connection.h>
 #include <ignite/client/detail/sql/sql_impl.h>
 #include <ignite/client/detail/table/tables_impl.h>
@@ -94,11 +95,26 @@ public:
     [[nodiscard]] std::shared_ptr<sql_impl> get_sql_impl() const { return m_sql; }
 
     /**
+     * Get Compute management API implementation.
+     *
+     * @return Compute management API implementation.
+     */
+    [[nodiscard]] std::shared_ptr<compute_impl> get_compute_impl() const { return m_compute; }
+
+    /**
      * Get transactions management API implementation.
      *
      * @return Transactions management API implementation.
      */
     [[nodiscard]] std::shared_ptr<transactions_impl> get_transactions_impl() const { return m_transactions; }
+
+    /**
+     * Gets the cluster nodes asynchronously.
+     * NOTE: Temporary API to enable Compute until we have proper Cluster API.
+     *
+     * @param callback Callback called with the list of cluster nodes upon success.
+     */
+    void get_cluster_nodes_async(ignite_callback<std::vector<cluster_node>> callback);
 
 private:
     /** Configuration. */
@@ -112,6 +128,9 @@ private:
 
     /** SQL. */
     std::shared_ptr<sql_impl> m_sql;
+
+    /** Compute. */
+    std::shared_ptr<compute_impl> m_compute;
 
     /** Transactions. */
     std::shared_ptr<transactions_impl> m_transactions;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include "node_connection.h"
+#include "ignite/client/detail/node_connection.h"
 
 #include <ignite/protocol/utils.h>
 

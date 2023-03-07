@@ -74,8 +74,22 @@ sql ignite_client::get_sql() const noexcept {
     return sql(impl().get_sql_impl());
 }
 
+compute ignite_client::get_compute() const noexcept {
+    return compute(impl().get_compute_impl());
+}
+
 transactions ignite_client::get_transactions() const noexcept {
     return transactions(impl().get_transactions_impl());
+}
+
+void ignite_client::get_cluster_nodes_async(ignite_callback<std::vector<cluster_node>> callback) {
+    return impl().get_cluster_nodes_async(std::move(callback));
+}
+
+std::vector<cluster_node> ignite_client::get_cluster_nodes() {
+    return sync<std::vector<cluster_node>>([this](auto callback) mutable {
+        get_cluster_nodes_async(std::move(callback));
+    });
 }
 
 detail::ignite_client_impl &ignite_client::impl() noexcept {

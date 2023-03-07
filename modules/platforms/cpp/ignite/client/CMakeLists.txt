@@ -31,6 +31,7 @@ set(SOURCES
     transaction/transaction.cpp
     transaction/transactions.cpp
     detail/cluster_connection.cpp
+    detail/ignite_client_impl.cpp
     detail/utils.cpp
     detail/node_connection.cpp
     detail/compute/compute_impl.cpp
