@@ -338,7 +338,9 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
                 var localPeer = peersAndLearners.peers().stream()
                         .filter(peer -> peer.consistentId().equals(cluster.topologyService().localMember().name())).findAny().get();
 
-                var raftServer = new JraftServerImpl(cluster, workDir.resolve("raft_" + localPeer.consistentId()), new NodeOptions());
+                var dataPath = workDir.resolve("raft_" + localPeer.consistentId());
+
+                var raftServer = new JraftServerImpl(cluster, dataPath, new NodeOptions());
                 raftServer.start();
 
                 raftServer.startRaftNode(
@@ -350,7 +352,7 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
 
                 raftServers.put(addr, raftServer);
 
-                afterNodeStart(localPeer.consistentId(), cluster, placementDriverNodesNames);
+                afterNodeStart(localPeer.consistentId(), cluster, dataPath, placementDriverNodesNames);
             }
 
             if (addr.port() == clientPort) {
@@ -415,9 +417,10 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
      *
      * @param nodeName Node name.
      * @param clusterService Cluster service.
+     * @param dataPath Data path for raft node.
      * @param placementDriverNodesNames Names of all nodes in raft group.
      */
-    protected void afterNodeStart(String nodeName, ClusterService clusterService, Set<String> placementDriverNodesNames) {
+    protected void afterNodeStart(String nodeName, ClusterService clusterService, Path dataPath, Set<String> placementDriverNodesNames) {
         // No-op.
     }
 

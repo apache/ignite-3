@@ -18,23 +18,23 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
-import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -46,8 +46,6 @@ public class PlacementDriverManager implements IgniteComponent {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    private final RaftMessagesFactory raftMessagesFactory = new RaftMessagesFactory();
-
     /** Prevents double stopping of the component. */
     private final AtomicBoolean isStopped = new AtomicBoolean();
 
@@ -57,16 +55,14 @@ public class PlacementDriverManager implements IgniteComponent {
 
     private final Supplier<CompletableFuture<Set<String>>> placementDriverNodesNamesProvider;
 
+    private final RaftManager raftManager;
+
+    private final TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory;
+
     /**
      * Raft client future. Can contain null, if this node is not in placement driver group.
      */
     private final CompletableFuture<TopologyAwareRaftGroupService> raftClientFuture;
-
-    private final ScheduledExecutorService raftClientExecutor;
-
-    private final LogicalTopologyService logicalTopologyService;
-
-    private final RaftConfiguration raftConfiguration;
 
     private volatile boolean isActiveActor;
 
@@ -77,25 +73,22 @@ public class PlacementDriverManager implements IgniteComponent {
      *
      * @param replicationGroupId Id of placement driver group.
      * @param clusterService Cluster service.
-     * @param raftConfiguration Raft configuration.
      * @param placementDriverNodesNamesProvider Provider of the set of placement driver nodes' names.
-     * @param logicalTopologyService Logical topology service.
-     * @param raftClientExecutor Raft client executor.
+     * @param raftManager Raft manager.
+     * @param topologyAwareRaftGroupServiceFactory Raft client factory.
      */
     public PlacementDriverManager(
             ReplicationGroupId replicationGroupId,
             ClusterService clusterService,
-            RaftConfiguration raftConfiguration,
             Supplier<CompletableFuture<Set<String>>> placementDriverNodesNamesProvider,
-            LogicalTopologyService logicalTopologyService,
-            ScheduledExecutorService raftClientExecutor
+            RaftManager raftManager,
+            TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory
     ) {
         this.replicationGroupId = replicationGroupId;
         this.clusterService = clusterService;
-        this.raftConfiguration = raftConfiguration;
         this.placementDriverNodesNamesProvider = placementDriverNodesNamesProvider;
-        this.logicalTopologyService = logicalTopologyService;
-        this.raftClientExecutor = raftClientExecutor;
+        this.raftManager = raftManager;
+        this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
 
         raftClientFuture = new CompletableFuture<>();
     }
@@ -108,21 +101,19 @@ public class PlacementDriverManager implements IgniteComponent {
                     String thisNodeName = clusterService.topologyService().localMember().name();
 
                     if (placementDriverNodes.contains(thisNodeName)) {
-                        return TopologyAwareRaftGroupService.start(
-                                replicationGroupId,
-                                clusterService,
-                                raftMessagesFactory,
-                                raftConfiguration,
-                                PeersAndLearners.fromConsistentIds(placementDriverNodes),
-                                true,
-                                raftClientExecutor,
-                                logicalTopologyService,
-                                true
-                            ).thenCompose(client -> {
-                                TopologyAwareRaftGroupService topologyAwareClient = (TopologyAwareRaftGroupService) client;
+                        try {
+                            return raftManager.startRaftGroupService(
+                                    replicationGroupId,
+                                    PeersAndLearners.fromConsistentIds(placementDriverNodes),
+                                    topologyAwareRaftGroupServiceFactory
+                                ).thenCompose(client -> {
+                                    TopologyAwareRaftGroupService topologyAwareClient = (TopologyAwareRaftGroupService) client;
 
-                                return topologyAwareClient.subscribeLeader(this::onLeaderChange).thenApply(v -> topologyAwareClient);
-                            });
+                                    return topologyAwareClient.subscribeLeader(this::onLeaderChange).thenApply(v -> topologyAwareClient);
+                                });
+                        } catch (NodeStoppingException e) {
+                            return failedFuture(e);
+                        }
                     } else {
                         return completedFuture(null);
                     }

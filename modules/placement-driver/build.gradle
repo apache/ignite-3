@@ -22,12 +22,14 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 dependencies {
+    annotationProcessor project(":ignite-network-annotation-processor")
     implementation project(':ignite-metastorage-api')
 
     implementation project(':ignite-core')
     implementation project(':ignite-raft-api')
     implementation project(':ignite-raft')
     implementation project(':ignite-cluster-management')
+    implementation project(':ignite-replicator')
 
     implementation libs.jetbrains.annotations
 

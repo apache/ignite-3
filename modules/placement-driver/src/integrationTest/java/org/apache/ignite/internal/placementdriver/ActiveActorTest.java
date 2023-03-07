@@ -21,10 +21,14 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceTest;
 import org.apache.ignite.network.ClusterService;
 import org.junit.jupiter.api.AfterEach;
@@ -49,14 +53,21 @@ public class ActiveActorTest extends TopologyAwareRaftGroupServiceTest {
 
     /** {@inheritDoc} */
     @Override
-    protected void afterNodeStart(String nodeName, ClusterService clusterService, Set<String> placementDriverNodesNames) {
+    protected void afterNodeStart(String nodeName, ClusterService clusterService, Path dataPath, Set<String> placementDriverNodesNames) {
+        var raftManager = new Loza(clusterService, raftConfiguration, dataPath, new HybridClockImpl());
+
+        var raftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                clusterService,
+                new LogicalTopologyServiceTestImpl(clusterService),
+                Loza.FACTORY
+        );
+
         PlacementDriverManager placementDriverManager = new PlacementDriverManager(
                 TestReplicationGroup.GROUP_ID,
                 clusterService,
-                raftConfiguration,
                 () -> completedFuture(placementDriverNodesNames),
-                new LogicalTopologyServiceTestImpl(clusterService),
-                executor
+                raftManager,
+                raftGroupServiceFactory
         );
 
         placementDriverManager.start();

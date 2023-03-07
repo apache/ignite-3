@@ -99,6 +99,8 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -285,6 +287,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
+    private final TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory;
+
     /** Partitions storage path. */
     private final Path storagePath;
 
@@ -329,6 +333,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param schemaManager Schema manager.
      * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for volatile
      *                                         tables.
+     * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
      */
     public TableManager(
             String nodeName,
@@ -348,7 +353,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             SchemaManager schemaManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             HybridClock clock,
-            OutgoingSnapshotsManager outgoingSnapshotsManager
+            OutgoingSnapshotsManager outgoingSnapshotsManager,
+            TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory
     ) {
         this.tablesCfg = tablesCfg;
         this.clusterService = clusterService;
@@ -365,6 +371,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
         this.clock = clock;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
+        this.raftGroupServiceFactory = raftGroupServiceFactory;
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -862,7 +869,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         .thenCompose(v -> storageUpdateHandlerFut)
                         .thenComposeAsync(v -> {
                             try {
-                                return raftMgr.startRaftGroupService(replicaGrpId, newConfiguration);
+                                return raftMgr.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory);
                             } catch (NodeStoppingException ex) {
                                 return failedFuture(ex);
                             }
@@ -884,7 +891,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     replicaMgr.startReplica(replicaGrpId,
                                             new PartitionReplicaListener(
                                                     partitionStorage,
-                                                    updatedRaftGroupService,
+                                                    (TopologyAwareRaftGroupService) updatedRaftGroupService,
                                                     txManager,
                                                     lockMgr,
                                                     scanRequestExecutor,
@@ -2052,7 +2059,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             replicaMgr.startReplica(replicaGrpId,
                                     new PartitionReplicaListener(
                                             mvPartitionStorage,
-                                            internalTable.partitionRaftGroupService(partId),
+                                            (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId),
                                             txManager,
                                             lockMgr,
                                             scanRequestExecutor,

@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -45,6 +47,7 @@ import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -54,13 +57,13 @@ import org.jetbrains.annotations.TestOnly;
 //  see https://issues.apache.org/jira/browse/IGNITE-18273
 public class Loza implements RaftManager {
     /** Factory. */
-    private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
+    public static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     /** Raft client pool name. */
     public static final String CLIENT_POOL_NAME = "Raft-Group-Client";
 
     /** Raft client pool size. Size was taken from jraft's TimeManager. */
-    public static final int CLIENT_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
+    private static final int CLIENT_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
 
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(Loza.class);
@@ -92,14 +95,12 @@ public class Loza implements RaftManager {
      * @param raftConfiguration Raft configuration.
      * @param dataPath Data path.
      * @param clock A hybrid logical clock.
-     * @param executor Executor for raft group services.
      */
     public Loza(
             ClusterService clusterNetSvc,
             RaftConfiguration raftConfiguration,
             Path dataPath,
-            HybridClock clock,
-            ScheduledExecutorService executor
+            HybridClock clock
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.raftConfiguration = raftConfiguration;
@@ -112,32 +113,9 @@ public class Loza implements RaftManager {
 
         this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath, options);
 
-        this.executor = executor;
-    }
-
-    /**
-     * The constructor.
-     *
-     * @param clusterNetSvc Cluster network service.
-     * @param raftConfiguration Raft configuration.
-     * @param dataPath Data path.
-     * @param clock A hybrid logical clock.
-     */
-    public Loza(
-            ClusterService clusterNetSvc,
-            RaftConfiguration raftConfiguration,
-            Path dataPath,
-            HybridClock clock
-    ) {
-        this(
-                clusterNetSvc,
-                raftConfiguration,
-                dataPath,
-                clock,
-                new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
-                        new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
-                                CLIENT_POOL_NAME), LOG
-                        )
+        this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
+                new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
+                        CLIENT_POOL_NAME), LOG
                 )
         );
     }
@@ -159,6 +137,8 @@ public class Loza implements RaftManager {
 
         busyLock.block();
 
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+
         raftServer.stop();
     }
 
@@ -170,6 +150,17 @@ public class Loza implements RaftManager {
             RaftGroupEventsListener eventsLsnr
     ) throws NodeStoppingException {
         return startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, RaftGroupOptions.defaults());
+    }
+
+    @Override
+    public CompletableFuture<RaftGroupService> startRaftGroupNode(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            RaftServiceFactory factory
+    ) throws NodeStoppingException {
+        return startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, RaftGroupOptions.defaults(), factory);
     }
 
     /**
@@ -189,12 +180,34 @@ public class Loza implements RaftManager {
             RaftGroupEventsListener eventsLsnr,
             RaftGroupOptions groupOptions
     ) throws NodeStoppingException {
+        return startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, groupOptions, null);
+    }
+
+    /**
+     * Starts a Raft group on the current node.
+     *
+     * @param nodeId Raft node ID.
+     * @param configuration Peers and Learners of the Raft group.
+     * @param lsnr Raft group listener.
+     * @param eventsLsnr Raft group events listener.
+     * @param groupOptions Options to apply to the group.
+     * @param raftServiceFactory If not null, used for creation of raft group service.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    public CompletableFuture<RaftGroupService> startRaftGroupNode(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            RaftGroupOptions groupOptions,
+            @Nullable RaftServiceFactory raftServiceFactory
+    ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            return startRaftGroupNodeInternal(nodeId, configuration, lsnr, eventsLsnr, groupOptions);
+            return startRaftGroupNodeInternal(nodeId, configuration, lsnr, eventsLsnr, groupOptions, raftServiceFactory);
         } finally {
             busyLock.leaveBusy();
         }
@@ -216,12 +229,30 @@ public class Loza implements RaftManager {
         }
     }
 
+    @Override
+    public CompletableFuture<RaftGroupService> startRaftGroupService(
+            ReplicationGroupId groupId,
+            PeersAndLearners configuration,
+            RaftServiceFactory factory
+    ) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            return factory.startRaftGroupService(groupId, configuration, raftConfiguration, executor);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
     private CompletableFuture<RaftGroupService> startRaftGroupNodeInternal(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
             RaftGroupEventsListener raftGrpEvtsLsnr,
-            RaftGroupOptions groupOptions
+            RaftGroupOptions groupOptions,
+            @Nullable RaftServiceFactory raftServiceFactory
     ) {
         if (LOG.isInfoEnabled()) {
             LOG.info("Start new raft node={} with initial configuration={}", nodeId, configuration);
@@ -236,7 +267,9 @@ public class Loza implements RaftManager {
             ));
         }
 
-        return startRaftGroupServiceInternal(nodeId.groupId(), configuration);
+        return raftServiceFactory == null
+                ? startRaftGroupServiceInternal(nodeId.groupId(), configuration)
+                : raftServiceFactory.startRaftGroupService(nodeId.groupId(), configuration, raftConfiguration, executor);
     }
 
     private CompletableFuture<RaftGroupService> startRaftGroupServiceInternal(
