@@ -396,7 +396,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
-        CompletableFuture<Void> safeReadFuture = isPrimary ? completedFuture(null) : safeTime.waitFor(readTimestamp);
+        CompletableFuture<Void> safeReadFuture = isPrimaryInTimestamp(isPrimary, readTimestamp) ? completedFuture(null)
+                : safeTime.waitFor(readTimestamp);
 
         if (request.indexToUse() != null) {
             TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
@@ -486,9 +487,21 @@ public class PartitionReplicaListener implements ReplicaListener {
                     format("Unknown single request [actionType={}]", request.requestType()));
         }
 
-        CompletableFuture<Void> safeReadFuture = isPrimary ? completedFuture(null) : safeTime.waitFor(request.readTimestamp());
+        CompletableFuture<Void> safeReadFuture = isPrimaryInTimestamp(isPrimary, readTimestamp) ? completedFuture(null)
+                : safeTime.waitFor(request.readTimestamp());
 
         return safeReadFuture.thenCompose(unused -> resolveRowByPkForReadOnly(searchRow, readTimestamp));
+    }
+
+    /**
+     * Checks that the node is primary and {@code timestamp} is already passed in the reference system of the current node.
+     *
+     * @param isPrimary True if the node is primary, false otherwise.
+     * @param timestamp Timestamp to check.
+     * @return True if the timestamp is already passed in the reference system of the current node and node is primary, false otherwise.
+     */
+    private boolean isPrimaryInTimestamp(Boolean isPrimary, HybridTimestamp timestamp) {
+        return isPrimary && hybridClock.now().compareTo(timestamp) > 0;
     }
 
     /**
@@ -510,7 +523,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     format("Unknown single request [actionType={}]", request.requestType()));
         }
 
-        CompletableFuture<Void> safeReadFuture = isPrimary ? completedFuture(null) : safeTime.waitFor(request.readTimestamp());
+        CompletableFuture<Void> safeReadFuture = isPrimaryInTimestamp(isPrimary, readTimestamp) ? completedFuture(null)
+                : safeTime.waitFor(request.readTimestamp());
 
         return safeReadFuture.thenCompose(unused -> {
             ArrayList<CompletableFuture<BinaryRow>> resolutionFuts = new ArrayList<>(searchRows.size());
