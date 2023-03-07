@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.net.SocketException;
 import java.nio.file.Path;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -80,6 +81,7 @@ public class ItClientHandlerMetricsTest {
         assertEquals(0, testServer.metrics().sessionsRejectedTls().value());
         assertEquals(0, testServer.metrics().sessionsAccepted().value());
         assertEquals(0, testServer.metrics().sessionsActive().value());
+        assertEquals(2, testServer.metrics().connectionsInitiated().value());
     }
 
     @Test
@@ -89,5 +91,17 @@ public class ItClientHandlerMetricsTest {
 
         ItClientHandlerTestUtils.connectAndHandshake(serverModule);
         assertEquals(1, testServer.metrics().sessionsAccepted().value());
+    }
+
+    @Test
+    void sessionsActive(TestInfo testInfo) throws Exception {
+        testServer = new TestServer(null);
+        var serverModule = testServer.start(testInfo);
+
+        // TODO: Flaky, keep socket open during assertion.
+        ItClientHandlerTestUtils.connectAndHandshake(serverModule);
+
+        assertEquals(1, testServer.metrics().sessionsActive().value());
+        IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsActive().value() == 0, 10_000);
     }
 }

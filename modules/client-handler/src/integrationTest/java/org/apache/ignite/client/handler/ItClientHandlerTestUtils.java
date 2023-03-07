@@ -52,23 +52,24 @@ class ItClientHandlerTestUtils {
             }
 
             // Handshake.
-            var packer = MessagePack.newDefaultBufferPacker();
-            packer.packInt(0);
-            packer.packInt(0);
-            packer.packInt(0);
-            packer.packInt(7); // Size.
+            try (var packer = MessagePack.newDefaultBufferPacker()) {
+                packer.packInt(0);
+                packer.packInt(0);
+                packer.packInt(0);
+                packer.packInt(7); // Size.
 
-            packer.packInt(badVersion ? 42 : 3); // Major.
-            packer.packInt(0); // Minor.
-            packer.packInt(0); // Patch.
+                packer.packInt(badVersion ? 42 : 3); // Major.
+                packer.packInt(0); // Minor.
+                packer.packInt(0); // Patch.
 
-            packer.packInt(2); // Client type: general purpose.
+                packer.packInt(2); // Client type: general purpose.
 
-            packer.packBinaryHeader(0); // Features.
-            packer.packMapHeader(0); // Extensions.
+                packer.packBinaryHeader(0); // Features.
+                packer.packMapHeader(0); // Extensions.
 
-            out.write(packer.toByteArray());
-            out.flush();
+                out.write(packer.toByteArray());
+                out.flush();
+            }
 
             // Read response.
             var unpacker = MessagePack.newDefaultUnpacker(sock.getInputStream());
