@@ -54,8 +54,7 @@ TEST_F(compute_test, get_cluster_nodes) {
         return n1.get_name() < n2.get_name();
     });
 
-    EXPECT_FALSE(cluster_nodes.empty());
-    EXPECT_EQ(2, cluster_nodes.size());
+    ASSERT_EQ(2, cluster_nodes.size());
 
     EXPECT_FALSE(cluster_nodes[0].get_id().empty());
     EXPECT_FALSE(cluster_nodes[1].get_id().empty());
@@ -67,4 +66,13 @@ TEST_F(compute_test, get_cluster_nodes) {
     EXPECT_FALSE(cluster_nodes[1].get_address().host.empty());
 
     EXPECT_EQ(cluster_nodes[0].get_address().host, cluster_nodes[1].get_address().host);
+}
+
+TEST_F(compute_test, execute_on_random_node) {
+    auto cluster_nodes = m_client.get_cluster_nodes();
+
+    auto result = m_client.get_compute().execute(cluster_nodes, NODE_NAME_JOB, {});
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_THAT(result.value().get<std::string>(), ::testing::StartsWith(PLATFORM_TEST_NODE_RUNNER));
 }
