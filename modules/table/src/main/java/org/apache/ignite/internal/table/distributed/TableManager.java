@@ -1053,17 +1053,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             for (int p = 0; p < table.internalTable().partitions(); p++) {
                 TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
 
-                CompletableFuture<Void> partitionReadyFuture = ((InternalTableImpl) table.internalTable()).getPartitionsRedinessMap()
-                        .get(p);
+//                CompletableFuture<Void> partitionReadyFuture = ((InternalTableImpl) table.internalTable()).getPartitionsRedinessMap()
+//                        .get(p);
 
                 stopping.add(() -> {
-                    partitionReadyFuture.thenRun(() -> {
+//                    partitionReadyFuture.thenRun(() -> {
                         try {
                             raftMgr.stopRaftNodes(replicationGroupId);
                         } catch (Throwable t) {
                             handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
                         }
-                    }).join();
+//                    }).join();
                 });
 
                 stopping.add(() -> {
