@@ -15,28 +15,25 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite
+namespace Apache.Ignite;
+
+using System.IO;
+using System.Net.Security;
+
+/// <summary>
+/// SSL Stream Factory defines how SSL connection is established.
+/// <para />
+/// See <see cref="IgniteClientConfiguration.SslStreamFactory"/>, <see cref="SslStreamFactory"/>.
+/// </summary>
+public interface ISslStreamFactory
 {
-    using System;
-    using System.Collections.Generic;
-    using Network;
-
     /// <summary>
-    /// Ignite client.
-    /// <para />
-    /// Extends <see cref="IIgnite"/> with client-specific functionality.
+    /// Creates the SSL stream.
     /// </summary>
-    public interface IIgniteClient : IIgnite, IDisposable
-    {
-        /// <summary>
-        /// Gets the configuration.
-        /// </summary>
-        IgniteClientConfiguration Configuration { get; }
-
-        /// <summary>
-        /// Gets active connections.
-        /// </summary>
-        /// <returns>A list of connected cluster nodes.</returns>
-        IList<IConnectionInfo> GetConnections();
-    }
+    /// <param name="stream">The underlying raw stream.</param>
+    /// <param name="targetHost">Target host.</param>
+    /// <returns>
+    /// SSL stream, or null if SSL is not enabled.
+    /// </returns>
+    SslStream? Create(Stream stream, string targetHost);
 }

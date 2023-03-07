@@ -15,28 +15,8 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite
-{
-    using System;
-    using System.Collections.Generic;
-    using Network;
+namespace Apache.Ignite.Internal.Network;
 
-    /// <summary>
-    /// Ignite client.
-    /// <para />
-    /// Extends <see cref="IIgnite"/> with client-specific functionality.
-    /// </summary>
-    public interface IIgniteClient : IIgnite, IDisposable
-    {
-        /// <summary>
-        /// Gets the configuration.
-        /// </summary>
-        IgniteClientConfiguration Configuration { get; }
+using Ignite.Network;
 
-        /// <summary>
-        /// Gets active connections.
-        /// </summary>
-        /// <returns>A list of connected cluster nodes.</returns>
-        IList<IConnectionInfo> GetConnections();
-    }
-}
+internal sealed record ConnectionInfo(IClusterNode Node, ISslInfo? SslInfo) : IConnectionInfo;

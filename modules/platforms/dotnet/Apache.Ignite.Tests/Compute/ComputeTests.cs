@@ -60,7 +60,7 @@ namespace Apache.Ignite.Tests.Compute
         {
             var res = (await Client.GetClusterNodesAsync()).OrderBy(x => x.Name).ToList();
 
-            Assert.AreEqual(2, res.Count);
+            Assert.AreEqual(4, res.Count);
 
             Assert.IsNotEmpty(res[0].Id);
             Assert.IsNotEmpty(res[1].Id);
@@ -88,7 +88,11 @@ namespace Apache.Ignite.Tests.Compute
         {
             var res = await Client.Compute.ExecuteAsync<string>(await Client.GetClusterNodesAsync(), NodeNameJob);
 
-            CollectionAssert.Contains(new[] { PlatformTestNodeRunner, PlatformTestNodeRunner + "_2" }, res);
+            var expectedNodeNames = Enumerable.Range(1, 4)
+                .Select(x => x == 1 ? PlatformTestNodeRunner : PlatformTestNodeRunner + "_" + x)
+                .ToList();
+
+            CollectionAssert.Contains(expectedNodeNames, res);
         }
 
         [Test]
@@ -120,11 +124,15 @@ namespace Apache.Ignite.Tests.Compute
             IDictionary<IClusterNode, Task<string>> taskMap = Client.Compute.BroadcastAsync<string>(nodes, NodeNameJob, "123");
             var res1 = await taskMap[nodes[0]];
             var res2 = await taskMap[nodes[1]];
+            var res3 = await taskMap[nodes[2]];
+            var res4 = await taskMap[nodes[3]];
 
-            Assert.AreEqual(2, taskMap.Count);
+            Assert.AreEqual(4, taskMap.Count);
 
             Assert.AreEqual(nodes[0].Name + "123", res1);
             Assert.AreEqual(nodes[1].Name + "123", res2);
+            Assert.AreEqual(nodes[2].Name + "123", res3);
+            Assert.AreEqual(nodes[3].Name + "123", res4);
         }
 
         [Test]
@@ -222,10 +230,11 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        [TestCase(1, "")]
-        [TestCase(2, "_2")]
-        [TestCase(3, "")]
+        [TestCase(1, "_4")]
         [TestCase(5, "_2")]
+        [TestCase(9, "_3")]
+        [TestCase(10, "")]
+        [TestCase(11, "_2")]
         public async Task TestExecuteColocated(long key, string nodeName)
         {
             var keyTuple = new IgniteTuple { [KeyCol] = key };

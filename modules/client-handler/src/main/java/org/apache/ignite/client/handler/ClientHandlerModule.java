@@ -189,6 +189,9 @@ public class ClientHandlerModule implements IgniteComponent {
 
         ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
 
+        // Initialize SslContext once on startup to avoid initialization on each connection, and to fail in case of incorrect config.
+        SslContext sslContext = configuration.ssl().enabled() ? SslContextProvider.createServerSslContext(configuration.ssl()) : null;
+
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel ch) {
@@ -200,9 +203,7 @@ public class ClientHandlerModule implements IgniteComponent {
                             ch.pipeline().addLast(new IdleChannelHandler());
                         }
 
-                        if (configuration.ssl().enabled()) {
-                            SslContext sslContext =  SslContextProvider.createServerSslContext(configuration.ssl());
-
+                        if (sslContext != null) {
                             ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
                         }
 

@@ -15,28 +15,20 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite
+namespace Apache.Ignite.Network;
+
+/// <summary>
+/// Connection info.
+/// </summary>
+public interface IConnectionInfo
 {
-    using System;
-    using System.Collections.Generic;
-    using Network;
+    /// <summary>
+    /// Gets the target node.
+    /// </summary>
+    IClusterNode Node { get; }
 
     /// <summary>
-    /// Ignite client.
-    /// <para />
-    /// Extends <see cref="IIgnite"/> with client-specific functionality.
+    /// Gets the SSL info, if SSL is enabled.
     /// </summary>
-    public interface IIgniteClient : IIgnite, IDisposable
-    {
-        /// <summary>
-        /// Gets the configuration.
-        /// </summary>
-        IgniteClientConfiguration Configuration { get; }
-
-        /// <summary>
-        /// Gets active connections.
-        /// </summary>
-        /// <returns>A list of connected cluster nodes.</returns>
-        IList<IConnectionInfo> GetConnections();
-    }
+    ISslInfo? SslInfo { get; }
 }
