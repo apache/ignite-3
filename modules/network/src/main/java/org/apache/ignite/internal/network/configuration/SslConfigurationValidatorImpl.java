@@ -20,7 +20,6 @@ package org.apache.ignite.internal.network.configuration;
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import io.netty.handler.ssl.ClientAuth;
-import java.lang.annotation.Annotation;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -50,13 +49,6 @@ public class SslConfigurationValidatorImpl implements Validator<SslConfiguration
                 ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Incorrect client auth parameter " + ssl.clientAuth()));
             }
         }
-    }
-
-    @Override
-    public boolean canValidate(Class<? extends Annotation> annotationType, Class<?> schemaFieldType, boolean namedList) {
-        return annotationType == SslConfigurationValidator.class
-                && AbstractSslConfigurationSchema.class.isAssignableFrom(schemaFieldType)
-                && !namedList;
     }
 
     private static void validateKeyStore(ValidationContext<AbstractSslView> ctx, String keyName, String type, KeyStoreView keyStore) {
