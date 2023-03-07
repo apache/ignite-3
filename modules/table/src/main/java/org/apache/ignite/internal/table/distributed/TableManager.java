@@ -826,10 +826,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                         PartitionDataStorage partitionDataStorage = partitionDataStorageFut.join();
 
-                                        CompletableFuture<?> f = CompletableFuture.supplyAsync(() -> {
+                                        // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                                        CompletableFuture<Void> partitionReadyFuture = CompletableFuture.supplyAsync(() -> {
                                             try {
-                                                // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-
                                                 return ((Loza) raftMgr).startRaftGroupNode(
                                                         raftNodeId,
                                                         newConfiguration,
@@ -854,8 +853,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             } catch (NodeStoppingException ex) {
                                                 throw new CompletionException(ex);
                                             }
-                                        });
+                                        }).thenAccept(ignored -> Function.identity());
 
+                                        ((InternalTableImpl) internalTbl).getPartitionsRedinessMap().put(partId, partitionReadyFuture);
                                     }, ioExecutor);
                         });
                     }, ioExecutor);
@@ -1053,12 +1053,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             for (int p = 0; p < table.internalTable().partitions(); p++) {
                 TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
 
+                CompletableFuture<Void> partitionReadyFuture = ((InternalTableImpl) table.internalTable()).getPartitionsRedinessMap()
+                        .get(p);
+
                 stopping.add(() -> {
-                    try {
-                        raftMgr.stopRaftNodes(replicationGroupId);
-                    } catch (Throwable t) {
-                        handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
-                    }
+                    partitionReadyFuture.thenRun(() -> {
+                        try {
+                            raftMgr.stopRaftNodes(replicationGroupId);
+                        } catch (Throwable t) {
+                            handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
+                        }
+                    }).join();
                 });
 
                 stopping.add(() -> {

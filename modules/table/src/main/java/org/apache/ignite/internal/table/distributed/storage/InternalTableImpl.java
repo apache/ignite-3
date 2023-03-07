@@ -136,6 +136,8 @@ public class InternalTableImpl implements InternalTable {
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
+    private final Int2ObjectMap<CompletableFuture<Void>> partitionsRedinessMap;
+
     /**
      * Constructor.
      *
@@ -172,6 +174,7 @@ public class InternalTableImpl implements InternalTable {
         this.replicaSvc = replicaSvc;
         this.tableMessagesFactory = new TableMessagesFactory();
         this.clock = clock;
+        this.partitionsRedinessMap = new Int2ObjectOpenHashMap<>(partitions);
     }
 
     /** {@inheritDoc} */
@@ -1474,5 +1477,9 @@ public class InternalTableImpl implements InternalTable {
         }
 
         return e0;
+    }
+
+    public Int2ObjectMap<CompletableFuture<Void>> getPartitionsRedinessMap() {
+        return partitionsRedinessMap;
     }
 }
