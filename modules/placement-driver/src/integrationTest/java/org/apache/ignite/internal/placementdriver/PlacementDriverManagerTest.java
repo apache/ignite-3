@@ -58,7 +58,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
-import org.apache.ignite.internal.placementdriver.PlacementDriverManager.ReplicationGroupLease;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -234,16 +233,16 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
         var leaseFut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart0));
 
-        ReplicationGroupLease lease = ByteUtils.fromBytes(leaseFut.join().value());
+        Lease lease = ByteUtils.fromBytes(leaseFut.join().value());
 
         assertNotNull(lease);
 
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart0));
 
-            ReplicationGroupLease leaseRenew = ByteUtils.fromBytes(fut.join().value());
+            Lease leaseRenew = ByteUtils.fromBytes(fut.join().value());
 
-            return lease.stopLeas.compareTo(leaseRenew.stopLeas) < 0;
+            return lease.getStopLeas().compareTo(leaseRenew.getStopLeas()) < 0;
 
         }, 10_000));
     }
@@ -261,9 +260,9 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart0));
 
-            ReplicationGroupLease lease = ByteUtils.fromBytes(fut.join().value());
+            Lease lease = ByteUtils.fromBytes(fut.join().value());
 
-            return lease.stopLeas.compareTo(clock.now()) < 0;
+            return lease.getStopLeas().compareTo(clock.now()) < 0;
 
         }, 10_000));
 
@@ -274,9 +273,9 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart0));
 
-            ReplicationGroupLease lease = ByteUtils.fromBytes(fut.join().value());
+            Lease lease = ByteUtils.fromBytes(fut.join().value());
 
-            return lease.stopLeas.compareTo(clock.now()) > 0;
+            return lease.getStopLeas().compareTo(clock.now()) > 0;
 
         }, 10_000));
     }
