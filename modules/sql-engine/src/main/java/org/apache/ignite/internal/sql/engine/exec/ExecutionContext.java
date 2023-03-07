@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 
 import java.lang.reflect.Type;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -400,37 +399,5 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     @Override
     public int hashCode() {
         return Objects.hash(qryId, fragmentDesc.fragmentId());
-    }
-
-    private static class HashFunctionCacheKey {
-        private final UUID tableId;
-        private final int[] fields;
-
-        private HashFunctionCacheKey(UUID tableId, int[] fields) {
-            this.tableId = tableId;
-            this.fields = fields;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            HashFunctionCacheKey that = (HashFunctionCacheKey) o;
-
-            if (!tableId.equals(that.tableId)) {
-                return false;
-            }
-            return Arrays.equals(fields, that.fields);
-        }
-
-        @Override
-        public int hashCode() {
-            return tableId.hashCode();
-        }
     }
 }
