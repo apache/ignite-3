@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.emptySet;
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
@@ -679,6 +680,8 @@ public class DistributionZoneManager implements IgniteComponent {
         CompletableFuture<Void> topVerFut;
 
         synchronized (dataNodesMutex) {
+            dataNodes.putIfAbsent(zoneId, new DataNodes());
+
             if (topVer > lastTopVer) {
                 topVerFut = topVerFutures.get(topVer);
 
@@ -692,9 +695,11 @@ public class DistributionZoneManager implements IgniteComponent {
             }
         }
 
-        topVerFut.thenAcceptAsync(ignored -> {
+        CompletableFuture<Void> topVerScaleUpFut = new CompletableFuture<>();
+
+        topVerFut.thenAccept(ignored -> {
             synchronized (dataNodesMutex) {
-                CompletableFuture<Void> topVerScaleUpFut = null;
+                CompletableFuture<Void> topVerScaleUpFut0 = null;
 
                 if (immediateScaleUp) {
                     Map.Entry<Long, Long> scaleUpRevisionEntry = topVerAndScaleUpRevision.ceilingEntry(topVer);
@@ -705,68 +710,70 @@ public class DistributionZoneManager implements IgniteComponent {
                         scaleUpRevision = scaleUpRevisionEntry.getValue();
                     }
 
-                    if (scaleUpRevision != null
-                            && (dataNodes.get(zoneId) == null || dataNodes.get(zoneId).scaleUpRevision() < scaleUpRevision)) {
+                    if (scaleUpRevision != null && dataNodes.get(zoneId).scaleUpRevision() < scaleUpRevision) {
                         Map.Entry<Long, CompletableFuture<Void>> ceilingEntry =
                                 dataNodes.get(zoneId).revisionScaleUpFutures().ceilingEntry(scaleUpRevision);
 
                         if (ceilingEntry != null) {
-                            topVerScaleUpFut = ceilingEntry.getValue();
+                            topVerScaleUpFut0 = ceilingEntry.getValue();
                         }
 
-                        if (topVerScaleUpFut == null) {
-                            topVerScaleUpFut = new CompletableFuture<>();
+                        if (topVerScaleUpFut0 == null) {
+                            topVerScaleUpFut0 = new CompletableFuture<>();
 
-                            dataNodes.get(zoneId).revisionScaleUpFutures().put(scaleUpRevision, topVerScaleUpFut);
+                            dataNodes.get(zoneId).revisionScaleUpFutures().put(scaleUpRevision, topVerScaleUpFut0);
                         }
+
+                        topVerScaleUpFut0.thenAccept(ignore0 -> topVerScaleUpFut.complete(null));
                     } else {
-                        topVerScaleUpFut = completedFuture(null);
+                        topVerScaleUpFut.complete(null);
                     }
                 } else {
-                    topVerScaleUpFut = completedFuture(null);
+                    topVerScaleUpFut.complete(null);
                 }
-
-                topVerScaleUpFut.thenAcceptAsync(ignored0 -> {
-                    CompletableFuture<Void> topVerScaleDownFut = null;
-
-                    synchronized (dataNodesMutex) {
-                        if (immediateScaleDown) {
-                            Map.Entry<Long, Long> scaleDownRevisionEntry = topVerAndScaleDownRevision.ceilingEntry(topVer);
-
-                            Long scaleDownRevision = null;
-
-                            if (scaleDownRevisionEntry != null) {
-                                scaleDownRevision = scaleDownRevisionEntry.getValue();
-                            }
-
-                            if (scaleDownRevision != null
-                                    && (dataNodes.get(zoneId) == null || dataNodes.get(zoneId).scaleDownRevision() < scaleDownRevision)) {
-                                Map.Entry<Long, CompletableFuture<Void>> ceilingEntry =
-                                        dataNodes.get(zoneId).revisionScaleDownFutures().ceilingEntry(scaleDownRevision);
-
-                                if (ceilingEntry != null) {
-                                    topVerScaleDownFut = ceilingEntry.getValue();
-                                }
-
-                                if (topVerScaleDownFut == null) {
-                                    topVerScaleDownFut = new CompletableFuture<>();
-
-                                    dataNodes.get(zoneId).revisionScaleDownFutures.put(scaleDownRevision, topVerScaleDownFut);
-                                }
-                            } else {
-                                topVerScaleDownFut = completedFuture(null);
-                            }
-                        } else {
-                            topVerScaleDownFut = completedFuture(null);
-                        }
-                    }
-
-                    topVerScaleDownFut.thenAcceptAsync(ignored1 -> {
-                        dataNodesFut.complete(dataNodes.get(zoneId).nodes());
-                    });
-                });
             }
         });
+
+        CompletableFuture<Void> topVerScaleDownFut = new CompletableFuture<>();
+
+        topVerFut.thenAccept(ignored -> {
+            CompletableFuture<Void> topVerScaleDownFut0 = null;
+
+            synchronized (dataNodesMutex) {
+                if (immediateScaleDown) {
+                    Map.Entry<Long, Long> scaleDownRevisionEntry = topVerAndScaleDownRevision.ceilingEntry(topVer);
+
+                    Long scaleDownRevision = null;
+
+                    if (scaleDownRevisionEntry != null) {
+                        scaleDownRevision = scaleDownRevisionEntry.getValue();
+                    }
+
+                    if (scaleDownRevision != null && dataNodes.get(zoneId).scaleDownRevision() < scaleDownRevision) {
+                        Map.Entry<Long, CompletableFuture<Void>> ceilingEntry =
+                                dataNodes.get(zoneId).revisionScaleDownFutures().ceilingEntry(scaleDownRevision);
+
+                        if (ceilingEntry != null) {
+                            topVerScaleDownFut0 = ceilingEntry.getValue();
+                        }
+
+                        if (topVerScaleDownFut0 == null) {
+                            topVerScaleDownFut0 = new CompletableFuture<>();
+
+                            dataNodes.get(zoneId).revisionScaleDownFutures().put(scaleDownRevision, topVerScaleDownFut0);
+                        }
+
+                        topVerScaleDownFut0.thenAccept(ignore0 -> topVerScaleDownFut.complete(null));
+                    } else {
+                        topVerScaleDownFut.complete(null);
+                    }
+                } else {
+                    topVerScaleDownFut.complete(null);
+                }
+            }
+        });
+
+        allOf(topVerScaleUpFut, topVerScaleDownFut).thenAccept(ignored -> dataNodesFut.complete(dataNodes.get(zoneId).nodes()));
 
         return dataNodesFut;
     }
@@ -1244,22 +1251,23 @@ public class DistributionZoneManager implements IgniteComponent {
                     synchronized (dataNodesMutex) {
                         lastTopVer = topVer;
 
+                        if (!addedNodes.isEmpty()) {
+                            topVerAndScaleUpRevision.put(topVer, revision);
+
+                            topVerAndScaleUpRevision.headMap(topVer).clear();
+                        }
+
+                        if (!removedNodes.isEmpty()) {
+                            topVerAndScaleDownRevision.put(topVer, revision);
+
+                            topVerAndScaleDownRevision.headMap(topVer).clear();
+                        }
+
                         SortedMap<Long, CompletableFuture<Void>> topVerFuts = topVerFutures.headMap(topVer, true);
 
                         topVerFuts.values().forEach(v -> v.complete(null));
 
                         topVerFuts.clear();
-
-                        if (!addedNodes.isEmpty()) {
-                            topVerAndScaleUpRevision.put(topVer, revision);
-                        }
-
-                        if (!removedNodes.isEmpty()) {
-                            topVerAndScaleDownRevision.put(topVer, revision);
-                        }
-
-                        topVerAndScaleUpRevision.headMap(topVer).clear();
-                        topVerAndScaleDownRevision.headMap(topVer).clear();
                     }
 
                     logicalTopology = newLogicalTopology;

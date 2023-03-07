@@ -190,7 +190,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         assertTrue(waitForCondition(() -> dataNodesMeta.revisionScaleUpFutures().size() == 1, 3_000));
 
-        assertTrue(testData.dataNodesMeta.revisionScaleDownFutures().isEmpty());
+        assertTrue(waitForCondition(() -> dataNodesMeta.revisionScaleDownFutures().size() == 1, 3_000));
 
         CompletableFuture<Void> revisionUpFut = testData.dataNodesMeta.revisionScaleUpFutures().get((long) testData.dataNodesRevision2);
 
