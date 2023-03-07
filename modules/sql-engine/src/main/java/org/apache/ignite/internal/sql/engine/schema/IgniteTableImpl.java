@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptCluster;
@@ -53,6 +52,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -72,14 +72,12 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory.RowHashFunction;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -110,8 +108,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
 
     private final List<ColumnDescriptor> columnsOrderedByPhysSchema;
 
-    private final int[] deleteRowHashFields;
-    private final int[] upsertRowHashFields;
+    private final PartitionExtractor partitionExtractor;
 
     /**
      * Constructor.
@@ -133,27 +130,18 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         this.clock = clock;
         this.schemaRegistry = schemaRegistry;
         this.schemaDescriptor = schemaRegistry.schema();
+        this.partitionExtractor = table::partitionId;
 
         assert schemaDescriptor != null;
 
-        BitSet keyFields = new BitSet();
         List<ColumnDescriptor> tmp = new ArrayList<>(desc.columnsCount());
         for (int i = 0; i < desc.columnsCount(); i++) {
-            ColumnDescriptor descriptor = desc.columnDescriptor(i);
-
-            tmp.add(descriptor);
-
-            if (descriptor.key()) {
-                keyFields.set(descriptor.logicalIndex());
-            }
+            tmp.add(desc.columnDescriptor(i));
         }
 
         tmp.sort(Comparator.comparingInt(ColumnDescriptor::physicalIndex));
 
         columnsOrderedByPhysSchema = tmp;
-
-        upsertRowHashFields = desc.distribution().getKeys().toIntArray();
-        deleteRowHashFields = project(desc.columnsCount(), upsertRowHashFields, keyFields);
 
         statistic = new StatisticsImpl();
     }
@@ -168,8 +156,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         this.schemaDescriptor = t.schemaDescriptor;
         this.statistic = t.statistic;
         this.columnsOrderedByPhysSchema = t.columnsOrderedByPhysSchema;
-        this.upsertRowHashFields = t.upsertRowHashFields;
-        this.deleteRowHashFields = t.deleteRowHashFields;
+        this.partitionExtractor = t.partitionExtractor;
         this.indexes.putAll(t.indexes);
     }
 
@@ -349,23 +336,20 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         assert commitPartitionId != null;
 
         UUID tableId = table.tableId();
-        RowHashFunction<RowT> hashFunction = ectx.hashFunction(tableId, upsertRowHashFields);
 
-        ToIntFunction<RowT> partitionExtractor = row -> IgniteUtils.safeAbs(hashFunction.hashOf(row) % table.partitions());
-
-        Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = new Int2ObjectOpenHashMap<>();
+        Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
 
         for (RowT row : rows) {
-            BinaryRow binaryRow = convertRow(row, ectx, false);
+            BinaryRowEx binaryRow = convertRow(row, ectx, false);
 
-            keyRowsByPartition.computeIfAbsent(partitionExtractor.applyAsInt(row), k -> new ArrayList<>()).add(binaryRow);
+            rowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
         }
 
-        CompletableFuture<List<RowT>>[] futures = new CompletableFuture[keyRowsByPartition.size()];
+        CompletableFuture<List<RowT>>[] futures = new CompletableFuture[rowsByPartition.size()];
 
         int batchNum = 0;
 
-        for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
+        for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
             NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
 
@@ -399,23 +383,20 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         RowHandler<RowT> handler = ectx.rowHandler();
 
         UUID tableId = table.tableId();
-        RowHashFunction<RowT> hashFunction = ectx.hashFunction(tableId, upsertRowHashFields);
 
-        ToIntFunction<RowT> partitionExtractor = row -> IgniteUtils.safeAbs(hashFunction.hashOf(row) % table.partitions());
-
-        Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = new Int2ObjectOpenHashMap<>();
+        Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
 
         for (RowT row : rows) {
-            BinaryRow binaryRow = convertRow(row, ectx, false);
+            BinaryRowEx binaryRow = convertRow(row, ectx, false);
 
-            keyRowsByPartition.computeIfAbsent(partitionExtractor.applyAsInt(row), k -> new ArrayList<>()).add(binaryRow);
+            rowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
         }
 
-        CompletableFuture<List<RowT>>[] futures = new CompletableFuture[keyRowsByPartition.size()];
+        CompletableFuture<List<RowT>>[] futures = new CompletableFuture[rowsByPartition.size()];
 
         int batchNum = 0;
 
-        for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
+        for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
             NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
 
@@ -467,16 +448,13 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         assert commitPartitionId != null;
 
         UUID tableId = table.tableId();
-        RowHashFunction<RowT> hashFunction = ectx.hashFunction(tableId, deleteRowHashFields);
-
-        ToIntFunction<RowT> partitionExtractor = row -> IgniteUtils.safeAbs(hashFunction.hashOf(row) % table.partitions());
 
         Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = new Int2ObjectOpenHashMap<>();
 
         for (RowT row : rows) {
-            BinaryRow binaryRow = convertRow(row, ectx, true);
+            BinaryRowEx binaryRow = convertRow(row, ectx, true);
 
-            keyRowsByPartition.computeIfAbsent(partitionExtractor.applyAsInt(row), k -> new ArrayList<>()).add(binaryRow);
+            keyRowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
         }
 
         CompletableFuture<List<RowT>>[] futures = new CompletableFuture[keyRowsByPartition.size()];
@@ -503,7 +481,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         return CompletableFuture.allOf(futures);
     }
 
-    private <RowT> BinaryRow convertRow(RowT row, ExecutionContext<RowT> ectx, boolean keyOnly) {
+    private <RowT> BinaryRowEx convertRow(RowT row, ExecutionContext<RowT> ectx, boolean keyOnly) {
         RowHandler<RowT> hnd = ectx.rowHandler();
 
         boolean hasNulls = false;
@@ -658,5 +636,13 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         LOG.debug("Unable to insert rows because of conflict [rows={}]", conflictKeys);
 
         return new SqlException(ErrorGroups.Sql.DUPLICATE_KEYS_ERR, "PK unique constraint is violated");
+    }
+
+    /**
+     * Extracts an identifier of partition from a given row.
+     */
+    @FunctionalInterface
+    private interface PartitionExtractor {
+        int fromRow(BinaryRowEx row);
     }
 }
