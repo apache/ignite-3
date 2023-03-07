@@ -825,32 +825,35 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                         PartitionDataStorage partitionDataStorage = partitionDataStorageFut.join();
 
-                                        try {
-                                            // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                                            ((Loza) raftMgr).startRaftGroupNode(
-                                                    raftNodeId,
-                                                    newConfiguration,
-                                                    new PartitionListener(
-                                                            partitionDataStorage,
-                                                            storageUpdateHandler,
-                                                            txStatePartitionStorage,
-                                                            safeTime
-                                                    ),
-                                                    new RebalanceRaftGroupEventsListener(
-                                                            metaStorageMgr,
-                                                            tablesCfg.tables().get(table.name()),
-                                                            replicaGrpId,
-                                                            partId,
-                                                            busyLock,
-                                                            createPartitionMover(internalTbl, partId),
-                                                            this::calculateAssignments,
-                                                            rebalanceScheduler
-                                                    ),
-                                                    groupOptions
-                                            );
-                                        } catch (NodeStoppingException ex) {
-                                            throw new CompletionException(ex);
-                                        }
+                                        CompletableFuture<Object> raftReadyFuture = CompletableFuture.supplyAsync(
+                                                () -> {
+                                                    try {
+                                                        // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                                                        return ((Loza) raftMgr).startRaftGroupNode(
+                                                                raftNodeId,
+                                                                newConfiguration,
+                                                                new PartitionListener(
+                                                                        partitionDataStorage,
+                                                                        storageUpdateHandler,
+                                                                        txStatePartitionStorage,
+                                                                        safeTime
+                                                                ),
+                                                                new RebalanceRaftGroupEventsListener(
+                                                                        metaStorageMgr,
+                                                                        tablesCfg.tables().get(table.name()),
+                                                                        replicaGrpId,
+                                                                        partId,
+                                                                        busyLock,
+                                                                        createPartitionMover(internalTbl, partId),
+                                                                        this::calculateAssignments,
+                                                                        rebalanceScheduler
+                                                                ),
+                                                                groupOptions
+                                                        );
+                                                    } catch (NodeStoppingException ex) {
+                                                        throw new CompletionException(ex);
+                                                    }
+                                                });
                                     }, ioExecutor);
                         });
                     }, ioExecutor);
