@@ -45,16 +45,19 @@ public class ClientHandlerMetricSource implements MetricSource {
      */
 
     private final AtomicLongMetric connectionsInitiated =
-            new AtomicLongMetric("connections.initiated", "Total initiated client connections");
+            new AtomicLongMetric("connections.initiated", "Total initiated connections");
 
     private final AtomicLongMetric sessionsAccepted =
-            new AtomicLongMetric("sessions.accepted", "Total accepted client sessions");
+            new AtomicLongMetric("sessions.accepted", "Total accepted sessions");
 
     private final AtomicLongMetric sessionsActive =
-            new AtomicLongMetric("sessions.active", "Active client sessions");
+            new AtomicLongMetric("sessions.active", "Active sessions");
 
     private final AtomicLongMetric sessionsRejected =
-            new AtomicLongMetric("sessions.rejected", "Total rejected client sessions");
+            new AtomicLongMetric("sessions.rejected", "Total sessions rejected due to handshake errors");
+
+    private final AtomicLongMetric sessionsRejectedTls =
+            new AtomicLongMetric("sessions.rejectedTls", "Total sessions rejected due to TLS handshake errors");
 
     private boolean enabled;
 
@@ -77,6 +80,10 @@ public class ClientHandlerMetricSource implements MetricSource {
 
     public AtomicLongMetric sessionsRejected() {
         return sessionsRejected;
+    }
+
+    public AtomicLongMetric sessionsRejectedTls() {
+        return sessionsRejectedTls;
     }
 
     @Override
