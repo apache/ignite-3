@@ -28,7 +28,14 @@ public class ClientHandlerMetricSource implements MetricSource {
     /** Source name. */
     private static final String SOURCE_NAME = "client-handler";
 
-    private final LongAdderMetric sessionsTotal = new LongAdderMetric("sessions.total", "Total initiated client sessions");
+    private final LongAdderMetric connectionsInitiated =
+            new LongAdderMetric("connections.initiated", "Total initiated client connections");
+
+    private final LongAdderMetric sessionsAccepted =
+            new LongAdderMetric("sessions.accepted", "Total accepted client sessions");
+
+    private final LongAdderMetric sessionsRejected =
+            new LongAdderMetric("sessions.rejected", "Total rejected client sessions");
 
     private boolean enabled;
 
@@ -37,15 +44,23 @@ public class ClientHandlerMetricSource implements MetricSource {
         return SOURCE_NAME;
     }
 
-    public LongAdderMetric sessionsTotal() {
-        return sessionsTotal;
+    public LongAdderMetric connectionsInitiated() {
+        return connectionsInitiated;
+    }
+
+    public LongAdderMetric sessionsAccepted() {
+        return sessionsAccepted;
+    }
+
+    public LongAdderMetric sessionsRejected() {
+        return sessionsRejected;
     }
 
     @Override
     public synchronized @Nullable MetricSet enable() {
         var metrics = new HashMap<String, Metric>();
 
-        metrics.put("sessions.total", sessionsTotal);
+        metrics.put("sessions.total", connectionsInitiated);
 
         enabled = true;
 

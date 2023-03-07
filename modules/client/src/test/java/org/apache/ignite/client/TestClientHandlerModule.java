@@ -181,7 +181,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         compute,
                                         clusterService,
                                         mock(IgniteSql.class),
-                                        clusterId));
+                                        clusterId, metrics));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());

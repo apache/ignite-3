@@ -131,6 +131,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** Cluster ID. */
     private final UUID clusterId;
 
+    /** Metrics. */
+    private final ClientHandlerMetricSource metrics;
+
     /** Context. */
     private ClientContext clientContext;
 
@@ -140,14 +143,15 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /**
      * Constructor.
      *
-     * @param igniteTables       Ignite tables API entry point.
+     * @param igniteTables Ignite tables API entry point.
      * @param igniteTransactions Transactions API.
-     * @param processor          Sql query processor.
-     * @param configuration      Configuration.
-     * @param compute            Compute.
-     * @param clusterService     Cluster.
-     * @param sql                SQL.
-     * @param clusterId          Cluster ID.
+     * @param processor Sql query processor.
+     * @param configuration Configuration.
+     * @param compute Compute.
+     * @param clusterService Cluster.
+     * @param sql SQL.
+     * @param clusterId Cluster ID.
+     * @param metrics Metrics.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
@@ -157,7 +161,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             IgniteCompute compute,
             ClusterService clusterService,
             IgniteSql sql,
-            UUID clusterId) {
+            UUID clusterId,
+            ClientHandlerMetricSource metrics) {
         assert igniteTables != null;
         assert igniteTransactions != null;
         assert processor != null;
@@ -166,6 +171,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         assert clusterService != null;
         assert sql != null;
         assert clusterId != null;
+        assert metrics != null;
 
         this.igniteTables = igniteTables;
         this.igniteTransactions = igniteTransactions;
@@ -174,6 +180,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         this.clusterService = clusterService;
         this.sql = sql;
         this.clusterId = clusterId;
+        this.metrics = metrics;
 
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources);
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
@@ -242,6 +249,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packMapHeader(0); // Extensions.
 
             write(packer, ctx);
+
+            metrics.sessionsAccepted().increment();
         } catch (Throwable t) {
             packer.close();
 
@@ -257,6 +266,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 errPacker.close();
                 exceptionCaught(ctx, t2);
             }
+
+            metrics.sessionsRejected().increment();
         }
     }
 

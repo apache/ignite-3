@@ -225,9 +225,10 @@ public class ClientHandlerModule implements IgniteComponent {
                                         igniteCompute,
                                         clusterService,
                                         sql,
-                                        clusterId));
+                                        clusterId,
+                                        metrics));
 
-                        metrics.sessionsTotal().increment();
+                        metrics.connectionsInitiated().increment();
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
