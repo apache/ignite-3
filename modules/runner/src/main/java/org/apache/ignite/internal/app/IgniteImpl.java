@@ -41,6 +41,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.deployment.IgniteDeployment;
@@ -238,6 +239,9 @@ public class IgniteImpl implements Ignite {
     private final ClusterManagementGroupManager cmgMgr;
 
     private final LogicalTopologyService logicalTopologyService;
+
+    /** Client handler metric source. */
+    private final ClientHandlerMetricSource clientHandlerMetricSource;
 
     /** Client handler module. */
     private final ClientHandlerModule clientHandlerModule;
@@ -501,6 +505,8 @@ public class IgniteImpl implements Ignite {
 
         compute = new IgniteComputeImpl(clusterSvc.topologyService(), distributedTblMgr, computeComponent);
 
+        clientHandlerMetricSource = new ClientHandlerMetricSource();
+
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
@@ -510,7 +516,8 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 nettyBootstrapFactory,
                 sql,
-                () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag().clusterId())
+                () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag().clusterId()),
+                clientHandlerMetricSource
         );
 
         deploymentManager = new DeploymentManagerImpl(clusterSvc,
@@ -600,6 +607,7 @@ public class IgniteImpl implements Ignite {
 
         try {
             metricManager.registerSource(new JvmMetricSource());
+            metricManager.registerSource(clientHandlerMetricSource);
 
             lifecycleManager.startComponent(longJvmPauseDetector);
 

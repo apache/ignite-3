@@ -32,6 +32,7 @@ dependencies {
     implementation project(':ignite-network')
     implementation project(':ignite-core')
     implementation project(':ignite-schema')
+    implementation project(':ignite-metrics')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.slf4j.jdk14

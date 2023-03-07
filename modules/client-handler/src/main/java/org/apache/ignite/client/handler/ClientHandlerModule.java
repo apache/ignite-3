@@ -73,6 +73,9 @@ public class ClientHandlerModule implements IgniteComponent {
     /** Cluster ID supplier. */
     private final Supplier<CompletableFuture<UUID>> clusterIdSupplier;
 
+    /** Metrics. */
+    private final ClientHandlerMetricSource metrics;
+
     /** Cluster ID. */
     private UUID clusterId;
 
@@ -94,13 +97,14 @@ public class ClientHandlerModule implements IgniteComponent {
     /**
      * Constructor.
      *
-     * @param queryProcessor     Sql query processor.
-     * @param igniteTables       Ignite.
+     * @param queryProcessor Sql query processor.
+     * @param igniteTables Ignite.
      * @param igniteTransactions Transactions.
-     * @param registry           Configuration registry.
-     * @param igniteCompute      Compute.
-     * @param clusterService     Cluster.
-     * @param bootstrapFactory   Bootstrap factory.
+     * @param registry Configuration registry.
+     * @param igniteCompute Compute.
+     * @param clusterService Cluster.
+     * @param bootstrapFactory Bootstrap factory.
+     * @param clientHandlerMetricSource Metric source.
      */
     public ClientHandlerModule(
             QueryProcessor queryProcessor,
@@ -111,7 +115,8 @@ public class ClientHandlerModule implements IgniteComponent {
             ClusterService clusterService,
             NettyBootstrapFactory bootstrapFactory,
             IgniteSql sql,
-            Supplier<CompletableFuture<UUID>> clusterIdSupplier) {
+            Supplier<CompletableFuture<UUID>> clusterIdSupplier,
+            ClientHandlerMetricSource clientHandlerMetricSource) {
         assert igniteTables != null;
         assert registry != null;
         assert queryProcessor != null;
@@ -130,6 +135,7 @@ public class ClientHandlerModule implements IgniteComponent {
         this.bootstrapFactory = bootstrapFactory;
         this.sql = sql;
         this.clusterIdSupplier = clusterIdSupplier;
+        this.metrics = clientHandlerMetricSource;
     }
 
     /** {@inheritDoc} */
@@ -218,6 +224,8 @@ public class ClientHandlerModule implements IgniteComponent {
                                         clusterService,
                                         sql,
                                         clusterId));
+
+                        metrics.sessionsTotal().increment();
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
