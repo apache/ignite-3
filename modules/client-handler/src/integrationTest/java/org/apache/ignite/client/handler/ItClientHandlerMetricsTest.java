@@ -49,7 +49,7 @@ public class ItClientHandlerMetricsTest {
     }
 
     @Test
-    void sessionsRejectedTls(TestInfo testInfo) throws Exception {
+    void testSessionsRejectedTls(TestInfo testInfo) throws Exception {
         testServer = new TestServer(
                 TestSslConfig.builder()
                         .keyStorePath(ItClientHandlerTestUtils.generateKeystore(workDir))
@@ -67,7 +67,7 @@ public class ItClientHandlerMetricsTest {
     }
 
     @Test
-    void sessionsRejected(TestInfo testInfo) throws Exception {
+    void testSessionsRejected(TestInfo testInfo) throws Exception {
         testServer = new TestServer(null);
         var serverModule = testServer.start(testInfo);
 
@@ -86,7 +86,7 @@ public class ItClientHandlerMetricsTest {
     }
 
     @Test
-    void sessionsRejectedTimeout(TestInfo testInfo) throws Exception {
+    void testSessionsRejectedTimeout(TestInfo testInfo) throws Exception {
         testServer = new TestServer(null);
         testServer.idleTimeout(300);
         var serverModule = testServer.start(testInfo);
@@ -101,7 +101,7 @@ public class ItClientHandlerMetricsTest {
     }
 
     @Test
-    void sessionsAccepted(TestInfo testInfo) throws Exception {
+    void testSessionsAccepted(TestInfo testInfo) throws Exception {
         testServer = new TestServer(null);
         var serverModule = testServer.start(testInfo);
 
@@ -110,7 +110,7 @@ public class ItClientHandlerMetricsTest {
     }
 
     @Test
-    void sessionsActive(TestInfo testInfo) throws Exception {
+    void testSessionsActive(TestInfo testInfo) throws Exception {
         testServer = new TestServer(null);
         var serverModule = testServer.start(testInfo);
 
@@ -122,7 +122,7 @@ public class ItClientHandlerMetricsTest {
     }
 
     @Test
-    void bytesSentReceived(TestInfo testInfo) throws Exception {
+    void testBytesSentReceived(TestInfo testInfo) throws Exception {
         testServer = new TestServer(null);
         var serverModule = testServer.start(testInfo);
 
