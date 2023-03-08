@@ -18,6 +18,8 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -32,18 +34,27 @@ class ClientSqlResultSet {
     /** Session. */
     private final Session session;
 
+    /** Metrics. */
+    private final ClientHandlerMetricSource metrics;
+
+    /** Closed flag. */
+    private final AtomicBoolean closed = new AtomicBoolean();
+
     /**
      * Constructor.
      *
      * @param resultSet Result set.
      * @param session Session.
+     * @param metrics Metrics.
      */
-    ClientSqlResultSet(AsyncResultSet<SqlRow> resultSet, Session session) {
+    ClientSqlResultSet(AsyncResultSet<SqlRow> resultSet, Session session, ClientHandlerMetricSource metrics) {
         assert resultSet != null;
         assert session != null;
+        assert metrics != null;
 
         this.resultSet = resultSet;
         this.session = session;
+        this.metrics = metrics;
     }
 
     /**
@@ -61,6 +72,12 @@ class ClientSqlResultSet {
      * @return Future representing pending completion of the operation.
      */
     public CompletableFuture<Void> closeAsync() {
-        return resultSet.closeAsync().thenCompose(res -> session.closeAsync()).toCompletableFuture();
+        if (closed.compareAndSet(false, true)) {
+            metrics.cursorsActive().decrement();
+
+            return resultSet.closeAsync().thenCompose(res -> session.closeAsync()).toCompletableFuture();
+        }
+
+        return CompletableFuture.completedFuture(null);
     }
 }

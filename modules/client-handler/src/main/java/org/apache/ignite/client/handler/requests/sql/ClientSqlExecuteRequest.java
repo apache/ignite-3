@@ -51,6 +51,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client SQL execute request.
  */
+@SuppressWarnings({"rawtypes", "unchecked"})
 public class ClientSqlExecuteRequest {
     /**
      * Processes the request.
@@ -93,9 +94,9 @@ public class ClientSqlExecuteRequest {
 
         if (hasResource) {
             try {
-                var clientResultSet = new ClientSqlResultSet(asyncResultSet, session);
-
                 metrics.cursorsActive().increment();
+
+                var clientResultSet = new ClientSqlResultSet(asyncResultSet, session, metrics);
 
                 ClientResource resource = new ClientResource(
                         clientResultSet,
