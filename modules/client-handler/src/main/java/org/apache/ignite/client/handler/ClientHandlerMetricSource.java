@@ -44,8 +44,8 @@ public class ClientHandlerMetricSource implements MetricSource {
         RequestsActive (async processing in progress)
         TransactionsActive
         CursorsActive
-        BytesSent
-        BytesReceived
+        BytesSent +
+        BytesReceived +
      */
 
     private final AtomicLongMetric connectionsInitiated =
