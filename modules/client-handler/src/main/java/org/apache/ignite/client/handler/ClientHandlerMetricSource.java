@@ -30,7 +30,6 @@ import org.jetbrains.annotations.Nullable;
  * Server-side client handler metrics.
  */
 public class ClientHandlerMetricSource implements MetricSource {
-    /** Source name. */
     private static final String SOURCE_NAME = "client-handler";
 
     private final AtomicLongMetric connectionsInitiated =

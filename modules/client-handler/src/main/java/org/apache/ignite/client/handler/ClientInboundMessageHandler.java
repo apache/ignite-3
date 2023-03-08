@@ -194,7 +194,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** {@inheritDoc} */
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        // Each inbound handler in a pipeline has to release the received messages.
         ByteBuf byteBuf = (ByteBuf) msg;
 
         // Each inbound handler in a pipeline has to release the received messages.
