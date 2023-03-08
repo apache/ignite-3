@@ -502,13 +502,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientJdbcQueryMetadataRequest.process(in, out, jdbcQueryCursorHandler);
 
             case ClientOp.TX_BEGIN:
-                return ClientTransactionBeginRequest.process(in, out, igniteTransactions, resources);
+                return ClientTransactionBeginRequest.process(in, out, igniteTransactions, resources, metrics);
 
             case ClientOp.TX_COMMIT:
-                return ClientTransactionCommitRequest.process(in, resources);
+                return ClientTransactionCommitRequest.process(in, resources, metrics);
 
             case ClientOp.TX_ROLLBACK:
-                return ClientTransactionRollbackRequest.process(in, resources);
+                return ClientTransactionRollbackRequest.process(in, resources, metrics);
 
             case ClientOp.COMPUTE_EXECUTE:
                 return ClientComputeExecuteRequest.process(in, out, compute, clusterService);

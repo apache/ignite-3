@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.tx;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -32,13 +33,19 @@ public class ClientTransactionCommitRequest {
      *
      * @param in        Unpacker.
      * @param resources Resources.
+     * @param metrics   Metrics.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(ClientMessageUnpacker in, ClientResourceRegistry resources)
+    public static CompletableFuture<Void> process(
+            ClientMessageUnpacker in,
+            ClientResourceRegistry resources,
+            ClientHandlerMetricSource metrics)
             throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
 
         Transaction t = resources.remove(resourceId).get(Transaction.class);
+
+        metrics.transactionsActive().decrement();
 
         return t.commitAsync();
     }
