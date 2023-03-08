@@ -24,17 +24,53 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Storage operations.
  */
-interface StorageOperation {
+abstract class StorageOperation {
+    private final CompletableFuture<Void> operationFuture = new CompletableFuture<>();
+
+    private volatile boolean finalOperation;
+
+    /**
+     * Returns future completion of the operation.
+     */
+    CompletableFuture<Void> operationFuture() {
+        return operationFuture;
+    }
+
+    /**
+     * Return {@code true} if the operation is the final.
+     */
+    boolean isFinalOperation() {
+        return finalOperation;
+    }
+
+    /**
+     * Marks the operation as final.
+     */
+    void markFinalOperation() {
+        finalOperation = true;
+    }
+
+    /**
+     * Creates an error message indicating that the current operation is in progress or closed.
+     *
+     * @param storageInfo Storage information in the format "table=user, partitionId=1".
+     */
+    abstract String inProcessErrorMessage(String storageInfo);
+
     /**
      * Storage creation operation.
      */
-    class CreateStorageOperation implements StorageOperation {
+    static class CreateStorageOperation extends StorageOperation {
+        @Override
+        String inProcessErrorMessage(String storageInfo) {
+            return "Storage is in process of being created: [" + storageInfo + ']';
+        }
     }
 
     /**
      * Storage destruction operation.
      */
-    class DestroyStorageOperation implements StorageOperation {
+    static class DestroyStorageOperation extends StorageOperation {
         private final CompletableFuture<Void> destroyFuture = new CompletableFuture<>();
 
         private final AtomicReference<CreateStorageOperation> createStorageOperationReference = new AtomicReference<>();
@@ -45,46 +81,77 @@ interface StorageOperation {
          * @param createStorageOperation Storage creation operation.
          * @return {@code True} if the operation was set by current method invocation, {@code false} if by another method invocation.
          */
-        public boolean setCreationOperation(CreateStorageOperation createStorageOperation) {
+        boolean setCreationOperation(CreateStorageOperation createStorageOperation) {
             return createStorageOperationReference.compareAndSet(null, createStorageOperation);
         }
 
         /**
          * Returns {@link #setCreationOperation(CreateStorageOperation) set} a storage creation operation.
          */
-        public @Nullable CreateStorageOperation getCreateStorageOperation() {
+        @Nullable CreateStorageOperation getCreateStorageOperation() {
             return createStorageOperationReference.get();
         }
 
         /**
          * Returns the storage destruction future.
          */
-        public CompletableFuture<Void> getDestroyFuture() {
+        CompletableFuture<Void> getDestroyFuture() {
             return destroyFuture;
+        }
+
+        @Override
+        String inProcessErrorMessage(String storageInfo) {
+            return "Storage is already in process of being destroyed: [" + storageInfo + ']';
         }
     }
 
     /**
      * Storage rebalancing start operation.
      */
-    class StartRebalanceStorageOperation implements StorageOperation {
+    static class StartRebalanceStorageOperation extends StorageOperation {
+        @Override
+        String inProcessErrorMessage(String storageInfo) {
+            return "Storage in the process of starting a rebalance: [" + storageInfo + ']';
+        }
     }
 
     /**
      * Storage rebalancing abort operation.
      */
-    class AbortRebalanceStorageOperation implements StorageOperation {
+    static class AbortRebalanceStorageOperation extends StorageOperation {
+        @Override
+        String inProcessErrorMessage(String storageInfo) {
+            return "Storage in the process of aborting a rebalance: [" + storageInfo + ']';
+        }
     }
 
     /**
      * Storage rebalancing finish operation.
      */
-    class FinishRebalanceStorageOperation implements StorageOperation {
+    static class FinishRebalanceStorageOperation extends StorageOperation {
+        @Override
+        String inProcessErrorMessage(String storageInfo) {
+            return "Storage in the process of finishing a rebalance: [" + storageInfo + ']';
+        }
     }
 
     /**
      * Storage cleanup operation.
      */
-    class CleanupStorageOperation implements StorageOperation {
+    static class CleanupStorageOperation extends StorageOperation {
+        @Override
+        String inProcessErrorMessage(String storageInfo) {
+            return "Storage is in process of being cleaned up: [" + storageInfo + ']';
+        }
+    }
+
+    /**
+     * Storage close operation.
+     */
+    static class CloseStorageOperation extends StorageOperation {
+        @Override
+        String inProcessErrorMessage(String storageInfo) {
+            return "Storage is in the process of closing: [" + storageInfo + ']';
+        }
     }
 }

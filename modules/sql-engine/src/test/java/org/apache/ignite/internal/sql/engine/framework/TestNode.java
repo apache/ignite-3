@@ -19,22 +19,20 @@ package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.mockito.Mockito.mock;
 
-import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
@@ -64,18 +62,11 @@ import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
-import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * An object representing a node in test cluster.
@@ -175,7 +166,7 @@ public class TestNode implements LifecycleAware {
      * @return A cursor representing the result.
      */
     public AsyncCursor<List<Object>> executePlan(QueryPlan plan) {
-        return executionService.executePlan(plan, createContext());
+        return executionService.executePlan(new NoOpTransaction(nodeName), plan, createContext());
     }
 
     /**
@@ -193,6 +184,19 @@ public class TestNode implements LifecycleAware {
         return await(prepareService.prepareAsync(nodes.get(0), createContext()));
     }
 
+    /**
+     * Prepares (validates, and optimizes) the given query AST
+     * and returns the plan to execute.
+     *
+     * @param queryAst Parsed ASD of a query to prepare.
+     * @return A plan to execute.
+     */
+    public QueryPlan prepare(SqlNode queryAst) {
+        assertThat(queryAst, not(instanceOf(SqlNodeList.class)));
+
+        return await(prepareService.prepareAsync(queryAst, createContext()));
+    }
+
     private BaseQueryContext createContext() {
         return BaseQueryContext.builder()
                 .cancel(new QueryCancel())
@@ -200,7 +204,7 @@ public class TestNode implements LifecycleAware {
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(schema)
                                 .build()
-                ).transaction(new TestInternalTransaction(nodeName))
+                )
                 .build();
     }
 
@@ -210,88 +214,4 @@ public class TestNode implements LifecycleAware {
         return service;
     }
 
-    private static final class TestInternalTransaction implements InternalTransaction {
-
-        private final UUID id = UUID.randomUUID();
-
-        private final HybridTimestamp hybridTimestamp = new HybridTimestamp(1, 1);
-
-        private final IgniteBiTuple<ClusterNode, Long> tuple;
-
-        private final ReplicationGroupId groupId = new ReplicationGroupId() {
-
-            private static final long serialVersionUID = -6498147568339477517L;
-        };
-
-        public TestInternalTransaction(String name) {
-            var networkAddress = NetworkAddress.from(new InetSocketAddress("localhost", 1234));
-            tuple = new IgniteBiTuple<>(new ClusterNode(name, name, networkAddress), 1L);
-        }
-
-        @Override
-        public void commit() throws TransactionException {
-
-        }
-
-        @Override
-        public CompletableFuture<Void> commitAsync() {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        @Override
-        public void rollback() throws TransactionException {
-
-        }
-
-        @Override
-        public CompletableFuture<Void> rollbackAsync() {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        @Override
-        public boolean isReadOnly() {
-            return true;
-        }
-
-        @Override
-        public HybridTimestamp readTimestamp() {
-            return hybridTimestamp;
-        }
-
-        @Override
-        public @NotNull UUID id() {
-            return id;
-        }
-
-        @Override
-        public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(ReplicationGroupId replicationGroupId) {
-            return tuple;
-        }
-
-        @Override
-        public TxState state() {
-            return TxState.COMMITED;
-        }
-
-        @Override
-        public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
-            return true;
-        }
-
-        @Override
-        public ReplicationGroupId commitPartition() {
-            return groupId;
-        }
-
-        @Override
-        public IgniteBiTuple<ClusterNode, Long> enlist(ReplicationGroupId replicationGroupId,
-                IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
-            return nodeAndTerm;
-        }
-
-        @Override
-        public void enlistResultFuture(CompletableFuture<?> resultFuture) {
-            resultFuture.complete(null);
-        }
-    }
 }

@@ -32,12 +32,11 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -59,7 +58,7 @@ import org.junit.jupiter.api.Test;
  */
 @Disabled("IGNITE-18203 The test goes to deadlock in cluster restart, because indexes are required to apply RAFT commands on restart , "
         + "but the table have not started yet.")
-public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegrationTest {
+public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassIntegrationTest {
 
     private final Object[][] dataSet = {
             {1, "Igor", 10d},
@@ -175,9 +174,9 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegra
         BinaryRowEx key = new TupleMarshallerImpl(table.schemaView()).marshal(Tuple.create().set("id", 42));
 
         if (isNode0Leader) {
-            assertNull(table.internalTable().get(key, new HybridClockImpl().now(), node1.node()).get());
+            assertNull(table.internalTable().get(key, node1.clock().now(), node1.node()).get());
         } else {
-            assertNull(table.internalTable().get(key, new HybridClockImpl().now(), node0.node()).get());
+            assertNull(table.internalTable().get(key, node1.clock().now(), node0.node()).get());
         }
 
         var tx = node0.transactions().begin();
@@ -275,7 +274,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegra
 
                 BinaryRowEx testKey = new TupleMarshallerImpl(table.schemaView()).marshal(Tuple.create().set("ID", row[0]));
 
-                BinaryRow readOnlyRow = table.internalTable().get(testKey, new HybridClockImpl().now(), ignite.node()).get();
+                BinaryRow readOnlyRow = table.internalTable().get(testKey, ignite.clock().now(), ignite.node()).get();
 
                 assertNotNull(readOnlyRow);
                 assertEquals(row[1], new Row(table.schemaView().schema(), readOnlyRow).stringValue(2));

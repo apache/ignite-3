@@ -55,7 +55,7 @@ public @interface SqlLogicTestEnvironment {
      *
      * @return Test timeout in millis.
      */
-    long timeout() default 3 * 60 * 1000L;
+    long timeout() default 10 * 60 * 1000L;
 
     /**
      * Cluster restart mode.

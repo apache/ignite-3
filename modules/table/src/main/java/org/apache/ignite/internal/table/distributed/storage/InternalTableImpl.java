@@ -77,6 +77,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
@@ -125,7 +126,7 @@ public class InternalTableImpl implements InternalTable {
     private final TxStateTableStorage txStateStorage;
 
     /** Replica service. */
-    protected final ReplicaService replicaSvc;
+    private final ReplicaService replicaSvc;
 
     /** Mutex for the partition map update. */
     private final Object updatePartMapMux = new Object();
@@ -227,7 +228,7 @@ public class InternalTableImpl implements InternalTable {
 
         final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
 
-        int partId = partId(row);
+        int partId = partitionId(row);
 
         TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
@@ -497,7 +498,7 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
         if (tx != null && tx.isReadOnly()) {
-            return evaluateReadOnlyRecipientNode(partId(keyRow))
+            return evaluateReadOnlyRecipientNode(partitionId(keyRow))
                     .thenCompose(recipientNode -> get(keyRow, tx.readTimestamp(), recipientNode));
         } else {
             return enlistInTx(
@@ -522,7 +523,7 @@ public class InternalTableImpl implements InternalTable {
             @NotNull HybridTimestamp readTimestamp,
             @NotNull ClusterNode recipientNode
     ) {
-        int partId = partId(keyRow);
+        int partId = partitionId(keyRow);
         ReplicationGroupId partGroupId = partitionMap.get(partId).groupId();
 
         return replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlySingleRowReplicaRequest()
@@ -543,7 +544,7 @@ public class InternalTableImpl implements InternalTable {
             if (firstRow == null) {
                 return CompletableFuture.completedFuture(Collections.emptyList());
             } else {
-                return evaluateReadOnlyRecipientNode(partId(firstRow))
+                return evaluateReadOnlyRecipientNode(partitionId(firstRow))
                         .thenCompose(recipientNode -> getAll(keyRows, tx.readTimestamp(), recipientNode));
             }
         } else {
@@ -846,18 +847,6 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public Publisher<BinaryRow> lookup(
             int partId,
-            @Nullable InternalTransaction tx,
-            @NotNull UUID indexId,
-            BinaryTuple key,
-            @Nullable BitSet columnsToInclude
-    ) {
-        return scan(partId, tx, indexId, key, null, null, 0, columnsToInclude);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Publisher<BinaryRow> lookup(
-            int partId,
             UUID txId,
             PrimaryReplica recipient,
             UUID indexId,
@@ -1061,7 +1050,7 @@ public class InternalTableImpl implements InternalTable {
         Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = new Int2ObjectOpenHashMap<>();
 
         for (BinaryRowEx keyRow : rows) {
-            keyRowsByPartition.computeIfAbsent(partId(keyRow), k -> new ArrayList<>()).add(keyRow);
+            keyRowsByPartition.computeIfAbsent(partitionId(keyRow), k -> new ArrayList<>()).add(keyRow);
         }
 
         return keyRowsByPartition;
@@ -1153,7 +1142,7 @@ public class InternalTableImpl implements InternalTable {
     @TestOnly
     @Override
     public int partition(BinaryRowEx keyRow) {
-        return partId(keyRow);
+        return partitionId(keyRow);
     }
 
     /**
@@ -1174,16 +1163,10 @@ public class InternalTableImpl implements InternalTable {
                 }));
     }
 
-    /**
-     * Get partition id by key row.
-     *
-     * @param row Key row.
-     * @return partition id.
-     */
-    private int partId(BinaryRowEx row) {
-        int partId = row.colocationHash() % partitions;
-
-        return (partId < 0) ? -partId : partId;
+    /** {@inheritDoc} */
+    @Override
+    public int partitionId(BinaryRowEx row) {
+        return IgniteUtils.safeAbs(row.colocationHash()) % partitions;
     }
 
     /**

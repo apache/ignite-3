@@ -60,6 +60,7 @@ import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
@@ -138,12 +139,6 @@ public final class Commons {
             ConventionTraitDef.INSTANCE,
             RelCollationTraitDef.INSTANCE,
             DistributionTraitDef.INSTANCE
-    );
-
-    @SuppressWarnings("rawtypes")
-    public static final List<RelTraitDef> LOCAL_TRAITS_SET = List.of(
-            ConventionTraitDef.INSTANCE,
-            RelCollationTraitDef.INSTANCE
     );
 
     public static final FrameworkConfig FRAMEWORK_CONFIG = Frameworks.newConfigBuilder()
@@ -789,5 +784,25 @@ public final class Commons {
      */
     public static boolean implicitPkEnabled() {
         return IgniteSystemProperties.getBoolean("IMPLICIT_PK_ENABLED", false);
+    }
+
+    /**
+     * Returns a short version of a rule description.
+     *
+     * <p>Short description is used to match the rule to disable in DISABLE_RULE hint processor.
+     *
+     * @param rule A rule to derive description from.
+     * @return A short description of the rule.
+     */
+    public static String shortRuleName(RelOptRule rule) {
+        String ruleDescription = rule.toString();
+
+        int pos = ruleDescription.indexOf('(');
+
+        if (pos == -1) {
+            return ruleDescription;
+        }
+
+        return ruleDescription.substring(0, pos);
     }
 }

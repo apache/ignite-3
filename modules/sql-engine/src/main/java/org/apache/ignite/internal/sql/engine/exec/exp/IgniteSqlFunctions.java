@@ -36,7 +36,6 @@ import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -162,7 +161,7 @@ public class IgniteSqlFunctions {
     }
 
     public static int currentTime(DataContext ctx) {
-        return (int) TypeUtils.toInternal((ExecutionContext<?>) ctx, LocalTime.now(), LocalTime.class);
+        return (int) TypeUtils.toInternal(LocalTime.now(), LocalTime.class);
     }
 
     /** LEAST2. */

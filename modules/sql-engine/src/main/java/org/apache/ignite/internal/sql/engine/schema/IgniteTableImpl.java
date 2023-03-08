@@ -17,16 +17,18 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.calcite.plan.Convention;
@@ -36,7 +38,6 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelReferentialConstraint;
-import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -44,7 +45,14 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -52,6 +60,8 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
+import org.apache.ignite.internal.sql.engine.exec.UpdateableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
@@ -59,25 +69,34 @@ import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
-import org.apache.ignite.internal.sql.engine.schema.ModifyRow.Operation;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite table implementation.
  */
-public class IgniteTableImpl extends AbstractTable implements InternalIgniteTable {
+public class IgniteTableImpl extends AbstractTable implements IgniteTable, UpdateableTable {
+    private static final IgniteLogger LOG = Loggers.forClass(IgniteTableImpl.class);
+
+    private static final TableMessagesFactory MESSAGES_FACTORY = new TableMessagesFactory();
+
     private final TableDescriptor desc;
 
     private final int ver;
 
     private final InternalTable table;
+    private final HybridClock clock;
+    private final ReplicaService replicaService;
 
     private final SchemaRegistry schemaRegistry;
 
@@ -85,9 +104,11 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
     private final Statistic statistic;
 
-    private Map<String, IgniteIndex> indexes = new HashMap<>();
+    private final Map<String, IgniteIndex> indexes = new HashMap<>();
 
     private final List<ColumnDescriptor> columnsOrderedByPhysSchema;
+
+    private final PartitionExtractor partitionExtractor;
 
     /**
      * Constructor.
@@ -95,16 +116,21 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
      * @param desc  Table descriptor.
      * @param table Physical table this schema object created for.
      */
-    public IgniteTableImpl(
+    IgniteTableImpl(
             TableDescriptor desc,
             InternalTable table,
+            ReplicaService replicaService,
+            HybridClock clock,
             SchemaRegistry schemaRegistry
     ) {
         this.ver = schemaRegistry.lastSchemaVersion();
         this.desc = desc;
         this.table = table;
+        this.replicaService = replicaService;
+        this.clock = clock;
         this.schemaRegistry = schemaRegistry;
         this.schemaDescriptor = schemaRegistry.schema();
+        this.partitionExtractor = table::partitionId;
 
         assert schemaDescriptor != null;
 
@@ -116,6 +142,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         tmp.sort(Comparator.comparingInt(ColumnDescriptor::physicalIndex));
 
         columnsOrderedByPhysSchema = tmp;
+
         statistic = new StatisticsImpl();
     }
 
@@ -123,10 +150,13 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         this.desc = t.desc;
         this.ver = t.ver;
         this.table = t.table;
+        this.replicaService = t.replicaService;
+        this.clock = t.clock;
         this.schemaRegistry = t.schemaRegistry;
         this.schemaDescriptor = t.schemaDescriptor;
         this.statistic = t.statistic;
         this.columnsOrderedByPhysSchema = t.columnsOrderedByPhysSchema;
+        this.partitionExtractor = t.partitionExtractor;
         this.indexes.putAll(t.indexes);
     }
 
@@ -281,13 +311,13 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             for (int i = 0; i < desc.columnsCount(); i++) {
                 ColumnDescriptor colDesc = desc.columnDescriptor(i);
 
-                handler.set(i, res, TypeUtils.toInternal(ectx, row.value(colDesc.physicalIndex())));
+                handler.set(i, res, TypeUtils.toInternal(row.value(colDesc.physicalIndex())));
             }
         } else {
             for (int i = 0, j = requiredColumns.nextSetBit(0); j != -1; j = requiredColumns.nextSetBit(j + 1), i++) {
                 ColumnDescriptor colDesc = desc.columnDescriptor(j);
 
-                handler.set(i, res, TypeUtils.toInternal(ectx, row.value(colDesc.physicalIndex())));
+                handler.set(i, res, TypeUtils.toInternal(row.value(colDesc.physicalIndex())));
             }
         }
 
@@ -296,138 +326,197 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> ModifyRow toModifyRow(
+    public <RowT> CompletableFuture<?> upsertAll(
             ExecutionContext<RowT> ectx,
-            RowT row,
-            TableModify.Operation op,
-            List<String> arg
+            List<RowT> rows
     ) {
-        switch (op) {
-            case INSERT:
-                return insertTuple(row, ectx);
-            case DELETE:
-                return deleteTuple(row, ectx);
-            case UPDATE:
-                return updateTuple(row, arg, 0, ectx);
-            case MERGE:
-                return mergeTuple(row, arg, ectx);
-            default:
-                throw new AssertionError();
+        TxAttributes txAttributes = ectx.txAttributes();
+        ReplicationGroupId commitPartitionId = txAttributes.commitPartition();
+
+        assert commitPartitionId != null;
+
+        UUID tableId = table.tableId();
+
+        Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
+
+        for (RowT row : rows) {
+            BinaryRowEx binaryRow = convertRow(row, ectx, false);
+
+            rowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
         }
+
+        CompletableFuture<List<RowT>>[] futures = new CompletableFuture[rowsByPartition.size()];
+
+        int batchNum = 0;
+
+        for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
+            TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
+            NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
+
+            ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
+                    .groupId(partGroupId)
+                    .commitPartitionId((TablePartitionId) commitPartitionId)
+                    .binaryRows(partToRows.getValue())
+                    .transactionId(txAttributes.id())
+                    .term(nodeWithTerm.term())
+                    .requestType(RequestType.RW_UPSERT_ALL)
+                    .timestamp(clock.now())
+                    .build();
+
+            futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request);
+        }
+
+        return CompletableFuture.allOf(futures);
     }
 
-    private <RowT> ModifyRow insertTuple(RowT row, ExecutionContext<RowT> ectx) {
+    /** {@inheritDoc} */
+    @Override
+    public <RowT> CompletableFuture<?> insertAll(
+            ExecutionContext<RowT> ectx,
+            List<RowT> rows
+    ) {
+        TxAttributes txAttributes = ectx.txAttributes();
+        ReplicationGroupId commitPartitionId = txAttributes.commitPartition();
+
+        assert commitPartitionId != null;
+
+        RowHandler<RowT> handler = ectx.rowHandler();
+
+        UUID tableId = table.tableId();
+
+        Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
+
+        for (RowT row : rows) {
+            BinaryRowEx binaryRow = convertRow(row, ectx, false);
+
+            rowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
+        }
+
+        CompletableFuture<List<RowT>>[] futures = new CompletableFuture[rowsByPartition.size()];
+
+        int batchNum = 0;
+
+        for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
+            TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
+            NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
+
+            ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
+                    .groupId(partGroupId)
+                    .commitPartitionId((TablePartitionId) commitPartitionId)
+                    .binaryRows(partToRows.getValue())
+                    .transactionId(txAttributes.id())
+                    .term(nodeWithTerm.term())
+                    .requestType(RequestType.RW_INSERT_ALL)
+                    .timestamp(clock.now())
+                    .build();
+
+            futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request)
+                .thenApply(result -> {
+                    Collection<BinaryRow> binaryRows = (Collection<BinaryRow>) result;
+
+                    if (binaryRows.isEmpty()) {
+                        return List.of();
+                    }
+
+                    List<RowT> conflictRows = new ArrayList<>(binaryRows.size());
+                    IgniteTypeFactory typeFactory = ectx.getTypeFactory();
+                    RowHandler.RowFactory<RowT> rowFactory = handler.factory(
+                            ectx.getTypeFactory(),
+                            desc.insertRowType(typeFactory)
+                    );
+
+                    for (BinaryRow row : binaryRows) {
+                        conflictRows.add(toRow(ectx, row, rowFactory, null));
+                    }
+
+                    return conflictRows;
+                });
+        }
+
+        return handleInsertResults(handler, futures);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <RowT> CompletableFuture<?> deleteAll(
+            ExecutionContext<RowT> ectx,
+            List<RowT> rows
+    ) {
+        TxAttributes txAttributes = ectx.txAttributes();
+        ReplicationGroupId commitPartitionId = txAttributes.commitPartition();
+
+        assert commitPartitionId != null;
+
+        UUID tableId = table.tableId();
+
+        Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = new Int2ObjectOpenHashMap<>();
+
+        for (RowT row : rows) {
+            BinaryRowEx binaryRow = convertRow(row, ectx, true);
+
+            keyRowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
+        }
+
+        CompletableFuture<List<RowT>>[] futures = new CompletableFuture[keyRowsByPartition.size()];
+
+        int batchNum = 0;
+
+        for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
+            TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
+            NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
+
+            ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
+                    .groupId(partGroupId)
+                    .commitPartitionId((TablePartitionId) commitPartitionId)
+                    .binaryRows(partToRows.getValue())
+                    .transactionId(txAttributes.id())
+                    .term(nodeWithTerm.term())
+                    .requestType(RequestType.RW_DELETE_ALL)
+                    .timestamp(clock.now())
+                    .build();
+
+            futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request);
+        }
+
+        return CompletableFuture.allOf(futures);
+    }
+
+    private <RowT> BinaryRowEx convertRow(RowT row, ExecutionContext<RowT> ectx, boolean keyOnly) {
         RowHandler<RowT> hnd = ectx.rowHandler();
 
         boolean hasNulls = false;
         for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            if (hnd.get(colDesc.logicalIndex(), row) == null) {
+            if (keyOnly && !colDesc.key()) {
+                continue;
+            }
+
+            Object value = hnd.get(colDesc.logicalIndex(), row);
+
+            assert value != RexImpTable.DEFAULT_VALUE_PLACEHOLDER;
+
+            if (value == null) {
                 hasNulls = true;
                 break;
             }
         }
 
-        RowAssembler rowAssembler = new RowAssembler(schemaDescriptor, hasNulls);
+        RowAssembler rowAssembler = keyOnly
+                ? RowAssembler.keyAssembler(schemaDescriptor, hasNulls)
+                : new RowAssembler(schemaDescriptor, hasNulls);
 
         for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            Object val;
-
-            if (colDesc.key() && Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(colDesc.name())) {
-                val = colDesc.defaultValue();
-            } else {
-                val = replaceDefault(hnd.get(colDesc.logicalIndex(), row), colDesc);
+            if (keyOnly && !colDesc.key()) {
+                continue;
             }
 
-            val = TypeUtils.fromInternal(ectx, val, NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
+            Object val = hnd.get(colDesc.logicalIndex(), row);
+
+            val = TypeUtils.fromInternal(val, NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
 
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
         }
 
-        return new ModifyRow(new Row(schemaDescriptor, rowAssembler.build()), Operation.INSERT_ROW);
-    }
-
-    private <RowT> ModifyRow mergeTuple(RowT row, List<String> updateColList, ExecutionContext<RowT> ectx) {
-        RowHandler<RowT> hnd = ectx.rowHandler();
-
-        int rowColumnsCnt = hnd.columnCount(row);
-
-        if (desc.columnsCount() == rowColumnsCnt) { // Only WHEN NOT MATCHED clause in MERGE.
-            return insertTuple(row, ectx);
-        } else if (desc.columnsCount() + updateColList.size() == rowColumnsCnt) { // Only WHEN MATCHED clause in MERGE.
-            return updateTuple(row, updateColList, 0, ectx);
-        } else { // Both WHEN MATCHED and WHEN NOT MATCHED clauses in MERGE.
-            int off = columnsOrderedByPhysSchema.size();
-
-            if (hnd.get(off, row) == null) {
-                return insertTuple(row, ectx);
-            } else {
-                return updateTuple(row, updateColList, off, ectx);
-            }
-        }
-    }
-
-    private <RowT> ModifyRow updateTuple(RowT row, List<String> updateColList, int offset, ExecutionContext<RowT> ectx) {
-        RowHandler<RowT> hnd = ectx.rowHandler();
-
-        Object2IntMap<String> columnToIndex = new Object2IntOpenHashMap<>(updateColList.size());
-
-        for (int i = 0; i < updateColList.size(); i++) {
-            columnToIndex.put(updateColList.get(i), i + desc.columnsCount() + offset);
-        }
-
-        boolean hasNulls = false;
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            int colIdx = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex() + offset);
-
-            if (hnd.get(colIdx, row) == null) {
-                hasNulls = true;
-                break;
-            }
-        }
-
-        RowAssembler rowAssembler = new RowAssembler(schemaDescriptor, hasNulls);
-
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            int colIdx = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex() + offset);
-
-            Object val = TypeUtils.fromInternal(ectx, hnd.get(colIdx, row),
-                    NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
-
-            RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
-        }
-
-        return new ModifyRow(new Row(schemaDescriptor, rowAssembler.build()), Operation.UPDATE_ROW);
-    }
-
-    private <RowT> ModifyRow deleteTuple(RowT row, ExecutionContext<RowT> ectx) {
-        RowHandler<RowT> hnd = ectx.rowHandler();
-
-        boolean hasNulls = false;
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            if (!colDesc.key()) {
-                break;
-            }
-
-            if (hnd.get(colDesc.logicalIndex(), row) == null) {
-                hasNulls = true;
-                break;
-            }
-        }
-
-        RowAssembler rowAssembler = RowAssembler.keyAssembler(schemaDescriptor, hasNulls);
-
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            if (!colDesc.key()) {
-                break;
-            }
-
-            Object val = TypeUtils.fromInternal(ectx, hnd.get(colDesc.logicalIndex(), row),
-                    NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
-
-            RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
-        }
-
-        return new ModifyRow(new Row(schemaDescriptor, rowAssembler.build()), Operation.DELETE_ROW);
+        return new Row(schemaDescriptor, rowAssembler.build());
     }
 
     private ColocationGroup partitionedGroup() {
@@ -437,10 +526,6 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
                 .collect(Collectors.toList());
 
         return ColocationGroup.forAssignments(assignments);
-    }
-
-    private Object replaceDefault(Object val, ColumnDescriptor desc) {
-        return val == RexImpTable.DEFAULT_VALUE_PLACEHOLDER ? desc.defaultValue() : val;
     }
 
     private class StatisticsImpl implements Statistic {
@@ -502,5 +587,62 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         public IgniteDistribution getDistribution() {
             return distribution();
         }
+    }
+
+    private static int[] project(int columnCount, int[] source, BitSet usedFields) {
+        int[] deltas = new int[columnCount];
+        int[] projection = new int[source.length];
+
+        for (int currentIndex = 0, nextIndex = usedFields.nextSetBit(0);
+                nextIndex != -1; nextIndex = usedFields.nextSetBit(nextIndex + 1), currentIndex++) {
+            deltas[nextIndex] = -(nextIndex - currentIndex);
+        }
+
+        for (int i = 0; i < source.length; i++) {
+            projection[i] = source[i] + deltas[source[i]];
+        }
+
+        return projection;
+    }
+
+    private static <RowT> CompletableFuture<List<RowT>> handleInsertResults(
+            RowHandler<RowT> handler,
+            CompletableFuture<List<RowT>>[] futs
+    ) {
+        return CompletableFuture.allOf(futs)
+                .thenApply(response -> {
+                    List<String> conflictRows = new ArrayList<>();
+
+                    for (CompletableFuture<List<RowT>> future : futs) {
+                        List<RowT> values = future.join();
+
+                        if (values != null) {
+                            for (RowT row : values) {
+                                conflictRows.add(handler.toString(row));
+                            }
+                        }
+                    }
+
+                    if (!conflictRows.isEmpty()) {
+                        throw conflictKeysException(conflictRows);
+                    }
+
+                    return null;
+                });
+    }
+
+    /** Transforms keys list to appropriate exception. */
+    private static RuntimeException conflictKeysException(List<String> conflictKeys) {
+        LOG.debug("Unable to insert rows because of conflict [rows={}]", conflictKeys);
+
+        return new SqlException(ErrorGroups.Sql.DUPLICATE_KEYS_ERR, "PK unique constraint is violated");
+    }
+
+    /**
+     * Extracts an identifier of partition from a given row.
+     */
+    @FunctionalInterface
+    private interface PartitionExtractor {
+        int fromRow(BinaryRowEx row);
     }
 }

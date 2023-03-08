@@ -85,7 +85,7 @@ public class IgniteSchema extends AbstractSchema {
      *
      * @param tbl Table.
      */
-    public void addTable(InternalIgniteTable tbl) {
+    public void addTable(IgniteTable tbl) {
         tblMap.put(tbl.name(), tbl);
     }
 

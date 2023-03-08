@@ -36,6 +36,7 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
+import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
@@ -217,7 +218,8 @@ public class TestBuilders {
                     node.name(),
                     description,
                     ArrayRowHandler.INSTANCE,
-                    Map.of()
+                    Map.of(),
+                    TxAttributes.fromTx(new NoOpTransaction(node.name()))
             );
         }
     }
@@ -308,6 +310,18 @@ public class TestBuilders {
         /** {@inheritDoc} */
         @Override
         public TestTable build() {
+            if (distribution == null) {
+                throw new IllegalArgumentException("Distribution is not specified");
+            }
+
+            if (name == null) {
+                throw new IllegalArgumentException("Name is not specified");
+            }
+
+            if (columns.isEmpty()) {
+                throw new IllegalArgumentException("Table must contain at least one column");
+            }
+
             return new TestTable(
                     new TableDescriptorImpl(columns, distribution),
                     Objects.requireNonNull(name),

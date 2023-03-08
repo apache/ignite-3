@@ -1,0 +1,866 @@
+openapi: 3.0.1
+info:
+  title: Ignite REST module
+  contact:
+    email: user@ignite.apache.org
+  license:
+    name: Apache 2.0
+    url: https://ignite.apache.org
+  version: 3.0.0-SNAPSHOT
+paths:
+  /management/v1/cluster/init:
+    post:
+      tags:
+      - clusterManagement
+      description: Initializes a new cluster.
+      operationId: init
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitCommand'
+        required: true
+      responses:
+        "200":
+          description: Cluster initialized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Void'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "400":
+          description: Incorrect configuration.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/cluster/state:
+    get:
+      tags:
+      - clusterManagement
+      description: Returns current cluster status.
+      operationId: clusterState
+      parameters: []
+      responses:
+        "200":
+          description: Cluster status returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterState'
+        "404":
+          description: "Cluster state not found. Most likely, the cluster is not initialized."
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/cluster/topology/logical:
+    get:
+      tags:
+      - topology
+      description: Gets information about logical cluster topology.
+      operationId: logical
+      parameters: []
+      responses:
+        "200":
+          description: Logical topology returned.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClusterNode'
+        "404":
+          description: "Logical topology not found. Most likely, the cluster is not\
+            \ initialized."
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "500":
+          description: Internal error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/cluster/topology/physical:
+    get:
+      tags:
+      - topology
+      description: Gets information about physical cluster topology.
+      operationId: physical
+      parameters: []
+      responses:
+        "200":
+          description: Physical topology returned.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClusterNode'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/configuration/cluster:
+    get:
+      tags:
+      - clusterConfiguration
+      description: Gets the current configuration of the cluster.
+      operationId: getClusterConfiguration
+      parameters: []
+      responses:
+        "200":
+          description: Get cluster configuration
+          content:
+            text/plain:
+              schema:
+                type: string
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "400":
+          description: Incorrect configuration.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "404":
+          description: "Configuration not found. Most likely, the cluster is not initialized."
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    patch:
+      tags:
+      - clusterConfiguration
+      description: Updates cluster configuration. New configuration should be provided
+        in HOCON format.
+      operationId: updateClusterConfiguration
+      parameters: []
+      requestBody:
+        description: The cluster configuration to update.
+        content:
+          text/plain:
+            schema:
+              type: string
+        required: true
+      responses:
+        "200":
+          description: Configuration updated.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Void'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "400":
+          description: Incorrect configuration.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "404":
+          description: "Configuration not found. Most likely, the cluster is not initialized."
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/configuration/cluster/{path}:
+    get:
+      tags:
+      - clusterConfiguration
+      description: Gets the configuration on the specific path. Configuration is in
+        HOCON format
+      operationId: getClusterConfigurationByPath
+      parameters:
+      - name: path
+        in: path
+        description: "Configuration tree address. For example: `element.subelement`."
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Configuration of the cluster on the specified path.
+          content:
+            text/plain:
+              schema:
+                type: string
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "400":
+          description: Incorrect configuration.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "404":
+          description: "Configuration not found. Most likely, the cluster is not initialized."
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/configuration/node:
+    get:
+      tags:
+      - nodeConfiguration
+      description: Gets node configuration in HOCON format.
+      operationId: getNodeConfiguration
+      parameters: []
+      responses:
+        "200":
+          description: Whole node configuration.
+          content:
+            text/plain:
+              schema:
+                type: string
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "400":
+          description: Incorrect configuration.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    patch:
+      tags:
+      - nodeConfiguration
+      description: Updates node configuration. New configuration should be provided
+        in HOCON format.
+      operationId: updateNodeConfiguration
+      parameters: []
+      requestBody:
+        description: The node configuration to update.
+        content:
+          text/plain:
+            schema:
+              type: string
+        required: true
+      responses:
+        "200":
+          description: Configuration successfully updated.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Void'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "400":
+          description: Incorrect configuration.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/configuration/node/{path}:
+    get:
+      tags:
+      - nodeConfiguration
+      description: "Gets a configuration of a specific node, in HOCON format."
+      operationId: getNodeConfigurationByPath
+      parameters:
+      - name: path
+        in: path
+        description: "Configuration tree address. For example: `element.subelement`."
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Returned node configuration.
+          content:
+            text/plain:
+              schema:
+                type: string
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "400":
+          description: Incorrect configuration.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/deployment/units:
+    get:
+      tags:
+      - deployment
+      description: All units statutes.
+      operationId: units
+      parameters: []
+      responses:
+        "200":
+          description: All statutes returned successful.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UnitStatus'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    post:
+      tags:
+      - deployment
+      description: Deploy provided unit to the cluster.
+      operationId: deployUnit
+      parameters: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              required:
+              - unitContent
+              - unitId
+              type: object
+              properties:
+                unitId:
+                  required:
+                  - "true"
+                  type: string
+                unitVersion:
+                  type: string
+                unitContent:
+                  required:
+                  - "true"
+                  type: string
+                  format: binary
+        required: true
+      responses:
+        "200":
+          description: Unit deployed successfully.
+          content:
+            application/json:
+              schema:
+                type: boolean
+        "409":
+          description: Unit with same identifier and version already deployed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/deployment/units/{unitId}:
+    delete:
+      tags:
+      - deployment
+      description: Undeploy latest unit with provided unitId.
+      operationId: undeployLatestUnit
+      parameters:
+      - name: unitId
+        in: path
+        required: true
+        schema:
+          required:
+          - "true"
+          type: string
+      responses:
+        "200":
+          description: Unit undeployed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Void'
+        "404":
+          description: Unit with provided identifier and version doesn't exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/deployment/units/{unitId}/status:
+    get:
+      tags:
+      - deployment
+      description: Status of unit with provided identifier.
+      operationId: status
+      parameters:
+      - name: unitId
+        in: path
+        required: true
+        schema:
+          required:
+          - "true"
+          type: string
+      responses:
+        "200":
+          description: Status returned successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnitStatus'
+        "404":
+          description: Unit with provided identifier doesn't exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/deployment/units/{unitId}/versions:
+    get:
+      tags:
+      - deployment
+      description: All versions of unit with provided unit identifier.
+      operationId: versions
+      parameters:
+      - name: unitId
+        in: path
+        required: true
+        schema:
+          required:
+          - "true"
+          type: string
+      responses:
+        "200":
+          description: Versions returned successful.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        "404":
+          description: Unit with provided identifier doesn't exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/deployment/units/{unitId}/{unitVersion}:
+    delete:
+      tags:
+      - deployment
+      description: Undeploy unit with provided unitId and unitVersion.
+      operationId: undeployUnit
+      parameters:
+      - name: unitId
+        in: path
+        required: true
+        schema:
+          required:
+          - "true"
+          type: string
+      - name: unitVersion
+        in: path
+        required: true
+        schema:
+          required:
+          - "true"
+          type: string
+      responses:
+        "200":
+          description: Unit undeployed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Void'
+        "404":
+          description: Unit with provided identifier and version doesn't exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/metric/node:
+    get:
+      tags:
+      - nodeMetric
+      description: Provides a list of all available metric sources.
+      operationId: listNodeMetrics
+      parameters: []
+      responses:
+        "200":
+          description: Returned a list of metric sources.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MetricSource'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/metric/node/disable:
+    post:
+      tags:
+      - nodeMetric
+      description: Disables a specific metric source.
+      operationId: disableNodeMetric
+      parameters: []
+      requestBody:
+        content:
+          text/plain:
+            schema:
+              type: string
+        required: true
+      responses:
+        "200":
+          description: Metric source disabled.
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "404":
+          description: Metric source not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/metric/node/enable:
+    post:
+      tags:
+      - nodeMetric
+      description: Enables a specific metric source.
+      operationId: enableNodeMetric
+      parameters: []
+      requestBody:
+        content:
+          text/plain:
+            schema:
+              type: string
+        required: true
+      responses:
+        "200":
+          description: Metric source enabled.
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "404":
+          description: Metric source not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/node/state:
+    get:
+      tags:
+      - nodeManagement
+      description: Gets current network status.
+      operationId: nodeState
+      parameters: []
+      responses:
+        "200":
+          description: Current node status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeState'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/node/version:
+    get:
+      tags:
+      - nodeManagement
+      description: Gets the version of Apache Ignite the node uses.
+      operationId: nodeVersion
+      parameters: []
+      responses:
+        "200":
+          description: Node version.
+          content:
+            text/plain:
+              schema:
+                type: string
+        "500":
+          description: Internal error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+components:
+  schemas:
+    AuthenticationConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: If Security is enabled.
+        providers:
+          type: array
+          description: A list of authentication providers.
+          items:
+            $ref: '#/components/schemas/AuthenticationProviderConfigDto'
+      description: REST representation of AuthenticationConfig.
+    AuthenticationProviderConfigDto:
+      type: object
+      description: REST representation of AuthenticationProviderConfig.
+      discriminator:
+        propertyName: type
+        mapping:
+          basic: '#/components/schemas/BasicAuthenticationProviderConfig'
+      oneOf:
+      - $ref: '#/components/schemas/BasicAuthenticationProviderConfig'
+    BasicAuthenticationProviderConfig:
+      type: object
+      properties:
+        login:
+          type: string
+          description: Login.
+        password:
+          type: string
+          description: Password.
+        name:
+          type: string
+          description: Provider name.
+        type:
+          type: string
+      description: REST representation of BasicAuthenticationProviderConfig.
+    ClusterNode:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Node ID.
+        name:
+          type: string
+          description: Unique cluster name.
+        address:
+          $ref: '#/components/schemas/NetworkAddress'
+        metadata:
+          $ref: '#/components/schemas/NodeMetadata'
+      description: Information about the cluster node.
+    ClusterState:
+      type: object
+      properties:
+        cmgNodes:
+          type: array
+          description: List of cluster management group nodes. These nodes are responsible
+            for maintaining RAFT cluster topology.
+          items:
+            type: string
+        msNodes:
+          type: array
+          description: List of metastorage nodes. These nodes are responsible for
+            storing RAFT cluster metadata.
+          items:
+            type: string
+        igniteVersion:
+          type: string
+          description: Version of Apache Ignite that the cluster was created on.
+        clusterTag:
+          $ref: '#/components/schemas/ClusterTag'
+      description: Information about current cluster state.
+    ClusterTag:
+      type: object
+      properties:
+        clusterId:
+          type: string
+          description: Unique cluster UUID. Generated automatically.
+          format: uuid
+        clusterName:
+          type: string
+          description: Unique cluster name.
+      description: Unique tag that identifies the cluster.
+    InitCommand:
+      type: object
+      properties:
+        metaStorageNodes:
+          type: array
+          description: A list of RAFT metastorage nodes.
+          items:
+            type: string
+        cmgNodes:
+          type: array
+          description: A list of RAFT cluster management nodes.
+          items:
+            type: string
+        clusterName:
+          type: string
+          description: The name of the cluster.
+        authenticationConfig:
+          $ref: '#/components/schemas/AuthenticationConfig'
+      description: Cluster initialization data.
+    InvalidParam:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Parameter name.
+        reason:
+          type: string
+          description: The issue with the parameter.
+      description: Information about invalid request parameter.
+    MetricSource:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Metric source name.
+        enabled:
+          type: boolean
+          description: "If True, the metric is tracked. Otherwise, the metric is not\
+            \ tracked."
+      description: Metric sources provided by modules.
+    NetworkAddress:
+      type: object
+      properties:
+        host:
+          type: string
+          description: Name of the host node is on.
+        port:
+          type: integer
+          description: Port the node runs on.
+          format: int32
+      description: Node network address information.
+    NodeMetadata:
+      type: object
+      properties:
+        restHost:
+          type: string
+          description: The host exposed to REST API.
+        httpPort:
+          type: integer
+          description: The HTTP port exposed to REST API.
+          format: int32
+        httpsPort:
+          type: integer
+          description: The HTTPS port exposed to REST API.
+          format: int32
+      description: Node metadata information.
+    NodeState:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Unique node name.
+        state:
+          $ref: '#/components/schemas/State'
+      description: Node state.
+    Problem:
+      type: object
+      properties:
+        title:
+          type: string
+          description: Short summary of the issue.
+        status:
+          type: integer
+          description: Returned HTTP status code.
+          format: int32
+        code:
+          type: string
+          description: Ignite 3 error code.
+        type:
+          type: string
+          description: URI to documentation regarding the issue.
+        detail:
+          type: string
+          description: Extended explanation of the issue.
+        node:
+          type: string
+          description: Name of the node the issue happened on.
+        traceId:
+          type: string
+          description: Unique issue identifier. Thid identifier can be used to find
+            logs related to the issue
+          format: uuid
+        invalidParams:
+          type: array
+          description: Parameters that did not pass validation.
+          items:
+            $ref: '#/components/schemas/InvalidParam'
+      description: Extended description of the problem with the request.
+    State:
+      type: string
+      description: Possible node statuses.
+      enum:
+      - STARTING
+      - STARTED
+      - STOPPING
+    UnitStatus:
+      required:
+      - id
+      - versionToConsistentIds
+      type: object
+      properties:
+        id:
+          type: string
+          description: Returns unit identifier.
+        versionToConsistentIds:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Returns map from existing unit version to list of nodes consistent
+            ids where unit deployed.
+      description: Unit status.
+    Void:
+      type: object

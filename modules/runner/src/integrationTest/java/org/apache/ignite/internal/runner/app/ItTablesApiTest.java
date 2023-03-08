@@ -43,6 +43,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -102,7 +103,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * Before each.
      */
     @BeforeEach
-    void beforeEach(TestInfo testInfo) throws Exception {
+    void beforeEach(TestInfo testInfo) {
         List<CompletableFuture<Ignite>> futures = new ArrayList<>();
 
         for (int i = 0; i < nodesBootstrapCfg.size(); i++) {
@@ -113,7 +114,12 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         String metaStorageNodeName = testNodeName(testInfo, 0);
 
-        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(metaStorageNodeName)
+                .metaStorageNodeNames(List.of(metaStorageNodeName))
+                .clusterName("cluster")
+                .build();
+        IgnitionManager.init(initParameters);
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());
@@ -201,12 +207,10 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
     /**
      * Test scenario when we have lagged node, and tables with the same name are deleted and created again.
-     *
-     * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17775")
-    public void testGetTableFromLaggedNode() throws Exception {
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18379")
+    public void testGetTableFromLaggedNode() {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 
         Ignite ignite0 = clusterNodes.get(0);

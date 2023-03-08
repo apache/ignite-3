@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.impl;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
 import static org.mockito.Mockito.spy;
@@ -212,12 +213,13 @@ public class TestMvTableStorage implements MvTableStorage {
     public CompletableFuture<Void> destroy() {
         stop();
 
-        return mvPartitionStorages.destroyAll(this::destroyPartition);
+        return mvPartitionStorages.getAllForCloseOrDestroy()
+                .thenCompose(mvStorages -> allOf(mvStorages.stream().map(this::destroyPartition).toArray(CompletableFuture[]::new)));
     }
 
     @Override
     public CompletableFuture<Void> startRebalancePartition(int partitionId) {
-        return mvPartitionStorages.startRebalace(partitionId, mvPartitionStorage -> {
+        return mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
             mvPartitionStorage.startRebalance();
 
             testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::startRebalance);

@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test Ignite SQL functions.
  */
-public class ItFunctionsTest extends AbstractBasicIntegrationTest {
+public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
     private static final Object[] NULL_RESULT = new Object[] { null };
 
     @Test
@@ -278,6 +278,18 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
         } catch (Throwable e) {
             assertTrue(IgniteTestUtils.hasCause(e, SqlValidatorException.class, "Invalid number of arguments"));
         }
+    }
+
+    /**
+     * Tests for {@code SUBSTR(str, start[, length])} function.
+     */
+    @Test
+    public void testSubstr() {
+        assertQuery("SELECT SUBSTR('abcdefg', 1, 3)").returns("abc");
+        assertQuery("SELECT SUBSTR('abcdefg', 2)").returns("bcdefg");
+        assertQuery("SELECT SUBSTR('abcdefg', -1)").returns("abcdefg");
+        assertQuery("SELECT SUBSTR('abcdefg', 1, -3)").returns("");
+        assertQuery("SELECT SUBSTR(1000, 1, 3)").returns("100");
     }
 
     /**

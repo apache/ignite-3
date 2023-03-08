@@ -38,6 +38,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCom
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTopologyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadValidatedNodesCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.UpdateClusterStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopologyResponse;
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
@@ -124,6 +125,10 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                 Serializable response = initCmgState((InitCmgStateCommand) command);
 
                 clo.result(response);
+            } else if (command instanceof UpdateClusterStateCommand) {
+                UpdateClusterStateCommand updateClusterStateCommand = (UpdateClusterStateCommand) command;
+                storage.putClusterState(updateClusterStateCommand.clusterState());
+                clo.result(null);
             } else if (command instanceof JoinRequestCommand) {
                 ValidationResult response = validateNode((JoinRequestCommand) command);
 

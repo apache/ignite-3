@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.metadata;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.volcano.RelSubset;
 import org.apache.calcite.rel.BiRel;
@@ -37,14 +37,16 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableFunctionScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
+import org.apache.ignite.internal.util.CollectionUtils;
 
 /**
  * Implementation class for {@link RelMetadataQueryEx#fragmentMapping(RelNode, MappingQueryContext)} method call.
@@ -222,6 +224,26 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
     /**
      * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery, MappingQueryContext)}.
      */
+    public FragmentMapping fragmentMapping(IgniteTableModify rel, RelMetadataQuery mq, MappingQueryContext ctx) {
+        FragmentMapping mapping = fragmentMappingForMetadataQuery(rel.getInput(), mq, ctx);
+
+        // In case of the statement like UPDATE t SET a = a + 1
+        // this will be the second call to the collation group, hence the result may differ.
+        // But such query should be rejected during execution, since we will try to do RW read
+        // from replica that is not primary anymore.
+        List<NodeWithTerm> assignments = rel.getTable().unwrap(IgniteTable.class)
+                .colocationGroup(ctx).assignments().stream()
+                .map(CollectionUtils::first)
+                .collect(Collectors.toList());
+
+        mapping = mapping.updatingTableAssignments(assignments);
+
+        return mapping;
+    }
+
+    /**
+     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery, MappingQueryContext)}.
+     */
     public FragmentMapping fragmentMapping(IgniteTableFunctionScan rel, RelMetadataQuery mq, MappingQueryContext ctx) {
         ColocationGroup group = ColocationGroup.forNodes(ctx.mappingService().executionNodes(false, null));
 
@@ -229,23 +251,7 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
     }
 
     private static FragmentMapping getFragmentMapping(long sourceId, ProjectableFilterableTableScan rel, MappingQueryContext ctx) {
-        ColocationGroup group = rel.getTable().unwrap(InternalIgniteTable.class).colocationGroup(ctx);
-
-        // TODO IGNITE-17952 The following block should be removed.
-        // This condition is kinda workaround to make transactional scan works.
-        //
-        // For now, scan should be invoked on the node that coordinates the transaction.
-        // If someone disables distribution trait (another part of this workaround), we
-        // will need to replace actual distribution with fake one where every partition
-        // is owned by a local node.
-        if (!TraitUtils.distributionEnabled(rel)) {
-            List<List<NodeWithTerm>> fakeAssignments = new ArrayList<>(group.assignments().size());
-            for (int i = 0; i < group.assignments().size(); i++) {
-                fakeAssignments.add(List.of(new NodeWithTerm(ctx.locNodeName(), -1L)));
-            }
-
-            group = ColocationGroup.forAssignments(fakeAssignments);
-        }
+        ColocationGroup group = rel.getTable().unwrap(IgniteTable.class).colocationGroup(ctx);
 
         return FragmentMapping.create(sourceId, group);
     }

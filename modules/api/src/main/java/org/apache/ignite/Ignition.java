@@ -20,7 +20,6 @@ package org.apache.ignite;
 import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Path;
-import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
@@ -143,33 +142,9 @@ public interface Ignition {
      * <p>Cluster Management Group (a.k.a. CMG) is a Raft group responsible for managing parts of the cluster lifecycle, such as
      * validating incoming nodes and maintaining the logical topology.
      *
-     * @param nodeName Name of the node that the initialization request will be sent to.
-     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage <b>and</b> the CMG.
-     * @param clusterName Human-readable name of the cluster.
+     * @param parameters initialization parameters.
      * @throws IgniteException If the given node has not been started or has been stopped.
      * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-77%3A+Node+Join+Protocol+and+Initialization+for+Ignite+3">IEP-77</a>
      */
-    void init(String nodeName, Collection<String> metaStorageNodeNames, String clusterName);
-
-    /**
-     * Initializes the cluster that the given node is present in.
-     *
-     * <p>Initializing a cluster implies propagating information about the nodes that will host the Meta Storage and CMG Raft groups
-     * to all nodes in the cluster. After the operation succeeds, nodes will be able to finish the start procedure and begin
-     * accepting incoming requests.
-     *
-     * <p>Meta Storage is responsible for storing cluster-wide meta information needed for internal purposes and proper functioning of the
-     * cluster.
-     *
-     * <p>Cluster Management Group (a.k.a. CMG) is a Raft group responsible for managing parts of the cluster lifecycle, such as
-     * validating incoming nodes and maintaining the logical topology.
-     *
-     * @param nodeName Name of the node that the initialization request will be sent to.
-     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
-     * @param cmgNodeNames Names of nodes that will host the CMG.
-     * @param clusterName Human-readable name of the cluster.
-     * @throws IgniteException If the given node has not been started or has been stopped.
-     * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-77%3A+Node+Join+Protocol+and+Initialization+for+Ignite+3">IEP-77</a>
-     */
-    void init(String nodeName, Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames, String clusterName);
+    void init(InitParameters parameters);
 }

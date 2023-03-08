@@ -173,6 +173,7 @@ import static org.apache.calcite.sql.fun.SqlStdOperatorTable.UPPER;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.GREATEST2;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.LEAST2;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.NULL_BOUND;
+import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.RAND_UUID;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.SYSTEM_RANGE;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.TYPEOF;
 
@@ -510,6 +511,8 @@ public class RexImpTable {
         // Operator IS_NOT_DISTINCT_FROM is removed by RexSimplify, but still possible in join conditions, so
         // implementation required.
         defineMethod(IS_NOT_DISTINCT_FROM, IgniteMethod.IS_NOT_DISTINCT_FROM.method(), NullPolicy.NONE);
+
+        defineMethod(RAND_UUID, IgniteMethod.RAND_UUID.method(), NullPolicy.NONE);
     }
 
     private void defineMethod(SqlOperator operator, String functionName, NullPolicy nullPolicy) {

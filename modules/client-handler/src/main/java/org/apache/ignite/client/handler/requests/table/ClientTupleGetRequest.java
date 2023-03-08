@@ -51,6 +51,6 @@ public class ClientTupleGetRequest {
         var tx = readTx(in, resources);
         var keyTuple = readTuple(in, table, true);
 
-        return table.recordView().getAsync(tx, keyTuple).thenAccept(t -> ClientTableCommon.writeTupleOrNil(out, t, TuplePart.VAL));
+        return table.recordView().getAsync(tx, keyTuple).thenAccept(t -> ClientTableCommon.writeTupleOrNil(out, t, TuplePart.KEY_AND_VAL));
     }
 }

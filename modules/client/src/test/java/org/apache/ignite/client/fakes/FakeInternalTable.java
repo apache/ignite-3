@@ -102,6 +102,12 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
+    public int partitionId(BinaryRowEx row) {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
         onDataAccess("get", keyRow);
 
@@ -377,18 +383,6 @@ public class FakeInternalTable implements InternalTable {
             @NotNull ClusterNode recipientNode
     ) {
         return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Publisher<BinaryRow> lookup(
-            int partId,
-            @Nullable InternalTransaction tx,
-            @NotNull UUID indexId,
-            BinaryTuple key,
-            @Nullable BitSet columnsToInclude
-    ) {
-        throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
     /** {@inheritDoc} */
