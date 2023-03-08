@@ -18,9 +18,11 @@
 package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.fakes.FakeCompute;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
@@ -32,7 +34,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests client handler metrics.
  */
-@SuppressWarnings({"AssignmentToStaticFieldFromInstanceMethod", "rawtypes"})
+@SuppressWarnings({"AssignmentToStaticFieldFromInstanceMethod", "rawtypes", "unchecked"})
 public class MetricsTest extends AbstractClientTest {
     @AfterEach
     public void resetCompute() {
@@ -78,9 +80,20 @@ public class MetricsTest extends AbstractClientTest {
     public void testRequestsActive() throws Exception {
         assertEquals(0, testServer.metrics().requestsActive().value());
 
-        FakeCompute.future = new CompletableFuture();
+        CompletableFuture computeFut = new CompletableFuture();
+        FakeCompute.future = computeFut;
 
         client.compute().execute(getClusterNodes("s1"), "job");
-        assertEquals(1, testServer.metrics().requestsActive().value());
+        client.compute().execute(getClusterNodes("s1"), "job");
+
+        assertTrue(
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsActive().value() == 2, 1000),
+                () -> "requestsActive: " + testServer.metrics().requestsActive().value());
+
+        computeFut.complete("x");
+
+        assertTrue(
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsActive().value() == 0, 1000),
+                () -> "requestsActive: " + testServer.metrics().requestsActive().value());
     }
 }
