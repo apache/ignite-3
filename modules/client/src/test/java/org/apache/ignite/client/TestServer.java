@@ -61,6 +61,8 @@ public class TestServer implements AutoCloseable {
 
     private final String nodeName;
 
+    private final ClientHandlerMetricSource metrics;
+
     /**
      * Constructor.
      *
@@ -132,6 +134,8 @@ public class TestServer implements AutoCloseable {
         Mockito.when(
                 compute.executeColocated(anyString(), any(), anyString(), any())).thenReturn(CompletableFuture.completedFuture(nodeName));
 
+        metrics = new ClientHandlerMetricSource();
+
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
                         ignite,
@@ -152,7 +156,7 @@ public class TestServer implements AutoCloseable {
                         bootstrapFactory,
                         ignite.sql(),
                         () -> CompletableFuture.completedFuture(clusterId),
-                        new ClientHandlerMetricSource());
+                        metrics);
 
         module.start();
     }
@@ -186,6 +190,15 @@ public class TestServer implements AutoCloseable {
      */
     public String nodeId() {
         return getNodeId(nodeName);
+    }
+
+    /**
+     * Gets metrics.
+     *
+     * @return Metrics.
+     */
+    public ClientHandlerMetricSource metrics() {
+        return metrics;
     }
 
     /** {@inheritDoc} */

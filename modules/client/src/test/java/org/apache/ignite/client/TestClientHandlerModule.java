@@ -33,6 +33,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
@@ -181,7 +182,8 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         compute,
                                         clusterService,
                                         mock(IgniteSql.class),
-                                        clusterId, metrics));
+                                        clusterId,
+                                        new ClientHandlerMetricSource()));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
