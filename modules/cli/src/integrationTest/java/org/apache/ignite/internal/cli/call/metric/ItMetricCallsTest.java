@@ -55,7 +55,8 @@ class ItMetricCallsTest extends CallInitializedIntegrationTestBase {
         assertThat(output.hasError()).isFalse();
 
         List<MetricSource> expectedMetricSources = List.of(
-                new MetricSource().name("jvm").enabled(false)
+                new MetricSource().name("jvm").enabled(false),
+                new MetricSource().name("client-handler").enabled(false)
         );
 
         // And
