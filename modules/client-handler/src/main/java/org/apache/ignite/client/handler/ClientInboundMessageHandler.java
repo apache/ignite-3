@@ -559,7 +559,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         }
 
         if (cause instanceof DecoderException && cause.getCause() instanceof IgniteException) {
-            var err = (IgniteException)cause.getCause();
+            var err = (IgniteException) cause.getCause();
 
             if (err.code() == HANDSHAKE_HEADER_ERR) {
                 metrics.sessionsRejected().increment();

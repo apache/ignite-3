@@ -18,17 +18,17 @@
 package org.apache.ignite.client.handler;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import org.apache.ignite.internal.metrics.AtomicLongMetric;
-import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.MetricSource;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Server-side client handler metrics.
+ */
 public class ClientHandlerMetricSource implements MetricSource {
     /** Source name. */
     private static final String SOURCE_NAME = "client-handler";

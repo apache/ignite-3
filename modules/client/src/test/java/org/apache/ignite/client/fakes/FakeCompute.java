@@ -27,6 +27,9 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Fake {@link IgniteCompute}.
+ */
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class FakeCompute implements IgniteCompute {
     public static volatile @Nullable CompletableFuture future;
