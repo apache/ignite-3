@@ -121,11 +121,11 @@ public class ItClientHandlerTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(44, len);
+            assertEquals(46, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
-            assertEquals(0, idleTimeout);
+            assertEquals(5000, idleTimeout);
             assertEquals("id", nodeId);
             assertEquals("consistent-id", nodeName);
         }
