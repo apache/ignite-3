@@ -19,9 +19,16 @@ package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Tests client handler metrics.
+ */
 public class MetricsTest extends AbstractClientTest {
     @Test
     public void testTxMetrics() {
@@ -38,5 +45,23 @@ public class MetricsTest extends AbstractClientTest {
 
         tx2.rollback();
         assertEquals(0, testServer.metrics().transactionsActive().value());
+    }
+
+    @Test
+    public void testSqlMetrics() {
+        Statement statement = client.sql().statementBuilder()
+                .property("hasMorePages", true)
+                .query("select 1")
+                .build();
+
+        assertEquals(0, testServer.metrics().cursorsActive().value());
+
+        try (Session session = client.sql().createSession()) {
+            ResultSet<SqlRow> resultSet = session.execute(null, statement);
+            assertEquals(1, testServer.metrics().cursorsActive().value());
+
+            resultSet.close();
+            assertEquals(0, testServer.metrics().cursorsActive().value());
+        }
     }
 }

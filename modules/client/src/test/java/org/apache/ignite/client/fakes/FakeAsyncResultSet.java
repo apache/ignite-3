@@ -60,6 +60,8 @@ public class FakeAsyncResultSet implements AsyncResultSet {
 
     private final List<ColumnMetadata> columns;
 
+    private final boolean hasMorePages;
+
     /**
      * Constructor.
      *
@@ -76,6 +78,8 @@ public class FakeAsyncResultSet implements AsyncResultSet {
         this.transaction = transaction;
         this.statement = statement;
         this.arguments = arguments;
+
+        hasMorePages = statement.property("hasMorePages") != null;
 
         if ("SELECT PROPS".equals(statement.query())) {
             rows = new ArrayList<>();
@@ -199,7 +203,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public boolean hasMorePages() {
-        return false;
+        return hasMorePages;
     }
 
     /** {@inheritDoc} */
