@@ -32,7 +32,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests client handler metrics.
+ * Tests client handler metrics. See also {@code org.apache.ignite.client.handler.ItClientHandlerMetricsTest}.
  */
 @SuppressWarnings({"AssignmentToStaticFieldFromInstanceMethod", "rawtypes", "unchecked"})
 public class MetricsTest extends AbstractClientTest {
@@ -99,12 +99,12 @@ public class MetricsTest extends AbstractClientTest {
 
     @Test
     public void testRequestsProcessed() throws Exception {
-        assertEquals(0, testServer.metrics().requestsProcessed().value());
+        long processed = testServer.metrics().requestsProcessed().value();
 
         client.compute().execute(getClusterNodes("s1"), "job");
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsProcessed().value() == 1, 1000),
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsProcessed().value() == processed + 1, 1000),
                 () -> "requestsProcessed: " + testServer.metrics().requestsProcessed().value());
     }
 

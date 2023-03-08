@@ -32,7 +32,7 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Client handler metrics tests.
+ * Client handler metrics tests. See also {@code org.apache.ignite.client.MetricsTest}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItClientHandlerMetricsTest {
@@ -148,13 +148,5 @@ public class ItClientHandlerMetricsTest {
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesReceived().value() == 30, 1000),
                 () -> "bytesReceived: " + testServer.metrics().bytesReceived().value());
-    }
-
-    @Test
-    public void todo() {
-        // TODO:
-        // requests: active, processed, failed
-        // transactions.active
-        // cursors.active
     }
 }
