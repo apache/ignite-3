@@ -38,7 +38,7 @@ public class ClientHandlerMetricSource implements MetricSource {
         SessionsAccepted +
         SessionsRejected +
         SessionsRejectedTls +
-        SessionsRejectedTimeout
+        SessionsRejectedTimeout +
         RequestsProcessed
         RequestsFailed
         RequestsActive (async processing in progress)
@@ -66,12 +66,19 @@ public class ClientHandlerMetricSource implements MetricSource {
     private final AtomicLongMetric sessionsRejectedTimeout =
             new AtomicLongMetric("sessions.rejected.timeout", "Total sessions rejected by timeout");
 
+    private final AtomicLongMetric bytesSent = new AtomicLongMetric("bytes.sent", "Total bytes sent");
+
+    private final AtomicLongMetric bytesReceived = new AtomicLongMetric("bytes.received", "Total bytes received");
+
     private final List<Metric> metrics = Arrays.asList(
             connectionsInitiated,
             sessionsAccepted,
             sessionsActive,
             sessionsRejected,
-            sessionsRejectedTls
+            sessionsRejectedTls,
+            sessionsRejectedTimeout,
+            bytesSent,
+            bytesReceived
     );
 
     private boolean enabled;

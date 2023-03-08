@@ -277,11 +277,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private void writeMagic(ChannelHandlerContext ctx) {
+    private static void writeMagic(ChannelHandlerContext ctx) {
         ctx.write(Unpooled.wrappedBuffer(ClientMessageCommon.MAGIC_BYTES));
     }
 
-    private void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {
+    private static void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {
         var buf = packer.getBuffer();
 
         // writeAndFlush releases pooled buffer.
