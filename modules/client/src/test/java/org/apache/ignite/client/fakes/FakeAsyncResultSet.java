@@ -79,7 +79,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
         this.statement = statement;
         this.arguments = arguments;
 
-        hasMorePages = statement.property("hasMorePages") != null;
+        hasMorePages = session.property("hasMorePages") != null;
 
         if ("SELECT PROPS".equals(statement.query())) {
             rows = new ArrayList<>();
