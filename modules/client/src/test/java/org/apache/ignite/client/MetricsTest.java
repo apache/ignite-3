@@ -96,4 +96,28 @@ public class MetricsTest extends AbstractClientTest {
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsActive().value() == 0, 1000),
                 () -> "requestsActive: " + testServer.metrics().requestsActive().value());
     }
+
+    @Test
+    public void testRequestsProcessed() throws Exception {
+        assertEquals(0, testServer.metrics().requestsProcessed().value());
+
+        client.compute().execute(getClusterNodes("s1"), "job");
+
+        assertTrue(
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsProcessed().value() == 1, 1000),
+                () -> "requestsProcessed: " + testServer.metrics().requestsProcessed().value());
+    }
+
+    @Test
+    public void testRequestsFailed() throws Exception {
+        assertEquals(0, testServer.metrics().requestsFailed().value());
+
+        FakeCompute.future = CompletableFuture.failedFuture(new RuntimeException("test"));
+
+        client.compute().execute(getClusterNodes("s1"), "job");
+
+        assertTrue(
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsFailed().value() == 1, 1000),
+                () -> "requestsFailed: " + testServer.metrics().requestsFailed().value());
+    }
 }
