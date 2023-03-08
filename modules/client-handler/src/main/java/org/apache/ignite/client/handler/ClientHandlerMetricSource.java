@@ -33,21 +33,6 @@ public class ClientHandlerMetricSource implements MetricSource {
     /** Source name. */
     private static final String SOURCE_NAME = "client-handler";
 
-    /*
-        SessionsActive +
-        SessionsAccepted +
-        SessionsRejected +
-        SessionsRejectedTls +
-        SessionsRejectedTimeout +
-        RequestsProcessed
-        RequestsFailed
-        RequestsActive (async processing in progress)
-        TransactionsActive
-        CursorsActive
-        BytesSent +
-        BytesReceived +
-     */
-
     private final AtomicLongMetric connectionsInitiated =
             new AtomicLongMetric("connections.initiated", "Total initiated connections");
 
