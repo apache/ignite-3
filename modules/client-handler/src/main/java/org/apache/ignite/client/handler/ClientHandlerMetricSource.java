@@ -70,6 +70,12 @@ public class ClientHandlerMetricSource implements MetricSource {
 
     private final AtomicLongMetric bytesReceived = new AtomicLongMetric("bytes.received", "Total bytes received");
 
+    private final AtomicLongMetric requestsActive = new AtomicLongMetric("requests.active", "Requests in progress");
+
+    private final AtomicLongMetric requestsProcessed = new AtomicLongMetric("requests.processed", "Total processed requests");
+
+    private final AtomicLongMetric requestsFailed = new AtomicLongMetric("requests.failed", "Total failed requests");
+
     private final List<Metric> metrics = Arrays.asList(
             connectionsInitiated,
             sessionsAccepted,
@@ -78,7 +84,10 @@ public class ClientHandlerMetricSource implements MetricSource {
             sessionsRejectedTls,
             sessionsRejectedTimeout,
             bytesSent,
-            bytesReceived
+            bytesReceived,
+            requestsActive,
+            requestsProcessed,
+            requestsFailed
     );
 
     private boolean enabled;
@@ -118,6 +127,18 @@ public class ClientHandlerMetricSource implements MetricSource {
 
     public AtomicLongMetric sessionsRejectedTimeout() {
         return sessionsRejectedTimeout;
+    }
+
+    public AtomicLongMetric requestsActive() {
+        return requestsActive;
+    }
+
+    public AtomicLongMetric requestsProcessed() {
+        return requestsProcessed;
+    }
+
+    public AtomicLongMetric requestsFailed() {
+        return requestsFailed;
     }
 
     @Override

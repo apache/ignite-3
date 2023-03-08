@@ -359,6 +359,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
     private void processOperation(ChannelHandlerContext ctx, ClientMessageUnpacker in, ClientMessagePacker out) {
         long requestId = -1;
+        metrics.requestsActive().increment();
 
         try {
             final int opCode = in.unpackInt();
@@ -374,15 +375,24 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             if (fut == null) {
                 // Operation completed synchronously.
                 write(out, ctx);
+
+                metrics.requestsProcessed().increment();
+                metrics.requestsActive().decrement();
             } else {
                 final var reqId = requestId;
 
                 fut.whenComplete((Object res, Object err) -> {
+                    metrics.requestsActive().decrement();
+
                     if (err != null) {
                         out.close();
                         writeError(reqId, (Throwable) err, ctx);
+
+                        metrics.requestsFailed().increment();
                     } else {
                         write(out, ctx);
+
+                        metrics.requestsProcessed().increment();
                     }
                 });
             }
@@ -390,6 +400,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             out.close();
 
             writeError(requestId, t, ctx);
+
+            metrics.requestsFailed().increment();
         }
     }
 
