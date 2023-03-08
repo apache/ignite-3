@@ -58,6 +58,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -722,6 +723,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             for (int i = 0; i < partitions; i++) {
                 int partId = i;
 
+                CountDownLatch storageReadyLatch = new CountDownLatch(1);
+
                 Set<Assignment> oldPartAssignment = oldAssignments == null ? Set.of() : oldAssignments.get(partId);
 
                 Set<Assignment> newPartAssignment = newAssignments.get(partId);
@@ -816,7 +819,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                 internalTbl.storage(),
                                                 internalTbl.txStateStorage(),
                                                 partitionKey(internalTbl, partId),
-                                                storageUpdateHandler
+                                                storageUpdateHandler,
+                                                storageReadyLatch
                                         );
 
                                         Peer serverPeer = newConfiguration.peer(localMemberName);
@@ -899,7 +903,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     placementDriver,
                                                     storageUpdateHandler,
                                                     this::isLocalPeer,
-                                                    schemaManager.schemaRegistry(causalityToken, tblId)
+                                                    schemaManager.schemaRegistry(causalityToken, tblId),
+                                                    storageReadyLatch
                                             )
                                     );
                                 } catch (NodeStoppingException ex) {
@@ -970,7 +975,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             MvTableStorage mvTableStorage,
             TxStateTableStorage txStateTableStorage,
             PartitionKey partitionKey,
-            StorageUpdateHandler storageUpdateHandler
+            StorageUpdateHandler storageUpdateHandler,
+            CountDownLatch storageReadyLatch
     ) {
         RaftGroupOptions raftGroupOptions;
 
@@ -995,6 +1001,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 ),
                 incomingSnapshotsExecutor
         ));
+
+        raftGroupOptions.setStorageReadyLatch(storageReadyLatch);
 
         return raftGroupOptions;
     }
@@ -2014,7 +2022,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 internalTable.storage(),
                                 internalTable.txStateStorage(),
                                 partitionKey(internalTable, partId),
-                                storageUpdateHandler
+                                storageUpdateHandler,
+                                null
                         );
 
                         RaftGroupListener raftGrpLsnr = new PartitionListener(
@@ -2067,7 +2076,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             placementDriver,
                                             storageUpdateHandler,
                                             TableManager.this::isLocalPeer,
-                                            completedFuture(schemaManager.schemaRegistry(tblId))
+                                            completedFuture(schemaManager.schemaRegistry(tblId)),
+                                            null
                                     )
                             );
                         } catch (NodeStoppingException e) {

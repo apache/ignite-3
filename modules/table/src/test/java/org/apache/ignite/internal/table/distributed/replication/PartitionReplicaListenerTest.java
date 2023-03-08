@@ -340,7 +340,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         dsCfg
                 ),
                 peer -> localNode.name().equals(peer.consistentId()),
-                completedFuture(schemaManager)
+                completedFuture(schemaManager),
+                null
         );
 
         marshallerFactory = new ReflectionMarshallerFactory();

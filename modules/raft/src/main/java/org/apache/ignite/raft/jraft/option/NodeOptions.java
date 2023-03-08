@@ -17,7 +17,7 @@
 package org.apache.ignite.raft.jraft.option;
 
 import java.util.List;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.CountDownLatch;import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
@@ -236,6 +236,8 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     /** A hybrid clock */
     private HybridClock clock = new HybridClockImpl();
+
+    private CountDownLatch storageReadyLatch;
 
     /**
      * Amount of Disruptors that will handle the RAFT server.
@@ -635,6 +637,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setRpcInstallSnapshotTimeout(this.getRpcInstallSnapshotTimeout());
         nodeOptions.setElectionTimeoutStrategy(this.getElectionTimeoutStrategy());
         nodeOptions.setClock(this.getClock());
+        nodeOptions.setStorageReadyLatch(this.getStorageReadyLatch());
 
         return nodeOptions;
     }
@@ -673,5 +676,13 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setElectionTimeoutStrategy(TimeoutStrategy electionTimeoutStrategy) {
         this.electionTimeoutStrategy = electionTimeoutStrategy;
+    }
+
+    public CountDownLatch getStorageReadyLatch() {
+        return storageReadyLatch;
+    }
+
+    public void setStorageReadyLatch(CountDownLatch storageReadyLatch) {
+        this.storageReadyLatch = storageReadyLatch;
     }
 }

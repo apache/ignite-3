@@ -958,6 +958,7 @@ public class NodeImpl implements Node, RaftServerService {
 
     @Override
     public boolean init(final NodeOptions opts) {
+        System.out.println("!!! AAA");
         Requires.requireNonNull(opts, "Null node options");
         Requires.requireNonNull(opts.getRaftOptions(), "Null raft options");
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
@@ -1064,7 +1065,12 @@ public class NodeImpl implements Node, RaftServerService {
         long commitIdx = logManager.getLastLogIndex();
 
         if (commitIdx > fsmCaller.getLastAppliedIndex()) {
-            CountDownLatch applyCommitLatch = new CountDownLatch(1);
+            CountDownLatch optsStorageReadyLatch = opts.getStorageReadyLatch();
+            if (optsStorageReadyLatch != null) {
+              System.out.println("Storage ready latch != null");
+            }
+
+            CountDownLatch applyCommitLatch = optsStorageReadyLatch != null ? optsStorageReadyLatch : new CountDownLatch(1);
 
             LastAppliedLogIndexListener lnsr = lastAppliedLogIndex -> {
                 if (lastAppliedLogIndex >= commitIdx) {
@@ -1076,15 +1082,20 @@ public class NodeImpl implements Node, RaftServerService {
 
             fsmCaller.onCommitted(commitIdx);
 
-//            try {
-//                applyCommitLatch.await();
+            try {
+                if (optsStorageReadyLatch == null) {
+                    applyCommitLatch.await();
+                    fsmCaller.removeLastAppliedLogIndexListener(lnsr);
+                }
+            } catch (InterruptedException e) {
+                LOG.error("Fail to apply committed updates.", e);
 
-                fsmCaller.removeLastAppliedLogIndexListener(lnsr);
-//            } catch (InterruptedException e) {
-//                LOG.error("Fail to apply committed updates.", e);
-//
-//                return false;
-//            }
+                return false;
+            }
+        } else {
+            if (opts.getStorageReadyLatch() != null) {
+                opts.getStorageReadyLatch().countDown();
+            }
         }
 
         if (!this.rpcClientService.init(this.options)) {

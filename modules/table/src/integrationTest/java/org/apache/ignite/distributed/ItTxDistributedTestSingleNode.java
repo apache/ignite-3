@@ -462,7 +462,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 placementDriver,
                                                 storageUpdateHandler,
                                                 peer -> assignment.equals(peer.consistentId()),
-                                                CompletableFuture.completedFuture(schemaManager)
+                                                CompletableFuture.completedFuture(schemaManager),
+                                                null
                                         )
                                 );
                             } catch (NodeStoppingException e) {

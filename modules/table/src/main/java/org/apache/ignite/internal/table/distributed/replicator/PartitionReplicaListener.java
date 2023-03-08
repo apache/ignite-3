@@ -43,6 +43,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -205,6 +206,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final CompletableFuture<SchemaRegistry> schemaFut;
 
+    private CountDownLatch storageReadyLatch;
+
     /**
      * The constructor.
      *
@@ -224,6 +227,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param storageUpdateHandler Handler that processes updates writing them to storage.
      * @param isLocalPeerChecker Function for checking that the given peer is local.
      * @param schemaFut Table schema.
+     * @param storageReadyLatch Latch that will be released when storage is ready.
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
@@ -242,7 +246,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             PlacementDriver placementDriver,
             StorageUpdateHandler storageUpdateHandler,
             Function<Peer, Boolean> isLocalPeerChecker,
-            CompletableFuture<SchemaRegistry> schemaFut
+            CompletableFuture<SchemaRegistry> schemaFut,
+            CountDownLatch storageReadyLatch
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
@@ -261,6 +266,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.isLocalPeerChecker = isLocalPeerChecker;
         this.storageUpdateHandler = storageUpdateHandler;
         this.schemaFut = schemaFut;
+        this.storageReadyLatch = storageReadyLatch;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
@@ -270,6 +276,15 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Object> invoke(ReplicaRequest request) {
+        try {
+            if (storageReadyLatch != null) {
+                storageReadyLatch.await();
+            }
+        } catch (InterruptedException e) {
+            // TODO: sanpwc What's the proper way to handle given exception?
+            throw new RuntimeException(e);
+        }
+
         if (request instanceof TxStateReplicaRequest) {
             return processTxStateReplicaRequest((TxStateReplicaRequest) request);
         }

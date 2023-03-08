@@ -193,7 +193,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         dsCfg
                 ),
                 peer -> true,
-                CompletableFuture.completedFuture(schemaManager)
+                CompletableFuture.completedFuture(schemaManager),
+                null
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);
