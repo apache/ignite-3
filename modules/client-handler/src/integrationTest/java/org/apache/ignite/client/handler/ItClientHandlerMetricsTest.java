@@ -132,11 +132,21 @@ public class ItClientHandlerMetricsTest {
         ItClientHandlerTestUtils.connectAndHandshake(serverModule);
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent().value() == 50, 1000),
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent().value() == 54, 1000),
                 () -> "bytesSent: " + testServer.metrics().bytesSent().value());
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesReceived().value() == 7, 1000),
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesReceived().value() == 15, 1000),
+                () -> "bytesReceived: " + testServer.metrics().bytesReceived().value());
+
+        ItClientHandlerTestUtils.connectAndHandshake(serverModule, false, true);
+
+        assertTrue(
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent().value() == 216, 1000),
+                () -> "bytesSent: " + testServer.metrics().bytesSent().value());
+
+        assertTrue(
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesReceived().value() == 30, 1000),
                 () -> "bytesReceived: " + testServer.metrics().bytesReceived().value());
     }
 }
