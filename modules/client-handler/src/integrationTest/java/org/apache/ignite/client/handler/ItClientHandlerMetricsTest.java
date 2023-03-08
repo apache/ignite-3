@@ -98,10 +98,10 @@ public class ItClientHandlerMetricsTest {
         testServer = new TestServer(null);
         var serverModule = testServer.start(testInfo);
 
-        // TODO: Flaky, keep socket open during assertion.
-        ItClientHandlerTestUtils.connectAndHandshake(serverModule);
+        try (var ignored = ItClientHandlerTestUtils.connectAndHandshakeAndGetSocket(serverModule)) {
+            assertEquals(1, testServer.metrics().sessionsActive().value());
+        }
 
-        assertEquals(1, testServer.metrics().sessionsActive().value());
         IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsActive().value() == 0, 10_000);
     }
 }

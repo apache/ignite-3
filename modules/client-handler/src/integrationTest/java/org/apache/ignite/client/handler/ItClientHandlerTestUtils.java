@@ -41,9 +41,7 @@ class ItClientHandlerTestUtils {
     }
 
     static void connectAndHandshake(ClientHandlerModule serverModule, boolean skipMagic, boolean badVersion) throws IOException {
-        int serverPort = serverModule.localAddress().getPort();
-
-        try (var sock = new Socket("127.0.0.1", serverPort)) {
+        try (var sock = new Socket("127.0.0.1", serverModule.localAddress().getPort())) {
             OutputStream out = sock.getOutputStream();
 
             // Magic: IGNI
@@ -52,31 +50,27 @@ class ItClientHandlerTestUtils {
             }
 
             // Handshake.
-            try (var packer = MessagePack.newDefaultBufferPacker()) {
-                packer.packInt(0);
-                packer.packInt(0);
-                packer.packInt(0);
-                packer.packInt(7); // Size.
-
-                packer.packInt(badVersion ? 42 : 3); // Major.
-                packer.packInt(0); // Minor.
-                packer.packInt(0); // Patch.
-
-                packer.packInt(2); // Client type: general purpose.
-
-                packer.packBinaryHeader(0); // Features.
-                packer.packMapHeader(0); // Extensions.
-
-                out.write(packer.toByteArray());
-                out.flush();
-            }
+            writeHandshake(badVersion, out);
 
             // Read response.
-            var unpacker = MessagePack.newDefaultUnpacker(sock.getInputStream());
-            var magic = unpacker.readPayload(4);
-
-            assertArrayEquals(MAGIC, magic);
+            checkResponseMagic(sock);
         }
+    }
+
+    static Socket connectAndHandshakeAndGetSocket(ClientHandlerModule serverModule) throws IOException {
+        var sock = new Socket("127.0.0.1", serverModule.localAddress().getPort());
+        OutputStream out = sock.getOutputStream();
+
+        // Magic: IGNI
+        out.write(MAGIC);
+
+        // Handshake.
+        writeHandshake(false, out);
+
+        // Read response.
+        checkResponseMagic(sock);
+
+        return sock;
     }
 
     static String generateKeystore(Path workDir)
@@ -93,5 +87,33 @@ class ItClientHandlerTestUtils {
         }
 
         return keyStorePkcs12Path;
+    }
+
+    private static void writeHandshake(boolean badVersion, OutputStream out) throws IOException {
+        try (var packer = MessagePack.newDefaultBufferPacker()) {
+            packer.packInt(0);
+            packer.packInt(0);
+            packer.packInt(0);
+            packer.packInt(7); // Size.
+
+            packer.packInt(badVersion ? 42 : 3); // Major.
+            packer.packInt(0); // Minor.
+            packer.packInt(0); // Patch.
+
+            packer.packInt(2); // Client type: general purpose.
+
+            packer.packBinaryHeader(0); // Features.
+            packer.packMapHeader(0); // Extensions.
+
+            out.write(packer.toByteArray());
+            out.flush();
+        }
+    }
+
+    private static void checkResponseMagic(Socket sock) throws IOException {
+        var unpacker = MessagePack.newDefaultUnpacker(sock.getInputStream());
+        var magic = unpacker.readPayload(4);
+
+        assertArrayEquals(MAGIC, magic);
     }
 }
