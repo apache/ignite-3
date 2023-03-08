@@ -1054,8 +1054,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             AtomicBoolean nodeStoppingEx = new AtomicBoolean();
 
-            CompletableFuture[] stopReplicaFutures = new CompletableFuture[table.internalTable().partitions()];
-
             for (int p = 0; p < table.internalTable().partitions(); p++) {
                 TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
 
@@ -1067,10 +1065,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
                 });
 
-                int p0 = p;
                 stopping.add(() -> {
                     try {
-                        stopReplicaFutures[p0] = replicaMgr.stopReplica(replicationGroupId);
+                        replicaMgr.stopReplica(replicationGroupId);
                     } catch (Throwable t) {
                         handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
                     }
@@ -1087,14 +1084,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
                 });
             }
-
-            stopping.add(() -> {
-                try {
-                    allOf(stopReplicaFutures).join();
-                } catch (Throwable t) {
-                    handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
-                }
-            });
 
             stopping.forEach(Runnable::run);
 
@@ -1274,14 +1263,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             int partitions = assignment.size();
 
             CompletableFuture<?>[] removeStorageFromGcFutures = new CompletableFuture<?>[partitions];
-            CompletableFuture<?>[] stopReplicaFutures = new CompletableFuture<?>[replicaMgr.startedGroups().size()];
 
             for (int p = 0; p < partitions; p++) {
                 TablePartitionId replicationGroupId = new TablePartitionId(tblId, p);
 
                 raftMgr.stopRaftNodes(replicationGroupId);
 
-                stopReplicaFutures[p] = replicaMgr.stopReplica(replicationGroupId);
+                replicaMgr.stopReplica(replicationGroupId);
 
                 removeStorageFromGcFutures[p] = mvGc.removeStorage(replicationGroupId);
             }
@@ -1318,7 +1306,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             // TODO: IGNITE-18687 Must be asynchronous
             destroyTableStoragesFuture.join();
-            allOf(stopReplicaFutures).join();
 
             beforeTablesVvComplete.add(allOf(destroyTableStoragesFuture, dropSchemaRegistryFuture));
         } catch (Exception e) {
@@ -2284,19 +2271,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     .noneMatch(assignment -> assignment.consistentId().equals(localMemberName));
 
             if (shouldStopLocalServices) {
-                CompletableFuture<Boolean> stopReplicaFuture;
-
                 try {
                     raftMgr.stopRaftNodes(tablePartitionId);
 
-                    stopReplicaFuture = replicaMgr.stopReplica(tablePartitionId);
+                    replicaMgr.stopReplica(tablePartitionId);
                 } catch (NodeStoppingException e) {
-                    stopReplicaFuture = completedFuture(null);
+                    // No-op.
                 }
 
                 InternalTable internalTable = tablesByIdVv.latest().get(tableId).internalTable();
-
-                CompletableFuture<Boolean> stopReplicaFutureFinal = stopReplicaFuture;
 
                 // TODO: IGNITE-18703 Destroy raft log and meta
 
@@ -2306,7 +2289,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 internalTable.storage().destroyPartition(partitionId),
                                 runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor)
                         ))
-                        .thenCompose(v -> stopReplicaFutureFinal)
                         .join();
             }
         });

@@ -597,7 +597,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             ReplicaManager replicaMgr = replicaManagers.get(entry.getKey());
 
             for (ReplicationGroupId grp : replicaMgr.startedGroups()) {
-                replicaMgr.stopReplica(grp).join();
+                replicaMgr.stopReplica(grp);
             }
 
             for (RaftNodeId nodeId : rs.localNodes()) {

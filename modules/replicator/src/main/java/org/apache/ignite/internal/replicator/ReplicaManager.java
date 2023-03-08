@@ -303,10 +303,10 @@ public class ReplicaManager implements IgniteComponent {
      * Stops a replica by the partition group id.
      *
      * @param replicaGrpId Replication group id.
-     * @return Future containing true if the replica is found and closed, false otherwise.
+     * @return True if the replica is found and closed, false otherwise.
      * @throws NodeStoppingException If the node is stopping.
      */
-    public CompletableFuture<Boolean> stopReplica(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
+    public boolean stopReplica(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
@@ -322,12 +322,10 @@ public class ReplicaManager implements IgniteComponent {
      * Internal method for stopping a replica.
      *
      * @param replicaGrpId Replication group id.
-     * @return Future containing true if the replica is found and closed, false otherwise.
+     * @return True if the replica is found and closed, false otherwise.
      */
-    private CompletableFuture<Boolean> stopReplicaInternal(ReplicationGroupId replicaGrpId) {
-        CompletableFuture<Replica> replicaFuture = replicas.remove(replicaGrpId);
-
-        return replicaFuture == null ? completedFuture(false) : replicaFuture.thenApply(Replica::stop).thenApply(v -> true);
+    private boolean stopReplicaInternal(ReplicationGroupId replicaGrpId) {
+        return replicas.remove(replicaGrpId) != null;
     }
 
     /** {@inheritDoc} */

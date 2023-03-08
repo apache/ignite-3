@@ -100,10 +100,6 @@ public class Replica {
         raftClient.subscribeLeader(this::onLeaderElected);
     }
 
-    public CompletableFuture<Void> stop() {
-        return raftClient.unsubscribeLeader();
-    }
-
     /**
      * Processes a replication request on the replica.
      *
