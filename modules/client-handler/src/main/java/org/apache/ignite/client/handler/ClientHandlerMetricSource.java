@@ -76,6 +76,10 @@ public class ClientHandlerMetricSource implements MetricSource {
 
     private final AtomicLongMetric requestsFailed = new AtomicLongMetric("requests.failed", "Total failed requests");
 
+    private final AtomicLongMetric transactionsActive = new AtomicLongMetric("transactions.active", "Active transactions");
+
+    private final AtomicLongMetric cursorsActive = new AtomicLongMetric("cursors.active", "Active cursors");
+
     private final List<Metric> metrics = Arrays.asList(
             connectionsInitiated,
             sessionsAccepted,
@@ -87,7 +91,9 @@ public class ClientHandlerMetricSource implements MetricSource {
             bytesReceived,
             requestsActive,
             requestsProcessed,
-            requestsFailed
+            requestsFailed,
+            transactionsActive,
+            cursorsActive
     );
 
     private boolean enabled;
@@ -139,6 +145,14 @@ public class ClientHandlerMetricSource implements MetricSource {
 
     public AtomicLongMetric requestsFailed() {
         return requestsFailed;
+    }
+
+    public AtomicLongMetric transactionsActive() {
+        return transactionsActive;
+    }
+
+    public AtomicLongMetric cursorsActive() {
+        return cursorsActive;
     }
 
     @Override

@@ -149,4 +149,12 @@ public class ItClientHandlerMetricsTest {
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesReceived().value() == 30, 1000),
                 () -> "bytesReceived: " + testServer.metrics().bytesReceived().value());
     }
+
+    @Test
+    public void todo() {
+        // TODO:
+        // requests: active, processed, failed
+        // transactions.active
+        // cursors.active
+    }
 }
