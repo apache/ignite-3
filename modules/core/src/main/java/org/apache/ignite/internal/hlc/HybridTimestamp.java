@@ -107,6 +107,14 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
         return new HybridTimestamp(physical, this.logical + ticks);
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-18978
+    public boolean between(HybridTimestamp from, HybridTimestamp to) {
+        if (from == null || to == null)
+            return false;
+
+        return compareTo(from) >= 0 && compareTo(to) < 0;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {

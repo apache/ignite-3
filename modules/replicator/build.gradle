@@ -30,6 +30,7 @@ dependencies {
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
 
+    testImplementation(testFixtures(project(':ignite-core')))
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
 }

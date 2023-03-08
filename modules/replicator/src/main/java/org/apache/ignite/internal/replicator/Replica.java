@@ -69,6 +69,7 @@ public class Replica {
 
     private AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
 
+    private volatile HybridTimestamp leaseStartTime = null;
     private volatile HybridTimestamp leaseExpirationTime = null;
 
     /**
@@ -145,22 +146,22 @@ public class Replica {
         LeaseGrantedMessage msg = (LeaseGrantedMessage) msg0;
 
         return leaderFuture().thenCompose(leader -> {
-            if (hasAcceptedLease()) {
-                return acceptLease(msg.leaseExpirationTime());
+            if (hasAcceptedLease(msg.leaseStartTime())) {
+                return acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
             } else if (msg.force()) {
                 if (!leader.equals(localNodeSupplier.get())) {
                     return safeTime.waitFor(msg.leaseStartTime()).thenCompose(v -> {
-                        CompletableFuture<NetworkMessage> respFut = acceptLease(leaseExpirationTime);
+                        CompletableFuture<NetworkMessage> respFut = acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
 
                         return raftClient.transferLeadership(new Peer(localNodeSupplier.get().name()))
                                 .thenCompose(ignored -> respFut);
                     });
                 } else {
-                    return acceptLease(leaseExpirationTime);
+                    return acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
                 }
             } else {
                 if (leader.equals(localNodeSupplier.get())) {
-                    return acceptLease(msg.leaseExpirationTime());
+                    return acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
                 } else {
                     return proposeLeaseRedirect(leader);
                 }
@@ -168,13 +169,10 @@ public class Replica {
         });
     }
 
-    private CompletableFuture<NetworkMessage> acceptLease(HybridTimestamp leaseExpirationTime) {
+    private CompletableFuture<NetworkMessage> acceptLease(HybridTimestamp leaseStartTime, HybridTimestamp leaseExpirationTime) {
         synchronized (leaseAcceptanceMutex) {
-            HybridTimestamp t = this.leaseExpirationTime;
-
-            if (t.compareTo(leaseExpirationTime) < 0) {
-                this.leaseExpirationTime = leaseExpirationTime;
-            }
+            this.leaseStartTime = leaseStartTime;
+            this.leaseExpirationTime = leaseExpirationTime;
         }
 
         LeaseGrantedMessageResponse resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
@@ -193,7 +191,7 @@ public class Replica {
         return completedFuture(resp);
     }
 
-    private boolean hasAcceptedLease() {
-        return false;
+    private boolean hasAcceptedLease(HybridTimestamp leaseStartTime) {
+        return leaseStartTime.between(this.leaseStartTime, leaseExpirationTime);
     }
 }

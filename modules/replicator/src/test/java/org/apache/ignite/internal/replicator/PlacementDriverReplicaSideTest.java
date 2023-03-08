@@ -1,0 +1,282 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.replicator;
+
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
+import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Test for placement driver messages processing on replica side.
+ */
+public class PlacementDriverReplicaSideTest {
+    private static final ReplicationGroupId GRP_ID = new ReplicationGroupId() {
+    };
+
+    private static final ClusterNode LOCAL_NODE = new ClusterNode("id0", "name0", new NetworkAddress("localhost", 1234));
+    private static final ClusterNode ANOTHER_NODE = new ClusterNode("id1", "name`", new NetworkAddress("localhost", 2345));
+
+    private static final PlacementDriverMessagesFactory MSG_FACTORY = new PlacementDriverMessagesFactory();
+
+    private Replica replica;
+
+    private AtomicReference<BiConsumer<ClusterNode, Long>> callbackHolder = new AtomicReference<>();
+
+    private long replicaPhysicalTime;
+
+    private PendingComparableValuesTracker<HybridTimestamp> safeTime;
+
+    private Peer currentLeader = null;
+
+    private Replica startReplica() {
+        TopologyAwareRaftGroupService raftClient = mock(TopologyAwareRaftGroupService.class);
+
+        when(raftClient.subscribeLeader(any())).thenAnswer(invocationOnMock -> {
+            BiConsumer<ClusterNode, Long> callback = invocationOnMock.getArgument(0);
+            callbackHolder.set(callback);
+
+            return completedFuture(null);
+        });
+
+        when(raftClient.transferLeadership(any())).thenAnswer(invocationOnMock -> {
+            Peer peer = invocationOnMock.getArgument(0);
+            currentLeader = peer;
+
+            return completedFuture(null);
+        });
+
+        Replica replica = new Replica(
+                GRP_ID,
+                mock(ReplicaListener.class),
+                new TestHybridClock(() -> replicaPhysicalTime),
+                safeTime,
+                raftClient,
+                () -> LOCAL_NODE
+        );
+
+        return replica;
+    }
+
+    @BeforeEach
+    public void beforeEach() {
+        replicaPhysicalTime = 2;
+        safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
+        currentLeader = null;
+        replica = startReplica();
+    }
+
+    private void leaderElection(ClusterNode leader) {
+        if (callbackHolder.get() != null) {
+            callbackHolder.get().accept(leader, 1L);
+        }
+    }
+
+    private CompletableFuture<LeaseGrantedMessageResponse> sendLeaseGranted(
+            HybridTimestamp leaseStartTime,
+            HybridTimestamp leaseExpirationTime,
+            boolean force
+    ) {
+        PlacementDriverReplicaMessage msg = MSG_FACTORY.leaseGrantedMessage()
+                .leaseStartTime(leaseStartTime)
+                .leaseExpirationTime(leaseExpirationTime)
+                .force(force)
+                .build();
+
+        return replica.processPlacementDriverMessage(msg).thenApply(LeaseGrantedMessageResponse.class::cast);
+    }
+
+    private HybridTimestamp hts(long physical) {
+        return new HybridTimestamp(physical, 0);
+    }
+
+    @Test
+    public void replicationGroupReadinessAwait() {
+        CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(10), hts(20), false);
+        assertFalse(respFut.isDone());
+        leaderElection(LOCAL_NODE);
+        assertTrue(respFut.isDone());
+    }
+
+    @Test
+    public void replicationGroupReadinessAwaitAnotherNodeLeader() {
+        CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(10), hts(20), false);
+        assertFalse(respFut.isDone());
+        leaderElection(ANOTHER_NODE);
+        assertTrue(respFut.isDone());
+    }
+
+    @Test
+    public void testGrantLeaseToLeader() {
+        leaderElection(LOCAL_NODE);
+        CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(10), hts(20), false);
+
+        assertTrue(respFut.isDone());
+
+        LeaseGrantedMessageResponse resp = respFut.join();
+        assertTrue(resp.accepted());
+        assertNull(resp.redirectProposal());
+    }
+
+    @Test
+    public void testGrantLeaseToNonLeader() {
+        leaderElection(ANOTHER_NODE);
+        CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(10), hts(20), false);
+
+        assertTrue(respFut.isDone());
+
+        LeaseGrantedMessageResponse resp = respFut.join();
+        assertFalse(resp.accepted());
+        assertEquals(ANOTHER_NODE.name(), resp.redirectProposal());
+    }
+
+    @Test
+    public void testGrantLeaseRepeat() {
+        long leaseStartTime = 10;
+        safeTime.update(hts(leaseStartTime + 5));
+        leaderElection(ANOTHER_NODE);
+        // Sending message with force == true.
+        CompletableFuture<LeaseGrantedMessageResponse> respFut0 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), true);
+
+        assertTrue(respFut0.isDone());
+
+        LeaseGrantedMessageResponse resp0 = respFut0.join();
+        assertTrue(resp0.accepted());
+        assertNull(resp0.redirectProposal());
+
+        // Sending the same message once again, with force == false (placement driver actor may have changed and repeats the message),
+        // but the node should still accept this lease in spite it is not a leader, because it had accepted the lease before.
+        CompletableFuture<LeaseGrantedMessageResponse> respFut1 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);
+
+        assertTrue(respFut1.isDone());
+
+        LeaseGrantedMessageResponse resp1 = respFut1.join();
+        assertTrue(resp1.accepted());
+        assertNull(resp1.redirectProposal());
+    }
+
+    @Test
+    public void testGrantLeaseToNodeWithExpiredLease() {
+        long leaseStartTime = 10;
+        leaderElection(LOCAL_NODE);
+        CompletableFuture<LeaseGrantedMessageResponse> respFut0 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);
+
+        assertTrue(respFut0.isDone());
+
+        LeaseGrantedMessageResponse resp0 = respFut0.join();
+        assertTrue(resp0.accepted());
+        assertNull(resp0.redirectProposal());
+
+        CompletableFuture<LeaseGrantedMessageResponse> respFut1 =
+                sendLeaseGranted(hts(leaseStartTime + 11), hts(leaseStartTime + 20), false);
+        assertTrue(respFut1.isDone());
+
+        LeaseGrantedMessageResponse resp1 = respFut1.join();
+        assertTrue(resp1.accepted());
+        assertNull(resp1.redirectProposal());
+    }
+
+    @Test
+    public void testGrantLeaseToNodeWithExpiredLeaseAndAnotherLeaderElected() {
+        long leaseStartTime = 10;
+        leaderElection(LOCAL_NODE);
+        CompletableFuture<LeaseGrantedMessageResponse> respFut0 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);
+
+        assertTrue(respFut0.isDone());
+
+        LeaseGrantedMessageResponse resp0 = respFut0.join();
+        assertTrue(resp0.accepted());
+        assertNull(resp0.redirectProposal());
+
+        leaderElection(ANOTHER_NODE);
+
+        CompletableFuture<LeaseGrantedMessageResponse> respFut1 =
+                sendLeaseGranted(hts(leaseStartTime + 11), hts(leaseStartTime + 20), false);
+        assertTrue(respFut1.isDone());
+
+        LeaseGrantedMessageResponse resp1 = respFut1.join();
+        assertFalse(resp1.accepted());
+        assertEquals(ANOTHER_NODE.name(), resp1.redirectProposal());
+    }
+
+    @Test
+    public void testForce() {
+        long leaseStartTime = 10;
+        leaderElection(ANOTHER_NODE);
+        CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), true);
+
+        assertFalse(respFut.isDone());
+
+        safeTime.update(hts(leaseStartTime + 5));
+        assertTrue(respFut.isDone());
+
+        LeaseGrantedMessageResponse resp = respFut.join();
+        assertTrue(resp.accepted());
+        assertNull(resp.redirectProposal());
+
+        assertEquals(LOCAL_NODE.name(), currentLeader.consistentId());
+    }
+
+    @Test
+    public void testForceToActualLeader() {
+        long leaseStartTime = 10;
+        safeTime.update(hts(leaseStartTime + 5));
+
+        leaderElection(ANOTHER_NODE);
+        CompletableFuture<LeaseGrantedMessageResponse> respFut0 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);
+
+        assertTrue(respFut0.isDone());
+
+        LeaseGrantedMessageResponse resp0 = respFut0.join();
+        assertFalse(resp0.accepted());
+        assertEquals(ANOTHER_NODE.name(), resp0.redirectProposal());
+
+        // After declining the lease grant, local node is elected as a leader and new message with force == true is sent to this
+        // node as actual leader.
+        leaderElection(LOCAL_NODE);
+
+        CompletableFuture<LeaseGrantedMessageResponse> respFut1 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), true);
+        assertTrue(respFut1.isDone());
+
+        LeaseGrantedMessageResponse resp1 = respFut1.join();
+
+        assertTrue(resp1.accepted());
+        assertNull(resp1.redirectProposal());
+    }
+}
