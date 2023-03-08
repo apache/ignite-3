@@ -208,7 +208,7 @@ public class ClientHandlerModule implements IgniteComponent {
                                     configuration.idleTimeout(), 0, 0, TimeUnit.MILLISECONDS);
 
                             ch.pipeline().addLast(idleStateHandler);
-                            ch.pipeline().addLast(new IdleChannelHandler());
+                            ch.pipeline().addLast(new IdleChannelHandler(metrics));
                         }
 
                         if (sslContext != null) {
@@ -262,11 +262,17 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /** Idle channel state handler. */
     private static class IdleChannelHandler extends ChannelDuplexHandler {
+        private final ClientHandlerMetricSource metrics;
+
+        private IdleChannelHandler(ClientHandlerMetricSource metrics) {
+            this.metrics = metrics;
+        }
+
         /** {@inheritDoc} */
         @Override
-        public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+        public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
             if (evt instanceof IdleStateEvent && ((IdleStateEvent) evt).state() == IdleState.READER_IDLE) {
-                // TODO: timeout metric
+                metrics.sessionsRejectedTimeout().increment();
                 ctx.close();
             }
         }
