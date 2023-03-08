@@ -35,30 +35,25 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test that verifies plans for queries with aggregates.
+ * This test verifies that optimizer provides expected output for queries defined in {@link TestCase TestCase}.
  *
- * <p>Note: The test should not disable any rules and validates the best query plans.
+ * <p>Note: This test validates the best plan provided by optimizer, thus should not disable any rules.
+ *
+ * <p>See {@link AbstractAggregatePlannerTest base class} for more details.
  */
 public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
-    /** {@inheritDoc} */
-    @Override
-    protected String[] disabledRules() {
-        return new String[0];
-    }
-
-    @SuppressWarnings("MethodOverridesStaticMethodOfSuperclass")
-    @BeforeAll
-    static void initMissedCases() {
-        AbstractAggregatePlannerTest.initMissedCases();
-
-        AbstractAggregatePlannerTest.missedCases.removeAll(List.of(
-                //TODO: https://issues.apache.org/jira/browse/IGNITE-18871 Wrong collation derived.
-                TestCase.CASE_18_3, TestCase.CASE_18_3A
-        ));
+    /**
+     * Parent class requires all test cases being verified by {@link #assertPlan(TestCase, Predicate, String...)}.
+     * Lets just make such call with predicate that returns true for any input.
+     */
+    @Test
+    public void disabledTests() throws Exception {
+        //TODO: https://issues.apache.org/jira/browse/IGNITE-18871 Wrong collation derived.
+        assertPlan(TestCase.CASE_18_3, alwaysTrue());
+        assertPlan(TestCase.CASE_18_3A, alwaysTrue());
     }
 
     /**

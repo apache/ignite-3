@@ -31,11 +31,14 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
-import org.junit.jupiter.api.BeforeAll;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test to verify MapReduceSortAggregateConverterRule usage by a planner.
+ * This test verifies that queries defined in {@link TestCase TestCase} can be optimized with usage of
+ * 2 phase sort aggregates only.
+ *
+ * <p>See {@link AbstractAggregatePlannerTest base class} for more details.
  */
 public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerTest {
     private final String[] disableRules = {
@@ -44,21 +47,15 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
             "ColocatedSortAggregateConverterRule"
     };
 
-    /** {@inheritDoc} */
-    @Override
-    protected String[] disabledRules() {
-        return disableRules;
-    }
-
-    @SuppressWarnings("MethodOverridesStaticMethodOfSuperclass")
-    @BeforeAll
-    static void initMissedCases() {
-        AbstractAggregatePlannerTest.initMissedCases();
-
-        AbstractAggregatePlannerTest.missedCases.removeAll(List.of(
-                //TODO: https://issues.apache.org/jira/browse/IGNITE-18871 Wrong collation derived.
-                TestCase.CASE_18_3, TestCase.CASE_18_3A
-        ));
+    /**
+     * Parent class requires all test cases being verified by {@link #assertPlan(TestCase, Predicate, String...)}.
+     * Lets just make such call with predicate that returns true for any input.
+     */
+    @Test
+    public void disabledTests() throws Exception {
+        //TODO: https://issues.apache.org/jira/browse/IGNITE-18871 Wrong collation derived.
+        assertPlan(TestCase.CASE_18_3, alwaysTrue());
+        assertPlan(TestCase.CASE_18_3A, alwaysTrue());
     }
 
     /**
@@ -184,7 +181,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                 .and(hasGroups())
                                 .and(input(isIndexScan("TEST", "grp0_grp1")))
                         ))
-                )
+                ),
+                disableRules
         );
 
         assertPlan(TestCase.CASE_13A,
@@ -198,7 +196,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         .and(input(isIndexScan("TEST", "grp0_grp1")))
                                 ))
                         ))
-                )
+                ),
+                disableRules
         );
     }
 
@@ -233,7 +232,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                 .and(input(isIndexScan("TEST", "val0")))
                         ))
                 ),
-                additionalRulesToDisable);
+                ArrayUtils.concat(disableRules, additionalRulesToDisable)
+        );
 
         assertPlan(TestCase.CASE_16A,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
@@ -243,7 +243,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                 ))
                         ))
                 ),
-                additionalRulesToDisable);
+                ArrayUtils.concat(disableRules, additionalRulesToDisable)
+        );
     }
 
     /**
@@ -262,7 +263,9 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         ))
                                 ))
                         ))
-                ));
+                ),
+                disableRules
+        );
 
         assertPlan(TestCase.CASE_17A,
                 hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
@@ -277,7 +280,9 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         ))
                                 ))
                         ))
-                ));
+                ),
+                disableRules
+        );
     }
 
     /**
@@ -341,7 +346,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(TestCase.CASE_21, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
                 .and(input(0, subtreePredicate))
                 .and(input(1, subtreePredicate))
-        ));
+        ), disableRules);
 
         subtreePredicate = isInstanceOf(IgniteReduceSortAggregate.class)
                 // Check the second aggregation step contains accumulators.
@@ -365,7 +370,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(TestCase.CASE_21A, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
                 .and(input(0, subtreePredicate))
                 .and(input(1, subtreePredicate))
-        ));
+        ), disableRules);
     }
 
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
@@ -376,7 +381,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                 .and(hasGroups())
                                 .and(input(isTableScan("TEST")))
                         ))
-                )
+                ),
+                disableRules
         );
     }
 
@@ -390,7 +396,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         .and(input(isTableScan("TEST")))
                                 ))
                         ))
-                )
+                ),
+                disableRules
         );
     }
 
@@ -404,7 +411,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         .and(input(isTableScan("TEST")))
                                 ))
                         ))
-                )
+                ),
+                disableRules
         );
     }
 
@@ -420,7 +428,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         ))
                                 ))
                         ))
-                )
+                ),
+                disableRules
         );
     }
 
@@ -443,7 +452,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         ))
                                 ))
                         ))
-                )
+                ),
+                disableRules
         );
     }
 
@@ -467,7 +477,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                                 ))
                                         ))
                                 ))
-                        ))
+                        )),
+                disableRules
         );
     }
 
@@ -490,7 +501,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                 ))
                         ))
 
-                )
+                ),
+                disableRules
         );
     }
 
@@ -515,7 +527,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                 ))
                         ))
 
-                )
+                ),
+                disableRules
         );
     }
 
@@ -526,7 +539,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                 .and(hasAggregate())
                                 .and(input(isIndexScan("TEST", "grp0_grp1")))
                         ))
-                )
+                ),
+                disableRules
         );
     }
 
@@ -539,7 +553,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         .and(input(isIndexScan("TEST", "grp0_grp1")))
                                 ))
                         ))
-                )
+                ),
+                disableRules
         );
     }
 
@@ -555,7 +570,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         .and(input(isTableScan("TEST")))
                                 ))
                         ))
-                )
+                ),
+                disableRules
         );
     }
 
@@ -573,10 +589,10 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         ))
                                 ))
                         ))
-                )
+                ),
+                disableRules
         );
     }
-
 
     private void checkGroupsWithOrderBySubsetOfGroupColumnsSingle(TestCase testCase, RelCollation collation) throws Exception {
         assertPlan(testCase,
@@ -586,7 +602,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         .and(s -> s.collation().equals(collation))
                                         .and(input(isTableScan("TEST")))
                                 ))
-                        ))
+                        )),
+                disableRules
         );
     }
 
@@ -601,7 +618,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                                 .and(input(isTableScan("TEST")))
                                         ))
                                 ))
-                        ))
+                        )),
+                disableRules
         );
     }
 
@@ -618,7 +636,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                                         .and(input(isTableScan("TEST")))
                                                 ))
                                         ))
-                        ))
+                        )),
+                disableRules
         );
     }
 
@@ -637,7 +656,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                                         ))
                                                 ))
                                         ))
-                        ))
+                        )),
+                disableRules
         );
     }
 }

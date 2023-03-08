@@ -537,7 +537,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         try {
             if (predicate.test((T) plan)) {
-                System.err.println(RelOptUtil.toString(plan, SqlExplainLevel.ALL_ATTRIBUTES));
                 return;
             }
         } catch (Throwable th) {

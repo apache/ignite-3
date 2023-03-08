@@ -30,11 +30,14 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedSortAggregate;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
-import org.junit.jupiter.api.BeforeAll;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test to verify ColocatedSortAggregateConverterRule usage by a planner.
+ * This test verifies that queries defined in {@link TestCase TestCase} can be optimized with usage of
+ * colocated sort aggregates only.
+ *
+ * <p>See {@link AbstractAggregatePlannerTest base class} for more details.
  */
 public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerTest {
     private final String[] disableRules = {
@@ -43,24 +46,18 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
             "ColocatedHashAggregateConverterRule"
     };
 
-    /** {@inheritDoc} */
-    @Override
-    protected String[] disabledRules() {
-        return disableRules;
-    }
+    /**
+     * Parent class requires all test cases being verified by {@link #assertPlan(TestCase, Predicate, String...)}.
+     * Lets just make such call with predicate that returns true for any input.
+     */
+    @Test
+    public void disabledTests() throws Exception {
+        //TODO: https://issues.apache.org/jira/browse/IGNITE-18871 Wrong collation derived.
+        assertPlan(TestCase.CASE_18_3, alwaysTrue());
+        assertPlan(TestCase.CASE_18_3A, alwaysTrue());
 
-    @SuppressWarnings("MethodOverridesStaticMethodOfSuperclass")
-    @BeforeAll
-    static void initMissedCases() {
-        AbstractAggregatePlannerTest.initMissedCases();
-
-        AbstractAggregatePlannerTest.missedCases.removeAll(List.of(
-                //TODO: https://issues.apache.org/jira/browse/IGNITE-18871 Index should be used.
-                TestCase.CASE_11A,
-
-                //TODO: https://issues.apache.org/jira/browse/IGNITE-18871 Wrong collation derived.
-                TestCase.CASE_18_3, TestCase.CASE_18_3A
-        ));
+        //TODO: https://issues.apache.org/jira/browse/IGNITE-18871 Index should be used.
+        assertPlan(TestCase.CASE_11A, alwaysTrue());
     }
 
     /**
@@ -182,7 +179,9 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(not(hasAggregate()))
                         .and(hasGroups())
                         .and(input(isIndexScan("TEST", "grp0_grp1")))
-                ));
+                ),
+                disableRules
+        );
 
         assertPlan(TestCase.CASE_13A,
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
@@ -191,7 +190,9 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(isInstanceOf(IgniteExchange.class)
                                 .and(input(isIndexScan("TEST", "grp0_grp1")))
                         ))
-                ));
+                ),
+                disableRules
+        );
     }
 
     /**
@@ -224,7 +225,8 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(nodeOrAnyChild(input(1, isInstanceOf(IgniteColocatedSortAggregate.class))
                                 .and(input(isIndexScan("TEST", "val0")))
                         )),
-                additionalRulesToDisable);
+                ArrayUtils.concat(disableRules, additionalRulesToDisable)
+        );
 
         assertPlan(TestCase.CASE_16A,
                 not(nodeOrAnyChild(isInstanceOf(IgniteSort.class)))
@@ -234,7 +236,8 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         ))
                                 ))
                         ),
-                additionalRulesToDisable);
+                ArrayUtils.concat(disableRules, additionalRulesToDisable)
+        );
     }
 
     /**
@@ -251,7 +254,9 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         ))
                                 ))
                         ))
-                ));
+                ),
+                disableRules
+        );
 
         assertPlan(TestCase.CASE_17A,
                 hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
@@ -264,7 +269,9 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         ))
                                 ))
                         ))
-                ));
+                ),
+                disableRules
+        );
     }
 
     /**
@@ -324,7 +331,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(TestCase.CASE_21, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
                 .and(input(0, subtreePredicate))
                 .and(input(1, subtreePredicate))
-        ));
+        ), disableRules);
 
         subtreePredicate = nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
                 // Check the second aggregation step contains accumulators.
@@ -341,7 +348,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(TestCase.CASE_21A, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
                 .and(input(0, subtreePredicate))
                 .and(input(1, subtreePredicate))
-        ));
+        ), disableRules);
     }
 
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
@@ -350,7 +357,8 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(hasAggregate())
                         // Without GROUP BY sort can be omitted.
                         .and(input(isTableScan("TEST")))
-                )
+                ),
+                disableRules
         );
     }
 
@@ -362,7 +370,8 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                 // Without GROUP BY sort can be omitted.
                                 .and(input(isTableScan("TEST")))
                         ))
-                )
+                ),
+                disableRules
         );
     }
 
@@ -374,7 +383,8 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(isInstanceOf(IgniteSort.class)
                                 .and(input(isTableScan("TEST")))
                         ))
-                )
+                ),
+                disableRules
         );
     }
 
@@ -387,7 +397,9 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                 .and(input(isInstanceOf(IgniteSort.class)
                                         .and(input(isTableScan("TEST")))
                                 ))
-                        )))
+                        ))
+                ),
+                disableRules
         );
     }
 
@@ -396,7 +408,8 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 isInstanceOf(IgniteColocatedSortAggregate.class)
                         .and((hasDistinctAggregate()))
                         // Without GROUP BY sort can be omitted.
-                        .and(input(isTableScan("TEST")))
+                        .and(input(isTableScan("TEST"))),
+                disableRules
         );
     }
 
@@ -407,7 +420,8 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(isInstanceOf(IgniteExchange.class)
                                 // Without GROUP BY sort can be omitted.
                                 .and(input(isTableScan("TEST")))
-                        ))
+                        )),
+                disableRules
         );
     }
 
@@ -419,7 +433,8 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(isInstanceOf(IgniteSort.class)
                                 .and(input(isTableScan("TEST")))
                         ))
-                )
+                ),
+                disableRules
         );
     }
 
@@ -433,7 +448,8 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         .and(input(isTableScan("TEST")))
                                 ))
                         ))
-                )
+                ),
+                disableRules
         );
     }
 
@@ -442,7 +458,8 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
                         .and(hasAggregate())
                         .and(input(isIndexScan("TEST", "grp0_grp1")))
-                )
+                ),
+                disableRules
         );
     }
 
@@ -452,7 +469,9 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(hasAggregate())
                         .and(input(isInstanceOf(IgniteExchange.class)
                                 .and(input(isIndexScan("TEST", "grp0_grp1")))
-                        )))
+                        ))
+                ),
+                disableRules
         );
     }
 
@@ -464,7 +483,9 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(isInstanceOf(IgniteSort.class)
                                 .and(input(isTableScan("TEST")))
                         ))
-                ));
+                ),
+                disableRules
+        );
     }
 
     private void checkGroupWithNoAggregateHash(TestCase testCase) throws Exception {
@@ -477,7 +498,9 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         .and(input(isTableScan("TEST")))
                                 ))
                         ))
-                ));
+                ),
+                disableRules
+        );
     }
 
     private void checkGroupsWithOrderByGroupColumnsSingle(TestCase testCase, RelCollation collation) throws Exception {
@@ -486,7 +509,8 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(isInstanceOf(IgniteSort.class)
                                 .and(s -> s.collation().equals(collation))
                                 .and(input(isTableScan("TEST")))
-                        ))
+                        )),
+                disableRules
         );
     }
 
@@ -498,7 +522,8 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         .and(s -> s.collation().equals(collation))
                                         .and(input(isTableScan("TEST")))
                                 ))
-                        ))
+                        )),
+                disableRules
         );
     }
 
@@ -511,7 +536,8 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         .and(s -> s.collation().equals(TraitUtils.createCollation(List.of(0, 1))))
                                         .and(input(isTableScan("TEST")))
                                 ))
-                        ))
+                        )),
+                disableRules
         );
     }
 
@@ -526,7 +552,8 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                                 .and(input(isTableScan("TEST")))
                                         ))
                                 ))
-                        ))
+                        )),
+                disableRules
         );
     }
 }

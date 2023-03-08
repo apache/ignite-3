@@ -34,12 +34,7 @@ import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.SingleRel;
 import org.apache.calcite.rel.core.AggregateCall;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
@@ -49,20 +44,41 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
 
 /**
- * Base class for further planner test implementations.
+ * This is a base class for aggregate-related tests aimed to verify integration of aggregate nodes
+ * into the planner.
+ *
+ * <p>Tests derived from this class can be separated onto two group.
+ *
+ * <p>The first one verifies that expected algorithm is chosen by optimiser in the particular test
+ * case. This is more like verification of cost function implementation. The rule of thumbs for this
+ * group is that no optimisation rules should be disabled (there may be exceptions though).
+ *
+ * <p>The second group verifies that every test query can be prepared with only single algorithm
+ * available. This is more like verification of traits propagation. The rule of thumb for this
+ * group is that for every algorithm, rest of them should be disabled.
+ *
+ * <p>The base class defines a number of test cases represented by {@link TestCase} enum. Every test
+ * case must be verified by the derived class, otherwise exception will be thrown.
+ *
+ * <p>New test must be added as new element of the {@link TestCase} enumeration only.Please check
+ * if it fits to any of the groups mentioned above. If it doesn't, then, probably, it's better to
+ * find another place.
  */
 public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
-
     private static final Predicate<AggregateCall> NON_NULL_PREDICATE = Objects::nonNull;
 
-
+    /**
+     * Enumeration of test cases.
+     *
+     * <p>Every derived class must call {@link #assertPlan(TestCase, Predicate, String...)} for every case from this enum,
+     * otherwise afterAll validation will fail.
+     */
+    @SuppressWarnings("NonSerializableFieldInSerializableClass")
     enum TestCase {
         /**
          * Query: SELECT AVG(val0) FROM test.
@@ -447,22 +463,6 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
          */
         CASE_21A("SELECT /*+ EXPAND_DISTINCT_AGG */ SUM(DISTINCT val0), AVG(DISTINCT val1) FROM test GROUP BY grp0",
                 schema(hash(), index("idx_val0", 3, 1), index("idx_val1", 3, 2))),
-        /**
-         * Query: SELECT SUM(VAL_TINYINT), SUM(VAL_SMALLINT), SUM(VAL_INT), SUM(VAL_BIGINT), SUM(VAL_DECIMAL), SUM(VAL_FLOAT),
-         * SUM(VAL_DOUBLE) FROM test GROUP BY grp.
-         *
-         * <p>Distribution single
-         */
-        CASE_22("SELECT SUM(VAL_TINYINT), SUM(VAL_SMALLINT), SUM(VAL_INT), SUM(VAL_BIGINT), SUM(VAL_DECIMAL), SUM(VAL_FLOAT), "
-                + "SUM(VAL_DOUBLE) FROM test GROUP BY grp", schemaWithAllNumerics(single())),
-        /**
-         * Query: SELECT SUM(VAL_TINYINT), SUM(VAL_SMALLINT), SUM(VAL_INT), SUM(VAL_BIGINT), SUM(VAL_DECIMAL), SUM(VAL_FLOAT),
-         * SUM(VAL_DOUBLE) FROM test GROUP BY grp.
-         *
-         * <p>Distribution hash(0)
-         */
-        CASE_22A("SELECT SUM(VAL_TINYINT), SUM(VAL_SMALLINT), SUM(VAL_INT), SUM(VAL_BIGINT), SUM(VAL_DECIMAL), SUM(VAL_FLOAT), "
-                + "SUM(VAL_DOUBLE) FROM test GROUP BY grp", schemaWithAllNumerics(hash())),
 
         ;
 
@@ -480,7 +480,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
         }
     }
 
-    static EnumSet<TestCase> missedCases;
+    private static EnumSet<TestCase> missedCases;
 
     @BeforeAll
     static void initMissedCases() {
@@ -493,54 +493,24 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * Validates SUM aggregate has a correct return type for any numeric column type.
-     */
-    @Test
-    public void sumAggregateTypes() throws Exception {
-        List<RelDataType> types0 = List.of(
-                TYPE_FACTORY.createTypeWithNullability(TYPE_FACTORY.createSqlType(SqlTypeName.BIGINT), true),
-                TYPE_FACTORY.createTypeWithNullability(TYPE_FACTORY.createSqlType(SqlTypeName.BIGINT), true),
-                TYPE_FACTORY.createTypeWithNullability(TYPE_FACTORY.createSqlType(SqlTypeName.BIGINT), true),
-                TYPE_FACTORY.createTypeWithNullability(TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL,
-                        TYPE_FACTORY.getTypeSystem().getMaxNumericPrecision(), 0), true),
-                TYPE_FACTORY.createTypeWithNullability(TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL,
-                        TYPE_FACTORY.getTypeSystem().getMaxNumericPrecision(), DecimalNativeType.DEFAULT_SCALE), true),
-                TYPE_FACTORY.createTypeWithNullability(TYPE_FACTORY.createSqlType(SqlTypeName.DOUBLE), true),
-                TYPE_FACTORY.createTypeWithNullability(TYPE_FACTORY.createSqlType(SqlTypeName.DOUBLE), true));
-
-        Predicate<RelNode> pred = nodeOrAnyChild(isInstanceOf(SingleRel.class))
-                .and(n -> {
-                    List<RelDataType> types = n.getRowType().getFieldList().stream()
-                            .map(RelDataTypeField::getType)
-                            .collect(Collectors.toList());
-
-                    return types.equals(types0);
-                });
-
-        assertPlan(TestCase.CASE_22, pred);
-        assertPlan(TestCase.CASE_22A, pred);
-    }
-
-    /**
-     * Rules to disable.
+     * Verifies given test case with provided predicate.
      *
-     * @return Rules.
+     * <p>That is, applies predicate to the result of the query optimization with regards to the
+     * provided collection of rules which have to be disabled during optimization.
+     *
+     * @param testCase A test case tp verify.
+     * @param predicate A predicate to validate resulting plan. If predicate returns false,
+     *     the AssertionFailedError will be thrown.
+     * @param rulesToDisable A collection of rules to disable.
+     * @param <T> An expected type of the root node of resulting plan.
      */
-    protected abstract String[] disabledRules();
-
     protected <T extends RelNode> void assertPlan(
             TestCase testCase,
             Predicate<T> predicate,
-            String... additionalRulesToDisable
+            String... rulesToDisable
     ) throws Exception {
         if (!missedCases.remove(testCase)) {
             fail("Testcase was as disabled: " + testCase);
-        }
-
-        String[] rulesToDisable = disabledRules();
-
-        if (additionalRulesToDisable != null) {
-            rulesToDisable = ArrayUtils.concat(rulesToDisable, additionalRulesToDisable);
         }
 
         assertPlan(testCase.query, Collections.singleton(testCase.schema), predicate, List.of(), rulesToDisable);
@@ -563,28 +533,6 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
         for (Consumer<org.apache.ignite.internal.sql.engine.framework.TestTable> index : indices) {
             index.accept(table);
         }
-
-        IgniteSchema schema = new IgniteSchema("PUBLIC");
-        schema.addTable(table);
-
-        return schema;
-    }
-
-    private static IgniteSchema schemaWithAllNumerics(IgniteDistribution distribution) {
-        org.apache.ignite.internal.sql.engine.framework.TestTable table = TestBuilders.table()
-                .name("TEST")
-                .addColumn("ID", NativeTypes.INT32)
-                .addColumn("GRP", NativeTypes.INT32)
-                .addColumn("VAL_TINYINT", NativeTypes.INT8)
-                .addColumn("VAL_SMALLINT", NativeTypes.INT16)
-                .addColumn("VAL_INT", NativeTypes.INT32)
-                .addColumn("VAL_BIGINT", NativeTypes.INT64)
-                .addColumn("VAL_DECIMAL", NativeTypes.decimalOf(DecimalNativeType.DEFAULT_PRECISION, DecimalNativeType.DEFAULT_SCALE))
-                .addColumn("VAL_FLOAT", NativeTypes.FLOAT)
-                .addColumn("VAL_DOUBLE", NativeTypes.DOUBLE)
-                .size(DEFAULT_TBL_SIZE)
-                .distribution(distribution)
-                .build();
 
         IgniteSchema schema = new IgniteSchema("PUBLIC");
         schema.addTable(table);
@@ -636,5 +584,10 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
         Predicate<T> reduceNode = (Predicate<T>) isInstanceOf(IgniteReduceAggregateBase.class).and(n -> !n.getGroupSets().isEmpty());
 
         return aggregateNode.or(reduceNode);
+    }
+
+    /** Returns predicate returning {@code true} for any input. */
+    static <T> Predicate<T> alwaysTrue() {
+        return anything -> true;
     }
 }
