@@ -19,11 +19,24 @@ package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
 
 public class MetricsTest extends AbstractClientTest {
     @Test
-    public void testMetrics() {
-        assertEquals(1, testServer.metrics().sessionsActive().value());
+    public void testTxMetrics() {
+        assertEquals(0, testServer.metrics().transactionsActive().value());
+
+        Transaction tx1 = client.transactions().begin();
+        assertEquals(1, testServer.metrics().transactionsActive().value());
+
+        Transaction tx2 = client.transactions().begin();
+        assertEquals(2, testServer.metrics().transactionsActive().value());
+
+        tx1.rollback();
+        assertEquals(1, testServer.metrics().transactionsActive().value());
+
+        tx2.rollback();
+        assertEquals(0, testServer.metrics().transactionsActive().value());
     }
 }
