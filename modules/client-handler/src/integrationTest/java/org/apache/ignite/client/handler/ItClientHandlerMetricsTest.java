@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.SocketException;
 import java.nio.file.Path;
@@ -91,7 +92,8 @@ public class ItClientHandlerMetricsTest {
         var serverModule = testServer.start(testInfo);
 
         try (var ignored = ItClientHandlerTestUtils.connectAndHandshakeAndGetSocket(serverModule)) {
-            IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsRejectedTimeout().value() == 1, 5_000);
+            assertTrue(IgniteTestUtils.waitForCondition(() ->
+                    testServer.metrics().sessionsRejectedTimeout().value() == 1, 5_000));
         }
 
         assertEquals(1, testServer.metrics().sessionsAccepted().value());
@@ -104,7 +106,7 @@ public class ItClientHandlerMetricsTest {
         var serverModule = testServer.start(testInfo);
 
         ItClientHandlerTestUtils.connectAndHandshake(serverModule);
-        IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsAccepted().value() == 1, 1000);
+        assertTrue(IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsAccepted().value() == 1, 1000));
     }
 
     @Test
@@ -113,9 +115,28 @@ public class ItClientHandlerMetricsTest {
         var serverModule = testServer.start(testInfo);
 
         try (var ignored = ItClientHandlerTestUtils.connectAndHandshakeAndGetSocket(serverModule)) {
-            IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsActive().value() == 1, 1000);
+            assertTrue(IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsActive().value() == 1, 1000));
         }
 
-        IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsActive().value() == 0, 5_000);
+        assertTrue(IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsActive().value() == 0, 5_000));
+    }
+
+    @Test
+    void bytesSentReceived(TestInfo testInfo) throws Exception {
+        testServer = new TestServer(null);
+        var serverModule = testServer.start(testInfo);
+
+        assertEquals(0, testServer.metrics().bytesSent().value());
+        assertEquals(0, testServer.metrics().bytesReceived().value());
+
+        ItClientHandlerTestUtils.connectAndHandshake(serverModule);
+
+        assertTrue(
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent().value() == 50, 1000),
+                () -> "bytesSent: " + testServer.metrics().bytesSent().value());
+
+        assertTrue(
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesReceived().value() == 7, 1000),
+                () -> "bytesReceived: " + testServer.metrics().bytesReceived().value());
     }
 }
