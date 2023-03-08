@@ -50,6 +50,8 @@ public class TestServer {
 
     private final ClientHandlerMetricSource metrics = new ClientHandlerMetricSource();
 
+    private long idleTimeout = 5000;
+
     TestServer(@Nullable TestSslConfig testSslConfig) {
         this.testSslConfig = testSslConfig;
         this.configurationManager = new ConfigurationManager(
@@ -65,6 +67,10 @@ public class TestServer {
         this(null);
     }
 
+    void idleTimeout(long idleTimeout) {
+        this.idleTimeout = idleTimeout;
+    }
+
     void tearDown() throws Exception {
         configurationManager.stop();
         bootstrapFactory.stop();
@@ -74,7 +80,10 @@ public class TestServer {
         configurationManager.start();
 
         clientConnectorConfig().change(
-                local -> local.changePort(10800).changePortRange(10)
+                local -> local
+                        .changePort(10800)
+                        .changePortRange(10)
+                        .changeIdleTimeout(idleTimeout)
         ).join();
 
         if (testSslConfig != null) {

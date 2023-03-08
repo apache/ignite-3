@@ -85,6 +85,20 @@ public class ItClientHandlerMetricsTest {
     }
 
     @Test
+    void sessionsRejectedTimeout(TestInfo testInfo) throws Exception {
+        testServer = new TestServer(null);
+        testServer.idleTimeout(300);
+        var serverModule = testServer.start(testInfo);
+
+        try (var ignored = ItClientHandlerTestUtils.connectAndHandshakeAndGetSocket(serverModule)) {
+            IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsRejectedTimeout().value() == 1, 5_000);
+        }
+
+        assertEquals(1, testServer.metrics().sessionsAccepted().value());
+        assertEquals(0, testServer.metrics().sessionsActive().value());
+    }
+
+    @Test
     void sessionsAccepted(TestInfo testInfo) throws Exception {
         testServer = new TestServer(null);
         var serverModule = testServer.start(testInfo);
