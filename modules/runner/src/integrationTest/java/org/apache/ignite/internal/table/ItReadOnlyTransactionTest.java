@@ -37,7 +37,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeAll;
@@ -46,7 +46,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test reads with specific timestamp.
  */
-public class ItReadOnlyTransactionTest extends AbstractBasicIntegrationTest {
+public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
     /** Table name. */
     public static final String TABLE_NAME = "tbl";
     /** Gap in future to request a data. */
