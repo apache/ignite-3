@@ -32,6 +32,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
@@ -129,10 +130,7 @@ public class TestServer implements AutoCloseable {
         Mockito.when(clusterService.topologyService().getByConsistentId(anyString())).thenAnswer(
                 i -> getClusterNode(i.getArgument(0, String.class)));
 
-        IgniteCompute compute = mock(IgniteCompute.class);
-        Mockito.when(compute.execute(any(), anyString(), any())).thenReturn(CompletableFuture.completedFuture(nodeName));
-        Mockito.when(
-                compute.executeColocated(anyString(), any(), anyString(), any())).thenReturn(CompletableFuture.completedFuture(nodeName));
+        IgniteCompute compute = new FakeCompute(nodeName);
 
         metrics = new ClientHandlerMetricSource();
 
@@ -145,7 +143,8 @@ public class TestServer implements AutoCloseable {
                         responseDelay,
                         clusterService,
                         compute,
-                        clusterId)
+                        clusterId,
+                        metrics)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),

@@ -19,17 +19,26 @@ package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.Transaction;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests client handler metrics.
  */
+@SuppressWarnings({"AssignmentToStaticFieldFromInstanceMethod", "rawtypes"})
 public class MetricsTest extends AbstractClientTest {
+    @AfterEach
+    public void resetCompute() {
+        FakeCompute.future = null;
+    }
+
     @Test
     public void testTxMetrics() {
         assertEquals(0, testServer.metrics().transactionsActive().value());
@@ -63,5 +72,15 @@ public class MetricsTest extends AbstractClientTest {
             resultSet.close();
             assertEquals(0, testServer.metrics().cursorsActive().value());
         }
+    }
+
+    @Test
+    public void testRequestsActive() throws Exception {
+        assertEquals(0, testServer.metrics().requestsActive().value());
+
+        FakeCompute.future = new CompletableFuture();
+
+        client.compute().execute(getClusterNodes("s1"), "job");
+        assertEquals(1, testServer.metrics().requestsActive().value());
     }
 }
