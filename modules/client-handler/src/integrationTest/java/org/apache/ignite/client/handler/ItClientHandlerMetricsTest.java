@@ -90,7 +90,7 @@ public class ItClientHandlerMetricsTest {
         var serverModule = testServer.start(testInfo);
 
         ItClientHandlerTestUtils.connectAndHandshake(serverModule);
-        assertEquals(1, testServer.metrics().sessionsAccepted().value());
+        IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsAccepted().value() == 1, 1000);
     }
 
     @Test
@@ -99,9 +99,9 @@ public class ItClientHandlerMetricsTest {
         var serverModule = testServer.start(testInfo);
 
         try (var ignored = ItClientHandlerTestUtils.connectAndHandshakeAndGetSocket(serverModule)) {
-            assertEquals(1, testServer.metrics().sessionsActive().value());
+            IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsActive().value() == 1, 1000);
         }
 
-        IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsActive().value() == 0, 10_000);
+        IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsActive().value() == 0, 5_000);
     }
 }
