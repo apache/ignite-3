@@ -177,23 +177,30 @@ public class ReplicaManager implements IgniteComponent {
             }
 
             // replicaFut is always completed here.
-            CompletableFuture<Object> result = replicaFut.join().processRequest(request);
+            CompletableFuture<Object> result = null;
+            try {
+                result = replicaFut.join().processRequest(request);
+            } catch (Throwable t ) {
+                LOG.error("Failed to process replica request", t);
+            }
 
-            result.handle((res, ex) -> {
-                NetworkMessage msg;
+            if (result != null) {
+                result.handle((res, ex) -> {
+                    NetworkMessage msg;
 
-                if (ex == null) {
-                    msg = prepareReplicaResponse(requestTimestamp, res);
-                } else {
-                    LOG.warn("Failed to process replica request [request={}]", ex, request);
+                    if (ex == null) {
+                        msg = prepareReplicaResponse(requestTimestamp, res);
+                    } else {
+                        LOG.warn("Failed to process replica request [request={}]", ex, request);
 
-                    msg = prepareReplicaErrorResponse(requestTimestamp, ex);
-                }
+                        msg = prepareReplicaErrorResponse(requestTimestamp, ex);
+                    }
 
-                clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
+                    clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
 
-                return null;
-            });
+                    return null;
+                });
+            }
         } finally {
             busyLock.leaveBusy();
         }
