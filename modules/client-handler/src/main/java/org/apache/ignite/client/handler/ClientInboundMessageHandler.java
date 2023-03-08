@@ -195,7 +195,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         // Each inbound handler in a pipeline has to release the received messages.
-        try (var unpacker = getUnpacker((ByteBuf) msg)) {
+        ByteBuf byteBuf = (ByteBuf) msg;
+
+        // Each inbound handler in a pipeline has to release the received messages.
+        try (var unpacker = getUnpacker(byteBuf)) {
+            metrics.bytesReceived().add(byteBuf.readableBytes());
+
             // Packer buffer is released by Netty on send, or by inner exception handlers below.
             var packer = getPacker(ctx.alloc());
 
@@ -281,11 +286,14 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         ctx.write(Unpooled.wrappedBuffer(ClientMessageCommon.MAGIC_BYTES));
     }
 
-    private static void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {
+    private void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {
         var buf = packer.getBuffer();
+        int bytes = buf.readableBytes();
 
         // writeAndFlush releases pooled buffer.
         ctx.writeAndFlush(buf);
+
+        metrics.bytesSent().add(bytes);
     }
 
     private void writeError(long requestId, Throwable err, ChannelHandlerContext ctx) {

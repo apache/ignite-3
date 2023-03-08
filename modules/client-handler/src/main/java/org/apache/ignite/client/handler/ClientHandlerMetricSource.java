@@ -108,6 +108,14 @@ public class ClientHandlerMetricSource implements MetricSource {
         return sessionsRejectedTls;
     }
 
+    public AtomicLongMetric bytesSent() {
+        return bytesSent;
+    }
+
+    public AtomicLongMetric bytesReceived() {
+        return bytesReceived;
+    }
+
     public AtomicLongMetric sessionsRejectedTimeout() {
         return sessionsRejectedTimeout;
     }
