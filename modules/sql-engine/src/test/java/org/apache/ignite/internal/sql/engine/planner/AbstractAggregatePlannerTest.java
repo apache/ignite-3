@@ -52,7 +52,7 @@ import org.junit.jupiter.api.BeforeAll;
  * This is a base class for aggregate-related tests aimed to verify integration of aggregate nodes
  * into the planner.
  *
- * <p>Tests derived from this class can be separated onto two group.
+ * <p>Tests derived from this class can be separated into two groups.
  *
  * <p>The first one verifies that expected algorithm is chosen by optimiser in the particular test
  * case. This is more like verification of cost function implementation. The rule of thumbs for this
@@ -498,7 +498,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
      * <p>That is, applies predicate to the result of the query optimization with regards to the
      * provided collection of rules which have to be disabled during optimization.
      *
-     * @param testCase A test case tp verify.
+     * @param testCase A test case to verify.
      * @param predicate A predicate to validate resulting plan. If predicate returns false,
      *     the AssertionFailedError will be thrown.
      * @param rulesToDisable A collection of rules to disable.
