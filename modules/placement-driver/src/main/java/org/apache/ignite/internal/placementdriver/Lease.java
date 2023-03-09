@@ -26,11 +26,14 @@ import org.apache.ignite.network.ClusterNode;
  * The real lease is stored in Meta storage.
  */
 public class Lease implements Serializable {
+    /** The object is used when nothing holds the lease. */
+    public static Lease EMPTY_LEASE = new Lease(null, null);
+
     /** A node that holds a lease until {@code stopLeas}. */
-    private ClusterNode leaseholder;
+    private final ClusterNode leaseholder;
 
     /** Timestamp to expiration the lease. */
-    private HybridTimestamp leaseExpirationTime;
+    private final HybridTimestamp leaseExpirationTime;
 
     /**
      * Default constructor.
@@ -60,30 +63,12 @@ public class Lease implements Serializable {
     }
 
     /**
-     * Sets a leaseholder node.
-     *
-     * @param leaseholder Leaseholder node.
-     */
-    public void setLeaseholder(ClusterNode leaseholder) {
-        this.leaseholder = leaseholder;
-    }
-
-    /**
      * Gets a lease expiration timestamp.
      *
      * @return Lease expiration timestamp or {@code null} if nothing holds the lease.
      */
     public HybridTimestamp getLeaseExpirationTime() {
         return leaseExpirationTime;
-    }
-
-    /**
-     * Sets a lease expiration timestamp.
-     *
-     * @param leaseExpirationTime Lease expiration timestamp.
-     */
-    public void setLeaseExpirationTime(HybridTimestamp leaseExpirationTime) {
-        this.leaseExpirationTime = leaseExpirationTime;
     }
 
     @Override

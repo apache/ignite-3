@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.placementdriver.Lease.EMPTY_LEASE;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
 
 import java.util.Map;
@@ -49,7 +50,7 @@ public class LeaseUpdater {
     private static final IgniteLogger LOG = Loggers.forClass(LeaseUpdater.class);
 
     /**
-     * Cluster cLock skew.
+     * Cluster cLock skew. The constant determines the undefined inclusive interval to compares timestamp from various nodes.
      * TODO: IGNITE-18978 Method to comparison timestamps with clock skew.
      */
     private static final long CLOCK_SKEW = 7L;
@@ -153,14 +154,15 @@ public class LeaseUpdater {
 
     /**
      * Compares two timestamps with the clock skew.
+     * t1, t2 comparable if t1 is not contained on [t2 - CLOCK_SKEW; t2 + CLOCK_SKEW].
      * TODO: IGNITE-18978 Method to comparison timestamps with clock skew.
      *
      * @param ts1 First timestamp.
      * @param ts2 Second timestamp.
-     * @return Result of comparison.
+     * @return Result of comparison can be positive or negative, or {@code 0} if timestamps are not comparable.
      */
     private static int compareWithClockSkew(HybridTimestamp ts1, HybridTimestamp ts2) {
-        if (ts1.getPhysical() - CLOCK_SKEW < ts2.getPhysical() || ts1.getPhysical() + CLOCK_SKEW < ts2.getPhysical()) {
+        if (ts1.getPhysical() - CLOCK_SKEW <= ts2.getPhysical() && ts1.getPhysical() + CLOCK_SKEW >= ts2.getPhysical()) {
             return 0;
         }
 
@@ -201,30 +203,21 @@ public class LeaseUpdater {
                     HybridTimestamp now = clock.now();
 
                     // Nothing holds the lease.
-                    if (lease.getLeaseExpirationTime() == null
+                    if (lease == EMPTY_LEASE
                             // The lease is near to expiration.
                             || now.getPhysical() > (lease.getLeaseExpirationTime().getPhysical() - LEASE_PERIOD / 2)) {
-                        var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
-
-                        var newTs = new HybridTimestamp(now.getPhysical() + LEASE_PERIOD, 0);
-
                         ClusterNode candidate = nextLeaseHolder(entry.getValue());
 
-                        // Now nothing is holding the lease, and new lease is being granted.
-                        if (lease.getLeaseholder() == null && candidate != null
-                                // The lease is prolongation
-                                || lease.getLeaseholder() != null && lease.getLeaseholder().equals(candidate)
-                                // New lease is being granted, and the previous lease is expired.
-                                || isReplicationGroupAvailableLeaseholderUpdate(lease, candidate)) {
-                            byte[] leaseRaw = ByteUtils.toBytes(lease);
+                        if (candidate == null) {
+                            continue;
+                        }
 
-                            Lease renewedLease = new Lease(candidate, newTs);
-
-                            msManager.invoke(
-                                    or(notExists(leaseKey), value(leaseKey).eq(leaseRaw)),
-                                    put(leaseKey, ByteUtils.toBytes(renewedLease)),
-                                    noop()
-                            );
+                        if (isReplicationGroupUpdateLeaseholder(lease, candidate)) {
+                            updateLeaseInMetaStorage(grpId, lease, candidate);
+                            // New lease is granting.
+                        } else if (candidate.equals(lease.getLeaseholder())) {
+                            updateLeaseInMetaStorage(grpId, lease, candidate);
+                            // Old lease is renewing.
                         }
                     }
                 }
@@ -238,17 +231,39 @@ public class LeaseUpdater {
         }
 
         /**
+         * Writes a lease in Meta storage.
+         *
+         * @param grpId Replication group id.
+         * @param lease Old lease to apply CAS in Meta storage.
+         * @param candidate Lease candidate.
+         */
+        private void updateLeaseInMetaStorage(ReplicationGroupId grpId, Lease lease, ClusterNode candidate) {
+            var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
+            var newTs = new HybridTimestamp(clock.now().getPhysical() + LEASE_PERIOD, 0);
+
+            byte[] leaseRaw = ByteUtils.toBytes(lease);
+
+            Lease renewedLease = new Lease(candidate, newTs);
+
+            msManager.invoke(
+                    or(notExists(leaseKey), value(leaseKey).eq(leaseRaw)),
+                    put(leaseKey, ByteUtils.toBytes(renewedLease)),
+                    noop()
+            );
+        }
+
+        /**
          * Checks that a leaseholder candidate can take a lease on the replication group.
          *
          * @param lease Lease.
          * @param candidate The node is a leaseholder candidate.
          * @return True when the candidate can be a leaseholder, otherwise false.
          */
-        private boolean isReplicationGroupAvailableLeaseholderUpdate(Lease lease, ClusterNode candidate) {
+        private boolean isReplicationGroupUpdateLeaseholder(Lease lease, ClusterNode candidate) {
             HybridTimestamp now = clock.now();
 
-            return candidate != null && (lease.getLeaseExpirationTime() == null
-                    || compareWithClockSkew(now, lease.getLeaseExpirationTime()) > 0);
+            return lease == EMPTY_LEASE
+                    || (!candidate.equals(lease.getLeaseholder()) && compareWithClockSkew(now, lease.getLeaseExpirationTime()) > 0);
         }
     }
 }

@@ -109,7 +109,7 @@ public class LeaseTracker {
      * @return A lease is associated with the group.
      */
     public @NotNull Lease getLease(ReplicationGroupId grpId) {
-        return leases.getOrDefault(grpId, new Lease());
+        return leases.getOrDefault(grpId, Lease.EMPTY_LEASE);
     }
 
     private static String incrementLastChar(String str) {

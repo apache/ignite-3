@@ -218,7 +218,7 @@ public class AssignmentsTracker {
     }
 
     /**
-     * Triggers to renew leases forcibly.
+     * Triggers to renew leases forcibly. The method wakes up the monitor of {@link LeaseUpdater}.
      */
     private void triggerToRenewLeases() {
         //TODO: IGNITE-18879 Implement lease maintenance.

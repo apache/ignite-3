@@ -198,7 +198,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * If this property is set to {@code true} then an attempt to get the configuration property directly from Meta storage will be
      * skipped, and the local property will be returned.
-     * TODO: IGNITE-16774 This property and overall approach, access configuration directly through the Meta storage,
+     * TODO: IGNITE-16774 This property and overall approach, access configuration directly through Meta storage,
      * TODO: will be removed after fix of the issue.
      */
     private final boolean getMetadataLocallyOnly = IgniteSystemProperties.getBoolean("IGNITE_GET_METADATA_LOCALLY_ONLY");
