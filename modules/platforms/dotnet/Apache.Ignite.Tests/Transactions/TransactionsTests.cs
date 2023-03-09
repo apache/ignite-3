@@ -119,7 +119,7 @@ namespace Apache.Ignite.Tests.Transactions
         }
 
         [Test]
-        public async Task TestCommitRollbackSameTxThrows()
+        public async Task TestCommitAfterRollbackIsIgnored()
         {
             await using var tx = await Client.Transactions.BeginAsync();
             await tx.CommitAsync();

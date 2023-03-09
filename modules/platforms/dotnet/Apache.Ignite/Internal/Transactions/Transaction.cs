@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Transactions
 {
+    using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
     using Ignite.Transactions;
@@ -90,6 +91,19 @@ namespace Apache.Ignite.Internal.Transactions
 
         /// <inheritdoc/>
         public async ValueTask DisposeAsync() => await RollbackAsyncInternal().ConfigureAwait(false);
+
+        /// <inheritdoc/>
+        public override string ToString()
+        {
+            var state = _state switch
+            {
+                StateOpen => "Open",
+                StateCommitted => "Committed",
+                _ => "RolledBack"
+            };
+
+            return $"Transaction {{ Id = {Id}, State = {state}, IsReadOnly = {IsReadOnly} }}";
+        }
 
         /// <summary>
         /// Rolls back the transaction without state check.
