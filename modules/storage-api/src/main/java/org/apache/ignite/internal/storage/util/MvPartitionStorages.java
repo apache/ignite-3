@@ -37,6 +37,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.util.StorageOperation.AbortRebalanceStorageOperation;
 import org.apache.ignite.internal.storage.util.StorageOperation.CleanupStorageOperation;
+import org.apache.ignite.internal.storage.util.StorageOperation.CloseStorageOperation;
 import org.apache.ignite.internal.storage.util.StorageOperation.CreateStorageOperation;
 import org.apache.ignite.internal.storage.util.StorageOperation.DestroyStorageOperation;
 import org.apache.ignite.internal.storage.util.StorageOperation.FinishRebalanceStorageOperation;
@@ -54,7 +55,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
 
     private final ConcurrentMap<Integer, StorageOperation> operationByPartitionId = new ConcurrentHashMap<>();
 
-    private final ConcurrentMap<Integer, CompletableFuture<Void>> rebalaceFutureByPartitionId = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, CompletableFuture<Void>> rebalanceFutureByPartitionId = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -127,7 +128,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
         }).whenComplete((storage, throwable) -> operationByPartitionId.compute(partitionId, (partId, operation) -> {
             assert operation instanceof CreateStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
 
-            return null;
+            return completeOperation(operation);
         }));
     }
 
@@ -158,9 +159,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                     operationByPartitionId.compute(partitionId, (partId, operation) -> {
                         assert operation instanceof DestroyStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
 
-                        DestroyStorageOperation destroyStorageOperation = (DestroyStorageOperation) operation;
-
-                        return destroyStorageOperation.getCreateStorageOperation();
+                        return completeOperation(operation);
                     });
 
                     if (throwable == null) {
@@ -198,7 +197,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                         operationByPartitionId.compute(partitionId, (partId, operation) -> {
                             assert operation instanceof CleanupStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
 
-                            return null;
+                            return completeOperation(operation);
                         })
                 );
     }
@@ -213,7 +212,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
      * @throws StorageRebalanceException If the storage does not exist or another operation is already in progress.
      * @throws StorageRebalanceException If rebalancing is already in progress.
      */
-    public CompletableFuture<Void> startRebalace(int partitionId, Function<T, CompletableFuture<Void>> startRebalanceStorageFunction) {
+    public CompletableFuture<Void> startRebalance(int partitionId, Function<T, CompletableFuture<Void>> startRebalanceStorageFunction) {
         operationByPartitionId.compute(partitionId, (partId, operation) -> {
             checkStorageExistsForRebalance(partitionId);
 
@@ -221,7 +220,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                 throwExceptionDependingOnOperationForRebalance(operation, partitionId);
             }
 
-            if (rebalaceFutureByPartitionId.containsKey(partitionId)) {
+            if (rebalanceFutureByPartitionId.containsKey(partitionId)) {
                 throw new StorageRebalanceException(createStorageInProgressOfRebalanceErrorMessage(partitionId));
             }
 
@@ -232,7 +231,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                 .thenCompose(unused -> {
                     CompletableFuture<Void> startRebalanceFuture = startRebalanceStorageFunction.apply(get(partitionId));
 
-                    CompletableFuture<Void> old = rebalaceFutureByPartitionId.put(partitionId, startRebalanceFuture);
+                    CompletableFuture<Void> old = rebalanceFutureByPartitionId.put(partitionId, startRebalanceFuture);
 
                     assert old == null : createStorageInfo(partitionId);
 
@@ -242,7 +241,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                             assert operation instanceof StartRebalanceStorageOperation :
                                     createStorageInfo(partitionId) + ", op=" + operation;
 
-                            return null;
+                            return completeOperation(operation);
                         })
                 );
     }
@@ -269,7 +268,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
 
         return completedFuture(null)
                 .thenCompose(unused -> {
-                    CompletableFuture<Void> rebalanceFuture = rebalaceFutureByPartitionId.remove(partitionId);
+                    CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
 
                     if (rebalanceFuture == null) {
                         return completedFuture(null);
@@ -283,7 +282,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                             assert operation instanceof AbortRebalanceStorageOperation :
                                     createStorageInfo(partitionId) + ", op=" + operation;
 
-                            return null;
+                            return completeOperation(operation);
                         })
                 );
     }
@@ -306,7 +305,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                 throwExceptionDependingOnOperationForRebalance(operation, partitionId);
             }
 
-            if (!rebalaceFutureByPartitionId.containsKey(partitionId)) {
+            if (!rebalanceFutureByPartitionId.containsKey(partitionId)) {
                 throw new StorageRebalanceException("Storage rebalancing did not start: [" + createStorageInfo(partitionId) + ']');
             }
 
@@ -315,7 +314,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
 
         return completedFuture(null)
                 .thenCompose(unused -> {
-                    CompletableFuture<Void> rebalanceFuture = rebalaceFutureByPartitionId.remove(partitionId);
+                    CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
 
                     assert rebalanceFuture != null : createStorageInfo(partitionId);
 
@@ -325,47 +324,9 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                             assert operation instanceof FinishRebalanceStorageOperation :
                                     createStorageInfo(partitionId) + ", op=" + operation;
 
-                            return null;
+                            return completeOperation(operation);
                         })
                 );
-    }
-
-    /**
-     * Collects all multi-versioned partition storages to close.
-     */
-    // TODO: IGNITE-18529 We need to wait for all current operations and disable new ones
-    public List<T> getAllForClose() {
-        return IntStream.range(0, storageByPartitionId.length())
-                .mapToObj(partitionId -> storageByPartitionId.getAndSet(partitionId, null))
-                .filter(Objects::nonNull)
-                .collect(toList());
-    }
-
-    /**
-     * Destroys all created multi-versioned partition storages.
-     *
-     * @param destroyStorageFunction Partition destruction function.
-     * @return Future destruction of all created multi-versioned partition storages.
-     */
-    // TODO: IGNITE-18529 We need to deal with parallel operations
-    public CompletableFuture<Void> destroyAll(Function<T, CompletableFuture<Void>> destroyStorageFunction) {
-        List<CompletableFuture<Void>> destroyFutures = new ArrayList<>();
-
-        for (int partitionId = 0; partitionId < storageByPartitionId.length(); partitionId++) {
-            StorageOperation storageOperation = operationByPartitionId.get(partitionId);
-
-            if (storageOperation instanceof DestroyStorageOperation) {
-                destroyFutures.add(((DestroyStorageOperation) storageOperation).getDestroyFuture());
-            } else {
-                T storage = storageByPartitionId.getAndSet(partitionId, null);
-
-                if (storage != null) {
-                    destroyFutures.add(destroyStorageFunction.apply(storage));
-                }
-            }
-        }
-
-        return CompletableFuture.allOf(destroyFutures.toArray(CompletableFuture[]::new));
     }
 
     /**
@@ -430,74 +391,63 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
     }
 
     private void throwExceptionDependingOnOperation(StorageOperation operation, int partitionId) {
-        if (operation instanceof CreateStorageOperation) {
-            throw new StorageException(createStorageInProgressOfCreationErrorMessage(partitionId));
-        } else if (operation instanceof DestroyStorageOperation) {
-            throw new StorageException(createStorageInProgressOfDestructionErrorMessage(partitionId));
-        } else if (operation instanceof StartRebalanceStorageOperation) {
-            throw new StorageRebalanceException(createStorageInProgressOfStartRebalanceErrorMessage(partitionId));
-        } else if (operation instanceof AbortRebalanceStorageOperation) {
-            throw new StorageRebalanceException(createStorageInProgressOfAbortRebalanceErrorMessage(partitionId));
-        } else if (operation instanceof FinishRebalanceStorageOperation) {
-            throw new StorageRebalanceException(createStorageInProgressOfFinishRebalanceErrorMessage(partitionId));
-        } else if (operation instanceof CleanupStorageOperation) {
-            throw new StorageException(createStorageInProgressOfCleanupErrorMessage(partitionId));
-        } else {
-            throw new StorageException(createUnknownOperationErrorMessage(partitionId, operation));
-        }
+        throw new StorageException(operation.inProcessErrorMessage(createStorageInfo(partitionId)));
     }
 
     private void throwExceptionDependingOnOperationForRebalance(StorageOperation operation, int partitionId) {
-        if (operation instanceof CreateStorageOperation) {
-            throw new StorageRebalanceException(createStorageInProgressOfCreationErrorMessage(partitionId));
-        } else if (operation instanceof DestroyStorageOperation) {
-            throw new StorageRebalanceException(createStorageInProgressOfDestructionErrorMessage(partitionId));
-        } else if (operation instanceof StartRebalanceStorageOperation) {
-            throw new StorageRebalanceException(createStorageInProgressOfStartRebalanceErrorMessage(partitionId));
-        } else if (operation instanceof AbortRebalanceStorageOperation) {
-            throw new StorageRebalanceException(createStorageInProgressOfAbortRebalanceErrorMessage(partitionId));
-        } else if (operation instanceof FinishRebalanceStorageOperation) {
-            throw new StorageRebalanceException(createStorageInProgressOfFinishRebalanceErrorMessage(partitionId));
-        } else if (operation instanceof CleanupStorageOperation) {
-            throw new StorageRebalanceException(createStorageInProgressOfCleanupErrorMessage(partitionId));
-        } else {
-            throw new StorageRebalanceException(createUnknownOperationErrorMessage(partitionId, operation));
-        }
+        throw new StorageRebalanceException(operation.inProcessErrorMessage(createStorageInfo(partitionId)));
     }
 
     private String createStorageDoesNotExistErrorMessage(int partitionId) {
         return "Storage does not exist: [" + createStorageInfo(partitionId) + ']';
     }
 
-    private String createStorageInProgressOfCreationErrorMessage(int partitionId) {
-        return "Storage is in process of being created: [" + createStorageInfo(partitionId) + ']';
-    }
-
-    private String createStorageInProgressOfDestructionErrorMessage(int partitionId) {
-        return "Storage is already in process of being destroyed: [" + createStorageInfo(partitionId) + ']';
-    }
-
-    private String createStorageInProgressOfStartRebalanceErrorMessage(int partitionId) {
-        return "Storage in the process of starting a rebalance: [" + createStorageInfo(partitionId) + ']';
-    }
-
-    private String createStorageInProgressOfAbortRebalanceErrorMessage(int partitionId) {
-        return "Storage in the process of aborting a rebalance: [" + createStorageInfo(partitionId) + ']';
-    }
-
-    private String createStorageInProgressOfFinishRebalanceErrorMessage(int partitionId) {
-        return "Storage in the process of finishing a rebalance: [" + createStorageInfo(partitionId) + ']';
-    }
-
     private String createStorageInProgressOfRebalanceErrorMessage(int partitionId) {
         return "Storage in the process of rebalance: [" + createStorageInfo(partitionId) + ']';
     }
 
-    private String createStorageInProgressOfCleanupErrorMessage(int partitionId) {
-        return "Storage is in process of being cleaned up: [" + createStorageInfo(partitionId) + ']';
+    private static @Nullable StorageOperation completeOperation(StorageOperation operation) {
+        operation.operationFuture().complete(null);
+
+        if (operation.isFinalOperation()) {
+            return operation;
+        }
+
+        return operation instanceof DestroyStorageOperation ? ((DestroyStorageOperation) operation).getCreateStorageOperation() : null;
     }
 
-    private String createUnknownOperationErrorMessage(int partitionId, StorageOperation operation) {
-        return "Unknown operation: [" + createStorageInfo(partitionId) + ", operation=" + operation + ']';
+    /**
+     * Returns all storages for closing or destroying after completion of operations for all storages.
+     *
+     * <p>After completing the future, when try to perform any operation, {@link StorageException} for all storages will be thrown.
+     *
+     * @return Future that at the complete will return all the storages that are not destroyed.
+     */
+    public CompletableFuture<List<T>> getAllForCloseOrDestroy() {
+        List<CompletableFuture<Void>> operationFutures = new ArrayList<>();
+
+        for (int partitionId = 0; partitionId < storageByPartitionId.length(); partitionId++) {
+            StorageOperation storageOperation = operationByPartitionId.compute(partitionId, (partId, operation) -> {
+                if (operation == null) {
+                    operation = new CloseStorageOperation();
+                }
+
+                operation.markFinalOperation();
+
+                return operation;
+            });
+
+            if (!(storageOperation instanceof CloseStorageOperation)) {
+                operationFutures.add(storageOperation.operationFuture());
+            }
+        }
+
+        return CompletableFuture.allOf(operationFutures.toArray(CompletableFuture[]::new))
+                .thenApply(unused ->
+                        IntStream.range(0, storageByPartitionId.length())
+                                .mapToObj(partitionId -> storageByPartitionId.getAndSet(partitionId, null))
+                                .filter(Objects::nonNull)
+                                .collect(toList())
+                );
     }
 }

@@ -67,6 +67,14 @@ public interface InternalTable extends ManuallyCloseable {
     String name();
 
     /**
+     * Extracts an identifier of a partition from a given row.
+     *
+     * @param row A row to extract partition from.
+     * @return An identifier of a partition the row belongs to.
+     */
+    int partitionId(BinaryRowEx row);
+
+    /**
      * Asynchronously gets a row with same key columns values as given one from the table.
      *
      * @param keyRow Row with key columns set.

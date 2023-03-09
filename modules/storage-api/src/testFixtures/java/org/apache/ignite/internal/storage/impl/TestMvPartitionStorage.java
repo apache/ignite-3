@@ -551,8 +551,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void close() {
-        assert !rebalance;
-
         closed = true;
 
         clear0();

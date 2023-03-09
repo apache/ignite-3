@@ -974,4 +974,14 @@ public class IgniteImpl implements Ignite {
     public void stopDroppingMessages() {
         ((DefaultMessagingService) clusterSvc.messagingService()).stopDroppingMessages();
     }
+
+    /**
+     * Returns the node's hybrid clock.
+     *
+     * @return Hybrid clock.
+     */
+    @TestOnly
+    public HybridClock clock() {
+        return clock;
+    }
 }

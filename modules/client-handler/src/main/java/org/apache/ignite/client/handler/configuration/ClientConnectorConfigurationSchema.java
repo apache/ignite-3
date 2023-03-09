@@ -23,6 +23,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.network.configuration.SslConfigurationSchema;
+import org.apache.ignite.internal.network.configuration.SslConfigurationValidator;
 
 /**
  * Configuration schema for thin client connector.
@@ -56,5 +57,6 @@ public class ClientConnectorConfigurationSchema {
 
     /** SSL configuration schema. */
     @ConfigValue
+    @SslConfigurationValidator
     public SslConfigurationSchema ssl;
 }
