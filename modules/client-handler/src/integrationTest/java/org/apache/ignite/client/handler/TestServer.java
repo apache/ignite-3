@@ -106,7 +106,7 @@ public class TestServer {
 
         var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTablesInternal.class), mock(IgniteTransactions.class),
                 registry, mock(IgniteCompute.class), clusterService, bootstrapFactory, mock(IgniteSql.class),
-                () -> CompletableFuture.completedFuture(UUID.randomUUID()), new MetricManager(), metrics);
+                () -> CompletableFuture.completedFuture(UUID.randomUUID()), mock(MetricManager.class), metrics);
 
         module.start();
 

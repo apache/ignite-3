@@ -156,7 +156,7 @@ public class TestServer implements AutoCloseable {
                         bootstrapFactory,
                         ignite.sql(),
                         () -> CompletableFuture.completedFuture(clusterId),
-                        new MetricManager(),
+                        mock(MetricManager.class),
                         metrics);
 
         module.start();
