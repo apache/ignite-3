@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Internal.Transactions
 {
-    using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
     using Ignite.Transactions;

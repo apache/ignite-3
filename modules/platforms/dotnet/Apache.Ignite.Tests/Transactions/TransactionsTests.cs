@@ -124,19 +124,19 @@ namespace Apache.Ignite.Tests.Transactions
         {
             await using var tx = await Client.Transactions.BeginAsync();
             await tx.CommitAsync();
+            await tx.RollbackAsync();
 
-            var ex = Assert.ThrowsAsync<TransactionException>(async () => await tx.RollbackAsync());
-            Assert.AreEqual("Transaction is already committed.", ex?.Message);
+            StringAssert.Contains("State = Committed", tx.ToString());
         }
 
         [Test]
-        public async Task TestRollbackCommitSameTxThrows()
+        public async Task TestRollbackAfterCommitIsIgnored()
         {
             await using var tx = await Client.Transactions.BeginAsync();
             await tx.RollbackAsync();
+            await tx.CommitAsync();
 
-            var ex = Assert.ThrowsAsync<TransactionException>(async () => await tx.CommitAsync());
-            Assert.AreEqual("Transaction is already rolled back.", ex?.Message);
+            StringAssert.Contains("State = RolledBack", tx.ToString());
         }
 
         [Test]
@@ -146,9 +146,9 @@ namespace Apache.Ignite.Tests.Transactions
 
             await tx.DisposeAsync();
             await tx.DisposeAsync();
+            await tx.CommitAsync();
 
-            var ex = Assert.ThrowsAsync<TransactionException>(async () => await tx.CommitAsync());
-            Assert.AreEqual("Transaction is already rolled back.", ex?.Message);
+            StringAssert.Contains("State = RolledBack", tx.ToString());
         }
 
         [Test]
