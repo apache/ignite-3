@@ -323,7 +323,10 @@ public class TestBuilders {
             }
 
             return new TestTable(
-                    new TableDescriptorImpl(columns, distribution), name, dataProviders, size
+                    new TableDescriptorImpl(columns, distribution),
+                    Objects.requireNonNull(name),
+                    dataProviders,
+                    size
             );
         }
 
