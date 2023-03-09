@@ -77,7 +77,9 @@ public class ItClientHandlerMetricsTest {
 
         // Bad version.
         ItClientHandlerTestUtils.connectAndHandshake(serverModule, false, true);
-        assertEquals(2, testServer.metrics().sessionsRejected().value());
+        assertTrue(
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsRejected().value() == 2, 1000),
+                () -> "sessionsRejected: " + testServer.metrics().sessionsRejected().value());
 
         assertEquals(0, testServer.metrics().sessionsRejectedTls().value());
         assertEquals(0, testServer.metrics().sessionsAccepted().value());
