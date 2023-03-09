@@ -15,12 +15,12 @@
 
 
 ## Quick Start
-Ignite follows standard guidelines for multi-module Gradle projects, so it can be easily built using the following command from the project
-root directory:
+Apache Ignite 3 follows standard guidelines for multi-module Gradle projects, so it can be built by using the following command from the
+project root directory:
 ```
 gradlew clean build
 ```
-Apart from building the project itself this command performs a few additional actions, for instance, testing. The build runs faster if
+This command builds a project and performs a few additional actions, for example it also runs tests. The build runs faster if
 these actions are disabled as described in the next section.
 
 To start an ignite-3 instance, package Apache Ignite 3 as described below and then follow [the user guide](https://ignite.apache.org/docs/3.0.0-beta/quick-start/getting-started-guide).
@@ -28,12 +28,12 @@ To start an ignite-3 instance, package Apache Ignite 3 as described below and th
 
 
 ## Building Ignite
-Ignite follows standard guidelines for multi-module Gradle projects, so it can be easily built using the following command from the project
-root directory (the tests are disabled with `-x test -x integrationTest` options):
+Apache Ignite 3 follows standard guidelines for multi-module Gradle projects, so it can be built by using the following command from the
+project root directory (the tests are disabled with `-x test -x integrationTest` options):
 ```shell
 ./gradlew clean build -x test -x integrationTest
 ```
-And for a really fast build some other actions can be disabled too:
+For a really fast build some other actions can be disabled too:
 ```shell
 ./gradlew clean build -x test -x integrationTest -x check -x modernizer
 ```
@@ -131,7 +131,8 @@ artifacts in each module (for example `modules/api/build/docs/javadoc`)
 
 
 ## Setting up IntelliJ Idea project
-You can quickly import Ignite project to your IDE using the root `build.gradle` file. In IntelliJ, choose `Open Project` from the `Quick Start` box or choose `Open...` from the `File` menu and select the root `build.gradle` file.
+You can quickly import Ignite project to your IDE using the root `build.gradle` file. In IntelliJ, choose `Open Project` from the
+`Quick Start` box or choose `Open...` from the `File` menu and select the root `build.gradle` file.
 
 After opening the project in IntelliJ, double check that the Java SDK is properly configured for the project:
 * Open the `File` menu and select `Project Structure...`
@@ -139,7 +140,8 @@ After opening the project in IntelliJ, double check that the Java SDK is properl
 * In the `Project` section, make sure the project language level is set to 11.0 as Ignite makes use of several Java 11
   language features
 
-Ignite uses machine code generation for some of its modules. To generate necessary production code, build the project using gradle.
+Apache Ignite 3 uses machine code generation for some of its modules. Occasionally, IDEs may fail to trigger this code generation. In
+this case, run a gradle build command from the command line. Subsequent builds can be performed from IDE without problems.
 ***
 
 ## Code structure
