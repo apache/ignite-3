@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Transactions
 {
     using System;
     using System.Linq;
+    using System.Text.RegularExpressions;
     using System.Threading.Tasks;
     using System.Transactions;
     using Ignite.Transactions;
@@ -250,6 +251,7 @@ namespace Apache.Ignite.Tests.Transactions
             await using var tx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
 
             Assert.IsTrue(tx.IsReadOnly);
+            StringAssert.Contains("State = Open, IsReadOnly = True", tx.ToString());
         }
 
         [Test]
@@ -258,6 +260,24 @@ namespace Apache.Ignite.Tests.Transactions
             await using var tx = await Client.Transactions.BeginAsync();
 
             Assert.IsFalse(tx.IsReadOnly);
+            StringAssert.Contains("State = Open, IsReadOnly = False", tx.ToString());
+        }
+
+        [Test]
+        public async Task TestToString()
+        {
+            await using var tx1 = await Client.Transactions.BeginAsync();
+            await using var tx2 = await Client.Transactions.BeginAsync(new(ReadOnly: true));
+            await using var tx3 = await Client.Transactions.BeginAsync();
+
+            await tx2.RollbackAsync();
+            await tx3.CommitAsync();
+
+            var id = int.Parse(Regex.Match(tx1.ToString()!, @"\d+").Value);
+
+            Assert.AreEqual($"Transaction {{ Id = {id}, State = Open, IsReadOnly = False }}", tx1.ToString());
+            Assert.AreEqual($"Transaction {{ Id = {id + 1}, State = RolledBack, IsReadOnly = True }}", tx2.ToString());
+            Assert.AreEqual($"Transaction {{ Id = {id + 2}, State = Committed, IsReadOnly = False }}", tx3.ToString());
         }
 
         private class CustomTx : ITransaction
