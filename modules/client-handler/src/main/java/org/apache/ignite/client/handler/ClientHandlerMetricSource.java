@@ -267,7 +267,7 @@ public class ClientHandlerMetricSource implements MetricSource {
     /**
      * Gets active transactions.
      *
-     * @return Active transactions
+     * @return Active transactions.
      */
     public long transactionsActive() {
         Holder h = holder;
@@ -275,6 +275,9 @@ public class ClientHandlerMetricSource implements MetricSource {
         return h == null ? 0 : h.transactionsActive.value();
     }
 
+    /**
+     * Increments active transactions.
+     */
     public void transactionsActiveIncrement() {
         Holder h = holder;
 
@@ -283,6 +286,9 @@ public class ClientHandlerMetricSource implements MetricSource {
         }
     }
 
+    /**
+     * Decrements active transactions.
+     */
     public void transactionsActiveDecrement() {
         Holder h = holder;
 
@@ -302,6 +308,9 @@ public class ClientHandlerMetricSource implements MetricSource {
         return h == null ? 0 : h.cursorsActive.value();
     }
 
+    /**
+     * Increments active cursors.
+     */
     public void cursorsActiveIncrement() {
         Holder h = holder;
 
@@ -310,6 +319,9 @@ public class ClientHandlerMetricSource implements MetricSource {
         }
     }
 
+    /**
+     * Decrements active cursors.
+     */
     public void cursorsActiveDecrement() {
         Holder h = holder;
 
