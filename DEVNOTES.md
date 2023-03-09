@@ -20,7 +20,7 @@ root directory:
 ```
 gradlew clean build
 ```
-In addition to building the project itself this command performs a few additional actions, for instance, testing. The build runs faster if
+Apart from building the project itself this command performs a few additional actions, for instance, testing. The build runs faster if
 these actions are disabled as described in the next section.
 
 Currently there is no direct way to launch an ignite-3 instance upon build completion. It is required to package it as described below and
