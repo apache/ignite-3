@@ -60,7 +60,7 @@ public class LeaseUpdater {
     /** Lease holding interval. */
     private static final long LEASE_PERIOD = 10 * UPDATE_LEASE_MS;
 
-    /** Metastorage manager. */
+    /** Meta storage manager. */
     private final MetaStorageManager msManager;
 
     /** Assignments tracker. */
@@ -140,7 +140,54 @@ public class LeaseUpdater {
     }
 
     /**
-     * Runnable to update lease in Metastorage.
+     * Stops a dedicated thread to renew or assign leases.
+     */
+    public void deactivate() {
+        //TODO: IGNITE-18879 Implement lease maintenance.
+        if (updaterTread != null) {
+            updaterTread.interrupt();
+
+            updaterTread = null;
+        }
+    }
+
+    /**
+     * Compares two timestamps with the clock skew.
+     * TODO: IGNITE-18978 Method to comparison timestamps with clock skew.
+     *
+     * @param ts1 First timestamp.
+     * @param ts2 Second timestamp.
+     * @return Result of comparison.
+     */
+    private static int compareWithClockSkew(HybridTimestamp ts1, HybridTimestamp ts2) {
+        if (ts1.getPhysical() - CLOCK_SKEW < ts2.getPhysical() || ts1.getPhysical() + CLOCK_SKEW < ts2.getPhysical()) {
+            return 0;
+        }
+
+        return ts1.compareTo(ts2);
+    }
+
+    /**
+     * Finds a node that can be the leaseholder.
+     *
+     * @param assignments Replication group assignment.
+     * @return Cluster node, or {@code null} if no node in assignments can be the leaseholder.
+     */
+    private ClusterNode nextLeaseHolder(Set<Assignment> assignments) {
+        //TODO: IGNITE-18879 Implement more intellectual algorithm to choose a node.
+        for (Assignment assignment : assignments) {
+            ClusterNode candidate = topologyTracker.nodeByConsistentId(assignment.consistentId());
+
+            if (candidate != null) {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Runnable to update lease in Meta storage.
      */
     private class Updater implements Runnable {
         @Override
@@ -168,8 +215,7 @@ public class LeaseUpdater {
                                 // The lease is prolongation
                                 || lease.getLeaseholder() != null && lease.getLeaseholder().equals(candidate)
                                 // New lease is being granted, and the previous lease is expired.
-                                || candidate != null && (lease.getLeaseExpirationTime() == null
-                                || compareWithClockSkew(now, lease.getLeaseExpirationTime()) > 0)) {
+                                || isReplicationGroupAvailableLeaseholderUpdate(lease, candidate)) {
                             byte[] leaseRaw = ByteUtils.toBytes(lease);
 
                             Lease renewedLease = new Lease(candidate, newTs);
@@ -190,53 +236,19 @@ public class LeaseUpdater {
                 }
             }
         }
-    }
 
-    /**
-     * Compares two timestamps with the clock skew.
-     * TODO: IGNITE-18978 Method to comparison timestamps with clock skew.
-     *
-     * @param ts1 First timestamp.
-     * @param ts2 Second timestamp.
-     * @return Result of comparison.
-     */
-    private static int compareWithClockSkew(HybridTimestamp ts1, HybridTimestamp ts2) {
-        if (ts1.getPhysical() - CLOCK_SKEW < ts2.getPhysical() && ts1.getPhysical() + CLOCK_SKEW < ts2.getPhysical()) {
-            return 0;
-        }
+        /**
+         * Checks that a leaseholder candidate can take a lease on the replication group.
+         *
+         * @param lease Lease.
+         * @param candidate The node is a leaseholder candidate.
+         * @return True when the candidate can be a leaseholder, otherwise false.
+         */
+        private boolean isReplicationGroupAvailableLeaseholderUpdate(Lease lease, ClusterNode candidate) {
+            HybridTimestamp now = clock.now();
 
-        return ts1.compareTo(ts2);
-    }
-
-    /**
-     * Finds a node that can be the leaseholder.
-     *
-     * @param assignments Replication group assignment.
-     * @return Cluster node, or {@code null} if no node in assignments can be the leaseholder.
-     */
-    private ClusterNode nextLeaseHolder(Set<Assignment> assignments) {
-        //TODO: IGNITE-18879 Implement more intellectual algorithm to choose a node.
-        for (Assignment assignment : assignments) {
-            ClusterNode candidate = topologyTracker.localTopologyNodeByConsistentId(assignment.consistentId());
-
-            if (candidate != null) {
-                return candidate;
-            }
-        }
-
-        return null;
-    }
-
-
-    /**
-     * Stops a dedicated thread to renew or assign leases.
-     */
-    public void deactivate() {
-        //TODO: IGNITE-18879 Implement lease maintenance.
-        if (updaterTread != null) {
-            updaterTread.interrupt();
-
-            updaterTread = null;
+            return candidate != null && (lease.getLeaseExpirationTime() == null
+                    || compareWithClockSkew(now, lease.getLeaseExpirationTime()) > 0);
         }
     }
 }

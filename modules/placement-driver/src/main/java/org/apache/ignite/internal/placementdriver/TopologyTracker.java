@@ -83,12 +83,12 @@ public class TopologyTracker {
     }
 
     /**
-     * Gets a node by consistent id from the logical topology.
+     * Gets a node by consistent id from the logical topology snapshot.
      *
      * @param consistentId Node consistent id.
      * @return Cluster node or {@code null} if topology has no a node with the consistent id.
      */
-    public ClusterNode localTopologyNodeByConsistentId(String consistentId) {
+    public ClusterNode nodeByConsistentId(String consistentId) {
         LogicalTopologySnapshot logicalTopologySnap0 = topologySnapRef.get();
 
         if (logicalTopologySnap0 == null || CollectionUtils.nullOrEmpty(logicalTopologySnap0.nodes())) {

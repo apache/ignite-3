@@ -196,9 +196,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private static final IntSupplier TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER = () -> TX_STATE_STORAGE_FLUSH_DELAY;
 
     /**
-     * If this property is set to {@code true} then an attempt to get the configuration property directly from the meta storage will be
+     * If this property is set to {@code true} then an attempt to get the configuration property directly from Meta storage will be
      * skipped, and the local property will be returned.
-     * TODO: IGNITE-16774 This property and overall approach, access configuration directly through the Metastorage,
+     * TODO: IGNITE-16774 This property and overall approach, access configuration directly through the Meta storage,
      * TODO: will be removed after fix of the issue.
      */
     private final boolean getMetadataLocallyOnly = IgniteSystemProperties.getBoolean("IGNITE_GET_METADATA_LOCALLY_ONLY");
@@ -1955,7 +1955,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     assert pendingAssignmentsWatchEvent.revision() <= pendingAssignmentsEntry.revision()
                             : "Meta Storage watch cannot notify about an event with the revision that is more than the actual revision.";
 
-                    // Assignments of the pending rebalance that we received through the meta storage watch mechanism.
+                    // Assignments of the pending rebalance that we received through Meta storage watch mechanism.
                     Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsWatchEvent.value());
 
                     PeersAndLearners pendingConfiguration = configurationFromAssignments(pendingAssignments);
@@ -2106,7 +2106,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Creates meta storage listener for stable assignments updates.
+     * Creates Meta storage listener for stable assignments updates.
      *
      * @return The watch listener.
      */
@@ -2125,7 +2125,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Creates meta storage listener for switch reduce assignments updates.
+     * Creates Meta storage listener for switch reduce assignments updates.
      *
      * @return The watch listener.
      */

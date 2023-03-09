@@ -57,7 +57,7 @@ public class AssignmentsTracker {
     /** Vault manager. */
     private final VaultManager vaultManager;
 
-    /** Metastorage manager. */
+    /** Meta storage manager. */
     private final MetaStorageManager msManager;
 
     /** Tables configuration. */
@@ -69,7 +69,7 @@ public class AssignmentsTracker {
     /** Assignment configuration listener. */
     private final AssignmentsCfgListener assignmentsCfgListener;
 
-    /** Assignment Metastorage watch listener. */
+    /** Assignment Meta storage watch listener. */
     private final AssignmentsListener assignmentsListener;
 
     /**
@@ -180,7 +180,7 @@ public class AssignmentsTracker {
     }
 
     /**
-     * Metastorage assignments watch.
+     * Meta storage assignments watch.
      */
     private class AssignmentsListener implements WatchListener {
         @Override

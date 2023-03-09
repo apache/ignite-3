@@ -23,7 +23,7 @@ import org.apache.ignite.network.ClusterNode;
 
 /**
  * A lease representation in memory.
- * The real lease is stored in Metastorage.
+ * The real lease is stored in Meta storage.
  */
 public class Lease implements Serializable {
     /** A node that holds a lease until {@code stopLeas}. */

@@ -35,6 +35,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Class tracks cluster leases in memory.
@@ -47,7 +48,7 @@ public class LeaseTracker {
     /** Vault manager. */
     private final VaultManager vaultManager;
 
-    /** Metastorage manager. */
+    /** Meta storage manager. */
     private final MetaStorageManager msManager;
 
     /** Leases cache. */
@@ -60,7 +61,7 @@ public class LeaseTracker {
      * The constructor.
      *
      * @param vaultManager Vault manager.
-     * @param msManager Metastorage manager.
+     * @param msManager Meta storage manager.
      */
     public LeaseTracker(VaultManager vaultManager, MetaStorageManager msManager) {
         this.vaultManager = vaultManager;
@@ -102,12 +103,12 @@ public class LeaseTracker {
     }
 
     /**
-     * Get a lease for a particular group.
+     * Gets a lease for a particular group.
      *
      * @param grpId Replication group id.
      * @return A lease is associated with the group.
      */
-    public Lease getLease(ReplicationGroupId grpId) {
+    public @NotNull Lease getLease(ReplicationGroupId grpId) {
         return leases.getOrDefault(grpId, new Lease());
     }
 
