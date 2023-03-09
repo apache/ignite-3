@@ -21,20 +21,16 @@ package org.apache.ignite.deployment.version;
  * Throws when {@link Version} of deployment unit not parsable.
  */
 public class VersionParseException extends RuntimeException {
-    /**
-     * Constructor.
-     */
-    public VersionParseException() {
-
-    }
+    private final String rawVersion;
 
     /**
      * Constructor.
      *
      * @param cause Cause error.
      */
-    public VersionParseException(Throwable cause) {
+    public VersionParseException(String rawVersion, Throwable cause) {
         super(cause);
+        this.rawVersion = rawVersion;
     }
 
     /**
@@ -42,7 +38,12 @@ public class VersionParseException extends RuntimeException {
      *
      * @param message Error message.
      */
-    public VersionParseException(String message) {
+    public VersionParseException(String rawVersion, String message) {
         super(message);
+        this.rawVersion = rawVersion;
+    }
+
+    public String getRawVersion() {
+        return rawVersion;
     }
 }

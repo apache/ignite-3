@@ -95,8 +95,9 @@ dependencies {
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-sql-engine')
-    integrationTestImplementation(testFixtures(project(":ignite-core")))
-    integrationTestImplementation(testFixtures(project(":ignite-schema")))
+    integrationTestImplementation testFixtures(project(":ignite-core"))
+    integrationTestImplementation testFixtures(project(":ignite-schema"))
+    integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.micronaut.picocli
     integrationTestImplementation libs.mock.server.netty
@@ -111,7 +112,7 @@ dependencies {
 ext.generatedClientDir = layout.buildDirectory.dir("swagger/client")
 
 task copyOpenapiDefinition(type: Copy) {
-    from("$rootDir/modules/rest/openapi")
+    from("$rootDir/modules/rest-api/openapi")
     into("$buildDir/customOpenapiDefinition/")
 }
 

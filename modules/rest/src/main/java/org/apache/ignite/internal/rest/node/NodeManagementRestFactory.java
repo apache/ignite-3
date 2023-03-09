@@ -27,9 +27,9 @@ import org.apache.ignite.internal.rest.RestFactory;
  */
 @Factory
 public class NodeManagementRestFactory implements RestFactory {
-    private final StateProvider stateProvider;
+    private StateProvider stateProvider;
 
-    private final NameProvider nameProvider;
+    private NameProvider nameProvider;
 
     public NodeManagementRestFactory(StateProvider stateProvider, NameProvider nameProvider) {
         this.stateProvider = stateProvider;
@@ -46,5 +46,11 @@ public class NodeManagementRestFactory implements RestFactory {
     @Bean
     public NameProvider nameProvider() {
         return nameProvider;
+    }
+
+    @Override
+    public void cleanResources() {
+        stateProvider = null;
+        nameProvider = null;
     }
 }

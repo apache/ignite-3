@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import com.google.common.collect.Streams;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -57,7 +59,7 @@ public abstract class AbstractIndexScan<RowT, IdxRowT> implements Iterable<RowT>
      * @param ranges Index scan bounds.
      * @param rowTransformer Row transformer.
      */
-    protected AbstractIndexScan(
+    AbstractIndexScan(
             ExecutionContext<RowT> ectx,
             RelDataType rowType,
             TreeIndex<IdxRowT> idx,
@@ -79,11 +81,19 @@ public abstract class AbstractIndexScan<RowT, IdxRowT> implements Iterable<RowT>
         if (ranges == null) { // Full index scan.
             Cursor<IdxRowT> cursor = idx.find(null, null, true, true);
 
-            Iterator<RowT> it = new TransformingIterator<>(cursor, AbstractIndexScan.this::indexRow2Row);
+            Iterator<RowT> it = new TransformingIterator<>(cursor, this::indexRow2Row);
 
             it = (filters != null) ? new FilteringIterator<>(it, filters) : it;
 
             return (rowTransformer != null) ? new TransformingIterator<>(it, rowTransformer) : it;
+        }
+
+        if (!ranges.multiBounds()) {
+            Iterator<RangeCondition<RowT>> it = ranges.iterator();
+
+            if (!it.hasNext()) {
+                return Collections.emptyIterator();
+            }
         }
 
         Iterable<RowT>[] iterables = Streams.stream(ranges)

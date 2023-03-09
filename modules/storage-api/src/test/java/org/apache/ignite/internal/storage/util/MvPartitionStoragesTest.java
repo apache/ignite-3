@@ -24,7 +24,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willTimeoutFast;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -53,7 +54,7 @@ import org.junit.jupiter.api.function.Executable;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class MvPartitionStoragesTest {
-    @InjectConfiguration
+    @InjectConfiguration("mock.partitions = 10")
     private TableConfiguration tableConfig;
 
     private MvPartitionStorages<MvPartitionStorage> mvPartitionStorages;
@@ -312,7 +313,7 @@ public class MvPartitionStoragesTest {
         CompletableFuture<Void> finishStartRebalanceMvStorage = new CompletableFuture<>();
 
         CompletableFuture<?> startRebalanceFuture = runAsync(() ->
-                assertThat(mvPartitionStorages.startRebalace(0, mvStorage -> {
+                assertThat(mvPartitionStorages.startRebalance(0, mvStorage -> {
                     startStartRebalanceMvStorage.complete(null);
 
                     return finishStartRebalanceMvStorage;
@@ -354,7 +355,7 @@ public class MvPartitionStoragesTest {
         // What if there is an error during the operation?
 
         assertThat(
-                mvPartitionStorages.startRebalace(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
+                mvPartitionStorages.startRebalance(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
                 willFailFast(RuntimeException.class)
         );
 
@@ -421,7 +422,7 @@ public class MvPartitionStoragesTest {
         invokeAbortFunction.set(false);
 
         assertThat(
-                mvPartitionStorages.startRebalace(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
+                mvPartitionStorages.startRebalance(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
                 willFailFast(RuntimeException.class)
         );
 
@@ -512,7 +513,7 @@ public class MvPartitionStoragesTest {
         assertThat(abortRebalanceMvStorage(0), willCompleteSuccessfully());
 
         assertThat(
-                mvPartitionStorages.startRebalace(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
+                mvPartitionStorages.startRebalance(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
                 willFailFast(RuntimeException.class)
         );
 
@@ -520,49 +521,132 @@ public class MvPartitionStoragesTest {
     }
 
     @Test
-    void testGetAllForClose() {
-        MvPartitionStorage storage0 = mock(MvPartitionStorage.class);
-        MvPartitionStorage storage1 = mock(MvPartitionStorage.class);
+    void testGetAllForCloseOrDestroy() {
+        CompletableFuture<MvPartitionStorage> mvStorage0 = createMvStorage(0);
+        CompletableFuture<MvPartitionStorage> mvStorage1 = createMvStorage(1);
+        CompletableFuture<MvPartitionStorage> mvStorage2 = createMvStorage(2);
+        CompletableFuture<MvPartitionStorage> mvStorage3 = createMvStorage(3);
+        CompletableFuture<MvPartitionStorage> mvStorage4 = createMvStorage(4);
+        CompletableFuture<MvPartitionStorage> mvStorage5 = createMvStorage(5);
 
-        assertThat(mvPartitionStorages.create(0, partId -> storage0), willCompleteSuccessfully());
-        assertThat(mvPartitionStorages.create(1, partId -> storage1), willCompleteSuccessfully());
+        assertThat(mvStorage0, willCompleteSuccessfully());
+        assertThat(mvStorage1, willCompleteSuccessfully());
+        assertThat(mvStorage2, willCompleteSuccessfully());
+        assertThat(mvStorage3, willCompleteSuccessfully());
+        assertThat(mvStorage4, willCompleteSuccessfully());
+        assertThat(mvStorage5, willCompleteSuccessfully());
 
-        assertThat(mvPartitionStorages.getAllForClose(), contains(storage0, storage1));
+        assertThat(destroyMvStorage(1), willCompleteSuccessfully());
+        assertThat(clearMvStorage(2), willCompleteSuccessfully());
+        assertThat(startRebalanceMvStorage(3), willCompleteSuccessfully());
+
+        assertThat(startRebalanceMvStorage(4), willCompleteSuccessfully());
+        assertThat(abortRebalanceMvStorage(4), willCompleteSuccessfully());
+
+        assertThat(startRebalanceMvStorage(4), willCompleteSuccessfully());
+        assertThat(finishRebalanceMvStorage(4), willCompleteSuccessfully());
+
+        CompletableFuture<List<MvPartitionStorage>> allForCloseOrDestroy = mvPartitionStorages.getAllForCloseOrDestroy();
+
+        assertThat(allForCloseOrDestroy, willCompleteSuccessfully());
+
+        // One less, since we destroyed 1 storage.
+        assertThat(
+                allForCloseOrDestroy.join(),
+                containsInAnyOrder(mvStorage0.join(), mvStorage2.join(), mvStorage3.join(), mvStorage4.join(), mvStorage5.join())
+        );
+
+        // What happens if we try to perform operations on storages?
+        assertThrowsWithMessage(StorageException.class, () -> createMvStorage(6), "Storage is in the process of closing");
+        assertThrowsWithMessage(StorageException.class, () -> destroyMvStorage(0), "Storage does not exist");
+        assertThrows(StorageException.class, () -> clearMvStorage(0), "Storage does not exist");
+        assertThrows(StorageException.class, () -> startRebalanceMvStorage(0), "Storage does not exist");
+        assertThrows(StorageException.class, () -> abortRebalanceMvStorage(0), "Storage does not exist");
+        assertThrows(StorageException.class, () -> finishRebalanceMvStorage(0), "Storage does not exist");
     }
 
     @Test
-    void testDestroyAll() {
-        MvPartitionStorage storage0 = mock(MvPartitionStorage.class);
-        MvPartitionStorage storage1 = mock(MvPartitionStorage.class);
+    void testWaitOperationOnGetAllForCloseOrDestroy() {
+        CompletableFuture<Void> createStorageOperationFuture = new CompletableFuture<>();
+        CompletableFuture<Void> destroyStorageOperationFuture = new CompletableFuture<>();
+        CompletableFuture<Void> clearStorageOperationFuture = new CompletableFuture<>();
+        CompletableFuture<Void> startRebalanceStorageOperationFuture = new CompletableFuture<>();
+        CompletableFuture<Void> abortRebalanceStorageOperationFuture = new CompletableFuture<>();
+        CompletableFuture<Void> finishRebalanceStorageOperationFuture = new CompletableFuture<>();
 
-        assertThat(mvPartitionStorages.create(0, partId -> storage0), willCompleteSuccessfully());
-        assertThat(mvPartitionStorages.create(1, partId -> storage1), willCompleteSuccessfully());
+        CompletableFuture<?> create0StorageFuture = runAsync(() -> mvPartitionStorages.create(0, partId -> {
+            assertThat(createStorageOperationFuture, willCompleteSuccessfully());
 
-        CompletableFuture<Void> startDestroyMvStorage0Future = new CompletableFuture<>();
-        CompletableFuture<Void> finishDestroyMvStorage0Future = new CompletableFuture<>();
+            return mock(MvPartitionStorage.class);
+        }));
 
-        CompletableFuture<?> destroyMvStorage0Future = runAsync(() ->
-                assertThat(mvPartitionStorages.destroy(0, mvStorage -> {
-                    startDestroyMvStorage0Future.complete(null);
+        assertThat(createMvStorage(1), willCompleteSuccessfully());
+        assertThat(createMvStorage(2), willCompleteSuccessfully());
+        assertThat(createMvStorage(3), willCompleteSuccessfully());
+        assertThat(createMvStorage(4), willCompleteSuccessfully());
+        assertThat(createMvStorage(5), willCompleteSuccessfully());
 
-                    return finishDestroyMvStorage0Future;
-                }), willCompleteSuccessfully())
+        CompletableFuture<Void> destroy1StorageFuture = mvPartitionStorages.destroy(1, storage -> destroyStorageOperationFuture);
+        CompletableFuture<Void> clear2StorageFuture = mvPartitionStorages.clear(2, storage -> clearStorageOperationFuture);
+
+        CompletableFuture<Void> startRebalance3StorageFuture = mvPartitionStorages.startRebalance(
+                3,
+                storage -> startRebalanceStorageOperationFuture
         );
 
-        assertThat(startDestroyMvStorage0Future, willCompleteSuccessfully());
+        assertThat(startRebalanceMvStorage(4), willCompleteSuccessfully());
+        assertThat(startRebalanceMvStorage(5), willCompleteSuccessfully());
 
-        CompletableFuture<Void> destroyAllMvStoragesFuture = mvPartitionStorages.destroyAll(mvStorage -> {
-            assertSame(mvStorage, storage1);
+        CompletableFuture<Void> abortRebalance4StorageFuture = mvPartitionStorages.abortRebalance(
+                4,
+                storage -> abortRebalanceStorageOperationFuture
+        );
 
-            return completedFuture(null);
-        });
+        CompletableFuture<Void> finishRebalance5StorageFuture = mvPartitionStorages.finishRebalance(
+                5,
+                storage -> finishRebalanceStorageOperationFuture
+        );
 
-        assertThat(destroyAllMvStoragesFuture, willTimeoutFast());
+        CompletableFuture<List<MvPartitionStorage>> allForCloseOrDestroyFuture = mvPartitionStorages.getAllForCloseOrDestroy();
 
-        finishDestroyMvStorage0Future.complete(null);
+        assertThat(allForCloseOrDestroyFuture, willTimeoutFast());
 
-        assertThat(destroyMvStorage0Future, willCompleteSuccessfully());
-        assertThat(destroyAllMvStoragesFuture, willCompleteSuccessfully());
+        // Let's finish creating the storage.
+        createStorageOperationFuture.complete(null);
+
+        assertThat(create0StorageFuture, willCompleteSuccessfully());
+        assertThat(allForCloseOrDestroyFuture, willTimeoutFast());
+
+        // Let's finish destroying the storage.
+        destroyStorageOperationFuture.complete(null);
+
+        assertThat(destroy1StorageFuture, willCompleteSuccessfully());
+        assertThat(allForCloseOrDestroyFuture, willTimeoutFast());
+
+        // Let's finish clearing the storage.
+        clearStorageOperationFuture.complete(null);
+
+        assertThat(clear2StorageFuture, willCompleteSuccessfully());
+        assertThat(allForCloseOrDestroyFuture, willTimeoutFast());
+
+        // Let's finish starting rebalance the storage.
+        startRebalanceStorageOperationFuture.complete(null);
+
+        assertThat(startRebalance3StorageFuture, willCompleteSuccessfully());
+        assertThat(allForCloseOrDestroyFuture, willTimeoutFast());
+
+        // Let's finish aborting rebalance the storage.
+        abortRebalanceStorageOperationFuture.complete(null);
+
+        assertThat(abortRebalance4StorageFuture, willCompleteSuccessfully());
+        assertThat(allForCloseOrDestroyFuture, willTimeoutFast());
+
+        // Let's finish finishing rebalance the storage.
+        finishRebalanceStorageOperationFuture.complete(null);
+
+        assertThat(finishRebalance5StorageFuture, willCompleteSuccessfully());
+
+        assertThat(allForCloseOrDestroyFuture, willCompleteSuccessfully());
     }
 
     private MvPartitionStorage getMvStorage(int partitionId) {
@@ -582,7 +666,7 @@ public class MvPartitionStoragesTest {
     }
 
     private CompletableFuture<Void> startRebalanceMvStorage(int partitionId) {
-        return mvPartitionStorages.startRebalace(partitionId, mvStorage -> completedFuture(null));
+        return mvPartitionStorages.startRebalance(partitionId, mvStorage -> completedFuture(null));
     }
 
     private CompletableFuture<Void> abortRebalanceMvStorage(int partitionId) {

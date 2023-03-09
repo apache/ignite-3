@@ -15,17 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.configuration;
+namespace Apache.Ignite.Internal.Network;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
+using Ignite.Network;
 
-/**
- * Annotation to validate whole key store configuration.
- */
-@Target(ElementType.FIELD)
-@Retention(RetentionPolicy.RUNTIME)
-public @interface KeyStoreConfigurationValidator {
-}
+internal sealed record SslInfo(
+    string TargetHostName,
+    string NegotiatedCipherSuiteName,
+    bool IsMutuallyAuthenticated,
+    X509Certificate? LocalCertificate,
+    X509Certificate? RemoteCertificate,
+    SslProtocols SslProtocol) : ISslInfo;

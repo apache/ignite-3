@@ -22,12 +22,15 @@ namespace Apache.Ignite.Internal
     using System.Collections.Concurrent;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
+    using System.IO;
     using System.Linq;
     using System.Net;
+    using System.Net.Security;
     using System.Net.Sockets;
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
+    using Ignite.Network;
     using Log;
     using Network;
     using Proto;
@@ -55,7 +58,7 @@ namespace Apache.Ignite.Internal
         private static long _socketId;
 
         /** Underlying stream. */
-        private readonly NetworkStream _stream;
+        private readonly Stream _stream;
 
         /** Current async operations, map from request id. */
         private readonly ConcurrentDictionary<long, TaskCompletionSource<PooledBuffer>> _requests = new();
@@ -107,7 +110,7 @@ namespace Apache.Ignite.Internal
         /// <param name="assignmentChangeCallback">Partition assignment change callback.</param>
         /// <param name="logger">Logger.</param>
         private ClientSocket(
-            NetworkStream stream,
+            Stream stream,
             IgniteClientConfiguration configuration,
             ConnectionContext connectionContext,
             Action<ClientSocket> assignmentChangeCallback,
@@ -155,7 +158,7 @@ namespace Apache.Ignite.Internal
             "CA2000:Dispose objects before losing scope",
             Justification = "NetworkStream is returned from this method in the socket.")]
         public static async Task<ClientSocket> ConnectAsync(
-            IPEndPoint endPoint,
+            SocketEndpoint endPoint,
             IgniteClientConfiguration configuration,
             Action<ClientSocket> assignmentChangeCallback)
         {
@@ -168,16 +171,35 @@ namespace Apache.Ignite.Internal
 
             try
             {
-                await socket.ConnectAsync(endPoint).ConfigureAwait(false);
-                logger?.Debug($"Socket connection established: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}, starting handshake...");
+                await socket.ConnectAsync(endPoint.EndPoint).ConfigureAwait(false);
 
-                var stream = new NetworkStream(socket, ownsSocket: true);
+                if (logger?.IsEnabled(LogLevel.Debug) == true)
+                {
+                    logger.Debug(
+                        $"Socket connection established: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}, starting handshake...");
+                }
 
-                var context = await HandshakeAsync(stream, endPoint)
+                Stream stream = new NetworkStream(socket, ownsSocket: true);
+
+                if (configuration.SslStreamFactory is { } sslStreamFactory &&
+                    sslStreamFactory.Create(stream, endPoint.Host) is { } sslStream)
+                {
+                    stream = sslStream;
+
+                    if (logger?.IsEnabled(LogLevel.Debug) == true)
+                    {
+                        logger.Debug($"SSL connection established: {sslStream.NegotiatedCipherSuite}");
+                    }
+                }
+
+                var context = await HandshakeAsync(stream, endPoint.EndPoint)
                     .WaitAsync(configuration.SocketTimeout)
                     .ConfigureAwait(false);
 
-                logger?.Debug($"Handshake succeeded: {context}.");
+                if (logger?.IsEnabled(LogLevel.Debug) == true)
+                {
+                    logger.Debug($"Handshake succeeded: {context}.");
+                }
 
                 return new ClientSocket(stream, configuration, context, assignmentChangeCallback, logger);
             }
@@ -188,7 +210,10 @@ namespace Apache.Ignite.Internal
                 // ReSharper disable once MethodHasAsyncOverload
                 socket.Dispose();
 
-                throw new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Failed to connect to endpoint: " + endPoint, e);
+                throw new IgniteClientConnectionException(
+                    ErrorGroups.Client.Connection,
+                    "Failed to connect to endpoint: " + endPoint.EndPoint,
+                    e);
             }
         }
 
@@ -261,7 +286,7 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="stream">Network stream.</param>
         /// <param name="endPoint">Endpoint.</param>
-        private static async Task<ConnectionContext> HandshakeAsync(NetworkStream stream, IPEndPoint endPoint)
+        private static async Task<ConnectionContext> HandshakeAsync(Stream stream, IPEndPoint endPoint)
         {
             await stream.WriteAsync(ProtoCommon.MagicBytes).ConfigureAwait(false);
             await WriteHandshakeAsync(stream, CurrentProtocolVersion).ConfigureAwait(false);
@@ -271,10 +296,10 @@ namespace Apache.Ignite.Internal
             await CheckMagicBytesAsync(stream).ConfigureAwait(false);
 
             using var response = await ReadResponseAsync(stream, new byte[4], CancellationToken.None).ConfigureAwait(false);
-            return ReadHandshakeResponse(response.GetReader(), endPoint);
+            return ReadHandshakeResponse(response.GetReader(), endPoint, GetSslInfo(stream));
         }
 
-        private static async ValueTask CheckMagicBytesAsync(NetworkStream stream)
+        private static async ValueTask CheckMagicBytesAsync(Stream stream)
         {
             var responseMagic = ByteArrayPool.Rent(ProtoCommon.MagicBytes.Length);
 
@@ -298,7 +323,7 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private static ConnectionContext ReadHandshakeResponse(MsgPackReader reader, IPEndPoint endPoint)
+        private static ConnectionContext ReadHandshakeResponse(MsgPackReader reader, IPEndPoint endPoint, ISslInfo? sslInfo)
         {
             var serverVer = new ClientProtocolVersion(reader.ReadInt16(), reader.ReadInt16(), reader.ReadInt16());
 
@@ -326,7 +351,8 @@ namespace Apache.Ignite.Internal
                 serverVer,
                 TimeSpan.FromMilliseconds(idleTimeoutMs),
                 new ClusterNode(clusterNodeId, clusterNodeName, endPoint),
-                clusterId);
+                clusterId,
+                sslInfo);
         }
 
         private static IgniteException? ReadError(ref MsgPackReader reader)
@@ -346,7 +372,7 @@ namespace Apache.Ignite.Internal
         }
 
         private static async ValueTask<PooledBuffer> ReadResponseAsync(
-            NetworkStream stream,
+            Stream stream,
             byte[] messageSizeBytes,
             CancellationToken cancellationToken)
         {
@@ -369,7 +395,7 @@ namespace Apache.Ignite.Internal
         }
 
         private static async Task<int> ReadMessageSizeAsync(
-            NetworkStream stream,
+            Stream stream,
             byte[] buffer,
             CancellationToken cancellationToken)
         {
@@ -382,7 +408,7 @@ namespace Apache.Ignite.Internal
         }
 
         private static async Task ReceiveBytesAsync(
-            NetworkStream stream,
+            Stream stream,
             byte[] buffer,
             int size,
             CancellationToken cancellationToken)
@@ -406,7 +432,7 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private static async ValueTask WriteHandshakeAsync(NetworkStream stream, ClientProtocolVersion version)
+        private static async ValueTask WriteHandshakeAsync(Stream stream, ClientProtocolVersion version)
         {
             using var bufferWriter = new PooledArrayBuffer(prefixSize: ProtoCommon.MessagePrefixSize);
             WriteHandshake(version, bufferWriter.MessageWriter);
@@ -482,6 +508,17 @@ namespace Apache.Ignite.Internal
 
             return recommendedHeartbeatInterval;
         }
+
+        private static ISslInfo? GetSslInfo(Stream stream) =>
+            stream is SslStream sslStream
+                ? new SslInfo(
+                    sslStream.TargetHostName,
+                    sslStream.NegotiatedCipherSuite.ToString(),
+                    sslStream.IsMutuallyAuthenticated,
+                    sslStream.LocalCertificate,
+                    sslStream.RemoteCertificate,
+                    sslStream.SslProtocol)
+                : null;
 
         private async ValueTask SendRequestAsync(PooledArrayBuffer? request, ClientOp op, long requestId)
         {

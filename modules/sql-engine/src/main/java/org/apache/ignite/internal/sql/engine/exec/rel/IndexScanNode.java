@@ -96,7 +96,6 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
 
         assert partsWithTerms != null && !partsWithTerms.isEmpty();
-        assert rangeConditions == null || rangeConditions.size() > 0;
 
         this.schemaIndex = schemaIndex;
         this.partsWithTerms = partsWithTerms;

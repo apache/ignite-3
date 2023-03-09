@@ -29,7 +29,9 @@ namespace Apache.Ignite.Internal
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
+    using Ignite.Network;
     using Log;
+    using Network;
     using Proto;
     using Transactions;
 
@@ -226,15 +228,15 @@ namespace Apache.Ignite.Internal
         /// Gets active connections.
         /// </summary>
         /// <returns>Active connections.</returns>
-        public IEnumerable<ConnectionContext> GetConnections()
+        public IList<IConnectionInfo> GetConnections()
         {
-            var res = new List<ConnectionContext>(_endpoints.Count);
+            var res = new List<IConnectionInfo>(_endpoints.Count);
 
             foreach (var endpoint in _endpoints)
             {
                 if (endpoint.Socket is { IsDisposed: false, ConnectionContext: { } ctx })
                 {
-                    res.Add(ctx);
+                    res.Add(new ConnectionInfo(ctx.ClusterNode, ctx.SslInfo));
                 }
             }
 
@@ -409,7 +411,7 @@ namespace Apache.Ignite.Internal
 
             try
             {
-                var socket = await ClientSocket.ConnectAsync(endpoint.EndPoint, Configuration, OnAssignmentChanged).ConfigureAwait(false);
+                var socket = await ClientSocket.ConnectAsync(endpoint, Configuration, OnAssignmentChanged).ConfigureAwait(false);
 
                 if (_clusterId == null)
                 {

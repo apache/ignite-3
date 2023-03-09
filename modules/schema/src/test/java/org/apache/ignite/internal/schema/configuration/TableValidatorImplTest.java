@@ -35,6 +35,6 @@ public class TableValidatorImplTest extends AbstractTableIndexValidatorTest {
     public void testNoIssues() {
         ValidationContext<NamedListView<TableView>> ctx = mockValidationContext(null, tablesCfg.tables().value());
 
-        validate(TableValidatorImpl.INSTANCE, mock(TableValidator.class), ctx, null);
+        validate(TableValidatorImpl.INSTANCE, mock(TableValidator.class), ctx);
     }
 }
