@@ -29,10 +29,11 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Server-side client handler metrics.
  */
+@SuppressWarnings("WeakerAccess")
 public class ClientHandlerMetricSource implements MetricSource {
     private static final String SOURCE_NAME = "client-handler";
 
-    private @Nullable ClientHandlerMetricSource.Holder holder;
+    private volatile @Nullable ClientHandlerMetricSource.Holder holder;
 
     @Override
     public String name() {
@@ -40,107 +41,165 @@ public class ClientHandlerMetricSource implements MetricSource {
     }
 
     public long connectionsInitiated() {
-        return holder == null ? 0 : holder.connectionsInitiated.value();
+        Holder h = holder;
+
+        return h == null ? 0 : h.connectionsInitiated.value();
     }
 
     public void connectionsInitiatedIncrement() {
-        if (holder != null)
-            holder.connectionsInitiated.increment();
+        Holder h = holder;
+
+        if (h != null) {
+            h.connectionsInitiated.increment();
+        }
     }
 
     public long sessionsAccepted() {
-        return holder == null ? 0 : holder.sessionsAccepted.value();
+        Holder h = holder;
+
+        return h == null ? 0 : h.sessionsAccepted.value();
     }
 
     public void sessionsAcceptedIncrement() {
-        if (holder != null)
-            holder.sessionsAccepted.increment();
+        Holder h = holder;
+
+        if (h != null) {
+            h.sessionsAccepted.increment();
+        }
     }
 
     public long sessionsActive() {
-        return holder == null ? 0 : holder.sessionsActive.value();
+        Holder h = holder;
+
+        return h == null ? 0 : h.sessionsActive.value();
     }
 
     public void sessionsActiveIncrement() {
-        if (holder != null)
-            holder.sessionsActive.increment();
+        Holder h = holder;
+
+        if (h != null) {
+            h.sessionsActive.increment();
+        }
     }
 
     public void sessionsActiveDecrement() {
-        if (holder != null)
-            holder.sessionsActive.decrement();
+        Holder h = holder;
+
+        if (h != null) {
+            h.sessionsActive.decrement();
+        }
     }
 
     public long sessionsRejected() {
-        return holder == null ? 0 : holder.sessionsRejected.value();
+        Holder h = holder;
+
+        return h == null ? 0 : h.sessionsRejected.value();
     }
 
     public void sessionsRejectedIncrement() {
-        if (holder != null)
-            holder.sessionsRejected.increment();
+        Holder h = holder;
+
+        if (h != null) {
+            h.sessionsRejected.increment();
+        }
     }
 
     public long sessionsRejectedTls() {
-        return holder == null ? 0 : holder.sessionsRejectedTls.value();
+        Holder h = holder;
+
+        return h == null ? 0 : h.sessionsRejectedTls.value();
     }
 
     public void sessionsRejectedTlsIncrement() {
-        if (holder != null)
-            holder.sessionsRejectedTls.increment();
+        Holder h = holder;
+
+        if (h != null) {
+            h.sessionsRejectedTls.increment();
+        }
     }
 
     public long bytesSent() {
-        return holder == null ? 0 : holder.bytesSent.value();
+        Holder h = holder;
+
+        return h == null ? 0 : h.bytesSent.value();
     }
 
     public void bytesSentAdd(long bytes) {
-        if (holder != null)
-            holder.bytesSent.add(bytes);
+        Holder h = holder;
+
+        if (h != null) {
+            h.bytesSent.add(bytes);
+        }
     }
 
     public long bytesReceived() {
-        return holder == null ? 0 : holder.bytesReceived.value();
+        Holder h = holder;
+
+        return h == null ? 0 : h.bytesReceived.value();
     }
 
     public void bytesReceivedAdd(long bytes) {
-        if (holder != null)
-            holder.bytesReceived.add(bytes);
+        Holder h = holder;
+
+        if (h != null) {
+            h.bytesReceived.add(bytes);
+        }
     }
 
     public long sessionsRejectedTimeout() {
-        return holder == null ? 0 : holder.sessionsRejectedTimeout.value();
+        Holder h = holder;
+
+        return h == null ? 0 : h.sessionsRejectedTimeout.value();
     }
 
     public void sessionsRejectedTimeoutIncrement() {
-        if (holder != null)
-            holder.sessionsRejectedTimeout.increment();
+        Holder h = holder;
+
+        if (h != null) {
+            h.sessionsRejectedTimeout.increment();
+        }
     }
 
     public long requestsActive() {
-        return holder == null ? 0 : holder.requestsActive.value();
+        Holder h = holder;
+
+        return h == null ? 0 : h.requestsActive.value();
     }
 
     public void requestsActiveIncrement() {
-        if (holder != null)
-            holder.requestsActive.increment();
+        Holder h = holder;
+
+        if (h != null) {
+            h.requestsActive.increment();
+        }
     }
 
     public void requestsActiveDecrement() {
-        if (holder != null)
-            holder.requestsActive.decrement();
+        Holder h = holder;
+
+        if (h != null) {
+            h.requestsActive.decrement();
+        }
     }
 
     public long requestsProcessed() {
-        return holder == null ? 0 : holder.requestsProcessed.value();
+        Holder h = holder;
+
+        return h == null ? 0 : h.requestsProcessed.value();
     }
 
     public void requestsProcessedIncrement() {
-        if (holder != null)
-            holder.requestsProcessed.increment();
+        Holder h = holder;
+
+        if (h != null) {
+            h.requestsProcessed.increment();
+        }
     }
 
     public long requestsFailed() {
-        return holder == null ? 0 : holder.requestsFailed.value();
+        Holder h = holder;
+
+        return h == null ? 0 : h.requestsFailed.value();
     }
 
     public void requestsFailedIncrement() {
@@ -178,16 +237,11 @@ public class ClientHandlerMetricSource implements MetricSource {
 
     @Override
     public synchronized @Nullable MetricSet enable() {
-        holder = new Holder();
-        List<Metric> metrics = holder.metrics;
-
-        var metricSet = new HashMap<String, Metric>(metrics.size());
-
-        for (var metric : metrics) {
-            metricSet.put(metric.name(), metric);
+        if (holder == null) {
+            holder = new Holder();
         }
 
-        return new MetricSet(SOURCE_NAME, metricSet);
+        return holder.metricSet;
     }
 
     /** {@inheritDoc} */
@@ -250,5 +304,17 @@ public class ClientHandlerMetricSource implements MetricSource {
                 transactionsActive,
                 cursorsActive
         );
+
+        private final MetricSet metricSet;
+
+        private Holder() {
+            var set = new HashMap<String, Metric>(metrics.size());
+
+            for (var metric : metrics) {
+                set.put(metric.name(), metric);
+            }
+
+            this.metricSet = new MetricSet(SOURCE_NAME, set);
+        }
     }
 }
