@@ -23,6 +23,7 @@ import io.netty.channel.Channel;
 import io.netty.handler.stream.ChunkedInput;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
+import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.OutNetworkObject;
 import org.jetbrains.annotations.TestOnly;
 
@@ -39,17 +40,21 @@ public class NettySender {
     /** Consistent id of the remote node. */
     private final String consistentId;
 
+    private final short channelId;
+
     /**
      * Constructor.
      *
-     * @param channel      Netty channel.
-     * @param launchId     Launch id of the remote node.
+     * @param channel Netty channel.
+     * @param launchId Launch id of the remote node.
      * @param consistentId Consistent id of the remote node.
+     * @param channelId
      */
-    public NettySender(Channel channel, String launchId, String consistentId) {
+    public NettySender(Channel channel, String launchId, String consistentId, short channelId) {
         this.channel = channel;
         this.launchId = launchId;
         this.consistentId = consistentId;
+        this.channelId = channelId;
     }
 
     /**
@@ -78,6 +83,10 @@ public class NettySender {
      */
     public String consistentId() {
         return consistentId;
+    }
+
+    public short channelId() {
+        return channelId;
     }
 
     /**

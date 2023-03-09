@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.network.ChannelType.DEPLOYMENT_UNITS;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -71,6 +72,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 
@@ -226,7 +228,8 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
                 }).thenApply(logicalTopologySnapshot -> {
                     for (ClusterNode node : logicalTopologySnapshot.nodes()) {
                         clusterService.messagingService()
-                                .invoke(node, UndeployUnitRequestImpl.builder()
+                                .invoke(node, DEPLOYMENT_UNITS,
+                                        UndeployUnitRequestImpl.builder()
                                                 .id(id)
                                                 .version(version.render())
                                                 .build(),
@@ -366,7 +369,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
             if (throwable != null) {
                 builder.error(throwable);
             }
-            clusterService.messagingService().respond(senderConsistentId,
+            clusterService.messagingService().respond(senderConsistentId, DEPLOYMENT_UNITS,
                     builder.build(), correlationId);
         });
     }
@@ -381,12 +384,12 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
         } catch (IOException e) {
             LOG.error("Failed to undeploy unit " + executeRequest.id() + ":" + executeRequest.version(), e);
             clusterService.messagingService()
-                    .respond(senderConsistentId, UndeployUnitResponseImpl.builder().error(e).build(), correlationId);
+                    .respond(senderConsistentId, DEPLOYMENT_UNITS, UndeployUnitResponseImpl.builder().error(e).build(), correlationId);
             return;
         }
 
         clusterService.messagingService()
-                .respond(senderConsistentId, UndeployUnitResponseImpl.builder().build(), correlationId);
+                .respond(senderConsistentId, DEPLOYMENT_UNITS, UndeployUnitResponseImpl.builder().build(), correlationId);
     }
 
     private CompletableFuture<Boolean> doDeploy(DeployUnitRequest executeRequest) {

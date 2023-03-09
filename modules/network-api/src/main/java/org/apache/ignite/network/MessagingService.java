@@ -52,7 +52,11 @@ public interface MessagingService {
      * @param msg       Message which should be delivered.
      * @return Future of the send operation.
      */
-    CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg);
+    default CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg) {
+        return send(recipient, ChannelType.DEFAULT, msg);
+    }
+
+    CompletableFuture<Void> send(ClusterNode recipient, ChannelType type, NetworkMessage msg);
 
     /**
      * Sends a response to a {@link #invoke} request.
@@ -63,7 +67,11 @@ public interface MessagingService {
      * @param correlationId Correlation id when replying to the request.
      * @return Future of the send operation.
      */
-    CompletableFuture<Void> respond(ClusterNode recipient, NetworkMessage msg, long correlationId);
+    default CompletableFuture<Void> respond(ClusterNode recipient, NetworkMessage msg, long correlationId) {
+        return respond(recipient, ChannelType.DEFAULT, msg, correlationId);
+    }
+
+    CompletableFuture<Void> respond(ClusterNode recipient, ChannelType channelType, NetworkMessage msg, long correlationId);
 
     /**
      * Sends a response to a {@link #invoke} request.
@@ -77,7 +85,11 @@ public interface MessagingService {
      * @param correlationId Correlation id when replying to the request.
      * @return Future of the send operation.
      */
-    CompletableFuture<Void> respond(String recipientConsistentId, NetworkMessage msg, long correlationId);
+    default CompletableFuture<Void> respond(String recipientConsistentId, NetworkMessage msg, long correlationId) {
+        return respond(recipientConsistentId, ChannelType.DEFAULT, msg, correlationId);
+    }
+
+    CompletableFuture<Void> respond(String recipientConsistentId, ChannelType channelType, NetworkMessage msg, long correlationId);
 
     /**
      * Sends a message asynchronously with same guarantees as {@link #send(ClusterNode, NetworkMessage)} and returns a future that will be
@@ -88,7 +100,11 @@ public interface MessagingService {
      * @param timeout   Waiting for response timeout in milliseconds.
      * @return A future holding the response or error if the expected response was not received.
      */
-    CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, NetworkMessage msg, long timeout);
+    default CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, NetworkMessage msg, long timeout) {
+        return invoke(recipient, ChannelType.DEFAULT, msg, timeout);
+    }
+
+    CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, ChannelType channelType, NetworkMessage msg, long timeout);
 
     /**
      * Sends a message asynchronously with same guarantees as {@link #send(ClusterNode, NetworkMessage)} and returns a future that will be
@@ -99,7 +115,11 @@ public interface MessagingService {
      * @param timeout Waiting for response timeout in milliseconds.
      * @return A future holding the response or error if the expected response was not received.
      */
-    CompletableFuture<NetworkMessage> invoke(String recipientConsistentId, NetworkMessage msg, long timeout);
+    default CompletableFuture<NetworkMessage> invoke(String recipientConsistentId, NetworkMessage msg, long timeout) {
+        return invoke(recipientConsistentId, ChannelType.DEFAULT, msg, timeout);
+    }
+
+    CompletableFuture<NetworkMessage> invoke(String recipientConsistentId, ChannelType channelType, NetworkMessage msg, long timeout);
 
     /**
      * Registers a listener for a group of network message events.

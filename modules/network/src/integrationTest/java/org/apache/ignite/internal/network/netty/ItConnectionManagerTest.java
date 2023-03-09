@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -34,6 +37,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -52,6 +56,7 @@ import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
@@ -296,6 +301,61 @@ public class ItConnectionManagerTest {
         server.close();
     }
 
+    @Test
+    public void testOneConnectionType() throws Exception {
+        int size = 10000000;
+        char[] chars = new char[size];
+        Arrays.fill(chars, 'a');
+        String bigText = new String(chars);
+
+
+        ConnectionManagerWrapper server1 = startManager(4000);
+        ConnectionManagerWrapper server2 = startManager(4001);
+
+        NettySender sender = server1.openChannelTo(server2, ChannelType.DEFAULT).get(3, TimeUnit.SECONDS);
+
+
+        TestMessage bigMessage = messageFactory.testMessage().msg(bigText).build();
+        TestMessage msg = messageFactory.testMessage().msg("test").build();
+
+        CompletableFuture<Void> send1 = sender.send(new OutNetworkObject(bigMessage, Collections.emptyList()));
+        CompletableFuture<Void> send2 = sender.send(new OutNetworkObject(msg, Collections.emptyList()));
+
+        assertThat(send2, willCompleteSuccessfully());
+        assertThat(send1.isDone(), is(true));
+
+        server1.close();
+        server2.close();
+    }
+
+    @Test
+    public void testTwoConnectionTypes() throws Exception {
+        int size = 1000000000;
+        char[] chars = new char[size];
+        Arrays.fill(chars, 'a');
+        String bigText = new String(chars);
+
+
+        ConnectionManagerWrapper server1 = startManager(4000);
+        ConnectionManagerWrapper server2 = startManager(4001);
+
+        NettySender sender1 = server1.openChannelTo(server2, ChannelType.DEFAULT).get(3, TimeUnit.SECONDS);
+        NettySender sender2 = server1.openChannelTo(server2, ChannelType.TEST).get(3, TimeUnit.SECONDS);
+
+
+        TestMessage bigMessage = messageFactory.testMessage().msg(bigText).build();
+        TestMessage msg = messageFactory.testMessage().msg("test").build();
+
+        CompletableFuture<Void> send1 = sender1.send(new OutNetworkObject(bigMessage, Collections.emptyList()));
+        CompletableFuture<Void> send2 = sender2.send(new OutNetworkObject(msg, Collections.emptyList()));
+
+        assertThat(send2, willCompleteSuccessfully());
+        assertThat(send1.isDone(), is(false));
+
+        server1.close();
+        server2.close();
+    }
+
     /**
      * Creates a mock {@link MessageSerializationRegistry} that throws an exception when trying to get a serializer or a deserializer.
      */
@@ -376,7 +436,11 @@ public class ItConnectionManagerTest {
         }
 
         OrderingFuture<NettySender> openChannelTo(ConnectionManagerWrapper recipient) {
-            return connectionManager.channel(recipient.connectionManager.consistentId(), recipient.connectionManager.localAddress());
+            return openChannelTo(recipient, ChannelType.DEFAULT);
+        }
+
+        OrderingFuture<NettySender> openChannelTo(ConnectionManagerWrapper recipient, ChannelType type) {
+            return connectionManager.channel(recipient.connectionManager.consistentId(), type, recipient.connectionManager.localAddress());
         }
     }
 }

@@ -41,7 +41,7 @@ import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
-import org.apache.ignite.internal.network.recovery.RecoveryClientHandhakeManagerFactory;
+import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
@@ -182,10 +182,12 @@ class DefaultMessagingServiceTest {
         return new Services(connectionManager, messagingService);
     }
 
-    private static RecoveryClientHandhakeManagerFactory clientHandshakeManagerFactoryAdding(Runnable beforeHandshake) {
-        return new RecoveryClientHandhakeManagerFactory() {
+    private static RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactoryAdding(Runnable beforeHandshake) {
+        return new RecoveryClientHandshakeManagerFactory() {
             @Override
-            public RecoveryClientHandshakeManager create(UUID launchId, String consistentId, short connectionId,
+            public RecoveryClientHandshakeManager create(UUID launchId,
+                    String consistentId,
+                    short connectionId,
                     RecoveryDescriptorProvider recoveryDescriptorProvider) {
                 return new RecoveryClientHandshakeManager(launchId, consistentId, connectionId, recoveryDescriptorProvider) {
                     @Override
