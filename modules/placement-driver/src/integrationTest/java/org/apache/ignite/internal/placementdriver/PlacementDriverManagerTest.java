@@ -112,7 +112,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
     private TestInfo testInfo;
 
     @BeforeEach
-    private void beforeTest(TestInfo testInfo) throws NodeStoppingException {
+    public void beforeTest(TestInfo testInfo) throws NodeStoppingException {
         this.nodeName = testNodeName(testInfo, PORT);
         this.testInfo = testInfo;
 
@@ -175,7 +175,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
     }
 
     @AfterEach
-    private void afterEach() throws Exception {
+    public void afterEach() throws Exception {
         stopPlacementDriverManager();
     }
 
