@@ -25,7 +25,6 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.startsWith;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyConditionForZonesChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerScaleUpScaleDownKeysCondition;
@@ -49,6 +48,7 @@ import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.Arrays;
@@ -87,6 +87,7 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationNodeDoesNotExi
 import org.apache.ignite.internal.configuration.tree.ConfigurationNodeRemovedException;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneChange;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfigurationSchema;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
@@ -578,10 +579,10 @@ public class DistributionZoneManager implements IgniteComponent {
                     DataNodes dataNodesMeta = dataNodes.remove(zoneView.zoneId());
 
                     dataNodesMeta.revisionScaleUpFutures().values()
-                            .forEach(fut0 -> fut.completeExceptionally(new DistributionZoneNotFoundException(name)));
+                            .forEach(fut0 -> fut0.completeExceptionally(new DistributionZoneNotFoundException(name)));
 
                     dataNodesMeta.revisionScaleDownFutures().values()
-                            .forEach(fut0 -> fut.completeExceptionally(new DistributionZoneNotFoundException(name)));
+                            .forEach(fut0 -> fut0.completeExceptionally(new DistributionZoneNotFoundException(name)));
                 }
 
                 zonesListChange.delete(name);
@@ -627,7 +628,9 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * The method for obtaining data nodes of the specified zone. If the dataNodesAutoAdjustScaleUp or dataNodesAutoAdjustScaleDown
+     * The method for obtaining data nodes of the specified zone.
+     * If the {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleUp}
+     * or {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleDown}
      * equals to 0 then returned completable future will be completed when data nodes will be saved to the meta storage.
      *
      * @param zoneId Zone id.
@@ -635,6 +638,26 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return The data nodes future.
      */
     public CompletableFuture<Set<String>> getDataNodes(int zoneId, long topVer) {
+        CompletableFuture<Set<String>> dataNodesFut = new CompletableFuture<>();
+
+        CompletableFuture<Void> topVerFut;
+
+        synchronized (dataNodesMutex) {
+            dataNodes.putIfAbsent(zoneId, new DataNodes());
+
+            if (topVer > lastTopVer) {
+                topVerFut = topVerFutures.get(topVer);
+
+                if (topVerFut == null) {
+                    topVerFut = new CompletableFuture<>();
+
+                    topVerFutures.put(topVer, topVerFut);
+                }
+            } else {
+                topVerFut = completedFuture(null);
+            }
+        }
+
         boolean immediateScaleUp0 = false;
         boolean immediateScaleDown0 = false;
 
@@ -661,37 +684,20 @@ public class DistributionZoneManager implements IgniteComponent {
         boolean immediateScaleDown = immediateScaleDown0;
 
         if (!immediateScaleUp && !immediateScaleDown) {
+            synchronized (dataNodesMutex) {
 
-            DataNodes dataNodes = this.dataNodes.get(zoneId);
+                DataNodes dataNodes = this.dataNodes.get(zoneId);
 
-            Set<String> nodes;
+                Set<String> nodes;
 
-            if (dataNodes == null) {
-                nodes = emptySet();
-            } else {
-                nodes = this.dataNodes.get(zoneId).nodes();
-            }
-
-            return completedFuture(nodes);
-        }
-
-        CompletableFuture<Set<String>> dataNodesFut = new CompletableFuture<>();
-
-        CompletableFuture<Void> topVerFut;
-
-        synchronized (dataNodesMutex) {
-            dataNodes.putIfAbsent(zoneId, new DataNodes());
-
-            if (topVer > lastTopVer) {
-                topVerFut = topVerFutures.get(topVer);
-
-                if (topVerFut == null) {
-                    topVerFut = new CompletableFuture<>();
-
-                    topVerFutures.put(topVer, topVerFut);
+                if (dataNodes == null) {
+                    nodes = emptySet();
+                } else {
+                    nodes = this.dataNodes.get(zoneId).nodes();
                 }
-            } else {
-                topVerFut = completedFuture(null);
+
+
+                return completedFuture(nodes);
             }
         }
 
@@ -724,7 +730,15 @@ public class DistributionZoneManager implements IgniteComponent {
                             dataNodes.get(zoneId).revisionScaleUpFutures().put(scaleUpRevision, topVerScaleUpFut0);
                         }
 
-                        topVerScaleUpFut0.thenAccept(ignore0 -> topVerScaleUpFut.complete(null));
+                        topVerScaleUpFut0.handle((ignored0, e) -> {
+                            if (e == null) {
+                                topVerScaleUpFut.complete(null);
+                            } else {
+                                topVerScaleUpFut.completeExceptionally(e);
+                            }
+
+                            return null;
+                        });
                     } else {
                         topVerScaleUpFut.complete(null);
                     }
@@ -763,7 +777,15 @@ public class DistributionZoneManager implements IgniteComponent {
                             dataNodes.get(zoneId).revisionScaleDownFutures().put(scaleDownRevision, topVerScaleDownFut0);
                         }
 
-                        topVerScaleDownFut0.thenAccept(ignore0 -> topVerScaleDownFut.complete(null));
+                        topVerScaleDownFut0.handle((ignored0, e) -> {
+                            if (e == null) {
+                                topVerScaleDownFut.complete(null);
+                            } else {
+                                topVerScaleDownFut.completeExceptionally(e);
+                            }
+
+                            return null;
+                        });
                     } else {
                         topVerScaleDownFut.complete(null);
                     }
@@ -773,7 +795,17 @@ public class DistributionZoneManager implements IgniteComponent {
             }
         });
 
-        allOf(topVerScaleUpFut, topVerScaleDownFut).thenAccept(ignored -> dataNodesFut.complete(dataNodes.get(zoneId).nodes()));
+        allOf(topVerScaleUpFut, topVerScaleDownFut).handle((ignored, e) -> {
+            synchronized (dataNodesMutex) {
+                if (e == null) {
+                    dataNodesFut.complete(dataNodes.get(zoneId).nodes());
+                } else {
+                    dataNodesFut.completeExceptionally(e);
+                }
+            }
+
+            return null;
+        });
 
         return dataNodesFut;
     }
@@ -1201,6 +1233,11 @@ public class DistributionZoneManager implements IgniteComponent {
         }
     }
 
+    /**
+     * Creates watch listener which listens logical topology and logical topology version.
+     *
+     * @return Watch listener.
+     */
     private WatchListener createMetastorageTopologyListener() {
         return new WatchListener() {
             @Override
@@ -1251,18 +1288,21 @@ public class DistributionZoneManager implements IgniteComponent {
                     synchronized (dataNodesMutex) {
                         lastTopVer = topVer;
 
+                        //Associates topology version and scale up meta storage revision.
                         if (!addedNodes.isEmpty()) {
                             topVerAndScaleUpRevision.put(topVer, revision);
 
                             topVerAndScaleUpRevision.headMap(topVer).clear();
                         }
 
+                        //Associates topology version and scale down meta storage revision.
                         if (!removedNodes.isEmpty()) {
                             topVerAndScaleDownRevision.put(topVer, revision);
 
                             topVerAndScaleDownRevision.headMap(topVer).clear();
                         }
 
+                        //Completes futures which await corresponding topology versions.
                         SortedMap<Long, CompletableFuture<Void>> topVerFuts = topVerFutures.headMap(topVer, true);
 
                         topVerFuts.values().forEach(v -> v.complete(null));
@@ -1296,6 +1336,11 @@ public class DistributionZoneManager implements IgniteComponent {
         };
     }
 
+    /**
+     * Creates watch listener which listens data nodes, scale up revision and scale down revision.
+     *
+     * @return Watch listener.
+     */
     private WatchListener createMetastorageDataNodesListener() {
         return new WatchListener() {
             @Override
@@ -1343,14 +1388,17 @@ public class DistributionZoneManager implements IgniteComponent {
                         if (dataNodesMeta != null) {
                             dataNodesMeta.nodes(newDataNodes);
 
+                            //Associates scale up meta storage revision and data nodes.
                             if (scaleUpRevision > 0) {
                                 dataNodesMeta.scaleUpRevision(scaleUpRevision);
                             }
 
+                            //Associates scale down meta storage revision and data nodes.
                             if (scaleDownRevision > 0) {
                                 dataNodesMeta.scaleDownRevision(scaleDownRevision);
                             }
 
+                            //Completes futures which await corresponding scale up meta storage revision.
                             if (scaleUpRevision > 0) {
                                 SortedMap<Long, CompletableFuture<Void>> revisionScaleUpFuts =
                                         dataNodes.get(zoneId).revisionScaleUpFutures().headMap(scaleUpRevision, true);
@@ -1360,6 +1408,7 @@ public class DistributionZoneManager implements IgniteComponent {
                                 revisionScaleUpFuts.clear();
                             }
 
+                            //Completes futures which await corresponding scale down meta storage revision.
                             if (scaleDownRevision > 0) {
                                 SortedMap<Long, CompletableFuture<Void>> revisionScaleDownFuts =
                                         dataNodes.get(zoneId).revisionScaleDownFutures().headMap(scaleDownRevision, true);
@@ -1377,7 +1426,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             @Override
             public void onError(Throwable e) {
-                LOG.warn("Unable to process logical topology event", e);
+                LOG.warn("Unable to process data nodes event", e);
             }
         };
     }

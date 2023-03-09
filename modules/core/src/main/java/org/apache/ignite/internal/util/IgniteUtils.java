@@ -1005,4 +1005,16 @@ public class IgniteUtils {
 
         return Optional.empty();
     }
+
+    /**
+     * Utility method to check if one byte array starts with a specified sequence of bytes.
+     *
+     * @param key The array to check.
+     * @param prefix The prefix bytes to test for.
+     * @return {@code true} if the key starts with the bytes from the prefix.
+     */
+    public static boolean startsWith(byte[] key, byte[] prefix) {
+        return key.length >= prefix.length
+                && Arrays.equals(key, 0, prefix.length, prefix, 0, prefix.length);
+    }
 }

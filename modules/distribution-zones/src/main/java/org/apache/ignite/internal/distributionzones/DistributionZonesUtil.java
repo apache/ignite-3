@@ -171,6 +171,9 @@ public class DistributionZonesUtil {
         return DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY;
     }
 
+    /**
+     * The key prefix needed for processing an event about zone's data nodes.
+     */
     static ByteArray zonesDataNodesPrefix() {
         return DISTRIBUTION_ZONES_DATA_NODES_KEY;
     }
@@ -304,33 +307,5 @@ public class DistributionZonesUtil {
         dataNodes.forEach(n -> dataNodesMap.merge(n, 1, Integer::sum));
 
         return dataNodesMap;
-    }
-
-    /**
-     * Utility method to check if one byte array starts with a specified sequence
-     * of bytes.
-     *
-     * @param array The array to check.
-     * @param prefix The prefix bytes to test for.
-     * @return {@code true} if the array starts with the bytes from the prefix.
-     */
-    public static boolean startsWith(byte[] array, byte[] prefix) {
-        if (array == null || prefix == null) {
-            return false;
-        }
-
-        int prefixLength = prefix.length;
-
-        if (prefixLength > array.length) {
-            return false;
-        }
-
-        for (int i = 0; i < prefixLength; i++) {
-            if (array[i] != prefix[i]) {
-                return false;
-            }
-        }
-
-        return true;
     }
 }
