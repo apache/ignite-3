@@ -30,6 +30,7 @@ import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializati
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -81,18 +82,21 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Test that checks various scenarios where raft node re-enter the group with lost data.
+ * Test that checks various scenarios where raft node re-enter the group with lost data. Data loss may occur in case when
+ * "sync" is disabled, and last portion of the RAFT log wasn't stored durably due to power outage, for example.
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-public class ItFsyncTest {
+public class ItTruncateSuffixAndRestartTest {
     private static final int NODES = 3;
 
     private static final String GROUP_NAME = "foo";
 
     private static final ReplicationGroupId GROUP_ID = new TestReplicationGroupId(GROUP_NAME);
 
-    private final PeersAndLearners configuration = fromConsistentIds(range(0, NODES).mapToObj(this::nodeName).collect(toSet()));
+    private final PeersAndLearners raftGroupConfiguration = fromConsistentIds(
+            range(0, NODES).mapToObj(ItTruncateSuffixAndRestartTest::nodeName).collect(toSet())
+    );
 
     private final HybridClock hybridClock = new HybridClockImpl();
 
@@ -191,7 +195,7 @@ public class ItFsyncTest {
             try {
                 serviceFuture = raftMgr.startRaftGroupNode(
                         new RaftNodeId(GROUP_ID, new Peer(nodeName)),
-                        configuration,
+                        raftGroupConfiguration,
                         raftGroupListener,
                         RaftGroupEventsListener.noopLsnr,
                         RaftGroupOptions.defaults().setLogStorageFactory(logStorageFactory)
@@ -221,8 +225,11 @@ public class ItFsyncTest {
         }
     }
 
+    /**
+     * Tests a situation when one of the nodes in RAFT group lost its last update upon restart.
+     */
     @Test
-    void testFsync() throws Exception {
+    void testRestartSingleNode() throws Exception {
         SimpleIgniteNode node0 = nodes.get(0);
         SimpleIgniteNode node1 = nodes.get(1);
         SimpleIgniteNode node2 = nodes.get(2);
@@ -231,21 +238,9 @@ public class ItFsyncTest {
 
         waitForValueReplication(nodes, "1");
 
-//        node0.stopService();
-
         node1.stopService();
         node1.logStorage.truncateSuffix(1);
-
-        node2.stopService();
-//        node2.logStorage.truncateSuffix(1);
-
-        System.out.println("<%> Restart services");
-
-//        node0.startService();
         node1.startService();
-//        Thread.sleep(5000);
-
-        node2.startService();
 
         assertThat(node1.getService().run(testWriteCommand("2")), willCompleteSuccessfully());
 
@@ -255,7 +250,77 @@ public class ItFsyncTest {
         assertEquals(node1.logStorage.getLastLogIndex(), node2.logStorage.getLastLogIndex());
     }
 
-    private String nodeName(int i) {
+    /**
+     * Tests a situation when 2 nodes out of 3 are being restarted, one of which experienced data loss in RAFT log.
+     */
+    @Test
+    void testRestartTwoNodes() throws Exception {
+        SimpleIgniteNode node0 = nodes.get(0);
+        SimpleIgniteNode node1 = nodes.get(1);
+        SimpleIgniteNode node2 = nodes.get(2);
+
+        assertThat(node1.getService().run(testWriteCommand("1")), willCompleteSuccessfully());
+
+        waitForValueReplication(nodes, "1");
+
+        node1.stopService();
+        node2.stopService();
+
+        node1.logStorage.truncateSuffix(1);
+
+        node2.startService();
+        node1.startService();
+
+        assertThat(node1.getService().run(testWriteCommand("2")), willCompleteSuccessfully());
+
+        waitForValueReplication(nodes, "2");
+
+        assertEquals(node0.logStorage.getLastLogIndex(), node1.logStorage.getLastLogIndex());
+        assertEquals(node1.logStorage.getLastLogIndex(), node2.logStorage.getLastLogIndex());
+    }
+
+    /**
+     * Tests a situation when 2 nodes out of 3 are being restarted, both of which experienced data loss in RAFT log.
+     */
+    @Test
+    void testRestartTwoNodes2() throws Exception {
+        SimpleIgniteNode node0 = nodes.get(0);
+        SimpleIgniteNode node1 = nodes.get(1);
+        SimpleIgniteNode node2 = nodes.get(2);
+
+        assertThat(node1.getService().run(testWriteCommand("1")), willCompleteSuccessfully());
+
+        waitForValueReplication(nodes, "1");
+
+        node1.stopService();
+        node2.stopService();
+
+        System.out.println("<%> Services stopped");
+
+        node1.logStorage.truncateSuffix(1);
+        node2.logStorage.truncateSuffix(1);
+
+        System.out.println("<%> Logs truncated");
+
+        node2.startService();
+        node1.startService();
+
+        assertThat(node1.getService().run(testWriteCommand("2")), willCompleteSuccessfully());
+
+        waitForValueReplication(nodes, "2");
+
+        for (SimpleIgniteNode node : nodes) {
+            System.out.println("Node " + node.nodeName);
+            for (int i = 1; i <= node.logStorage.getLastLogIndex(); i++) {
+                System.out.println("  " + i + ": " + node.logStorage.getEntry(i));
+            }
+        }
+
+        assertEquals(node0.logStorage.getLastLogIndex(), node1.logStorage.getLastLogIndex());
+        assertEquals(node1.logStorage.getLastLogIndex(), node2.logStorage.getLastLogIndex());
+    }
+
+    private static String nodeName(int i) {
         return "foo" + i;
     }
 
@@ -265,7 +330,7 @@ public class ItFsyncTest {
 
     private static void waitForValueReplication(List<SimpleIgniteNode> nodes, String value) throws InterruptedException {
         for (SimpleIgniteNode node : nodes) {
-            assertTrue(waitForCondition(() -> value.equals(node.raftGroupListener.lastValue), 2,1000));
+            assertTrue(waitForCondition(() -> value.equals(node.raftGroupListener.lastValue), 2,10_000));
         }
     }
 
@@ -277,10 +342,13 @@ public class ItFsyncTest {
         public boolean init(LogStorageOptions opts) {
             ConfigurationManager confManager = opts.getConfigurationManager();
 
-            for (int i = 0;; i++) {
+            // Log always starts with "1". There's also no truncation in this test.
+            assertNull(getEntry(0));
+
+            for (int i = 1;; i++) {
                 LogEntry entry = getEntry(i);
 
-                // Loop until there are no more log entries. That's the only way to iterate the log.
+                // Loop until there are no more log entries. That's the only way to iterate the on-heap log.
                 if (entry == null) {
                     break;
                 }
