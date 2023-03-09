@@ -29,7 +29,6 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Server-side client handler metrics.
  */
-@SuppressWarnings("WeakerAccess")
 public class ClientHandlerMetricSource implements MetricSource {
     private static final String SOURCE_NAME = "client-handler";
 
@@ -40,13 +39,18 @@ public class ClientHandlerMetricSource implements MetricSource {
         return SOURCE_NAME;
     }
 
+    /**
+     * Gets total initiated connections.
+     *
+     * @return Total initiated connections.
+     */
     public long connectionsInitiated() {
         Holder h = holder;
 
         return h == null ? 0 : h.connectionsInitiated.value();
     }
 
-    public void connectionsInitiatedIncrement() {
+    void connectionsInitiatedIncrement() {
         Holder h = holder;
 
         if (h != null) {
@@ -54,13 +58,18 @@ public class ClientHandlerMetricSource implements MetricSource {
         }
     }
 
+    /**
+     * Gets total accepted sessions.
+     *
+     * @return Total accepted sessions.
+     */
     public long sessionsAccepted() {
         Holder h = holder;
 
         return h == null ? 0 : h.sessionsAccepted.value();
     }
 
-    public void sessionsAcceptedIncrement() {
+    void sessionsAcceptedIncrement() {
         Holder h = holder;
 
         if (h != null) {
@@ -68,13 +77,18 @@ public class ClientHandlerMetricSource implements MetricSource {
         }
     }
 
+    /**
+     * Gets active sessions.
+     *
+     * @return Active sessions.
+     */
     public long sessionsActive() {
         Holder h = holder;
 
         return h == null ? 0 : h.sessionsActive.value();
     }
 
-    public void sessionsActiveIncrement() {
+    void sessionsActiveIncrement() {
         Holder h = holder;
 
         if (h != null) {
@@ -82,7 +96,7 @@ public class ClientHandlerMetricSource implements MetricSource {
         }
     }
 
-    public void sessionsActiveDecrement() {
+    void sessionsActiveDecrement() {
         Holder h = holder;
 
         if (h != null) {
@@ -90,13 +104,18 @@ public class ClientHandlerMetricSource implements MetricSource {
         }
     }
 
+    /**
+     * Gets total rejected sessions.
+     *
+     * @return Total rejected sessions.
+     */
     public long sessionsRejected() {
         Holder h = holder;
 
         return h == null ? 0 : h.sessionsRejected.value();
     }
 
-    public void sessionsRejectedIncrement() {
+    void sessionsRejectedIncrement() {
         Holder h = holder;
 
         if (h != null) {
@@ -104,13 +123,18 @@ public class ClientHandlerMetricSource implements MetricSource {
         }
     }
 
+    /**
+     * Gets sessions rejected due to TLS errors.
+     *
+     * @return Sessions rejected due to TLS errors.
+     */
     public long sessionsRejectedTls() {
         Holder h = holder;
 
         return h == null ? 0 : h.sessionsRejectedTls.value();
     }
 
-    public void sessionsRejectedTlsIncrement() {
+    void sessionsRejectedTlsIncrement() {
         Holder h = holder;
 
         if (h != null) {
@@ -118,13 +142,18 @@ public class ClientHandlerMetricSource implements MetricSource {
         }
     }
 
+    /**
+     * Gets sent bytes.
+     *
+     * @return Sent bytes.
+     */
     public long bytesSent() {
         Holder h = holder;
 
         return h == null ? 0 : h.bytesSent.value();
     }
 
-    public void bytesSentAdd(long bytes) {
+    void bytesSentAdd(long bytes) {
         Holder h = holder;
 
         if (h != null) {
@@ -132,13 +161,18 @@ public class ClientHandlerMetricSource implements MetricSource {
         }
     }
 
+    /**
+     * Gets received bytes.
+     *
+     * @return Received bytes.
+     */
     public long bytesReceived() {
         Holder h = holder;
 
         return h == null ? 0 : h.bytesReceived.value();
     }
 
-    public void bytesReceivedAdd(long bytes) {
+    void bytesReceivedAdd(long bytes) {
         Holder h = holder;
 
         if (h != null) {
@@ -146,13 +180,18 @@ public class ClientHandlerMetricSource implements MetricSource {
         }
     }
 
+    /**
+     * Gets sessions rejected due to a timeout.
+     *
+     * @return Sessions rejected due to a timeout.
+     */
     public long sessionsRejectedTimeout() {
         Holder h = holder;
 
         return h == null ? 0 : h.sessionsRejectedTimeout.value();
     }
 
-    public void sessionsRejectedTimeoutIncrement() {
+    void sessionsRejectedTimeoutIncrement() {
         Holder h = holder;
 
         if (h != null) {
@@ -160,13 +199,18 @@ public class ClientHandlerMetricSource implements MetricSource {
         }
     }
 
+    /**
+     * Gets active requests.
+     *
+     * @return Active requests.
+     */
     public long requestsActive() {
         Holder h = holder;
 
         return h == null ? 0 : h.requestsActive.value();
     }
 
-    public void requestsActiveIncrement() {
+    void requestsActiveIncrement() {
         Holder h = holder;
 
         if (h != null) {
@@ -174,7 +218,7 @@ public class ClientHandlerMetricSource implements MetricSource {
         }
     }
 
-    public void requestsActiveDecrement() {
+    void requestsActiveDecrement() {
         Holder h = holder;
 
         if (h != null) {
@@ -182,13 +226,18 @@ public class ClientHandlerMetricSource implements MetricSource {
         }
     }
 
+    /**
+     * Gets processed requests.
+     *
+     * @return Processed requests.
+     */
     public long requestsProcessed() {
         Holder h = holder;
 
         return h == null ? 0 : h.requestsProcessed.value();
     }
 
-    public void requestsProcessedIncrement() {
+    void requestsProcessedIncrement() {
         Holder h = holder;
 
         if (h != null) {
@@ -196,13 +245,18 @@ public class ClientHandlerMetricSource implements MetricSource {
         }
     }
 
+    /**
+     * Gets failed requests.
+     *
+     * @return Failed requests.
+     */
     public long requestsFailed() {
         Holder h = holder;
 
         return h == null ? 0 : h.requestsFailed.value();
     }
 
-    public void requestsFailedIncrement() {
+    void requestsFailedIncrement() {
         Holder h = holder;
 
         if (h != null) {
@@ -210,6 +264,11 @@ public class ClientHandlerMetricSource implements MetricSource {
         }
     }
 
+    /**
+     * Gets active transactions.
+     *
+     * @return Active transactions
+     */
     public long transactionsActive() {
         Holder h = holder;
 
@@ -232,6 +291,11 @@ public class ClientHandlerMetricSource implements MetricSource {
         }
     }
 
+    /**
+     * Gets active cursors.
+     *
+     * @return Active cursors.
+     */
     public long cursorsActive() {
         Holder h = holder;
 
