@@ -41,6 +41,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
@@ -76,6 +77,9 @@ public class ClientHandlerModule implements IgniteComponent {
     /** Metrics. */
     private final ClientHandlerMetricSource metrics;
 
+    /** Metric manager. */
+    private final MetricManager metricManager;
+
     /** Cluster ID. */
     private UUID clusterId;
 
@@ -106,7 +110,7 @@ public class ClientHandlerModule implements IgniteComponent {
      * @param bootstrapFactory Bootstrap factory.
      * @param sql SQL.
      * @param clusterIdSupplier ClusterId supplier.
-     * @param clientHandlerMetricSource Metric source.
+     * @param metricManager Metric manager.
      */
     public ClientHandlerModule(
             QueryProcessor queryProcessor,
@@ -118,7 +122,7 @@ public class ClientHandlerModule implements IgniteComponent {
             NettyBootstrapFactory bootstrapFactory,
             IgniteSql sql,
             Supplier<CompletableFuture<UUID>> clusterIdSupplier,
-            ClientHandlerMetricSource clientHandlerMetricSource) {
+            MetricManager metricManager) {
         assert igniteTables != null;
         assert registry != null;
         assert queryProcessor != null;
@@ -137,12 +141,15 @@ public class ClientHandlerModule implements IgniteComponent {
         this.bootstrapFactory = bootstrapFactory;
         this.sql = sql;
         this.clusterIdSupplier = clusterIdSupplier;
-        this.metrics = clientHandlerMetricSource;
+        this.metricManager = metricManager;
+        this.metrics = new ClientHandlerMetricSource();
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
+        metricManager.registerSource(metrics);
+
         if (channel != null) {
             throw new IgniteException("ClientHandlerModule is already started.");
         }
@@ -158,6 +165,8 @@ public class ClientHandlerModule implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
+        metricManager.unregisterSource(metrics);
+
         if (channel != null) {
             channel.close().await();
 
