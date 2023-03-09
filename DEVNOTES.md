@@ -14,26 +14,30 @@
 ***
 
 
-## Building Ignite
-Ignite follows standard guidelines for multi-module Gradle projects, so it can be easily built using the following command from the project root directory (you can disable the tests when building using `-x test`):
+## Quick Start
+Ignite follows standard guidelines for multi-module Gradle projects, so it can be easily built using the following command from the project
+root directory:
 ```
 gradlew clean build
 ```
-Upon build completion, CLI tool can be found be under `modules/cli/build` directory. Use `ignite` on Linux and MacOS, or `ignite.exe` on Windows.
-***
+In addition to building the project itself this command performs a few additional actions, for instance, testing. The build runs faster if
+these actions are disabled as described in the next section.
 
-# Gradle build
+Upon build completion, CLI tool can be found be under `modules/cli/build` directory.
 
-## Prerequisites
-* Java 11 SDK
+Use `ignite` on Linux and MacOS, or `ignite.exe` on Windows.
 ***
 
 
 ## Building Ignite
-Ignite follows standard guidelines for multi-module Gradle projects, so it can be easily built using the following command from the project 
-root directory (you can disable the tests when building using `-x test`):
+Ignite follows standard guidelines for multi-module Gradle projects, so it can be easily built using the following command from the project
+root directory (the tests are disabled with `-x test -x integrationTest` options):
 ```shell
-./gradlew clean build -x test
+./gradlew clean build -x test -x integrationTest
+```
+And for a really fast build some other actions can be disabled too:
+```shell
+./gradlew clean build -x test -x integrationTest -x check -x modernizer
 ```
 ***
 
@@ -137,13 +141,7 @@ After opening the project in IntelliJ, double check that the Java SDK is properl
 * In the `Project` section, make sure the project language level is set to 11.0 as Ignite makes use of several Java 11
   language features
 
-Ignite uses machine code generation for some of it's modules. To generate necessary production code, build the project using gradle.
-
-Configure Idea code style (for IntelliJ Idea >= 2019):
-* File -> Settings -> Editor -> Code Style -> Scheme -> gear (Show Scheme Actions) -> Import Scheme -> IntelliJ IDEA code style XML
-* Choose: ${igniteProject}/idea/intellij-java-google-style.xml
-* Import schema
-* Reboot IntelliJ Idea
+Ignite uses machine code generation for some of its modules. To generate necessary production code, build the project using gradle.
 ***
 
 ## Code structure
