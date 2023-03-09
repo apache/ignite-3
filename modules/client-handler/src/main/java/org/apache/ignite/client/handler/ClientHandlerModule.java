@@ -228,7 +228,7 @@ public class ClientHandlerModule implements IgniteComponent {
                                         clusterId,
                                         metrics));
 
-                        metrics.connectionsInitiated().increment();
+                        metrics.connectionsInitiatedIncrement();
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
@@ -272,7 +272,7 @@ public class ClientHandlerModule implements IgniteComponent {
         @Override
         public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
             if (evt instanceof IdleStateEvent && ((IdleStateEvent) evt).state() == IdleState.READER_IDLE) {
-                metrics.sessionsRejectedTimeout().increment();
+                metrics.sessionsRejectedTimeoutIncrement();
                 ctx.close();
             }
         }

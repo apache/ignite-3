@@ -43,19 +43,19 @@ public class MetricsTest extends AbstractClientTest {
 
     @Test
     public void testTxMetrics() {
-        assertEquals(0, testServer.metrics().transactionsActive().value());
+        assertEquals(0, testServer.metrics().transactionsActive());
 
         Transaction tx1 = client.transactions().begin();
-        assertEquals(1, testServer.metrics().transactionsActive().value());
+        assertEquals(1, testServer.metrics().transactionsActive());
 
         Transaction tx2 = client.transactions().begin();
-        assertEquals(2, testServer.metrics().transactionsActive().value());
+        assertEquals(2, testServer.metrics().transactionsActive());
 
         tx1.rollback();
-        assertEquals(1, testServer.metrics().transactionsActive().value());
+        assertEquals(1, testServer.metrics().transactionsActive());
 
         tx2.rollback();
-        assertEquals(0, testServer.metrics().transactionsActive().value());
+        assertEquals(0, testServer.metrics().transactionsActive());
     }
 
     @Test
@@ -65,20 +65,20 @@ public class MetricsTest extends AbstractClientTest {
                 .query("select 1")
                 .build();
 
-        assertEquals(0, testServer.metrics().cursorsActive().value());
+        assertEquals(0, testServer.metrics().cursorsActive());
 
         try (Session session = client.sql().createSession()) {
             ResultSet<SqlRow> resultSet = session.execute(null, statement);
-            assertEquals(1, testServer.metrics().cursorsActive().value());
+            assertEquals(1, testServer.metrics().cursorsActive());
 
             resultSet.close();
-            assertEquals(0, testServer.metrics().cursorsActive().value());
+            assertEquals(0, testServer.metrics().cursorsActive());
         }
     }
 
     @Test
     public void testRequestsActive() throws Exception {
-        assertEquals(0, testServer.metrics().requestsActive().value());
+        assertEquals(0, testServer.metrics().requestsActive());
 
         CompletableFuture computeFut = new CompletableFuture();
         FakeCompute.future = computeFut;
@@ -87,37 +87,37 @@ public class MetricsTest extends AbstractClientTest {
         client.compute().execute(getClusterNodes("s1"), "job");
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsActive().value() == 2, 1000),
-                () -> "requestsActive: " + testServer.metrics().requestsActive().value());
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsActive() == 2, 1000),
+                () -> "requestsActive: " + testServer.metrics().requestsActive());
 
         computeFut.complete("x");
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsActive().value() == 0, 1000),
-                () -> "requestsActive: " + testServer.metrics().requestsActive().value());
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsActive() == 0, 1000),
+                () -> "requestsActive: " + testServer.metrics().requestsActive());
     }
 
     @Test
     public void testRequestsProcessed() throws Exception {
-        long processed = testServer.metrics().requestsProcessed().value();
+        long processed = testServer.metrics().requestsProcessed();
 
         client.compute().execute(getClusterNodes("s1"), "job");
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsProcessed().value() == processed + 1, 1000),
-                () -> "requestsProcessed: " + testServer.metrics().requestsProcessed().value());
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsProcessed() == processed + 1, 1000),
+                () -> "requestsProcessed: " + testServer.metrics().requestsProcessed());
     }
 
     @Test
     public void testRequestsFailed() throws Exception {
-        assertEquals(0, testServer.metrics().requestsFailed().value());
+        assertEquals(0, testServer.metrics().requestsFailed());
 
         FakeCompute.future = CompletableFuture.failedFuture(new RuntimeException("test"));
 
         client.compute().execute(getClusterNodes("s1"), "job");
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsFailed().value() == 1, 1000),
-                () -> "requestsFailed: " + testServer.metrics().requestsFailed().value());
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsFailed() == 1, 1000),
+                () -> "requestsFailed: " + testServer.metrics().requestsFailed());
     }
 }

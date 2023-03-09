@@ -94,7 +94,7 @@ public class ClientSqlExecuteRequest {
 
         if (hasResource) {
             try {
-                metrics.cursorsActive().increment();
+                metrics.cursorsActiveIncrement();
 
                 var clientResultSet = new ClientSqlResultSet(asyncResultSet, session, metrics);
 
@@ -102,7 +102,7 @@ public class ClientSqlExecuteRequest {
                         clientResultSet,
                         () -> {
                             clientResultSet.closeAsync();
-                            metrics.cursorsActive().decrement();
+                            metrics.cursorsActiveDecrement();
                         });
 
                 out.packLong(resources.put(resource));

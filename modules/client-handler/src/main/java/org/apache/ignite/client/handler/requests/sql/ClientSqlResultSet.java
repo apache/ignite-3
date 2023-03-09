@@ -73,7 +73,7 @@ class ClientSqlResultSet {
      */
     public CompletableFuture<Void> closeAsync() {
         if (closed.compareAndSet(false, true)) {
-            metrics.cursorsActive().decrement();
+            metrics.cursorsActiveDecrement();
 
             return resultSet.closeAsync().thenCompose(res -> session.closeAsync()).toCompletableFuture();
         }

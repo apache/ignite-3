@@ -198,13 +198,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
         // Each inbound handler in a pipeline has to release the received messages.
         try (var unpacker = getUnpacker(byteBuf)) {
-            metrics.bytesReceived().add(byteBuf.readableBytes() + ClientMessageCommon.HEADER_SIZE);
+            metrics.bytesReceivedAdd(byteBuf.readableBytes() + ClientMessageCommon.HEADER_SIZE);
 
             // Packer buffer is released by Netty on send, or by inner exception handlers below.
             var packer = getPacker(ctx.alloc());
 
             if (clientContext == null) {
-                metrics.bytesReceived().add(ClientMessageCommon.MAGIC_BYTES.length);
+                metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
                 handshake(ctx, unpacker, packer);
             } else {
                 processOperation(ctx, unpacker, packer);
@@ -258,10 +258,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             write(packer, ctx);
 
-            metrics.sessionsAccepted().increment();
-            metrics.sessionsActive().increment();
+            metrics.sessionsAcceptedIncrement();
+            metrics.sessionsActiveIncrement();
 
-            ctx.channel().closeFuture().addListener(f -> metrics.sessionsActive().decrement());
+            ctx.channel().closeFuture().addListener(f -> metrics.sessionsActiveDecrement());
         } catch (Throwable t) {
             packer.close();
 
@@ -278,13 +278,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 exceptionCaught(ctx, t2);
             }
 
-            metrics.sessionsRejected().increment();
+            metrics.sessionsRejectedIncrement();
         }
     }
 
     private void writeMagic(ChannelHandlerContext ctx) {
         ctx.write(Unpooled.wrappedBuffer(ClientMessageCommon.MAGIC_BYTES));
-        metrics.bytesSent().add(ClientMessageCommon.MAGIC_BYTES.length);
+        metrics.bytesSentAdd(ClientMessageCommon.MAGIC_BYTES.length);
     }
 
     private void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {
@@ -294,7 +294,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         // writeAndFlush releases pooled buffer.
         ctx.writeAndFlush(buf);
 
-        metrics.bytesSent().add(bytes);
+        metrics.bytesSentAdd(bytes);
     }
 
     private void writeError(long requestId, Throwable err, ChannelHandlerContext ctx) {
@@ -358,7 +358,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
     private void processOperation(ChannelHandlerContext ctx, ClientMessageUnpacker in, ClientMessagePacker out) {
         long requestId = -1;
-        metrics.requestsActive().increment();
+        metrics.requestsActiveIncrement();
 
         try {
             final int opCode = in.unpackInt();
@@ -375,23 +375,23 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 // Operation completed synchronously.
                 write(out, ctx);
 
-                metrics.requestsProcessed().increment();
-                metrics.requestsActive().decrement();
+                metrics.requestsProcessedIncrement();
+                metrics.requestsActiveDecrement();
             } else {
                 final var reqId = requestId;
 
                 fut.whenComplete((Object res, Object err) -> {
-                    metrics.requestsActive().decrement();
+                    metrics.requestsActiveDecrement();
 
                     if (err != null) {
                         out.close();
                         writeError(reqId, (Throwable) err, ctx);
 
-                        metrics.requestsFailed().increment();
+                        metrics.requestsFailedIncrement();
                     } else {
                         write(out, ctx);
 
-                        metrics.requestsProcessed().increment();
+                        metrics.requestsProcessedIncrement();
                     }
                 });
             }
@@ -400,7 +400,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             writeError(requestId, t, ctx);
 
-            metrics.requestsFailed().increment();
+            metrics.requestsFailedIncrement();
         }
     }
 
@@ -554,14 +554,14 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         if (cause instanceof SSLException || cause.getCause() instanceof SSLException) {
-            metrics.sessionsRejectedTls().increment();
+            metrics.sessionsRejectedTlsIncrement();
         }
 
         if (cause instanceof DecoderException && cause.getCause() instanceof IgniteException) {
             var err = (IgniteException) cause.getCause();
 
             if (err.code() == HANDSHAKE_HEADER_ERR) {
-                metrics.sessionsRejected().increment();
+                metrics.sessionsRejectedIncrement();
             }
         }
 

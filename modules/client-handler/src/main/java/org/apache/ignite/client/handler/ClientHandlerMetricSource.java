@@ -32,122 +32,160 @@ import org.jetbrains.annotations.Nullable;
 public class ClientHandlerMetricSource implements MetricSource {
     private static final String SOURCE_NAME = "client-handler";
 
-    private final AtomicLongMetric connectionsInitiated =
-            new AtomicLongMetric("connections.initiated", "Total initiated connections");
-
-    private final AtomicLongMetric sessionsAccepted =
-            new AtomicLongMetric("sessions.accepted", "Total accepted sessions");
-
-    private final AtomicLongMetric sessionsActive =
-            new AtomicLongMetric("sessions.active", "Active sessions");
-
-    private final AtomicLongMetric sessionsRejected =
-            new AtomicLongMetric("sessions.rejected", "Total sessions rejected due to handshake errors");
-
-    private final AtomicLongMetric sessionsRejectedTls =
-            new AtomicLongMetric("sessions.rejected.tls", "Total sessions rejected due to TLS handshake errors");
-
-    private final AtomicLongMetric sessionsRejectedTimeout =
-            new AtomicLongMetric("sessions.rejected.timeout", "Total sessions rejected by timeout");
-
-    private final AtomicLongMetric bytesSent = new AtomicLongMetric("bytes.sent", "Total bytes sent");
-
-    private final AtomicLongMetric bytesReceived = new AtomicLongMetric("bytes.received", "Total bytes received");
-
-    private final AtomicLongMetric requestsActive = new AtomicLongMetric("requests.active", "Requests in progress");
-
-    private final AtomicLongMetric requestsProcessed = new AtomicLongMetric("requests.processed", "Total processed requests");
-
-    private final AtomicLongMetric requestsFailed = new AtomicLongMetric("requests.failed", "Total failed requests");
-
-    private final AtomicLongMetric transactionsActive = new AtomicLongMetric("transactions.active", "Active transactions");
-
-    private final AtomicLongMetric cursorsActive = new AtomicLongMetric("cursors.active", "Active cursors");
-
-    private final List<Metric> metrics = Arrays.asList(
-            connectionsInitiated,
-            sessionsAccepted,
-            sessionsActive,
-            sessionsRejected,
-            sessionsRejectedTls,
-            sessionsRejectedTimeout,
-            bytesSent,
-            bytesReceived,
-            requestsActive,
-            requestsProcessed,
-            requestsFailed,
-            transactionsActive,
-            cursorsActive
-    );
-
-    private boolean enabled;
+    private @Nullable ClientHandlerMetricSource.Holder holder;
 
     @Override
     public String name() {
         return SOURCE_NAME;
     }
 
-    public AtomicLongMetric connectionsInitiated() {
-        return connectionsInitiated;
+    public long connectionsInitiated() {
+        return holder == null ? 0 : holder.connectionsInitiated.value();
     }
 
-    public AtomicLongMetric sessionsAccepted() {
-        return sessionsAccepted;
+    public void connectionsInitiatedIncrement() {
+        if (holder != null)
+            holder.connectionsInitiated.increment();
     }
 
-    public AtomicLongMetric sessionsActive() {
-        return sessionsActive;
+    public long sessionsAccepted() {
+        return holder == null ? 0 : holder.sessionsAccepted.value();
     }
 
-    public AtomicLongMetric sessionsRejected() {
-        return sessionsRejected;
+    public void sessionsAcceptedIncrement() {
+        if (holder != null)
+            holder.sessionsAccepted.increment();
     }
 
-    public AtomicLongMetric sessionsRejectedTls() {
-        return sessionsRejectedTls;
+    public long sessionsActive() {
+        return holder == null ? 0 : holder.sessionsActive.value();
     }
 
-    public AtomicLongMetric bytesSent() {
-        return bytesSent;
+    public void sessionsActiveIncrement() {
+        if (holder != null)
+            holder.sessionsActive.increment();
     }
 
-    public AtomicLongMetric bytesReceived() {
-        return bytesReceived;
+    public void sessionsActiveDecrement() {
+        if (holder != null)
+            holder.sessionsActive.decrement();
     }
 
-    public AtomicLongMetric sessionsRejectedTimeout() {
-        return sessionsRejectedTimeout;
+    public long sessionsRejected() {
+        return holder == null ? 0 : holder.sessionsRejected.value();
     }
 
-    public AtomicLongMetric requestsActive() {
-        return requestsActive;
+    public void sessionsRejectedIncrement() {
+        if (holder != null)
+            holder.sessionsRejected.increment();
     }
 
-    public AtomicLongMetric requestsProcessed() {
-        return requestsProcessed;
+    public long sessionsRejectedTls() {
+        return holder == null ? 0 : holder.sessionsRejectedTls.value();
     }
 
-    public AtomicLongMetric requestsFailed() {
-        return requestsFailed;
+    public void sessionsRejectedTlsIncrement() {
+        if (holder != null)
+            holder.sessionsRejectedTls.increment();
     }
 
-    public AtomicLongMetric transactionsActive() {
-        return transactionsActive;
+    public long bytesSent() {
+        return holder == null ? 0 : holder.bytesSent.value();
     }
 
-    public AtomicLongMetric cursorsActive() {
-        return cursorsActive;
+    public void bytesSentAdd(long bytes) {
+        if (holder != null)
+            holder.bytesSent.add(bytes);
+    }
+
+    public long bytesReceived() {
+        return holder == null ? 0 : holder.bytesReceived.value();
+    }
+
+    public void bytesReceivedAdd(long bytes) {
+        if (holder != null)
+            holder.bytesReceived.add(bytes);
+    }
+
+    public long sessionsRejectedTimeout() {
+        return holder == null ? 0 : holder.sessionsRejectedTimeout.value();
+    }
+
+    public void sessionsRejectedTimeoutIncrement() {
+        if (holder != null)
+            holder.sessionsRejectedTimeout.increment();
+    }
+
+    public long requestsActive() {
+        return holder == null ? 0 : holder.requestsActive.value();
+    }
+
+    public void requestsActiveIncrement() {
+        if (holder != null)
+            holder.requestsActive.increment();
+    }
+
+    public void requestsActiveDecrement() {
+        if (holder != null)
+            holder.requestsActive.decrement();
+    }
+
+    public long requestsProcessed() {
+        return holder == null ? 0 : holder.requestsProcessed.value();
+    }
+
+    public void requestsProcessedIncrement() {
+        if (holder != null)
+            holder.requestsProcessed.increment();
+    }
+
+    public long requestsFailed() {
+        return holder == null ? 0 : holder.requestsFailed.value();
+    }
+
+    public void requestsFailedIncrement() {
+        if (holder != null)
+            holder.requestsFailed.increment();
+    }
+
+    public long transactionsActive() {
+        return holder == null ? 0 : holder.transactionsActive.value();
+    }
+
+    public void transactionsActiveIncrement() {
+        if (holder != null)
+            holder.transactionsActive.increment();
+    }
+
+    public void transactionsActiveDecrement() {
+        if (holder != null)
+            holder.transactionsActive.decrement();
+    }
+
+    public long cursorsActive() {
+        return holder == null ? 0 : holder.cursorsActive.value();
+    }
+
+    public void cursorsActiveIncrement() {
+        if (holder != null)
+            holder.cursorsActive.increment();
+    }
+
+    public void cursorsActiveDecrement() {
+        if (holder != null)
+            holder.cursorsActive.decrement();
     }
 
     @Override
     public synchronized @Nullable MetricSet enable() {
+        holder = new Holder();
+        List<Metric> metrics = holder.metrics;
+
         var metricSet = new HashMap<String, Metric>(metrics.size());
 
         for (var metric : metrics) {
             metricSet.put(metric.name(), metric);
         }
-
-        enabled = true;
 
         return new MetricSet(SOURCE_NAME, metricSet);
     }
@@ -155,12 +193,62 @@ public class ClientHandlerMetricSource implements MetricSource {
     /** {@inheritDoc} */
     @Override
     public synchronized void disable() {
-        enabled = false;
+        holder = null;
     }
 
     /** {@inheritDoc} */
     @Override
     public synchronized boolean enabled() {
-        return enabled;
+        return holder != null;
+    }
+
+    private static class Holder {
+        private final AtomicLongMetric connectionsInitiated =
+                new AtomicLongMetric("connections.initiated", "Total initiated connections");
+
+        private final AtomicLongMetric sessionsAccepted =
+                new AtomicLongMetric("sessions.accepted", "Total accepted sessions");
+
+        private final AtomicLongMetric sessionsActive =
+                new AtomicLongMetric("sessions.active", "Active sessions");
+
+        private final AtomicLongMetric sessionsRejected =
+                new AtomicLongMetric("sessions.rejected", "Total sessions rejected due to handshake errors");
+
+        private final AtomicLongMetric sessionsRejectedTls =
+                new AtomicLongMetric("sessions.rejected.tls", "Total sessions rejected due to TLS handshake errors");
+
+        private final AtomicLongMetric sessionsRejectedTimeout =
+                new AtomicLongMetric("sessions.rejected.timeout", "Total sessions rejected by timeout");
+
+        private final AtomicLongMetric bytesSent = new AtomicLongMetric("bytes.sent", "Total bytes sent");
+
+        private final AtomicLongMetric bytesReceived = new AtomicLongMetric("bytes.received", "Total bytes received");
+
+        private final AtomicLongMetric requestsActive = new AtomicLongMetric("requests.active", "Requests in progress");
+
+        private final AtomicLongMetric requestsProcessed = new AtomicLongMetric("requests.processed", "Total processed requests");
+
+        private final AtomicLongMetric requestsFailed = new AtomicLongMetric("requests.failed", "Total failed requests");
+
+        private final AtomicLongMetric transactionsActive = new AtomicLongMetric("transactions.active", "Active transactions");
+
+        private final AtomicLongMetric cursorsActive = new AtomicLongMetric("cursors.active", "Active cursors");
+
+        final List<Metric> metrics = Arrays.asList(
+                connectionsInitiated,
+                sessionsAccepted,
+                sessionsActive,
+                sessionsRejected,
+                sessionsRejectedTls,
+                sessionsRejectedTimeout,
+                bytesSent,
+                bytesReceived,
+                requestsActive,
+                requestsProcessed,
+                requestsFailed,
+                transactionsActive,
+                cursorsActive
+        );
     }
 }

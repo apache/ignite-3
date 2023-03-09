@@ -61,9 +61,9 @@ public class ItClientHandlerMetricsTest {
 
         assertThrows(SocketException.class, () -> ItClientHandlerTestUtils.connectAndHandshake(serverModule));
 
-        assertEquals(1, testServer.metrics().sessionsRejectedTls().value());
-        assertEquals(0, testServer.metrics().sessionsRejected().value());
-        assertEquals(0, testServer.metrics().sessionsAccepted().value());
+        assertEquals(1, testServer.metrics().sessionsRejectedTls());
+        assertEquals(0, testServer.metrics().sessionsRejected());
+        assertEquals(0, testServer.metrics().sessionsAccepted());
     }
 
     @Test
@@ -73,18 +73,18 @@ public class ItClientHandlerMetricsTest {
 
         // Bad MAGIC.
         assertThrows(SocketException.class, () -> ItClientHandlerTestUtils.connectAndHandshake(serverModule, true, false));
-        assertEquals(1, testServer.metrics().sessionsRejected().value());
+        assertEquals(1, testServer.metrics().sessionsRejected());
 
         // Bad version.
         ItClientHandlerTestUtils.connectAndHandshake(serverModule, false, true);
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsRejected().value() == 2, 1000),
-                () -> "sessionsRejected: " + testServer.metrics().sessionsRejected().value());
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsRejected() == 2, 1000),
+                () -> "sessionsRejected: " + testServer.metrics().sessionsRejected());
 
-        assertEquals(0, testServer.metrics().sessionsRejectedTls().value());
-        assertEquals(0, testServer.metrics().sessionsAccepted().value());
-        assertEquals(0, testServer.metrics().sessionsActive().value());
-        assertEquals(2, testServer.metrics().connectionsInitiated().value());
+        assertEquals(0, testServer.metrics().sessionsRejectedTls());
+        assertEquals(0, testServer.metrics().sessionsAccepted());
+        assertEquals(0, testServer.metrics().sessionsActive());
+        assertEquals(2, testServer.metrics().connectionsInitiated());
     }
 
     @Test
@@ -95,11 +95,11 @@ public class ItClientHandlerMetricsTest {
 
         try (var ignored = ItClientHandlerTestUtils.connectAndHandshakeAndGetSocket(serverModule)) {
             assertTrue(IgniteTestUtils.waitForCondition(() ->
-                    testServer.metrics().sessionsRejectedTimeout().value() == 1, 5_000));
+                    testServer.metrics().sessionsRejectedTimeout() == 1, 5_000));
         }
 
-        assertEquals(1, testServer.metrics().sessionsAccepted().value());
-        assertEquals(0, testServer.metrics().sessionsActive().value());
+        assertEquals(1, testServer.metrics().sessionsAccepted());
+        assertEquals(0, testServer.metrics().sessionsActive());
     }
 
     @Test
@@ -108,7 +108,7 @@ public class ItClientHandlerMetricsTest {
         var serverModule = testServer.start(testInfo);
 
         ItClientHandlerTestUtils.connectAndHandshake(serverModule);
-        assertTrue(IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsAccepted().value() == 1, 1000));
+        assertTrue(IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsAccepted() == 1, 1000));
     }
 
     @Test
@@ -117,10 +117,10 @@ public class ItClientHandlerMetricsTest {
         var serverModule = testServer.start(testInfo);
 
         try (var ignored = ItClientHandlerTestUtils.connectAndHandshakeAndGetSocket(serverModule)) {
-            assertTrue(IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsActive().value() == 1, 1000));
+            assertTrue(IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsActive() == 1, 1000));
         }
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsActive().value() == 0, 5_000));
+        assertTrue(IgniteTestUtils.waitForCondition(() -> testServer.metrics().sessionsActive() == 0, 5_000));
     }
 
     @Test
@@ -128,27 +128,27 @@ public class ItClientHandlerMetricsTest {
         testServer = new TestServer(null);
         var serverModule = testServer.start(testInfo);
 
-        assertEquals(0, testServer.metrics().bytesSent().value());
-        assertEquals(0, testServer.metrics().bytesReceived().value());
+        assertEquals(0, testServer.metrics().bytesSent());
+        assertEquals(0, testServer.metrics().bytesReceived());
 
         ItClientHandlerTestUtils.connectAndHandshake(serverModule);
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent().value() == 54, 1000),
-                () -> "bytesSent: " + testServer.metrics().bytesSent().value());
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent() == 54, 1000),
+                () -> "bytesSent: " + testServer.metrics().bytesSent());
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesReceived().value() == 15, 1000),
-                () -> "bytesReceived: " + testServer.metrics().bytesReceived().value());
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesReceived() == 15, 1000),
+                () -> "bytesReceived: " + testServer.metrics().bytesReceived());
 
         ItClientHandlerTestUtils.connectAndHandshake(serverModule, false, true);
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent().value() == 216, 1000),
-                () -> "bytesSent: " + testServer.metrics().bytesSent().value());
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent() == 216, 1000),
+                () -> "bytesSent: " + testServer.metrics().bytesSent());
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesReceived().value() == 30, 1000),
-                () -> "bytesReceived: " + testServer.metrics().bytesReceived().value());
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesReceived() == 30, 1000),
+                () -> "bytesReceived: " + testServer.metrics().bytesReceived());
     }
 }
