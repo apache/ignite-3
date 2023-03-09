@@ -132,6 +132,7 @@ public class TestServer implements AutoCloseable {
         IgniteCompute compute = new FakeCompute(nodeName);
 
         metrics = new ClientHandlerMetricSource();
+        metrics.enable();
 
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(

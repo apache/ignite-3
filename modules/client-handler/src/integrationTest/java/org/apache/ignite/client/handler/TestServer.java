@@ -61,6 +61,8 @@ public class TestServer {
                 List.of(),
                 List.of()
         );
+
+        metrics.enable();
     }
 
     TestServer() {
