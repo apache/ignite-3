@@ -122,7 +122,8 @@ public class ClientHandlerModule implements IgniteComponent {
             NettyBootstrapFactory bootstrapFactory,
             IgniteSql sql,
             Supplier<CompletableFuture<UUID>> clusterIdSupplier,
-            MetricManager metricManager) {
+            MetricManager metricManager,
+            ClientHandlerMetricSource metrics) {
         assert igniteTables != null;
         assert registry != null;
         assert queryProcessor != null;
@@ -142,7 +143,7 @@ public class ClientHandlerModule implements IgniteComponent {
         this.sql = sql;
         this.clusterIdSupplier = clusterIdSupplier;
         this.metricManager = metricManager;
-        this.metrics = new ClientHandlerMetricSource();
+        this.metrics = metrics;
     }
 
     /** {@inheritDoc} */

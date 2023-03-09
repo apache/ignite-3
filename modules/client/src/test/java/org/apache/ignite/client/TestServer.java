@@ -40,6 +40,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.network.ClusterNode;
@@ -155,6 +156,7 @@ public class TestServer implements AutoCloseable {
                         bootstrapFactory,
                         ignite.sql(),
                         () -> CompletableFuture.completedFuture(clusterId),
+                        new MetricManager(),
                         metrics);
 
         module.start();
