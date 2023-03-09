@@ -59,6 +59,7 @@ import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -179,25 +180,25 @@ public class DistributionZoneManager implements IgniteComponent {
      * Contains data nodes and meta info for zones.
      * Map (zone id -> data nodes).
      */
-    private final Map<Integer, DataNodes> dataNodes = new ConcurrentHashMap<>();
+    private final Map<Integer, DataNodes> dataNodes = new HashMap<>();
 
     /**
      * The map contains futures which are completed when zone manager observe appropriate logical topology version.
      * Map (topology version -> future).
      */
-    private final NavigableMap<Long, CompletableFuture<Void>> topVerFutures = new ConcurrentSkipListMap();
+    private final NavigableMap<Long, CompletableFuture<Void>> topVerFutures = new TreeMap<>();
 
     /**
      * The map stores the correspondence between logical topology version and meta storage revision
      * on which scale up timer was started.
      */
-    private final NavigableMap<Long, Long> topVerAndScaleUpRevision = new ConcurrentSkipListMap<>();
+    private final NavigableMap<Long, Long> topVerAndScaleUpRevision = new TreeMap<>();
 
     /**
      * The map stores the correspondence between logical topology version and meta storage revision
      * on which scale down timer was started.
      */
-    private final NavigableMap<Long, Long> topVerAndScaleDownRevision = new ConcurrentSkipListMap<>();
+    private final NavigableMap<Long, Long> topVerAndScaleDownRevision = new TreeMap<>();
 
     /** Listener for a topology events. */
     private final LogicalTopologyEventListener topologyEventListener = new LogicalTopologyEventListener() {
@@ -228,84 +229,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
     /** Watch listener for data nodes keys. */
     private final WatchListener dataNodesWatchListener;
-
-    /**
-     * Contains data nodes and meta info.
-     */
-    static class DataNodes {
-        /** Data nodes. */
-        private Set<String> nodes;
-
-        /** Scale up metastorage revision of current nodes value. */
-        private long scaleUpRevision;
-
-        /** Scale down metastorage revision of current nodes value. */
-        private long scaleDownRevision;
-
-        /**
-         * The map contains futures which are completed when zone manager observe data nodes bound to appropriate scale up revision.
-         * Map (revision -> future).
-         */
-        private final NavigableMap<Long, CompletableFuture<Void>> revisionScaleUpFutures = new ConcurrentSkipListMap();
-
-        /**
-         * The map contains futures which are completed when zone manager observe data nodes bound to appropriate scale down revision.
-         * Map (revision -> future).
-         */
-        private final NavigableMap<Long, CompletableFuture<Void>> revisionScaleDownFutures = new ConcurrentSkipListMap();
-
-        DataNodes() {
-            nodes = emptySet();
-        }
-
-        DataNodes(Set<String> nodes, long scaleUpRevision, long scaleDownRevision) {
-            this.nodes = nodes;
-            this.scaleUpRevision = scaleUpRevision;
-            this.scaleDownRevision = scaleDownRevision;
-        }
-
-        Set<String> nodes() {
-            return nodes;
-        }
-
-        void nodes(Set<String> nodes) {
-            this.nodes = nodes;
-        }
-
-        long scaleUpRevision() {
-            return scaleUpRevision;
-        }
-
-        void scaleUpRevision(long scaleUpRevision) {
-            this.scaleUpRevision = scaleUpRevision;
-        }
-
-        long scaleDownRevision() {
-            return scaleDownRevision;
-        }
-
-        void scaleDownRevision(long scaleDownRevision) {
-            this.scaleDownRevision = scaleDownRevision;
-        }
-
-        NavigableMap<Long, CompletableFuture<Void>> revisionScaleUpFutures() {
-            return revisionScaleUpFutures;
-        }
-
-        NavigableMap<Long, CompletableFuture<Void>> revisionScaleDownFutures() {
-            return revisionScaleDownFutures;
-        }
-    }
-
-    @TestOnly
-    Map<Integer, DataNodes> dataNodes() {
-        return dataNodes;
-    }
-
-    @TestOnly
-    NavigableMap<Long, CompletableFuture<Void>> topVerFutures() {
-        return topVerFutures;
-    }
 
     /**
      * Creates a new distribution zone manager.
@@ -1916,5 +1839,88 @@ public class DistributionZoneManager implements IgniteComponent {
             this.nodeNames = nodeNames;
             this.addition = addition;
         }
+    }
+
+    /**
+     * Contains data nodes and meta info.
+     */
+    static class DataNodes {
+        /** Data nodes. */
+        private Set<String> nodes;
+
+        /** Scale up metastorage revision of current nodes value. */
+        private long scaleUpRevision;
+
+        /** Scale down metastorage revision of current nodes value. */
+        private long scaleDownRevision;
+
+        /**
+         * The map contains futures which are completed when zone manager observe data nodes bound to appropriate scale up revision.
+         * Map (revision -> future).
+         */
+        private final NavigableMap<Long, CompletableFuture<Void>> revisionScaleUpFutures = new ConcurrentSkipListMap();
+
+        /**
+         * The map contains futures which are completed when zone manager observe data nodes bound to appropriate scale down revision.
+         * Map (revision -> future).
+         */
+        private final NavigableMap<Long, CompletableFuture<Void>> revisionScaleDownFutures = new ConcurrentSkipListMap();
+
+        DataNodes() {
+            nodes = emptySet();
+        }
+
+        DataNodes(Set<String> nodes, long scaleUpRevision, long scaleDownRevision) {
+            this.nodes = nodes;
+            this.scaleUpRevision = scaleUpRevision;
+            this.scaleDownRevision = scaleDownRevision;
+        }
+
+        Set<String> nodes() {
+            return nodes;
+        }
+
+        void nodes(Set<String> nodes) {
+            this.nodes = nodes;
+        }
+
+        long scaleUpRevision() {
+            return scaleUpRevision;
+        }
+
+        void scaleUpRevision(long scaleUpRevision) {
+            this.scaleUpRevision = scaleUpRevision;
+        }
+
+        long scaleDownRevision() {
+            return scaleDownRevision;
+        }
+
+        void scaleDownRevision(long scaleDownRevision) {
+            this.scaleDownRevision = scaleDownRevision;
+        }
+
+        NavigableMap<Long, CompletableFuture<Void>> revisionScaleUpFutures() {
+            return revisionScaleUpFutures;
+        }
+
+        NavigableMap<Long, CompletableFuture<Void>> revisionScaleDownFutures() {
+            return revisionScaleDownFutures;
+        }
+    }
+
+    @TestOnly
+    Object dataNodesMutex() {
+        return dataNodes;
+    }
+
+    @TestOnly
+    Map<Integer, DataNodes> dataNodes() {
+        return dataNodes;
+    }
+
+    @TestOnly
+    NavigableMap<Long, CompletableFuture<Void>> topVerFutures() {
+        return topVerFutures;
     }
 }
