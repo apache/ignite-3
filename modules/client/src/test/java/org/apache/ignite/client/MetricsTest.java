@@ -18,6 +18,8 @@
 package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
@@ -29,6 +31,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -39,6 +42,11 @@ public class MetricsTest extends AbstractClientTest {
     @AfterEach
     public void resetCompute() {
         FakeCompute.future = null;
+    }
+
+    @BeforeEach
+    public void enableMetrics() {
+        testServer.metrics().enable();
     }
 
     @Test
@@ -119,5 +127,27 @@ public class MetricsTest extends AbstractClientTest {
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsFailed() == 1, 1000),
                 () -> "requestsFailed: " + testServer.metrics().requestsFailed());
+    }
+
+    @Test
+    public void testMetricsDisabled() {
+        testServer.metrics().disable();
+
+        assertFalse(testServer.metrics().enabled());
+        assertEquals(0, testServer.metrics().requestsProcessed());
+
+        client.compute().execute(getClusterNodes("s1"), "job");
+
+        assertEquals(0, testServer.metrics().requestsProcessed());
+        assertFalse(testServer.metrics().enabled());
+    }
+
+    @Test
+    public void testEnabledMetricsTwiceReturnsSameMetricSet() {
+        var metrics = testServer.metrics();
+        var set1 = metrics.enable();
+        var set2 = metrics.enable();
+
+        assertSame(set1, set2);
     }
 }
