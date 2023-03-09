@@ -23,9 +23,8 @@ gradlew clean build
 In addition to building the project itself this command performs a few additional actions, for instance, testing. The build runs faster if
 these actions are disabled as described in the next section.
 
-Upon build completion, CLI tool can be found be under `modules/cli/build` directory.
-
-Use `ignite` on Linux and MacOS, or `ignite.exe` on Windows.
+Currently there is no direct way to launch an ignite-3 instance upon build completion. It is required to package it as described below and
+then follow [the user guide](https://ignite.apache.org/docs/3.0.0-beta/quick-start/getting-started-guide).
 ***
 
 
