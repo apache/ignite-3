@@ -1063,12 +1063,18 @@ public class NodeImpl implements Node, RaftServerService {
         // Wait committed.
         long commitIdx = logManager.getLastLogIndex();
 
-        if (commitIdx > fsmCaller.getLastAppliedIndex()) {
-            CountDownLatch applyCommitLatch = new CountDownLatch(1);
+        boolean externalAwaitStorageLatch = opts.getStorageReadyLatch() != null;
 
-            LastAppliedLogIndexListener lnsr = lastAppliedLogIndex -> {
-                if (lastAppliedLogIndex >= commitIdx) {
-                    applyCommitLatch.countDown();
+        if (commitIdx > fsmCaller.getLastAppliedIndex()) {
+            CountDownLatch applyCommitLatch = externalAwaitStorageLatch ? opts.getStorageReadyLatch() : new CountDownLatch(1);
+
+            LastAppliedLogIndexListener lnsr = new LastAppliedLogIndexListener() {
+                @Override
+                public void onApplied( long lastAppliedLogIndex) {
+                    if (lastAppliedLogIndex >= commitIdx) {
+                        applyCommitLatch.countDown();
+                        fsmCaller.removeLastAppliedLogIndexListener(this);
+                    }
                 }
             };
 
@@ -1077,13 +1083,17 @@ public class NodeImpl implements Node, RaftServerService {
             fsmCaller.onCommitted(commitIdx);
 
             try {
-                applyCommitLatch.await();
-
-                fsmCaller.removeLastAppliedLogIndexListener(lnsr);
+                if (!externalAwaitStorageLatch) {
+                    applyCommitLatch.await();
+                }
             } catch (InterruptedException e) {
                 LOG.error("Fail to apply committed updates.", e);
 
                 return false;
+            }
+        } else {
+            if (externalAwaitStorageLatch) {
+                opts.getStorageReadyLatch().countDown();
             }
         }
 
