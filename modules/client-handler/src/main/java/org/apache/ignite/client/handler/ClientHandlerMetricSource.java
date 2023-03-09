@@ -203,45 +203,67 @@ public class ClientHandlerMetricSource implements MetricSource {
     }
 
     public void requestsFailedIncrement() {
-        if (holder != null)
-            holder.requestsFailed.increment();
+        Holder h = holder;
+
+        if (h != null) {
+            h.requestsFailed.increment();
+        }
     }
 
     public long transactionsActive() {
-        return holder == null ? 0 : holder.transactionsActive.value();
+        Holder h = holder;
+
+        return h == null ? 0 : h.transactionsActive.value();
     }
 
     public void transactionsActiveIncrement() {
-        if (holder != null)
-            holder.transactionsActive.increment();
+        Holder h = holder;
+
+        if (h != null) {
+            h.transactionsActive.increment();
+        }
     }
 
     public void transactionsActiveDecrement() {
-        if (holder != null)
-            holder.transactionsActive.decrement();
+        Holder h = holder;
+
+        if (h != null) {
+            h.transactionsActive.decrement();
+        }
     }
 
     public long cursorsActive() {
-        return holder == null ? 0 : holder.cursorsActive.value();
+        Holder h = holder;
+
+        return h == null ? 0 : h.cursorsActive.value();
     }
 
     public void cursorsActiveIncrement() {
-        if (holder != null)
-            holder.cursorsActive.increment();
+        Holder h = holder;
+
+        if (h != null) {
+            h.cursorsActive.increment();
+        }
     }
 
     public void cursorsActiveDecrement() {
-        if (holder != null)
-            holder.cursorsActive.decrement();
+        Holder h = holder;
+
+        if (h != null) {
+            h.cursorsActive.decrement();
+        }
     }
 
     @Override
     public synchronized @Nullable MetricSet enable() {
-        if (holder == null) {
-            holder = new Holder();
+        Holder h = holder;
+
+        if (h == null) {
+            h = new Holder();
+            holder = h;
         }
 
-        return holder.metricSet;
+        return h.metricSet;
     }
 
     /** {@inheritDoc} */
