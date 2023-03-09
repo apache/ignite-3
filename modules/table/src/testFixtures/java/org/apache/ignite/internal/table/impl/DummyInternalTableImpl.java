@@ -287,8 +287,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 placementDriver,
                 storageUpdateHandler,
                 peer -> true,
-                CompletableFuture.completedFuture(schemaManager),
-                null
+                CompletableFuture.completedFuture(schemaManager)
         );
 
         partitionListener = new PartitionListener(

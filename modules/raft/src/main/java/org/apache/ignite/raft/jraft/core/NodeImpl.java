@@ -958,7 +958,6 @@ public class NodeImpl implements Node, RaftServerService {
 
     @Override
     public boolean init(final NodeOptions opts) {
-        System.out.println("!!! AAA");
         Requires.requireNonNull(opts, "Null node options");
         Requires.requireNonNull(opts.getRaftOptions(), "Null raft options");
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
@@ -1066,9 +1065,6 @@ public class NodeImpl implements Node, RaftServerService {
 
         if (commitIdx > fsmCaller.getLastAppliedIndex()) {
             CountDownLatch optsStorageReadyLatch = opts.getStorageReadyLatch();
-            if (optsStorageReadyLatch != null) {
-              System.out.println("Storage ready latch != null");
-            }
 
             CountDownLatch applyCommitLatch = optsStorageReadyLatch != null ? optsStorageReadyLatch : new CountDownLatch(1);
 

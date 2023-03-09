@@ -273,6 +273,68 @@ public class PartitionReplicaListener implements ReplicaListener {
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
     }
 
+    /**
+     * The constructor.
+     *
+     * @param mvDataStorage Data storage.
+     * @param raftClient Raft client.
+     * @param txManager Transaction manager.
+     * @param lockManager Lock manager.
+     * @param partId Partition id.
+     * @param tableId Table id.
+     * @param indexesLockers Index lock helper objects.
+     * @param pkIndexStorage Pk index storage.
+     * @param secondaryIndexStorages Secondary index storages.
+     * @param hybridClock Hybrid clock.
+     * @param safeTime Safe time clock.
+     * @param txStateStorage Transaction state storage.
+     * @param placementDriver Placement driver.
+     * @param storageUpdateHandler Handler that processes updates writing them to storage.
+     * @param isLocalPeerChecker Function for checking that the given peer is local.
+     * @param schemaFut Table schema.
+     */
+    public PartitionReplicaListener(
+            MvPartitionStorage mvDataStorage,
+            RaftGroupService raftClient,
+            TxManager txManager,
+            LockManager lockManager,
+            Executor scanRequestExecutor,
+            int partId,
+            UUID tableId,
+            Supplier<Map<UUID, IndexLocker>> indexesLockers,
+            Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
+            Supplier<Map<UUID, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
+            HybridClock hybridClock,
+            PendingComparableValuesTracker<HybridTimestamp> safeTime,
+            TxStateStorage txStateStorage,
+            PlacementDriver placementDriver,
+            StorageUpdateHandler storageUpdateHandler,
+            Function<Peer, Boolean> isLocalPeerChecker,
+            CompletableFuture<SchemaRegistry> schemaFut
+    ) {
+        this.mvDataStorage = mvDataStorage;
+        this.raftClient = raftClient;
+        this.txManager = txManager;
+        this.lockManager = lockManager;
+        this.scanRequestExecutor = scanRequestExecutor;
+        this.partId = partId;
+        this.tableId = tableId;
+        this.indexesLockers = indexesLockers;
+        this.pkIndexStorage = pkIndexStorage;
+        this.secondaryIndexStorages = secondaryIndexStorages;
+        this.hybridClock = hybridClock;
+        this.safeTime = safeTime;
+        this.txStateStorage = txStateStorage;
+        this.placementDriver = placementDriver;
+        this.isLocalPeerChecker = isLocalPeerChecker;
+        this.storageUpdateHandler = storageUpdateHandler;
+        this.schemaFut = schemaFut;
+
+        this.replicationGroupId = new TablePartitionId(tableId, partId);
+
+        cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Object> invoke(ReplicaRequest request) {

@@ -2076,8 +2076,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             placementDriver,
                                             storageUpdateHandler,
                                             TableManager.this::isLocalPeer,
-                                            completedFuture(schemaManager.schemaRegistry(tblId)),
-                                            null
+                                            completedFuture(schemaManager.schemaRegistry(tblId))
                                     )
                             );
                         } catch (NodeStoppingException e) {
