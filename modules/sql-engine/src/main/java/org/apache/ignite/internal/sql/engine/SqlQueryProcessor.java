@@ -182,7 +182,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.clock = clock;
         this.lastStorageVersion = () -> sqlSchemaManager.lastAppliedVersion();
 
-        schemaWait = () -> sqlSchemaManager.waitActualSchema(lastStorageVersion.get());
+        schemaWait = () -> sqlSchemaManager.waitActualSchema(lastStorageVersion.get()).join();
     }
 
     /** {@inheritDoc} */

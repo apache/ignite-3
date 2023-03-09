@@ -327,15 +327,18 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private void onMessage(String nodeName, QueryStartRequest msg) {
         assert nodeName != null && msg != null;
 
-        DistributedQueryManager queryManager = queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
-            sqlSchemaManager.waitActualSchema(msg.lastVersion());
+        CompletableFuture<?> fut = sqlSchemaManager.waitActualSchema(msg.lastVersion());
 
-            BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters());
+        fut.thenApply((sch) -> {
+            DistributedQueryManager queryManager = queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
+                BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters());
 
-            return new DistributedQueryManager(ctx);
-        });
+                return new DistributedQueryManager(ctx);
+            });
 
-        queryManager.submitFragment(nodeName, msg.root(), msg.fragmentDescription(), msg.txAttributes());
+            return queryManager;
+        }).whenComplete((mgr, e) -> taskExecutor.execute(msg.queryId(), msg.fragmentId(),
+                () -> mgr.submitFragment(nodeName, msg.root(), msg.fragmentDescription(), msg.txAttributes())));
     }
 
     private void onMessage(String nodeName, QueryStartResponse msg) {

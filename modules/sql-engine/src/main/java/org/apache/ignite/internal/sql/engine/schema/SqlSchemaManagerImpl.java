@@ -152,12 +152,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public void waitActualSchema(long ver) {
+    public CompletableFuture<?> waitActualSchema(long ver) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
         try {
-            calciteSchemaVv.get(ver).join();
+            return calciteSchemaVv.get(ver);
         } finally {
             busyLock.leaveBusy();
         }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.schema.SchemaPlus;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,7 +44,7 @@ public interface SqlSchemaManager {
      * Wait for {@code ver} schema version, just a stub, need to be removed after IGNITE-18733.
      * This is a blocking operation.
      */
-    void waitActualSchema(long ver);
+    CompletableFuture<?> waitActualSchema(long ver);
 
     /**
      * Return last applied schema version, just a stub, need to be removed after IGNITE-18733.

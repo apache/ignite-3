@@ -162,7 +162,6 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                 case UNION:
                 case EXCEPT:
                 case INTERSECT:
-                    schemaWait.run();
                     return prepareQuery(sqlNode, planningContext);
 
                 case INSERT:

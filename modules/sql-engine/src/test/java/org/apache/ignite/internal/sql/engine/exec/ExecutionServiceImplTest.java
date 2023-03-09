@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isA;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -40,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
@@ -405,7 +405,7 @@ public class ExecutionServiceImplTest {
         when(schemaManagerMock.tableById(any())).thenReturn(table);
 
         when(schemaManagerMock.lastAppliedVersion()).thenReturn(0L);
-        doNothing().when(schemaManagerMock).waitActualSchema(isA(long.class));
+        when(schemaManagerMock.waitActualSchema(isA(long.class))).thenReturn(CompletableFuture.completedFuture(null));
 
         CalciteSchema rootSch = CalciteSchema.createRootSchema(false);
         rootSch.add(schema.getName(), schema);
