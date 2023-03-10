@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -25,8 +26,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -468,6 +474,30 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 + "x'01020304')";
 
         session.execute(null, insertData);
+
+        var resultSet = session.execute(null, "SELECT * FROM testAllColumnTypes");
+        assertTrue(resultSet.hasRowSet());
+
+        var row = resultSet.next();
+        var meta = resultSet.metadata();
+
+        assertNotNull(meta);
+        assertEquals(14, meta.columns().size());
+
+        assertEquals(1, row.intValue(0));
+        assertEquals(1, row.byteValue(1));
+        assertEquals(2, row.shortValue(2));
+        assertEquals(3, row.intValue(3));
+        assertEquals(4, row.longValue(4));
+        assertEquals(5.5f, row.floatValue(5));
+        assertEquals(6.6, row.doubleValue(6));
+        assertEquals(new BigDecimal("7.77"), row.value(7));
+        assertEquals("foo", row.stringValue(8));
+        assertEquals(LocalDate.of(2020, 1, 1), row.value(9));
+        assertEquals(LocalTime.of(12, 0, 0), row.value(10));
+        assertEquals(LocalDateTime.of(2020, 1, 1, 12, 0, 0), row.value(11));
+        assertEquals(UUID.fromString("10000000-2000-3000-4000-500000000000"), row.value(12));
+        assertArrayEquals(new byte[] {1, 2, 3, 4}, row.value(13));
     }
 
     private void waitForTableOnAllNodes(String tableName) throws InterruptedException {
