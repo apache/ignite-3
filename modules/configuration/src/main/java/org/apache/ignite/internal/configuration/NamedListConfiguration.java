@@ -97,6 +97,13 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
         return config == null ? null : (T) config.specificConfigTree();
     }
 
+    @Override
+    public T get(UUID internalId) {
+        var value = (NamedListNode<?>) value();
+
+        return (T) members.get(value.keyByInternalId(internalId));
+    }
+
     /**
      * Get a raw named config.
      *
@@ -108,13 +115,6 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
         refreshValue();
 
         return (DynamicConfiguration<?, ?>) members.get(name);
-    }
-
-    @Override
-    public T get(UUID internalId) {
-        var value = (NamedListNode<?>) value();
-
-        return (T) members.get(value.keyByInternalId(internalId));
     }
 
     @Override

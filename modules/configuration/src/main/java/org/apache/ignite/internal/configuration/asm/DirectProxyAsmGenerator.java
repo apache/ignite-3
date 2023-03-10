@@ -60,6 +60,7 @@ import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.internal.configuration.DynamicConfigurationChanger;
 import org.apache.ignite.internal.configuration.direct.DirectConfigurationProxy;
 import org.apache.ignite.internal.configuration.direct.DirectNamedListProxy;
+import org.apache.ignite.internal.configuration.direct.DirectPropertyProxy;
 import org.apache.ignite.internal.configuration.direct.DirectValueProxy;
 import org.apache.ignite.internal.configuration.direct.KeyPathNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
@@ -132,6 +133,8 @@ class DirectProxyAsmGenerator extends AbstractAsmGenerator {
 
         addConstructor();
 
+        addDirectProxyMethod();
+
         if (internalIdField != null) {
             addGetMethod(internalIdField);
         }
@@ -162,6 +165,19 @@ class DirectProxyAsmGenerator extends AbstractAsmGenerator {
                 .append(ctor.getScope().getVariable("changer"))
                 .invokeConstructor(DIRECT_CFG_CTOR)
                 .ret();
+    }
+
+    /**
+     * Generates {@link DirectPropertyProxy#directProxy()} method implementation.
+     */
+    private void addDirectProxyMethod() {
+        MethodDefinition directProxy = classDef.declareMethod(
+                EnumSet.of(PUBLIC),
+                "directProxy",
+                typeFromJavaClassName(cgen.schemaInfo(schemaClass).cfgClassName)
+        );
+
+        directProxy.getBody().append(directProxy.getThis()).retObject();
     }
 
     /**

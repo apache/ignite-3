@@ -59,8 +59,8 @@ public interface ConfigurationProperty<VIEWT> {
      * Returns a configuration tree for the purpose of reading configuration directly from the underlying storage. Actual reading is only
      * happening while invoking {@link ConfigurationTree#value()}. It will either throw {@link NoSuchElementException},
      * unchecked runtime exception, or return the value.
-     * <p>
-     * It is important to understand how it processes named list elements. Imagine having element named {@code a} with internalId
+     *
+     * <p>It is important to understand how it processes named list elements. Imagine having element named {@code a} with internalId
      * {@code aId}.
      * <pre><code>
      *     var namedListProxy = namedList.directProxy();
@@ -79,8 +79,8 @@ public interface ConfigurationProperty<VIEWT> {
      *     // case of a rename. Only after deletion.
      *     var aIdElement = aIdElementProxy.value();
      * </code></pre>
-     * <p>
-     * Another important case is how already resolved named list elements are being proxied.
+     *
+     * <p>Another important case is how already resolved named list elements are being proxied.
      * <pre><code>
      *     // Following code is in fact equivalent to a "namedList.directProxy().get(aId);"
      *     // Already resolved elements are always referenced to by their internal ids. This means that proxy will return a valid value

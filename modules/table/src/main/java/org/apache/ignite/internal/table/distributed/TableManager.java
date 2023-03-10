@@ -1805,8 +1805,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private boolean isTableConfigured(UUID id) {
         try {
-            NamedConfigurationTree<TableConfiguration, ?, ?> cfg = directProxy(tablesCfg.tables());
-            ((ExtendedTableConfiguration) cfg.get(id)).id().value();
+            ((ExtendedTableConfiguration) directProxy(tablesCfg.tables()).get(id)).id().value();
 
             return true;
         } catch (NoSuchElementException e) {

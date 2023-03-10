@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
@@ -124,6 +125,9 @@ public class DirectPropertiesTest {
     @Test
     public void testDirectProperties() {
         DirectConfiguration cfg = registry.getConfiguration(DirectConfiguration.KEY);
+
+        // Check that directProxy method returns the same object when called on the direct proxy.
+        assertSame(cfg.directProxy(), cfg.directProxy().directProxy());
 
         // Check all possible orderings.
         assertThat(cfg.directProxy().value().directStr(), is("foo"));

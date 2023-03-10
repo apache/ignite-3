@@ -138,8 +138,7 @@ public class SortedIndexDescriptor implements IndexDescriptor {
     }
 
     private static List<SortedIndexColumnDescriptor> extractIndexColumnsConfiguration(UUID indexId, TablesView tablesConfig) {
-        NamedListView<? extends TableIndexView> node1 = tablesConfig.indexes();
-        TableIndexView indexConfig = node1.get(indexId);
+        TableIndexView indexConfig = tablesConfig.indexes().get(indexId);
 
         if (indexConfig == null) {
             throw new StorageException(String.format("Index configuration for \"%s\" could not be found", indexId));
@@ -152,9 +151,7 @@ public class SortedIndexDescriptor implements IndexDescriptor {
             ));
         }
 
-        NamedListView<? extends TableView> node = tablesConfig.tables();
-        UUID internalId = indexConfig.tableId();
-        TableView tableConfig = node.get(internalId);
+        TableView tableConfig = tablesConfig.tables().get(indexConfig.tableId());
 
         if (tableConfig == null) {
             throw new StorageException(String.format("Table configuration for \"%s\" could not be found", indexConfig.tableId()));
