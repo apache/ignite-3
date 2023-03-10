@@ -67,8 +67,8 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Responsible for:
  * <ul>
  *     <li>Handling cluster init message.</li>
- *     <li>Managing meta storage lifecycle including instantiation meta storage raft group.</li>
- *     <li>Providing corresponding meta storage service proxy interface</li>
+ *     <li>Managing Meta storage lifecycle including instantiation Meta storage raft group.</li>
+ *     <li>Providing corresponding Meta storage service proxy interface</li>
  * </ul>
  */
 public class MetaStorageManagerImpl implements MetaStorageManager {
@@ -94,7 +94,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /** Meta storage service. */
     private final CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut = new CompletableFuture<>();
 
-    /** Actual storage for the Metastorage. */
+    /** Actual storage for Meta storage. */
     private final KeyValueStorage storage;
 
     /** Busy lock to stop synchronously. */
@@ -549,7 +549,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     /**
-     * Compacts meta storage (removes all tombstone entries and old entries except of entries with latest revision).
+     * Compacts Meta storage (removes all tombstone entries and old entries except of entries with latest revision).
      *
      * @see MetaStorageService#compact()
      */
