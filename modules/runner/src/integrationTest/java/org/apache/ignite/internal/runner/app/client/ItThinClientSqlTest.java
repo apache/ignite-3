@@ -427,6 +427,49 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertNull(row.str);
     }
 
+    @Test
+    void testAllColumnTypes() throws InterruptedException {
+        Session session = client().sql().createSession();
+
+        String createTable = "CREATE TABLE testAllColumnTypes("
+                + "ID INT PRIMARY KEY, "
+                + "VAL_BYTE TINYINT, "
+                + "VAL_SHORT SMALLINT, "
+                + "VAL_INT INT, "
+                + "VAL_LONG BIGINT, "
+                + "VAL_FLOAT REAL, "
+                + "VAL_DOUBLE DOUBLE, "
+                + "VAL_DECIMAL DECIMAL(10, 2), "
+                + "VAL_STRING VARCHAR, "
+                + "VAL_DATE DATE, "
+                + "VAL_TIME TIME, "
+                + "VAL_TIMESTAMP TIMESTAMP, "
+                + "VAL_UUID UUID, "
+                + "VAL_BYTES BINARY)";
+
+        session.execute(null, createTable);
+
+        waitForTableOnAllNodes("testAllColumnTypes");
+
+        String insertData = "INSERT INTO testAllColumnTypes VALUES ("
+                + "1, "
+                + "1, "
+                + "2, "
+                + "3, "
+                + "4, "
+                + "5.5, "
+                + "6.6, "
+                + "7.77, "
+                + "'foo', "
+                + "'2020-01-01', "
+                + "'12:00:00', "
+                + "'2020-01-01 12:00:00', "
+                + "'10000000-2000-3000-4000-500000000000', "
+                + "x'01020304')";
+
+        session.execute(null, insertData);
+    }
+
     private void waitForTableOnAllNodes(String tableName) throws InterruptedException {
         // TODO IGNITE-18733, IGNITE-18449: remove this workaround when issues are fixed.
         // Currently newly created table is not immediately available on all nodes.
