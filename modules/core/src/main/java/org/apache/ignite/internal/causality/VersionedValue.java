@@ -52,7 +52,7 @@ public class VersionedValue<T> {
     private static final long NOT_INITIALIZED = -1L;
 
     /** Default history size. */
-    private static final int DEFAULT_MAX_HISTORY_SIZE = 2;
+    private static final int DEFAULT_MAX_HISTORY_SIZE = 10;
 
     /** Size of the history of changes to store, including last applied token. */
     private final int maxHistorySize;
