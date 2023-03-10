@@ -18,7 +18,7 @@
 package org.apache.ignite.configuration;
 
 /**
- * The base class for exceptions that can be thrown during modification of {@link NamedListNode}.
+ * The base class for exceptions that can be thrown during modification of {@link NamedListChange}.
  */
 public abstract class ConfigurationNodeModificationException extends IllegalArgumentException {
 
