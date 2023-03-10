@@ -85,7 +85,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
     }
 
     @Override
-    public long lastAppliedVersion() {
+    public long lastAppliedVersion(String schema) {
         return 0;
     }
 }

@@ -121,7 +121,7 @@ public class ExecutionServiceImplTest {
     private final TestTable table = createTable("TEST_TBL", 1_000_000, IgniteDistributions.random(),
             "ID", NativeTypes.INT32, "VAL", NativeTypes.INT32);
 
-    private final IgniteSchema schema = new IgniteSchema("PUBLIC", Map.of(table.name(), table), null);
+    private final IgniteSchema schema = new IgniteSchema("PUBLIC", Map.of(table.name(), table), null, -1);
 
     private TestCluster testCluster;
     private List<ExecutionServiceImpl<?>> executionServices;
@@ -404,7 +404,7 @@ public class ExecutionServiceImplTest {
 
         when(schemaManagerMock.tableById(any())).thenReturn(table);
 
-        when(schemaManagerMock.lastAppliedVersion()).thenReturn(0L);
+        when(schemaManagerMock.lastAppliedVersion(any())).thenReturn(0L);
         when(schemaManagerMock.waitActualSchema(isA(long.class))).thenReturn(CompletableFuture.completedFuture(null));
 
         CalciteSchema rootSch = CalciteSchema.createRootSchema(false);
@@ -422,7 +422,7 @@ public class ExecutionServiceImplTest {
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
                 exchangeService,
-                ctx -> node.implementor(ctx, mailboxRegistry, exchangeService), () -> 0L
+                ctx -> node.implementor(ctx, mailboxRegistry, exchangeService)
         );
 
         taskExecutor.start();
@@ -457,7 +457,7 @@ public class ExecutionServiceImplTest {
 
         assertThat(nodes, hasSize(1));
 
-        return await(prepareService.prepareAsync(nodes.get(0), ctx, () -> {}));
+        return await(prepareService.prepareAsync(nodes.get(0), ctx));
     }
 
     static class TestCluster {

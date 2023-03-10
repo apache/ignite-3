@@ -268,7 +268,7 @@ public class TestBuilders {
                     .map(ClusterTableBuilderImpl::build)
                     .collect(Collectors.toMap(TestTable::name, Function.identity()));
 
-            var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", tableMap, null));
+            var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", tableMap, null, -1));
 
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> new TestNode(name, clusterService.forNode(name), schemaManager))

@@ -151,10 +151,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Clock. */
     private final HybridClock clock;
 
-    private final Supplier<Long> lastStorageVersion;
-
-    private final Runnable schemaWait;
-
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<Function<Long, CompletableFuture<?>>> registry,
@@ -180,9 +176,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
         this.replicaService = replicaService;
         this.clock = clock;
-        this.lastStorageVersion = () -> sqlSchemaManager.lastAppliedVersion();
-
-        schemaWait = () -> sqlSchemaManager.waitActualSchema(lastStorageVersion.get()).join();
     }
 
     /** {@inheritDoc} */
@@ -237,8 +230,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
                 mailboxRegistry,
-                exchangeService,
-                lastStorageVersion
+                exchangeService
         ));
 
         clusterSrvc.topologyService().addEventHandler(executionSrvc);
@@ -420,6 +412,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .thenCompose(sqlNode -> {
                     boolean rwOp = dataModificationOp(sqlNode);
 
+                    long schemaVersion = sqlSchemaManager.lastAppliedVersion(schemaName);
+
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(
                                     Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
@@ -430,9 +424,10 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .cancel(queryCancel)
                             .parameters(params)
                             .plannerTimeout(PLANNER_TIMEOUT)
+                            .schemaVersion(schemaVersion)
                             .build();
 
-                    return prepareSvc.prepareAsync(sqlNode, ctx, schemaWait)
+                    return prepareSvc.prepareAsync(sqlNode, ctx)
                             .thenApply(plan -> {
                                 context.maybeUnwrap(QueryValidator.class)
                                         .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
@@ -521,7 +516,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             // TODO https://issues.apache.org/jira/browse/IGNITE-17746 Fix query execution flow.
             CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenCompose(none ->
-                            prepareSvc.prepareAsync(sqlNode, ctx, schemaWait))
+                            prepareSvc.prepareAsync(sqlNode, ctx))
                     .thenApply(plan -> {
                         context.maybeUnwrap(QueryValidator.class)
                                 .ifPresent(queryValidator -> queryValidator.validatePlan(plan));

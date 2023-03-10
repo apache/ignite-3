@@ -40,7 +40,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.configuration.ConfigurationChangeException;
@@ -130,8 +129,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private final Map<UUID, DistributedQueryManager> queryManagerMap = new ConcurrentHashMap<>();
 
-    private final Supplier<Long> lastStorageVersion;
-
     /**
      * Creates the execution services.
      *
@@ -154,8 +151,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
             MailboxRegistry mailboxRegistry,
-            ExchangeService exchangeSrvc,
-            Supplier<Long> lastStorageVersion
+            ExchangeService exchangeSrvc
     ) {
         return new ExecutionServiceImpl<>(
                 msgSrvc,
@@ -171,8 +167,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         new HashFunctionFactoryImpl<>(sqlSchemaManager, handler),
                         mailboxRegistry,
                         exchangeSrvc
-                ),
-                lastStorageVersion
+                )
         );
     }
 
@@ -198,8 +193,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
             ExchangeService exchangeSrvc,
-            ImplementorFactory<RowT> implementorFactory,
-            Supplier<Long> lastStorageVersion
+            ImplementorFactory<RowT> implementorFactory
     ) {
         this.localNode = topSrvc.localMember();
         this.handler = handler;
@@ -211,7 +205,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         this.exchangeSrvc = exchangeSrvc;
         this.ddlCmdHnd = ddlCmdHnd;
         this.implementorFactory = implementorFactory;
-        this.lastStorageVersion = lastStorageVersion;
     }
 
     /** {@inheritDoc} */
@@ -329,16 +322,20 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         CompletableFuture<?> fut = sqlSchemaManager.waitActualSchema(msg.lastVersion());
 
-        fut.thenApply((sch) -> {
+        fut.whenComplete((mgr, e) -> {
+            if (e != null) {
+                LOG.error("Schema operation error", e);
+            }
+
             DistributedQueryManager queryManager = queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
                 BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters());
 
                 return new DistributedQueryManager(ctx);
             });
 
-            return queryManager;
-        }).whenComplete((mgr, e) -> taskExecutor.execute(msg.queryId(), msg.fragmentId(),
-                () -> mgr.submitFragment(nodeName, msg.root(), msg.fragmentDescription(), msg.txAttributes())));
+            taskExecutor.execute(msg.queryId(), msg.fragmentId(),
+                    () -> queryManager.submitFragment(nodeName, msg.root(), msg.fragmentDescription(), msg.txAttributes()));
+        });
     }
 
     private void onMessage(String nodeName, QueryStartResponse msg) {
@@ -454,7 +451,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .fragmentDescription(desc)
                     .parameters(ctx.parameters())
                     .txAttributes(txAttributes)
-                    .lastVersion(lastStorageVersion.get())
+                    .lastVersion(ctx.schemaVersion())
                     .build();
 
             var fut = new CompletableFuture<Void>();

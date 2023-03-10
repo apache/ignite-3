@@ -132,7 +132,7 @@ public class TestNode implements LifecycleAware {
 
                         return new ScanNode<>(ctx, dataProvider);
                     }
-                }, () -> 0L
+                }
         ));
     }
 
@@ -181,7 +181,7 @@ public class TestNode implements LifecycleAware {
 
         assertThat(nodes, hasSize(1));
 
-        return await(prepareService.prepareAsync(nodes.get(0), createContext(), () -> {}));
+        return await(prepareService.prepareAsync(nodes.get(0), createContext()));
     }
 
     /**
@@ -194,7 +194,7 @@ public class TestNode implements LifecycleAware {
     public QueryPlan prepare(SqlNode queryAst) {
         assertThat(queryAst, not(instanceOf(SqlNodeList.class)));
 
-        return await(prepareService.prepareAsync(queryAst, createContext(), () -> {}));
+        return await(prepareService.prepareAsync(queryAst, createContext()));
     }
 
     private BaseQueryContext createContext() {

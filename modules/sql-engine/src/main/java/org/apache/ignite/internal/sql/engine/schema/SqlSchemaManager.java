@@ -42,7 +42,6 @@ public interface SqlSchemaManager {
 
     /**
      * Wait for {@code ver} schema version, just a stub, need to be removed after IGNITE-18733.
-     * This is a blocking operation.
      */
     CompletableFuture<?> waitActualSchema(long ver);
 
@@ -51,5 +50,5 @@ public interface SqlSchemaManager {
      *
      * @return Current version.
      */
-    long lastAppliedVersion();
+    long lastAppliedVersion(String schema);
 }

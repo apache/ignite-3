@@ -136,6 +136,7 @@ public class SqlSchemaManagerTest {
         when(mock.name()).thenReturn("T");
 
         when(table.internalTable()).thenReturn(mock);
+        when(table.tableId()).thenReturn(tableId);
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
 
@@ -163,6 +164,7 @@ public class SqlSchemaManagerTest {
         when(mock.name()).thenReturn("T");
 
         when(table.internalTable()).thenReturn(mock);
+        when(table.tableId()).thenReturn(tableId);
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
         when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaRegistry));
@@ -210,6 +212,7 @@ public class SqlSchemaManagerTest {
         when(mock.name()).thenReturn("T");
 
         when(table.internalTable()).thenReturn(mock);
+        when(table.tableId()).thenReturn(tableId);
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
         when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaRegistry));

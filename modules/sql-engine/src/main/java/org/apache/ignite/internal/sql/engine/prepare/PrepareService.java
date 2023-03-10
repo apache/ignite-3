@@ -29,5 +29,5 @@ public interface PrepareService extends LifecycleAware {
     /**
      * Prepare query plan.
      */
-    CompletableFuture<QueryPlan> prepareAsync(SqlNode sqlNode, BaseQueryContext ctx, Runnable schemaWait);
+    CompletableFuture<QueryPlan> prepareAsync(SqlNode sqlNode, BaseQueryContext ctx);
 }

@@ -56,7 +56,7 @@ public interface QueryStartRequest extends ExecutionContextAwareMessage {
     TxAttributes txAttributes();
 
     /**
-     * Return last storage version, just a stub, need to be removed after IGNITE-18733.
+     * Return last schema version, just a stub, need to be removed after IGNITE-18733.
      */
     long lastVersion();
 }

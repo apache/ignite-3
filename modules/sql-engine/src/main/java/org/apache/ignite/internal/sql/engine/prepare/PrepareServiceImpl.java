@@ -142,7 +142,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<QueryPlan> prepareAsync(SqlNode sqlNode, BaseQueryContext ctx, Runnable schemaWait) {
+    public CompletableFuture<QueryPlan> prepareAsync(SqlNode sqlNode, BaseQueryContext ctx) {
         try {
             assert single(sqlNode);
 
@@ -168,7 +168,6 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                 case DELETE:
                 case UPDATE:
                 case MERGE:
-                    schemaWait.run();
                     return prepareDml(sqlNode, planningContext);
 
                 case EXPLAIN:
