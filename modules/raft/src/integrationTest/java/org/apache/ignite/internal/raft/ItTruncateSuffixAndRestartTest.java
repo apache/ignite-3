@@ -289,7 +289,7 @@ public class ItTruncateSuffixAndRestartTest {
 
     private static void waitForValueReplication(List<SimpleIgniteNode> nodes, String value) throws InterruptedException {
         for (SimpleIgniteNode node : nodes) {
-            assertTrue(waitForCondition(() -> value.equals(node.raftGroupListener.lastValue), 2,10_000));
+            assertTrue(waitForCondition(() -> value.equals(node.raftGroupListener.lastValue), 2, 10_000));
         }
     }
 
