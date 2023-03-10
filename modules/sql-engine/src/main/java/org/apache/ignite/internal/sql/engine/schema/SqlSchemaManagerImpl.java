@@ -151,7 +151,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> waitActualSchema(long ver) {
+    public CompletableFuture<?> actualSchemaAsync(long ver) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }

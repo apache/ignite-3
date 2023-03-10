@@ -715,7 +715,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             res2.close();
         }
 
-        // Uncomment after IGNITE-18203
+        // TODO: Uncomment after IGNITE-18203
         /*stopNode(0);
 
         ignite1 = startNode(0);

@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.DDL_EXEC_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.MESSAGE_SEND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_OPERATION_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
@@ -320,22 +321,19 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private void onMessage(String nodeName, QueryStartRequest msg) {
         assert nodeName != null && msg != null;
 
-        CompletableFuture<?> fut = sqlSchemaManager.waitActualSchema(msg.lastVersion());
+        CompletableFuture<?> fut = sqlSchemaManager.actualSchemaAsync(msg.schemaVersion());
 
-        fut.whenComplete((mgr, e) -> {
-            if (e != null) {
-                LOG.error("Schema operation error", e);
-            }
+        if (fut.isDone()) {
+            submitFragment(nodeName, msg);
+        } else {
+            fut.whenComplete((mgr, ex) -> {
+                if (ex != null) {
+                    throw new IgniteInternalException(SCHEMA_OPERATION_ERR, "Can`t obtain actual schema.", ex);
+                }
 
-            DistributedQueryManager queryManager = queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
-                BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters());
-
-                return new DistributedQueryManager(ctx);
+                taskExecutor.execute(msg.queryId(), msg.fragmentId(), () -> submitFragment(nodeName, msg));
             });
-
-            taskExecutor.execute(msg.queryId(), msg.fragmentId(),
-                    () -> queryManager.submitFragment(nodeName, msg.root(), msg.fragmentDescription(), msg.txAttributes()));
-        });
+        }
     }
 
     private void onMessage(String nodeName, QueryStartResponse msg) {
@@ -403,6 +401,16 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return mgr.localFragments();
     }
 
+    private void submitFragment(String nodeName, QueryStartRequest msg) {
+        DistributedQueryManager queryManager = queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
+            BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters());
+
+            return new DistributedQueryManager(ctx);
+        });
+
+        queryManager.submitFragment(nodeName, msg.root(), msg.fragmentDescription(), msg.txAttributes());
+    }
+
     /**
      * A convenient class that manages the initialization and termination of distributed queries.
      */
@@ -451,7 +459,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .fragmentDescription(desc)
                     .parameters(ctx.parameters())
                     .txAttributes(txAttributes)
-                    .lastVersion(ctx.schemaVersion())
+                    .schemaVersion(ctx.schemaVersion())
                     .build();
 
             var fut = new CompletableFuture<Void>();

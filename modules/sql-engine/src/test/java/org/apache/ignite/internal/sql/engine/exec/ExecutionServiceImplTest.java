@@ -405,7 +405,7 @@ public class ExecutionServiceImplTest {
         when(schemaManagerMock.tableById(any())).thenReturn(table);
 
         when(schemaManagerMock.lastAppliedVersion(any())).thenReturn(0L);
-        when(schemaManagerMock.waitActualSchema(isA(long.class))).thenReturn(CompletableFuture.completedFuture(null));
+        when(schemaManagerMock.actualSchemaAsync(isA(long.class))).thenReturn(CompletableFuture.completedFuture(null));
 
         CalciteSchema rootSch = CalciteSchema.createRootSchema(false);
         rootSch.add(schema.getName(), schema);

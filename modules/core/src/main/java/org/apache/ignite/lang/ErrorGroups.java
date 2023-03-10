@@ -157,8 +157,8 @@ public class ErrorGroups {
         /** Object already exists in schema. */
         public static final int OBJECT_ALREADY_EXISTS_ERR = SQL_ERR_GROUP.registerErrorCode(17);
 
-        /** Table version not found. */
-        public static final int TABLE_VER_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(18);
+        /** Schema processing failed. */
+        public static final int SCHEMA_OPERATION_ERR = SQL_ERR_GROUP.registerErrorCode(18);
 
         /** Query mapping error. */
         public static final int QUERY_MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode(19);

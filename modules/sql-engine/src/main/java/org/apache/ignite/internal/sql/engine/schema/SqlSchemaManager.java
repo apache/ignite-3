@@ -43,7 +43,7 @@ public interface SqlSchemaManager {
     /**
      * Wait for {@code ver} schema version, just a stub, need to be removed after IGNITE-18733.
      */
-    CompletableFuture<?> waitActualSchema(long ver);
+    CompletableFuture<?> actualSchemaAsync(long ver);
 
     /**
      * Return last applied schema version, just a stub, need to be removed after IGNITE-18733.
