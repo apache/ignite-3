@@ -275,7 +275,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         return ensureReplicaIsPrimary(request).thenCompose(isPrimary -> processRequest(request, isPrimary));
     }
 
-    private CompletableFuture<?> processRequest(ReplicaRequest request, boolean isPrimary) {
+    private CompletableFuture<?> processRequest(ReplicaRequest request, @Nullable Boolean isPrimary) {
         if (request instanceof ReadWriteSingleRowReplicaRequest) {
             var req = (ReadWriteSingleRowReplicaRequest) request;
 
@@ -291,9 +291,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
             var req = (ReadWriteScanRetrieveBatchReplicaRequest) request;
 
-            return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, () ->
-                    processScanRetrieveBatchAction(req))
-                    .thenApply(Function.identity());
+            return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, () -> processScanRetrieveBatchAction(req));
         } else if (request instanceof ReadWriteScanCloseReplicaRequest) {
             processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
 
@@ -425,7 +423,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         @SuppressWarnings("resource") PartitionTimestampCursor cursor = (PartitionTimestampCursor) cursors.computeIfAbsent(cursorId,
                 id -> mvDataStorage.scan(readTimestamp));
 
-        ArrayList<CompletableFuture<BinaryRow>> resolutionFuts = new ArrayList<>(count);
+        var resolutionFuts = new ArrayList<CompletableFuture<BinaryRow>>(count);
 
         while (resolutionFuts.size() < count && cursor.hasNext()) {
             ReadResult readResult = cursor.next();
@@ -438,7 +436,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return allOf(resolutionFuts.toArray(new CompletableFuture[0])).thenCompose(unused -> {
-            ArrayList<BinaryRow> rows = new ArrayList<>(count);
+            var rows = new ArrayList<BinaryRow>(count);
 
             for (CompletableFuture<BinaryRow> resolutionFut : resolutionFuts) {
                 BinaryRow resolvedReadResult = resolutionFut.join();
@@ -500,7 +498,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param isPrimary Whether the given replica is primary.
      * @return Result future.
      */
-    private CompletableFuture<ArrayList<BinaryRow>> processReadOnlyMultiEntryAction(
+    private CompletableFuture<List<BinaryRow>> processReadOnlyMultiEntryAction(
             ReadOnlyMultiRowReplicaRequest request,
             Boolean isPrimary
     ) {
@@ -516,7 +514,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 : safeTime.waitFor(request.readTimestamp());
 
         return safeReadFuture.thenCompose(unused -> {
-            ArrayList<CompletableFuture<BinaryRow>> resolutionFuts = new ArrayList<>(searchRows.size());
+            var resolutionFuts = new ArrayList<CompletableFuture<BinaryRow>>(searchRows.size());
 
             for (BinaryRow searchRow : searchRows) {
                 CompletableFuture<BinaryRow> fut = resolveRowByPkForReadOnly(searchRow, readTimestamp);
@@ -525,7 +523,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
 
             return allOf(resolutionFuts.toArray(new CompletableFuture[0])).thenApply(unused1 -> {
-                ArrayList<BinaryRow> result = new ArrayList<>(resolutionFuts.size());
+                var result = new ArrayList<BinaryRow>(resolutionFuts.size());
 
                 for (CompletableFuture<BinaryRow> resolutionFut : resolutionFuts) {
                     BinaryRow resolvedReadResult = resolutionFut.join();
@@ -639,7 +637,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
         return lockManager.acquire(txId, new LockKey(tableId), LockMode.S).thenCompose(tblLock -> {
-            ArrayList<BinaryRow> batchRows = new ArrayList<>(batchCount);
+            var batchRows = new ArrayList<BinaryRow>(batchCount);
 
             @SuppressWarnings("resource") PartitionTimestampCursor cursor = (PartitionTimestampCursor) cursors.computeIfAbsent(cursorId,
                     id -> mvDataStorage.scan(HybridTimestamp.MAX_VALUE));
@@ -677,7 +675,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         Cursor<RowId> cursor = (Cursor<RowId>) cursors.computeIfAbsent(cursorId,
                 id -> indexStorage.get(key));
 
-        ArrayList<BinaryRow> result = new ArrayList<>(batchCount);
+        var result = new ArrayList<BinaryRow>(batchCount);
 
         return continueReadOnlyIndexLookup(cursor, timestamp, batchCount, result)
                 .thenCompose(ignore -> completedFuture(result));
@@ -702,7 +700,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         .thenCompose(indRowLock -> { // Hash index bucket S lock
                             Cursor<RowId> cursor = (Cursor<RowId>) cursors.computeIfAbsent(cursorId, id -> indexStorage.get(exactKey));
 
-                            ArrayList<BinaryRow> result = new ArrayList<>(batchCount);
+                            var result = new ArrayList<BinaryRow>(batchCount);
 
                             return continueIndexLookup(txId, cursor, batchCount, result)
                                     .thenApply(ignore -> result);
@@ -769,7 +767,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 SortedIndexLocker indexLocker = (SortedIndexLocker) indexesLockers.get().get(indexId);
 
-                ArrayList<BinaryRow> result = new ArrayList<>(batchCount);
+                var result = new ArrayList<BinaryRow>(batchCount);
 
                 return continueIndexScan(txId, indexLocker, cursor, batchCount, result, isUpperBoundAchieved)
                         .thenApply(ignore -> result);
@@ -806,10 +804,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                         flags
                 ));
 
-        ArrayList<BinaryRow> result = new ArrayList<>(batchCount);
+        var result = new ArrayList<BinaryRow>(batchCount);
 
         return continueReadOnlyIndexScan(cursor, timestamp, batchCount, result)
-                .thenCompose(ignore -> completedFuture(result));
+                .thenApply(ignore -> result);
     }
 
     private CompletableFuture<Void> continueReadOnlyIndexScan(
@@ -1349,7 +1347,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 return allOf(rowFuts)
                         .thenCompose(ignored -> {
-                            ArrayList<BinaryRow> result = new ArrayList<>(request.binaryRows().size());
+                            var result = new ArrayList<BinaryRow>(request.binaryRows().size());
 
                             for (int idx = 0; idx < request.binaryRows().size(); idx++) {
                                 result.add(rowFuts[idx].join());
@@ -1822,7 +1820,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return allOf(locks).thenApply(unused -> {
-            ArrayList<Lock> shortTermLocks = new ArrayList<>();
+            var shortTermLocks = new ArrayList<Lock>();
 
             for (CompletableFuture<Lock> lockFut : locks) {
                 Lock shortTermLock = lockFut.join();
