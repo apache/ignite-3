@@ -471,7 +471,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 + "'12:00:00', "
                 + "'2020-01-01 12:00:00', "
                 + "'10000000-2000-3000-4000-500000000000', "
-                + "x'01020304')";
+                + "x'42')";
 
         session.execute(null, insertData);
 
@@ -497,7 +497,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(LocalTime.of(12, 0, 0), row.value(10));
         assertEquals(LocalDateTime.of(2020, 1, 1, 12, 0, 0), row.value(11));
         assertEquals(UUID.fromString("10000000-2000-3000-4000-500000000000"), row.value(12));
-        assertArrayEquals(new byte[] {1, 2, 3, 4}, row.value(13));
+        assertArrayEquals(new byte[]{0x42}, row.value(13));
     }
 
     private void waitForTableOnAllNodes(String tableName) throws InterruptedException {
