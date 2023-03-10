@@ -127,14 +127,15 @@ public class DirectPropertiesTest {
         DirectConfiguration cfg = registry.getConfiguration(DirectConfiguration.KEY);
 
         // Check that directProxy method returns the same object when called on the direct proxy.
-        assertSame(cfg.directProxy(), cfg.directProxy().directProxy());
+        DirectConfiguration directProxy = cfg.directProxy();
+        assertSame(directProxy, directProxy.directProxy());
 
         // Check all possible orderings.
         assertThat(cfg.directProxy().value().directStr(), is("foo"));
         assertThat(cfg.directProxy().directStr().value(), is("foo"));
         assertThat(cfg.directStr().directProxy().value(), is("foo"));
 
-        // Check access to more deep subconfigurations.
+        // Check access to more deep sub-configurations.
         assertThat(cfg.directProxy().value().child().str(), is("bar"));
         assertThat(cfg.directProxy().child().value().str(), is("bar"));
         assertThat(cfg.directProxy().child().str().value(), is("bar"));
