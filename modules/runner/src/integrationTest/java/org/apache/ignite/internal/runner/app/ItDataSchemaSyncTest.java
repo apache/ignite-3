@@ -191,7 +191,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      * Test correctness of schemes recovery after node restart.
      */
     @Test
-    @Disabled("Enable when IGNITE-18506 is fixed")
+    @Disabled("Enable when IGNITE-18203 is fixed")
     public void checkSchemasCorrectlyRestore() throws Exception {
         Ignite ignite1 = clusterNodes.get(1);
 
@@ -218,25 +218,27 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         ignite1 = ignite1Fut.get();
 
-        Session ses = ignite1.sql().createSession();
+        try (Session ses = ignite1.sql().createSession()) {
+            ResultSet<SqlRow> res = ses.execute(null, "SELECT valint2 FROM tbl1");
 
-        ResultSet<SqlRow> res = ses.execute(null, "SELECT valint2 FROM tbl1");
+            for (int i = 0; i < 10; ++i) {
+                assertNotNull(res.next().iterator().next());
+            }
 
-        for (int i = 0; i < 10; ++i) {
-            assertNotNull(res.next().iterator().next());
+            for (int i = 10; i < 20; ++i) {
+                sql(ignite1, String.format("INSERT INTO " + TABLE_NAME + " VALUES(%d, %d, %d, %d)", i, i, i, i));
+            }
+
+            sql(ignite1, "ALTER TABLE " + TABLE_NAME + " DROP COLUMN valint3");
+
+            sql(ignite1, "ALTER TABLE " + TABLE_NAME + " ADD COLUMN valint5 INT");
+
+            res = ses.execute(null, "SELECT sum(valint4) FROM tbl1");
+
+            assertEquals(10L * (10 + 19) / 2, res.next().iterator().next());
+
+            res.close();
         }
-
-        for (int i = 10; i < 20; ++i) {
-            sql(ignite1, String.format("INSERT INTO " + TABLE_NAME + " VALUES(%d, %d, %d, %d)", i, i, i, i));
-        }
-
-        sql(ignite1, "ALTER TABLE " + TABLE_NAME + " DROP COLUMN valint3");
-
-        sql(ignite1, "ALTER TABLE " + TABLE_NAME + " ADD COLUMN valint5 INT");
-
-        res = ses.execute(null, "SELECT sum(valint4) FROM tbl1");
-
-        assertEquals(res.next().iterator().next(), 10L * (10 + 19) / 2);
     }
 
     /**
