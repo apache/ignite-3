@@ -493,9 +493,7 @@ public class VersionedValue<T> {
                 NavigableMap<Long, CompletableFuture<T>> oldTokensMap = history.headMap(causalityToken, true);
 
                 if (oldTokensMap.size() > maxHistorySize) {
-                    synchronized (trimHistoryMutex) {
-                        trimToSize(oldTokensMap);
-                    }
+                    trimToSize(oldTokensMap);
                 }
             });
         }
@@ -562,11 +560,13 @@ public class VersionedValue<T> {
      * Trims the storage to history size.
      */
     private void trimToSize(NavigableMap<Long, CompletableFuture<T>> map) {
-        Iterator<Long> it = map.keySet().iterator();
+        synchronized (trimHistoryMutex) {
+            Iterator<Long> it = map.keySet().iterator();
 
-        for (int i = map.size(); i > maxHistorySize; i--) {
-            it.next();
-            it.remove();
+            for (int i = map.size(); i > maxHistorySize; i--) {
+                it.next();
+                it.remove();
+            }
         }
     }
 

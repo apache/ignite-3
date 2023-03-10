@@ -601,7 +601,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             // "allChanges" map can be empty here in case the given update matches the current state of the local configuration. We
             // still try to write the empty update, because local configuration can be obsolete. If this is the case, then the CAS will
-            // fail and the update will be recalculated and there is a chance that the new local configuration will produce an non-empty
+            // fail and the update will be recalculated and there is a chance that the new local configuration will produce a non-empty
             // update.
             return storage.write(allChanges, localRoots.version)
                     .thenCompose(casWroteSuccessfully -> {

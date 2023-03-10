@@ -209,14 +209,14 @@ public class VersionedValueTest {
      */
     @Test
     public void testObsoleteToken() {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(null, 2, null);
+        VersionedValue<Integer> versionedValue = new VersionedValue<>(null, 2, null);
 
-        longVersionedValue.complete(0, TEST_VALUE);
-        longVersionedValue.complete(1, TEST_VALUE);
+        versionedValue.complete(0, TEST_VALUE);
+        versionedValue.complete(1, TEST_VALUE);
         // Internal map size is now 3: one actual and two old tokens. One old token must be removed.
-        longVersionedValue.complete(2, TEST_VALUE);
+        versionedValue.complete(2, TEST_VALUE);
 
-        assertThrowsExactly(OutdatedTokenException.class, () -> longVersionedValue.get(0));
+        assertThrowsExactly(OutdatedTokenException.class, () -> versionedValue.get(0));
     }
 
     /**

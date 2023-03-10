@@ -75,6 +75,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.NamedConfigurationTree;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -113,6 +114,7 @@ import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -195,8 +197,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private static final IntSupplier TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER = () -> TX_STATE_STORAGE_FLUSH_DELAY;
 
     /**
-     * If this property is set to {@code true} then an attempt to get the configuration property directly from Meta storage will be
-     * skipped, and the local property will be returned.
+     * If this property is set to {@code true} then an attempt to get the configuration property directly from Meta storage will be skipped,
+     * and the local property will be returned.
      * TODO: IGNITE-16774 This property and overall approach, access configuration directly through Meta storage,
      * TODO: will be removed after fix of the issue.
      */
@@ -1513,48 +1515,41 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** See {@link #dropTableAsync(String)} for details. */
     private CompletableFuture<Void> dropTableAsyncInternal(String name) {
-        CompletableFuture<Void> dropTblFut = new CompletableFuture<>();
-
-        tableAsyncInternal(name).thenAccept(tbl -> {
+        return tableAsyncInternal(name).thenCompose(tbl -> {
             // In case of drop it's an optimization that allows not to fire drop-change-closure if there's no such
             // distributed table and the local config has lagged behind.
             if (tbl == null) {
-                dropTblFut.completeExceptionally(new TableNotFoundException(DEFAULT_SCHEMA_NAME, name));
-            } else {
-                tablesCfg.change(chg ->
-                                chg.changeTables(tblChg -> {
-                                    TableView tableCfg = tblChg.get(name);
-
-                                    if (tableCfg == null) {
-                                        throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, name);
-                                    }
-
-                                    tblChg.delete(name);
-                                }).changeIndexes(idxChg -> {
-                                    List<String> indicesNames = tablesCfg.indexes().value().namedListKeys();
-
-                                    indicesNames.stream().filter(idx ->
-                                            tablesCfg.indexes().get(idx).tableId().value().equals(tbl.tableId())).forEach(idxChg::delete);
-                                }))
-                        .whenComplete((res, t) -> {
-                            if (t != null) {
-                                Throwable ex = getRootCause(t);
-
-                                if (ex instanceof TableNotFoundException) {
-                                    dropTblFut.completeExceptionally(ex);
-                                } else {
-                                    LOG.debug("Unable to drop table [name={}]", ex, name);
-
-                                    dropTblFut.completeExceptionally(ex);
-                                }
-                            } else {
-                                dropTblFut.complete(res);
-                            }
-                        });
+                return failedFuture(new TableNotFoundException(DEFAULT_SCHEMA_NAME, name));
             }
-        });
 
-        return dropTblFut;
+            return tablesCfg
+                    .change(chg -> chg
+                            .changeTables(tblChg -> {
+                                if (tblChg.get(name) == null) {
+                                    throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, name);
+                                }
+
+                                tblChg.delete(name);
+                            })
+                            .changeIndexes(idxChg -> {
+                                NamedListView<? extends TableIndexView> indexes = chg.indexes();
+
+                                for (String indexName : indexes.namedListKeys()) {
+                                    if (indexes.get(indexName).tableId().equals(tbl.tableId())) {
+                                        idxChg.delete(indexName);
+                                    }
+                                }
+                            }))
+                    .exceptionally(t -> {
+                        Throwable ex = getRootCause(t);
+
+                        if (!(ex instanceof TableNotFoundException)) {
+                            LOG.debug("Unable to drop table [name={}]", ex, name);
+                        }
+
+                        throw new CompletionException(ex);
+                    });
+        });
     }
 
     /** {@inheritDoc} */
