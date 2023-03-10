@@ -31,6 +31,7 @@ import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.exception.UnitAlreadyExistsException;
 import org.apache.ignite.internal.cli.core.exception.UnitNotFoundException;
+import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -87,7 +88,7 @@ public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBas
 
         // Then
         assertThat(deployOutput.hasError()).isFalse();
-        assertThat(deployOutput.body()).isEqualTo(UiElements.done().represent());
+        assertThat(deployOutput.body()).isEqualTo(MessageUiComponent.from(UiElements.done()).render());
         // And list is not empty
         List<UnitStatusRecord> unisStatuses = listUnitCall.execute(urlInput).body();
         assertThat(unisStatuses.size()).isEqualTo(1);
@@ -97,7 +98,7 @@ public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBas
         // When undeploy unit
         CallOutput<String> undeployOutput = undeployUnitCall.execute(undeployInput("test.id", "1.0.0"));
         assertThat(undeployOutput.hasError()).isFalse();
-        assertThat(undeployOutput.body()).isEqualTo(UiElements.done().represent());
+        assertThat(undeployOutput.body()).isEqualTo(MessageUiComponent.from(UiElements.done()).render());
 
         // Then list is empty
         assertThat(listUnitCall.execute(urlInput).isEmpty()).isTrue();

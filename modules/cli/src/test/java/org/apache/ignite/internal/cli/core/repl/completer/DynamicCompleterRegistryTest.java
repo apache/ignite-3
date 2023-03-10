@@ -337,7 +337,7 @@ class DynamicCompleterRegistryTest {
         assertThat(connectCompleter, both(hasSize(1)).and(containsInAnyOrder(completer1)));
 
         // When there is one positional argument typed
-        List<DynamicCompleter> connectCompleterWithPositional = registry.findCompleters(words("connect", "arg1"));
+        List<DynamicCompleter> connectCompleterWithPositional = registry.findCompleters(words("connect", "arg1", ""));
 
         // Then completer is not returned
         assertThat(connectCompleterWithPositional, hasSize(0));
