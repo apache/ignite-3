@@ -35,6 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
+import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -149,14 +150,20 @@ public class ClientHandlerModule implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        metricManager.registerSource(metrics);
-
         if (channel != null) {
             throw new IgniteException("ClientHandlerModule is already started.");
         }
 
+        var configuration = registry.getConfiguration(ClientConnectorConfiguration.KEY).value();
+
+        metricManager.registerSource(metrics);
+
+        if (configuration.metricsEnabled()) {
+            metrics.enable();
+        }
+
         try {
-            channel = startEndpoint().channel();
+            channel = startEndpoint(configuration).channel();
             clusterId = clusterIdSupplier.get().join();
         } catch (InterruptedException e) {
             throw new IgniteException(e);
@@ -192,13 +199,12 @@ public class ClientHandlerModule implements IgniteComponent {
     /**
      * Starts the endpoint.
      *
+     * @param configuration Configuration.
      * @return Channel future.
      * @throws InterruptedException If thread has been interrupted during the start.
      * @throws IgniteException      When startup has failed.
      */
-    private ChannelFuture startEndpoint() throws InterruptedException {
-        var configuration = registry.getConfiguration(ClientConnectorConfiguration.KEY).value();
-
+    private ChannelFuture startEndpoint(ClientConnectorView configuration) throws InterruptedException {
         int desiredPort = configuration.port();
         int portRange = configuration.portRange();
 
