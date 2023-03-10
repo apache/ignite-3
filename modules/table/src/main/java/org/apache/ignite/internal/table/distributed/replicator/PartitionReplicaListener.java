@@ -838,14 +838,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                             + readResult.newestCommitTimestamp() + ']';
 
             return committedReadResult.binaryRow();
-        }).thenCompose(resolvedReadResult -> {
+        })
+        .thenComposeAsync(resolvedReadResult -> {
             if (resolvedReadResult != null) {
                 result.add(resolvedReadResult);
             }
 
-            return CompletableFuture.supplyAsync(() -> continueReadOnlyIndexScan(cursor, timestamp, batchSize, result))
-                    .thenCompose(Function.identity());
-        });
+            return continueReadOnlyIndexScan(cursor, timestamp, batchSize, result);
+        }, scanRequestExecutor);
     }
 
     /**
@@ -878,7 +878,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return lockManager.acquire(txId, new LockKey(tableId, currentRow.rowId()), LockMode.S)
-                            .thenCompose(rowLock -> { // Table row S lock
+                            .thenComposeAsync(rowLock -> { // Table row S lock
                                 ReadResult readResult = mvDataStorage.read(currentRow.rowId(), HybridTimestamp.MAX_VALUE);
                                 BinaryRow resolvedReadResult = resolveReadResult(readResult, txId);
 
@@ -887,11 +887,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 }
 
                                 // Proceed scan.
-                                return CompletableFuture.supplyAsync(
-                                        () -> continueIndexScan(txId, indexLocker, indexCursor, batchSize, result, isUpperBoundAchieved),
-                                        scanRequestExecutor
-                                ).thenCompose(Function.identity());
-                            });
+                                return continueIndexScan(txId, indexLocker, indexCursor, batchSize, result, isUpperBoundAchieved);
+                            }, scanRequestExecutor);
                 });
     }
 
@@ -908,7 +905,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         RowId rowId = indexCursor.next();
 
         return lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.S)
-                .thenCompose(rowLock -> { // Table row S lock
+                .thenComposeAsync(rowLock -> { // Table row S lock
                     ReadResult readResult = mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE);
                     BinaryRow resolvedReadResult = resolveReadResult(readResult, txId);
 
@@ -917,11 +914,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     // Proceed lookup.
-                    return CompletableFuture.supplyAsync(
-                            () -> continueIndexLookup(txId, indexCursor, batchSize, result),
-                            scanRequestExecutor
-                    ).thenCompose(Function.identity());
-                });
+                    return continueIndexLookup(txId, indexCursor, batchSize, result);
+                }, scanRequestExecutor);
     }
 
     private CompletableFuture<Void> continueReadOnlyIndexLookup(
@@ -950,14 +944,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                             + readResult.newestCommitTimestamp() + ']';
 
             return committedReadResult.binaryRow();
-        }).thenCompose(resolvedReadResult -> {
+        }).thenComposeAsync(resolvedReadResult -> {
             if (resolvedReadResult != null) {
                 result.add(resolvedReadResult);
             }
 
-            return CompletableFuture.supplyAsync(() -> continueReadOnlyIndexLookup(indexCursor, timestamp, batchSize, result))
-                    .thenCompose(Function.identity());
-        });
+            return continueReadOnlyIndexLookup(indexCursor, timestamp, batchSize, result);
+        }, scanRequestExecutor);
     }
 
     /**
