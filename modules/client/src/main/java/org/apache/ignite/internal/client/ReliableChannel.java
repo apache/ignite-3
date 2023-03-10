@@ -609,6 +609,9 @@ public final class ReliableChannel implements AutoCloseable {
      * Asynchronously try to establish a connection to all configured servers.
      */
     private void initAllChannelsAsync() {
+        // TODO: IGNITE-18809: Repeat reconnect periodically.
+        // 1. Use a separate executor for that instead of ForkJoinPool.commonPool()? Or a timer?
+        // 2. Make sure this process is initiated only once.
         ForkJoinPool.commonPool().submit(
                 () -> {
                     List<ClientChannelHolder> holders = channels;
