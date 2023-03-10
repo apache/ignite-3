@@ -28,7 +28,7 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  * Represents the state of the CMG. It contains:
  * <ol>
- *     <li>Names of the nodes that host the Meta Storage.</li>
+ *     <li>Names of the nodes that host Meta storage.</li>
  *     <li>Names of the nodes that host the CMG.</li>
  *     <li>Ignite version of the nodes that comprise the cluster.</li>
  *     <li>Cluster tag, unique for a particular Ignite cluster.</li>
@@ -42,7 +42,7 @@ public interface ClusterState extends NetworkMessage, Serializable {
     Set<String> cmgNodes();
 
     /**
-     * Returns node names that host the Meta Storage.
+     * Returns node names that host Meta storage.
      */
     Set<String> metaStorageNodes();
 
