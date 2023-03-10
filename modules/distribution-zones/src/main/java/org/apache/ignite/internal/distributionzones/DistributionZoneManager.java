@@ -569,13 +569,7 @@ public class DistributionZoneManager implements IgniteComponent {
             dataNodes.putIfAbsent(zoneId, new DataNodes());
 
             if (topVer > lastTopVer) {
-                topVerFut = topVerFutures.get(topVer);
-
-                if (topVerFut == null) {
-                    topVerFut = new CompletableFuture<>();
-
-                    topVerFutures.put(topVer, topVerFut);
-                }
+                topVerFut = topVerFutures.computeIfAbsent(topVer, key -> new CompletableFuture<>());
             } else {
                 topVerFut = completedFuture(null);
             }
@@ -808,6 +802,15 @@ public class DistributionZoneManager implements IgniteComponent {
                 zoneState.stopScaleUp();
             }
 
+            if (newScaleUp > 0) {
+                synchronized (dataNodesMutex) {
+                    dataNodes.get(zoneId).revisionScaleUpFutures().values()
+                            .forEach(fut0 -> fut0.complete(null));
+
+                    dataNodes.get(zoneId).revisionScaleUpFutures().clear();
+                }
+            }
+
             return completedFuture(null);
         };
     }
@@ -844,6 +847,15 @@ public class DistributionZoneManager implements IgniteComponent {
                 );
             } else {
                 zoneState.stopScaleDown();
+            }
+
+            if (newScaleDown > 0) {
+                synchronized (dataNodesMutex) {
+                    dataNodes.get(zoneId).revisionScaleDownFutures().values()
+                            .forEach(fut0 -> fut0.complete(null));
+
+                    dataNodes.get(zoneId).revisionScaleDownFutures().clear();
+                }
             }
 
             return completedFuture(null);
