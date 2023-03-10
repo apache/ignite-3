@@ -498,6 +498,20 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(LocalDateTime.of(2020, 1, 1, 12, 0, 0), row.value(11));
         assertEquals(UUID.fromString("10000000-2000-3000-4000-500000000000"), row.value(12));
         assertArrayEquals(new byte[]{0x42}, row.value(13));
+
+        assertEquals(ColumnType.INT8, meta.columns().get(1).type());
+        assertEquals(ColumnType.INT16, meta.columns().get(2).type());
+        assertEquals(ColumnType.INT32, meta.columns().get(3).type());
+        assertEquals(ColumnType.INT64, meta.columns().get(4).type());
+        assertEquals(ColumnType.FLOAT, meta.columns().get(5).type());
+        assertEquals(ColumnType.DOUBLE, meta.columns().get(6).type());
+        assertEquals(ColumnType.DECIMAL, meta.columns().get(7).type());
+        assertEquals(ColumnType.STRING, meta.columns().get(8).type());
+        assertEquals(ColumnType.DATE, meta.columns().get(9).type());
+        assertEquals(ColumnType.TIME, meta.columns().get(10).type());
+        assertEquals(ColumnType.DATETIME, meta.columns().get(11).type());
+        assertEquals(ColumnType.UUID, meta.columns().get(12).type());
+        assertEquals(ColumnType.BYTE_ARRAY, meta.columns().get(13).type());
     }
 
     private void waitForTableOnAllNodes(String tableName) throws InterruptedException {
