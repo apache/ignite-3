@@ -41,7 +41,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.io.File;
-import java.net.URISyntaxException;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -70,7 +71,6 @@ import org.apache.ignite.rest.client.model.MetricSource;
 import org.apache.ignite.rest.client.model.NodeState;
 import org.apache.ignite.rest.client.model.Problem;
 import org.apache.ignite.rest.client.model.UnitStatus;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -404,11 +404,10 @@ public class ItGeneratedRestClientTest {
         assertThat(problem.getDetail(), containsString("Unit test.unit.id with version 0.0.0 doesn't exist"));
     }
 
-    @NotNull
-    private static File emptyFile() {
+    private File emptyFile() {
         try {
-            return new File(ItGeneratedRestClientTest.class.getClassLoader().getResource("empty.file").toURI());
-        } catch (URISyntaxException e) {
+            return Files.createTempFile("empty", "file").toFile();
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }

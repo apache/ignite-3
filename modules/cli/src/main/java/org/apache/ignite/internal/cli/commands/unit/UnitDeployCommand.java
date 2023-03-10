@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.cli.commands.unit;
 
 
-import static org.apache.ignite.internal.cli.commands.Options.Constants.PATH_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_PATH_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_PATH_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_PATH_OPTION_SHORT;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VERSION_OPTION_DESC;
@@ -54,7 +54,7 @@ public class UnitDeployCommand extends BaseCommand implements Callable<Integer> 
     private String version;
 
     /** Unit path. */
-    @Option(names = {PATH_OPTION, UNIT_PATH_OPTION_SHORT}, description = UNIT_PATH_OPTION_DESC, required = true)
+    @Option(names = {UNIT_PATH_OPTION, UNIT_PATH_OPTION_SHORT}, description = UNIT_PATH_OPTION_DESC, required = true)
     private Path path;
 
     @Inject

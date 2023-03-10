@@ -47,7 +47,7 @@ public enum Options {
     SCRIPT_FILE(Constants.SCRIPT_FILE_OPTION, Constants.SCRIPT_FILE_OPTION_SHORT, Constants.SCRIPT_FILE_OPTION_DESC),
     JDBC_URL(Constants.JDBC_URL_OPTION, Constants.JDBC_URL_OPTION_SHORT, Constants.JDBC_URL_OPTION_DESC),
 
-    UNIT_PATH(Constants.PATH_OPTION, Constants.UNIT_PATH_OPTION_SHORT, Constants.UNIT_PATH_OPTION_DESC),
+    UNIT_PATH(Constants.UNIT_PATH_OPTION, Constants.UNIT_PATH_OPTION_SHORT, Constants.UNIT_PATH_OPTION_DESC),
     UNIT_VERSION(Constants.VERSION_OPTION, Constants.UNIT_VERSION_OPTION_SHORT, Constants.UNIT_VERSION_OPTION_DESC),
 
     PLAIN(Constants.PLAIN_OPTION, Constants.PLAIN_OPTION, Constants.PLAIN_OPTION_DESC),
@@ -219,7 +219,7 @@ public enum Options {
         public static final String UNIT_VERSION_OPTION_DESC = "Unit version (x.y.z)";
 
         /** Path option long name. */
-        public static final String PATH_OPTION = "--path";
+        public static final String UNIT_PATH_OPTION = "--path";
 
         /** Unit path option short name. */
         public static final String UNIT_PATH_OPTION_SHORT = "-up";
