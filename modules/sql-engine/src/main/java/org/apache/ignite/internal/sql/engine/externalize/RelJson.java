@@ -734,12 +734,6 @@ class RelJson {
                     );
                 } else if (sqlTypeName == SqlTypeName.ANY && customType != null) {
                     type = ((IgniteTypeFactory) typeFactory).createCustomType(customType, precision);
-
-                    // TODO workaround for https://issues.apache.org/jira/browse/IGNITE-18752
-                    //  IgniteCustomType: custom data type are created with nullability set to true to overcome some calcite bugs.
-                    //  It safe to create a type with correct nullability after deserialization
-                    //  (built-in types are not nullable by default).
-                    type = typeFactory.createTypeWithNullability(type, nullable);
                 } else if (precision == null) {
                     type = typeFactory.createSqlType(sqlTypeName);
                 } else if (scale == null) {
