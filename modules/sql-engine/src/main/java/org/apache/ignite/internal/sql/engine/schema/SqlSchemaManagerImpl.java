@@ -109,7 +109,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         calciteSchemaVv = new VersionedValue<>(null, () -> {
             SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
-            newCalciteSchema.add(DEFAULT_SCHEMA_NAME, new IgniteSchema(DEFAULT_SCHEMA_NAME, -1));
+            newCalciteSchema.add(DEFAULT_SCHEMA_NAME, new IgniteSchema(DEFAULT_SCHEMA_NAME));
             return newCalciteSchema;
         });
 
@@ -346,7 +346,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     private SchemaPlus rebuild(Map<String, IgniteSchema> schemas) {
         SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
 
-        newCalciteSchema.add(DEFAULT_SCHEMA_NAME, new IgniteSchema(DEFAULT_SCHEMA_NAME, -1));
+        newCalciteSchema.add(DEFAULT_SCHEMA_NAME, new IgniteSchema(DEFAULT_SCHEMA_NAME));
 
         schemas.forEach(newCalciteSchema::add);
 

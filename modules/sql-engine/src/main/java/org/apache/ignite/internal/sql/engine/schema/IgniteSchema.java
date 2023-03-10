@@ -24,7 +24,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Ignite schema.
@@ -62,7 +61,6 @@ public class IgniteSchema extends AbstractSchema {
      *
      * @param schemaName A name of the schema to create.
      */
-    @TestOnly
     public IgniteSchema(String schemaName) {
         this(schemaName, null, null, -1);
     }
