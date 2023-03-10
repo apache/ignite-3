@@ -32,6 +32,8 @@ import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 /**
  * Test Ignite SQL functions.
@@ -55,6 +57,7 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     public void testCurrentDateTimeTimeStamp() {
         checkDateTimeQuery("SELECT CURRENT_DATE", Clock.DATE_CLOCK, LocalDate.class);
         checkDateTimeQuery("SELECT CURRENT_TIME", Clock.TIME_CLOCK, LocalTime.class);

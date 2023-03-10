@@ -225,15 +225,16 @@ public class LeastRestrictiveTypesTest {
     private static Stream<Arguments> uuidTests() {
         List<Arguments> tests = new ArrayList<>();
 
-        tests.add(Arguments.arguments(UUID, TINYINT, new LeastRestrictiveType(ANY)));
-        tests.add(Arguments.arguments(UUID, SMALLINT, new LeastRestrictiveType(ANY)));
-        tests.add(Arguments.arguments(UUID, INTEGER, new LeastRestrictiveType(ANY)));
-        tests.add(Arguments.arguments(UUID, FLOAT, new LeastRestrictiveType(ANY)));
-        tests.add(Arguments.arguments(UUID, REAL, new LeastRestrictiveType(ANY)));
-        tests.add(Arguments.arguments(UUID, DOUBLE, new LeastRestrictiveType(ANY)));
-        tests.add(Arguments.arguments(UUID, DECIMAL, new LeastRestrictiveType(ANY)));
-        tests.add(Arguments.arguments(UUID, BIGINT, new LeastRestrictiveType(ANY)));
-        tests.add(Arguments.arguments(UUID, VARCHAR, new LeastRestrictiveType(UUID)));
+        tests.add(Arguments.arguments(UUID, TINYINT, LeastRestrictiveType.none()));
+        tests.add(Arguments.arguments(UUID, SMALLINT, LeastRestrictiveType.none()));
+        tests.add(Arguments.arguments(UUID, INTEGER, LeastRestrictiveType.none()));
+        tests.add(Arguments.arguments(UUID, FLOAT, LeastRestrictiveType.none()));
+        tests.add(Arguments.arguments(UUID, REAL, LeastRestrictiveType.none()));
+        tests.add(Arguments.arguments(UUID, DOUBLE, LeastRestrictiveType.none()));
+        tests.add(Arguments.arguments(UUID, DECIMAL, LeastRestrictiveType.none()));
+        tests.add(Arguments.arguments(UUID, BIGINT, LeastRestrictiveType.none()));
+        tests.add(Arguments.arguments(UUID, VARCHAR, LeastRestrictiveType.none()));
+        tests.add(Arguments.arguments(UUID, UUID, new LeastRestrictiveType(UUID)));
 
         return tests.stream();
     }
@@ -247,6 +248,10 @@ public class LeastRestrictiveTypesTest {
 
         private LeastRestrictiveType(RelDataType relDataType) {
             this.relDataType = relDataType;
+        }
+
+        private static LeastRestrictiveType none() {
+            return new LeastRestrictiveType((RelDataType) null);
         }
 
         @Override

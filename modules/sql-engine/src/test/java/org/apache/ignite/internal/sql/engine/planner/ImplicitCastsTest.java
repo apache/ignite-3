@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -35,6 +37,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -44,10 +48,6 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Type coercion related tests that ensure that the necessary casts are placed where it is necessary.
  */
 public class ImplicitCastsTest extends AbstractPlannerTest {
-
-    private static final RelDataType INTEGER = TYPE_FACTORY.createSqlType(SqlTypeName.INTEGER);
-
-    private static final RelDataType FLOAT = TYPE_FACTORY.createSqlType(SqlTypeName.FLOAT);
 
 
     /** MergeSort join - casts are pushed down to children. **/
@@ -82,62 +82,30 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
     /** Filter clause - casts are added to condition operands. **/
     @ParameterizedTest
     @MethodSource("filterTypes")
-    public void testFilter(RelDataType lhs, ExpectedTypes expected) throws Exception {
+    public void testFilter(RelDataType lhs, RelDataType rhs, ExpectedTypes expected) throws Exception {
         IgniteSchema igniteSchema = new IgniteSchema("PUBLIC");
 
         addTable(igniteSchema, "A1", "COL1", lhs);
 
-        assertPlan("SELECT * FROM A1 WHERE COL1 > 1", igniteSchema, isInstanceOf(IgniteTableScan.class)
+        // Parameter types are not checked during the validation phase.
+        List<Object> params = List.of("anything");
+
+        assertPlan("SELECT * FROM A1 WHERE COL1 > CAST(? AS " + rhs + ")", igniteSchema, isInstanceOf(IgniteTableScan.class)
                 .and(node -> {
                     String actualPredicate = node.condition().toString();
-                    String expectedPredicate;
 
-                    if (expected.lhs == null) {
-                        expectedPredicate = ">($t1, 1)";
-                    } else {
-                        expectedPredicate = String.format(">(CAST($t1):%s NOT NULL, 1)", lhs);
-                    }
+                    // lhs is not null, rhs may be null.
+                    String castedLhs = castedExprNotNullable("$t1", expected.lhs);
+                    String castedRhs =  castedExpr("?0", expected.rhs);
+                    String expectedPredicate = format(">({}, {})",  castedLhs, castedRhs);
 
-                    return expectedPredicate.equals(actualPredicate);
-                }));
-    }
-
-    private static Stream<Arguments> joinColumnTypes() {
-
-        List<RelDataType> numericTypes = SqlTypeName.NUMERIC_TYPES.stream().map(t -> {
-            if (t == SqlTypeName.DECIMAL) {
-                return TYPE_FACTORY.createSqlType(t, 10, 2);
-            } else {
-                return TYPE_FACTORY.createSqlType(t);
-            }
-        }).collect(Collectors.toList());
-
-        List<Arguments> arguments = new ArrayList<>();
-
-        for (RelDataType lhs : numericTypes) {
-            for (RelDataType rhs : numericTypes) {
-                ExpectedTypes expectedTypes;
-                if (lhs.equals(rhs)) {
-                    expectedTypes = new ExpectedTypes(null, null);
-                } else {
-                    RelDataType t = TYPE_FACTORY.leastRestrictive(Arrays.asList(lhs, rhs));
-                    expectedTypes = new ExpectedTypes(t.equals(lhs) ? null : t, t.equals(rhs) ? null : t);
-                }
-                arguments.add(Arguments.of(lhs, rhs, expectedTypes));
-            }
-        }
-
-        return arguments.stream();
-    }
-
-    private static Stream<Arguments> filterTypes() {
-        return Stream.of(
-                Arguments.arguments(INTEGER, new ExpectedTypes(null, null)),
-                Arguments.arguments(FLOAT, new ExpectedTypes(null, null))
-        );
+                    return Objects.equals(expectedPredicate, actualPredicate);
+                }), params);
     }
 
     private static final class ExpectedTypes {
+
+        // null means no conversion is necessary.
         final RelDataType lhs;
 
         final RelDataType rhs;
@@ -172,7 +140,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
             if (expected == null) {
                 return scan.projects() == null;
             } else {
-                String expectedProjections = String.format("[$t0, $t1, CAST($t1):%s NOT NULL]", expected);
+                String expectedProjections = format("[$t0, $t1, {}]", castedExpr("$t1", expected));
                 String actualProjections;
 
                 if (scan.projects() == null) {
@@ -197,23 +165,11 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
         @Override
         public boolean test(IgniteNestedLoopJoin node) {
             String actualCondition = node.getCondition().toString();
-            RelDataType expected1 = expected.lhs;
-            RelDataType expected2 = expected.rhs;
             SqlOperator opToUse = SqlStdOperatorTable.NOT_EQUALS;
-            String expectedCondition;
 
-            if (expected1 != null && expected2 != null) {
-                expectedCondition = String.format(
-                        "%s(CAST($1):%s NOT NULL, CAST($3):%s NOT NULL)",
-                        opToUse.getName(), expected1, expected2);
-
-            } else if (expected1 == null && expected2 == null) {
-                expectedCondition = String.format("%s($1, $3)", opToUse.getName());
-            } else if (expected1 != null) {
-                expectedCondition = String.format("%s(CAST($1):%s NOT NULL, $3)", opToUse.getName(), expected1);
-            } else {
-                expectedCondition = String.format("%s($1, CAST($3):%s NOT NULL)", opToUse.getName(), expected2);
-            }
+            String castedLhs = castedExpr("$1", expected.lhs);
+            String castedRhs = castedExpr("$3", expected.rhs);
+            String expectedCondition = format("{}({}, {})", opToUse.getName(), castedLhs, castedRhs);
 
             return Objects.equals(actualCondition, expectedCondition);
         }
@@ -226,5 +182,86 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                 .build();
 
         createTable(igniteSchema, tableName, tableType, IgniteDistributions.single());
+    }
+
+    private static String castedExpr(String idx, @Nullable RelDataType type) {
+        if (type == null) {
+            return idx;
+        } else {
+            return format("CAST({}):{}", idx, type.isNullable() ? type.toString() : type + " NOT NULL");
+        }
+    }
+
+    private static String castedExprNotNullable(String idx, @Nullable RelDataType type) {
+        if (type != null) {
+            return castedExpr(idx, TYPE_FACTORY.createTypeWithNullability(type, false));
+        } else {
+            return castedExpr(idx, null);
+        }
+    }
+
+    private static Stream<Arguments> filterTypes() {
+        return joinColumnTypes().map(args -> {
+            Object[] values = args.get();
+            ExpectedTypes expectedTypes = (ExpectedTypes) values[2];
+            // We use dynamic parameter in conditional expression and dynamic parameters has nullable types
+            // So we need to add nullable flag to types fully match.
+            if (expectedTypes.rhs != null && !expectedTypes.rhs.isNullable()) {
+                RelDataType nullableRhs = TYPE_FACTORY.createTypeWithNullability(expectedTypes.rhs, true);
+                expectedTypes = new ExpectedTypes(expectedTypes.lhs, nullableRhs);
+            }
+
+            return Arguments.of(values[0], values[1], expectedTypes);
+        });
+    }
+
+    private static Stream<Arguments> joinColumnTypes() {
+
+        List<RelDataType> numericTypes = SqlTypeName.NUMERIC_TYPES.stream().map(t -> {
+            if (t == SqlTypeName.DECIMAL) {
+                return TYPE_FACTORY.createSqlType(t, 10, 2);
+            } else {
+                return TYPE_FACTORY.createSqlType(t);
+            }
+        }).collect(Collectors.toList());
+
+        List<Arguments> arguments = new ArrayList<>();
+
+        for (RelDataType lhs : numericTypes) {
+            for (RelDataType rhs : numericTypes) {
+                ExpectedTypes expectedTypes;
+                if (lhs.equals(rhs)) {
+                    expectedTypes = new ExpectedTypes(null, null);
+                } else {
+                    List<RelDataType> types = Arrays.asList(lhs, rhs);
+                    RelDataType t = TYPE_FACTORY.leastRestrictive(types);
+                    if (t == null) {
+                        String error = format(
+                                "No least restrictive types between {}. This case requires special additional hand coding", types
+                        );
+                        throw new IllegalArgumentException(error);
+                    }
+                    expectedTypes = new ExpectedTypes(t.equals(lhs) ? null : t, t.equals(rhs) ? null : t);
+                }
+                arguments.add(Arguments.of(lhs, rhs, expectedTypes));
+            }
+        }
+
+        // IgniteCustomType: test cases for custom data types in join and filter conditions.
+        // Implicit casts must be added to the types a custom data type can be converted from.
+        IgniteCustomTypeCoercionRules customTypeCoercionRules = TYPE_FACTORY.getCustomTypeCoercionRules();
+
+        for (String customTypeName : TYPE_FACTORY.getCustomTypeSpecs().keySet()) {
+            IgniteCustomType customType = TYPE_FACTORY.createCustomType(customTypeName);
+
+            for (SqlTypeName sourceTypeName : customTypeCoercionRules.canCastFrom(customTypeName)) {
+                RelDataType sourceType = TYPE_FACTORY.createSqlType(sourceTypeName);
+
+                arguments.add(Arguments.of(sourceType, customType, new ExpectedTypes(customType, null)));
+                arguments.add(Arguments.of(customType, sourceType, new ExpectedTypes(null, customType)));
+            }
+        }
+
+        return arguments.stream();
     }
 }

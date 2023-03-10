@@ -48,9 +48,7 @@ import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.IntervalSqlType;
-import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -375,29 +373,25 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             assert resultType instanceof BasicSqlType : "leastRestrictive is expected to return a new instance of a type: " + resultType;
 
             IgniteCustomType firstCustomType = null;
-            SqlTypeFamily sqlTypeFamily = null;
 
             for (var type : types) {
                 if (type instanceof IgniteCustomType) {
-                    var customType = (IgniteCustomType) type;
-
                     if (firstCustomType == null) {
                         firstCustomType = (IgniteCustomType) type;
-                    } else if (!Objects.equals(firstCustomType.getCustomTypeName(), customType.getCustomTypeName())) {
-                        // IgniteCustomType: Conversion between custom data types is not supported.
-                        return null;
+                    } else {
+                        IgniteCustomType customType = (IgniteCustomType) type;
+                        if (!Objects.equals(firstCustomType.getCustomTypeName(), customType.getCustomTypeName())) {
+                            // IgniteCustomType: Conversion between custom data types is not supported.
+                            return null;
+                        } else {
+                            return firstCustomType;
+                        }
                     }
-                } else if (SqlTypeUtil.isCharacter(type)) {
-                    sqlTypeFamily = type.getSqlTypeName().getFamily();
                 }
             }
 
-            if (firstCustomType != null && sqlTypeFamily != null) {
-                // IgniteCustomType: we allow implicit casts from VARCHAR to custom data types.
-                return firstCustomType;
-            } else {
-                return resultType;
-            }
+            // This is going to be handled by type coercion.
+            return null;
         } else {
             return resultType;
         }
@@ -464,7 +458,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
      * @param precision Precision if supported.
      * @return A custom data type.
      */
-    public RelDataType createCustomType(String typeName, int precision) {
+    public IgniteCustomType createCustomType(String typeName, int precision) {
         IgniteCustomTypeFactory customTypeFactory = customDataTypes.typeFactories.get(typeName);
         if (customTypeFactory == null) {
             throw new IllegalArgumentException("Unexpected custom data type: " + typeName);
@@ -472,12 +466,9 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
 
         // By default a type must not be nullable.
         // See SqlTypeFactory::createSqlType.
-        //
-        // TODO workaround for https://issues.apache.org/jira/browse/IGNITE-18752
-        //  Set nullable to false and uncomment the assertion after upgrading to calcite 1.33.
-        IgniteCustomType customType = customTypeFactory.newType(true, precision);
-        // assert !customType.isNullable() : "makeCustomType must not return a nullable type: " + typeName + " " + customType;
-        return canonize(customType);
+        IgniteCustomType customType = customTypeFactory.newType(false, precision);
+        assert !customType.isNullable() : "makeCustomType must not return a nullable type: " + typeName + " " + customType;
+        return (IgniteCustomType) canonize(customType);
     }
 
     /**
@@ -488,7 +479,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
      * @param typeName Type name.
      * @return A custom data type.
      */
-    public RelDataType createCustomType(String typeName) {
+    public IgniteCustomType createCustomType(String typeName) {
         return createCustomType(typeName, PRECISION_NOT_SPECIFIED);
     }
 

@@ -291,6 +291,33 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         return syncedType;
     }
 
+    /** {@inheritDoc} **/
+    @Override
+    public @Nullable RelDataType commonTypeForBinaryComparison(@Nullable RelDataType type1, @Nullable RelDataType type2) {
+        if (type1 == null || type2 == null) {
+            return null;
+        }
+
+        if (type1 instanceof IgniteCustomType) {
+            return tryCustomTypeCoercionRules(type1, type2);
+        } else if (type2 instanceof IgniteCustomType) {
+            return tryCustomTypeCoercionRules(type2, type1);
+        } else {
+            return super.commonTypeForBinaryComparison(type1, type2);
+        }
+    }
+
+    private @Nullable RelDataType tryCustomTypeCoercionRules(RelDataType type1, RelDataType type2) {
+        IgniteCustomType to = (IgniteCustomType) type1;
+        // IgniteCustomType: If type1 is a custom data type that can be converted to type2,
+        // return type1 to indicate that the cast is necessary, so type2 is going to be coerced to type1.
+        if (typeCoercionRules.needToCast(type2, to)) {
+            return type1;
+        } else {
+            return null;
+        }
+    }
+
     private static SqlNode castTo(SqlNode node, RelDataType type) {
         SqlDataTypeSpec targetDataType;
         if (type instanceof IgniteCustomType) {
