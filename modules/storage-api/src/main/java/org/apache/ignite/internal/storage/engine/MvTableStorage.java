@@ -22,8 +22,8 @@ import static org.apache.ignite.internal.schema.configuration.index.TableIndexCo
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
@@ -88,7 +88,8 @@ public interface MvTableStorage extends ManuallyCloseable {
      * @throws StorageException If the given partition does not exist, or if the given index does not exist.
      */
     default IndexStorage getOrCreateIndex(int partitionId, UUID indexId) {
-        TableIndexConfiguration indexConfig = ConfigurationUtil.getByInternalId(tablesConfiguration().indexes(), indexId);
+        NamedConfigurationTree<TableIndexConfiguration, ?, ?> cfg = tablesConfiguration().indexes();
+        TableIndexConfiguration indexConfig = cfg.get(indexId);
 
         if (indexConfig == null) {
             throw new StorageException(String.format("Index configuration for \"%s\" could not be found", indexId));

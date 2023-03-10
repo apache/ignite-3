@@ -256,6 +256,8 @@ public class ConfigurationProcessor extends AbstractProcessor {
                 createRootKeyField(configInterface, configurationInterfaceBuilder, schemaClassName, clazz);
             }
 
+            configurationInterfaceBuilder.addMethod(MethodSpec.methodBuilder("directProxy").addModifiers(PUBLIC, ABSTRACT).returns(configInterface).build());
+
             // Write configuration interface
             buildClass(packageName, configurationInterfaceBuilder.build());
         }

@@ -15,21 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.tree;
+package org.apache.ignite.configuration;
 
 /**
- * This exception is thrown when an operation attempts to access a node with a key that no longer exists.
+ * The base class for exceptions that can be thrown during modification of {@link NamedListNode}.
  */
-public class ConfigurationNodeDoesNotExistException extends ConfigurationNodeModificationException {
+public abstract class ConfigurationNodeModificationException extends IllegalArgumentException {
 
-    private static final long serialVersionUID = 4545533114006120896L;
+    private static final long serialVersionUID = 4149783684472013922L;
 
-    /**
-     * The constructor.
-     *
-     * @param key   the key.
-     */
-    public ConfigurationNodeDoesNotExistException(String key) {
-        super(String.format("Named List element with key \"%s\" does not exist", key));
+    ConfigurationNodeModificationException(String message) {
+        super(message);
     }
 }

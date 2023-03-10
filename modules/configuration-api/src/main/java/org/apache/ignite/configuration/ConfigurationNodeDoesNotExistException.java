@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.tree;
+package org.apache.ignite.configuration;
 
 /**
- * This exception is thrown when an operation attempts to modify a node with a key that was removed.
+ * This exception is thrown when an operation attempts to access a node with a key that no longer exists.
  */
-public class ConfigurationNodeRemovedException extends ConfigurationNodeModificationException {
+public class ConfigurationNodeDoesNotExistException extends ConfigurationNodeModificationException {
 
-    private static final long serialVersionUID = 2493615156271124701L;
+    private static final long serialVersionUID = 4545533114006120896L;
 
     /**
      * The constructor.
      *
      * @param key   the key.
      */
-    public ConfigurationNodeRemovedException(String key) {
-        super(String.format("Named List element with key \"%s\" has been removed", key));
+    public ConfigurationNodeDoesNotExistException(String key) {
+        super(String.format("Named List element with key \"%s\" does not exist", key));
     }
 }

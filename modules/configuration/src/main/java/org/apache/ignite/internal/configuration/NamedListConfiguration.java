@@ -110,21 +110,14 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
         return (DynamicConfiguration<?, ?>) members.get(name);
     }
 
-    /**
-     * Retrieves a named list element by its internal id.
-     *
-     * @param internalId Internal id.
-     * @return Named list element, associated with the passed internal id, or {@code null} if it doesn't exist.
-     */
-    public T getByInternalId(UUID internalId) {
+    @Override
+    public T get(UUID internalId) {
         var value = (NamedListNode<?>) value();
 
         return (T) members.get(value.keyByInternalId(internalId));
     }
 
-    /**
-     * Returns all internal ids of the elements from the list.
-     */
+    @Override
     public List<UUID> internalIds() {
         NamedListView<VIEWT> value = value();
 
@@ -220,7 +213,8 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
 
     /** {@inheritDoc} */
     @Override
-    public DirectPropertyProxy<NamedListView<VIEWT>> directProxy() {
+    @SuppressWarnings("unchecked")
+    public NamedConfigurationTree<T, VIEWT, CHANGET> directProxy() {
         if (listenOnly) {
             throw listenOnlyException();
         }
