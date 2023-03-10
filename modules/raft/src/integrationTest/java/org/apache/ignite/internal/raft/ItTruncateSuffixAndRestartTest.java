@@ -235,15 +235,15 @@ public class ItTruncateSuffixAndRestartTest {
         SimpleIgniteNode node2 = nodes.get(2);
 
         assertThat(node1.getService().run(testWriteCommand("1")), willCompleteSuccessfully());
-
         waitForValueReplication(nodes, "1");
 
         node1.stopService();
         node1.logStorage.truncateSuffix(1);
         node1.startService();
 
-        assertThat(node1.getService().run(testWriteCommand("2")), willCompleteSuccessfully());
+        waitForValueReplication(nodes, "1");
 
+        assertThat(node1.getService().run(testWriteCommand("2")), willCompleteSuccessfully());
         waitForValueReplication(nodes, "2");
 
         assertEquals(node0.logStorage.getLastLogIndex(), node1.logStorage.getLastLogIndex());
@@ -260,7 +260,6 @@ public class ItTruncateSuffixAndRestartTest {
         SimpleIgniteNode node2 = nodes.get(2);
 
         assertThat(node1.getService().run(testWriteCommand("1")), willCompleteSuccessfully());
-
         waitForValueReplication(nodes, "1");
 
         node1.stopService();
@@ -271,50 +270,10 @@ public class ItTruncateSuffixAndRestartTest {
         node2.startService();
         node1.startService();
 
-        assertThat(node1.getService().run(testWriteCommand("2")), willCompleteSuccessfully());
-
-        waitForValueReplication(nodes, "2");
-
-        assertEquals(node0.logStorage.getLastLogIndex(), node1.logStorage.getLastLogIndex());
-        assertEquals(node1.logStorage.getLastLogIndex(), node2.logStorage.getLastLogIndex());
-    }
-
-    /**
-     * Tests a situation when 2 nodes out of 3 are being restarted, both of which experienced data loss in RAFT log.
-     */
-    @Test
-    void testRestartTwoNodes2() throws Exception {
-        SimpleIgniteNode node0 = nodes.get(0);
-        SimpleIgniteNode node1 = nodes.get(1);
-        SimpleIgniteNode node2 = nodes.get(2);
-
-        assertThat(node1.getService().run(testWriteCommand("1")), willCompleteSuccessfully());
-
         waitForValueReplication(nodes, "1");
 
-        node1.stopService();
-        node2.stopService();
-
-        System.out.println("<%> Services stopped");
-
-        node1.logStorage.truncateSuffix(1);
-        node2.logStorage.truncateSuffix(1);
-
-        System.out.println("<%> Logs truncated");
-
-        node2.startService();
-        node1.startService();
-
         assertThat(node1.getService().run(testWriteCommand("2")), willCompleteSuccessfully());
-
         waitForValueReplication(nodes, "2");
-
-        for (SimpleIgniteNode node : nodes) {
-            System.out.println("Node " + node.nodeName);
-            for (int i = 1; i <= node.logStorage.getLastLogIndex(); i++) {
-                System.out.println("  " + i + ": " + node.logStorage.getEntry(i));
-            }
-        }
 
         assertEquals(node0.logStorage.getLastLogIndex(), node1.logStorage.getLastLogIndex());
         assertEquals(node1.logStorage.getLastLogIndex(), node2.logStorage.getLastLogIndex());
