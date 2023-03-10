@@ -374,48 +374,56 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tablesByIdVv = new VersionedValue<>(null, HashMap::new);
 
         registry.accept(token -> {
-            CompletableFuture<?>[] futures = beforeTablesVvComplete.toArray(new CompletableFuture[0]);
+            CompletableFuture<Void> beforeTablesVvCompleteFuture;
 
-            beforeTablesVvComplete.clear();
+            if (beforeTablesVvComplete.isEmpty()) {
+                beforeTablesVvCompleteFuture = completedFuture(null);
+            } else {
+                CompletableFuture<?>[] futures = beforeTablesVvComplete.toArray(new CompletableFuture[0]);
 
-            return allOf(futures)
-                    .orTimeout(TABLES_COMPLETE_TIMEOUT, TimeUnit.SECONDS)
-                    .whenComplete((v, e) -> {
-                        if (!busyLock.enterBusy()) {
-                            if (e != null) {
-                                LOG.warn("Error occurred while updating tables and stopping components.", e);
-                                // Stop of the components has been started, so we do nothing and resources of tablesByIdVv will be
-                                // freed in the logic of TableManager stop. We cannot complete tablesByIdVv exceptionally because
-                                // we will lose a context of tables.
+                beforeTablesVvComplete.clear();
+
+                beforeTablesVvCompleteFuture = allOf(futures).orTimeout(TABLES_COMPLETE_TIMEOUT, TimeUnit.SECONDS);
+            }
+
+            return beforeTablesVvCompleteFuture.whenComplete((v, e) -> {
+                if (!busyLock.enterBusy()) {
+                    if (e != null) {
+                        LOG.warn("Error occurred while updating tables and stopping components.", e);
+                        // Stop of the components has been started, so we do nothing and resources of tablesByIdVv will be
+                        // freed in the logic of TableManager stop. We cannot complete tablesByIdVv exceptionally because
+                        // we will lose a context of tables.
+                    }
+                    return;
+                }
+                try {
+                    if (e != null) {
+                        LOG.warn("Error occurred while updating tables.", e);
+                        if (e instanceof CompletionException) {
+                            Throwable th = e.getCause();
+                            // Case when stopping of the previous component has been started and related futures completed
+                            // exceptionally
+                            if (th instanceof NodeStoppingException || (th.getCause() != null
+                                    && th.getCause() instanceof NodeStoppingException)) {
+                                // Stop of the components has been started so we do nothing and resources will be freed in the
+                                // logic of TableManager stop
+                                return;
                             }
-                            return;
                         }
-                        try {
-                            if (e != null) {
-                                LOG.warn("Error occurred while updating tables.", e);
-                                if (e instanceof CompletionException) {
-                                    Throwable th = e.getCause();
-                                    // Case when stopping of the previous component has been started and related futures completed
-                                    // exceptionally
-                                    if (th instanceof NodeStoppingException || (th.getCause() != null
-                                            && th.getCause() instanceof NodeStoppingException)) {
-                                        // Stop of the components has been started so we do nothing and resources will be freed in the
-                                        // logic of TableManager stop
-                                        return;
-                                    }
-                                }
-                                // TODO: https://issues.apache.org/jira/browse/IGNITE-17515
-                                tablesByIdVv.completeExceptionally(token, e);
-                            }
+                        // TODO: https://issues.apache.org/jira/browse/IGNITE-17515
+                        tablesByIdVv.completeExceptionally(token, e);
 
-                            //Normal scenario, when all related futures for tablesByIdVv are completed and we can complete tablesByIdVv
-                            tablesByIdVv.complete(token);
+                        return;
+                    }
 
-                            tablesToStopInCaseOfError.clear();
-                        } finally {
-                            busyLock.leaveBusy();
-                        }
-                    });
+                    //Normal scenario, when all related futures for tablesByIdVv are completed and we can complete tablesByIdVv
+                    tablesByIdVv.complete(token);
+
+                    tablesToStopInCaseOfError.clear();
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            });
         });
 
         txStateStorageScheduledPool = Executors.newSingleThreadScheduledExecutor(
