@@ -115,6 +115,8 @@ public class RestNode {
     }
 
     private String bootstrapCfg() {
+        String keyStoreFilePath = getResourcePath(ItRestSslTest.class.getClassLoader().getResource(keyStorePath));
+        String trustStoreFilePath = getResourcePath(ItRestSslTest.class.getClassLoader().getResource(trustStorePath));
         return "{\n"
                 + "  network: {\n"
                 + "    port: " + networkPort + ",\n"
@@ -130,12 +132,12 @@ public class RestNode {
                 + "      clientAuth: " + (sslClientAuthEnabled ? "require" : "none") + ",\n"
                 + "      port: " + httpsPort + ",\n"
                 + "      keyStore: {\n"
-                + "        path: \"" + getResourcePath(keyStorePath) + "\",\n"
+                + "        path: \"" + keyStoreFilePath + "\",\n"
                 + "        password: " + keyStorePassword + "\n"
                 + "      }, \n"
                 + "      trustStore: {\n"
                 + "        type: JKS,\n"
-                + "        path: \"" + getResourcePath(trustStorePath) + "\",\n"
+                + "        path: \"" + trustStoreFilePath + "\",\n"
                 + "        password: " + trustStorePassword + "\n"
                 + "      }\n"
                 + "    }\n"
@@ -143,10 +145,10 @@ public class RestNode {
                 + "}";
     }
 
-    private static String getResourcePath(String resource) {
+    /** Converts URL gotten from classloader to proper file system path and escape backslashes so it could be used in the config. */
+    public static String getResourcePath(URL url) {
         try {
-            URL url = ItRestSslTest.class.getClassLoader().getResource(resource);
-            Objects.requireNonNull(url, "Resource " + resource + " not found.");
+            Objects.requireNonNull(url);
             Path path = Path.of(url.toURI()); // Properly extract file system path from the "file:" URL
             return path.toString().replace("\\", "\\\\"); // Escape backslashes for the config parser
         } catch (URISyntaxException e) {

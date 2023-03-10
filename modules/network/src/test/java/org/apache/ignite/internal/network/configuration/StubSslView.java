@@ -44,6 +44,11 @@ public class StubSslView implements SslView {
     }
 
     @Override
+    public String ciphers() {
+        return null;
+    }
+
+    @Override
     public KeyStoreView keyStore() {
         return keyStore;
     }
