@@ -115,7 +115,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         this.serverEventHandler = new ServerEventHandler();
         this.notifyOnSubscription = notifyOnSubscription;
 
-        cluster.messagingService().addMessageHandler(RaftMessageGroup.class, (message, senderConsistentId, correlationId) -> {
+        /*cluster.messagingService().addMessageHandler(RaftMessageGroup.class, (message, senderConsistentId, correlationId) -> {
             if (message.messageType() == LEADER_CHANGE_NOTIFICATION) {
                 var msg = (LeaderChangeNotification) message;
 
@@ -155,7 +155,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                     }
                 }
             }
-        });
+        });*/
     }
 
     /**
