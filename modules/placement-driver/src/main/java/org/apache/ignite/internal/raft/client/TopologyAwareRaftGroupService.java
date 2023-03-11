@@ -115,8 +115,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         this.serverEventHandler = new ServerEventHandler();
         this.notifyOnSubscription = notifyOnSubscription;
 
-        /*cluster.messagingService().addMessageHandler(RaftMessageGroup.class, (message, senderConsistentId, correlationId) -> {
-            if (message.messageType() == LEADER_CHANGE_NOTIFICATION) {
+        cluster.messagingService().addMessageHandler(RaftMessageGroup.class, (message, senderConsistentId, correlationId) -> {
+            /*if (message.messageType() == LEADER_CHANGE_NOTIFICATION) {
                 var msg = (LeaderChangeNotification) message;
 
                 ClusterNode node = clusterService.topologyService().getByConsistentId(senderConsistentId);
@@ -124,8 +124,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                 if (node != null) {
                     serverEventHandler.onLeaderElected(node, msg.term());
                 }
-            }
-        });*/
+            }*/
+        });
 
         logicalTopologyService.addEventListener(new LogicalTopologyEventListener() {
             @Override
