@@ -207,7 +207,7 @@ public final class CliRequests {
     public interface SubscriptionLeaderChangeRequestAcknowledge extends Message {
     }
 
-    @Transferable(value = RpcClientMessageGroup.SUBSCRIPTION_LEADER_CHANGE_RESPONSE)
+    @Transferable(value = RpcClientMessageGroup.LEADER_CHANGE_NOTIFICATION)
     public interface LeaderChangeNotification extends Message {
         long term();
     }

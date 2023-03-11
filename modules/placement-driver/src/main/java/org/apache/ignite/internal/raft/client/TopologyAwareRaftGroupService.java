@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.raft.client;
 
+import static org.apache.ignite.raft.jraft.RaftMessageGroup.RpcClientMessageGroup.LEADER_CHANGE_NOTIFICATION;
+
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
@@ -114,10 +116,14 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         this.notifyOnSubscription = notifyOnSubscription;
 
         cluster.messagingService().addMessageHandler(RaftMessageGroup.class, (message, senderConsistentId, correlationId) -> {
-            if (message instanceof LeaderChangeNotification) {
+            if (message.messageType() == LEADER_CHANGE_NOTIFICATION) {
                 var msg = (LeaderChangeNotification) message;
 
-                serverEventHandler.onLeaderElected(clusterService.topologyService().getByConsistentId(senderConsistentId), msg.term());
+                ClusterNode node = clusterService.topologyService().getByConsistentId(senderConsistentId);
+
+                if (node != null) {
+                    serverEventHandler.onLeaderElected(node, msg.term());
+                }
             }
         });
 
