@@ -397,7 +397,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             if (hasAnyType || firstCustomType == null) {
                 return resultType;
             } else {
-                // IgniteCustomType: Return null to indicate that type coercion between a custom data type and another type is possible.
                 return null;
             }
         } else {
