@@ -30,7 +30,6 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -57,7 +56,7 @@ public class Replica {
     private final PendingComparableValuesTracker<HybridTimestamp> safeTime;
 
     /** Topology aware Raft client. */
-    private final RaftGroupService raftClient;
+    private final TopologyAwareRaftGroupService raftClient;
 
     /** Supplier that returns a {@link ClusterNode} instance of the local node. */
     private final Supplier<ClusterNode> localNodeSupplier;
@@ -88,7 +87,7 @@ public class Replica {
             ReplicaListener listener,
             HybridClock hybridClock,
             PendingComparableValuesTracker<HybridTimestamp> safeTime,
-            RaftGroupService raftClient,
+            TopologyAwareRaftGroupService raftClient,
             Supplier<ClusterNode> localNodeSupplier
     ) {
         this.replicaGrpId = replicaGrpId;
@@ -98,7 +97,7 @@ public class Replica {
         this.raftClient = raftClient;
         this.localNodeSupplier = localNodeSupplier;
 
-        //raftClient.subscribeLeader(this::onLeaderElected);
+        raftClient.subscribeLeader(this::onLeaderElected);
     }
 
     /**
