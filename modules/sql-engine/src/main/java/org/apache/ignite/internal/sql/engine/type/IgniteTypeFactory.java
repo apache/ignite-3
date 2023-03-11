@@ -373,6 +373,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             assert resultType instanceof BasicSqlType : "leastRestrictive is expected to return a new instance of a type: " + resultType;
 
             IgniteCustomType firstCustomType = null;
+            boolean hasAnyType = false;
 
             for (var type : types) {
                 if (type instanceof IgniteCustomType) {
@@ -387,11 +388,18 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                             return firstCustomType;
                         }
                     }
+                } else if (type.getSqlTypeName() == SqlTypeName.ANY) {
+                    hasAnyType = true;
                 }
             }
 
-            // This is going to be handled by type coercion.
-            return null;
+            // When one of the arguments is ANY, we must return it.
+            if (hasAnyType || firstCustomType == null) {
+                return resultType;
+            } else {
+                // IgniteCustomType: Return null to indicate that type coercion between a custom data type and another type is possible.
+                return null;
+            }
         } else {
             return resultType;
         }

@@ -59,7 +59,7 @@ public class LeastRestrictiveTypesTest {
     private static final RelDataType VARCHAR = TYPE_FACTORY.createSqlType(SqlTypeName.VARCHAR, 36);
 
     // ANY produced by the default implementation of leastRestrictiveType has nullability = true
-    private static final RelDataType ANY = TYPE_FACTORY.createTypeWithNullability(TYPE_FACTORY.createSqlType(SqlTypeName.ANY), true);
+    private static final RelDataType ANY = TYPE_FACTORY.createSqlType(SqlTypeName.ANY);
 
     @ParameterizedTest
     @MethodSource("tinyIntTests")
@@ -235,6 +235,31 @@ public class LeastRestrictiveTypesTest {
         tests.add(Arguments.arguments(UUID, BIGINT, LeastRestrictiveType.none()));
         tests.add(Arguments.arguments(UUID, VARCHAR, LeastRestrictiveType.none()));
         tests.add(Arguments.arguments(UUID, UUID, new LeastRestrictiveType(UUID)));
+
+        return tests.stream();
+    }
+
+    @ParameterizedTest
+    @MethodSource("anyTests")
+    public void testAny(RelDataType t1, RelDataType t2, LeastRestrictiveType leastRestrictiveType) {
+        expectLeastRestrictiveType(t1, t2, leastRestrictiveType);
+        expectLeastRestrictiveType(t2, t1, leastRestrictiveType);
+    }
+
+    private static Stream<Arguments> anyTests() {
+        List<Arguments> tests = new ArrayList<>();
+        LeastRestrictiveType anyType = new LeastRestrictiveType(ANY);
+
+        tests.add(Arguments.arguments(ANY, TINYINT, anyType));
+        tests.add(Arguments.arguments(ANY, SMALLINT, anyType));
+        tests.add(Arguments.arguments(ANY, INTEGER, anyType));
+        tests.add(Arguments.arguments(ANY, FLOAT, anyType));
+        tests.add(Arguments.arguments(ANY, REAL, anyType));
+        tests.add(Arguments.arguments(ANY, DOUBLE, anyType));
+        tests.add(Arguments.arguments(ANY, DECIMAL, anyType));
+        tests.add(Arguments.arguments(ANY, BIGINT, anyType));
+        tests.add(Arguments.arguments(ANY, VARCHAR, anyType));
+        tests.add(Arguments.arguments(ANY, UUID, anyType));
 
         return tests.stream();
     }
