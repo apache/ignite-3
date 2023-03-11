@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.raft.client;
 
-import static org.apache.ignite.raft.jraft.RaftMessageGroup.RpcClientMessageGroup.LEADER_CHANGE_NOTIFICATION;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
@@ -33,6 +31,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -47,7 +46,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.LeaderChangeNotification;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.SubscriptionLeaderChangeRequest;
 import org.jetbrains.annotations.Nullable;
 
@@ -115,7 +113,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         this.serverEventHandler = new ServerEventHandler();
         this.notifyOnSubscription = notifyOnSubscription;
 
-        cluster.messagingService().addMessageHandler(RaftMessageGroup.class, (message, senderConsistentId, correlationId) -> {
+        cluster.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, (message, senderConsistentId, correlationId) -> {
             /*if (message.messageType() == LEADER_CHANGE_NOTIFICATION) {
                 var msg = (LeaderChangeNotification) message;
 
