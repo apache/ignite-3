@@ -765,7 +765,8 @@ public final class Commons {
 
     /**
      * Returns a {@link QueryPlan.Type} for the given {@link SqlNode}.
-     * If the given node is neither {@code QUERY}, nor {@code DDL}, nor {@code DML}, this method returns {@code null}.
+     * 
+     * <p>If the given node is neither {@code QUERY}, nor {@code DDL}, nor {@code DML}, this method returns {@code null}.
      *
      * @param sqlNode An SQL node.
      * @return A query type.
