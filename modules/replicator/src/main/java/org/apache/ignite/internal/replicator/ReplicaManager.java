@@ -36,6 +36,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.exception.ReplicaIsAlreadyStartedException;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -251,7 +252,7 @@ public class ReplicaManager implements IgniteComponent {
     public Replica startReplica(
             ReplicationGroupId replicaGrpId,
             ReplicaListener listener,
-            TopologyAwareRaftGroupService raftClient,
+            RaftGroupService raftClient,
             PendingComparableValuesTracker<HybridTimestamp> safeTime
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
@@ -277,7 +278,7 @@ public class ReplicaManager implements IgniteComponent {
     private Replica startReplicaInternal(
             ReplicationGroupId replicaGrpId,
             ReplicaListener listener,
-            TopologyAwareRaftGroupService raftClient,
+            RaftGroupService raftClient,
             PendingComparableValuesTracker<HybridTimestamp> safeTime
     ) {
         Replica newReplica = new Replica(replicaGrpId, listener, clock, safeTime, raftClient, localNodeSupplier);

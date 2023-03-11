@@ -869,7 +869,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         .thenCompose(v -> storageUpdateHandlerFut)
                         .thenComposeAsync(v -> {
                             try {
-                                return raftMgr.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory);
+                                return raftMgr.startRaftGroupService(replicaGrpId, newConfiguration);
                             } catch (NodeStoppingException ex) {
                                 return failedFuture(ex);
                             }
@@ -2078,7 +2078,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             TableManager.this::isLocalPeer,
                                             completedFuture(schemaManager.schemaRegistry(tblId))
                                     ),
-                                    (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId),
+                                    internalTable.partitionRaftGroupService(partId),
                                     safeTime
                             );
                         } catch (NodeStoppingException e) {
