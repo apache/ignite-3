@@ -232,7 +232,7 @@ public class DirectPropertiesTest {
 
         assertThat(cfg.children().get("foo").id().directProxy().value(), is(equalTo(fooId)));
 
-        // Check all possible ways to access "str" of element with given internal id.
+        // Check all possible ways to access "id" of element with given internal id.
         assertThat(cfg.directProxy().value().children().get(fooId).id(), is(equalTo(fooId)));
         assertThat(cfg.directProxy().children().value().get(fooId).id(), is(equalTo(fooId)));
         assertThat(cfg.directProxy().children().get(fooId).value().id(), is(equalTo(fooId)));
@@ -415,7 +415,7 @@ public class DirectPropertiesTest {
 
         assertThat(booId, is(notNullValue()));
 
-        // Check all possible ways to access "str", just to be sure. Some of these checks are clearly excessive, but they look organic.
+        // Check all possible ways to access "id", just to be sure. Some of these checks are clearly excessive, but they look organic.
         // Using names in both lists.
         assertThat(cfg.directProxy().value().children().get("foo").children2().get("boo").id(), is(equalTo(booId)));
         assertThat(cfg.directProxy().children().value().get("foo").children2().get("boo").id(), is(equalTo(booId)));
