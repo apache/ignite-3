@@ -125,7 +125,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                     serverEventHandler.onLeaderElected(node, msg.term());
                 }
             }
-        });
+        });*/
 
         logicalTopologyService.addEventListener(new LogicalTopologyEventListener() {
             @Override
@@ -155,7 +155,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                     }
                 }
             }
-        });*/
+        });
     }
 
     /**
