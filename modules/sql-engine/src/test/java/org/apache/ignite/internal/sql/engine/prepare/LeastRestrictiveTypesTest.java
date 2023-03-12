@@ -59,7 +59,7 @@ public class LeastRestrictiveTypesTest {
     private static final RelDataType VARCHAR = TYPE_FACTORY.createSqlType(SqlTypeName.VARCHAR, 36);
 
     // ANY produced by the default implementation of leastRestrictiveType has nullability = true
-    private static final RelDataType ANY = TYPE_FACTORY.createSqlType(SqlTypeName.ANY);
+    private static final RelDataType ANY = TYPE_FACTORY.createTypeWithNullability(TYPE_FACTORY.createSqlType(SqlTypeName.ANY), true);
 
     @ParameterizedTest
     @MethodSource("tinyIntTests")
