@@ -69,6 +69,14 @@ public final class ConfigConstants {
      */
     public static final String LAST_CONNECTED_URL = "ignite.last-connected-url";
 
+    public static final String TRUST_STORE_PATH = "ignite.trust-store-path";
+
+    public static final String TRUST_STORE_PASSWORD = "ignite.trust-store-password";
+
+    public static final String KEY_STORE_PATH = "ignite.key-store-path";
+
+    public static final String KEY_STORE_PASSWORD = "ignite.key-store-password";
+
     private ConfigConstants() {
     }
 
