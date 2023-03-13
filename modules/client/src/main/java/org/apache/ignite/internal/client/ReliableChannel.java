@@ -36,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -612,6 +613,8 @@ public final class ReliableChannel implements AutoCloseable {
         // TODO: IGNITE-18809: Repeat reconnect periodically.
         // 1. Use a separate executor for that instead of ForkJoinPool.commonPool()? Or a timer?
         // 2. Make sure this process is initiated only once.
+        // CompletableFuture.delayedExecutor(1, TimeUnit.SECONDS).execute();
+
         ForkJoinPool.commonPool().submit(
                 () -> {
                     List<ClientChannelHolder> holders = channels;
