@@ -41,6 +41,7 @@ public class RestNode {
     private final boolean sslEnabled;
     private final boolean sslClientAuthEnabled;
     private final boolean dualProtocol;
+    private final String ciphers;
     private CompletableFuture<Ignite> igniteNodeFuture;
 
     /** Constructor. */
@@ -56,7 +57,8 @@ public class RestNode {
             int httpsPort,
             boolean sslEnabled,
             boolean sslClientAuthEnabled,
-            boolean dualProtocol
+            boolean dualProtocol,
+            String ciphers
     ) {
         this.keyStorePath = keyStorePath;
         this.keyStorePassword = keyStorePassword;
@@ -70,6 +72,7 @@ public class RestNode {
         this.sslEnabled = sslEnabled;
         this.sslClientAuthEnabled = sslClientAuthEnabled;
         this.dualProtocol = dualProtocol;
+        this.ciphers = ciphers;
     }
 
     public static RestNodeBuilder builder() {
@@ -130,6 +133,7 @@ public class RestNode {
                 + "    ssl: {\n"
                 + "      enabled: " + sslEnabled + ",\n"
                 + "      clientAuth: " + (sslClientAuthEnabled ? "require" : "none") + ",\n"
+                + "      ciphers: \"" + ciphers + "\",\n"
                 + "      port: " + httpsPort + ",\n"
                 + "      keyStore: {\n"
                 + "        path: \"" + keyStoreFilePath + "\",\n"
