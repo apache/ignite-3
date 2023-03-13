@@ -19,9 +19,11 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -94,5 +96,33 @@ public class ReconnectTest {
         server.close();
 
         assertThrowsWithCause(() -> client.tables().tables(), IgniteClientConnectionException.class);
+    }
+
+    @Test
+    public void testClientRepairsBackgroundConnectionsPeriodically() {
+
+    }
+
+    @Test
+    public void testClientDoesNotRepairBackgroundConnectionsWhenReconnectIntervalIsZero() throws Exception {
+        FakeIgnite ignite = new FakeIgnite();
+
+        server = AbstractClientTest.startServer(
+                10900,
+                0,
+                0,
+                ignite);
+
+        server2 = AbstractClientTest.startServer(
+                10901,
+                0,
+                0,
+                ignite);
+
+        try (var client = IgniteClient.builder().addresses("127.0.0.1:10900..10901").build()) {
+            assertTrue(IgniteTestUtils.waitForCondition(
+                    () -> client.connections().size() == 2,1000),
+                    () -> "Client should have 2 connections: " + client.connections().size());
+        }
     }
 }
