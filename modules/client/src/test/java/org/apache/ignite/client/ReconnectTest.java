@@ -22,8 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
@@ -40,10 +38,10 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 public class ReconnectTest {
     /** Test server. */
-    TestServer server;
+    private TestServer server;
 
     /** Test server 2. */
-    TestServer server2;
+    private TestServer server2;
 
     @AfterEach
     void tearDown() throws Exception {
@@ -116,15 +114,10 @@ public class ReconnectTest {
                 .heartbeatInterval(50);
 
         try (var client = builder.build()) {
-            assertTrue(IgniteTestUtils.waitForCondition(
-                            () -> client.connections().size() == 2, 5000),
-                    () -> "Client should have 2 connections: " + client.connections().size());
+            waitForConnections(client, 2);
 
             server2.close();
-
-            assertTrue(IgniteTestUtils.waitForCondition(
-                            () -> client.connections().size() == 1, 5000),
-                    () -> "Client should have 1 connections: " + client.connections().size());
+            waitForConnections(client, 1);
 
             server2 = AbstractClientTest.startServer(
                     10902,
@@ -134,9 +127,7 @@ public class ReconnectTest {
                     "node3");
 
             if (reconnectEnabled) {
-                assertTrue(IgniteTestUtils.waitForCondition(
-                                () -> client.connections().size() == 2, 5000),
-                        () -> "Client should have 2 connections: " + client.connections().size());
+                waitForConnections(client, 2);
 
                 String[] nodeNames = client.connections().stream().map(ClusterNode::name).sorted().toArray(String[]::new);
                 assertArrayEquals(new String[]{"node1", "node3"}, nodeNames);
@@ -157,22 +148,13 @@ public class ReconnectTest {
                 .heartbeatInterval(50);
 
         try (var client = builder.build()) {
-            assertTrue(IgniteTestUtils.waitForCondition(
-                            () -> client.connections().size() == 2, 5000),
-                    () -> "Client should have 2 connections: " + client.connections().size());
+            waitForConnections(client, 2);
 
-            server.close();
-            server2.close();
-
-            assertTrue(IgniteTestUtils.waitForCondition(
-                            () -> client.connections().isEmpty(), 5000),
-                    () -> "Client should have 0 connections: " + client.connections().size());
+            IgniteUtils.closeAll(server, server2);
+            waitForConnections(client, 0);
 
             startTwoServers();
-
-            assertTrue(IgniteTestUtils.waitForCondition(
-                            () -> client.connections().size() == 2, 5000),
-                    () -> "Client should have 2 connections: " + client.connections().size());
+            waitForConnections(client, 2);
         }
     }
 
@@ -190,5 +172,11 @@ public class ReconnectTest {
                 0,
                 new FakeIgnite(),
                 "node2");
+    }
+
+    private static void waitForConnections(IgniteClient client, int expectedConnections) throws InterruptedException {
+        assertTrue(IgniteTestUtils.waitForCondition(
+                        () -> client.connections().size() == expectedConnections, 5000),
+                () -> "Client should have " + expectedConnections + " connections: " + client.connections().size());
     }
 }
