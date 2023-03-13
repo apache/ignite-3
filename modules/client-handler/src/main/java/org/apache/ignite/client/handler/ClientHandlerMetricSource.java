@@ -356,36 +356,36 @@ public class ClientHandlerMetricSource implements MetricSource {
 
     private static class Holder {
         private final AtomicLongMetric connectionsInitiated =
-                new AtomicLongMetric("connections.initiated", "Total initiated connections");
+                new AtomicLongMetric("connections.Initiated", "Total initiated connections");
 
         private final AtomicLongMetric sessionsAccepted =
-                new AtomicLongMetric("sessions.accepted", "Total accepted sessions");
+                new AtomicLongMetric("sessions.Accepted", "Total accepted sessions");
 
         private final AtomicLongMetric sessionsActive =
-                new AtomicLongMetric("sessions.active", "Active sessions");
+                new AtomicLongMetric("sessions.Active", "Active sessions");
 
         private final AtomicLongMetric sessionsRejected =
-                new AtomicLongMetric("sessions.rejected", "Total sessions rejected due to handshake errors");
+                new AtomicLongMetric("sessions.Rejected", "Total sessions rejected due to handshake errors");
 
         private final AtomicLongMetric sessionsRejectedTls =
-                new AtomicLongMetric("sessions.rejected.tls", "Total sessions rejected due to TLS handshake errors");
+                new AtomicLongMetric("sessions.rejected.Tls", "Total sessions rejected due to TLS handshake errors");
 
         private final AtomicLongMetric sessionsRejectedTimeout =
-                new AtomicLongMetric("sessions.rejected.timeout", "Total sessions rejected by timeout");
+                new AtomicLongMetric("sessions.rejected.Timeout", "Total sessions rejected by timeout");
 
-        private final AtomicLongMetric bytesSent = new AtomicLongMetric("bytes.sent", "Total bytes sent");
+        private final AtomicLongMetric bytesSent = new AtomicLongMetric("bytes.Sent", "Total bytes sent");
 
-        private final AtomicLongMetric bytesReceived = new AtomicLongMetric("bytes.received", "Total bytes received");
+        private final AtomicLongMetric bytesReceived = new AtomicLongMetric("bytes.Received", "Total bytes received");
 
-        private final AtomicLongMetric requestsActive = new AtomicLongMetric("requests.active", "Requests in progress");
+        private final AtomicLongMetric requestsActive = new AtomicLongMetric("requests.Active", "Requests in progress");
 
-        private final AtomicLongMetric requestsProcessed = new AtomicLongMetric("requests.processed", "Total processed requests");
+        private final AtomicLongMetric requestsProcessed = new AtomicLongMetric("requests.Processed", "Total processed requests");
 
-        private final AtomicLongMetric requestsFailed = new AtomicLongMetric("requests.failed", "Total failed requests");
+        private final AtomicLongMetric requestsFailed = new AtomicLongMetric("requests.Failed", "Total failed requests");
 
-        private final AtomicLongMetric transactionsActive = new AtomicLongMetric("transactions.active", "Active transactions");
+        private final AtomicLongMetric transactionsActive = new AtomicLongMetric("transactions.Active", "Active transactions");
 
-        private final AtomicLongMetric cursorsActive = new AtomicLongMetric("cursors.active", "Active cursors");
+        private final AtomicLongMetric cursorsActive = new AtomicLongMetric("cursors.Active", "Active cursors");
 
         final List<Metric> metrics = Arrays.asList(
                 connectionsInitiated,
