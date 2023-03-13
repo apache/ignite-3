@@ -18,14 +18,18 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -145,6 +149,9 @@ public class ReconnectTest {
                 assertTrue(IgniteTestUtils.waitForCondition(
                                 () -> client.connections().size() == 2, 5000),
                         () -> "Client should have 2 connections: " + client.connections().size());
+
+                String[] nodeNames = client.connections().stream().map(ClusterNode::name).sorted().toArray(String[]::new);
+                assertArrayEquals(new String[]{"node1", "node3"}, nodeNames);
             } else {
                 Thread.sleep(100);
                 assertEquals(1, client.connections().size());
