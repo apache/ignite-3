@@ -136,12 +136,12 @@ public class RestNode {
                 + "      ciphers: \"" + ciphers + "\",\n"
                 + "      port: " + httpsPort + ",\n"
                 + "      keyStore: {\n"
-                + "        path: \"" + keyStoreFilePath + "\",\n"
+                + "        path: \"" + escapeWindowsPath(keyStoreFilePath) + "\",\n"
                 + "        password: " + keyStorePassword + "\n"
                 + "      }, \n"
                 + "      trustStore: {\n"
                 + "        type: JKS,\n"
-                + "        path: \"" + trustStoreFilePath + "\",\n"
+                + "        path: \"" + escapeWindowsPath(trustStoreFilePath) + "\",\n"
                 + "        password: " + trustStorePassword + "\n"
                 + "      }\n"
                 + "    }\n"
@@ -153,10 +153,15 @@ public class RestNode {
     public static String getResourcePath(URL url) {
         try {
             Objects.requireNonNull(url);
-            Path path = Path.of(url.toURI()); // Properly extract file system path from the "file:" URL
-            return path.toString().replace("\\", "\\\\"); // Escape backslashes for the config parser
+            // Properly extract file system path from the "file:" URL
+            return Path.of(url.toURI()).toString();
         } catch (URISyntaxException e) {
             throw new RuntimeException(e); // Shouldn't happen since URL is obtained from the class loader
         }
+    }
+
+    /** Use this to escape backslashes for the HOCON config parser. */
+    public static String escapeWindowsPath(String path) {
+        return path.replace("\\", "\\\\");
     }
 }
