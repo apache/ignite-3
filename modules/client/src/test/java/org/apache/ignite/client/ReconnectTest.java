@@ -108,19 +108,7 @@ public class ReconnectTest {
     @ParameterizedTest
     @ValueSource(booleans = { true, false })
     public void testClientRepairsBackgroundConnectionsPeriodically(boolean reconnectEnabled) throws Exception {
-        server = AbstractClientTest.startServer(
-                10900,
-                0,
-                0,
-                new FakeIgnite(),
-                "node1");
-
-        server2 = AbstractClientTest.startServer(
-                10901,
-                0,
-                0,
-                new FakeIgnite(),
-                "node2");
+        startTwoServers();
 
         Builder builder = IgniteClient.builder()
                 .addresses("127.0.0.1:10900..10902")
@@ -157,5 +145,50 @@ public class ReconnectTest {
                 assertEquals(1, client.connections().size());
             }
         }
+    }
+
+    @Test
+    public void testFullClusterRestart() throws Exception {
+        startTwoServers();
+
+        Builder builder = IgniteClient.builder()
+                .addresses("127.0.0.1:10900..10902")
+                .reconnectInterval(50)
+                .heartbeatInterval(50);
+
+        try (var client = builder.build()) {
+            assertTrue(IgniteTestUtils.waitForCondition(
+                            () -> client.connections().size() == 2, 5000),
+                    () -> "Client should have 2 connections: " + client.connections().size());
+
+            server.close();
+            server2.close();
+
+            assertTrue(IgniteTestUtils.waitForCondition(
+                            () -> client.connections().isEmpty(), 5000),
+                    () -> "Client should have 0 connections: " + client.connections().size());
+
+            startTwoServers();
+
+            assertTrue(IgniteTestUtils.waitForCondition(
+                            () -> client.connections().size() == 2, 5000),
+                    () -> "Client should have 2 connections: " + client.connections().size());
+        }
+    }
+
+    private void startTwoServers() {
+        server = AbstractClientTest.startServer(
+                10900,
+                0,
+                0,
+                new FakeIgnite(),
+                "node1");
+
+        server2 = AbstractClientTest.startServer(
+                10901,
+                0,
+                0,
+                new FakeIgnite(),
+                "node2");
     }
 }
