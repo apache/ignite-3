@@ -20,6 +20,7 @@ package org.apache.ignite.client;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_CONNECT_TIMEOUT;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_TIMEOUT;
+import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_PERIOD;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_RETRIES;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
@@ -81,6 +82,9 @@ public interface IgniteClient extends Ignite {
 
         /** Reconnect throttling retries. */
         private int reconnectThrottlingRetries = DFLT_RECONNECT_THROTTLING_RETRIES;
+
+        /** Reconnect interval, in milliseconds. */
+        private long reconnectInterval = DFLT_RECONNECT_INTERVAL;
 
         /** Async continuation executor. */
         private Executor asyncContinuationExecutor;
@@ -211,6 +215,13 @@ public interface IgniteClient extends Ignite {
             return this;
         }
 
+        // TODO
+        public Builder reconnectInterval(long reconnectInterval) {
+            this.reconnectInterval = reconnectInterval;
+
+            return this;
+        }
+
         /**
          * Sets the async continuation executor.
          *
@@ -296,6 +307,7 @@ public interface IgniteClient extends Ignite {
                     connectTimeout,
                     reconnectThrottlingPeriod,
                     reconnectThrottlingRetries,
+                    reconnectInterval,
                     asyncContinuationExecutor,
                     heartbeatInterval,
                     heartbeatTimeout,
