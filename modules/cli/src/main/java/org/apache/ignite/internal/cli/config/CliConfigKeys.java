@@ -56,13 +56,13 @@ public enum CliConfigKeys {
 
         public static final String LAST_CONNECTED_URL = "ignite.last-connected-url";
 
-        public static final String REST_TRUST_STORE_PATH = "ignite.trust-store.path";
+        public static final String REST_TRUST_STORE_PATH = "ignite.rest.trust-store.path";
 
-        public static final String REST_TRUST_STORE_PASSWORD = "ignite.trust-store.password";
+        public static final String REST_TRUST_STORE_PASSWORD = "ignite.rest.trust-store.password";
 
-        public static final String REST_KEY_STORE_PATH = "ignite.key-store.path";
+        public static final String REST_KEY_STORE_PATH = "ignite.rest.key-store.path";
 
-        public static final String REST_KEY_STORE_PASSWORD = "ignite.key-store.password";
+        public static final String REST_KEY_STORE_PASSWORD = "ignite.rest.key-store.password";
 
         public static final String JDBC_URL = "ignite.jdbc-url";
 
