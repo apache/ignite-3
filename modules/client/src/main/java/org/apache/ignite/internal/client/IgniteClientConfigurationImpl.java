@@ -142,7 +142,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     /** {@inheritDoc} */
     @Override
     public long reconnectInterval() {
-        return 0;
+        return reconnectInterval;
     }
 
     /** {@inheritDoc} */

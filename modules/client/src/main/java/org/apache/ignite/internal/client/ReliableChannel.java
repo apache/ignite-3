@@ -627,6 +627,7 @@ public final class ReliableChannel implements AutoCloseable {
         long interval = clientCfg.reconnectInterval();
 
         if (interval > 0 && !closed) {
+            // TODO: Initiate only after all futures from above are completed.
             CompletableFuture.delayedExecutor(interval, TimeUnit.MILLISECONDS).execute(this::initAllChannelsAsync);
         }
     }
