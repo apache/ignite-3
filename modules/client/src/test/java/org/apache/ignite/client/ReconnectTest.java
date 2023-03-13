@@ -28,6 +28,8 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests thin client reconnect.
@@ -99,13 +101,9 @@ public class ReconnectTest {
         assertThrowsWithCause(() -> client.tables().tables(), IgniteClientConnectionException.class);
     }
 
-    @Test
-    public void testClientRepairsBackgroundConnectionsPeriodically() {
-
-    }
-
-    @Test
-    public void testClientDoesNotRepairBackgroundConnectionsWhenReconnectIntervalIsZero() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    public void testClientRepairsBackgroundConnectionsPeriodically(boolean reconnectEnabled) throws Exception {
         server = AbstractClientTest.startServer(
                 10900,
                 0,
@@ -121,8 +119,8 @@ public class ReconnectTest {
                 "node2");
 
         Builder builder = IgniteClient.builder()
-                .addresses("127.0.0.1:10900..10901")
-                .reconnectInterval(0)
+                .addresses("127.0.0.1:10900..10902")
+                .reconnectInterval(reconnectEnabled ? 50 : 0)
                 .heartbeatInterval(50);
 
         try (var client = builder.build()) {
@@ -135,6 +133,22 @@ public class ReconnectTest {
             assertTrue(IgniteTestUtils.waitForCondition(
                             () -> client.connections().size() == 1, 5000),
                     () -> "Client should have 1 connections: " + client.connections().size());
+
+            server2 = AbstractClientTest.startServer(
+                    10902,
+                    0,
+                    0,
+                    new FakeIgnite(),
+                    "node3");
+
+            if (reconnectEnabled) {
+                assertTrue(IgniteTestUtils.waitForCondition(
+                                () -> client.connections().size() == 2, 5000),
+                        () -> "Client should have 2 connections: " + client.connections().size());
+            } else {
+                Thread.sleep(100);
+                assertEquals(1, client.connections().size());
+            }
         }
     }
 }
