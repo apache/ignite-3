@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -54,8 +55,12 @@ public class ItSslTest extends IgniteIntegrationTest {
     @BeforeAll
     static void beforeAll() {
         password = "changeit";
-        trustStorePath = ItSslTest.class.getClassLoader().getResource("ssl/truststore.jks").getPath();
-        keyStorePath = ItSslTest.class.getClassLoader().getResource("ssl/keystore.p12").getPath();
+        try {
+            trustStorePath = Path.of(ItSslTest.class.getClassLoader().getResource("ssl/truststore.jks").toURI()).toString();
+            keyStorePath = Path.of(ItSslTest.class.getClassLoader().getResource("ssl/keystore.p12").toURI()).toString();
+        } catch (URISyntaxException never) {
+            // no handling
+        }
     }
 
     @Nested
@@ -156,11 +161,11 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "      enabled: true,\n"
                 + "      trustStore: {\n"
                 + "        password: \"" + password + "\","
-                + "        path: \"" + trustStorePath + "\""
+                + "        path: \"" + trustStorePath.replace("\\", "\\\\") + "\""
                 + "      },\n"
                 + "      keyStore: {\n"
                 + "        password: \"" + password + "\","
-                + "        path: \"" + keyStorePath + "\""
+                + "        path: \"" + keyStorePath.replace("\\", "\\\\") + "\""
                 + "      }\n"
                 + "    },\n"
                 + "    port: 3345,\n"
@@ -172,7 +177,7 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "  clientConnector.ssl: {\n"
                 + "    enabled: true, "
                 + "    keyStore: {\n"
-                + "      path: \"" + keyStorePath + "\",\n"
+                + "      path: \"" + keyStorePath.replace("\\", "\\\\") + "\",\n"
                 + "      password: \"" + password + "\"\n"
                 + "    }\n"
                 + "  }\n"
@@ -262,11 +267,11 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "      clientAuth: \"require\",\n"
                 + "      trustStore: {\n"
                 + "        password: \"" + password + "\","
-                + "        path: \"" + trustStorePath + "\""
+                + "        path: \"" + trustStorePath.replace("\\", "\\\\") + "\""
                 + "      },\n"
                 + "      keyStore: {\n"
                 + "        password: \"" + password + "\","
-                + "        path: \"" + keyStorePath + "\""
+                + "        path: \"" + keyStorePath.replace("\\", "\\\\") + "\""
                 + "      }\n"
                 + "    },\n"
                 + "    port: 3365,\n"
@@ -279,13 +284,13 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "    enabled: true, "
                 + "    clientAuth: \"require\", "
                 + "    keyStore: {\n"
-                + "      path: \"" + keyStorePath + "\",\n"
+                + "      path: \"" + keyStorePath.replace("\\", "\\\\") + "\",\n"
                 + "      password: \"" + password + "\"\n"
                 + "    }, \n"
                 + "    trustStore: {\n"
                 + "      type: JKS,"
                 + "      password: \"" + password + "\","
-                + "      path: \"" + trustStorePath + "\""
+                + "      path: \"" + trustStorePath.replace("\\", "\\\\") + "\""
                 + "      }\n"
                 + "  }\n"
                 + "}";
