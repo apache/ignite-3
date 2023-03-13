@@ -117,7 +117,7 @@ public abstract class AbstractTxStateStorageTest {
     }
 
     private List<ReplicationGroupId> generateEnlistedPartitions(int c) {
-        return IntStream.range(0, c).mapToObj(i -> new TestReplicationGroupId(Integer.toString(i))).collect(toList());
+        return IntStream.range(0, c).mapToObj(Integer::toString).map(TestReplicationGroupId::new).collect(toList());
     }
 
     private HybridTimestamp generateTimestamp(UUID uuid) {

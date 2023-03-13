@@ -331,7 +331,7 @@ public class ItTruncateSuffixAndRestartTest {
     }
 
     private static class TestRaftGroupListener implements RaftGroupListener {
-        String lastValue;
+        volatile String lastValue;
 
         @Override
         public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
