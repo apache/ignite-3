@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -105,24 +106,35 @@ public class ReconnectTest {
 
     @Test
     public void testClientDoesNotRepairBackgroundConnectionsWhenReconnectIntervalIsZero() throws Exception {
-        FakeIgnite ignite = new FakeIgnite();
-
         server = AbstractClientTest.startServer(
                 10900,
                 0,
                 0,
-                ignite);
+                new FakeIgnite(),
+                "node1");
 
         server2 = AbstractClientTest.startServer(
                 10901,
                 0,
                 0,
-                ignite);
+                new FakeIgnite(),
+                "node2");
 
-        try (var client = IgniteClient.builder().addresses("127.0.0.1:10900..10901").build()) {
+        Builder builder = IgniteClient.builder()
+                .addresses("127.0.0.1:10900..10901")
+                .reconnectInterval(0)
+                .heartbeatInterval(50);
+
+        try (var client = builder.build()) {
             assertTrue(IgniteTestUtils.waitForCondition(
-                    () -> client.connections().size() == 2,1000),
+                            () -> client.connections().size() == 2, 5000),
                     () -> "Client should have 2 connections: " + client.connections().size());
+
+            server2.close();
+
+            assertTrue(IgniteTestUtils.waitForCondition(
+                            () -> client.connections().size() == 1, 5000),
+                    () -> "Client should have 1 connections: " + client.connections().size());
         }
     }
 }
