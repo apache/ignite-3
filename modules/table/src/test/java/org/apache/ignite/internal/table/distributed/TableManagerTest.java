@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -375,7 +376,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         TableManager igniteTables = tableManager;
 
-        assertThrows(IgniteException.class, () -> igniteTables.createTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME, createTableChange));
+        assertThrows(IgniteException.class, () -> igniteTables.createTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME, DEFAULT_ZONE_NAME, createTableChange));
 
         assertThrows(IgniteException.class, () -> igniteTables.alterTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME, addColumnChange));
 
@@ -572,7 +573,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertNotNull(table);
 
         assertThrows(RuntimeException.class,
-                () -> await(tblManagerFut.join().createTableAsync(DYNAMIC_TABLE_NAME,
+                () -> await(tblManagerFut.join().createTableAsync(DYNAMIC_TABLE_NAME, DEFAULT_ZONE_NAME,
                         tblCh -> SchemaConfigurationConverter.convert(scmTbl, tblCh)
                                 .changeReplicas(REPLICAS)
                                 .changePartitions(PARTITIONS))));
@@ -685,7 +686,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             return completedFuture(true);
         });
 
-        CompletableFuture<Table> tbl2Fut = tableManager.createTableAsync(tableDefinition.name(),
+        CompletableFuture<Table> tbl2Fut = tableManager.createTableAsync(tableDefinition.name(), DEFAULT_ZONE_NAME,
                 tblCh -> SchemaConfigurationConverter.convert(tableDefinition, tblCh)
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS)
@@ -729,7 +730,9 @@ public class TableManagerTest extends IgniteAbstractTest {
                 sm = new SchemaManager(revisionUpdater, tblsCfg, msm),
                 budgetView -> new LocalLogStorageFactory(),
                 new HybridClockImpl(),
-                new OutgoingSnapshotsManager(clusterService.messagingService())
+                new OutgoingSnapshotsManager(clusterService.messagingService()),
+                null,
+                null
         ) {
             @Override
             protected MvTableStorage createTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {

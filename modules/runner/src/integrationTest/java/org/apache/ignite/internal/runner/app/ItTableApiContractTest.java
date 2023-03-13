@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -216,7 +217,7 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
         assertNotNull(table);
 
         assertThrows(TableAlreadyExistsException.class,
-                () -> await(tableManager().createTableAsync(TABLE_NAME,
+                () -> await(tableManager().createTableAsync(TABLE_NAME, DEFAULT_ZONE_NAME,
                         tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, TABLE_NAME)
                                 .columns(
                                         SchemaBuilders.column("new_key", ColumnType.INT64).build(),
@@ -237,7 +238,7 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
         assertNotNull(ignite.tables().table(TABLE_NAME));
 
         CompletableFuture<Table> tableFut2 = tableManager()
-                .createTableAsync(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, TABLE_NAME)
+                .createTableAsync(TABLE_NAME, DEFAULT_ZONE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, TABLE_NAME)
                         .columns(
                                 SchemaBuilders.column("new_key", ColumnType.INT64).build(),
                                 SchemaBuilders.column("new_val", ColumnType.string()).build())

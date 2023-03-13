@@ -255,7 +255,7 @@ public class DdlCommandHandler {
             }
         };
 
-        return tableManager.createTableAsync(cmd.tableName(), tblChanger)
+        return tableManager.createTableAsync(cmd.tableName(), cmd.zone(),  tblChanger)
                 .thenApply(Objects::nonNull)
                 .handle(handleModificationResult(cmd.ifTableExists(), TableAlreadyExistsException.class));
     }

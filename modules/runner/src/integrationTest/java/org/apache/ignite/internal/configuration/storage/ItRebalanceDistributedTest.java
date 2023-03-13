@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -238,6 +239,7 @@ public class ItRebalanceDistributedTest {
 
         await(nodes.get(0).tableManager.createTableAsync(
                 "TBL1",
+                DEFAULT_ZONE_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
                         .changeReplicas(1)
                         .changePartitions(1)));
@@ -266,6 +268,7 @@ public class ItRebalanceDistributedTest {
 
         await(nodes.get(0).tableManager.createTableAsync(
                 "TBL1",
+                DEFAULT_ZONE_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
                         .changeReplicas(1)
                         .changePartitions(1)));
@@ -299,6 +302,7 @@ public class ItRebalanceDistributedTest {
 
         await(nodes.get(0).tableManager.createTableAsync(
                 "TBL1",
+                DEFAULT_ZONE_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
                         .changeReplicas(1)
                         .changePartitions(1)));
@@ -337,6 +341,7 @@ public class ItRebalanceDistributedTest {
 
         TableImpl table = (TableImpl) await(nodes.get(1).tableManager.createTableAsync(
                 "TBL1",
+                DEFAULT_ZONE_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
                         .changeReplicas(2)
                         .changePartitions(1)));
@@ -402,6 +407,7 @@ public class ItRebalanceDistributedTest {
 
         await(nodes.get(0).tableManager.createTableAsync(
                 "TBL1",
+                DEFAULT_ZONE_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
                         .changeReplicas(1)
                         .changePartitions(1)));
@@ -747,7 +753,9 @@ public class ItRebalanceDistributedTest {
                     schemaManager,
                     view -> new LocalLogStorageFactory(),
                     new HybridClockImpl(),
-                    new OutgoingSnapshotsManager(clusterService.messagingService())
+                    new OutgoingSnapshotsManager(clusterService.messagingService()),
+                    null,
+                    null
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg) {
@@ -888,6 +896,7 @@ public class ItRebalanceDistributedTest {
         assertThat(
                 nodes.get(0).tableManager.createTableAsync(
                         tableName,
+                        DEFAULT_ZONE_NAME,
                         tableChange -> {
                             SchemaConfigurationConverter.convert(createTableDefinition(tableName), tableChange)
                                     .changeReplicas(replicas)

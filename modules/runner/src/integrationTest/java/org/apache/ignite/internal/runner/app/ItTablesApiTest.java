@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -472,6 +473,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         return await(((TableManager) node.tables()).createTableAsync(
                 tableName,
+                DEFAULT_ZONE_NAME,
                 tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(
                         cols).withPrimaryKey("key").build(), tblCh).changeReplicas(2).changePartitions(10)
         ));
@@ -487,6 +489,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         try {
             return await(((TableManager) node.tables()).createTableAsync(
                     tableName,
+                    DEFAULT_ZONE_NAME,
                     tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(Arrays.asList(
                                     SchemaBuilders.column("key", ColumnType.INT64).build(),
                                     SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build(),

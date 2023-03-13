@@ -20,6 +20,7 @@ package org.apache.ignite.internal.inmemory;
 import static ca.seinesoftware.hamcrest.path.PathMatcher.exists;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -235,7 +236,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
                 SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build()
         ).withPrimaryKey("ID").build();
 
-        await(((TableManager) node(0).tables()).createTableAsync(tableName, tableChange -> {
+        await(((TableManager) node(0).tables()).createTableAsync(tableName, DEFAULT_ZONE_NAME, tableChange -> {
             SchemaConfigurationConverter.convert(tableDef, tableChange)
                     .changePartitions(1)
                     .changeDataStorage(storageChange -> {

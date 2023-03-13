@@ -550,6 +550,18 @@ public class DistributionZoneManager implements IgniteComponent {
         }
     }
 
+    public Set<String> getDataNodes(int zoneId) {
+        synchronized (dataNodesMutex) {
+            DataNodes dataNodes0 = dataNodes.get(zoneId);
+
+            if (dataNodes0 != null) {
+                return dataNodes0.nodes();
+            } else {
+                return emptySet();
+            }
+        }
+    }
+
     /**
      * The method for obtaining data nodes of the specified zone.
      * If the {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleUp}

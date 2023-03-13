@@ -478,7 +478,9 @@ public class IgniteImpl implements Ignite {
                 schemaManager,
                 volatileLogStorageFactoryCreator,
                 clock,
-                outgoingSnapshotsManager
+                outgoingSnapshotsManager,
+                cmgMgr,
+                distributionZoneManager
         );
 
         indexManager = new IndexManager(tablesConfiguration, schemaManager, distributedTblMgr);
