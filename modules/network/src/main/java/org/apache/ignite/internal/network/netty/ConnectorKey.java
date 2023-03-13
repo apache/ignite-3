@@ -19,18 +19,28 @@ package org.apache.ignite.internal.network.netty;
 
 import org.apache.ignite.network.ChannelType;
 
+/**
+ * Composite key object for connectors.
+ *
+ * @param <T> identifier type.
+ */
 public class ConnectorKey<T> {
-    private final T value;
+    private final T id;
     private final ChannelType type;
 
-
-    public ConnectorKey(T value, ChannelType type) {
-        this.value = value;
+    /**
+     * Constructor.
+     *
+     * @param id Connector identifier.
+     * @param type Channel type.
+     */
+    public ConnectorKey(T id, ChannelType type) {
+        this.id = id;
         this.type = type;
     }
 
-    public T value() {
-        return value;
+    public T id() {
+        return id;
     }
 
     public ChannelType type() {
@@ -48,15 +58,12 @@ public class ConnectorKey<T> {
 
         ConnectorKey<?> that = (ConnectorKey<?>) o;
 
-        if (!value.equals(that.value)) {
-            return false;
-        }
-        return type == that.type;
+        return id.equals(that.id) && type == that.type;
     }
 
     @Override
     public int hashCode() {
-        int result = value.hashCode();
+        int result = id.hashCode();
         result = 31 * result + type.hashCode();
         return result;
     }

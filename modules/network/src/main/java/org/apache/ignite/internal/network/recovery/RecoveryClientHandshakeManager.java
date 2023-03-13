@@ -35,7 +35,6 @@ import org.apache.ignite.internal.network.netty.PipelineUtils;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
-import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
 import org.jetbrains.annotations.TestOnly;

@@ -17,6 +17,9 @@
 
 package org.apache.ignite.network;
 
+/**
+ * Channel type with unique identifier.
+ */
 public enum ChannelType {
     DEFAULT((short) 0),
     DEPLOYMENT_UNITS((short) 1),

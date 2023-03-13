@@ -39,8 +39,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
-import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.internal.network.serialization.SerializationService;
@@ -229,7 +229,7 @@ public class ConnectionManager {
         // or didn't perform the handshake operation, can be reused.
         NettyClient client = clients.compute(
                 new ConnectorKey<>(address, type),
-                (key, existingClient) -> isClientConnected(existingClient) ? existingClient : connect(key.value(), key.type())
+                (key, existingClient) -> isClientConnected(existingClient) ? existingClient : connect(key.id(), key.type())
         );
 
         return client.sender();
