@@ -485,7 +485,7 @@ public final class ReliableChannel implements AutoCloseable {
         var fut = getDefaultChannelAsync();
 
         // Establish secondary connections in the background.
-        fut.thenAccept(unused -> initAllChannelsAsync());
+        fut.thenAccept(unused -> ForkJoinPool.commonPool().submit(this::initAllChannelsAsync));
 
         return fut;
     }
@@ -607,31 +607,28 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /**
-     * Asynchronously try to establish a connection to all configured servers.
+     * Establish or repair connections to all configured servers.
      */
     private void initAllChannelsAsync() {
-        // TODO: IGNITE-18809: Repeat reconnect periodically.
-        // 1. Use a separate executor for that instead of ForkJoinPool.commonPool()? Or a timer?
-        // 2. Make sure this process is initiated only once.
-        // CompletableFuture.delayedExecutor(1, TimeUnit.SECONDS).execute();
+        List<ClientChannelHolder> holders = channels;
 
-        ForkJoinPool.commonPool().submit(
-                () -> {
-                    List<ClientChannelHolder> holders = channels;
+        for (ClientChannelHolder hld : holders) {
+            if (closed) {
+                return;
+            }
 
-                    for (ClientChannelHolder hld : holders) {
-                        if (closed) {
-                            return; // New reinit task scheduled or channel is closed.
-                        }
+            try {
+                hld.getOrCreateChannelAsync(true);
+            } catch (Exception e) {
+                log.warn("Failed to establish connection to " + hld.chCfg.getAddress() + ": " + e.getMessage(), e);
+            }
+        }
 
-                        try {
-                            hld.getOrCreateChannelAsync(true);
-                        } catch (Exception e) {
-                            log.warn("Failed to establish connection to " + hld.chCfg.getAddress() + ": " + e.getMessage(), e);
-                        }
-                    }
-                }
-        );
+        long interval = clientCfg.reconnectInterval();
+
+        if (interval > 0 && !closed) {
+            CompletableFuture.delayedExecutor(interval, TimeUnit.MILLISECONDS).execute(this::initAllChannelsAsync);
+        }
     }
 
     private void onTopologyAssignmentChanged(ClientChannel clientChannel) {
