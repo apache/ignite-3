@@ -63,6 +63,10 @@ public class ItSslTest extends IgniteIntegrationTest {
         }
     }
 
+    static String escapeForWindows(String path) {
+        return path.replace("\\", "\\\\");
+    }
+
     @Nested
     @DisplayName("Given SSL disabled on the cluster")
     class ClusterWithoutSsl {
@@ -161,11 +165,11 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "      enabled: true,\n"
                 + "      trustStore: {\n"
                 + "        password: \"" + password + "\","
-                + "        path: \"" + trustStorePath.replace("\\", "\\\\") + "\""
+                + "        path: \"" + escapeForWindows(trustStorePath) + "\""
                 + "      },\n"
                 + "      keyStore: {\n"
                 + "        password: \"" + password + "\","
-                + "        path: \"" + keyStorePath.replace("\\", "\\\\") + "\""
+                + "        path: \"" + escapeForWindows(keyStorePath) + "\""
                 + "      }\n"
                 + "    },\n"
                 + "    port: 3345,\n"
@@ -177,7 +181,7 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "  clientConnector.ssl: {\n"
                 + "    enabled: true, "
                 + "    keyStore: {\n"
-                + "      path: \"" + keyStorePath.replace("\\", "\\\\") + "\",\n"
+                + "      path: \"" + escapeForWindows(keyStorePath) + "\",\n"
                 + "      password: \"" + password + "\"\n"
                 + "    }\n"
                 + "  }\n"
@@ -267,11 +271,11 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "      clientAuth: \"require\",\n"
                 + "      trustStore: {\n"
                 + "        password: \"" + password + "\","
-                + "        path: \"" + trustStorePath.replace("\\", "\\\\") + "\""
+                + "        path: \"" + escapeForWindows(trustStorePath) + "\""
                 + "      },\n"
                 + "      keyStore: {\n"
                 + "        password: \"" + password + "\","
-                + "        path: \"" + keyStorePath.replace("\\", "\\\\") + "\""
+                + "        path: \"" + escapeForWindows(keyStorePath) + "\""
                 + "      }\n"
                 + "    },\n"
                 + "    port: 3365,\n"
@@ -284,13 +288,13 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "    enabled: true, "
                 + "    clientAuth: \"require\", "
                 + "    keyStore: {\n"
-                + "      path: \"" + keyStorePath.replace("\\", "\\\\") + "\",\n"
+                + "      path: \"" + escapeForWindows(keyStorePath) + "\",\n"
                 + "      password: \"" + password + "\"\n"
                 + "    }, \n"
                 + "    trustStore: {\n"
                 + "      type: JKS,"
                 + "      password: \"" + password + "\","
-                + "      path: \"" + trustStorePath.replace("\\", "\\\\") + "\""
+                + "      path: \"" + escapeForWindows(trustStorePath) + "\""
                 + "      }\n"
                 + "  }\n"
                 + "}";
