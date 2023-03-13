@@ -50,8 +50,8 @@ import org.junit.jupiter.api.Test;
  * Integration tests for {@link org.apache.ignite.deployment.IgniteDeployment}.
  */
 public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
-    private static final long REPLICA_TIMEOUT = TimeUnit.SECONDS.toMillis(90);
-    private static final long SIZE_IN_BYTES = 1024L * 1024 * 1024;
+    private static final long REPLICA_TIMEOUT = TimeUnit.SECONDS.toMillis(30);
+    private static final long SIZE_IN_BYTES = 1024L;
 
     private Path dummyFile;
 
