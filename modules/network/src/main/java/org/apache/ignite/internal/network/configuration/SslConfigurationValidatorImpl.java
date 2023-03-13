@@ -19,10 +19,18 @@ package org.apache.ignite.internal.network.configuration;
 
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
+import io.netty.buffer.ByteBufAllocator;
 import io.netty.handler.ssl.ClientAuth;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+import javax.net.ssl.SSLException;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
@@ -48,6 +56,10 @@ public class SslConfigurationValidatorImpl implements Validator<SslConfiguration
             } catch (IllegalArgumentException e) {
                 ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Incorrect client auth parameter " + ssl.clientAuth()));
             }
+
+            if (!ssl.ciphers().isBlank()) {
+                validateCiphers(ctx, ssl);
+            }
         }
     }
 
@@ -71,6 +83,24 @@ public class SslConfigurationValidatorImpl implements Validator<SslConfiguration
             } catch (InvalidPathException e) {
                 ctx.addIssue(new ValidationIssue(ctx.currentKey() + keyName, type + " file path is incorrect: " + keyStorePath));
             }
+        }
+    }
+
+    private static void validateCiphers(ValidationContext<AbstractSslView> ctx, AbstractSslView ssl) {
+        try {
+            SslContext context = SslContextBuilder.forClient().build();
+            Set<String> supported = Arrays.stream(context.newEngine(ByteBufAllocator.DEFAULT).getSupportedCipherSuites())
+                    .filter(Objects::nonNull) // OpenSSL engine returns null string in the array so we need to filter them out
+                    .collect(Collectors.toSet());
+            Set<String> ciphers = Arrays.stream(ssl.ciphers().split(","))
+                    .map(String::strip)
+                    .collect(Collectors.toSet());
+            if (!supported.containsAll(ciphers)) {
+                ciphers.removeAll(supported);
+                ctx.addIssue(new ValidationIssue(ctx.currentKey(), "There are unsupported cipher suites: " + ciphers));
+            }
+        } catch (SSLException e) {
+            ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Can't create SSL engine"));
         }
     }
 }

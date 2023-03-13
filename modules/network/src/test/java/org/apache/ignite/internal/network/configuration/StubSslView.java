@@ -22,13 +22,15 @@ public class StubSslView implements SslView {
 
     private final boolean enabled;
     private final String clientAuth;
+    private String ciphers;
     private final KeyStoreView keyStore;
     private final KeyStoreView trustStore;
 
     /** Constructor. */
-    public StubSslView(boolean enabled, String clientAuth, KeyStoreView keyStore, KeyStoreView trustStore) {
+    public StubSslView(boolean enabled, String clientAuth, String ciphers, KeyStoreView keyStore, KeyStoreView trustStore) {
         this.enabled = enabled;
         this.clientAuth = clientAuth;
+        this.ciphers = ciphers;
         this.keyStore = keyStore;
         this.trustStore = trustStore;
     }
@@ -45,7 +47,7 @@ public class StubSslView implements SslView {
 
     @Override
     public String ciphers() {
-        return null;
+        return ciphers;
     }
 
     @Override

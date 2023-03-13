@@ -27,6 +27,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
 import org.apache.ignite.internal.network.configuration.SslView;
@@ -97,8 +99,10 @@ public final class SslContextProvider {
 
     private static void setCiphers(SslContextBuilder builder, SslView ssl) {
         if (!ssl.ciphers().isBlank()) {
-            String[] ciphers = ssl.ciphers().split(",");
-            builder.ciphers(Arrays.asList(ciphers));
+            List<String> ciphers = Arrays.stream(ssl.ciphers().split(","))
+                    .map(String::strip)
+                    .collect(Collectors.toList());
+            builder.ciphers(ciphers);
         }
     }
 }
