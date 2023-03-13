@@ -217,7 +217,7 @@ public interface IgniteClient extends Ignite {
 
         /**
          * Sets the reconnect interval, in milliseconds. Set to {@code 0} to disable background reconnect.
-
+         *
          * <p>Ignite balances requests across all healthy connections (when multiple endpoints are configured).
          * Ignite also repairs connections on demand (when a request is made).
          * However, "secondary" connections can be lost (due to network issues, or node restarts). This property controls how ofter Ignite
