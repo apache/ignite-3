@@ -20,28 +20,28 @@ package org.apache.ignite.internal.cli.config;
 import java.io.File;
 import java.nio.file.Path;
 
-/**
- * Util class for config CLI.
- */
+/** CLI config keys and constants. */
 public enum CliConfigKeys {
 
-    /**
-     * Default cluster or node URL property name.
-     */
+    /** Default cluster or node URL property name. */
     CLUSTER_URL(Constants.CLUSTER_URL),
 
+    /** Last connected cluster or node URL property name. */
     LAST_CONNECTED_URL(Constants.LAST_CONNECTED_URL),
 
-    TRUST_STORE_PATH(Constants.TRUST_STORE_PATH),
+    /** REST trust store path property name. */
+    REST_TRUST_STORE_PATH(Constants.REST_TRUST_STORE_PATH),
 
-    TRUST_STORE_PASSWORD(Constants.TRUST_STORE_PASSWORD),
+    /** REST trust store password property name. */
+    REST_TRUST_STORE_PASSWORD(Constants.REST_TRUST_STORE_PASSWORD),
 
-    KEY_STORE_PATH(Constants.KEY_STORE_PATH),
+    /** REST key store path property name. */
+    REST_KEY_STORE_PATH(Constants.REST_KEY_STORE_PATH),
 
-    KEY_STORE_PASSWORD(Constants.KEY_STORE_PASSWORD),
-    /**
-     * Default JDBC URL property name.
-     */
+    /** REST key store password property name. */
+    REST_KEY_STORE_PASSWORD(Constants.REST_KEY_STORE_PASSWORD),
+
+    /** Default JDBC URL property name. */
     JDBC_URL(Constants.JDBC_URL);
 
     private final String value;
@@ -56,44 +56,32 @@ public enum CliConfigKeys {
 
         public static final String LAST_CONNECTED_URL = "ignite.last-connected-url";
 
-        public static final String TRUST_STORE_PATH = "ignite.trust-store.path";
+        public static final String REST_TRUST_STORE_PATH = "ignite.trust-store.path";
 
-        public static final String TRUST_STORE_PASSWORD = "ignite.trust-store.password";
+        public static final String REST_TRUST_STORE_PASSWORD = "ignite.trust-store.password";
 
-        public static final String KEY_STORE_PATH = "ignite.key-store.path";
+        public static final String REST_KEY_STORE_PATH = "ignite.key-store.path";
 
-        public static final String KEY_STORE_PASSWORD = "ignite.key-store.password";
+        public static final String REST_KEY_STORE_PASSWORD = "ignite.key-store.password";
 
         public static final String JDBC_URL = "ignite.jdbc-url";
 
-        /**
-         * Environment variable which points to the base directory for configuration files according to XDG spec.
-         */
+        /** Environment variable which points to the base directory for configuration files according to XDG spec. */
         private static final String XDG_CONFIG_HOME = "XDG_CONFIG_HOME";
 
-        /**
-         * Subdirectory name under the base configuration directory for ignite configuration files.
-         */
+        /** Subdirectory name under the base configuration directory for ignite configuration files. */
         private static final String PARENT_FOLDER_NAME = "ignitecli";
 
-        /**
-         * Main configuration file name.
-         */
+        /** Main configuration file name. */
         private static final String CONFIG_FILE_NAME = "defaults";
 
-        /**
-         * Environment variable which points to the configuration file.
-         */
+        /** Environment variable which points to the configuration file. */
         private static final String IGNITE_CLI_CONFIG_FILE = "IGNITE_CLI_CONFIG_FILE";
 
-        /**
-         * Environment variable which points to the CLI logs folder.
-         */
+        /** Environment variable which points to the CLI logs folder. */
         public static final String IGNITE_CLI_LOGS_DIR = "IGNITE_CLI_LOGS_DIR";
 
-        /**
-         * Current profile property name.
-         */
+        /** Current profile property name. */
         public static final String CURRENT_PROFILE = "current_profile";
     }
 

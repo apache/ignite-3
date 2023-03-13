@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.cli.core;
 
-import static org.apache.ignite.internal.cli.config.CliConfigKeys.KEY_STORE_PASSWORD;
-import static org.apache.ignite.internal.cli.config.CliConfigKeys.KEY_STORE_PATH;
-import static org.apache.ignite.internal.cli.config.CliConfigKeys.TRUST_STORE_PASSWORD;
-import static org.apache.ignite.internal.cli.config.CliConfigKeys.TRUST_STORE_PATH;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE_PASSWORD;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE_PATH;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PASSWORD;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PATH;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -64,10 +64,10 @@ public class ApiClientFactory {
             ConfigManager configManager = configManagerProvider.get();
             return ApiClientBuilder.create()
                     .basePath(path)
-                    .keyStorePath(configManager.getCurrentProperty(KEY_STORE_PATH.value()))
-                    .keyStorePassword(configManager.getCurrentProperty(KEY_STORE_PASSWORD.value()))
-                    .trustStorePath(configManager.getCurrentProperty(TRUST_STORE_PATH.value()))
-                    .trustStorePassword(configManager.getCurrentProperty(TRUST_STORE_PASSWORD.value()))
+                    .keyStorePath(configManager.getCurrentProperty(REST_KEY_STORE_PATH.value()))
+                    .keyStorePassword(configManager.getCurrentProperty(REST_KEY_STORE_PASSWORD.value()))
+                    .trustStorePath(configManager.getCurrentProperty(REST_TRUST_STORE_PATH.value()))
+                    .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()))
                     .build();
         } catch (Exception e) {
             throw new IgniteCliException("Couldn't build REST client", e);
