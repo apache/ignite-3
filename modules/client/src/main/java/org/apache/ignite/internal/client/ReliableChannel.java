@@ -157,7 +157,7 @@ public final class ReliableChannel implements AutoCloseable {
             if (chFut != null) {
                 var ch = ClientFutureUtils.getNowSafe(chFut);
 
-                if (ch != null) {
+                if (ch != null && !ch.closed()) {
                     res.add(ch.protocolContext().clusterNode());
                 }
             }
