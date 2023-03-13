@@ -611,6 +611,7 @@ public final class ReliableChannel implements AutoCloseable {
      */
     private void initAllChannelsAsync() {
         List<ClientChannelHolder> holders = channels;
+        List<CompletableFuture<ClientChannel>> futs = new ArrayList<>(holders.size());
 
         for (ClientChannelHolder hld : holders) {
             if (closed) {
@@ -618,7 +619,7 @@ public final class ReliableChannel implements AutoCloseable {
             }
 
             try {
-                hld.getOrCreateChannelAsync(true);
+                futs.add(hld.getOrCreateChannelAsync(true));
             } catch (Exception e) {
                 log.warn("Failed to establish connection to " + hld.chCfg.getAddress() + ": " + e.getMessage(), e);
             }
@@ -627,8 +628,9 @@ public final class ReliableChannel implements AutoCloseable {
         long interval = clientCfg.reconnectInterval();
 
         if (interval > 0 && !closed) {
-            // TODO: Initiate only after all futures from above are completed.
-            CompletableFuture.delayedExecutor(interval, TimeUnit.MILLISECONDS).execute(this::initAllChannelsAsync);
+            // After current round of connection attempts is finished, schedule the next one with a configured delay.
+            CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new))
+                    .thenRunAsync(this::initAllChannelsAsync, CompletableFuture.delayedExecutor(interval, TimeUnit.MILLISECONDS));
         }
     }
 
