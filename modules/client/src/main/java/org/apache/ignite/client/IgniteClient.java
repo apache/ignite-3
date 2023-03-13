@@ -215,8 +215,24 @@ public interface IgniteClient extends Ignite {
             return this;
         }
 
-        // TODO
+        /**
+         * Sets the reconnect interval, in milliseconds. Set to {@code 0} to disable background reconnect.
+
+         * <p>Ignite balances requests across all healthy connections (when multiple endpoints are configured).
+         * Ignite also repairs connections on demand (when a request is made).
+         * However, "secondary" connections can be lost (due to network issues, or node restarts). This property controls how ofter Ignite
+         * client will check all configured endpoints and try to reconnect them in case of failure.
+         *
+         * @param reconnectInterval Reconnect interval, in milliseconds.
+         * @return This instance.
+         * @throws IllegalArgumentException When value is less than zero.
+         */
         public Builder reconnectInterval(long reconnectInterval) {
+            if (reconnectInterval < 0) {
+                throw new IllegalArgumentException("reconnectInterval ["
+                        + reconnectInterval + "] must be a non-negative integer value.");
+            }
+
             this.reconnectInterval = reconnectInterval;
 
             return this;
