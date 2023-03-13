@@ -630,7 +630,9 @@ public final class ReliableChannel implements AutoCloseable {
         if (interval > 0 && !closed) {
             // After current round of connection attempts is finished, schedule the next one with a configured delay.
             CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new))
-                    .thenRunAsync(this::initAllChannelsAsync, CompletableFuture.delayedExecutor(interval, TimeUnit.MILLISECONDS));
+                    .whenCompleteAsync(
+                            (res, err) -> initAllChannelsAsync(),
+                            CompletableFuture.delayedExecutor(interval, TimeUnit.MILLISECONDS));
         }
     }
 
