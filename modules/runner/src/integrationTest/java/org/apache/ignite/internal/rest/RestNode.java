@@ -149,7 +149,7 @@ public class RestNode {
                 + "}";
     }
 
-    /** Converts URL gotten from classloader to proper file system path and escape backslashes so it could be used in the config. */
+    /** Converts URL gotten from classloader to proper file system path. */
     public static String getResourcePath(URL url) {
         try {
             Objects.requireNonNull(url);
