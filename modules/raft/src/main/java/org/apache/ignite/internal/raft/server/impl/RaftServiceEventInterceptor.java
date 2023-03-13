@@ -29,7 +29,7 @@ import org.apache.ignite.network.ClusterNode;
 /**
  * RAFT server event listener.
  */
-public class RaftServiceEventListener {
+public class RaftServiceEventInterceptor {
     /** Callbacks by group ids. */
     private ConcurrentHashMap<ReplicationGroupId, Set<Consumer<Long>>> subscriptions = new ConcurrentHashMap<>();
 

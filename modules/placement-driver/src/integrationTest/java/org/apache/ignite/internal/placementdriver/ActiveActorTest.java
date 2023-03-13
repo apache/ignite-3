@@ -33,6 +33,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -68,7 +69,12 @@ public class ActiveActorTest extends TopologyAwareRaftGroupServiceTest {
 
     /** {@inheritDoc} */
     @Override
-    protected void afterNodeStart(String nodeName, ClusterService clusterService, Set<String> placementDriverNodesNames) {
+    protected void afterNodeStart(
+            String nodeName,
+            ClusterService clusterService,
+            Set<String> placementDriverNodesNames,
+            RaftGroupEventsClientListener eventsClientListener
+    ) {
         PlacementDriverManager placementDriverManager = new PlacementDriverManager(
                 msm,
                 new VaultManager(new InMemoryVaultService()),
@@ -79,7 +85,8 @@ public class ActiveActorTest extends TopologyAwareRaftGroupServiceTest {
                 new LogicalTopologyServiceTestImpl(clusterService),
                 executor,
                 tblsCfg,
-                new HybridClockImpl()
+                new HybridClockImpl(),
+                eventsClientListener
         );
 
         placementDriverManager.start();
