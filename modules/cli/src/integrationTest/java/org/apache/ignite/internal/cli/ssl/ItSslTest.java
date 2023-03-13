@@ -45,7 +45,7 @@ public class ItSslTest extends CliSslIntegrationTestBase {
 
         // Then
         assertAll(
-                () -> assertErrOutputContains("Check SSL configuration"),
+                () -> assertErrOutputContains("SSL error"),
                 this::assertOutputIsEmpty
         );
     }
@@ -53,12 +53,11 @@ public class ItSslTest extends CliSslIntegrationTestBase {
     @Test
     @DisplayName("Should connect to cluster with given url")
     void connectToSecuredNode() {
-
         // When set up ssl configuration
-        execute("cli", "config", "set", "ignite.key-store-path=" + getResourcePath(keyStorePath));
-        execute("cli", "config", "set", "ignite.key-store-password=" + keyStorePassword);
-        execute("cli", "config", "set", "ignite.trust-store-path=" + getResourcePath(trustStorePath));
-        execute("cli", "config", "set", "ignite.trust-store-password=" + trustStorePassword);
+        execute("cli", "config", "set", "ignite.key-store.path=" + getResourcePath(keyStorePath));
+        execute("cli", "config", "set", "ignite.key-store.password=" + keyStorePassword);
+        execute("cli", "config", "set", "ignite.trust-store.path=" + getResourcePath(trustStorePath));
+        execute("cli", "config", "set", "ignite.trust-store.password=" + trustStorePassword);
         resetOutput();
 
         // And connect via HTTPS

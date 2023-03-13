@@ -36,21 +36,12 @@ public class CliSslIntegrationTestBase extends CliCommandTestNotInitializedInteg
     /**
      * Template for node bootstrap config with Scalecube and Logical Topology settings for fast failure detection.
      */
-    protected static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+    protected static final String REST_SSL_BOOTSTRAP_CONFIG = "{\n"
             + "  network: {\n"
             + "    port: {},\n"
             + "    nodeFinder: {\n"
             + "      netClusterNodes: [ {} ]\n"
             + "    },\n"
-            + "    membership: {\n"
-            + "      membershipSyncInterval: 1000,\n"
-            + "      failurePingInterval: 500,\n"
-            + "      scaleCube: {\n"
-            + "        membershipSuspicionMultiplier: 1,\n"
-            + "        failurePingRequestMembers: 1,\n"
-            + "        gossipInterval: 10\n"
-            + "      },\n"
-            + "    }\n"
             + "  },\n"
             + "  rest: {"
             + "    dualProtocol: " + true + ",\n"
@@ -67,14 +58,8 @@ public class CliSslIntegrationTestBase extends CliCommandTestNotInitializedInteg
             + "        password: " + trustStorePassword + "\n"
             + "      }\n"
             + "    }\n"
-            + "  },\n"
-            + "  cluster.failoverTimeout: 100\n"
+            + "  }\n"
             + "}";
-
-    @Override
-    protected String nodeBootstrapConfigTemplate() {
-        return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
-    }
 
     protected static String getResourcePath(String resource) {
         try {
@@ -85,5 +70,10 @@ public class CliSslIntegrationTestBase extends CliCommandTestNotInitializedInteg
         } catch (URISyntaxException e) {
             throw new RuntimeException(e); // Shouldn't happen since URL is obtained from the class loader
         }
+    }
+
+    @Override
+    protected String nodeBootstrapConfigTemplate() {
+        return REST_SSL_BOOTSTRAP_CONFIG;
     }
 }

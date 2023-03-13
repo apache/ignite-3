@@ -15,20 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.config;
+package org.apache.ignite.internal.cli.core.repl.completer.cli;
 
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
+import java.util.Arrays;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
+import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
+import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFactory;
+import org.apache.ignite.internal.cli.core.repl.completer.StringDynamicCompleter;
 
-/**
- * Provider for {@link ConfigManager}.
- */
+/** Dynamic completer for CLI config keys. */
 @Singleton
-public class CachedConfigManagerProvider implements ConfigManagerProvider {
-    private final ConfigManager configManager = new IniConfigManager(CliConfigKeys.getConfigFile());
+public class CliConfigDynamicCompleterFactory implements DynamicCompleterFactory {
+    private final StringDynamicCompleter completer = new StringDynamicCompleter(
+            Arrays.stream(CliConfigKeys.values()).map(CliConfigKeys::value).collect(Collectors.toSet())
+    );
 
     @Override
-    public ConfigManager get() {
-        return configManager;
+    public DynamicCompleter getDynamicCompleter(String[] words) {
+        return completer;
     }
 }

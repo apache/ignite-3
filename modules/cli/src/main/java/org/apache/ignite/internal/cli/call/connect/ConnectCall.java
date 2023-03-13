@@ -21,7 +21,7 @@ import com.google.gson.Gson;
 import jakarta.inject.Singleton;
 import java.net.MalformedURLException;
 import java.util.Objects;
-import org.apache.ignite.internal.cli.config.ConfigConstants;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.StateConfigProvider;
 import org.apache.ignite.internal.cli.core.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.JdbcUrl;
@@ -69,7 +69,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
         }
         try {
             String configuration = fetchNodeConfiguration(nodeUrl);
-            stateConfigProvider.get().setProperty(ConfigConstants.LAST_CONNECTED_URL, nodeUrl);
+            stateConfigProvider.get().setProperty(CliConfigKeys.LAST_CONNECTED_URL.value(), nodeUrl);
             session.connect(new SessionInfo(nodeUrl, fetchNodeName(nodeUrl), constructJdbcUrl(configuration, nodeUrl)));
             return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s", UiElements.url(nodeUrl)).render());
         } catch (ApiException | IllegalArgumentException e) {
