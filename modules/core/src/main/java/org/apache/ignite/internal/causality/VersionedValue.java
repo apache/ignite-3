@@ -48,7 +48,7 @@ import org.apache.ignite.lang.IgniteTriConsumer;
  */
 public class VersionedValue<T> {
     /** Token until the value is initialized. */
-    private static final long NOT_INITIALIZED = -1L;
+    public static final long NOT_INITIALIZED = -1L;
 
     /** Default history size. */
     private static final int DEFAULT_HISTORY_SIZE = 2;

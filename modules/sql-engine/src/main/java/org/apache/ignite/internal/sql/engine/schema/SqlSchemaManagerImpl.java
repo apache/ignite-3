@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.causality.VersionedValue.NOT_INITIALIZED;
 import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
@@ -156,7 +157,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
         try {
-            if (ver == -1) {
+            if (ver == NOT_INITIALIZED) {
                 return completedFuture(null);
             }
 
@@ -184,7 +185,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         IgniteSchema schema = schemasVv.latest().get(schemaName);
 
-        return schema == null ? -1 : schema.schemaVersion();
+        return schema == null ? NOT_INITIALIZED : schema.schemaVersion();
     }
 
     /** {@inheritDoc} */

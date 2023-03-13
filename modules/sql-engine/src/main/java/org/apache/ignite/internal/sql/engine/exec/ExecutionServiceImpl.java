@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.DDL_EXEC_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.MESSAGE_SEND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_OPERATION_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
@@ -328,7 +327,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         } else {
             fut.whenComplete((mgr, ex) -> {
                 if (ex != null) {
-                    throw new IgniteInternalException(SCHEMA_OPERATION_ERR, "Can`t obtain actual schema.", ex);
+                    handleError(ex, nodeName, msg);
+                    return;
                 }
 
                 taskExecutor.execute(msg.queryId(), msg.fragmentId(), () -> submitFragment(nodeName, msg));
@@ -402,13 +402,25 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private void submitFragment(String nodeName, QueryStartRequest msg) {
+        DistributedQueryManager queryManager = getOrCreateQueryManager(msg);
+
+        queryManager.submitFragment(nodeName, msg.root(), msg.fragmentDescription(), msg.txAttributes());
+    }
+
+    private void handleError(Throwable ex, String nodeName, QueryStartRequest msg) {
+        DistributedQueryManager queryManager = getOrCreateQueryManager(msg);
+
+        queryManager.handleError(ex, nodeName, msg.fragmentDescription().fragmentId());
+    }
+
+    private DistributedQueryManager getOrCreateQueryManager(QueryStartRequest msg) {
         DistributedQueryManager queryManager = queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
             BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters());
 
             return new DistributedQueryManager(ctx);
         });
 
-        queryManager.submitFragment(nodeName, msg.root(), msg.fragmentDescription(), msg.txAttributes());
+        return queryManager;
     }
 
     /**
@@ -583,22 +595,26 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 executeFragment(plan, createContext(initiatorNode, desc, txAttributes));
             } catch (Throwable ex) {
-                LOG.debug("Unable to start query fragment", ex);
+                handleError(ex, initiatorNode, desc.fragmentId());
+            }
+        }
 
-                try {
-                    msgSrvc.send(
-                            initiatorNode,
-                            FACTORY.queryStartResponse()
-                                    .queryId(ctx.queryId())
-                                    .fragmentId(desc.fragmentId())
-                                    .error(ex)
-                                    .build()
-                    );
-                } catch (Exception e) {
-                    LOG.info("Unable to send error message", e);
+        private void handleError(Throwable ex, String initiatorNode, long fragmentId) {
+            LOG.debug("Unable to start query fragment", ex);
 
-                    close(true);
-                }
+            try {
+                msgSrvc.send(
+                        initiatorNode,
+                        FACTORY.queryStartResponse()
+                                .queryId(ctx.queryId())
+                                .fragmentId(fragmentId)
+                                .error(ex)
+                                .build()
+                );
+            } catch (Exception e) {
+                LOG.info("Unable to send error message", e);
+
+                close(true);
             }
         }
 
