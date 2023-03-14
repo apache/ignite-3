@@ -226,6 +226,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             PayloadReader<T> payloadReader
     ) {
         try {
+            if (log.isTraceEnabled()) {
+                log.trace("Sending request [opCode=" + opCode + ", remoteAddress=" + cfg.getAddress() + ']');
+            }
+
             ClientRequestFuture fut = send(opCode, payloadWriter);
 
             return receiveAsync(fut, payloadReader);
