@@ -157,7 +157,7 @@ public class CompleterConf {
             return this;
         }
 
-        /** Setup single positional parameter completer flag. It means that the completer should be applied only for parameter once. */
+        /** Setup single positional parameter completer flag. It means that the completer should be applied for the parameter only once. */
         public CompleterConfBuilder singlePositionalParameter() {
             this.isSinglePositionalParameter = true;
             return this;
