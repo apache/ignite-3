@@ -207,7 +207,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** {@inheritDoc} */
     @Override
     public void onDisconnected(@Nullable Exception e) {
-        log.debug("Disconnected from server [remoteAddress=" + cfg.getAddress() + ']');
+        if (log.isDebugEnabled()) {
+            log.debug("Disconnected from server [remoteAddress=" + cfg.getAddress() + ']');
+        }
+
         close(e);
     }
 
@@ -340,7 +343,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         int flags = unpacker.unpackInt();
 
         if (ResponseFlags.getPartitionAssignmentChangedFlag(flags)) {
-            log.info("Partition assignment change notification received [remoteAddress=" + cfg.getAddress() + "]");
+            if (log.isInfoEnabled()) {
+                log.info("Partition assignment change notification received [remoteAddress=" + cfg.getAddress() + "]");
+            }
 
             for (Consumer<ClientChannel> listener : assignmentChangeListeners) {
                 listener.accept(this);
