@@ -33,7 +33,7 @@ import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
 
-/** Implementation of {@link NodeNameRegistry}. */
+/** Implementation of {@link UnitsRegistry}. */
 @Singleton
 public class UnitsRegistryImpl implements UnitsRegistry, AsyncSessionEventListener {
 
