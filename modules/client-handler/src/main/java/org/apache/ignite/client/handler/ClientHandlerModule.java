@@ -200,7 +200,7 @@ public class ClientHandlerModule implements IgniteComponent {
                                     configuration.idleTimeout(), 0, 0, TimeUnit.MILLISECONDS);
 
                             ch.pipeline().addLast(idleStateHandler);
-                            ch.pipeline().addLast(new IdleChannelHandler());
+                            ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeout()));
                         }
 
                         if (sslContext != null) {
@@ -247,16 +247,5 @@ public class ClientHandlerModule implements IgniteComponent {
         LOG.info("Thin client protocol started successfully[port={}]", port);
 
         return ch.closeFuture();
-    }
-
-    /** Idle channel state handler. */
-    private static class IdleChannelHandler extends ChannelDuplexHandler {
-        /** {@inheritDoc} */
-        @Override
-        public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-            if (evt instanceof IdleStateEvent && ((IdleStateEvent) evt).state() == IdleState.READER_IDLE) {
-                ctx.close();
-            }
-        }
     }
 }
