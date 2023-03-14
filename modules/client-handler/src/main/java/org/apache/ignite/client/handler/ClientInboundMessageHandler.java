@@ -243,6 +243,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             write(packer, ctx);
         } catch (Throwable t) {
+            LOG.warn("Handshake failed: " + t.getMessage(), t);
+
             packer.close();
 
             var errPacker = getPacker(ctx.alloc());
@@ -254,6 +256,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
                 write(errPacker, ctx);
             } catch (Throwable t2) {
+                LOG.error("Handshake response serialization failed: " + t2.getMessage(), t2);
+
                 errPacker.close();
                 exceptionCaught(ctx, t2);
             }
