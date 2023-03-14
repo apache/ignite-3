@@ -347,8 +347,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             requestId = in.unpackLong();
 
             if (LOG.isTraceEnabled()) {
-                // TODO: Remote address should be in category
-                LOG.trace("Processing client request [id=" + requestId + ", op=" + opCode
+                LOG.trace("Client request started [id=" + requestId + ", op=" + opCode
                         + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
             }
 
@@ -362,6 +361,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             if (fut == null) {
                 // Operation completed synchronously.
                 write(out, ctx);
+
+                if (LOG.isTraceEnabled()) {
+                    LOG.trace("Client request processed synchronously [id=" + requestId + ", op=" + opCode
+                            + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
+                }
             } else {
                 var reqId = requestId;
                 var op = opCode;
@@ -372,6 +376,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                         writeError(reqId, op, (Throwable) err, ctx);
                     } else {
                         write(out, ctx);
+
+                        LOG.trace("Client request processed [id=" + reqId + ", op=" + op
+                                + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
                     }
                 });
             }
