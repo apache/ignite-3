@@ -34,9 +34,6 @@ import java.util.OptionalLong;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -46,9 +43,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -82,14 +77,12 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     private boolean areWatchesEnabled = false;
 
-    private final WatchProcessor watchProcessor = new WatchProcessor(this::get);
-
-    private final ExecutorService watchExecutor;
+    private final WatchProcessor watchProcessor;
 
     private final List<Entry> updatedEntries = new ArrayList<>();
 
     public SimpleInMemoryKeyValueStorage(String nodeName) {
-        this.watchExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "watch-executor", LOG));
+        this.watchProcessor = new WatchProcessor(nodeName, this::get);
     }
 
     /** {@inheritDoc} */
@@ -487,11 +480,9 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             return;
         }
 
-        var updatedEntriesCopy = List.copyOf(updatedEntries);
+        watchProcessor.notifyWatches(List.copyOf(updatedEntries));
 
         updatedEntries.clear();
-
-        watchExecutor.execute(() -> watchProcessor.notifyWatches(updatedEntriesCopy));
     }
 
     @Override
@@ -516,7 +507,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void close() {
-        IgniteUtils.shutdownAndAwaitTermination(watchExecutor, 10, TimeUnit.SECONDS);
+        watchProcessor.close();
     }
 
     @Override
