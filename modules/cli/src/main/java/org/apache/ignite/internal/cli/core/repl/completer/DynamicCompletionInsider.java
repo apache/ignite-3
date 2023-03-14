@@ -36,7 +36,6 @@ public class DynamicCompletionInsider {
         commandLine.registerConverter(NodeNameOrUrl.class, value -> null);
     }
 
-    @NotNull
     private static String[] trim(String[] typedWords) {
         List<String> trimmedWords = new ArrayList<>(typedWords.length);
         int offset = 0;
