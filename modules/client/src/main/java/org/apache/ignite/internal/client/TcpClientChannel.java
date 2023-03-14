@@ -576,8 +576,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                                 });
                     }
                 }
-            } catch (Throwable ignored) {
-                // Ignore failed heartbeats.
+            } catch (Throwable e) {
+                log.warn("Failed to send heartbeat [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
             }
         }
     }
