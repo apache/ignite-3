@@ -52,7 +52,7 @@ public class Replica {
      * @param request Request to replication.
      * @return Response.
      */
-    public CompletableFuture<Object> processRequest(ReplicaRequest request) {
+    public CompletableFuture<?> processRequest(ReplicaRequest request) {
         assert replicaGrpId.equals(request.groupId()) : IgniteStringFormatter.format(
                 "Partition mismatch: request does not match the replica [reqReplicaGrpId={}, replicaGrpId={}]",
                 request.groupId(),

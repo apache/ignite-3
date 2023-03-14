@@ -99,7 +99,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             new Column[]{new Column("value", NativeTypes.INT64, false)}
     );
 
-    private static final  HybridClock CLOCK = new HybridClockImpl();
+    private static final HybridClock CLOCK = new HybridClockImpl();
 
     private static final ReplicationGroupId crossTableGroupId = new TablePartitionId(UUID.randomUUID(), 0);
 
@@ -107,7 +107,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     private ReplicaListener replicaListener;
 
-    private ReplicationGroupId groupId;
+    private final ReplicationGroupId groupId;
 
     /** The thread updates safe time on the dummy replica. */
     private Thread safeTimeUpdaterThread;
@@ -198,12 +198,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         if (!crossTableUsage) {
             // Delegate replica requests directly to replica listener.
-            lenient().doAnswer(
-                    invocationOnMock -> {
-                        CompletableFuture<Object> invoke = replicaListener.invoke(invocationOnMock.getArgument(1));
-                        return invoke;
-                    }
-            ).when(replicaSvc).invoke(any(ClusterNode.class), any());
+            lenient().doAnswer(invocationOnMock -> replicaListener.invoke(invocationOnMock.getArgument(1)))
+                    .when(replicaSvc).invoke(any(ClusterNode.class), any());
         }
 
         AtomicLong raftIndex = new AtomicLong();
