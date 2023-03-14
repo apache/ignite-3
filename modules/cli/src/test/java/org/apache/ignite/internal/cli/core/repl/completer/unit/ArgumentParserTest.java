@@ -41,7 +41,7 @@ class ArgumentParserTest {
     @MethodSource("wordsSource")
     void parseUnitId(String[] givenWords, String expectedUnitId) {
         // When parse
-        String unitId = new ArgumentParser().getUnitId(givenWords);
+        String unitId = new ArgumentParser().parseFirstPositionalParameter(givenWords);
 
         // Then
         assertThat(unitId).isEqualTo(expectedUnitId);

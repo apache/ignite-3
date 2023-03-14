@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.cli.call.unit;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.concurrent.CompletableFuture;
@@ -56,17 +58,18 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
 
             File file = input.path().toFile();
             if (!file.exists()) {
-                return CompletableFuture.completedFuture(DefaultCallOutput.failure(new FileNotFoundException(input.path().toString())));
+                return completedFuture(DefaultCallOutput.failure(new FileNotFoundException(input.path().toString())));
             }
 
             TrackingCallback<Boolean> callback = new TrackingCallback<>(tracker);
-            Call call = api.deployUnitAsync(input.id(), file, input.version(), callback);
+            String ver = input.version() == null ? "" : input.version();
+            Call call = api.deployUnitAsync(input.id(), file, ver, callback);
 
             return CompletableFuture.supplyAsync(() -> {
                 try {
                     callback.awaitDone();
                 } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
+                    return DefaultCallOutput.failure(e);
                 }
                 if (call.isCanceled()) {
                     return DefaultCallOutput.failure(new RuntimeException("Unit deployment process was canceled"));
@@ -78,7 +81,7 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
                 }
             });
         } catch (ApiException e) {
-            return CompletableFuture.completedFuture(DefaultCallOutput.failure(new IgniteCliApiException(e, input.clusterUrl())));
+            return completedFuture(DefaultCallOutput.failure(new IgniteCliApiException(e, input.clusterUrl())));
         }
     }
 

@@ -34,13 +34,13 @@ public class ArgumentParser {
     }
 
     /**
-     * Gets unit ID from typed words.
+     * Parses first positional parameter. ["unit", "deploy", "my.first", "--version"] -> "my.first".
      *
      * @param words Words.
-     * @return Unit ID.
+     * @return First positional parameter or {@code null} if it is not found.
      */
     @Nullable
-    public String getUnitId(String[] words) {
+    public String parseFirstPositionalParameter(String[] words) {
         try {
             ParseResult parseResult = commandLine.parseArgs(words);
             while (parseResult.hasSubcommand()) {

@@ -56,7 +56,7 @@ public class AsyncCallExecutionPipeline<I extends CallInput, T> extends Abstract
         I callInput = inputProvider.get();
 
         progressBarBuilder.setConsumer(new DelegatingProgressBarConsumer(this::print));
-        progressBarBuilder.setUpdateIntervalMillis(1);
+        progressBarBuilder.setUpdateIntervalMillis(60);
         ProgressBar progressBar = progressBarBuilder.build();
 
         try {

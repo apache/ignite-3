@@ -21,13 +21,10 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 /** Integration test for deployment commands. */
 public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBase {
@@ -35,8 +32,8 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
     private String path;
 
     @BeforeEach
-    void setUp(@TempDir Path tmpDir) throws IOException {
-        path = Files.createTempFile(tmpDir, "test", "txt").toAbsolutePath().toString();
+    void setUp() throws IOException {
+        path = Files.createTempFile(WORK_DIR, "test", "txt").toAbsolutePath().toString();
     }
 
     @Test
@@ -55,7 +52,6 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
 
     @Test
     @DisplayName("Should deploy a unit without version")
-    @Disabled
     void deployWithoutVersion() {
         // When deploy without version
         execute("unit", "deploy", "test.unit.id.2", "--path", path);

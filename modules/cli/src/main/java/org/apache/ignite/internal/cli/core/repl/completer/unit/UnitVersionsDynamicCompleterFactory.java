@@ -38,7 +38,7 @@ public class UnitVersionsDynamicCompleterFactory implements DynamicCompleterFact
     /** {@inheritDoc} */
     @Override
     public DynamicCompleter getDynamicCompleter(String[] words) {
-        String unitId = parser.getUnitId(words);
+        String unitId = parser.parseFirstPositionalParameter(words);
         if (unitId != null) {
             return new StringDynamicCompleter(unitsRegistry.versions(unitId));
         } else {

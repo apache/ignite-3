@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cli.call.unit;
 
-import static org.apache.ignite.internal.cli.call.unit.DeployUndeployTestSupport.emptyFilePath;
+import static org.apache.ignite.internal.cli.call.unit.DeployUndeployTestSupport.createEmptyFileIn;
 import static org.apache.ignite.internal.cli.call.unit.DeployUndeployTestSupport.get;
 import static org.apache.ignite.internal.cli.call.unit.DeployUndeployTestSupport.tracker;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
@@ -62,7 +62,7 @@ public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBas
         return DeployUnitCallInput.builder()
                 .id(id)
                 .version(version)
-                .path(emptyFilePath())
+                .path(createEmptyFileIn(WORK_DIR))
                 .clusterUrl(NODE_URL)
                 .build();
     }
@@ -176,7 +176,7 @@ public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBas
     void wrongVersionFormat() {
         // Given input with wrong version format
         DeployUnitCallInput input = DeployUnitCallInput.builder()
-                .path(emptyFilePath())
+                .path(createEmptyFileIn(WORK_DIR))
                 .id("test.id").version("1.myversion").clusterUrl(NODE_URL).build();
 
         // When

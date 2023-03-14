@@ -406,7 +406,7 @@ public class ItGeneratedRestClientTest {
 
     private File emptyFile() {
         try {
-            return Files.createTempFile("empty", "file").toFile();
+            return Files.createTempFile(workDir, "empty", "file").toFile();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

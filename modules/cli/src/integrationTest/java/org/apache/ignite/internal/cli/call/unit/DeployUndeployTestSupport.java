@@ -25,9 +25,9 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cli.core.call.ProgressTracker;
 
 class DeployUndeployTestSupport {
-    static Path emptyFilePath() {
+    static Path createEmptyFileIn(Path workDir) {
         try {
-            return Files.createTempFile("empty", ".txt");
+            return Files.createTempFile(workDir, "empty", ".txt");
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
