@@ -19,7 +19,7 @@ package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
@@ -92,6 +92,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Handles messages from thin clients.
@@ -264,19 +265,19 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private void writeMagic(ChannelHandlerContext ctx) {
+    private static void writeMagic(ChannelHandlerContext ctx) {
         ctx.write(Unpooled.wrappedBuffer(ClientMessageCommon.MAGIC_BYTES));
     }
 
-    private void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {
+    private static void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {
         var buf = packer.getBuffer();
 
         // writeAndFlush releases pooled buffer.
         ctx.writeAndFlush(buf);
     }
 
-    private void writeError(long requestId, Throwable err, ChannelHandlerContext ctx) {
-        LOG.warn("Error processing client request", err);
+    private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx) {
+        LOG.warn("Error processing client request [id=" + requestId +", op=" + opCode + "]:" + err.getMessage(), err);
 
         var packer = getPacker(ctx.alloc());
 
@@ -305,7 +306,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packInt(iex.code());
         } else {
             packer.packUuid(UUID.randomUUID());
-            packer.packInt(UNKNOWN_ERR);
+            packer.packInt(UNEXPECTED_ERR);
         }
 
         packer.packString(err.getClass().getName());
@@ -325,20 +326,21 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private ClientMessagePacker getPacker(ByteBufAllocator alloc) {
+    private static ClientMessagePacker getPacker(ByteBufAllocator alloc) {
         // Outgoing messages are released on write.
         return new ClientMessagePacker(alloc.buffer());
     }
 
-    private ClientMessageUnpacker getUnpacker(ByteBuf buf) {
+    private static ClientMessageUnpacker getUnpacker(ByteBuf buf) {
         return new ClientMessageUnpacker(buf);
     }
 
     private void processOperation(ChannelHandlerContext ctx, ClientMessageUnpacker in, ClientMessagePacker out) {
         long requestId = -1;
+        int opCode = -1;
 
         try {
-            final int opCode = in.unpackInt();
+            opCode = in.unpackInt();
             requestId = in.unpackLong();
 
             out.packInt(ServerMessageType.RESPONSE);
@@ -352,12 +354,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 // Operation completed synchronously.
                 write(out, ctx);
             } else {
-                final var reqId = requestId;
+                var reqId = requestId;
+                var op = opCode;
 
                 fut.whenComplete((Object res, Object err) -> {
                     if (err != null) {
                         out.close();
-                        writeError(reqId, (Throwable) err, ctx);
+                        writeError(reqId, op, (Throwable) err, ctx);
                     } else {
                         write(out, ctx);
                     }
@@ -366,11 +369,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         } catch (Throwable t) {
             out.close();
 
-            writeError(requestId, t, ctx);
+            writeError(requestId, opCode, t, ctx);
         }
     }
 
-    private CompletableFuture processOperation(
+    private @Nullable CompletableFuture processOperation(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             int opCode
