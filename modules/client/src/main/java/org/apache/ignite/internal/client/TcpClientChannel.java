@@ -334,6 +334,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         int flags = unpacker.unpackInt();
 
         if (ResponseFlags.getPartitionAssignmentChangedFlag(flags)) {
+            log.info("Partition assignment change notification received [remoteAddress=" + cfg.getAddress() + "]");
+
             for (Consumer<ClientChannel> listener : assignmentChangeListeners) {
                 listener.accept(this);
             }
