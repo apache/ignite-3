@@ -347,6 +347,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             requestId = in.unpackLong();
 
             if (LOG.isTraceEnabled()) {
+                // TODO: Remote address should be in category
                 LOG.trace("Processing client request [id=" + requestId + ", op=" + opCode
                         + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
             }
