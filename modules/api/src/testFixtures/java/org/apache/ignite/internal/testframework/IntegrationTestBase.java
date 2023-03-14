@@ -134,7 +134,7 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
      *
      * @return Count of nodes.
      */
-    protected int nodes() {
+    protected static int nodes() {
         return DEFAULT_NODES_COUNT;
     }
 

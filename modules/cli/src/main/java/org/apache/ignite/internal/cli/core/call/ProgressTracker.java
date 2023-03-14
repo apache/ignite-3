@@ -20,5 +20,11 @@ package org.apache.ignite.internal.cli.core.call;
 /** Progress tracker that will be called periodically during the call execution. */
 public interface ProgressTracker {
     /** Tracks that the step is performed. */
-    void track(); // todo: add the increment parameter in https://issues.apache.org/jira/browse/IGNITE-18731
+    void track();
+
+    void track(long size);
+
+    void maxSize(long size);
+
+    void done();
 }
