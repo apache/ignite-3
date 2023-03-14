@@ -106,16 +106,44 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
             builder.claim(ignite_type::BINARY, data);
             break;
         }
-
-        case column_type::DECIMAL:
-        case column_type::DATE:
-        case column_type::TIME:
-        case column_type::DATETIME:
-        case column_type::TIMESTAMP:
-        case column_type::BITMASK:
+        case column_type::DECIMAL: {
+            const auto& dec_value = value.get<big_decimal>();
+            claim_type_and_scale(builder, ignite_type::DECIMAL, dec_value.get_scale());
+            builder.claim_number(dec_value);
+            break;
+        }
+        case column_type::NUMBER: {
+            claim_type_and_scale(builder, ignite_type::NUMBER);
+            builder.claim_number(value.get<big_integer>());
+            break;
+        }
+        case column_type::DATE: {
+            claim_type_and_scale(builder, ignite_type::DATE);
+            builder.claim_date(value.get<ignite_date>());
+            break;
+        }
+        case column_type::TIME: {
+            claim_type_and_scale(builder, ignite_type::TIME);
+            builder.claim_time(value.get<ignite_time>());
+            break;
+        }
+        case column_type::DATETIME: {
+            claim_type_and_scale(builder, ignite_type::DATETIME);
+            builder.claim_date_time(value.get<ignite_date_time>());
+            break;
+        }
+        case column_type::TIMESTAMP: {
+            claim_type_and_scale(builder, ignite_type::TIMESTAMP);
+            builder.claim_timestamp(value.get<ignite_timestamp>());
+            break;
+        }
+        case column_type::BITMASK: {
+            claim_type_and_scale(builder, ignite_type::BITMASK);
+            builder.claim_bytes(value.get<bit_array>().get_raw());
+            break;
+        }
         case column_type::PERIOD:
         case column_type::DURATION:
-        case column_type::NUMBER:
         default:
             throw ignite_error("Unsupported type: " + std::to_string(int(value.get_type())));
     }
@@ -181,16 +209,44 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
             builder.append(ignite_type::BINARY, data);
             break;
         }
-
-        case column_type::DECIMAL:
-        case column_type::DATE:
-        case column_type::TIME:
-        case column_type::DATETIME:
-        case column_type::TIMESTAMP:
-        case column_type::BITMASK:
+        case column_type::DECIMAL: {
+            const auto& dec_value = value.get<big_decimal>();
+            append_type_and_scale(builder, ignite_type::DECIMAL, dec_value.get_scale());
+            builder.append_number(dec_value);
+            break;
+        }
+        case column_type::NUMBER: {
+            append_type_and_scale(builder, ignite_type::NUMBER);
+            builder.append_number(value.get<big_integer>());
+            break;
+        }
+        case column_type::DATE: {
+            append_type_and_scale(builder, ignite_type::DATE);
+            builder.append_date(value.get<ignite_date>());
+            break;
+        }
+        case column_type::TIME: {
+            append_type_and_scale(builder, ignite_type::TIME);
+            builder.append_time(value.get<ignite_time>());
+            break;
+        }
+        case column_type::DATETIME: {
+            append_type_and_scale(builder, ignite_type::DATETIME);
+            builder.append_date_time(value.get<ignite_date_time>());
+            break;
+        }
+        case column_type::TIMESTAMP: {
+            append_type_and_scale(builder, ignite_type::TIMESTAMP);
+            builder.append_timestamp(value.get<ignite_timestamp>());
+            break;
+        }
+        case column_type::BITMASK: {
+            append_type_and_scale(builder, ignite_type::BITMASK);
+            builder.append_bytes(value.get<bit_array>().get_raw());
+            break;
+        }
         case column_type::PERIOD:
         case column_type::DURATION:
-        case column_type::NUMBER:
         default:
             throw ignite_error("Unsupported type: " + std::to_string(int(value.get_type())));
     }
