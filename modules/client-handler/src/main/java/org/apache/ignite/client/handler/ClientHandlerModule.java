@@ -240,7 +240,9 @@ public class ClientHandlerModule implements IgniteComponent {
             throw new IgniteException(msg);
         }
 
-        LOG.info("Thin client protocol started successfully[port={}]", port);
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Thin client protocol started successfully [port={}]", port);
+        }
 
         return ch.closeFuture();
     }

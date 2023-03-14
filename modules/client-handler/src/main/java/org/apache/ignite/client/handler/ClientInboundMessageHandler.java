@@ -223,7 +223,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             clientContext = new ClientContext(clientVer, clientCode, features);
 
-            LOG.debug("Handshake: " + clientContext);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Handshake [remoteAddress=" + ctx.channel().remoteAddress() + "]: " + clientContext);
+            }
 
             var extensionsLen = unpacker.unpackMapHeader();
             unpacker.skipValues(extensionsLen);
@@ -244,7 +246,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             write(packer, ctx);
         } catch (Throwable t) {
-            LOG.warn("Handshake failed: " + t.getMessage(), t);
+            LOG.warn("Handshake failed [remoteAddress=" + ctx.channel().remoteAddress() + "]: " + t.getMessage(), t);
 
             packer.close();
 
@@ -257,7 +259,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
                 write(errPacker, ctx);
             } catch (Throwable t2) {
-                LOG.error("Handshake response serialization failed: " + t2.getMessage(), t2);
+                LOG.warn("Handshake failed [remoteAddress=" + ctx.channel().remoteAddress() + "]: " + t2.getMessage(), t2);
 
                 errPacker.close();
                 exceptionCaught(ctx, t2);
@@ -277,7 +279,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx) {
-        LOG.warn("Error processing client request [id=" + requestId +", op=" + opCode + "]:" + err.getMessage(), err);
+        LOG.warn("Error processing client request [id=" + requestId +", op=" + opCode
+                + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
 
         var packer = getPacker(ctx.alloc());
 
@@ -286,7 +289,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             packer.packInt(ServerMessageType.RESPONSE);
             packer.packLong(requestId);
-            writeFlags(packer);
+            writeFlags(packer, ctx);
 
             writeErrorCore(err, packer);
 
@@ -345,7 +348,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             out.packInt(ServerMessageType.RESPONSE);
             out.packLong(requestId);
-            writeFlags(out);
+            writeFlags(out, ctx);
             out.packNil(); // No error.
 
             var fut = processOperation(in, out, opCode);
@@ -504,8 +507,14 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private void writeFlags(ClientMessagePacker out) {
-        var flags = ResponseFlags.getFlags(partitionAssignmentChanged.compareAndSet(true, false));
+    private void writeFlags(ClientMessagePacker out, ChannelHandlerContext ctx) {
+        boolean assignmentChanged = partitionAssignmentChanged.compareAndSet(true, false);
+
+        if (assignmentChanged && LOG.isInfoEnabled()) {
+            LOG.info("Partition assignment changed, notifying client [remoteAddress=" + ctx.channel().remoteAddress() + ']');
+        }
+
+        var flags = ResponseFlags.getFlags(assignmentChanged);
         out.packInt(flags);
     }
 
@@ -522,7 +531,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** {@inheritDoc} */
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        LOG.warn("Exception in client connector pipeline: " + cause.getMessage(), cause);
+        LOG.warn("Exception in client connector pipeline [remoteAddress=" + ctx.channel().remoteAddress() + "]: "
+                + cause.getMessage(), cause);
 
         ctx.close();
     }
