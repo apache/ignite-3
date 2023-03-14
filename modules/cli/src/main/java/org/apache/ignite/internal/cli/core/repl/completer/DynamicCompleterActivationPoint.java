@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.cli.core.repl.completer;
 
 import jakarta.inject.Inject;
-import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.commands.Options;
 import org.apache.ignite.internal.cli.core.repl.completer.cli.CliConfigDynamicCompleterFactory;
@@ -38,18 +37,25 @@ public class DynamicCompleterActivationPoint {
 
     @Inject
     private NodeNameDynamicCompleterFactory nodeNameDynamicCompleterFactory;
+
     @Inject
     private ClusterConfigDynamicCompleterFactory clusterConfigDynamicCompleterFactory;
+
     @Inject
     private NodeConfigDynamicCompleterFactory nodeConfigDynamicCompleterFactory;
+
     @Inject
     private ClusterUrlDynamicCompleterFactory clusterUrlDynamicCompleterFactory;
+
     @Inject
     private JdbcUrlDynamicCompleterFactory jdbcUrlDynamicCompleterFactory;
+
     @Inject
     private UnitIdDynamicCompleterFactory unitIdDynamicCompleterFactory;
+
     @Inject
     private UnitVersionsDynamicCompleterFactory unitVersionsDynamicCompleterFactory;
+
     @Inject
     private CliConfigDynamicCompleterFactory cliConfigDynamicCompleterFactory;
 

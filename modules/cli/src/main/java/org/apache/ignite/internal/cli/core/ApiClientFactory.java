@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PATH;
 
-import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,7 +37,6 @@ import org.apache.ignite.rest.client.invoker.ApiClient;
 @Singleton
 public class ApiClientFactory {
 
-    @Inject
     private final ConfigManagerProvider configManagerProvider;
 
     private final Map<String, ApiClient> clients = new ConcurrentHashMap<>();

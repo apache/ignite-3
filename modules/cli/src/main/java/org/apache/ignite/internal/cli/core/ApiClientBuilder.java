@@ -38,7 +38,6 @@ import okhttp3.OkHttpClient;
 import okhttp3.OkHttpClient.Builder;
 import okhttp3.internal.tls.OkHostnameVerifier;
 import org.apache.ignite.rest.client.invoker.ApiClient;
-import org.jetbrains.annotations.NotNull;
 
 class ApiClientBuilder {
     private String basePath;
@@ -114,7 +113,6 @@ class ApiClientBuilder {
                 .hostnameVerifier(OkHostnameVerifier.INSTANCE);
     }
 
-    @NotNull
     private KeyManagerFactory keyManagerFactory()
             throws NoSuchAlgorithmException, KeyStoreException, UnrecoverableKeyException, CertificateException, IOException {
         KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
@@ -130,7 +128,6 @@ class ApiClientBuilder {
         return keyManagerFactory;
     }
 
-    @NotNull
     private TrustManagerFactory trustManagerFactory()
             throws NoSuchAlgorithmException, KeyStoreException, CertificateException, IOException {
         TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
