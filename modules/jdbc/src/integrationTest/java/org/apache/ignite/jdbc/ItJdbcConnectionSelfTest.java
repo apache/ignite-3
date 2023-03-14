@@ -510,7 +510,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15248")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18985")
     public void testGetSetAutoCommit() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
             boolean ac0 = conn.getAutoCommit();
