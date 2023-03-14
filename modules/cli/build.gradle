@@ -108,6 +108,8 @@ dependencies {
     integrationTestImplementation libs.assertj.core
     integrationTestImplementation libs.jline.console
     integrationTestImplementation libs.awaitility
+    integrationTestImplementation libs.hamcrest.core
+    integrationTestImplementation libs.hamcrest.optional
 }
 
 ext.generatedClientDir = layout.buildDirectory.dir("swagger/client")

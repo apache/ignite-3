@@ -59,6 +59,10 @@ public class MessageUiComponent implements UiComponent {
         return builder().message(message, messageUiElements).build();
     }
 
+    public static MessageUiComponent from(UiElement messageUiElement) {
+        return builder().message("%s", messageUiElement).build();
+    }
+
     /** Builder. */
     public static MessageComponentBuilder builder() {
         return new MessageComponentBuilder();
