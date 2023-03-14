@@ -564,7 +564,19 @@ public final class ReliableChannel implements AutoCloseable {
     private boolean shouldRetry(int opCode, ClientFutureUtils.RetryContext ctx) {
         ClientOperationType opType = ClientUtils.opCodeToClientOperationType(opCode);
 
-        return shouldRetry(opType, ctx);
+        boolean res = shouldRetry(opType, ctx);
+
+        if (log.isDebugEnabled()) {
+            if (res) {
+                log.debug("Retrying operation [opCode=" + opCode + ", attempt=" + ctx.attempt + ", lastError="
+                        + ctx.lastError() + ']');
+            } else {
+                log.debug("Not retrying operation [opCode=" + opCode + ", attempt=" + ctx.attempt + ", lastError="
+                        + ctx.lastError() + ']');
+            }
+        }
+
+        return res;
     }
 
     /** Determines whether specified operation should be retried. */
