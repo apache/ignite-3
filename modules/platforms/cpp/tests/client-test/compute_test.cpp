@@ -130,6 +130,15 @@ TEST_F(compute_test, execute_broadcast_all_nodes) {
     EXPECT_EQ(res[get_node(1)].value(), get_node(1).get_name() + "42");
 }
 
+TEST_F(compute_test, execute_with_args) {
+    auto cluster_nodes = m_client.get_cluster_nodes();
+
+    auto result = m_client.get_compute().execute(cluster_nodes, CONCAT_JOB, {5.3, uuid(), "42", nullptr});
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value().get<std::string>(), "5.3_00000000-0000-0000-0000-000000000000_42_null");
+}
+
 
 
 
