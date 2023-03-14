@@ -300,6 +300,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             try (var in = new PayloadInputChannel(this, payload)) {
                 return payloadReader.apply(in);
             } catch (Exception e) {
+                log.error("Failed to deserialize server response [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
+
                 throw new IgniteClientConnectionException(PROTOCOL_ERR, "Failed to deserialize server response: " + e.getMessage(), e);
             }
         }, asyncContinuationExecutor);
@@ -320,7 +322,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         var type = unpacker.unpackInt();
 
         if (type != ServerMessageType.RESPONSE) {
-            // TODO: Log?
+            log.error("Unexpected message type [remoteAddress=" + cfg.getAddress() + "]: " + type);
+
             throw new IgniteClientConnectionException(PROTOCOL_ERR, "Unexpected message type: " + type);
         }
 
@@ -329,8 +332,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         ClientRequestFuture pendingReq = pendingReqs.remove(resId);
 
         if (pendingReq == null) {
-            // TODO: Log?
-            // TODO: Check all other throwables.
+            log.error("Unexpected response ID [remoteAddress=" + cfg.getAddress() + "]: " + resId);
+
             throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected response ID [%s]", resId));
         }
 
