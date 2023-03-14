@@ -139,6 +139,39 @@ TEST_F(compute_test, execute_with_args) {
     EXPECT_EQ(result.value().get<std::string>(), "5.3_00000000-0000-0000-0000-000000000000_42_null");
 }
 
+TEST_F(compute_test, job_error_propagates_to_client) {
+    auto cluster_nodes = m_client.get_cluster_nodes();
+
+    EXPECT_THROW(
+        {
+            try {
+                m_client.get_compute().execute(cluster_nodes, ERROR_JOB, {"unused"});
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Custom job error"));
+                EXPECT_THAT(e.what_str(), testing::HasSubstr(
+                    "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$CustomException"));
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("IGN-TBL-3"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(compute_test, unknown_node_throws) {
+    auto unknown_node = cluster_node("some", "random", {"127.0.0.1", 1234});
+
+    EXPECT_THROW(
+        {
+            try {
+                m_client.get_compute().execute({unknown_node}, ECHO_JOB, {"unused"});
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Specified node is not present in the cluster: random"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
 
 
 

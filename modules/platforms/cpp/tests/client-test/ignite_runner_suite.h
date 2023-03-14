@@ -51,6 +51,8 @@ public:
 
     inline static const std::string NODE_NAME_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$NodeNameJob";
     inline static const std::string CONCAT_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$ConcatJob";
+    inline static const std::string ERROR_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$IgniteExceptionJob";
+    inline static const std::string ECHO_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$EchoJob";
 
     static constexpr const char *KEY_COLUMN = "key";
     static constexpr const char *VAL_COLUMN = "val";
