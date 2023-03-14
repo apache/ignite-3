@@ -320,6 +320,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         var type = unpacker.unpackInt();
 
         if (type != ServerMessageType.RESPONSE) {
+            // TODO: Log?
             throw new IgniteClientConnectionException(PROTOCOL_ERR, "Unexpected message type: " + type);
         }
 
@@ -328,6 +329,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         ClientRequestFuture pendingReq = pendingReqs.remove(resId);
 
         if (pendingReq == null) {
+            // TODO: Log?
+            // TODO: Check all other throwables.
             throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected response ID [%s]", resId));
         }
 
