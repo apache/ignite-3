@@ -346,6 +346,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             opCode = in.unpackInt();
             requestId = in.unpackLong();
 
+            if (LOG.isTraceEnabled()) {
+                LOG.trace("Processing client request [id=" + requestId + ", op=" + opCode
+                        + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
+            }
+
             out.packInt(ServerMessageType.RESPONSE);
             out.packLong(requestId);
             writeFlags(out, ctx);
