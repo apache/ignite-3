@@ -75,6 +75,7 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.junit.jupiter.api.AfterEach;
@@ -103,15 +104,17 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
     private ClusterManagementGroupManager cmgManager;
 
+    private VaultManager vaultManager;
+
     private WatchListener topologyWatchListener;
 
     private WatchListener dataNodesWatchListener;
 
     @BeforeEach
     void setUp() throws Exception {
-        VaultManager vaultManager = mock(VaultManager.class);
+        vaultManager = mock(VaultManager.class);
 
-        when(vaultManager.get(any())).thenReturn(completedFuture(null));
+        when(vaultManager.get(zonesLogicalTopologyKey())).thenReturn(completedFuture(null));
 
         cmgManager = mock(ClusterManagementGroupManager.class);
 
@@ -133,8 +136,6 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         when(metaStorageManager.invoke(any()))
                 .thenReturn(completedFuture(StatementResultImpl.builder().result(new byte[] {0}).build()));
-
-        vaultManager.start();
 
         clusterStateStorage = new TestClusterStateStorage();
 
@@ -177,13 +178,6 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
         );
 
         mockCmgLocalNodes();
-
-        distributionZoneManager.start();
-
-        distributionZoneManager.alterZone(
-                DEFAULT_ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
-                        .dataNodesAutoAdjustScaleUp(0).dataNodesAutoAdjustScaleDown(0).build())
-                .get(3, TimeUnit.SECONDS);
     }
 
     @AfterEach
@@ -198,6 +192,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testSeveralScaleUpAndSeveralScaleDownThenScaleUpAndScaleDown() throws Exception {
+        startZoneManager();
+
         TestSeveralScaleUpAndSeveralScaleDownDataObject testData = testSeveralScaleUpAndSeveralScaleDownGeneral();
 
         LOG.info("Topology with added and removed nodes.");
@@ -270,6 +266,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testSeveralScaleUpAndSeveralScaleDownThenScaleUp() throws Exception {
+        startZoneManager();
+
         TestSeveralScaleUpAndSeveralScaleDownDataObject testData = testSeveralScaleUpAndSeveralScaleDownGeneral();
 
         LOG.info("Topology with added nodes.");
@@ -317,6 +315,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testSeveralScaleUpAndSeveralScaleDownThenScaleDown() throws Exception {
+        startZoneManager();
+
         TestSeveralScaleUpAndSeveralScaleDownDataObject testData = testSeveralScaleUpAndSeveralScaleDownGeneral();
 
         LOG.info("Topology with removed nodes.");
@@ -601,6 +601,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testScaleUpAndThenScaleDown() throws Exception {
+        startZoneManager();
+
         CompletableFuture<Set<String>> dataNodesFut = distributionZoneManager.getDataNodes(DEFAULT_ZONE_ID, 5);
 
         AtomicReference<CompletableFuture<Void>> topVerFut = new AtomicReference<>();
@@ -706,6 +708,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testAwaitingScaleUpOnly() throws Exception {
+        startZoneManager();
+
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                         .dataNodesAutoAdjustScaleUp(Integer.MAX_VALUE).dataNodesAutoAdjustScaleDown(Integer.MAX_VALUE).build())
                 .get(3, TimeUnit.SECONDS);
@@ -754,6 +758,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testAwaitingScaleDownOnly() throws Exception {
+        startZoneManager();
+
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                         .dataNodesAutoAdjustScaleUp(Integer.MAX_VALUE).dataNodesAutoAdjustScaleDown(Integer.MAX_VALUE).build())
                 .get(3, TimeUnit.SECONDS);
@@ -835,6 +841,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testWithOutAwaiting() throws Exception {
+        startZoneManager();
+
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                         .dataNodesAutoAdjustScaleUp(Integer.MAX_VALUE).dataNodesAutoAdjustScaleDown(Integer.MAX_VALUE).build())
                 .get(3, TimeUnit.SECONDS);
@@ -886,6 +894,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testRemoveZoneWhileAwaitingDataNodes() throws Exception {
+        startZoneManager();
+
         distributionZoneManager.createZone(
                         new DistributionZoneConfigurationParameters.Builder("zone0")
                                 .dataNodesAutoAdjustScaleUp(0)
@@ -1019,6 +1029,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testScaleUpScaleDownWhileAwaitingDataNodes() throws Exception {
+        startZoneManager();
+
         Set<String> nodes0 = Set.of("node0", "node1");
 
         topologyWatchListenerOnUpdate(nodes0, 1, 1);
@@ -1061,6 +1073,38 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
         }
 
         assertEquals(nodes0, dataNodesFut.get());
+    }
+
+    /**
+     * Test checks that data nodes are initialized on zone manager start.
+     */
+    @Test
+    void initializedDataNodesOnZoneManagerStart() throws Exception {
+        Set<String> dataNodes = Set.of("node0", "node1");
+
+        VaultEntry vaultEntry = new VaultEntry(zonesLogicalTopologyKey(), toBytes(dataNodes));
+
+        when(vaultManager.get(zonesLogicalTopologyKey())).thenReturn(completedFuture(vaultEntry));
+
+        when(metaStorageManager.appliedRevision()).thenReturn(5L);
+
+        startZoneManager();
+
+        distributionZoneManager.alterZone(
+                        DEFAULT_ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                                .dataNodesAutoAdjustScaleUp(1).dataNodesAutoAdjustScaleDown(1).build())
+                .get(3, TimeUnit.SECONDS);
+
+        assertEquals(dataNodes, distributionZoneManager.getDataNodes(DEFAULT_ZONE_ID, 1).get(3, TimeUnit.SECONDS));
+    }
+
+    private void startZoneManager() throws Exception {
+        distributionZoneManager.start();
+
+        distributionZoneManager.alterZone(
+                        DEFAULT_ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                                .dataNodesAutoAdjustScaleUp(0).dataNodesAutoAdjustScaleDown(0).build())
+                .get(3, TimeUnit.SECONDS);
     }
 
     private void topologyWatchListenerOnUpdate(Set<String> nodes, long topVer, long rev) {
