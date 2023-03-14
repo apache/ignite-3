@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import org.apache.ignite.deployment.DeploymentInfo;
 import org.apache.ignite.deployment.UnitStatus;
 import org.apache.ignite.deployment.UnitStatus.UnitStatusBuilder;
 import org.apache.ignite.internal.deployunit.UnitMeta;
@@ -49,7 +50,7 @@ public class UnitsAccumulator implements Accumulator<List<UnitStatus>> {
         UnitMeta meta = UnitMetaSerializer.deserialize(item.value());
         if (filter.test(meta)) {
             map.computeIfAbsent(meta.id(), UnitStatus::builder)
-                    .append(meta.version(), meta.consistentIdLocation());
+                    .append(meta.version(), new DeploymentInfo(meta.status(), meta.consistentIdLocation()));
         }
     }
 

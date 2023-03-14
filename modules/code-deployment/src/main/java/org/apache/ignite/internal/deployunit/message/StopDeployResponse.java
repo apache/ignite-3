@@ -17,35 +17,14 @@
 
 package org.apache.ignite.internal.deployunit.message;
 
+import static org.apache.ignite.internal.deployunit.message.DeployUnitMessageTypes.STOP_DEPLOY_RESPONSE;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Message group for deployment units.
+ * Stop deploy request.
  */
-@MessageGroup(groupType = 10, groupName = "DeploymentUnit")
-public class DeployUnitMessageTypes {
-    /**
-     * Message type for {@link DeployUnitRequest}.
-     */
-    public static final short DEPLOY_UNIT_REQUEST = 0;
-
-    /**
-     * Message type for {@link DeployUnitResponse}.
-     */
-    public static final short DEPLOY_UNIT_RESPONSE = 1;
-
-    /**
-     * Message type for {@link UndeployUnitRequest}.
-     */
-    public static final short UNDEPLOY_UNIT_REQUEST = 2;
-
-    /**
-     * Message type for {@link UndeployUnitResponse}.
-     */
-    public static final short UNDEPLOY_UNIT_RESPONSE = 3;
-
-    public static final short STOP_DEPLOY_REQUEST = 4;
-
-    public static final short STOP_DEPLOY_RESPONSE = 5;
+@Transferable(STOP_DEPLOY_RESPONSE)
+public interface StopDeployResponse extends NetworkMessage {
 }

@@ -131,6 +131,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-storage-api')))
     integrationTestImplementation(testFixtures(project(':ignite-transactions')))
     integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.rocksdb.jni
     integrationTestImplementation libs.disruptor
     integrationTestImplementation libs.jackson.databind

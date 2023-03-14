@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.deployment.version.Version;
-import org.apache.ignite.internal.tostring.S;
 
 /**
  * Deployment unit status.
@@ -38,7 +37,7 @@ public class UnitStatus {
     /**
      * Map from existing unit version to list of nodes consistent ids where unit deployed.
      */
-    private final Map<Version, List<String>> versionToConsistentIds;
+    private final Map<Version, DeploymentInfo> versionToDeploymentInfo;
 
     /**
      * Constructor.
@@ -47,9 +46,10 @@ public class UnitStatus {
      * @param versionToConsistentIds Map from existing unit version to list
      *      of nodes consistent ids where unit deployed.
      */
-    private UnitStatus(String id, Map<Version, List<String>> versionToConsistentIds) {
+    private UnitStatus(String id,
+            Map<Version, DeploymentInfo> versionToConsistentIds) {
         this.id = id;
-        this.versionToConsistentIds = Collections.unmodifiableMap(versionToConsistentIds);
+        this.versionToDeploymentInfo = Collections.unmodifiableMap(versionToConsistentIds);
     }
 
     /**
@@ -67,7 +67,7 @@ public class UnitStatus {
      * @return unit version.
      */
     public Set<Version> versions() {
-        return Collections.unmodifiableSet(versionToConsistentIds.keySet());
+        return Collections.unmodifiableSet(versionToDeploymentInfo.keySet());
     }
 
     /**
@@ -77,7 +77,11 @@ public class UnitStatus {
      * @return consistent ids of nodes for provided version.
      */
     public List<String> consistentIds(Version version) {
-        return Collections.unmodifiableList(versionToConsistentIds.get(version));
+        return Collections.unmodifiableList(versionToDeploymentInfo.get(version).consistentIds());
+    }
+
+    public DeploymentStatus status(Version version) {
+        return versionToDeploymentInfo.get(version).status();
     }
 
     /**
@@ -102,19 +106,21 @@ public class UnitStatus {
             return false;
         }
         UnitStatus that = (UnitStatus) o;
-        return Objects.equals(id, that.id) && Objects.equals(versionToConsistentIds, that.versionToConsistentIds);
+        return Objects.equals(id, that.id) && Objects.equals(versionToDeploymentInfo, that.versionToDeploymentInfo);
     }
 
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return Objects.hash(id, versionToConsistentIds);
+        return Objects.hash(id, versionToDeploymentInfo);
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(this);
+        return "UnitStatus{"
+                + "id='" + id + '\''
+                + ", versionToDeploymentInfo=" + versionToDeploymentInfo
+                + '}';
     }
 
     /**
@@ -123,7 +129,7 @@ public class UnitStatus {
     public static class UnitStatusBuilder {
 
         private final String id;
-        private final Map<Version, List<String>> versionToConsistentIds = new HashMap<>();
+        private final Map<Version, DeploymentInfo> versionToInfoBuilders = new HashMap<>();
 
         /**
          * Constructor.
@@ -138,11 +144,11 @@ public class UnitStatus {
          * Append node consistent ids with provided version.
          *
          * @param version Unit version.
-         * @param consistentIds Node consistent ids.
+         * @param deploymentInfo Node consistent ids.
          * @return {@code this} builder for use in a chained invocation.
          */
-        public UnitStatusBuilder append(Version version, List<String> consistentIds) {
-            versionToConsistentIds.put(version, consistentIds);
+        public UnitStatusBuilder append(Version version, DeploymentInfo deploymentInfo) {
+            versionToInfoBuilders.put(version, deploymentInfo);
             return this;
         }
 
@@ -152,7 +158,7 @@ public class UnitStatus {
          * @return {@link UnitStatus} instance.
          */
         public UnitStatus build() {
-            return new UnitStatus(id, versionToConsistentIds);
+            return new UnitStatus(id, versionToInfoBuilders);
         }
     }
 }
