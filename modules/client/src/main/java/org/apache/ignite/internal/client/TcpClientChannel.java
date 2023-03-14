@@ -207,7 +207,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** {@inheritDoc} */
     @Override
     public void onDisconnected(@Nullable Exception e) {
-        log.debug("Disconnected from server: " + cfg.getAddress());
+        log.debug("Disconnected from server [remoteAddress=" + cfg.getAddress() + ']');
         close(e);
     }
 
@@ -484,6 +484,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     srvVer, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNode, clusterId);
 
             return CompletableFuture.completedFuture(null);
+        } catch (Exception e) {
+            log.warn("Failed to handle handshake response [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
+
+            return CompletableFuture.failedFuture(e);
         }
     }
 
@@ -563,7 +567,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                                 .orTimeout(heartbeatTimeout, TimeUnit.MILLISECONDS)
                                 .exceptionally(e -> {
                                     if (e instanceof TimeoutException) {
-                                        log.warn("Heartbeat timeout, closing the channel");
+                                        log.warn("Heartbeat timeout, closing the channel [remoteAddress=" + cfg.getAddress() + ']');
 
                                         close((TimeoutException) e);
                                     }
