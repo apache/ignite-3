@@ -268,6 +268,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             return fut;
         } catch (Throwable t) {
+            log.warn("Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: " +
+                    t.getMessage(), t);
+
             // Close buffer manually on fail. Successful write closes the buffer automatically.
             payloadCh.close();
             pendingReqs.remove(id);
