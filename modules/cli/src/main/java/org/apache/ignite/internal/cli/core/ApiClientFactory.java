@@ -17,9 +17,18 @@
 
 package org.apache.ignite.internal.cli.core;
 
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE_PASSWORD;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE_PATH;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PASSWORD;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PATH;
+
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.cli.config.ConfigManager;
+import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
+import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 
@@ -28,7 +37,15 @@ import org.apache.ignite.rest.client.invoker.ApiClient;
  */
 @Singleton
 public class ApiClientFactory {
+
+    @Inject
+    private final ConfigManagerProvider configManagerProvider;
+
     private final Map<String, ApiClient> clients = new ConcurrentHashMap<>();
+
+    public ApiClientFactory(ConfigManagerProvider configManagerProvider) {
+        this.configManagerProvider = configManagerProvider;
+    }
 
     /**
      * Gets {@link ApiClient} for the base path.
@@ -37,8 +54,23 @@ public class ApiClientFactory {
      * @return created API client.
      */
     public ApiClient getClient(String path) {
-        ApiClient apiClient = clients.computeIfAbsent(path, s -> new ApiClient().setBasePath(s));
+        ApiClient apiClient = clients.computeIfAbsent(path, this::createClient);
         CliLoggers.addApiClient(path, apiClient);
         return apiClient;
+    }
+
+    private ApiClient createClient(String path) {
+        try {
+            ConfigManager configManager = configManagerProvider.get();
+            return ApiClientBuilder.create()
+                    .basePath(path)
+                    .keyStorePath(configManager.getCurrentProperty(REST_KEY_STORE_PATH.value()))
+                    .keyStorePassword(configManager.getCurrentProperty(REST_KEY_STORE_PASSWORD.value()))
+                    .trustStorePath(configManager.getCurrentProperty(REST_TRUST_STORE_PATH.value()))
+                    .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()))
+                    .build();
+        } catch (Exception e) {
+            throw new IgniteCliException("Couldn't build REST client", e);
+        }
     }
 }

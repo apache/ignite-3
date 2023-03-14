@@ -79,6 +79,7 @@ dependencies {
     testImplementation libs.assertj.core
     testImplementation libs.mock.server.netty
     testImplementation libs.mock.server.junit
+    testImplementation libs.awaitility
 
     testFixturesAnnotationProcessor libs.picocli.annotation.processor
     testFixturesAnnotationProcessor libs.micronaut.inject.annotation.processor

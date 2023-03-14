@@ -528,18 +528,25 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         checkSplitAndSerialization(plan, schemas);
 
-        if (!predicate.test((T) plan)) {
-            String invalidPlanMsg = "Invalid plan (" + lastErrorMsg + "):\n"
+        try {
+            if (predicate.test((T) plan)) {
+                return;
+            }
+        } catch (Throwable th) {
+            String invalidPlanMsg = "Failed to validate plan (" + lastErrorMsg + "):\n"
                     + RelOptUtil.toString(plan, SqlExplainLevel.ALL_ATTRIBUTES);
 
-            fail(invalidPlanMsg);
+            fail(invalidPlanMsg, th);
         }
+
+        fail("Invalid plan (" + lastErrorMsg + "):\n"
+                + RelOptUtil.toString(plan, SqlExplainLevel.ALL_ATTRIBUTES));
     }
 
     /**
      * Predicate builder for "Instance of class" condition.
      */
-    protected <T extends RelNode> Predicate<T> isInstanceOf(Class<T> cls) {
+    protected <T> Predicate<T> isInstanceOf(Class<T> cls) {
         return node -> {
             if (cls.isInstance(node)) {
                 return true;
@@ -556,8 +563,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      */
     protected <T extends RelNode> Predicate<IgniteTableScan> isTableScan(String tableName) {
         return isInstanceOf(IgniteTableScan.class).and(
-            n -> {
-                String scanTableName = Util.last(n.getTable().getQualifiedName());
+                n -> {
+                    String scanTableName = Util.last(n.getTable().getQualifiedName());
 
                     if (tableName.equalsIgnoreCase(scanTableName)) {
                         return true;

@@ -36,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -156,7 +157,7 @@ public final class ReliableChannel implements AutoCloseable {
             if (chFut != null) {
                 var ch = ClientFutureUtils.getNowSafe(chFut);
 
-                if (ch != null) {
+                if (ch != null && !ch.closed()) {
                     res.add(ch.protocolContext().clusterNode());
                 }
             }
@@ -484,7 +485,7 @@ public final class ReliableChannel implements AutoCloseable {
         var fut = getDefaultChannelAsync();
 
         // Establish secondary connections in the background.
-        fut.thenAccept(unused -> initAllChannelsAsync());
+        fut.thenAccept(unused -> ForkJoinPool.commonPool().submit(this::initAllChannelsAsync));
 
         return fut;
     }
@@ -606,26 +607,33 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /**
-     * Asynchronously try to establish a connection to all configured servers.
+     * Establish or repair connections to all configured servers.
      */
     private void initAllChannelsAsync() {
-        ForkJoinPool.commonPool().submit(
-                () -> {
-                    List<ClientChannelHolder> holders = channels;
+        List<ClientChannelHolder> holders = channels;
+        List<CompletableFuture<ClientChannel>> futs = new ArrayList<>(holders.size());
 
-                    for (ClientChannelHolder hld : holders) {
-                        if (closed) {
-                            return; // New reinit task scheduled or channel is closed.
-                        }
+        for (ClientChannelHolder hld : holders) {
+            if (closed) {
+                return;
+            }
 
-                        try {
-                            hld.getOrCreateChannelAsync(true);
-                        } catch (Exception e) {
-                            log.warn("Failed to establish connection to " + hld.chCfg.getAddress() + ": " + e.getMessage(), e);
-                        }
-                    }
-                }
-        );
+            try {
+                futs.add(hld.getOrCreateChannelAsync(true));
+            } catch (Exception e) {
+                log.warn("Failed to establish connection to " + hld.chCfg.getAddress() + ": " + e.getMessage(), e);
+            }
+        }
+
+        long interval = clientCfg.reconnectInterval();
+
+        if (interval > 0 && !closed) {
+            // After current round of connection attempts is finished, schedule the next one with a configured delay.
+            CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new))
+                    .whenCompleteAsync(
+                            (res, err) -> initAllChannelsAsync(),
+                            CompletableFuture.delayedExecutor(interval, TimeUnit.MILLISECONDS));
+        }
     }
 
     private void onTopologyAssignmentChanged(ClientChannel clientChannel) {

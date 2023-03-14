@@ -219,8 +219,7 @@ public class TestBuilders {
                     description,
                     ArrayRowHandler.INSTANCE,
                     Map.of(),
-                    TxAttributes.fromTx(new NoOpTransaction(node.name())),
-                    null
+                    TxAttributes.fromTx(new NoOpTransaction(node.name()))
             );
         }
     }
@@ -324,7 +323,10 @@ public class TestBuilders {
             }
 
             return new TestTable(
-                    new TableDescriptorImpl(columns, distribution), name, dataProviders, size
+                    new TableDescriptorImpl(columns, distribution),
+                    Objects.requireNonNull(name),
+                    dataProviders,
+                    size
             );
         }
 

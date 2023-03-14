@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.cli.core.repl.completer;
 
 import jakarta.inject.Inject;
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.commands.Options;
+import org.apache.ignite.internal.cli.core.repl.completer.cli.CliConfigDynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.cluster.ClusterUrlDynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.ExclusionsCompleterFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.hocon.ClusterConfigDynamicCompleterFactory;
@@ -48,6 +50,8 @@ public class DynamicCompleterActivationPoint {
     private UnitIdDynamicCompleterFactory unitIdDynamicCompleterFactory;
     @Inject
     private UnitVersionsDynamicCompleterFactory unitVersionsDynamicCompleterFactory;
+    @Inject
+    private CliConfigDynamicCompleterFactory cliConfigDynamicCompleterFactory;
 
 
     /**
@@ -119,6 +123,15 @@ public class DynamicCompleterActivationPoint {
                         .enableOptions(Options.CLUSTER_URL, Options.NODE_URL)
                         .exclusiveEnableOptions().build(),
                 clusterUrlDynamicCompleterFactory
+        );
+
+        registry.register(
+                CompleterConf.builder()
+                        .command("cli", "config", "set")
+                        .command("cli", "config", "get")
+                        .singlePositionalParameter()
+                        .build(),
+                cliConfigDynamicCompleterFactory
         );
 
         registry.register(

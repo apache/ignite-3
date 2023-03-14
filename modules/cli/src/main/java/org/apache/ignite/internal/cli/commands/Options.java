@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands;
 
-import org.apache.ignite.internal.cli.config.ConfigConstants;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
 
 /**
  * Constants to use in {@code Option} annotations for commands.
@@ -86,7 +86,7 @@ public enum Options {
         public static final String CLUSTER_URL_OPTION_DESC = "URL of cluster endpoint";
 
         /** Cluster endpoint URL option description key. */
-        public static final String CLUSTER_URL_KEY = ConfigConstants.CLUSTER_URL;
+        public static final String CLUSTER_URL_KEY = CliConfigKeys.Constants.CLUSTER_URL;
 
         /** Node URL option long name. */
         public static final String NODE_URL_OPTION = "--node-url";

@@ -1102,7 +1102,11 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
         }
         callOperandResultMap.put(call, operandResults);
         final Result result = implementor.implement(this, call, operandResults);
-        rexResultMap.put(call, result);
+
+        if (call.op.isDeterministic()) {
+            rexResultMap.put(call, result);
+        }
+
         return result;
     }
 

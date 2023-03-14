@@ -550,8 +550,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     desc,
                     handler,
                     Commons.parametersMap(ctx.parameters()),
-                    txAttributes,
-                    new HashFunctionFactoryImpl<>(sqlSchemaManager, handler)
+                    txAttributes
             );
         }
 
