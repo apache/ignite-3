@@ -28,6 +28,8 @@ import org.apache.ignite.internal.cli.core.repl.completer.hocon.NodeConfigDynami
 import org.apache.ignite.internal.cli.core.repl.completer.jdbc.JdbcUrlDynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.node.NodeNameDynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.path.FilePathCompleter;
+import org.apache.ignite.internal.cli.core.repl.completer.unit.UnitIdDynamicCompleterFactory;
+import org.apache.ignite.internal.cli.core.repl.completer.unit.UnitVersionsDynamicCompleterFactory;
 
 /** Activation point that links commands with dynamic completers. */
 @Singleton
@@ -35,16 +37,28 @@ public class DynamicCompleterActivationPoint {
 
     @Inject
     private NodeNameDynamicCompleterFactory nodeNameDynamicCompleterFactory;
+
     @Inject
     private ClusterConfigDynamicCompleterFactory clusterConfigDynamicCompleterFactory;
+
     @Inject
     private NodeConfigDynamicCompleterFactory nodeConfigDynamicCompleterFactory;
+
     @Inject
     private ClusterUrlDynamicCompleterFactory clusterUrlDynamicCompleterFactory;
+
     @Inject
     private JdbcUrlDynamicCompleterFactory jdbcUrlDynamicCompleterFactory;
+
+    @Inject
+    private UnitIdDynamicCompleterFactory unitIdDynamicCompleterFactory;
+
+    @Inject
+    private UnitVersionsDynamicCompleterFactory unitVersionsDynamicCompleterFactory;
+
     @Inject
     private CliConfigDynamicCompleterFactory cliConfigDynamicCompleterFactory;
+
 
     /**
      * Registers all dynamic completers in given {@link DynamicCompleterRegistry}.
@@ -53,18 +67,21 @@ public class DynamicCompleterActivationPoint {
         registry.register(
                 CompleterConf.builder()
                         .command("cluster", "config", "show")
-                        .command("cluster", "config", "update").build(),
+                        .command("cluster", "config", "update")
+                        .singlePositionalParameter().build(),
                 clusterConfigDynamicCompleterFactory
         );
         registry.register(
                 CompleterConf.builder()
-                        .command("node", "config", "show").build(),
+                        .command("node", "config", "show")
+                        .singlePositionalParameter().build(),
                 nodeConfigDynamicCompleterFactory
         );
 
         registry.register(
                 CompleterConf.builder()
                         .command("node", "config", "update")
+                        .singlePositionalParameter()
                         .filter(new ExclusionsCompleterFilter("compute", "raft"))
                         .build(),
                 nodeConfigDynamicCompleterFactory
@@ -78,7 +95,9 @@ public class DynamicCompleterActivationPoint {
                 nodeNameDynamicCompleterFactory
         );
         registry.register(
-                CompleterConf.forCommand("connect"),
+                CompleterConf.builder()
+                        .command("connect")
+                        .singlePositionalParameter().build(),
                 nodeNameDynamicCompleterFactory
         );
         registry.register(
@@ -116,8 +135,34 @@ public class DynamicCompleterActivationPoint {
                 CompleterConf.builder()
                         .command("cli", "config", "set")
                         .command("cli", "config", "get")
+                        .singlePositionalParameter()
                         .build(),
                 cliConfigDynamicCompleterFactory
+        );
+
+        registry.register(
+                CompleterConf.builder()
+                        .command("unit", "deploy")
+                        .enableOptions(Options.UNIT_PATH)
+                        .exclusiveEnableOptions().build(),
+                words -> new FilePathCompleter()
+        );
+
+        registry.register(
+                CompleterConf.builder()
+                        .command("unit", "undeploy")
+                        .command("unit", "status")
+                        .singlePositionalParameter()
+                        .build(),
+                unitIdDynamicCompleterFactory
+        );
+
+        registry.register(
+                CompleterConf.builder()
+                        .command("unit", "undeploy")
+                        .enableOptions(Options.UNIT_VERSION)
+                        .exclusiveEnableOptions().build(),
+                unitVersionsDynamicCompleterFactory
         );
     }
 }

@@ -268,3 +268,4 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
         return client.toBlocking().retrieve(get, UnitStatusDto.class);
     }
 }
+
