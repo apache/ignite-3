@@ -191,6 +191,10 @@ public class ClientHandlerModule implements IgniteComponent {
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel ch) {
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("New client connection [remoteAddress=" + ch.remoteAddress() + ']');
+                        }
+
                         if (configuration.idleTimeout() > 0) {
                             IdleStateHandler idleStateHandler = new IdleStateHandler(
                                     configuration.idleTimeout(), 0, 0, TimeUnit.MILLISECONDS);
