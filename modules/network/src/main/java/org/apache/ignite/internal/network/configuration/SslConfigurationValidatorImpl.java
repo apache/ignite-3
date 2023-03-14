@@ -34,6 +34,8 @@ import javax.net.ssl.SSLException;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * SSL configuration validator implementation.
@@ -41,6 +43,8 @@ import org.apache.ignite.configuration.validation.Validator;
 public class SslConfigurationValidatorImpl implements Validator<SslConfigurationValidator, AbstractSslView> {
 
     public static final SslConfigurationValidatorImpl INSTANCE = new SslConfigurationValidatorImpl();
+
+    private static final IgniteLogger LOG = Loggers.forClass(SslConfigurationValidatorImpl.class);
 
     @Override
     public void validate(SslConfigurationValidator annotation, ValidationContext<AbstractSslView> ctx) {
@@ -101,6 +105,7 @@ public class SslConfigurationValidatorImpl implements Validator<SslConfiguration
             }
         } catch (SSLException e) {
             ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Can't create SSL engine"));
+            LOG.warn("Can't create SSL engine", e);
         }
     }
 }

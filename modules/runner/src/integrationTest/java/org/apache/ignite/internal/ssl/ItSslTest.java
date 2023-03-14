@@ -20,6 +20,9 @@ package org.apache.ignite.internal.ssl;
 import static org.apache.ignite.client.ClientAuthenticationMode.REQUIRE;
 import static org.apache.ignite.internal.rest.RestNode.escapeWindowsPath;
 import static org.apache.ignite.internal.rest.RestNode.getResourcePath;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willTimeoutIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -30,11 +33,16 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.IgniteIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterEach;
@@ -257,35 +265,7 @@ public class ItSslTest extends IgniteIntegrationTest {
     @DisplayName("Given SSL enabled on the cluster and specific cipher enabled")
     class ClusterWithSslCustomCipher {
 
-        @Language("JSON")
-        String sslEnabledWithCipherBoostrapConfig = "{\n"
-                + "  network: {\n"
-                + "    ssl : {"
-                + "      enabled: true,\n"
-                + "      ciphers: TLS_AES_256_GCM_SHA384,\n"
-                + "      trustStore: {\n"
-                + "        password: \"" + password + "\","
-                + "        path: \"" + escapeWindowsPath(trustStorePath) + "\""
-                + "      },\n"
-                + "      keyStore: {\n"
-                + "        password: \"" + password + "\","
-                + "        path: \"" + escapeWindowsPath(keyStorePath) + "\""
-                + "      }\n"
-                + "    },\n"
-                + "    port: 3345,\n"
-                + "    portRange: 2,\n"
-                + "    nodeFinder:{\n"
-                + "      netClusterNodes: [ \"localhost:3345\", \"localhost:3346\" ]\n"
-                + "    }\n"
-                + "  },\n"
-                + "  clientConnector.ssl: {\n"
-                + "    enabled: true, "
-                + "    keyStore: {\n"
-                + "      path: \"" + escapeWindowsPath(keyStorePath) + "\",\n"
-                + "      password: \"" + password + "\"\n"
-                + "    }\n"
-                + "  }\n"
-                + "}";
+        String sslEnabledWithCipherBoostrapConfig = createBoostrapConfig("TLS_AES_256_GCM_SHA384");
 
         @WorkDirectory
         private Path workDir;
@@ -352,7 +332,7 @@ public class ItSslTest extends IgniteIntegrationTest {
             var sslConfiguration =
                     SslConfiguration.builder()
                             .enabled(true)
-                            .ciphers(List.of("TLS_DHE_RSA_WITH_AES_128_CBC_SHA"))
+                            .ciphers(List.of("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"))
                             .trustStoreType("JKS")
                             .trustStorePath(trustStorePath)
                             .trustStorePassword(password)
@@ -373,7 +353,7 @@ public class ItSslTest extends IgniteIntegrationTest {
             var url =
                     "jdbc:ignite:thin://127.0.0.1:10800"
                             + "?sslEnabled=true"
-                            + "&ciphers=TLS_DHE_RSA_WITH_AES_128_CBC_SHA"
+                            + "&ciphers=TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
                             + "&trustStorePath=" + trustStorePath
                             + "&trustStoreType=JKS"
                             + "&trustStorePassword=" + password;
@@ -531,5 +511,66 @@ public class ItSslTest extends IgniteIntegrationTest {
                 // No-op.
             }
         }
+    }
+
+    @Test
+    @DisplayName("Cluster is not initialized when nodes are configured with incompatible ciphers")
+    void incompatibleCiphersNodes(@WorkDirectory Path workDir, TestInfo testInfo) {
+        Cluster cluster = new Cluster(testInfo, workDir);
+
+        String sslEnabledWithCipher1BoostrapConfig = createBoostrapConfig("TLS_AES_256_GCM_SHA384");
+        String sslEnabledWithCipher2BoostrapConfig = createBoostrapConfig("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384");
+
+        CompletableFuture<IgniteImpl> node1 = cluster.startClusterNode(0, sslEnabledWithCipher1BoostrapConfig);
+        CompletableFuture<IgniteImpl> node2 = cluster.startClusterNode(1, sslEnabledWithCipher2BoostrapConfig);
+
+        String metaStorageAndCmgNodeName = testNodeName(testInfo, 0);
+
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(metaStorageAndCmgNodeName)
+                .metaStorageNodeNames(List.of(metaStorageAndCmgNodeName))
+                .clusterName("cluster")
+                .build();
+
+        IgnitionManager.init(initParameters);
+
+        // First node will initialize the cluster with single node successfully since the second node can't connect to it.
+        assertThat(node1, willCompleteSuccessfully());
+        assertThat(node2, willTimeoutIn(1, TimeUnit.SECONDS));
+
+        cluster.shutdown();
+    }
+
+    @Language("JSON")
+    private static String createBoostrapConfig(String ciphers) {
+        return "{\n"
+                + "  network: {\n"
+                + "    ssl : {"
+                + "      enabled: true,\n"
+                + "      ciphers: " + ciphers + ",\n"
+                + "      trustStore: {\n"
+                + "        password: \"" + password + "\","
+                + "        path: \"" + escapeWindowsPath(trustStorePath) + "\""
+                + "      },\n"
+                + "      keyStore: {\n"
+                + "        password: \"" + password + "\","
+                + "        path: \"" + escapeWindowsPath(keyStorePath) + "\""
+                + "      }\n"
+                + "    },\n"
+                + "    port: 3345,\n"
+                + "    portRange: 2,\n"
+                + "    nodeFinder:{\n"
+                + "      netClusterNodes: [ \"localhost:3345\", \"localhost:3346\" ]\n"
+                + "    }\n"
+                + "  },\n"
+                + "  clientConnector.ssl: {\n"
+                + "    enabled: true, "
+                + "    ciphers: " + ciphers + ",\n"
+                + "    keyStore: {\n"
+                + "      path: \"" + escapeWindowsPath(keyStorePath) + "\",\n"
+                + "      password: \"" + password + "\"\n"
+                + "    }\n"
+                + "  }\n"
+                + "}";
     }
 }
