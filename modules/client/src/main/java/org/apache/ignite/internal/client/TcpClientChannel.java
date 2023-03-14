@@ -137,6 +137,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         return connMgr
                 .openAsync(cfg.getAddress(), this, this)
                 .thenCompose(s -> {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Connection established [remoteAddress=" + s.remoteAddress() + ']');
+                    }
+
                     sock = s;
 
                     return handshakeAsync(DEFAULT_VERSION);
@@ -208,7 +212,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     @Override
     public void onDisconnected(@Nullable Exception e) {
         if (log.isDebugEnabled()) {
-            log.debug("Disconnected from server [remoteAddress=" + cfg.getAddress() + ']');
+            log.debug("Connection closed [remoteAddress=" + cfg.getAddress() + ']');
         }
 
         close(e);
