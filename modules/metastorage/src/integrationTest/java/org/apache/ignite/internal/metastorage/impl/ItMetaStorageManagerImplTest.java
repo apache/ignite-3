@@ -209,6 +209,9 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         metaStorageManager.registerExactWatch(key2, new NoOpListener("test2"));
 
+        assertThat(metaStorageManager.appliedRevision("test1"), willBe(2L));
+        assertThat(metaStorageManager.appliedRevision("test2"), willBe(0L));
+
         byte[] newValue = "newValue".getBytes(StandardCharsets.UTF_8);
 
         invokeFuture = metaStorageManager.invoke(
@@ -222,6 +225,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         assertThat(invokeFuture, willBe(true));
 
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision("test1").join() == 3, 10_000));
         assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision("test2").join() == 3, 10_000));
 
         assertThat(vaultManager.get(key1).thenApply(VaultEntry::value), willBe(newValue));
