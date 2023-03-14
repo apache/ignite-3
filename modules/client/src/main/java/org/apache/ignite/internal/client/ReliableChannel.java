@@ -166,6 +166,10 @@ public final class ReliableChannel implements AutoCloseable {
         return res;
     }
 
+    public IgniteClientConfiguration configuration() {
+        return clientCfg;
+    }
+
     /**
      * Sends request and handles response asynchronously.
      *

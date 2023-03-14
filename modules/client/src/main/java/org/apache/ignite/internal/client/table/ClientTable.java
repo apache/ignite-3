@@ -30,7 +30,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -79,9 +78,8 @@ public class ClientTable implements Table {
      * @param ch   Channel.
      * @param id   Table id.
      * @param name Table name.
-     * @param cfg  Config.
      */
-    public ClientTable(ReliableChannel ch, UUID id, String name, IgniteClientConfiguration cfg) {
+    public ClientTable(ReliableChannel ch, UUID id, String name) {
         assert ch != null;
         assert id != null;
         assert name != null && !name.isEmpty();
@@ -89,7 +87,7 @@ public class ClientTable implements Table {
         this.ch = ch;
         this.id = id;
         this.name = name;
-        this.log = ClientUtils.logger(cfg, ClientTable.class);
+        this.log = ClientUtils.logger(ch.configuration(), ClientTable.class);
     }
 
     /**
