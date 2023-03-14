@@ -47,6 +47,13 @@ void append_type_and_scale(binary_tuple_builder &builder, ignite_type typ, std::
 }
 
 void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &value) {
+    if (value.is_null()) {
+        builder.claim(std::nullopt); // Type.
+        builder.claim(std::nullopt); // Scale.
+        builder.claim(std::nullopt); // Value.
+        return;
+    }
+
     switch (value.get_type()) {
         case column_type::BOOLEAN: {
             claim_type_and_scale(builder, ignite_type::INT8);
@@ -115,6 +122,13 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
 }
 
 void append_primitive_with_type(binary_tuple_builder &builder, const primitive &value) {
+    if (value.is_null()) {
+        builder.append(std::nullopt); // Type.
+        builder.append(std::nullopt); // Scale.
+        builder.append(std::nullopt); // Value.
+        return;
+    }
+
     switch (value.get_type()) {
         case column_type::BOOLEAN: {
             append_type_and_scale(builder, ignite_type::INT8);
