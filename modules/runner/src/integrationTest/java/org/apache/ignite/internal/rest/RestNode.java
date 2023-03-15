@@ -118,8 +118,8 @@ public class RestNode {
     }
 
     private String bootstrapCfg() {
-        String keyStoreFilePath = getResourcePath(ItRestSslTest.class.getClassLoader().getResource(keyStorePath));
-        String trustStoreFilePath = getResourcePath(ItRestSslTest.class.getClassLoader().getResource(trustStorePath));
+        String keyStoreFilePath = getResourcePath(ItRestSslTest.class, keyStorePath);
+        String trustStoreFilePath = getResourcePath(ItRestSslTest.class, trustStorePath);
         return "{\n"
                 + "  network: {\n"
                 + "    port: " + networkPort + ",\n"

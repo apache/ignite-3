@@ -65,8 +65,8 @@ public class ItSslTest extends IgniteIntegrationTest {
     @BeforeAll
     static void beforeAll() {
         password = "changeit";
-        trustStorePath = getResourcePath(ItSslTest.class.getClassLoader().getResource("ssl/truststore.jks"));
-        keyStorePath = getResourcePath(ItSslTest.class.getClassLoader().getResource("ssl/keystore.p12"));
+        trustStorePath = getResourcePath(ItSslTest.class, "ssl/truststore.jks");
+        keyStorePath = getResourcePath(ItSslTest.class, "ssl/keystore.p12");
     }
 
     @Nested

@@ -832,10 +832,21 @@ public final class IgniteTestUtils {
     }
 
     /**
+     * Returns a file system path for a resource name.
+     *
+     * @param cls A class.
+     * @param resourceName A resource name.
+     * @return A file system path matching the path component of the resource URL.
+     */
+    public static <T> String getResourcePath(Class<T> cls, String resourceName) {
+        return getResourcePath(cls.getClassLoader().getResource(resourceName));
+    }
+
+    /**
      * Converts an URL gotten from classloader to proper file system path.
      *
      * @param url A resource URL.
-     * @return A path component of the resource URL as a proper file system path.
+     * @return A file system path matching the path component of the resource URL.
      */
     public static String getResourcePath(URL url) {
         try {

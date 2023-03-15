@@ -183,8 +183,8 @@ public class PlatformTestNodeRunner {
         Files.createDirectories(BASE_PATH);
 
         var sslPassword = "123456";
-        var trustStorePath = getResourcePath(PlatformTestNodeRunner.class.getClassLoader().getResource("ssl/trust.jks"));
-        var keyStorePath = getResourcePath(PlatformTestNodeRunner.class.getClassLoader().getResource("ssl/server.jks"));
+        var trustStorePath = getResourcePath(PlatformTestNodeRunner.class, "ssl/trust.jks");
+        var keyStorePath = getResourcePath(PlatformTestNodeRunner.class, "ssl/server.jks");
 
         List<CompletableFuture<Ignite>> igniteFutures = nodesBootstrapCfg.entrySet().stream()
                 .map(e -> {
