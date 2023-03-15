@@ -90,7 +90,8 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
         // Parameter types are not checked during the validation phase.
         List<Object> params = List.of("anything");
 
-        assertPlan("SELECT * FROM A1 WHERE COL1 > CAST(? AS " + rhs + ")", igniteSchema, isInstanceOf(IgniteTableScan.class)
+        String query = format("SELECT * FROM A1 WHERE COL1 > CAST(? AS {})", rhs);
+        assertPlan(query, igniteSchema, isInstanceOf(IgniteTableScan.class)
                 .and(node -> {
                     String actualPredicate = node.condition().toString();
 
