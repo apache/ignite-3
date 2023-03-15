@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.rest.RestNode.escapeWindowsPath;
+import static org.apache.ignite.internal.rest.RestNode.getResourcePath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 
 import java.nio.file.Files;
@@ -182,15 +184,15 @@ public class PlatformTestNodeRunner {
         Files.createDirectories(BASE_PATH);
 
         var sslPassword = "123456";
-        var trustStorePath = ItSslTest.class.getClassLoader().getResource("ssl/trust.jks").getPath();
-        var keyStorePath = ItSslTest.class.getClassLoader().getResource("ssl/server.jks").getPath();
+        var trustStorePath = getResourcePath(ItSslTest.class.getClassLoader().getResource("ssl/trust.jks"));
+        var keyStorePath = getResourcePath(ItSslTest.class.getClassLoader().getResource("ssl/server.jks"));
 
         List<CompletableFuture<Ignite>> igniteFutures = nodesBootstrapCfg.entrySet().stream()
                 .map(e -> {
                     String nodeName = e.getKey();
                     String config = e.getValue()
-                            .replace("KEYSTORE_PATH", keyStorePath)
-                            .replace("TRUSTSTORE_PATH", trustStorePath)
+                            .replace("KEYSTORE_PATH", escapeWindowsPath(keyStorePath))
+                            .replace("TRUSTSTORE_PATH", escapeWindowsPath(trustStorePath))
                             .replace("SSL_STORE_PASS", sslPassword);
 
                     return IgnitionManager.start(nodeName, config, BASE_PATH.resolve(nodeName));
