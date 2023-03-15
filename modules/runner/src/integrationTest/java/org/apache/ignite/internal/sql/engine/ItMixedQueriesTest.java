@@ -297,7 +297,7 @@ public class ItMixedQueriesTest extends ClusterPerClassIntegrationTest {
         sql("create index idx_asc on test_tbl (c1)");
         sql("create index idx_desc on test_tbl (c1 desc)");
 
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
         waitForIndex("idx_asc");
         waitForIndex("idx_desc");
 

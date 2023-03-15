@@ -191,7 +191,6 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      * Test correctness of schemes recovery after node restart.
      */
     @Test
-    @Disabled("Enable when IGNITE-18203 is fixed")
     public void checkSchemasCorrectlyRestore() throws Exception {
         Ignite ignite1 = clusterNodes.get(1);
 
