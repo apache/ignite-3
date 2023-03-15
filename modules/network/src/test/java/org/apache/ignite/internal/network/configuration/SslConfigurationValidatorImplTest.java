@@ -57,14 +57,21 @@ class SslConfigurationValidatorImplTest {
     }
 
     @Test
-    public void incorrectCipherName(@WorkDirectory Path workDir) throws IOException {
+    public void allCiphersAreIncompatible(@WorkDirectory Path workDir) throws IOException {
         KeyStoreView keyStore = createValidKeyStoreConfig(workDir);
-        validate(new StubSslView(true, "NONE", "foo, TLS_AES_256_GCM_SHA384", keyStore, null),
-                "There are unsupported cipher suites: [foo]");
+        validate(new StubSslView(true, "NONE", "foo", keyStore, null),
+                "None of the configured cipher suites are supported: [foo]");
     }
 
     @Test
-    public void validCipherName(@WorkDirectory Path workDir) throws IOException {
+    public void someCiphersAreIncompatible(@WorkDirectory Path workDir) throws IOException {
+        KeyStoreView keyStore = createValidKeyStoreConfig(workDir);
+        validate(new StubSslView(true, "NONE", "foo, TLS_AES_256_GCM_SHA384", keyStore, null),
+                (String[]) null);
+    }
+
+    @Test
+    public void allCiphersAreCompatible(@WorkDirectory Path workDir) throws IOException {
         KeyStoreView keyStore = createValidKeyStoreConfig(workDir);
         validate(new StubSslView(true, "NONE", "TLS_AES_256_GCM_SHA384", keyStore, null),
                 (String[]) null);
