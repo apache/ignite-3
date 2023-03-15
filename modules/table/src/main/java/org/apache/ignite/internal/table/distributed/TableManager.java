@@ -782,8 +782,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     startGroupFut = partitionStoragesFut.thenComposeAsync(partitionStorages -> {
                         MvPartitionStorage mvPartitionStorage = partitionStorages.getMvPartitionStorage();
 
-                        boolean hasData = mvPartitionStorage.lastAppliedIndex() > 0;
-
                         CompletableFuture<Boolean> fut;
 
                         // If Raft is running in in-memory mode or the PDS has been cleared, we need to remove the current node
