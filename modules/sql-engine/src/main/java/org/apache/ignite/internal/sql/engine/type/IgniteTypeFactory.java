@@ -398,7 +398,8 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 // There is no least restrictive type between ANY, built-in type, and a custom data type.
                 return null;
             } else if ((hasAnyType && hasBuiltInType) || (hasAnyType && firstCustomType != null)) {
-                // When at least one of arguments have sqlTypeName = ANY.
+                // When at least one of arguments have sqlTypeName = ANY,
+                // return it in order to be consistent with default implementation.
                 return resultType;
             } else {
                 return null;

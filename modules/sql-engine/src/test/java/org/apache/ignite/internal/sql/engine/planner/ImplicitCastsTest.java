@@ -49,7 +49,6 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class ImplicitCastsTest extends AbstractPlannerTest {
 
-
     /** MergeSort join - casts are pushed down to children. **/
     @ParameterizedTest
     @MethodSource("joinColumnTypes")
@@ -90,7 +89,8 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
         // Parameter types are not checked during the validation phase.
         List<Object> params = List.of("anything");
 
-        assertPlan("SELECT * FROM A1 WHERE COL1 > CAST(? AS " + rhs + ")", igniteSchema, isInstanceOf(IgniteTableScan.class)
+        String query = format("SELECT * FROM A1 WHERE COL1 > CAST(? AS {})", rhs);
+        assertPlan(query, igniteSchema, isInstanceOf(IgniteTableScan.class)
                 .and(node -> {
                     String actualPredicate = node.condition().toString();
 
@@ -262,6 +262,17 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
             }
         }
 
-        return arguments.stream();
+        List<Arguments> result = new ArrayList<>(arguments);
+
+        arguments.stream().map(args -> {
+            Object[] argsVals = args.get();
+            Object lhs = argsVals[1];
+            Object rhs = argsVals[0];
+            ExpectedTypes expected = (ExpectedTypes) argsVals[2];
+
+            return Arguments.of(lhs, rhs, new ExpectedTypes(expected.rhs, expected.lhs));
+        });
+
+        return result.stream();
     }
 }

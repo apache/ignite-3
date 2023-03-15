@@ -21,8 +21,10 @@ import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.runtime.CalciteContextException;
@@ -52,9 +54,11 @@ public class ItImplicitCastsTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource("columnPairs")
     public void testFilter(ColumnPair columnPair) {
-        prepareTables(columnPair);
+        sql(format("CREATE TABLE T11 (c1 int primary key, c2 {})", columnPair.lhs));
+        sql(format("CREATE TABLE T12 (c1 int primary key, c2 {})", columnPair.rhs));
 
         String value = columnPair.lhsLiteral(0);
+        // Implicit casts are added to the left hand side of the expression.
         String query = format("SELECT T11.c2 FROM T11 WHERE T11.c2 > CAST({} AS {})", value, columnPair.rhs);
 
         assertQuery(query).check();
@@ -63,7 +67,8 @@ public class ItImplicitCastsTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource("columnPairs")
     public void testMergeSort(ColumnPair columnPair) {
-        prepareTables(columnPair);
+        sql(format("CREATE TABLE T11 (c1 int primary key, c2 {})", columnPair.lhs));
+        sql(format("CREATE TABLE T12 (c1 int primary key, c2 {})", columnPair.rhs));
 
         assertQuery("SELECT T11.c2, T12.c2 FROM T11, T12 WHERE T11.c2 = T12.c2").check();
         assertQuery("SELECT T11.c2, T12.c2 FROM T11, T12 WHERE T11.c2 IS NOT DISTINCT FROM T12.c2").check();
@@ -72,7 +77,8 @@ public class ItImplicitCastsTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource("columnPairs")
     public void testNestedLoopJoin(ColumnPair columnPair) {
-        prepareTables(columnPair);
+        sql(format("CREATE TABLE T11 (c1 int primary key, c2 {})", columnPair.lhs));
+        sql(format("CREATE TABLE T12 (c1 int primary key, c2 {})", columnPair.rhs));
 
         assertQuery("SELECT T11.c2, T12.c2 FROM T11, T12 WHERE T11.c2 != T12.c2").check();
         assertQuery("SELECT T11.c2, T12.c2 FROM T11, T12 WHERE T11.c2 IS DISTINCT FROM T12.c2").check();
@@ -115,13 +121,15 @@ public class ItImplicitCastsTest extends ClusterPerClassIntegrationTest {
             }
         }
 
-        return columnPairs.stream();
+        List<ColumnPair> result = new ArrayList<>(columnPairs);
+        Collections.reverse(columnPairs);
+
+        columnPairs.stream().map(p -> new ColumnPair(p.rhs, p.lhs)).forEach(result::add);
+
+        return result.stream();
     }
 
     private static void prepareTables(ColumnPair columnPair) {
-        sql(String.format("CREATE TABLE T11 (c1 int primary key, c2 %s)", columnPair.lhs));
-        sql(String.format("CREATE TABLE T12 (c1 decimal primary key, c2 %s)", columnPair.rhs));
-
         Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
         sql(tx, format("INSERT INTO T11 VALUES(1, CAST({} AS {}))", columnPair.lhsLiteral(1), columnPair.lhs));
         sql(tx, format("INSERT INTO T11 VALUES(2, CAST({} AS {}))", columnPair.lhsLiteral(3), columnPair.lhs));
@@ -157,6 +165,14 @@ public class ItImplicitCastsTest extends ClusterPerClassIntegrationTest {
         static String generateValue(RelDataType type, int i, boolean literal) {
             if (SqlTypeUtil.isNumeric(type)) {
                 return Integer.toString(i);
+            } else if (type.getSqlTypeName() == SqlTypeName.CHAR && type.getPrecision() == 36
+                    || type.getSqlTypeName() == SqlTypeName.VARCHAR) {
+                UUID val = new UUID(i, i);
+                if (!literal) {
+                    return val.toString();
+                } else {
+                    return format("'{}'", val);
+                }
             } else if (type instanceof UuidType) {
                 UUID val = new UUID(i, i);
                 if (!literal) {
