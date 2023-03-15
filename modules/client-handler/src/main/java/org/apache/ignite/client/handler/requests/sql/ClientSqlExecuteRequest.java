@@ -100,10 +100,7 @@ public class ClientSqlExecuteRequest {
 
                 ClientResource resource = new ClientResource(
                         clientResultSet,
-                        () -> {
-                            clientResultSet.closeAsync();
-                            metrics.cursorsActiveDecrement();
-                        });
+                        clientResultSet::closeAsync);
 
                 out.packLong(resources.put(resource));
             } catch (IgniteInternalCheckedException e) {
