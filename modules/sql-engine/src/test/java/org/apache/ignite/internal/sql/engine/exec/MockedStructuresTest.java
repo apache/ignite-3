@@ -45,6 +45,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -568,7 +569,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 schemaManager,
                 null,
                 clock,
-                mock(OutgoingSnapshotsManager.class)
+                mock(OutgoingSnapshotsManager.class),
+                mock(ClusterManagementGroupManager.class),
+                mock(DistributionZoneManager.class)
         );
 
         tableManager.start();

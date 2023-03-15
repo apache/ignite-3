@@ -230,7 +230,9 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
                 mock(SchemaManager.class),
                 null,
                 null,
-                mock(OutgoingSnapshotsManager.class)
+                mock(OutgoingSnapshotsManager.class),
+                null,
+                null
         );
     }
 
