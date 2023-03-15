@@ -198,14 +198,14 @@ namespace Apache.Ignite.Internal
 
                 if (logger?.IsEnabled(LogLevel.Debug) == true)
                 {
-                    logger.Debug($"Handshake succeeded: {context}.");
+                    logger.Debug($"Handshake succeeded [remoteAddress={socket.RemoteEndPoint}]: {context}.");
                 }
 
                 return new ClientSocket(stream, configuration, context, assignmentChangeCallback, logger);
             }
             catch (Exception e)
             {
-                logger?.Warn($"Connection failed before or during handshake: {e.Message}.", e);
+                logger?.Warn($"Connection failed before or during handshake [remoteAddress={socket.RemoteEndPoint}]: {e.Message}.", e);
 
                 // ReSharper disable once MethodHasAsyncOverload
                 socket.Dispose();
