@@ -668,6 +668,15 @@ namespace Apache.Ignite.Internal
                 return;
             }
 
+            if (ex != null)
+            {
+                _logger?.Warn(ex, $"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]: " + ex.Message);
+            }
+            else if (_logger?.IsEnabled(LogLevel.Debug) == true)
+            {
+                _logger.Debug($"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]");
+            }
+
             _heartbeatTimer.Dispose();
             _disposeTokenSource.Cancel();
             _exception = ex;
