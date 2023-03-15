@@ -289,12 +289,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private static void writeMagic(ChannelHandlerContext ctx) {
+    private void writeMagic(ChannelHandlerContext ctx) {
         ctx.write(Unpooled.wrappedBuffer(ClientMessageCommon.MAGIC_BYTES));
         metrics.bytesSentAdd(ClientMessageCommon.MAGIC_BYTES.length);
     }
 
-    private static void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {
+    private void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {
         var buf = packer.getBuffer();
         int bytes = buf.readableBytes();
 
