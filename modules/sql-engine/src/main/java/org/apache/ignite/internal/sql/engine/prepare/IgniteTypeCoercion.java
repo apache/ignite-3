@@ -298,21 +298,24 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             return null;
         }
 
+        // IgniteCustomType: If one of the arguments is a custom data type,
+        // check whether it is possible to convert another type to it.
+        // Returns not null to indicate that a CAST operation can be added
+        // to convert another type to this custom data type.
         if (type1 instanceof IgniteCustomType) {
-            return tryCustomTypeCoercionRules(type1, type2);
+            IgniteCustomType to = (IgniteCustomType) type1;
+            return tryCustomTypeCoercionRules(type2, to);
         } else if (type2 instanceof IgniteCustomType) {
-            return tryCustomTypeCoercionRules(type2, type1);
+            IgniteCustomType to = (IgniteCustomType) type2;
+            return tryCustomTypeCoercionRules(type1, to);
         } else {
             return super.commonTypeForBinaryComparison(type1, type2);
         }
     }
 
-    private @Nullable RelDataType tryCustomTypeCoercionRules(RelDataType type1, RelDataType type2) {
-        IgniteCustomType to = (IgniteCustomType) type1;
-        // IgniteCustomType: If type1 is a custom data type that can be converted to type2,
-        // return type1 to indicate that the cast is necessary, so type2 is going to be coerced to type1.
-        if (typeCoercionRules.needToCast(type2, to)) {
-            return type1;
+    private @Nullable RelDataType tryCustomTypeCoercionRules(RelDataType from, IgniteCustomType to) {
+        if (typeCoercionRules.needToCast(from, to)) {
+            return to;
         } else {
             return null;
         }

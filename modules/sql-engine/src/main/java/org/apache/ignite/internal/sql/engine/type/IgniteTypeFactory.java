@@ -374,6 +374,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
 
             IgniteCustomType firstCustomType = null;
             boolean hasAnyType = false;
+            boolean hasBuiltInType = false;
 
             for (var type : types) {
                 if (type instanceof IgniteCustomType) {
@@ -384,17 +385,20 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                         if (!Objects.equals(firstCustomType.getCustomTypeName(), customType.getCustomTypeName())) {
                             // IgniteCustomType: Conversion between custom data types is not supported.
                             return null;
-                        } else {
-                            return firstCustomType;
                         }
                     }
                 } else if (type.getSqlTypeName() == SqlTypeName.ANY) {
                     hasAnyType = true;
+                } else if (type.getSqlTypeName() != SqlTypeName.ANY) {
+                    hasBuiltInType = true;
                 }
             }
 
-            // When one of the arguments is ANY, we must return it.
-            if (hasAnyType || firstCustomType == null) {
+            if (hasAnyType && hasBuiltInType && firstCustomType != null) {
+                // There is no least restrictive type between ANY, built-in type, and a custom data type.
+                return null;
+            } else if ((hasAnyType && hasBuiltInType) || (hasAnyType && firstCustomType != null)) {
+                // When at least one of arguments have sqlTypeName = ANY.
                 return resultType;
             } else {
                 return null;
