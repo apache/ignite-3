@@ -1244,6 +1244,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
     }
 
+    /** Test Hash index implementation. */
     public static class TestHashIndex implements Index<IndexDescriptor> {
         private final UUID id = UUID.randomUUID();
 
@@ -1251,6 +1252,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         private final IndexDescriptor descriptor;
 
+        /** Create index. */
         public static TestHashIndex create(List<String> indexedColumns, String name, UUID tableId) {
             var descriptor = new IndexDescriptor(name, indexedColumns);
 
@@ -1261,13 +1263,14 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             return idx;
         }
 
+        /** Create index. */
         public static TestHashIndex create(List<String> indexedColumns, String name) {
             var descriptor = new IndexDescriptor(name, indexedColumns);
 
             return new TestHashIndex(descriptor);
         }
 
-        public TestHashIndex(IndexDescriptor descriptor) {
+        TestHashIndex(IndexDescriptor descriptor) {
             this.descriptor = descriptor;
         }
 
