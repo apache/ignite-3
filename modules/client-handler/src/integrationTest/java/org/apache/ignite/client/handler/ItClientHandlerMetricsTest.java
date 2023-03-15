@@ -99,7 +99,9 @@ public class ItClientHandlerMetricsTest {
         }
 
         assertEquals(1, testServer.metrics().sessionsAccepted());
-        assertEquals(0, testServer.metrics().sessionsActive());
+
+        assertTrue(IgniteTestUtils.waitForCondition(() ->
+                testServer.metrics().sessionsActive() == 0, 5_000));
     }
 
     @Test
