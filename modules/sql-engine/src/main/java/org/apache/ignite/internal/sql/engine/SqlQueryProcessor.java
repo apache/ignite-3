@@ -412,8 +412,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .thenCompose(sqlNode -> {
                     boolean rwOp = dataModificationOp(sqlNode);
 
-                    long schemaVersion = sqlSchemaManager.lastAppliedVersion(schemaName);
-
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(
                                     Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
@@ -424,7 +422,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .cancel(queryCancel)
                             .parameters(params)
                             .plannerTimeout(PLANNER_TIMEOUT)
-                            .schemaVersion(schemaVersion)
                             .build();
 
                     return prepareSvc.prepareAsync(sqlNode, ctx)

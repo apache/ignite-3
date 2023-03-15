@@ -52,6 +52,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.util.ArrayUtils;
 
@@ -158,8 +159,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private final long plannerTimeout;
 
-    private final long schemaVersion;
-
     /**
      * Private constructor, used by a builder.
      */
@@ -169,8 +168,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
             QueryCancel cancel,
             Object[] parameters,
             IgniteLogger log,
-            long plannerTimeout,
-            long schemaVersion
+            long plannerTimeout
     ) {
         super(Contexts.chain(cfg.getContext()));
 
@@ -182,7 +180,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
         this.cancel = cancel;
         this.parameters = parameters;
         this.plannerTimeout = plannerTimeout;
-        this.schemaVersion = schemaVersion;
 
         RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, cfg.getTypeSystem());
 
@@ -236,7 +233,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
     }
 
     public long schemaVersion() {
-        return schemaVersion;
+        return Objects.requireNonNull(schema().unwrap(IgniteSchema.class)).schemaVersion();
     }
 
     /**
@@ -275,8 +272,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
                 .frameworkConfig(cfg)
                 .logger(log)
                 .cancel(cancel)
-                .parameters(parameters)
-                .schemaVersion(schemaVersion);
+                .parameters(parameters);
     }
 
     /**
@@ -301,8 +297,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
         private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
 
         private long plannerTimeout;
-
-        private long schemaVersion;
 
         public Builder frameworkConfig(FrameworkConfig frameworkCfg) {
             this.frameworkCfg = Objects.requireNonNull(frameworkCfg);
@@ -334,14 +328,9 @@ public final class BaseQueryContext extends AbstractQueryContext {
             return this;
         }
 
-        public Builder schemaVersion(long schemaVersion) {
-            this.schemaVersion = schemaVersion;
-            return this;
-        }
-
         public BaseQueryContext build() {
             return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters,
-                    log, plannerTimeout, schemaVersion);
+                    log, plannerTimeout);
         }
     }
 

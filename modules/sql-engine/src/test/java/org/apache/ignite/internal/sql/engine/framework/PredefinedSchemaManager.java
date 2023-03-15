@@ -83,9 +83,4 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
     public IgniteTable tableById(UUID id) {
         return tableById.get(id);
     }
-
-    @Override
-    public long lastAppliedVersion(String schema) {
-        return 0;
-    }
 }

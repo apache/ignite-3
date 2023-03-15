@@ -33,7 +33,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -147,6 +146,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     public SchemaPlus schema(@Nullable String schema) {
         SchemaPlus schemaPlus = calciteSchemaVv.latest();
 
+        // stub for waiting pk indexes, more clear place is IgniteSchema
+        CompletableFuture.allOf(pkIdxReady.values().toArray(CompletableFuture[]::new)).join();
+
         return schema != null ? schemaPlus.getSubSchema(schema) : schemaPlus.getSubSchema(DEFAULT_SCHEMA_NAME);
     }
 
@@ -173,19 +175,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long lastAppliedVersion(String schemaName) {
-        Objects.requireNonNull(schemaName);
-
-        // stub for waiting pk indexes, more clear place is IgniteSchema
-        CompletableFuture.allOf(pkIdxReady.values().toArray(CompletableFuture[]::new)).join();
-
-        IgniteSchema schema = schemasVv.latest().get(schemaName);
-
-        return schema == null ? NOT_INITIALIZED : schema.schemaVersion();
     }
 
     /** {@inheritDoc} */
