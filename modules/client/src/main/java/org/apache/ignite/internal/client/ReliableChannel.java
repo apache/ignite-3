@@ -568,11 +568,11 @@ public final class ReliableChannel implements AutoCloseable {
 
         if (log.isDebugEnabled()) {
             if (res) {
-                log.debug("Retrying operation [opCode=" + opCode + ", attempt=" + ctx.attempt + ", lastError="
-                        + ctx.lastError() + ']');
+                log.debug("Retrying operation [opCode=" + opCode + ", opType=" + opType + ", attempt=" + ctx.attempt
+                        + ", lastError=" + ctx.lastError() + ']');
             } else {
-                log.debug("Not retrying operation [opCode=" + opCode + ", attempt=" + ctx.attempt + ", lastError="
-                        + ctx.lastError() + ']');
+                log.debug("Not retrying operation [opCode=" + opCode + ", opType=" + opType + ", attempt=" + ctx.attempt
+                        + ", lastError=" + ctx.lastError() + ']');
             }
         }
 
@@ -612,14 +612,7 @@ public final class ReliableChannel implements AutoCloseable {
         RetryPolicyContext retryPolicyContext = new RetryPolicyContextImpl(clientCfg, opType, ctx.attempt, exception);
 
         // Exception in shouldRetry will be handled by ClientFutureUtils.doWithRetryAsync
-        boolean shouldRetry = plc.shouldRetry(retryPolicyContext);
-
-        if (shouldRetry) {
-            log.debug("Going to retry operation because of error [op={}, currentAttempt={}, errMsg={}]",
-                    exception, opType, ctx.attempt, exception.getMessage());
-        }
-
-        return shouldRetry;
+        return plc.shouldRetry(retryPolicyContext);
     }
 
     /**
