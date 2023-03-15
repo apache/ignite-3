@@ -118,8 +118,8 @@ public class RestNode {
     }
 
     private String bootstrapCfg() {
-        String keyStoreFilePath = getResourcePath(ItRestSslTest.class, keyStorePath);
-        String trustStoreFilePath = getResourcePath(ItRestSslTest.class, trustStorePath);
+        String keyStoreFilePath = escapeWindowsPath(getResourcePath(ItRestSslTest.class, keyStorePath));
+        String trustStoreFilePath = escapeWindowsPath(getResourcePath(ItRestSslTest.class, trustStorePath));
         return "{\n"
                 + "  network: {\n"
                 + "    port: " + networkPort + ",\n"
@@ -136,12 +136,12 @@ public class RestNode {
                 + "      ciphers: \"" + ciphers + "\",\n"
                 + "      port: " + httpsPort + ",\n"
                 + "      keyStore: {\n"
-                + "        path: \"" + escapeWindowsPath(keyStoreFilePath) + "\",\n"
+                + "        path: \"" + keyStoreFilePath + "\",\n"
                 + "        password: " + keyStorePassword + "\n"
                 + "      }, \n"
                 + "      trustStore: {\n"
                 + "        type: JKS,\n"
-                + "        path: \"" + escapeWindowsPath(trustStoreFilePath) + "\",\n"
+                + "        path: \"" + trustStoreFilePath + "\",\n"
                 + "        password: " + trustStorePassword + "\n"
                 + "      }\n"
                 + "    }\n"
