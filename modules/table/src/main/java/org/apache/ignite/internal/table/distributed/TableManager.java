@@ -780,8 +780,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 // start new nodes, only if it is table creation, other cases will be covered by rebalance logic
                 if (oldPartAssignment.isEmpty() && localMemberAssignment != null) {
                     startGroupFut = partitionStoragesFut.thenComposeAsync(partitionStorages -> {
-                        MvPartitionStorage mvPartitionStorage = partitionStorages.getMvPartitionStorage();
-
                         CompletableFuture<Boolean> fut;
 
                         // If Raft is running in in-memory mode or the PDS has been cleared, we need to remove the current node
