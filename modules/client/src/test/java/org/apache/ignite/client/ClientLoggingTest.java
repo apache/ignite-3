@@ -22,11 +22,15 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.LoggerFactory;
+import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -76,6 +80,28 @@ public class ClientLoggingTest {
 
         loggerFactory1.logger.entries().forEach(msg -> assertThat(msg, startsWith("client1:")));
         loggerFactory2.logger.entries().forEach(msg -> assertThat(msg, startsWith("client2:")));
+    }
+
+    @Test
+    public void testBasicLogging() throws Exception {
+        FakeIgnite ignite = new FakeIgnite();
+        ((FakeIgniteTables) ignite.tables()).createTable("t");
+
+        server = startServer(10950, ignite);
+        server2 = startServer(10955, ignite);
+
+        var loggerFactory = new TestLoggerFactory("c");
+
+        try (var client = createClient(loggerFactory)) {
+            client.tables().tables();
+            client.tables().table("t");
+
+            assertTrue(IgniteTestUtils.waitForCondition(() -> loggerFactory.logger.entries().size() > 10, 5_000));
+
+            loggerFactory.assertLogContains("Connection established");
+            loggerFactory.assertLogContains("c:Sending request [opCode=3, remoteAddress=127.0.0.1:1095");
+            loggerFactory.assertLogContains("c:Failed to establish connection to 127.0.0.1:1095");
+        }
     }
 
     private static TestServer startServer(int port, FakeIgnite ignite) {
