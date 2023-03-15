@@ -400,13 +400,13 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
         if (eventsClientListener == null) {
             eventsClientListener = new RaftGroupEventsClientListener();
 
-            var fEventsClientListener = eventsClientListener;
-            localClusterService.messagingService().addMessageHandler(RaftMessageGroup.class, (msg, sender, cId) -> {
+            var finalEventsClientListener = eventsClientListener;
+            localClusterService.messagingService().addMessageHandler(RaftMessageGroup.class, (msg, sender, correlationId) -> {
                 if (msg instanceof LeaderChangeNotification) {
                     LeaderChangeNotification msg0 = (LeaderChangeNotification) msg;
 
                     ClusterNode node = localClusterService.topologyService().getByConsistentId(sender);
-                    fEventsClientListener.onLeaderElected(msg0.groupId(), node, msg0.term());
+                    finalEventsClientListener.onLeaderElected(msg0.groupId(), node, msg0.term());
                 }
             });
         }

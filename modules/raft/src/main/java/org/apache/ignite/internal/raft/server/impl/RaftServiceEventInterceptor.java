@@ -27,7 +27,8 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterNode;
 
 /**
- * RAFT server event listener.
+ * RAFT server event interceptor. It is used to intercept RAFT server events of certain RAFT groups on server side, and notify about
+ * them nodes that are subscribed on these events for these groups. Allows to create and remove subscriptions for nodes and groups.
  */
 public class RaftServiceEventInterceptor {
     /** Callbacks by group ids. */
