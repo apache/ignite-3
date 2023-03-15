@@ -873,25 +873,25 @@ public class DistributionZoneManager implements IgniteComponent {
                         try {
                             if (vaultEntry != null && vaultEntry.value() != null) {
                                 logicalTopology = fromBytes(vaultEntry.value());
-
-                                // init keys and data nodes for default zone
-                                saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                                        DEFAULT_ZONE_ID,
-                                        appliedRevision,
-                                        logicalTopology
-                                );
-
-                                zonesConfiguration.distributionZones().value().namedListKeys()
-                                        .forEach(zoneName -> {
-                                            int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
-
-                                            saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                                                    zoneId,
-                                                    appliedRevision,
-                                                    logicalTopology
-                                            );
-                                        });
                             }
+
+                            // init keys and data nodes for default zone
+                            saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+                                    DEFAULT_ZONE_ID,
+                                    appliedRevision,
+                                    logicalTopology
+                            );
+
+                            zonesConfiguration.distributionZones().value().namedListKeys()
+                                    .forEach(zoneName -> {
+                                        int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
+
+                                        saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+                                                zoneId,
+                                                appliedRevision,
+                                                logicalTopology
+                                        );
+                                    });
                         } finally {
                             busyLock.leaveBusy();
                         }
