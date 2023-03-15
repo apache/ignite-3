@@ -41,6 +41,7 @@ public class RestNode {
     private final boolean sslEnabled;
     private final boolean sslClientAuthEnabled;
     private final boolean dualProtocol;
+    private final String ciphers;
     private CompletableFuture<Ignite> igniteNodeFuture;
 
     /** Constructor. */
@@ -56,7 +57,8 @@ public class RestNode {
             int httpsPort,
             boolean sslEnabled,
             boolean sslClientAuthEnabled,
-            boolean dualProtocol
+            boolean dualProtocol,
+            String ciphers
     ) {
         this.keyStorePath = keyStorePath;
         this.keyStorePassword = keyStorePassword;
@@ -70,6 +72,7 @@ public class RestNode {
         this.sslEnabled = sslEnabled;
         this.sslClientAuthEnabled = sslClientAuthEnabled;
         this.dualProtocol = dualProtocol;
+        this.ciphers = ciphers;
     }
 
     public static RestNodeBuilder builder() {
@@ -115,6 +118,8 @@ public class RestNode {
     }
 
     private String bootstrapCfg() {
+        String keyStoreFilePath = getResourcePath(ItRestSslTest.class.getClassLoader().getResource(keyStorePath));
+        String trustStoreFilePath = getResourcePath(ItRestSslTest.class.getClassLoader().getResource(trustStorePath));
         return "{\n"
                 + "  network: {\n"
                 + "    port: " + networkPort + ",\n"
@@ -128,14 +133,15 @@ public class RestNode {
                 + "    ssl: {\n"
                 + "      enabled: " + sslEnabled + ",\n"
                 + "      clientAuth: " + (sslClientAuthEnabled ? "require" : "none") + ",\n"
+                + "      ciphers: \"" + ciphers + "\",\n"
                 + "      port: " + httpsPort + ",\n"
                 + "      keyStore: {\n"
-                + "        path: \"" + getResourcePath(keyStorePath) + "\",\n"
+                + "        path: \"" + escapeWindowsPath(keyStoreFilePath) + "\",\n"
                 + "        password: " + keyStorePassword + "\n"
                 + "      }, \n"
                 + "      trustStore: {\n"
                 + "        type: JKS,\n"
-                + "        path: \"" + getResourcePath(trustStorePath) + "\",\n"
+                + "        path: \"" + escapeWindowsPath(trustStoreFilePath) + "\",\n"
                 + "        password: " + trustStorePassword + "\n"
                 + "      }\n"
                 + "    }\n"
@@ -143,14 +149,19 @@ public class RestNode {
                 + "}";
     }
 
-    private static String getResourcePath(String resource) {
+    /** Converts URL gotten from classloader to proper file system path. */
+    public static String getResourcePath(URL url) {
         try {
-            URL url = ItRestSslTest.class.getClassLoader().getResource(resource);
-            Objects.requireNonNull(url, "Resource " + resource + " not found.");
-            Path path = Path.of(url.toURI()); // Properly extract file system path from the "file:" URL
-            return path.toString().replace("\\", "\\\\"); // Escape backslashes for the config parser
+            Objects.requireNonNull(url);
+            // Properly extract file system path from the "file:" URL
+            return Path.of(url.toURI()).toString();
         } catch (URISyntaxException e) {
             throw new RuntimeException(e); // Shouldn't happen since URL is obtained from the class loader
         }
+    }
+
+    /** Use this to escape backslashes for the HOCON config parser. */
+    public static String escapeWindowsPath(String path) {
+        return path.replace("\\", "\\\\");
     }
 }

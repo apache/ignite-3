@@ -42,6 +42,10 @@ public class AbstractSslConfigurationSchema {
     @Value(hasDefault = true)
     public final String clientAuth = "none";
 
+    /** List of ciphers to enable, separated by comma. */
+    @Value(hasDefault = true)
+    public String ciphers = "";
+
     /** SSL keystore configuration. */
     @ConfigValue
     public KeyStoreConfigurationSchema keyStore;
