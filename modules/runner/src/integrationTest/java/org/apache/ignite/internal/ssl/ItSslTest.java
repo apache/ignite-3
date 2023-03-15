@@ -522,7 +522,6 @@ public class ItSslTest extends IgniteIntegrationTest {
         String sslEnabledWithCipher2BoostrapConfig = createBoostrapConfig("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384");
 
         CompletableFuture<IgniteImpl> node1 = cluster.startClusterNode(0, sslEnabledWithCipher1BoostrapConfig);
-        CompletableFuture<IgniteImpl> node2 = cluster.startClusterNode(1, sslEnabledWithCipher2BoostrapConfig);
 
         String metaStorageAndCmgNodeName = testNodeName(testInfo, 0);
 
@@ -536,6 +535,8 @@ public class ItSslTest extends IgniteIntegrationTest {
 
         // First node will initialize the cluster with single node successfully since the second node can't connect to it.
         assertThat(node1, willCompleteSuccessfully());
+
+        CompletableFuture<IgniteImpl> node2 = cluster.startClusterNode(1, sslEnabledWithCipher2BoostrapConfig);
         assertThat(node2, willTimeoutIn(1, TimeUnit.SECONDS));
 
         cluster.shutdown();
