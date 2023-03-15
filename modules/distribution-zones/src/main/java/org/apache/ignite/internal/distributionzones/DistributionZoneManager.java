@@ -120,6 +120,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
     private static final String DISTRIBUTION_ZONE_MANAGER_POOL_NAME = "dst-zones-scheduler";
 
+    private static final String META_STORAGE_WATCH_ID = "dst-zones-watch";
+
     /** Id of the default distribution zone. */
     public static final int DEFAULT_ZONE_ID = 0;
 
@@ -862,10 +864,8 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            long appliedRevision = metaStorageManager.appliedRevision();
-
             vaultMgr.get(zonesLogicalTopologyKey())
-                    .thenAccept(vaultEntry -> {
+                    .thenAcceptBoth(metaStorageManager.appliedRevision(META_STORAGE_WATCH_ID), (vaultEntry, appliedRevision) -> {
                         if (!busyLock.enterBusy()) {
                             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
                         }
@@ -904,9 +904,14 @@ public class DistributionZoneManager implements IgniteComponent {
     private WatchListener createMetastorageListener() {
         return new WatchListener() {
             @Override
-            public void onUpdate(WatchEvent evt) {
+            public String id() {
+                return META_STORAGE_WATCH_ID;
+            }
+
+            @Override
+            public CompletableFuture<Void> onUpdate(WatchEvent evt) {
                 if (!busyLock.enterBusy()) {
-                    throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+                    return failedFuture(new NodeStoppingException());
                 }
 
                 try {
@@ -942,6 +947,8 @@ public class DistributionZoneManager implements IgniteComponent {
                     DistributionZoneView defaultZoneView = zonesConfiguration.value().defaultDistributionZone();
 
                     scheduleTimers(defaultZoneView, addedNodes, removedNodes, revision);
+
+                    return completedFuture(null);
                 } finally {
                     busyLock.leaveBusy();
                 }

@@ -109,6 +109,10 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final StringProperty clientAuth = new StringProperty("clientAuth",
             "SSL client authentication", "none", clientAuthValues(), false, null);
 
+    /** SSL ciphers list. */
+    private final StringProperty ciphers = new StringProperty("ciphers",
+            "SSL ciphers", null, null, false, null);
+
     @NotNull
     private static String[] clientAuthValues() {
         return Arrays.stream(ClientAuthenticationMode.values())
@@ -125,7 +129,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     /** Properties array. */
     private final ConnectionProperty[] propsArray = {
             qryTimeout, connTimeout, trustStorePath, trustStorePassword, trustStoreType,
-            sslEnabled, clientAuth, keyStorePath, keyStorePassword, keyStoreType
+            sslEnabled, clientAuth, ciphers, keyStorePath, keyStorePassword, keyStoreType
     };
 
     /** {@inheritDoc} */
@@ -332,6 +336,17 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     @Override
     public ClientAuthenticationMode getClientAuth() {
         return ClientAuthenticationMode.valueOf(this.clientAuth.value().toUpperCase());
+    }
+
+    @Override
+    public void setCiphers(String ciphers) {
+        this.ciphers.setValue(ciphers);
+    }
+
+    @Override
+    public Iterable<String> getCiphers() {
+        String value = ciphers.value();
+        return value != null ? Arrays.asList(value.split(",")) : null;
     }
 
     /**

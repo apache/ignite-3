@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -50,7 +51,7 @@ public class RocksDbKeyValueStorageTest extends AbstractKeyValueStorageTest {
     }
 
     @Test
-    void testWatchReplayOnSnapshotLoad() throws InterruptedException {
+    void testWatchReplayOnSnapshotLoad() throws Exception {
         storage.put("foo".getBytes(UTF_8), "bar".getBytes(UTF_8));
         storage.put("baz".getBytes(UTF_8), "quux".getBytes(UTF_8));
 
@@ -70,10 +71,17 @@ public class RocksDbKeyValueStorageTest extends AbstractKeyValueStorageTest {
 
         storage.watchExact("foo".getBytes(UTF_8), 1, new WatchListener() {
             @Override
-            public void onUpdate(WatchEvent event) {
+            public String id() {
+                return "test1";
+            }
+
+            @Override
+            public CompletableFuture<Void> onUpdate(WatchEvent event) {
                 assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(UTF_8)));
 
                 latch.countDown();
+
+                return CompletableFuture.completedFuture(null);
             }
 
             @Override
@@ -84,10 +92,17 @@ public class RocksDbKeyValueStorageTest extends AbstractKeyValueStorageTest {
 
         storage.watchExact("baz".getBytes(UTF_8), 1, new WatchListener() {
             @Override
-            public void onUpdate(WatchEvent event) {
+            public String id() {
+                return "test2";
+            }
+
+            @Override
+            public CompletableFuture<Void> onUpdate(WatchEvent event) {
                 assertThat(event.entryEvent().newEntry().value(), is("quux".getBytes(UTF_8)));
 
                 latch.countDown();
+
+                return CompletableFuture.completedFuture(null);
             }
 
             @Override
@@ -96,7 +111,7 @@ public class RocksDbKeyValueStorageTest extends AbstractKeyValueStorageTest {
             }
         });
 
-        storage.startWatches((revision, updatedEntries) -> {});
+        storage.startWatches((revision, updatedEntries) -> CompletableFuture.completedFuture(null));
 
         storage.restoreSnapshot(snapshotPath);
 

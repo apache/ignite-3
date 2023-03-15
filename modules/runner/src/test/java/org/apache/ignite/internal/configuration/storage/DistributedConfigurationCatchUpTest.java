@@ -17,8 +17,12 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.doAnswer;
@@ -29,6 +33,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -95,6 +100,8 @@ public class DistributedConfigurationCatchUpTest {
 
         MetaStorageMockWrapper wrapper = new MetaStorageMockWrapper();
 
+        when(wrapper.mock.appliedRevision(DistributedConfigurationStorage.WATCH_ID)).thenReturn(completedFuture(0L));
+
         DistributedConfigurationStorage storage = storage(wrapper);
 
         try {
@@ -111,7 +118,7 @@ public class DistributedConfigurationCatchUpTest {
 
                 CompletableFuture<Void> change = changer.change(source);
 
-                change.get();
+                assertThat(change, willCompleteSuccessfully());
             } finally {
                 changer.stop();
             }
@@ -123,7 +130,7 @@ public class DistributedConfigurationCatchUpTest {
         vaultManager.put(MetaStorageMockWrapper.TEST_KEY, new byte[]{4, 1, 2, 3, 4}).get();
 
         // This emulates a change in MetaStorage that is not related to the configuration.
-        when(wrapper.mock.appliedRevision()).thenReturn(1L);
+        when(wrapper.mock.appliedRevision(DistributedConfigurationStorage.WATCH_ID)).thenReturn(completedFuture(2L));
 
         storage = storage(wrapper);
 
@@ -136,10 +143,7 @@ public class DistributedConfigurationCatchUpTest {
                 changer.start();
 
                 // Should return last configuration change, not last MetaStorage change.
-                Long lastConfigurationChangeRevision = storage.lastRevision().get();
-
-                // Should be one, because we only changed configuration once.
-                assertEquals(1, lastConfigurationChangeRevision);
+                assertThat(storage.lastRevision(), willBe(1L));
             } finally {
                 changer.stop();
             }
@@ -173,7 +177,7 @@ public class DistributedConfigurationCatchUpTest {
         private WatchListener lsnr;
 
         /** Current master key revision. */
-        private long masterKeyRevision;
+        private final AtomicLong masterKeyRevision = new AtomicLong();
 
         private MetaStorageMockWrapper() {
             mock = mock(MetaStorageManager.class);
@@ -184,7 +188,7 @@ public class DistributedConfigurationCatchUpTest {
         private void setup() {
             // Returns current master key revision.
             when(mock.get(MASTER_KEY)).then(invocation -> {
-                return CompletableFuture.completedFuture(new EntryImpl(MASTER_KEY.bytes(), null, masterKeyRevision, -1));
+                return completedFuture(new EntryImpl(MASTER_KEY.bytes(), null, masterKeyRevision.get(), -1));
             });
 
             // On any invocation - trigger storage listener.
@@ -207,8 +211,13 @@ public class DistributedConfigurationCatchUpTest {
          */
         private CompletableFuture<Boolean> triggerStorageListener() {
             return CompletableFuture.supplyAsync(() -> {
-                EntryEvent entryEvent = new EntryEvent(null, new EntryImpl(MASTER_KEY.bytes(), null, ++masterKeyRevision, -1));
-                lsnr.onUpdate(new WatchEvent(entryEvent));
+                long newRevision = masterKeyRevision.incrementAndGet();
+
+                lsnr.onUpdate(new WatchEvent(List.of(
+                        new EntryEvent(null, new EntryImpl(MASTER_KEY.bytes(), null, newRevision, -1)),
+                        // Add a mock entry to simulate a configuration update.
+                        new EntryEvent(null, new EntryImpl((DISTRIBUTED_PREFIX + "foobar").getBytes(UTF_8), null, newRevision, -1))
+                ), newRevision));
 
                 return true;
             });
