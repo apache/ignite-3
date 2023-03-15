@@ -23,6 +23,9 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -30,6 +33,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -825,5 +829,31 @@ public final class IgniteTestUtils {
 
             throw assertionError;
         }
+    }
+
+    /**
+     * Converts an URL gotten from classloader to proper file system path.
+     *
+     * @param url A resource URL.
+     * @return A path component of the resource URL as a proper file system path.
+     */
+    public static String getResourcePath(URL url) {
+        try {
+            Objects.requireNonNull(url);
+            // Properly extract file system path from the "file:" URL
+            return Path.of(url.toURI()).toString();
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e); // Shouldn't happen since URL is obtained from the class loader
+        }
+    }
+
+    /**
+     * Adds escape characters before backslashes in a path (on Windows), e.g. for the HOCON config parser.
+     *
+     * @param path A path string.
+     * @return A path string with escaped backslashes.
+     */
+    public static String escapeWindowsPath(String path) {
+        return path.replace("\\", "\\\\");
     }
 }

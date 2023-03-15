@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.rest.RestNode.escapeWindowsPath;
-import static org.apache.ignite.internal.rest.RestNode.getResourcePath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,7 +48,6 @@ import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType.TemporalColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
-import org.apache.ignite.internal.ssl.ItSslTest;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
