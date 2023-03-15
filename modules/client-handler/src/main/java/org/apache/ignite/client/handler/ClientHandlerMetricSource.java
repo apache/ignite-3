@@ -18,25 +18,21 @@
 package org.apache.ignite.client.handler;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
+import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.AtomicLongMetric;
 import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.MetricSet;
-import org.apache.ignite.internal.metrics.MetricSource;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.metrics.MetricSetBuilder;
 
 /**
  * Server-side client handler metrics.
  */
-public class ClientHandlerMetricSource implements MetricSource {
-    private static final String SOURCE_NAME = "client-handler";
-
-    private volatile @Nullable ClientHandlerMetricSource.Holder holder;
-
-    @Override
-    public String name() {
-        return SOURCE_NAME;
+public class ClientHandlerMetricSource extends AbstractMetricSource<ClientHandlerMetricSource.Holder> {
+    /**
+     * Constructor.
+     */
+    public ClientHandlerMetricSource() {
+        super("client-handler");
     }
 
     /**
@@ -45,13 +41,13 @@ public class ClientHandlerMetricSource implements MetricSource {
      * @return Total initiated connections.
      */
     public long connectionsInitiated() {
-        Holder h = holder;
+        Holder h = holder();
 
         return h == null ? 0 : h.connectionsInitiated.value();
     }
 
     void connectionsInitiatedIncrement() {
-        Holder h = holder;
+        Holder h = holder();
 
         if (h != null) {
             h.connectionsInitiated.increment();
@@ -64,13 +60,13 @@ public class ClientHandlerMetricSource implements MetricSource {
      * @return Total accepted sessions.
      */
     public long sessionsAccepted() {
-        Holder h = holder;
+        Holder h = holder();
 
         return h == null ? 0 : h.sessionsAccepted.value();
     }
 
     void sessionsAcceptedIncrement() {
-        Holder h = holder;
+        Holder h = holder();
 
         if (h != null) {
             h.sessionsAccepted.increment();
@@ -83,13 +79,13 @@ public class ClientHandlerMetricSource implements MetricSource {
      * @return Active sessions.
      */
     public long sessionsActive() {
-        Holder h = holder;
+        Holder h = holder();
 
         return h == null ? 0 : h.sessionsActive.value();
     }
 
     void sessionsActiveIncrement() {
-        Holder h = holder;
+        Holder h = holder();
 
         if (h != null) {
             h.sessionsActive.increment();
@@ -97,7 +93,7 @@ public class ClientHandlerMetricSource implements MetricSource {
     }
 
     void sessionsActiveDecrement() {
-        Holder h = holder;
+        Holder h = holder();
 
         if (h != null) {
             h.sessionsActive.decrement();
@@ -110,13 +106,13 @@ public class ClientHandlerMetricSource implements MetricSource {
      * @return Total rejected sessions.
      */
     public long sessionsRejected() {
-        Holder h = holder;
+        Holder h = holder();
 
         return h == null ? 0 : h.sessionsRejected.value();
     }
 
     void sessionsRejectedIncrement() {
-        Holder h = holder;
+        Holder h = holder();
 
         if (h != null) {
             h.sessionsRejected.increment();
@@ -129,13 +125,13 @@ public class ClientHandlerMetricSource implements MetricSource {
      * @return Sessions rejected due to TLS errors.
      */
     public long sessionsRejectedTls() {
-        Holder h = holder;
+        Holder h = holder();
 
         return h == null ? 0 : h.sessionsRejectedTls.value();
     }
 
     void sessionsRejectedTlsIncrement() {
-        Holder h = holder;
+        Holder h = holder();
 
         if (h != null) {
             h.sessionsRejectedTls.increment();
@@ -148,13 +144,13 @@ public class ClientHandlerMetricSource implements MetricSource {
      * @return Sent bytes.
      */
     public long bytesSent() {
-        Holder h = holder;
+        Holder h = holder();
 
         return h == null ? 0 : h.bytesSent.value();
     }
 
     void bytesSentAdd(long bytes) {
-        Holder h = holder;
+        Holder h = holder();
 
         if (h != null) {
             h.bytesSent.add(bytes);
@@ -167,13 +163,13 @@ public class ClientHandlerMetricSource implements MetricSource {
      * @return Received bytes.
      */
     public long bytesReceived() {
-        Holder h = holder;
+        Holder h = holder();
 
         return h == null ? 0 : h.bytesReceived.value();
     }
 
     void bytesReceivedAdd(long bytes) {
-        Holder h = holder;
+        Holder h = holder();
 
         if (h != null) {
             h.bytesReceived.add(bytes);
@@ -186,13 +182,13 @@ public class ClientHandlerMetricSource implements MetricSource {
      * @return Sessions rejected due to a timeout.
      */
     public long sessionsRejectedTimeout() {
-        Holder h = holder;
+        Holder h = holder();
 
         return h == null ? 0 : h.sessionsRejectedTimeout.value();
     }
 
     void sessionsRejectedTimeoutIncrement() {
-        Holder h = holder;
+        Holder h = holder();
 
         if (h != null) {
             h.sessionsRejectedTimeout.increment();
@@ -205,13 +201,13 @@ public class ClientHandlerMetricSource implements MetricSource {
      * @return Active requests.
      */
     public long requestsActive() {
-        Holder h = holder;
+        Holder h = holder();
 
         return h == null ? 0 : h.requestsActive.value();
     }
 
     void requestsActiveIncrement() {
-        Holder h = holder;
+        Holder h = holder();
 
         if (h != null) {
             h.requestsActive.increment();
@@ -219,7 +215,7 @@ public class ClientHandlerMetricSource implements MetricSource {
     }
 
     void requestsActiveDecrement() {
-        Holder h = holder;
+        Holder h = holder();
 
         if (h != null) {
             h.requestsActive.decrement();
@@ -232,13 +228,13 @@ public class ClientHandlerMetricSource implements MetricSource {
      * @return Processed requests.
      */
     public long requestsProcessed() {
-        Holder h = holder;
+        Holder h = holder();
 
         return h == null ? 0 : h.requestsProcessed.value();
     }
 
     void requestsProcessedIncrement() {
-        Holder h = holder;
+        Holder h = holder();
 
         if (h != null) {
             h.requestsProcessed.increment();
@@ -251,13 +247,13 @@ public class ClientHandlerMetricSource implements MetricSource {
      * @return Failed requests.
      */
     public long requestsFailed() {
-        Holder h = holder;
+        Holder h = holder();
 
         return h == null ? 0 : h.requestsFailed.value();
     }
 
     void requestsFailedIncrement() {
-        Holder h = holder;
+        Holder h = holder();
 
         if (h != null) {
             h.requestsFailed.increment();
@@ -270,7 +266,7 @@ public class ClientHandlerMetricSource implements MetricSource {
      * @return Active transactions.
      */
     public long transactionsActive() {
-        Holder h = holder;
+        Holder h = holder();
 
         return h == null ? 0 : h.transactionsActive.value();
     }
@@ -279,7 +275,7 @@ public class ClientHandlerMetricSource implements MetricSource {
      * Increments active transactions.
      */
     public void transactionsActiveIncrement() {
-        Holder h = holder;
+        Holder h = holder();
 
         if (h != null) {
             h.transactionsActive.increment();
@@ -290,7 +286,7 @@ public class ClientHandlerMetricSource implements MetricSource {
      * Decrements active transactions.
      */
     public void transactionsActiveDecrement() {
-        Holder h = holder;
+        Holder h = holder();
 
         if (h != null) {
             h.transactionsActive.decrement();
@@ -303,7 +299,7 @@ public class ClientHandlerMetricSource implements MetricSource {
      * @return Active cursors.
      */
     public long cursorsActive() {
-        Holder h = holder;
+        Holder h = holder();
 
         return h == null ? 0 : h.cursorsActive.value();
     }
@@ -312,7 +308,7 @@ public class ClientHandlerMetricSource implements MetricSource {
      * Increments active cursors.
      */
     public void cursorsActiveIncrement() {
-        Holder h = holder;
+        Holder h = holder();
 
         if (h != null) {
             h.cursorsActive.increment();
@@ -323,38 +319,29 @@ public class ClientHandlerMetricSource implements MetricSource {
      * Decrements active cursors.
      */
     public void cursorsActiveDecrement() {
-        Holder h = holder;
+        Holder h = holder();
 
         if (h != null) {
             h.cursorsActive.decrement();
         }
     }
 
+    /** {@inheritDoc} */
     @Override
-    public synchronized @Nullable MetricSet enable() {
-        Holder h = holder;
-
-        if (h == null) {
-            h = new Holder();
-            holder = h;
-        }
-
-        return h.metricSet;
+    protected void init(MetricSetBuilder bldr, Holder holder) {
+        holder.register(bldr);
     }
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void disable() {
-        holder = null;
+    protected Holder createHolder() {
+        return new Holder();
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public synchronized boolean enabled() {
-        return holder != null;
-    }
-
-    private static class Holder {
+    /**
+     * Holder.
+     */
+    protected static class Holder implements AbstractMetricSource.Holder<Holder> {
         private final AtomicLongMetric connectionsInitiated =
                 new AtomicLongMetric("connections.Initiated", "Total initiated connections");
 
@@ -403,16 +390,10 @@ public class ClientHandlerMetricSource implements MetricSource {
                 cursorsActive
         );
 
-        private final MetricSet metricSet;
-
-        private Holder() {
-            var set = new HashMap<String, Metric>(metrics.size());
-
+        void register(MetricSetBuilder bldr) {
             for (var metric : metrics) {
-                set.put(metric.name(), metric);
+                bldr.register(metric);
             }
-
-            this.metricSet = new MetricSet(SOURCE_NAME, set);
         }
     }
 }
