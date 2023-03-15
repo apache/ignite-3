@@ -607,7 +607,9 @@ namespace Apache.Ignite.Internal
 
             if (!_requests.TryRemove(requestId, out var taskCompletionSource))
             {
-                var message = $"Unexpected response ID ({requestId}) received from the server, closing the socket.";
+                var message = $"Unexpected response ID ({requestId}) received from the server " +
+                              $"[remoteAddress={ConnectionContext.ClusterNode.Address}], closing the socket.";
+
                 _logger?.Error(message);
                 Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Protocol, message));
 
@@ -618,6 +620,12 @@ namespace Apache.Ignite.Internal
 
             if (flags.HasFlag(ResponseFlags.PartitionAssignmentChanged))
             {
+                if (_logger?.IsEnabled(LogLevel.Info) == true)
+                {
+                    _logger.Info(
+                        $"Partition assignment change notification received [remoteAddress={ConnectionContext.ClusterNode.Address}]");
+                }
+
                 _assignmentChangeCallback(this);
             }
 
