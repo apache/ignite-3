@@ -175,8 +175,7 @@ namespace Apache.Ignite.Internal
 
                 if (logger?.IsEnabled(LogLevel.Debug) == true)
                 {
-                    logger.Debug(
-                        $"Socket connection established: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}, starting handshake...");
+                    logger.Debug($"Connection established [remoteAddress={socket.RemoteEndPoint}]");
                 }
 
                 Stream stream = new NetworkStream(socket, ownsSocket: true);
@@ -188,7 +187,8 @@ namespace Apache.Ignite.Internal
 
                     if (logger?.IsEnabled(LogLevel.Debug) == true)
                     {
-                        logger.Debug($"SSL connection established: {sslStream.NegotiatedCipherSuite}");
+                        logger.Debug(
+                            $"SSL connection established [remoteAddress={socket.RemoteEndPoint}]: {sslStream.NegotiatedCipherSuite}");
                     }
                 }
 
