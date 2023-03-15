@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.rest;
 
-import java.net.URISyntaxException;
-import java.net.URL;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
+
 import java.nio.file.Path;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -118,8 +118,8 @@ public class RestNode {
     }
 
     private String bootstrapCfg() {
-        String keyStoreFilePath = getResourcePath(ItRestSslTest.class.getClassLoader().getResource(keyStorePath));
-        String trustStoreFilePath = getResourcePath(ItRestSslTest.class.getClassLoader().getResource(trustStorePath));
+        String keyStoreFilePath = escapeWindowsPath(getResourcePath(ItRestSslTest.class, keyStorePath));
+        String trustStoreFilePath = escapeWindowsPath(getResourcePath(ItRestSslTest.class, trustStorePath));
         return "{\n"
                 + "  network: {\n"
                 + "    port: " + networkPort + ",\n"
@@ -136,32 +136,16 @@ public class RestNode {
                 + "      ciphers: \"" + ciphers + "\",\n"
                 + "      port: " + httpsPort + ",\n"
                 + "      keyStore: {\n"
-                + "        path: \"" + escapeWindowsPath(keyStoreFilePath) + "\",\n"
+                + "        path: \"" + keyStoreFilePath + "\",\n"
                 + "        password: " + keyStorePassword + "\n"
                 + "      }, \n"
                 + "      trustStore: {\n"
                 + "        type: JKS,\n"
-                + "        path: \"" + escapeWindowsPath(trustStoreFilePath) + "\",\n"
+                + "        path: \"" + trustStoreFilePath + "\",\n"
                 + "        password: " + trustStorePassword + "\n"
                 + "      }\n"
                 + "    }\n"
                 + "  }\n"
                 + "}";
-    }
-
-    /** Converts URL gotten from classloader to proper file system path. */
-    public static String getResourcePath(URL url) {
-        try {
-            Objects.requireNonNull(url);
-            // Properly extract file system path from the "file:" URL
-            return Path.of(url.toURI()).toString();
-        } catch (URISyntaxException e) {
-            throw new RuntimeException(e); // Shouldn't happen since URL is obtained from the class loader
-        }
-    }
-
-    /** Use this to escape backslashes for the HOCON config parser. */
-    public static String escapeWindowsPath(String path) {
-        return path.replace("\\", "\\\\");
     }
 }
