@@ -24,7 +24,6 @@ import picocli.CommandLine;
 /**
  * Provider of {@link CommandLineContext}.
  */
-//Tech Debt: IGNITE-17484
 public class CommandLineContextProvider {
 
     private static volatile CommandLineContext context;

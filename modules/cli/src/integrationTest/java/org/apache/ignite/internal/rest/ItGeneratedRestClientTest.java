@@ -24,9 +24,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,6 +40,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -52,6 +57,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.rest.client.api.ClusterConfigurationApi;
 import org.apache.ignite.rest.client.api.ClusterManagementApi;
+import org.apache.ignite.rest.client.api.DeploymentApi;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.api.NodeMetricApi;
@@ -64,6 +70,7 @@ import org.apache.ignite.rest.client.model.InitCommand;
 import org.apache.ignite.rest.client.model.MetricSource;
 import org.apache.ignite.rest.client.model.NodeState;
 import org.apache.ignite.rest.client.model.Problem;
+import org.apache.ignite.rest.client.model.UnitStatus;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -100,6 +107,8 @@ public class ItGeneratedRestClientTest {
     private TopologyApi topologyApi;
 
     private NodeMetricApi nodeMetricApi;
+
+    private DeploymentApi deploymentApi;
 
     private ObjectMapper objectMapper;
 
@@ -152,6 +161,7 @@ public class ItGeneratedRestClientTest {
         nodeManagementApi = new NodeManagementApi(client);
         topologyApi = new TopologyApi(client);
         nodeMetricApi = new NodeMetricApi(client);
+        deploymentApi = new DeploymentApi(client);
 
         objectMapper = new ObjectMapper();
     }
@@ -363,6 +373,44 @@ public class ItGeneratedRestClientTest {
         Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);
         assertThat(problem.getStatus(), equalTo(404));
         assertThat(problem.getDetail(), containsString("Metrics source with given name doesn't exist: no.such.metric"));
+    }
+
+    @Test
+    void deployUndeployUnitSync() throws ApiException {
+        assertThat(deploymentApi.units(), empty());
+
+        deploymentApi.deployUnit("test.unit.id", emptyFile(), "1.0.0");
+        List<UnitStatus> units = deploymentApi.units();
+        assertThat(units, hasSize(1));
+        assertThat(units.get(0).getId(), equalTo("test.unit.id"));
+        assertThat(units.get(0).getVersionToConsistentIds().values(), not(empty()));
+
+        assertThat(deploymentApi.versions("test.unit.id"), contains("1.0.0"));
+
+        deploymentApi.undeployUnit("test.unit.id", "1.0.0");
+        assertThat(deploymentApi.units(), empty());
+    }
+
+    @Test
+    void undeployFailed() throws JsonProcessingException {
+        ApiException thrown = assertThrows(
+                ApiException.class,
+                () -> deploymentApi.undeployUnit("test.unit.id", "0.0.0")
+        );
+
+        assertThat(thrown.getCode(), equalTo(404));
+
+        Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);
+        assertThat(problem.getStatus(), equalTo(404));
+        assertThat(problem.getDetail(), containsString("Unit test.unit.id with version 0.0.0 doesn't exist"));
+    }
+
+    private File emptyFile() {
+        try {
+            return Files.createTempFile(workDir, "empty", "file").toFile();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private CompletableFuture<Ignite> startNodeAsync(TestInfo testInfo, int index) {

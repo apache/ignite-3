@@ -757,22 +757,27 @@ public class ItRebalanceDistributedTest {
                 }
 
                 @Override
-                protected void handleChangeStableAssignmentEvent(WatchEvent evt) {
+                protected CompletableFuture<Void> handleChangeStableAssignmentEvent(WatchEvent evt) {
                     TablePartitionId tablePartitionId = getTablePartitionId(evt);
 
-                    try {
-                        super.handleChangeStableAssignmentEvent(evt);
+                    return super.handleChangeStableAssignmentEvent(evt)
+                            .whenComplete((v, e) -> {
+                                if (tablePartitionId == null) {
+                                    return;
+                                }
 
-                        if (tablePartitionId != null) {
-                            finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId).complete(null);
-                        }
-                    } catch (Throwable t) {
-                        if (tablePartitionId != null) {
-                            finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId).completeExceptionally(t);
-                        }
+                                CompletableFuture<Void> finishFuture = finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId);
 
-                        throw t;
-                    }
+                                if (finishFuture == null) {
+                                    return;
+                                }
+
+                                if (e == null) {
+                                    finishFuture.complete(null);
+                                } else {
+                                    finishFuture.completeExceptionally(e);
+                                }
+                            });
                 }
             };
         }
