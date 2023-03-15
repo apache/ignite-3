@@ -1244,12 +1244,22 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
     }
 
-    static class TestHashIndex implements Index<IndexDescriptor> {
+    public static class TestHashIndex implements Index<IndexDescriptor> {
         private final UUID id = UUID.randomUUID();
 
-        private final UUID tableId = UUID.randomUUID();
+        private UUID tableId = UUID.randomUUID();
 
         private final IndexDescriptor descriptor;
+
+        public static TestHashIndex create(List<String> indexedColumns, String name, UUID tableId) {
+            var descriptor = new IndexDescriptor(name, indexedColumns);
+
+            TestHashIndex idx = new TestHashIndex(descriptor);
+
+            idx.tableId = tableId;
+
+            return idx;
+        }
 
         public static TestHashIndex create(List<String> indexedColumns, String name) {
             var descriptor = new IndexDescriptor(name, indexedColumns);
