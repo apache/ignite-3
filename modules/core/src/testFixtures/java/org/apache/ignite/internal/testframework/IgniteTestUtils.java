@@ -33,7 +33,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -838,28 +837,40 @@ public final class IgniteTestUtils {
      * @param resourceName A resource name.
      * @return A file system path matching the path component of the resource URL.
      */
-    public static <T> String getResourcePath(Class<T> cls, String resourceName) {
-        return getResourcePath(cls.getClassLoader().getResource(resourceName));
+    public static String getResourcePath(Class<?> cls, String resourceName) {
+        return getPath(cls.getClassLoader().getResource(resourceName));
     }
 
     /**
-     * Converts an URL gotten from classloader to proper file system path.
+     * Converts a URL to a file system path.
+     *
+     * <p>This method is needed to get a proper file system name on the Windows platform. For portable code
+     * it should be used instead of URL::getPath().
+     *
+     * <p>For example, given a URL <i>file:///C:/dir/file.ext</i>, this method returns a Windows-specific
+     * path: <i>C:\dir\file.ext</i>.
+     *
+     * <p>While the URL::getPath() method returns a path that will not work for file system API on Windows:
+     * <i>/C:/dir/file.ext</i>.
+     *
+     * <p>There is no such problem on UNIX-like systems where given an URL <i>file:///dir/file.ext</i>,
+     * both methods return the same result: <i>/dir/file.ext</i>
      *
      * @param url A resource URL.
-     * @return A file system path matching the path component of the resource URL.
+     * @return A file system path matching the path component of the URL.
      */
-    public static String getResourcePath(URL url) {
+    public static String getPath(URL url) {
         try {
-            Objects.requireNonNull(url);
-            // Properly extract file system path from the "file:" URL
             return Path.of(url.toURI()).toString();
         } catch (URISyntaxException e) {
-            throw new RuntimeException(e); // Shouldn't happen since URL is obtained from the class loader
+            throw new RuntimeException(e); // Shouldn't happen if the URL is obtained from the class loader.
         }
     }
 
     /**
      * Adds escape characters before backslashes in a path (on Windows), e.g. for the HOCON config parser.
+     *
+     * <p>For example, given a path argument <i>C:\dir\file.ext</i>, this method returns <i>C:\\dir\\file.ext</i>.
      *
      * @param path A path string.
      * @return A path string with escaped backslashes.
