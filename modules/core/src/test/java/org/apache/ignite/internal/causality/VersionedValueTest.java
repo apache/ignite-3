@@ -17,36 +17,29 @@
 
 package org.apache.ignite.internal.causality;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteTriConsumer;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -58,15 +51,7 @@ public class VersionedValueTest {
     private static final int TEST_VALUE = 1;
 
     /** Test exception is used for exceptionally completion Versioned value object. */
-    private static final Exception TEST_EXCEPTION = new Exception("Test exception.");
-
-    /** The test revision register is used to move the revision forward. */
-    private static final TestRevisionRegister REGISTER = new TestRevisionRegister();
-
-    @BeforeEach
-    public void clearRegister() {
-        REGISTER.clear();
-    }
+    private static final Exception TEST_EXCEPTION = new Exception("Test exception");
 
     /**
      * The test gets a value for {@link VersionedValue} before the value is calculated.
@@ -75,7 +60,7 @@ public class VersionedValueTest {
      */
     @Test
     public void testGetValueBeforeReady() throws OutdatedTokenException {
-        VersionedValue<Integer> intVersionedValue = new VersionedValue<>(null);
+        VersionedValue<Integer> intVersionedValue = new VersionedValue<>();
 
         CompletableFuture<Integer> fut = intVersionedValue.get(0);
 
@@ -87,7 +72,7 @@ public class VersionedValueTest {
 
         assertEquals(TEST_VALUE, fut.join());
 
-        assertSame(fut.join(), intVersionedValue.get(0).join());
+        assertSame(fut, intVersionedValue.get(0));
     }
 
     /**
@@ -95,7 +80,7 @@ public class VersionedValueTest {
      */
     @Test
     public void testManualCompleteSeveralTokens() {
-        VersionedValue<Integer> intVersionedValue = new VersionedValue<>(null);
+        VersionedValue<Integer> intVersionedValue = new VersionedValue<>();
 
         IntStream.range(5, 10).forEach(token -> {
             CompletableFuture<Integer> fut = intVersionedValue.get(token);
@@ -108,7 +93,7 @@ public class VersionedValueTest {
 
             assertEquals(TEST_VALUE, fut.join());
 
-            assertSame(fut.join(), intVersionedValue.get(token).join());
+            assertSame(fut, intVersionedValue.get(token));
         });
     }
 
@@ -117,7 +102,7 @@ public class VersionedValueTest {
      */
     @Test
     public void testManualExceptionallyCompleteSeveralTokens() {
-        VersionedValue<Integer> intVersionedValue = new VersionedValue<>(null);
+        VersionedValue<Integer> intVersionedValue = new VersionedValue<>();
 
         IntStream.range(5, 10).forEach(token -> {
             CompletableFuture<Integer> fut = intVersionedValue.get(token);
@@ -130,55 +115,8 @@ public class VersionedValueTest {
 
             assertThrows(Exception.class, fut::get);
 
-            assertThrows(Exception.class, () -> intVersionedValue.get(token).get());
+            assertThat(intVersionedValue.get(token), willFailFast(TEST_EXCEPTION.getClass()));
         });
-    }
-
-    /**
-     * The test explicitly sets a value to {@link VersionedValue} without waiting for the revision update.
-     *
-     * @throws OutdatedTokenException If failed.
-     */
-    @Test
-    public void testExplicitlySetValue() throws OutdatedTokenException {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
-
-        CompletableFuture<Integer> fut = longVersionedValue.get(0);
-
-        assertFalse(fut.isDone());
-
-        longVersionedValue.complete(0, TEST_VALUE);
-
-        assertTrue(fut.isDone());
-
-        assertEquals(TEST_VALUE, fut.join());
-
-        assertSame(fut.join(), longVersionedValue.get(0).join());
-    }
-
-    /**
-     * The test reads a value with the specific token in which the value should not be updated.
-     * The read happens before the revision updated.
-     *
-     * @throws OutdatedTokenException If failed.
-     */
-    @Test
-    public void testMissValueUpdateBeforeReady() throws OutdatedTokenException {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(null);
-
-        longVersionedValue.complete(0, TEST_VALUE);
-
-        CompletableFuture<Integer> fut = longVersionedValue.get(1);
-
-        assertFalse(fut.isDone());
-
-        longVersionedValue.complete(1);
-
-        assertTrue(fut.isDone());
-
-        assertEquals(TEST_VALUE, fut.join());
-
-        assertSame(fut.join(), longVersionedValue.get(0).join());
     }
 
     /**
@@ -189,7 +127,7 @@ public class VersionedValueTest {
      */
     @Test
     public void testMissValueUpdate() throws OutdatedTokenException {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(null);
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>();
 
         longVersionedValue.complete(0, TEST_VALUE);
 
@@ -209,7 +147,7 @@ public class VersionedValueTest {
      */
     @Test
     public void testObsoleteToken() {
-        VersionedValue<Integer> versionedValue = new VersionedValue<>(null, 2, null);
+        VersionedValue<Integer> versionedValue = new VersionedValue<>(2);
 
         versionedValue.complete(0, TEST_VALUE);
         versionedValue.complete(1, TEST_VALUE);
@@ -224,7 +162,7 @@ public class VersionedValueTest {
      */
     @Test
     public void testNewTokensNotGetRemoved() {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(null, 2, null);
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(2);
 
         longVersionedValue.complete(0, TEST_VALUE);
         longVersionedValue.complete(1, TEST_VALUE);
@@ -244,7 +182,7 @@ public class VersionedValueTest {
      */
     @Test
     public void testAutocompleteFuture() throws OutdatedTokenException {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(null);
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>();
 
         longVersionedValue.complete(0, TEST_VALUE);
 
@@ -260,189 +198,47 @@ public class VersionedValueTest {
     }
 
     /**
-     * Checks that the update method work as expected when the previous value is known.
-     *
-     * @throws Exception If failed.
+     * Test {@link VersionedValue#whenComplete}.
      */
     @Test
-    public void testUpdate() throws Exception {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
+    public void testWhenComplete() {
+        var vv = new VersionedValue<Integer>();
 
-        longVersionedValue.update(0, (integer, throwable) -> CompletableFuture.completedFuture(TEST_VALUE));
+        CompletionListener<Integer> listener = mock(CompletionListener.class);
 
-        REGISTER.moveRevision(0L).join();
+        vv.whenComplete(listener);
 
-        CompletableFuture<Integer> fut = longVersionedValue.get(1);
+        // Test complete.
+        long token = 0;
 
-        assertFalse(fut.isDone());
+        vv.complete(token, TEST_VALUE);
 
-        int incrementCount = 10;
+        verify(listener).whenComplete(token, TEST_VALUE, null);
 
-        for (int i = 0; i < incrementCount; i++) {
-            longVersionedValue.update(1, (previous, e) -> completedFuture(++previous));
+        // Test move revision.
+        token = 1;
 
-            assertFalse(fut.isDone());
-        }
+        vv.complete(token);
 
-        REGISTER.moveRevision(1L).join();
+        verify(listener).whenComplete(token, TEST_VALUE, null);
 
-        assertTrue(fut.isDone());
+        // Test complete exceptionally.
+        token = 2;
 
-        assertEquals(TEST_VALUE + incrementCount, fut.get());
+        vv.completeExceptionally(token, TEST_EXCEPTION);
 
-        assertThrows(AssertionError.class, () -> longVersionedValue.update(1L, (i, t) -> completedFuture(null)));
-    }
+        verify(listener).whenComplete(token, null, TEST_EXCEPTION);
 
-    /**
-     * Checks that the update method work as expected when there is no history to calculate previous value.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testUpdatePredefined() throws Exception {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
+        // Test remove listener.
+        token = 3;
 
-        CompletableFuture<Integer> fut = longVersionedValue.get(0);
+        vv.removeWhenComplete(listener);
 
-        assertFalse(fut.isDone());
+        clearInvocations(listener);
 
-        longVersionedValue.update(0, (previous, e) -> {
-            assertNull(previous);
+        vv.complete(token, TEST_VALUE);
 
-            return completedFuture(TEST_VALUE);
-        });
-
-        assertFalse(fut.isDone());
-
-        REGISTER.moveRevision(0L).join();
-
-        assertTrue(fut.isDone());
-
-        assertEquals(TEST_VALUE, fut.get());
-    }
-
-    /**
-     * Test asynchronous update closure.
-     */
-    @Test
-    public void testAsyncUpdate() {
-        VersionedValue<Integer> vv = new VersionedValue<>(REGISTER);
-
-        CompletableFuture<Integer> fut = new CompletableFuture<>();
-
-        vv.update(0L, (v, e) -> fut);
-
-        CompletableFuture<Integer> vvFut = vv.get(0L);
-
-        CompletableFuture<?> revFut = REGISTER.moveRevision(0L);
-
-        assertFalse(fut.isDone());
-        assertFalse(vvFut.isDone());
-        assertFalse(revFut.isDone());
-
-        fut.complete(1);
-
-        revFut.join();
-
-        assertTrue(vvFut.isDone());
-    }
-
-    /**
-     * Test the case when exception happens in updater.
-     */
-    @Test
-    public void testExceptionOnUpdate() {
-        VersionedValue<Integer> vv = new VersionedValue<>(REGISTER, () -> 0);
-
-        final int count = 4;
-        final int successfulCompletionsCount = count / 2;
-
-        AtomicInteger actualSuccessfulCompletionsCount = new AtomicInteger();
-
-        final String exceptionMsg = "test msg";
-
-        for (int i = 0; i < count; i++) {
-            vv.update(0L, (v, e) -> {
-                if (e != null) {
-                    return failedFuture(e);
-                }
-
-                if (v == successfulCompletionsCount) {
-                    throw new IgniteInternalException(exceptionMsg);
-                }
-
-                actualSuccessfulCompletionsCount.incrementAndGet();
-
-                return completedFuture(++v);
-            });
-        }
-
-        AtomicReference<Throwable> exceptionRef = new AtomicReference<>();
-
-        vv.whenComplete((t, v, e) -> exceptionRef.set(e));
-
-        vv.complete(0L);
-
-        assertThrowsWithCause(() -> vv.get(0L).join(), IgniteInternalException.class);
-
-        assertThat(exceptionRef.get().getMessage(), containsString(exceptionMsg));
-    }
-
-    /**
-     * Test with multiple versioned values and asynchronous completion.
-     */
-    @Test
-    public void testAsyncMultiVv() {
-        final String registryName = "Registry";
-        final String assignmentName = "Assignment";
-        final String tableName = "T1_";
-
-        VersionedValue<Map<UUID, String>> tablesVv = new VersionedValue<>(f -> {}, HashMap::new);
-        VersionedValue<Map<UUID, String>> schemasVv = new VersionedValue<>(REGISTER, HashMap::new);
-        VersionedValue<Map<UUID, String>> assignmentsVv = new VersionedValue<>(REGISTER, HashMap::new);
-
-        schemasVv.whenComplete((token, value, ex) -> tablesVv.complete(token));
-
-        BiFunction<Long, UUID, CompletableFuture<String>> schemaRegistry =
-                (token, uuid) -> schemasVv.get(token).thenApply(schemas -> schemas.get(uuid));
-
-        // Adding table.
-        long token = 0L;
-        UUID tableId = UUID.randomUUID();
-
-        CompletableFuture<String> tableFut = schemaRegistry.apply(token, tableId)
-                .thenCombine(assignmentsVv.get(token), (registry, assignments) -> tableName + registry + assignments.get(tableId));
-
-        tablesVv.update(token, (old, e) -> tableFut.thenApply(table -> {
-            Map<UUID, String> val = new HashMap<>(old);
-
-            val.put(tableId, table);
-
-            return val;
-        }));
-
-        CompletableFuture<String> userFut = tablesVv.get(token).thenApply(map -> map.get(tableId));
-
-        schemasVv.update(token, (old, e) -> {
-            old.put(tableId, registryName);
-
-            return completedFuture(old);
-        });
-
-        assignmentsVv.update(token, (old, e) -> {
-            old.put(tableId, assignmentName);
-
-            return completedFuture(old);
-        });
-
-        assertFalse(tableFut.isDone());
-        assertFalse(userFut.isDone());
-
-        REGISTER.moveRevision(token).join();
-
-        tableFut.join();
-
-        assertEquals(tableName + registryName + assignmentName, userFut.join());
+        verify(listener, never()).whenComplete(anyLong(), any(), any());
     }
 
     /**
@@ -451,8 +247,10 @@ public class VersionedValueTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testInitialization() throws Exception {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
+    public void testDefaultValue() throws Exception {
+        int defaultValue = 5;
+
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(() -> defaultValue);
 
         CompletableFuture<Integer> fut1 = longVersionedValue.get(1);
         CompletableFuture<Integer> fut2 = longVersionedValue.get(2);
@@ -460,180 +258,94 @@ public class VersionedValueTest {
         assertFalse(fut1.isDone());
         assertFalse(fut2.isDone());
 
-        assertNull(longVersionedValue.latest());
+        assertEquals(defaultValue, longVersionedValue.latest());
 
         longVersionedValue.complete(2, TEST_VALUE);
 
         assertTrue(fut1.isDone());
         assertTrue(fut2.isDone());
 
-        assertThrowsExactly(ExecutionException.class, fut1::get);
+        assertEquals(5, fut1.get());
         assertEquals(TEST_VALUE, fut2.get());
     }
 
-    /**
-     * Tests a default value supplier.
-     */
-    @Test
-    public void testDefaultValueSupplier() {
-        VersionedValue<Integer> vv = new VersionedValue<>(REGISTER, () -> TEST_VALUE);
+    @RepeatedTest(100)
+    void testConcurrentGetAndComplete() throws Exception {
+        var versionedValue = new VersionedValue<Integer>();
 
-        checkDefaultValue(vv, TEST_VALUE);
-    }
+        // Set initial value.
+        versionedValue.complete(1, 1);
 
-    /**
-     * Tests a case when there is no default value supplier.
-     */
-    @Test
-    public void testWithoutDefaultValue() {
-        VersionedValue<Integer> vv = new VersionedValue<>(REGISTER);
+        var barrier = new CyclicBarrier(2);
 
-        checkDefaultValue(vv, null);
-    }
-
-    /**
-     * Tests a case when there is no default value supplier.
-     */
-    private static void checkDefaultValue(VersionedValue<Integer> vv, Integer expectedDefault) {
-        assertEquals(expectedDefault, vv.latest());
-
-        vv.update(0, (a, e) -> {
-                    assertEquals(expectedDefault, vv.latest());
-
-                    return completedFuture(a == null ? null : a + 1);
-                }
-        );
-
-        assertEquals(expectedDefault, vv.latest());
-
-        CompletableFuture<Integer> f = vv.get(0);
-
-        assertFalse(f.isDone());
-
-        vv.update(0, (a, e) -> completedFuture(a == null ? null : a + 1));
-
-        REGISTER.moveRevision(0L).join();
-
-        assertTrue(f.isDone());
-
-        assertEquals(expectedDefault == null ? null : TEST_VALUE + 2, f.join());
-    }
-
-    /**
-     * Test {@link VersionedValue#whenComplete(IgniteTriConsumer)}.
-     */
-    @Test
-    public void testWhenComplete() {
-        VersionedValue<Integer> vv = new VersionedValue<>(null);
-
-        AtomicInteger a = new AtomicInteger();
-        AtomicInteger cntr = new AtomicInteger(-1);
-
-        IgniteTriConsumer<Long, Integer, Throwable> listener = (t, v, e) -> {
-            if (e == null) {
-                a.set(v);
-            } else {
-                a.set(-1);
+        CompletableFuture<Void> writerFuture = CompletableFuture.runAsync(() -> {
+            try {
+                barrier.await(1, TimeUnit.SECONDS);
+                versionedValue.complete(3, 3);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
             }
+        });
 
-            cntr.incrementAndGet();
-        };
+        barrier.await(1, TimeUnit.SECONDS);
 
-        vv.whenComplete(listener);
+        CompletableFuture<Integer> readerFuture = versionedValue.get(2);
 
-        // Test complete.
-        long token = 0;
-
-        final long finalToken0 = token;
-
-        vv.complete(token, TEST_VALUE);
-
-        assertThrows(AssertionError.class, () -> vv.complete(finalToken0, 0));
-        assertThrows(AssertionError.class, () -> vv.completeExceptionally(finalToken0, TEST_EXCEPTION));
-
-        assertEquals(TEST_VALUE, a.get());
-        assertEquals(token, cntr.get());
-
-        // Test update.
-        token = 1;
-
-        vv.update(token, (v, e) -> completedFuture(++v));
-
-        assertEquals(TEST_VALUE, a.get());
-
-        vv.complete(token);
-
-        assertEquals(TEST_VALUE + 1, a.get());
-        assertEquals(token, cntr.get());
-
-        // Test move revision.
-        token = 2;
-
-        vv.complete(token);
-
-        assertEquals(TEST_VALUE + 1, a.get());
-        assertEquals(token, cntr.get());
-
-        // Test complete exceptionally.
-        token = 3;
-
-        final long finalToken3 = token;
-
-        vv.completeExceptionally(token, TEST_EXCEPTION);
-
-        assertThrows(AssertionError.class, () -> vv.complete(finalToken3, 0));
-        assertThrows(AssertionError.class, () -> vv.completeExceptionally(finalToken3, TEST_EXCEPTION));
-
-        assertEquals(-1, a.get());
-        assertEquals(token, cntr.get());
-
-        assertEquals(token, cntr.get());
-
-        // Test remove listener.
-        token = 4;
-
-        vv.removeWhenComplete(listener);
-
-        a.set(0);
-
-        vv.complete(token, TEST_VALUE);
-
-        assertEquals(0, a.get());
-        assertEquals(token - 1, cntr.get());
+        assertThat(writerFuture, willCompleteSuccessfully());
+        assertThat(readerFuture, willBe(1));
     }
 
-    /**
-     * Test revision register.
-     */
-    private static class TestRevisionRegister implements Consumer<Function<Long, CompletableFuture<?>>> {
-        /** Revision consumer. */
-        List<Function<Long, CompletableFuture<?>>> moveRevisionList = new ArrayList<>();
+    @RepeatedTest(100)
+    void testConcurrentGetAndCompleteWithHistoryTrimming() throws Exception {
+        var versionedValue = new VersionedValue<Integer>(2);
 
-        /** {@inheritDoc} */
-        @Override
-        public void accept(Function<Long, CompletableFuture<?>> function) {
-            moveRevisionList.add(function);
+        // Set initial value (history size 1).
+        versionedValue.complete(2, 2);
+        // Set history size to 2.
+        versionedValue.complete(3, 3);
+
+        var barrier = new CyclicBarrier(2);
+
+        CompletableFuture<Void> writerFuture = CompletableFuture.runAsync(() -> {
+            try {
+                barrier.await(1, TimeUnit.SECONDS);
+                // Trigger history trimming
+                versionedValue.complete(4, 4);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        barrier.await(1, TimeUnit.SECONDS);
+
+        try {
+            CompletableFuture<Integer> readerFuture = versionedValue.get(2);
+
+            assertThat(readerFuture, willBe(2));
+        } catch (OutdatedTokenException ignored) {
+            // This is considered as a valid outcome.
         }
 
-        /**
-         * Clear list.
-         */
-        void clear() {
-            moveRevisionList.clear();
-        }
+        assertThat(versionedValue.get(4), willBe(4));
 
-        /**
-         * Move revision.
-         *
-         * @param revision Revision.
-         * @return Future for all listeners.
-         */
-        CompletableFuture<?> moveRevision(long revision) {
-            List<CompletableFuture<?>> futures = new ArrayList<>();
+        assertThat(writerFuture, willCompleteSuccessfully());
+    }
 
-            moveRevisionList.forEach(m -> futures.add(m.apply(revision)));
+    @Test
+    void testCompleteMultipleFutures() {
+        var versionedValue = new VersionedValue<Integer>();
 
-            return CompletableFuture.allOf(futures.toArray(new CompletableFuture[] {}));
-        }
+        // Set initial value.
+        versionedValue.complete(1, 1);
+
+        CompletableFuture<Integer> future1 = versionedValue.get(2);
+        CompletableFuture<Integer> future2 = versionedValue.get(3);
+        CompletableFuture<Integer> future3 = versionedValue.get(4);
+
+        versionedValue.complete(4, 2);
+
+        assertThat(future1, willBe(1));
+        assertThat(future2, willBe(1));
+        assertThat(future3, willBe(2));
     }
 }
