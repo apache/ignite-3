@@ -150,14 +150,6 @@ public class PartitionListener implements RaftGroupListener {
 
             storage.acquirePartitionSnapshotsReadLock();
 
-            if (command instanceof SafeTimePropagatingCommand) {
-                SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) command;
-
-                assert safeTimePropagatingCommand.safeTime() != null;
-
-                safeTime.update(safeTimePropagatingCommand.safeTime().asHybridTimestamp());
-            }
-
             try {
                 if (command instanceof UpdateCommand) {
                     handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm);
@@ -171,6 +163,14 @@ public class PartitionListener implements RaftGroupListener {
                     handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
+                }
+
+                if (command instanceof SafeTimePropagatingCommand) {
+                    SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) command;
+
+                    assert safeTimePropagatingCommand.safeTime() != null;
+
+                    safeTime.update(safeTimePropagatingCommand.safeTime().asHybridTimestamp());
                 }
 
                 clo.result(null);

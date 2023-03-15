@@ -194,7 +194,7 @@ public class LeaseUpdater {
     private class Updater implements Runnable {
         @Override
         public void run() {
-            while (!updaterTread.isInterrupted()) {
+            while (updaterTread != null && !updaterTread.isInterrupted()) {
                 for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : assignmentsTracker.assignments().entrySet()) {
                     ReplicationGroupId grpId = entry.getKey();
 

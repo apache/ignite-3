@@ -94,6 +94,16 @@ public class ActiveActorTest extends TopologyAwareRaftGroupServiceTest {
         placementDriverManagers.put(nodeName, placementDriverManager);
     }
 
+    /**
+     * The method is called after every node of the cluster starts.
+     *
+     * @param nodeName Node name.
+     */
+    @Override
+    protected void afterNodeStop(String nodeName) {
+        placementDriverManagers.remove(nodeName);
+    }
+
     /** {@inheritDoc} */
     @Override
     protected boolean afterInitCheckCondition(String leaderName) {
