@@ -77,13 +77,11 @@ import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
 
 /**
  * Tests reactions to topology changes in accordance with distribution zones logic.
  */
 public class DistributionZoneManagerLogicalTopologyEventsTest {
-    @Mock
     private ClusterManagementGroupManager cmgManager;
 
     private DistributionZoneManager distributionZoneManager;
@@ -109,6 +107,8 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
                 .getConfiguration(DistributionZonesConfiguration.KEY);
 
         MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
+
+        when(metaStorageManager.appliedRevision(any())).thenReturn(completedFuture(0L));
 
         cmgManager = mock(ClusterManagementGroupManager.class);
 

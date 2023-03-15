@@ -109,9 +109,6 @@ public class DistributionZoneManagerScaleUpTest {
 
     private ConfigurationManager clusterCfgMgr;
 
-    @Mock
-    private LogicalTopologyServiceImpl logicalTopologyService;
-
     private LogicalTopology topology;
 
     private ClusterStateStorage clusterStateStorage;
@@ -1573,7 +1570,7 @@ public class DistributionZoneManagerScaleUpTest {
     }
 
     private void mockVaultAppliedRevision(long revision) {
-        when(metaStorageManager.appliedRevision()).thenReturn(revision);
+        when(metaStorageManager.appliedRevision(any())).thenReturn(completedFuture(revision));
     }
 
     private void watchListenerOnUpdate(Set<String> nodes, long rev) {

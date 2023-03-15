@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.cli.core.call;
 
+import java.util.concurrent.atomic.AtomicLong;
 import me.tongfei.progressbar.ProgressBar;
 
 /** {@link ProgressBar} based tracker. */
 public class ProgressBarTracker implements ProgressTracker {
     private final ProgressBar progressBar;
+    private final AtomicLong maxSize = new AtomicLong(0);
 
-    public ProgressBarTracker(ProgressBar progressBar) {
+    ProgressBarTracker(ProgressBar progressBar) {
         this.progressBar = progressBar;
     }
 
@@ -31,5 +33,21 @@ public class ProgressBarTracker implements ProgressTracker {
     @Override
     public void track() {
         progressBar.step();
+    }
+
+    @Override
+    public synchronized void track(long size) {
+        progressBar.stepTo(size);
+    }
+
+    @Override
+    public void maxSize(long size) {
+        this.maxSize.compareAndSet(0, size);
+        this.progressBar.maxHint(size);
+    }
+
+    @Override
+    public void done() {
+        progressBar.stepTo(this.maxSize.get());
     }
 }

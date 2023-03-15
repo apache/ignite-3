@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -54,13 +55,13 @@ import org.junit.jupiter.api.Test;
  */
 public class VersionedValueTest {
     /** Test value. */
-    public static final int TEST_VALUE = 1;
+    private static final int TEST_VALUE = 1;
 
     /** Test exception is used for exceptionally completion Versioned value object. */
-    public static final Exception TEST_EXCEPTION = new Exception("Test exception.");
+    private static final Exception TEST_EXCEPTION = new Exception("Test exception.");
 
     /** The test revision register is used to move the revision forward. */
-    public static final TestRevisionRegister REGISTER = new TestRevisionRegister();
+    private static final TestRevisionRegister REGISTER = new TestRevisionRegister();
 
     @BeforeEach
     public void clearRegister() {
@@ -157,7 +158,7 @@ public class VersionedValueTest {
 
     /**
      * The test reads a value with the specific token in which the value should not be updated.
-     * The read happenes before the revision updated.
+     * The read happens before the revision updated.
      *
      * @throws OutdatedTokenException If failed.
      */
@@ -208,14 +209,34 @@ public class VersionedValueTest {
      */
     @Test
     public void testObsoleteToken() {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(null);
+        VersionedValue<Integer> versionedValue = new VersionedValue<>(null, 2, null);
+
+        versionedValue.complete(0, TEST_VALUE);
+        versionedValue.complete(1, TEST_VALUE);
+        // Internal map size is now 3: one actual and two old tokens. One old token must be removed.
+        versionedValue.complete(2, TEST_VALUE);
+
+        assertThrowsExactly(OutdatedTokenException.class, () -> versionedValue.get(0));
+    }
+
+    /**
+     * Tests that tokens that are newer then the current token do not contribute to the history size calculation.
+     */
+    @Test
+    public void testNewTokensNotGetRemoved() {
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(null, 2, null);
 
         longVersionedValue.complete(0, TEST_VALUE);
         longVersionedValue.complete(1, TEST_VALUE);
 
-        longVersionedValue.complete(2);
+        // History size is now 2, try adding a token from the future.
+        assertDoesNotThrow(() -> longVersionedValue.get(10));
+
+        // Internal map size is now 3, this should trigger history trimming.
+        longVersionedValue.complete(2, TEST_VALUE);
 
         assertThrowsExactly(OutdatedTokenException.class, () -> longVersionedValue.get(0));
+        assertDoesNotThrow(() -> longVersionedValue.get(10));
     }
 
     /**
@@ -473,7 +494,7 @@ public class VersionedValueTest {
     /**
      * Tests a case when there is no default value supplier.
      */
-    public void checkDefaultValue(VersionedValue<Integer> vv, Integer expectedDefault) {
+    private static void checkDefaultValue(VersionedValue<Integer> vv, Integer expectedDefault) {
         assertEquals(expectedDefault, vv.latest());
 
         vv.update(0, (a, e) -> {
@@ -597,7 +618,7 @@ public class VersionedValueTest {
         /**
          * Clear list.
          */
-        public void clear() {
+        void clear() {
             moveRevisionList.clear();
         }
 
@@ -607,7 +628,7 @@ public class VersionedValueTest {
          * @param revision Revision.
          * @return Future for all listeners.
          */
-        public CompletableFuture<?> moveRevision(long revision) {
+        CompletableFuture<?> moveRevision(long revision) {
             List<CompletableFuture<?>> futures = new ArrayList<>();
 
             moveRevisionList.forEach(m -> futures.add(m.apply(revision)));

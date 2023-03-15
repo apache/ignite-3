@@ -157,6 +157,20 @@ public interface ConnectionProperties {
     ClientAuthenticationMode getClientAuth();
 
     /**
+     * SSL ciphers.
+     *
+     * @param ciphers list of ciphers.
+     */
+    void setCiphers(String ciphers);
+
+    /**
+     * SSL ciphers.
+     *
+     * @return list of ciphers.
+     */
+    Iterable<String> getCiphers();
+
+    /**
      * Set trust store path that will be used to setup SSL connection.
      *
      * @param trustStorePath Trust store path.

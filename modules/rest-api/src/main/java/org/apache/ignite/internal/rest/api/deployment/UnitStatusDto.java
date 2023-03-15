@@ -46,7 +46,7 @@ public class UnitStatusDto {
 
     @JsonCreator
     public UnitStatusDto(@JsonProperty("id") String id,
-            @JsonProperty("versionToNodes") Map<String, List<String>> versionToConsistentIds) {
+            @JsonProperty("versionToConsistentIds") Map<String, List<String>> versionToConsistentIds) {
         this.id = id;
         this.versionToConsistentIds = versionToConsistentIds;
     }
@@ -66,7 +66,7 @@ public class UnitStatusDto {
      *
      * @return Map from existing unit version to list of nodes consistent ids where unit deployed.
      */
-    @JsonGetter("versionToNodes")
+    @JsonGetter("versionToConsistentIds")
     public Map<String, List<String>> versionToConsistentIds() {
         return versionToConsistentIds;
     }

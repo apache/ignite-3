@@ -77,8 +77,7 @@ public class TxLocalTest extends TxAbstractTest {
                     ReplicaRequest request = invocationOnMock.getArgument(1);
                     ReplicaListener replicaListener = tables.get(request.groupId()).getReplicaListener();
 
-                    CompletableFuture<Object> invoke = replicaListener.invoke(request);
-                    return invoke;
+                    return replicaListener.invoke(request);
             }
         ).when(replicaSvc).invoke(any(ClusterNode.class), any());
 
