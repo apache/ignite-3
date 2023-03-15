@@ -17,21 +17,19 @@
 
 package org.apache.ignite.internal.cli.ssl;
 
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.Path;
-import java.util.Objects;
+import static org.apache.ignite.internal.cli.ssl.SslTestsSupport.getResourcePath;
+
 import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
 
 /**
  * Integration test base for SSL tests.
  */
-public class CliSslIntegrationTestBase extends CliCommandTestNotInitializedIntegrationBase {
+public class CliSslNotInitializedIntegrationTestBase extends CliCommandTestNotInitializedIntegrationBase {
 
-    private static final String keyStorePath = "ssl/keystore.p12";
-    private static final String keyStorePassword = "changeit";
-    private static final String trustStorePath = "ssl/truststore.jks";
-    private static final String trustStorePassword = "changeit";
+    protected static final String keyStorePath = "ssl/keystore.p12";
+    protected static final String keyStorePassword = "changeit";
+    protected static final String trustStorePath = "ssl/truststore.jks";
+    protected static final String trustStorePassword = "changeit";
 
     /**
      * Template for node bootstrap config with Scalecube and Logical Topology settings for fast failure detection.
@@ -60,17 +58,6 @@ public class CliSslIntegrationTestBase extends CliCommandTestNotInitializedInteg
             + "    }\n"
             + "  }\n"
             + "}";
-
-    protected static String getResourcePath(String resource) {
-        try {
-            URL url = CliSslIntegrationTestBase.class.getClassLoader().getResource(resource);
-            Objects.requireNonNull(url, "Resource " + resource + " not found.");
-            Path path = Path.of(url.toURI()); // Properly extract file system path from the "file:" URL
-            return path.toString().replace("\\", "\\\\"); // Escape backslashes for the config parser
-        } catch (URISyntaxException e) {
-            throw new RuntimeException(e); // Shouldn't happen since URL is obtained from the class loader
-        }
-    }
 
     @Override
     protected String nodeBootstrapConfigTemplate() {

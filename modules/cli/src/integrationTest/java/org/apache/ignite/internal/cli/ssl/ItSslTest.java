@@ -17,25 +17,14 @@
 
 package org.apache.ignite.internal.cli.ssl;
 
+import static org.apache.ignite.internal.cli.ssl.SslTestsSupport.getResourcePath;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Tests for SSL. */
-public class ItSslTest extends CliSslIntegrationTestBase {
-
-    /** Trust store path. */
-    private static final String trustStorePath = "ssl/truststore.jks";
-
-    /** Trust store password. */
-    private static final String trustStorePassword = "changeit";
-
-    /** Key store path. */
-    private static final String keyStorePath = "ssl/keystore.p12";
-
-    /** Key store password. */
-    private static final String keyStorePassword = "changeit";
+public class ItSslTest extends CliSslNotInitializedIntegrationTestBase {
 
     @Test
     @DisplayName("Should get SSL error, when connect to secured node without SSL settings")
