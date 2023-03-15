@@ -45,8 +45,6 @@ public class ClientTransactionCommitRequest {
 
         Transaction t = resources.remove(resourceId).get(Transaction.class);
 
-        metrics.transactionsActiveDecrement();
-
-        return t.commitAsync();
+        return t.commitAsync().whenComplete((res, err) -> metrics.transactionsActiveDecrement());
     }
 }

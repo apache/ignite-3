@@ -45,8 +45,6 @@ public class ClientTransactionRollbackRequest {
 
         Transaction t = resources.remove(resourceId).get(Transaction.class);
 
-        metrics.transactionsActiveDecrement();
-
-        return t.rollbackAsync();
+        return t.rollbackAsync().whenComplete((res, err) -> metrics.transactionsActiveDecrement());
     }
 }
