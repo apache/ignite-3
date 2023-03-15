@@ -560,6 +560,12 @@ public class DistributionZoneManager implements IgniteComponent {
         }
     }
 
+    /**
+     * The method for obtaining data nodes of the specified zone.
+     *
+     * @param zoneId Zone id.
+     * @return The data nodes.
+     */
     public Set<String> getDataNodes(int zoneId) {
         synchronized (dataNodesMutex) {
             DataNodes dataNodes0 = dataNodes.get(zoneId);
@@ -1187,53 +1193,53 @@ public class DistributionZoneManager implements IgniteComponent {
                         try {
                             if (vaultEntry != null && vaultEntry.value() != null) {
                                 logicalTopology = fromBytes(vaultEntry.value());
+                            }
 
-                                // init keys and data nodes for default zone
-                                saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                                        DEFAULT_ZONE_ID,
-                                        appliedRevision,
-                                        logicalTopology
-                                );
+                            // init keys and data nodes for default zone
+                            saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+                                    DEFAULT_ZONE_ID,
+                                    appliedRevision,
+                                    logicalTopology
+                            );
+
+                            zonesConfiguration.distributionZones().value().namedListKeys()
+                                    .forEach(zoneName -> {
+                                        int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
+
+                                        saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+                                                zoneId,
+                                                appliedRevision,
+                                                logicalTopology
+                                        );
+                                    });
+
+                            synchronized (dataNodesMutex) {
+                                DataNodes defaultZoneDataNodes = dataNodes.get(DEFAULT_ZONE_ID);
+
+                                if (defaultZoneDataNodes.scaleDownRevision() < appliedRevision
+                                        && defaultZoneDataNodes.scaleUpRevision() < appliedRevision) {
+                                    defaultZoneDataNodes.nodes(logicalTopology);
+                                }
 
                                 zonesConfiguration.distributionZones().value().namedListKeys()
                                         .forEach(zoneName -> {
-                                            int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
+                                            NamedConfigurationTree<DistributionZoneConfiguration,
+                                                    DistributionZoneView,
+                                                    DistributionZoneChange> zones = zonesConfiguration.distributionZones();
 
-                                            saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                                                    zoneId,
-                                                    appliedRevision,
-                                                    logicalTopology
-                                            );
-                                        });
+                                            for (int i = 0; i < zones.value().size(); i++) {
+                                                DistributionZoneView zoneView = zones.value().get(i);
 
-                                synchronized (dataNodesMutex) {
-                                    DataNodes defaultZoneDataNodes = dataNodes.get(DEFAULT_ZONE_ID);
+                                                dataNodes.putIfAbsent(zoneView.zoneId(), new DataNodes());
 
-                                    if (defaultZoneDataNodes.scaleDownRevision() < appliedRevision
-                                            && defaultZoneDataNodes.scaleUpRevision() < appliedRevision) {
-                                        defaultZoneDataNodes.nodes(logicalTopology);
-                                    }
+                                                DataNodes customZoneDataNodes = dataNodes.get(zoneView.zoneId());
 
-                                    zonesConfiguration.distributionZones().value().namedListKeys()
-                                            .forEach(zoneName -> {
-                                                NamedConfigurationTree<DistributionZoneConfiguration,
-                                                        DistributionZoneView,
-                                                        DistributionZoneChange> zones = zonesConfiguration.distributionZones();
-
-                                                for (int i = 0; i < zones.value().size(); i++) {
-                                                    DistributionZoneView zoneView = zones.value().get(i);
-
-                                                    dataNodes.putIfAbsent(zoneView.zoneId(), new DataNodes());
-
-                                                    DataNodes customZoneDataNodes = dataNodes.get(zoneView.zoneId());
-
-                                                    if (customZoneDataNodes.scaleDownRevision() < appliedRevision
-                                                            && customZoneDataNodes.scaleUpRevision() < appliedRevision) {
-                                                        customZoneDataNodes.nodes(logicalTopology);
-                                                    }
+                                                if (customZoneDataNodes.scaleDownRevision() < appliedRevision
+                                                        && customZoneDataNodes.scaleUpRevision() < appliedRevision) {
+                                                    customZoneDataNodes.nodes(logicalTopology);
                                                 }
-                                            });
-                                }
+                                            }
+                                        });
                             }
                         } finally {
                             busyLock.leaveBusy();
