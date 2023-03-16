@@ -46,8 +46,8 @@ public class HeartbeatTest {
             try (var ignored = builder.build()) {
                 assertTrue(
                         IgniteTestUtils.waitForCondition(
-                                () -> loggerFactory.logger.entries().stream().anyMatch(x -> x.contains("Disconnected from server")),
-                                1000));
+                                () -> loggerFactory.logger.entries().stream().anyMatch(x -> x.contains("Connection closed")),
+                                10000));
             }
         }
     }
