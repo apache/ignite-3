@@ -785,6 +785,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         // If Raft is running in in-memory mode or the PDS has been cleared, we need to remove the current node
                         // from the Raft group in order to avoid the double vote problem.
                         // <MUTED> See https://issues.apache.org/jira/browse/IGNITE-16668 for details.
+                        // TODO: https://issues.apache.org/jira/browse/IGNITE-19046 Restore "|| !hasData"
                         if (internalTbl.storage().isVolatile()) {
                             fut = queryDataNodesCount(tblId, partId, newConfiguration.peers()).thenApply(dataNodesCount -> {
                                 boolean fullPartitionRestart = dataNodesCount == 0;
