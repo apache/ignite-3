@@ -22,6 +22,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.calcite.runtime.CalciteContextException;
@@ -33,6 +35,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -281,5 +284,32 @@ public class ItUuidTest extends ClusterPerClassIntegrationTest {
     public void testRandomUuidComparison() {
         assertQuery("SELECT RAND_UUID() = RAND_UUID()").returns(false).check();
         assertQuery("SELECT RAND_UUID() != RAND_UUID()").returns(true).check();
+    }
+
+    @Test
+    public void testDisallowMismatchTypesOnInsert() {
+        var query = format("INSERT INTO t (id, uuid_key) VALUES (10, null), (20, '{}')", UUID_1);
+        var t = assertThrows(CalciteContextException.class, () -> sql(query));
+        assertThat(t.getMessage(), containsString("Values passed to VALUES operator must have compatible types"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("getOps")
+    public void testDisallowMismatchTypesSetOp(String setOp) {
+        sql("INSERT INTO t (id, uuid_key) VALUES (1, ?)", UUID_1);
+        sql("INSERT INTO t (id, uuid_key) VALUES (2, ?)", UUID_2);
+
+        var query = format("SELECT uuid_key FROM t {} SELECT CAST(uuid_key AS VARCHAR) FROM t", setOp);
+        var t = assertThrows(CalciteContextException.class, () ->  sql(query));
+        assertThat(t.getMessage(), containsString(format("Type mismatch in column 1 of {}", setOp)));
+    }
+
+    private static Stream<Arguments> getOps() {
+        List<Arguments> result = new ArrayList<>();
+
+        SqlKind.SET_QUERY.stream().map(SqlKind::name).forEach(e -> result.add(Arguments.of(e)));
+        SqlKind.SET_QUERY.stream().map(op -> op.name() + " ALL").forEach(e -> result.add(Arguments.of(e)));
+
+        return result.stream();
     }
 }
