@@ -525,6 +525,12 @@ namespace Apache.Ignite.Internal
             // Reset heartbeat timer - don't sent heartbeats when connection is active anyway.
             _heartbeatTimer.Change(dueTime: _heartbeatInterval, period: TimeSpan.FromMilliseconds(-1));
 
+            if (_logger?.IsEnabled(LogLevel.Trace) == true)
+            {
+                _logger.Trace(
+                    $"Sending request [opCode={(int)op}, remoteAddress={ConnectionContext.ClusterNode.Address}, requestId={requestId}]");
+            }
+
             await _sendLock.WaitAsync(_disposeTokenSource.Token).ConfigureAwait(false);
 
             try
