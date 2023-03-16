@@ -51,7 +51,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -83,7 +83,6 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
 
 /**
  * Tests distribution zones configuration changes and reaction to that changes.
@@ -100,9 +99,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     private SimpleInMemoryKeyValueStorage keyValueStorage;
 
     private ConfigurationManager clusterCfgMgr;
-
-    @Mock
-    private LogicalTopologyServiceImpl logicalTopologyService;
 
     private VaultManager vaultMgr;
 
@@ -121,7 +117,9 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
 
-        logicalTopologyService = mock(LogicalTopologyServiceImpl.class);
+        when(metaStorageManager.appliedRevision(any())).thenReturn(completedFuture(0L));
+
+        LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
 
         vaultMgr = mock(VaultManager.class);
 

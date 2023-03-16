@@ -25,16 +25,23 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -43,16 +50,20 @@ import org.jetbrains.annotations.TestOnly;
  * The another role of the manager is providing a node, which is leaseholder at the moment, for a particular replication group.
  */
 public class PlacementDriverManager implements IgniteComponent {
+    static final String PLACEMENTDRIVER_PREFIX = "placementdriver.lease.";
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping of the component. */
     private final AtomicBoolean isStopped = new AtomicBoolean();
 
-    private final ReplicationGroupId replicationGroupId;
-
+    /** Cluster service. */
     private final ClusterService clusterService;
 
+    /** Replication group id to store placement driver data. */
+    private final ReplicationGroupId replicationGroupId;
+
+    /** The closure determines nodes where are participants of placement driver. */
     private final Supplier<CompletableFuture<Set<String>>> placementDriverNodesNamesProvider;
 
     private final RaftManager raftManager;
@@ -64,25 +75,39 @@ public class PlacementDriverManager implements IgniteComponent {
      */
     private final CompletableFuture<TopologyAwareRaftGroupService> raftClientFuture;
 
-    private volatile boolean isActiveActor;
+    /** Lease tracker. */
+    private final LeaseTracker leaseTracker;
 
-    private volatile long lastTermSeen = -1;
+    /** Lease updater. */
+    private final LeaseUpdater leaseUpdater;
+
+    private volatile boolean isActiveActor;
 
     /**
      * The constructor.
      *
+     * @param metaStorageMgr Meta Storage manager.
+     * @param vaultManager Vault manager.
      * @param replicationGroupId Id of placement driver group.
      * @param clusterService Cluster service.
      * @param placementDriverNodesNamesProvider Provider of the set of placement driver nodes' names.
+     * @param logicalTopologyService Logical topology service.
      * @param raftManager Raft manager.
      * @param topologyAwareRaftGroupServiceFactory Raft client factory.
+     * @param tablesCfg Table configuration.
+     * @param clock Hybrid clock.
      */
     public PlacementDriverManager(
+            MetaStorageManager metaStorageMgr,
+            VaultManager vaultManager,
             ReplicationGroupId replicationGroupId,
             ClusterService clusterService,
             Supplier<CompletableFuture<Set<String>>> placementDriverNodesNamesProvider,
+            LogicalTopologyService logicalTopologyService,
             RaftManager raftManager,
-            TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory
+            TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
+            TablesConfiguration tablesCfg,
+            HybridClock clock
     ) {
         this.replicationGroupId = replicationGroupId;
         this.clusterService = clusterService;
@@ -90,7 +115,16 @@ public class PlacementDriverManager implements IgniteComponent {
         this.raftManager = raftManager;
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
 
-        raftClientFuture = new CompletableFuture<>();
+        this.raftClientFuture = new CompletableFuture<>();
+        this.leaseTracker = new LeaseTracker(vaultManager, metaStorageMgr);
+        this.leaseUpdater = new LeaseUpdater(
+                vaultManager,
+                metaStorageMgr,
+                logicalTopologyService,
+                tablesCfg,
+                leaseTracker,
+                clock
+        );
     }
 
     /** {@inheritDoc} */
@@ -102,6 +136,8 @@ public class PlacementDriverManager implements IgniteComponent {
 
                     if (placementDriverNodes.contains(thisNodeName)) {
                         try {
+                            leaseUpdater.init(thisNodeName);
+
                             return raftManager.startRaftGroupService(
                                     replicationGroupId,
                                     PeersAndLearners.fromConsistentIds(placementDriverNodes),
@@ -121,12 +157,20 @@ public class PlacementDriverManager implements IgniteComponent {
                         raftClientFuture.completeExceptionally(ex);
                     }
                 });
+
+        leaseTracker.startTrack();
     }
 
     /** {@inheritDoc} */
     @Override
     public void beforeNodeStop() {
-        withRaftClientIfPresent(c -> c.unsubscribeLeader().join());
+        withRaftClientIfPresent(c -> {
+            c.unsubscribeLeader().join();
+
+            leaseUpdater.deInit();
+        });
+
+        leaseTracker.stopTrack();
     }
 
     /** {@inheritDoc} */
@@ -150,14 +194,10 @@ public class PlacementDriverManager implements IgniteComponent {
     }
 
     private void onLeaderChange(ClusterNode leader, Long term) {
-        if (term > lastTermSeen) {
-            if (leader.equals(clusterService.topologyService().localMember())) {
-                takeOverActiveActor();
-            } else {
-                stepDownActiveActor();
-            }
-
-            lastTermSeen = term;
+        if (leader.equals(clusterService.topologyService().localMember())) {
+            takeOverActiveActor();
+        } else {
+            stepDownActiveActor();
         }
     }
 
@@ -166,6 +206,8 @@ public class PlacementDriverManager implements IgniteComponent {
      */
     private void takeOverActiveActor() {
         isActiveActor = true;
+
+        leaseUpdater.activate();
     }
 
 
@@ -174,6 +216,8 @@ public class PlacementDriverManager implements IgniteComponent {
      */
     private void stepDownActiveActor() {
         isActiveActor = false;
+
+        leaseUpdater.deactivate();
     }
 
     @TestOnly

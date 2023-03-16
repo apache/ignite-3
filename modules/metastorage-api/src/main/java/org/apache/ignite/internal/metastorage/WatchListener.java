@@ -17,16 +17,35 @@
 
 package org.apache.ignite.internal.metastorage;
 
+import java.util.concurrent.CompletableFuture;
+
 /**
  * The listener which receives and handles watch updates.
  */
 public interface WatchListener {
     /**
+     * Returns a unique identifier for this Watch. This identifier should never change between node restarts and must uniquely identify
+     * a Watch among all Watches on a local node.
+     */
+    String id();
+
+    /**
      * The method will be called on each meta storage update.
      *
      * @param event A single event or a batch. The batch always contains updates for specific revision.
+     * @return Future that will be completed when the event is processed.
      */
-    void onUpdate(WatchEvent event);
+    CompletableFuture<Void> onUpdate(WatchEvent event);
+
+    /**
+     * Callback that will be invoked if a Meta Storage update has been received, but the modified entries do not match the given Watch.
+     *
+     * @param revision Meta Storage revision.
+     * @return Future that will be completed when the event is processed.
+     */
+    default CompletableFuture<Void> onRevisionUpdated(long revision) {
+        return CompletableFuture.completedFuture(null);
+    }
 
     /**
      * The method will be called in case of an error occurred. The listener and corresponding watch will be unregistered.

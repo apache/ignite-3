@@ -26,6 +26,9 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
 import org.apache.ignite.internal.network.configuration.SslView;
@@ -45,6 +48,8 @@ public final class SslContextProvider {
             trustManagerFactory.init(KeystoreLoader.load(ssl.trustStore()));
 
             var builder = SslContextBuilder.forClient().trustManager(trustManagerFactory);
+
+            setCiphers(builder, ssl);
 
             ClientAuth clientAuth = ClientAuth.valueOf(ssl.clientAuth().toUpperCase());
             if (ClientAuth.NONE == clientAuth) {
@@ -72,6 +77,8 @@ public final class SslContextProvider {
 
             var builder = SslContextBuilder.forServer(keyManagerFactory);
 
+            setCiphers(builder, ssl);
+
             ClientAuth clientAuth = ClientAuth.valueOf(ssl.clientAuth().toUpperCase());
             if (ClientAuth.NONE == clientAuth) {
                 return builder.build();
@@ -87,6 +94,15 @@ public final class SslContextProvider {
             throw new IgniteException(Common.SSL_CONFIGURATION_ERR, String.format("File %s not found", e.getMessage()), e);
         } catch (KeyStoreException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException | IOException e) {
             throw new IgniteException(Common.SSL_CONFIGURATION_ERR, e);
+        }
+    }
+
+    private static void setCiphers(SslContextBuilder builder, SslView ssl) {
+        if (!ssl.ciphers().isBlank()) {
+            List<String> ciphers = Arrays.stream(ssl.ciphers().split(","))
+                    .map(String::strip)
+                    .collect(Collectors.toList());
+            builder.ciphers(ciphers);
         }
     }
 }

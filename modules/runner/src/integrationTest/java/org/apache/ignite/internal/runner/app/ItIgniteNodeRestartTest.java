@@ -114,7 +114,9 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
@@ -672,6 +674,68 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
+     * Check correctness of return results after node restart.
+     * Scenario:
+     * <ol>
+     *     <li>Start two nodes and fill the data.</li>
+     *     <li>Create index.</li>
+     *     <li>Check explain contain index scan.</li>
+     *     <li>Check return results.</li>
+     *     <li>Restart one node.</li>
+     *     <li>Run query and compare results.</li>
+     * </ol>
+     */
+    @Test
+    public void testQueryCorrectnessAfterNodeRestart() throws InterruptedException {
+        IgniteImpl ignite1 = startNode(0);
+
+        createTableWithoutData(ignite1, TABLE_NAME, 2, 1);
+
+        IgniteImpl ignite2 = startNode(1);
+
+        String sql = "SELECT id FROM " + TABLE_NAME + " WHERE id > 0 ORDER BY id";
+
+        int intRes;
+
+        try (Session session1 = ignite1.sql().createSession(); Session session2 = ignite2.sql().createSession()) {
+            session1.execute(null, "CREATE INDEX idx1 ON " + TABLE_NAME + "(id)");
+
+            waitForIndex(List.of(ignite1, ignite2), "idx1");
+
+            createTableWithData(List.of(ignite1), TABLE_NAME, 2, 1);
+
+            ResultSet<SqlRow> plan = session1.execute(null, "EXPLAIN PLAN FOR " + sql);
+
+            String planStr = plan.next().stringValue(0);
+
+            assertTrue(planStr.contains("IndexScan"));
+
+            ResultSet<SqlRow> res1 = session1.execute(null, sql);
+
+            ResultSet<SqlRow> res2 = session2.execute(null, sql);
+
+            intRes = res1.next().intValue(0);
+
+            assertEquals(intRes, res2.next().intValue(0));
+
+            res1.close();
+
+            res2.close();
+        }
+
+        // TODO: Uncomment after IGNITE-18203
+        /*stopNode(0);
+
+        ignite1 = startNode(0);
+
+        try (Session session1 = ignite1.sql().createSession()) {
+            ResultSet<SqlRow> res3 = session1.execute(null, sql);
+
+            assertEquals(intRes, res3.next().intValue(0));
+        }*/
+    }
+
+    /**
      * Restarts a node with changing configuration.
      */
     @Test
@@ -1063,7 +1127,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas, int partitions)
             throws InterruptedException {
         try (Session session = nodes.get(0).sql().createSession()) {
-            session.execute(null, "CREATE TABLE " + name
+            session.execute(null, "CREATE TABLE IF NOT EXISTS " + name
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH replicas=" + replicas + ", partitions=" + partitions);
 
             waitForIndex(nodes, name + "_PK");

@@ -42,11 +42,14 @@ public interface IgniteClientConfiguration {
     /** Default heartbeat interval, in milliseconds. */
     int DFLT_HEARTBEAT_INTERVAL = 30_000;
 
-    /** Default reconnect throttling period. */
+    /** Default reconnect throttling period, in milliseconds. */
     long DFLT_RECONNECT_THROTTLING_PERIOD = 30_000L;
 
     /** Default reconnect throttling retries. */
     int DFLT_RECONNECT_THROTTLING_RETRIES = 3;
+
+    /** Default reconnect interval, in milliseconds. */
+    long DFLT_RECONNECT_INTERVAL = 30_000L;
 
     /**
      * Gets the address finder.
@@ -59,6 +62,9 @@ public interface IgniteClientConfiguration {
      * Gets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port. If
      * port is not set then Ignite will generate multiple addresses for default port range. See {@link IgniteClientConfiguration#DFLT_PORT},
      * {@link IgniteClientConfiguration#DFLT_PORT_RANGE}.
+     *
+     * <p>Providing addresses of multiple nodes in the cluster will improve performance: Ignite will balance requests across all
+     * connections, and use partition awareness to send key-based requests directly to the primary node.
      *
      * @return Addresses.
      */
@@ -94,9 +100,22 @@ public interface IgniteClientConfiguration {
     int reconnectThrottlingRetries();
 
     /**
+     * Gets the background reconnect interval, in milliseconds. Set to {@code 0} to disable background reconnect.
+     * Default is {@link #DFLT_RECONNECT_INTERVAL}.
+     *
+     * <p>Ignite balances requests across all healthy connections (when multiple endpoints are configured).
+     * Ignite also repairs connections on demand (when a request is made).
+     * However, "secondary" connections can be lost (due to network issues, or node restarts). This property controls how ofter Ignite
+     * client will check all configured endpoints and try to reconnect them in case of failure.
+     *
+     * @return Background reconnect interval, in milliseconds.
+     */
+    long reconnectInterval();
+
+    /**
      * Gets the async continuation executor.
      *
-     * <p>When <code>null</code> (default), {@link ForkJoinPool#commonPool()} is used.
+     * <p>When {@code null} (default), {@link ForkJoinPool#commonPool()} is used.
      *
      * <p>When async client operation completes, corresponding {@link java.util.concurrent.CompletableFuture} continuations
      * (such as {@link java.util.concurrent.CompletableFuture#thenApply(Function)}) will be invoked using this executor.

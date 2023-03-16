@@ -177,7 +177,7 @@ public class ReplicaManager implements IgniteComponent {
             }
 
             // replicaFut is always completed here.
-            CompletableFuture<Object> result = replicaFut.join().processRequest(request);
+            CompletableFuture<?> result = replicaFut.join().processRequest(request);
 
             result.handle((res, ex) -> {
                 NetworkMessage msg;

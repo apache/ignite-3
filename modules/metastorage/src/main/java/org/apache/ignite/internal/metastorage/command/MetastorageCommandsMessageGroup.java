@@ -55,6 +55,9 @@ public interface MetastorageCommandsMessageGroup {
     /** Message type for {@link GetAndRemoveAllCommand}. */
     short GET_AND_REMOVE_ALL = 32;
 
+    /** Message type for {@link GetRevisionCommand}. */
+    short GET_REVISION = 33;
+
     /** Message type for {@link PutCommand}. */
     short PUT = 40;
 

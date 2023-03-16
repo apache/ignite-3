@@ -46,6 +46,7 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -100,7 +101,8 @@ public class Loza implements RaftManager {
             ClusterService clusterNetSvc,
             RaftConfiguration raftConfiguration,
             Path dataPath,
-            HybridClock clock
+            HybridClock clock,
+            RaftGroupEventsClientListener raftGroupEventsClientListener
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.raftConfiguration = raftConfiguration;
@@ -111,12 +113,35 @@ public class Loza implements RaftManager {
 
         this.opts = options;
 
-        this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath, options);
+        this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath, options, raftGroupEventsClientListener);
 
         this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
                         CLIENT_POOL_NAME), LOG
                 )
+        );
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param clusterNetSvc Cluster network service.
+     * @param raftConfiguration Raft configuration.
+     * @param dataPath Data path.
+     * @param clock A hybrid logical clock.
+     */
+    public Loza(
+            ClusterService clusterNetSvc,
+            RaftConfiguration raftConfiguration,
+            Path dataPath,
+            HybridClock clock
+    ) {
+        this(
+                clusterNetSvc,
+                raftConfiguration,
+                dataPath,
+                clock,
+                new RaftGroupEventsClientListener()
         );
     }
 

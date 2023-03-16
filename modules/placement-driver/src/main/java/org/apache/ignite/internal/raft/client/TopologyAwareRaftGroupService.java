@@ -45,10 +45,9 @@ import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.LeaderChangeNotification;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.SubscriptionLeaderChangeRequest;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -73,6 +72,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
     /** Leader election handler. */
     private final ServerEventHandler serverEventHandler;
+
+    private final RaftGroupEventsClientListener eventsClientListener;
 
     /** Executor to invoke RPC requests. */
     private final ScheduledExecutorService executor;
@@ -104,6 +105,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
             RaftConfiguration raftConfiguration,
             RaftGroupService raftClient,
             LogicalTopologyService logicalTopologyService,
+            RaftGroupEventsClientListener eventsClientListener,
             boolean notifyOnSubscription
     ) {
         this.clusterService = cluster;
@@ -113,19 +115,10 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         this.raftClient = raftClient;
         this.logicalTopologyService = logicalTopologyService;
         this.serverEventHandler = new ServerEventHandler();
+        this.eventsClientListener = eventsClientListener;
         this.notifyOnSubscription = notifyOnSubscription;
 
-        cluster.messagingService().addMessageHandler(RaftMessageGroup.class, (message, senderConsistentId, correlationId) -> {
-            if (message.messageType() == LEADER_CHANGE_NOTIFICATION) {
-                var msg = (LeaderChangeNotification) message;
-
-                ClusterNode node = clusterService.topologyService().getByConsistentId(senderConsistentId);
-
-                if (node != null) {
-                    serverEventHandler.onLeaderElected(node, msg.term());
-                }
-            }
-        });
+        this.eventsClientListener.addLeaderElectionListener(groupId(), serverEventHandler);
 
         logicalTopologyService.addEventListener(new LogicalTopologyEventListener() {
             @Override
@@ -182,11 +175,12 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
             boolean getLeader,
             ScheduledExecutorService executor,
             LogicalTopologyService logicalTopologyService,
+            RaftGroupEventsClientListener eventsClientListener,
             boolean notifyOnSubscription
     ) {
         return RaftGroupServiceImpl.start(groupId, cluster, factory, raftConfiguration, configuration, getLeader, executor)
                 .thenApply(raftGroupService -> new TopologyAwareRaftGroupService(cluster, factory, executor, raftConfiguration,
-                        raftGroupService, logicalTopologyService, notifyOnSubscription));
+                        raftGroupService, logicalTopologyService, eventsClientListener, notifyOnSubscription));
     }
 
     /**
@@ -425,6 +419,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
     @Override
     public void shutdown() {
+        eventsClientListener.removeLeaderElectionListener(groupId(), serverEventHandler);
+
         raftClient.shutdown();
     }
 
@@ -436,7 +432,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     /**
      * Leader election handler.
      */
-    private static class ServerEventHandler {
+    private static class ServerEventHandler implements BiConsumer<ClusterNode, Long> {
         /** A term of last elected leader. */
         private long term = 0;
 
@@ -473,6 +469,11 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
          */
         public synchronized boolean isSubscribed() {
             return onLeaderElectedCallback != null;
+        }
+
+        @Override
+        public void accept(ClusterNode clusterNode, Long term) {
+            onLeaderElected(clusterNode, term);
         }
     }
 }

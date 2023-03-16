@@ -268,7 +268,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
 
     /**
      * Compacts storage (removes tombstones).
-     * TODO: IGNITE-16444 Correct compaction for Metastorage.
+     * TODO: IGNITE-16444 Correct compaction for Meta storage.
      */
     void compact();
 
@@ -286,10 +286,4 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param snapshotPath Path to the snapshot's directory.
      */
     void restoreSnapshot(Path snapshotPath);
-
-    /**
-     * Closes the storage.
-     */
-    @Override
-    void close();
 }

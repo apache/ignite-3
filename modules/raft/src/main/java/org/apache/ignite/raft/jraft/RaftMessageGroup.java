@@ -94,10 +94,10 @@ public class RaftMessageGroup {
         public static final short SUBSCRIPTION_LEADER_CHANGE_REQUEST = 1019;
 
         /** */
-        public static final short LEADER_CHANGE_NOTIFICATION = 1020;
+        public static final short SUBSCRIPTION_LEADER_CHANGE_REQUEST_ACKNOWLEDGE = 1020;
 
         /** */
-        public static final short SUBSCRIPTION_LEADER_CHANGE_RESPONSE_ACKNOWLEDGE = 1021;
+        public static final short LEADER_CHANGE_NOTIFICATION = 1021;
     }
 
     /**

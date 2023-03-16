@@ -28,6 +28,9 @@ public interface SslConfiguration {
     /** Client authentication configuration. */
     ClientAuthenticationMode clientAuthenticationMode();
 
+    /** List of ciphers that will be used to setup the SSL connection. */
+    @Nullable Iterable<String> ciphers();
+
     /** Keystore path that will be used to setup the SSL connection. */
     @Nullable String keyStorePath();
 
