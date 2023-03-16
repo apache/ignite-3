@@ -24,7 +24,7 @@ import java.lang.annotation.Target;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 
 /**
- * An annotation to check that the {@link DataStorageConfigurationSchema data storage} is known, i.e. its {@link
+ * Annotation to check that the {@link DataStorageConfigurationSchema data storage} is known, i.e. its {@link
  * DataStorageConfigurationSchema#name name} is not {@link UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE "unknown"}.
  *
  * <p>Can be applied to a {@link ConfigValue}.

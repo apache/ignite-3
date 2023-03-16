@@ -22,7 +22,7 @@ import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageCo
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 
 /**
- * Configuration schema of an unknown data storage.
+ * Configuration schema for an unknown data storage.
  */
 @PolymorphicConfigInstance(UNKNOWN_DATA_STORAGE)
 public class UnknownDataStorageConfigurationSchema extends DataStorageConfigurationSchema {

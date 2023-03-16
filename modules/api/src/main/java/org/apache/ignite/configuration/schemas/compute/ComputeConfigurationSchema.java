@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
- * Configuration schema for Compute functionality.
+ * Configuration schema for the Compute functionality.
  */
 @SuppressWarnings("PMD.UnusedPrivateField")
 @ConfigurationRoot(rootName = "compute", type = ConfigurationType.LOCAL)

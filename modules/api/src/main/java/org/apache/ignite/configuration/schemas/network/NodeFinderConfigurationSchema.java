@@ -27,7 +27,7 @@ public class NodeFinderConfigurationSchema {
     @Value(hasDefault = true)
     public final String type = NodeFinderType.STATIC.name();
 
-    /** Addresses of nodes in the cluster in a host:port format. This is a part of StaticNodeFinder configuration. */
+    /** Addresses of nodes in the cluster in the 'host:port' format. This is part of the StaticNodeFinder configuration. */
     @Value(hasDefault = true)
     public final String[] netClusterNodes = new String[0];
 }

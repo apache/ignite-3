@@ -23,7 +23,7 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
- * Configuration schema for REST endpoint subtree.
+ * Configuration schema for the REST endpoint subtree.
  */
 @SuppressWarnings("PMD.UnusedPrivateField")
 @ConfigurationRoot(rootName = "rest", type = ConfigurationType.LOCAL)

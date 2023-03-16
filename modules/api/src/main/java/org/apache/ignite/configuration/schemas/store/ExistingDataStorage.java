@@ -23,7 +23,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * An annotation to check that the value is equal to the {@link DataStorageConfigurationSchema#name name} of one of the {@link
+ * Annotation to check that the value is equal to the {@link DataStorageConfigurationSchema#name name} of one of the {@link
  * DataStorageConfigurationSchema data storages}.
  */
 @Target(ElementType.FIELD)

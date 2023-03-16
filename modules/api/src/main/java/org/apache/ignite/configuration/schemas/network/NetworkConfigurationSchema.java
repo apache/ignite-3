@@ -24,7 +24,7 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
- * Configuration schema for network endpoint subtree.
+ * Configuration schema for the network endpoint subtree.
  */
 @ConfigurationRoot(rootName = "network", type = ConfigurationType.LOCAL)
 public class NetworkConfigurationSchema {
@@ -40,15 +40,15 @@ public class NetworkConfigurationSchema {
 
     /**
      * Graceful shutdown of the Netty's EventExecutorGroup ensures that no tasks are submitted for
-     * <i>'the quiet period'</i> before it shuts itself down. If a task is submitted during the quiet period,
-     * it is guaranteed to be accepted and the quiet period will start over.
+     * <i>'the quiet period'</i> before the group shuts itself down. If a task is submitted during the quiet period,
+     * it is guaranteed to be accepted; this restarts the quiet period.
      */
     @Range(min = 0)
     @Value(hasDefault = true)
     public final long shutdownQuietPeriod = 0;
 
     /**
-     * The maximum amount of time to wait until each Netty's EventExecutorGroup is shutdown regardless if a new network message was
+     * The maximum amount of time to wait until each Netty's EventExecutorGroup is shut down regardless of whether a new network message was
      * submitted during the quiet period.
      */
     @Range(min = 0)

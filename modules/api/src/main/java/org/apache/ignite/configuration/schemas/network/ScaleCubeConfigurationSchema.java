@@ -26,7 +26,7 @@ import org.apache.ignite.configuration.annotation.Value;
 @Config
 public class ScaleCubeConfigurationSchema {
     /**
-     * This multiplier is used to calculate the timeout after which the node is considered dead. For more information see
+     * This multiplier is used to calculate the period after which the node is considered dead. For more information, see
      * io.scalecube.cluster.ClusterMath#suspicionTimeout.
      */
     @Value(hasDefault = true)

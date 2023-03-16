@@ -19,6 +19,6 @@ package org.apache.ignite.configuration.schemas.network;
 
 /** NodeFinder type. */
 public enum NodeFinderType {
-    /** Node finder with a preconfigured list of ip addresses. */
+    /** Node finder with a preconfigured list of IP addresses. */
     STATIC;
 }

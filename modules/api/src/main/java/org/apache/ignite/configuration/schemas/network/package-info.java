@@ -16,7 +16,7 @@
  */
 
 /**
- * Configuration schemas for Network components.
+ * Configuration schemas for the Network components.
  */
 
 package org.apache.ignite.configuration.schemas.network;
