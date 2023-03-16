@@ -163,6 +163,7 @@ public class ItImplicitCastsTest extends ClusterPerClassIntegrationTest {
             } else if (type instanceof UuidType
                     || type.getSqlTypeName() == SqlTypeName.CHAR
                     || type.getSqlTypeName() == SqlTypeName.VARCHAR) {
+                // We need to generate valid UUID string so cast operations won't fail at runtime.
                 return generateUuid(i, literal);
             } else {
                 throw new IllegalArgumentException("Unsupported type: " + type);
