@@ -26,13 +26,11 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil;
 import org.apache.ignite.internal.future.InFlightFutures;
@@ -67,6 +65,8 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     /** Prefix added to configuration keys to distinguish them in the meta storage. Must end with a dot. */
     private static final String DISTRIBUTED_PREFIX = "dst-cfg.";
 
+    public static final String WATCH_ID = DISTRIBUTED_PREFIX + "watch";
+
     /**
      * Key for CAS-ing configuration keys to meta storage.
      */
@@ -85,8 +85,8 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
     /**
      * This key is expected to be the last key in lexicographical order of distributed configuration keys. It is possible because keys are
-     * in lexicographical order in meta storage and adding {@code (char)('.' + 1)} to the end will produce all keys with prefix {@link
-     * DistributedConfigurationStorage#DISTRIBUTED_PREFIX}
+     * in lexicographical order in meta storage and adding {@code (char)('.' + 1)} to the end will produce all keys with prefix
+     * {@link DistributedConfigurationStorage#DISTRIBUTED_PREFIX}
      */
     private static final ByteArray DST_KEYS_END_RANGE = new ByteArray(incrementLastChar(DISTRIBUTED_PREFIX));
 
@@ -109,13 +109,13 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      *
      * <p>This is true for all cases except for node restart. Key-specific revision values are lost on local vault copy after restart, so
      * stored {@link MetaStorageManager#appliedRevision} value is used instead. This fact has very important side effect: it's no longer
-     * possible to use {@link ConditionType#REV_EQUAL} on {@link #MASTER_KEY}
-     * in {@link DistributedConfigurationStorage#write(Map, long)}. {@link ConditionType#REV_LESS_OR_EQUAL} must be used instead.
+     * possible to use {@link ConditionType#REV_EQUAL} on {@link #MASTER_KEY} in {@link DistributedConfigurationStorage#write(Map, long)}.
+     * {@link ConditionType#REV_LESS_OR_EQUAL} must be used instead.
      *
      * @see #MASTER_KEY
      * @see #write(Map, long)
      */
-    private final AtomicLong changeId = new AtomicLong(0L);
+    private volatile long changeId;
 
     private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("dst-cfg", LOG));
 
@@ -125,7 +125,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      * Constructor.
      *
      * @param metaStorageMgr Meta storage manager.
-     * @param vaultMgr       Vault manager.
+     * @param vaultMgr Vault manager.
      */
     public DistributedConfigurationStorage(MetaStorageManager metaStorageMgr, VaultManager vaultMgr) {
         this.metaStorageMgr = metaStorageMgr;
@@ -206,19 +206,18 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                 });
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Data> readDataOnRecovery() throws StorageException {
-        CompletableFuture<Data> future = vaultMgr.get(CONFIGURATION_REVISIONS_KEY)
-                .thenApply(configurationRevision -> resolveRevision(metaStorageMgr.appliedRevision(), configurationRevision))
+        CompletableFuture<Data> future = metaStorageMgr.appliedRevision(WATCH_ID)
+                .thenCombine(vaultMgr.get(CONFIGURATION_REVISIONS_KEY), DistributedConfigurationStorage::resolveRevision)
                 .thenApplyAsync(this::readDataOnRecovery0, threadPool);
 
         return registerFuture(future);
     }
 
     /**
-     * Resolves current configuration revision based on the saved in the Vault revision of the metastorage and also
-     * previous and current revisions of the configuration saved in the Vault.
+     * Resolves current configuration revision based on the saved in the Vault revision of the metastorage and also previous and current
+     * revisions of the configuration saved in the Vault.
      *
      * @param metaStorageRevision Meta Storage revision.
      * @param revisionsEntry Configuration revisions entry.
@@ -264,7 +263,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
         assert data.isEmpty() || cfgRevision > 0;
 
-        changeId.set(cfgRevision);
+        changeId = cfgRevision;
 
         return new Data(data, cfgRevision);
     }
@@ -272,10 +271,10 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> write(Map<String, ? extends Serializable> newValues, long curChangeId) {
-        assert curChangeId <= changeId.get();
+        assert curChangeId <= changeId;
         assert lsnr != null : "Configuration listener must be initialized before write.";
 
-        if (curChangeId < changeId.get()) {
+        if (curChangeId < changeId) {
             // This means that curChangeId is less than version and other node has already updated configuration and
             // write should be retried. Actual version will be set when watch and corresponding configuration listener
             // updates configuration.
@@ -303,67 +302,68 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         return metaStorageMgr.invoke(condition, operations, Set.of(Operations.noop()));
     }
 
-    /** {@inheritDoc} */
     @Override
-    public synchronized void registerConfigurationListener(ConfigurationStorageListener lsnr) {
-        if (this.lsnr == null) {
-            this.lsnr = lsnr;
+    public void registerConfigurationListener(ConfigurationStorageListener lsnr) {
+        assert this.lsnr == null;
 
-            // TODO: registerPrefixWatch could throw OperationTimeoutException and CompactedException and we should
-            // TODO: properly handle such cases https://issues.apache.org/jira/browse/IGNITE-14604
-            metaStorageMgr.registerPrefixWatch(DST_KEYS_START_RANGE, new WatchListener() {
-                @Override
-                public void onUpdate(WatchEvent events) {
-                    var data = new HashMap<String, Serializable>();
+        this.lsnr = lsnr;
 
-                    Entry masterKeyEntry = null;
+        // TODO: registerPrefixWatch could throw OperationTimeoutException and CompactedException and we should
+        // TODO: properly handle such cases https://issues.apache.org/jira/browse/IGNITE-14604
+        metaStorageMgr.registerPrefixWatch(DST_KEYS_START_RANGE, new WatchListener() {
+            @Override
+            public String id() {
+                return WATCH_ID;
+            }
 
-                    for (EntryEvent event : events.entryEvents()) {
-                        Entry e = event.newEntry();
+            @Override
+            public CompletableFuture<Void> onUpdate(WatchEvent events) {
+                Map<String, Serializable> data = IgniteUtils.newHashMap(events.entryEvents().size() - 1);
 
-                        if (Arrays.equals(e.key(), MASTER_KEY.bytes())) {
-                            masterKeyEntry = e;
-                        } else {
-                            String key = new String(e.key(), UTF_8).substring(DISTRIBUTED_PREFIX.length());
+                Entry masterKeyEntry = null;
 
-                            Serializable value = e.value() == null ? null : ConfigurationSerializationUtil.fromBytes(e.value());
+                for (EntryEvent event : events.entryEvents()) {
+                    Entry e = event.newEntry();
 
-                            data.put(key, value);
-                        }
-                    }
+                    if (Arrays.equals(e.key(), MASTER_KEY.bytes())) {
+                        masterKeyEntry = e;
+                    } else {
+                        String key = new String(e.key(), UTF_8).substring(DISTRIBUTED_PREFIX.length());
 
-                    // Contract of meta storage ensures that all updates of one revision will come in one batch.
-                    // Also masterKey should be updated every time when we update cfg.
-                    // That means that masterKey update must be included in the batch.
-                    assert masterKeyEntry != null;
+                        Serializable value = e.value() == null ? null : ConfigurationSerializationUtil.fromBytes(e.value());
 
-                    long newChangeId = masterKeyEntry.revision();
-
-                    assert newChangeId > changeId.get();
-
-                    changeId.set(newChangeId);
-
-                    try {
-                        lsnr.onEntriesChanged(new Data(data, newChangeId)).get();
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-
-                        throw new StorageException("Interrupted when processing Meta Storage watch", e);
-                    } catch (ExecutionException e) {
-                        throw new StorageException("Error when processing Meta Storage watch", e);
+                        data.put(key, value);
                     }
                 }
 
-                @Override
-                public void onError(Throwable e) {
-                    // TODO: need to handle this case and there should some mechanism for registering new watch as far as
-                    // TODO: onError unregisters failed watch https://issues.apache.org/jira/browse/IGNITE-14604
-                    LOG.warn("Meta storage listener issue", e);
-                }
-            });
-        } else {
-            LOG.info("Configuration listener has already been set");
-        }
+                // Contract of meta storage ensures that all updates of one revision will come in one batch.
+                // Also masterKey should be updated every time when we update cfg.
+                // That means that masterKey update must be included in the batch.
+                assert masterKeyEntry != null;
+
+                long newChangeId = masterKeyEntry.revision();
+
+                assert newChangeId > changeId;
+
+                changeId = newChangeId;
+
+                return lsnr.onEntriesChanged(new Data(data, newChangeId));
+            }
+
+            @Override
+            public CompletableFuture<Void> onRevisionUpdated(long revision) {
+                assert revision > changeId;
+
+                return lsnr.onRevisionUpdated(revision);
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                // TODO: need to handle this case and there should some mechanism for registering new watch as far as
+                // TODO: onError unregisters failed watch https://issues.apache.org/jira/browse/IGNITE-14604
+                LOG.warn("Meta storage listener issue", e);
+            }
+        });
     }
 
     /** {@inheritDoc} */

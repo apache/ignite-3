@@ -179,6 +179,7 @@ public class JdbcConnection implements Connection {
                     .trustStorePath(connProps.getTrustStorePath())
                     .trustStorePassword(connProps.getTrustStorePassword())
                     .clientAuth(connProps.getClientAuth())
+                    .ciphers(connProps.getCiphers())
                     .keyStoreType(connProps.getKeyStoreType())
                     .keyStorePath(connProps.getKeyStorePath())
                     .keyStorePassword(connProps.getKeyStorePassword())

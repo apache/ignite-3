@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.rest;
 
-import java.net.URISyntaxException;
-import java.net.URL;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
+
 import java.nio.file.Path;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -41,6 +41,7 @@ public class RestNode {
     private final boolean sslEnabled;
     private final boolean sslClientAuthEnabled;
     private final boolean dualProtocol;
+    private final String ciphers;
     private CompletableFuture<Ignite> igniteNodeFuture;
 
     /** Constructor. */
@@ -56,7 +57,8 @@ public class RestNode {
             int httpsPort,
             boolean sslEnabled,
             boolean sslClientAuthEnabled,
-            boolean dualProtocol
+            boolean dualProtocol,
+            String ciphers
     ) {
         this.keyStorePath = keyStorePath;
         this.keyStorePassword = keyStorePassword;
@@ -70,6 +72,7 @@ public class RestNode {
         this.sslEnabled = sslEnabled;
         this.sslClientAuthEnabled = sslClientAuthEnabled;
         this.dualProtocol = dualProtocol;
+        this.ciphers = ciphers;
     }
 
     public static RestNodeBuilder builder() {
@@ -115,6 +118,8 @@ public class RestNode {
     }
 
     private String bootstrapCfg() {
+        String keyStoreFilePath = escapeWindowsPath(getResourcePath(ItRestSslTest.class, keyStorePath));
+        String trustStoreFilePath = escapeWindowsPath(getResourcePath(ItRestSslTest.class, trustStorePath));
         return "{\n"
                 + "  network: {\n"
                 + "    port: " + networkPort + ",\n"
@@ -128,29 +133,19 @@ public class RestNode {
                 + "    ssl: {\n"
                 + "      enabled: " + sslEnabled + ",\n"
                 + "      clientAuth: " + (sslClientAuthEnabled ? "require" : "none") + ",\n"
+                + "      ciphers: \"" + ciphers + "\",\n"
                 + "      port: " + httpsPort + ",\n"
                 + "      keyStore: {\n"
-                + "        path: \"" + getResourcePath(keyStorePath) + "\",\n"
+                + "        path: \"" + keyStoreFilePath + "\",\n"
                 + "        password: " + keyStorePassword + "\n"
                 + "      }, \n"
                 + "      trustStore: {\n"
                 + "        type: JKS,\n"
-                + "        path: \"" + getResourcePath(trustStorePath) + "\",\n"
+                + "        path: \"" + trustStoreFilePath + "\",\n"
                 + "        password: " + trustStorePassword + "\n"
                 + "      }\n"
                 + "    }\n"
                 + "  }\n"
                 + "}";
-    }
-
-    private static String getResourcePath(String resource) {
-        try {
-            URL url = ItRestSslTest.class.getClassLoader().getResource(resource);
-            Objects.requireNonNull(url, "Resource " + resource + " not found.");
-            Path path = Path.of(url.toURI()); // Properly extract file system path from the "file:" URL
-            return path.toString().replace("\\", "\\\\"); // Escape backslashes for the config parser
-        } catch (URISyntaxException e) {
-            throw new RuntimeException(e); // Shouldn't happen since URL is obtained from the class loader
-        }
     }
 }

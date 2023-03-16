@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -33,12 +34,12 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.util.Collection;
 import java.util.List;
@@ -83,7 +84,7 @@ public abstract class AbstractKeyValueStorageTest {
      * After each.
      */
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         storage.close();
     }
 
@@ -2086,16 +2087,21 @@ public abstract class AbstractKeyValueStorageTest {
 
         long appliedRevision = storage.revision();
 
-        storage.startWatches((revision, updatedEntries) -> {
-            // No-op.
-        });
+        storage.startWatches((revision, updatedEntries) -> completedFuture(null));
 
         CompletableFuture<byte[]> fut = new CompletableFuture<>();
 
         storage.watchExact(key(0), appliedRevision + 1, new WatchListener() {
             @Override
-            public void onUpdate(WatchEvent event) {
+            public String id() {
+                return "test";
+            }
+
+            @Override
+            public CompletableFuture<Void> onUpdate(WatchEvent event) {
                 fut.complete(event.entryEvent().newEntry().value());
+
+                return completedFuture(null);
             }
 
             @Override
@@ -2397,7 +2403,7 @@ public abstract class AbstractKeyValueStorageTest {
     }
 
     /**
-     * Tests that, if a watch throws an exception, its {@code onError} method is invoked and all other watches do not get executed.
+     * Tests that, if a watch throws an exception, its {@code onError} method is invoked.
      */
     @Test
     void testWatchErrorHandling() {
@@ -2409,6 +2415,15 @@ public abstract class AbstractKeyValueStorageTest {
         WatchListener mockListener2 = mock(WatchListener.class);
         WatchListener mockListener3 = mock(WatchListener.class);
 
+        when(mockListener1.id()).thenReturn("test1");
+        when(mockListener1.onUpdate(any())).thenReturn(completedFuture(null));
+
+        when(mockListener2.id()).thenReturn("test2");
+        when(mockListener2.onUpdate(any())).thenReturn(completedFuture(null));
+
+        when(mockListener3.id()).thenReturn("test3");
+        when(mockListener3.onUpdate(any())).thenReturn(completedFuture(null));
+
         var exception = new IllegalStateException();
 
         doThrow(exception).when(mockListener2).onUpdate(any());
@@ -2419,6 +2434,8 @@ public abstract class AbstractKeyValueStorageTest {
 
         OnRevisionAppliedCallback mockCallback = mock(OnRevisionAppliedCallback.class);
 
+        when(mockCallback.onRevisionApplied(any(), any())).thenReturn(completedFuture(null));
+
         storage.startWatches(mockCallback);
 
         storage.put(key, value);
@@ -2427,9 +2444,9 @@ public abstract class AbstractKeyValueStorageTest {
 
         verify(mockListener2, timeout(10_000)).onError(exception);
 
-        verify(mockListener3, never()).onUpdate(any());
-        verify(mockListener3, never()).onError(any());
-        verify(mockCallback, never()).onRevisionApplied(anyLong(), any());
+        verify(mockListener3, timeout(10_000)).onUpdate(any());
+
+        verify(mockCallback, times(2)).onRevisionApplied(any(), any());
     }
 
     private static void fill(KeyValueStorage storage, int keySuffix, int num) {
@@ -2473,7 +2490,12 @@ public abstract class AbstractKeyValueStorageTest {
 
         watchMethod.accept(new WatchListener() {
             @Override
-            public void onUpdate(WatchEvent event) {
+            public String id() {
+                return "test";
+            }
+
+            @Override
+            public CompletableFuture<Void> onUpdate(WatchEvent event) {
                 try {
                     var curState = state.incrementAndGet();
 
@@ -2482,9 +2504,13 @@ public abstract class AbstractKeyValueStorageTest {
                     if (curState == expectedNumCalls) {
                         resultFuture.complete(null);
                     }
+
+                    return completedFuture(null);
                 } catch (Exception e) {
                     resultFuture.completeExceptionally(e);
                 }
+
+                return completedFuture(null);
             }
 
             @Override
@@ -2493,7 +2519,7 @@ public abstract class AbstractKeyValueStorageTest {
             }
         });
 
-        storage.startWatches((revision, updatedEntries) -> {});
+        storage.startWatches((revision, updatedEntries) -> completedFuture(null));
 
         return resultFuture;
     }
