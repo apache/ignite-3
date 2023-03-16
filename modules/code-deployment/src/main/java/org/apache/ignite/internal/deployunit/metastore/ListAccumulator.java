@@ -30,7 +30,7 @@ import org.apache.ignite.internal.metastorage.Entry;
  */
 public class ListAccumulator<T extends Comparable<T>> implements Accumulator<List<T>> {
     private final Function<Entry, T> mapper;
-    
+
     private final List<T> result = new ArrayList<>();
 
     /**
