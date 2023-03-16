@@ -165,23 +165,21 @@ public class ItImplicitCastsTest extends ClusterPerClassIntegrationTest {
         static String generateValue(RelDataType type, int i, boolean literal) {
             if (SqlTypeUtil.isNumeric(type)) {
                 return Integer.toString(i);
-            } else if (type.getSqlTypeName() == SqlTypeName.CHAR && type.getPrecision() == 36
-                    || type.getSqlTypeName() == SqlTypeName.VARCHAR) {
-                UUID val = new UUID(i, i);
-                if (!literal) {
-                    return val.toString();
-                } else {
-                    return format("'{}'", val);
-                }
+            } else if (type.getSqlTypeName() == SqlTypeName.CHAR || type.getSqlTypeName() == SqlTypeName.VARCHAR) {
+                return generateUuid(i, literal);
             } else if (type instanceof UuidType) {
-                UUID val = new UUID(i, i);
-                if (!literal) {
-                    return val.toString();
-                } else {
-                    return format("'{}'", val);
-                }
+                return generateUuid(i, literal);
             } else {
                 throw new IllegalArgumentException("Unsupported type: " + type);
+            }
+        }
+
+        private static String generateUuid(int i, boolean literal) {
+            UUID val = new UUID(i, i);
+            if (!literal) {
+                return val.toString();
+            } else {
+                return format("'{}'", val);
             }
         }
     }
