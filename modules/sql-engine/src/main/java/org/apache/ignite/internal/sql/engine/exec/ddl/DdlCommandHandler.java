@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.DEL_PK_COMUMN_CONSTRAINT_ERR;
@@ -255,7 +256,15 @@ public class DdlCommandHandler {
             }
         };
 
-        return tableManager.createTableAsync(cmd.tableName(), cmd.zone(),  tblChanger)
+        String zoneName;
+
+        if (cmd.zone() != null) {
+            zoneName = cmd.zone();
+        } else {
+            zoneName = DEFAULT_ZONE_NAME;
+        }
+
+        return tableManager.createTableAsync(cmd.tableName(), zoneName,  tblChanger)
                 .thenApply(Objects::nonNull)
                 .handle(handleModificationResult(cmd.ifTableExists(), TableAlreadyExistsException.class));
     }
