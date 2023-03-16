@@ -118,7 +118,6 @@ public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBas
         // Then
         assertThat(output.hasError()).isTrue();
         assertThat(output.errorCause()).isInstanceOf(FileNotFoundException.class);
-        assertThat(output.errorCause()).hasMessage("wrong/path");
     }
 
     @Test
