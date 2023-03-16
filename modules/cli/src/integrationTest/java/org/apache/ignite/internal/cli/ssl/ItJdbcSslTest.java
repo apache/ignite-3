@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cli.ssl;
 
-import static org.apache.ignite.internal.cli.ssl.SslTestsSupport.getResourcePath;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.junit.jupiter.api.AfterEach;
@@ -47,11 +47,11 @@ public class ItJdbcSslTest extends CliSslClientConnectorIntegrationTestBase {
         // Given valid JDBC connection string with SSL configured
         String jdbcUrl = JDBC_URL
                 + "?sslEnabled=true"
-                + "&trustStorePath=" + getResourcePath(trustStorePath)
+                + "&trustStorePath=" + getResourcePath(ItJdbcSslTest.class, trustStorePath)
                 + "&trustStoreType=JKS"
                 + "&trustStorePassword=" + trustStorePassword
                 + "&clientAuth=require"
-                + "&keyStorePath=" + getResourcePath(keyStorePath)
+                + "&keyStorePath=" + getResourcePath(ItJdbcSslTest.class, keyStorePath)
                 + "&keyStoreType=PKCS12"
                 + "&keyStorePassword=" + keyStorePassword;
 
@@ -73,7 +73,7 @@ public class ItJdbcSslTest extends CliSslClientConnectorIntegrationTestBase {
         String jdbcUrl = JDBC_URL
                 + "?sslEnabled=true"
                 + "&clientAuth=require"
-                + "&keyStorePath=" + getResourcePath(keyStorePath)
+                + "&keyStorePath=" + getResourcePath(ItSslTest.class, keyStorePath)
                 + "&keyStoreType=PKCS12"
                 + "&keyStorePassword=" + keyStorePassword;
 
@@ -95,7 +95,7 @@ public class ItJdbcSslTest extends CliSslClientConnectorIntegrationTestBase {
         // Given valid JDBC connection string with SSL configured
         String jdbcUrl = JDBC_URL
                 + "?sslEnabled=true"
-                + "&trustStorePath=" + getResourcePath(trustStorePath)
+                + "&trustStorePath=" + getResourcePath(ItSslTest.class, trustStorePath)
                 + "&trustStoreType=JKS"
                 + "&trustStorePassword=" + trustStorePassword
                 + "&clientAuth=require";

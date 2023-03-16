@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.cli.ssl;
 
-import static org.apache.ignite.internal.cli.ssl.SslTestsSupport.getResourcePath;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 
 import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
 
@@ -47,12 +48,14 @@ public class CliSslNotInitializedIntegrationTestBase extends CliCommandTestNotIn
             + "      enabled: " + true + ",\n"
             + "      clientAuth: \"require\",\n"
             + "      keyStore: {\n"
-            + "        path: \"" + getResourcePath(keyStorePath) + "\",\n"
+            + "        path: \"" +  escapeWindowsPath(getResourcePath(CliSslClientConnectorIntegrationTestBase.class, keyStorePath))
+            + "\",\n"
             + "        password: " + keyStorePassword + "\n"
             + "      }, \n"
             + "      trustStore: {\n"
             + "        type: JKS,\n"
-            + "        path: \"" + getResourcePath(trustStorePath) + "\",\n"
+            + "        path: \"" + escapeWindowsPath(getResourcePath(CliSslClientConnectorIntegrationTestBase.class, trustStorePath))
+            + "\",\n"
             + "        password: " + trustStorePassword + "\n"
             + "      }\n"
             + "    }\n"

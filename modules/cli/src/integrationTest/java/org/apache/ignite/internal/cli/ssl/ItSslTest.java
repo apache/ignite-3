@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cli.ssl;
 
-import static org.apache.ignite.internal.cli.ssl.SslTestsSupport.getResourcePath;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.junit.jupiter.api.DisplayName;
@@ -43,9 +43,9 @@ public class ItSslTest extends CliSslNotInitializedIntegrationTestBase {
     @DisplayName("Should connect to cluster with given url")
     void connectToSecuredNode() {
         // When set up ssl configuration
-        execute("cli", "config", "set", "ignite.rest.key-store.path=" + getResourcePath(keyStorePath));
+        execute("cli", "config", "set", "ignite.rest.key-store.path=" + getResourcePath(ItSslTest.class, keyStorePath));
         execute("cli", "config", "set", "ignite.rest.key-store.password=" + keyStorePassword);
-        execute("cli", "config", "set", "ignite.rest.trust-store.path=" + getResourcePath(trustStorePath));
+        execute("cli", "config", "set", "ignite.rest.trust-store.path=" + getResourcePath(ItSslTest.class, trustStorePath));
         execute("cli", "config", "set", "ignite.rest.trust-store.password=" + trustStorePassword);
         resetOutput();
 
