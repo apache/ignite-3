@@ -24,13 +24,20 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
+list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 
-if(EXISTS ${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-    message(STATUS "Conan detected. Enabling...")
-    include(${CMAKE_BINARY_DIR}/conan_paths.cmake)
-    include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-    conan_basic_setup()
-endif()
+include(conan)
+
+conan_cmake_configure(REQUIRES msgpack-c/4.0.0 gtest/1.12.1
+                      GENERATORS cmake_find_package)
+
+conan_cmake_autodetect(conan_settings)
+
+conan_cmake_install(PATH_OR_REFERENCE .
+                    BUILD missing
+                    REMOTE conancenter
+                    SETTINGS ${conan_settings})
 
 if (WIN32)
     add_definitions(-DNOMINMAX)
