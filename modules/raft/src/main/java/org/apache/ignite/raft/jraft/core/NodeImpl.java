@@ -1066,6 +1066,7 @@ public class NodeImpl implements Node, RaftServerService {
         boolean externalAwaitStorageLatch = opts.getStorageReadyLatch() != null;
 
         if (commitIdx > fsmCaller.getLastAppliedIndex()) {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19047 Meta storage and cmg raft log re-application in async manner
             CountDownLatch applyCommitLatch = externalAwaitStorageLatch ? opts.getStorageReadyLatch() : new CountDownLatch(1);
 
             LastAppliedLogIndexListener lnsr = new LastAppliedLogIndexListener() {
