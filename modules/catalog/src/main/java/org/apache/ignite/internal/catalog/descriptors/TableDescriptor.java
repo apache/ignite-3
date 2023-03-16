@@ -46,14 +46,29 @@ public class TableDescriptor extends ObjectDescriptor {
     @IgniteToStringExclude
     private transient Map<String, TableColumnDescriptor> columnsMap;
 
-    public TableDescriptor(int id, String name, TableColumnDescriptor[] columns, String[] pkCols, @Nullable String[] colocationCols) {
+    /**
+     * Constructor.
+     *
+     * @param id Table id.
+     * @param name Table name.
+     * @param columns Table column descriptors.
+     * @param pkCols Primary key column names.
+     * @param colocationCols Colocation column names.
+     */
+    public TableDescriptor(
+            int id,
+            String name,
+            List<TableColumnDescriptor> columns,
+            List<String> pkCols,
+            @Nullable List<String> colocationCols
+    ) {
         super(id, Type.TABLE, name);
 
-        this.columns = Objects.requireNonNull(columns);
-        primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.");
-        colocationColumns = Objects.requireNonNullElse(colocationCols, primaryKeyColumns);
+        this.columns = Objects.requireNonNull(columns,"No columns defined.").toArray(TableColumnDescriptor[]::new);
+        primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.").toArray(String[]::new);
+        colocationColumns = colocationCols == null ? primaryKeyColumns : colocationCols.toArray(String[]::new);
 
-        this.columnsMap = Arrays.stream(columns).collect(Collectors.toMap(TableColumnDescriptor::name, Function.identity()));
+        this.columnsMap = columns.stream().collect(Collectors.toMap(TableColumnDescriptor::name, Function.identity()));
 
         // TODO: IGNITE-18535 Throw proper exceptions.
         assert !columnsMap.isEmpty() : "No columns.";

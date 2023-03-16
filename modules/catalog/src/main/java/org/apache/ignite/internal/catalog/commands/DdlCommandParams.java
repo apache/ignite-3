@@ -15,12 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.events;
-
-import org.apache.ignite.internal.manager.Event;
+package org.apache.ignite.internal.catalog.commands;
 
 /**
- * TODO: IGNITE-18535 Javadoc.
+ * Marker interface for DDL command parameters.
  */
-public enum CatalogEvent implements Event {
+public interface DdlCommandParams {
 }

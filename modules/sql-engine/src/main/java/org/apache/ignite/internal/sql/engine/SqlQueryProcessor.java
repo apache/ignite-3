@@ -43,6 +43,8 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
@@ -63,6 +65,7 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandlerWrapper;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
@@ -151,6 +154,9 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Clock. */
     private final HybridClock clock;
 
+    /** Distributed catalog manager. */
+    private CatalogManager catalogManager;
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<Function<Long, CompletableFuture<?>>> registry,
@@ -163,7 +169,8 @@ public class SqlQueryProcessor implements QueryProcessor {
             DistributionZoneManager distributionZoneManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             ReplicaService replicaService,
-            HybridClock clock
+            HybridClock clock,
+            CatalogManager catalogManager
     ) {
         this.registry = registry;
         this.clusterSrvc = clusterSrvc;
@@ -176,6 +183,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
         this.replicaService = replicaService;
         this.clock = clock;
+        this.catalogManager = catalogManager;
     }
 
     /** {@inheritDoc} */
@@ -220,7 +228,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         this.prepareSvc = prepareSvc;
 
-        var ddlCommandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager);
+        var ddlCommandHandler = CatalogService.USE_CATALOG
+                ? new DdlCommandHandlerWrapper(distributionZoneManager, tableManager, indexManager, dataStorageManager, catalogManager)
+                : new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager);
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),

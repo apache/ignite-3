@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.events;
-
-import org.apache.ignite.internal.manager.EventParameters;
+package org.apache.ignite.internal.catalog.commands;
 
 /**
- * TODO: IGNITE-18535 Javadoc.
+ * DROP TABLE statement.
  */
-public class CatalogEventParameters extends EventParameters {
-    /**
-     * Constructor.
-     *
-     * @param causalityToken Causality token.
-     */
-    public CatalogEventParameters(long causalityToken) {
-        super(causalityToken);
+public class DropTableParams extends AbstractTableCommandParams {
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static class Builder extends AbstractBuilder<DropTableParams, Builder> {
+        Builder() {
+            super(new DropTableParams());
+        }
     }
 }

@@ -33,8 +33,8 @@ import org.apache.ignite.internal.tostring.S;
  * Catalog descriptor represents database schema snapshot.
  */
 public class CatalogDescriptor implements Serializable {
-    public static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
     private static final long serialVersionUID = -2713639412596667759L;
+
     private final int version;
     private final long activationTimestamp;
     private final Map<String, SchemaDescriptor> schemas;
@@ -44,8 +44,14 @@ public class CatalogDescriptor implements Serializable {
     @IgniteToStringExclude
     private transient Map<Integer, IndexDescriptor> indexesMap;
 
-
-    public CatalogDescriptor(int version, long activationTimestamp, SchemaDescriptor[] descriptors) {
+    /**
+     * Constructor.
+     *
+     * @param version Catalog version.
+     * @param activationTimestamp Catalog activation timestamp.
+     * @param descriptors Schema descriptors.
+     */
+    public CatalogDescriptor(int version, long activationTimestamp, SchemaDescriptor... descriptors) {
         this.version = version;
         this.activationTimestamp = activationTimestamp;
 
@@ -57,6 +63,10 @@ public class CatalogDescriptor implements Serializable {
         schemas = Arrays.stream(descriptors).collect(Collectors.toUnmodifiableMap(SchemaDescriptor::name, t -> t));
 
         rebuildMaps();
+    }
+
+    public int version() {
+        return version;
     }
 
     public long time() {
@@ -82,8 +92,8 @@ public class CatalogDescriptor implements Serializable {
     private void rebuildMaps() {
         tablesMap = schemas.values().stream().flatMap(s -> Arrays.stream(s.tables()))
                 .collect(Collectors.toUnmodifiableMap(ObjectDescriptor::id, Function.identity()));
-        indexesMap = schemas.values().stream().flatMap(s -> Arrays.stream(s.indexes())).
-                collect(Collectors.toUnmodifiableMap(ObjectDescriptor::id, Function.identity()));
+        indexesMap = schemas.values().stream().flatMap(s -> Arrays.stream(s.indexes()))
+                .collect(Collectors.toUnmodifiableMap(ObjectDescriptor::id, Function.identity()));
     }
 
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {

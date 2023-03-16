@@ -47,6 +47,11 @@ public abstract class ObjectDescriptor implements Serializable {
         return name;
     }
 
+    /** Return schema-object type. */
+    public Type type() {
+        return type;
+    }
+
     /** {@inheritDoc} */
     @Override
     public String toString() {

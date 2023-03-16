@@ -20,17 +20,19 @@ apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 
 dependencies {
-    annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.auto.service
-    implementation libs.jetbrains.annotations
 
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-configuration')
+    implementation project(':ignite-metastorage-api')
     implementation libs.jetbrains.annotations
 
-    testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-core')))
+    testImplementation libs.mockito.junit
+    testImplementation libs.mockito.core
+    testImplementation libs.hamcrest.core
+    testImplementation libs.slf4j.jdk14
 }
 
 description = "ignite-catalog"

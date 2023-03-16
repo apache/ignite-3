@@ -18,23 +18,26 @@
 package org.apache.ignite.internal.catalog;
 
 import java.util.Collection;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
-import org.apache.ignite.internal.configuration.DynamicConfigurationChanger;
 
 /**
  * Catalog service provides methods to access schema object's descriptors of exact version and/or last actual version at given timestamp,
  * which is logical point-in-time.
  *
- * <p>Catalog service is responsible for proper configuration updates and storing/restoring schema evolution history (schema versions)
- * for time-travelled queries purposes and lazy data evolution purposes.
+ * <p>Catalog service listens distributed schema update event, stores/restores schema evolution history (schema versions) for time-travelled
+ * queries purposes and for lazy data evolution purposes.
  *
- * <p>TBD: schema manipulation methods.
- * TBD: events
+ * <p>TBD: events
  */
 public interface CatalogService {
+    String PUBLIC = "PUBLIC";
+    String IGNITE_USE_CATALOG_PROPERTY = "IGNITE_USE_CATALOG";
+    //TODO: IGNITE-18535 Remove when all versioned schema stuff will be moved to Catalog.
+    @Deprecated(forRemoval = true)
+    boolean USE_CATALOG = Boolean.getBoolean(IGNITE_USE_CATALOG_PROPERTY);
+
     TableDescriptor table(String tableName, long timestamp);
 
     TableDescriptor table(int tableId, long timestamp);
@@ -46,7 +49,4 @@ public interface CatalogService {
     SchemaDescriptor schema(int version);
 
     SchemaDescriptor activeSchema(long timestamp);
-
-    //TODO: IGNITE-18535 enrich with schema manipulation methods.
-    CompletableFuture<SchemaDescriptor> updateSchema(DynamicConfigurationChanger changer);
 }

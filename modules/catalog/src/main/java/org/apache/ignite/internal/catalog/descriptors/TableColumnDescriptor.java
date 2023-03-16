@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import java.io.Serializable;
 import java.util.Objects;
+import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.ColumnType;
 
@@ -35,12 +36,20 @@ public class TableColumnDescriptor implements Serializable {
     private int length;
     private int precision;
     private int scale;
-    private String defaultValueExpression;
+    private DefaultValue defaultValue;
 
-    public TableColumnDescriptor(String name, ColumnType type, boolean nullable) {
+    /**
+     * Constructor.
+     *
+     * @param name Column name.
+     * @param type Column type.
+     * @param nullable Nullability flag.
+     */
+    public TableColumnDescriptor(String name, ColumnType type, boolean nullable, DefaultValue defaultValue) {
         this.name = Objects.requireNonNull(name, "name");
         this.type = Objects.requireNonNull(type);
         this.nullable = nullable;
+        this.defaultValue = defaultValue;
     }
 
     public String name() {
@@ -65,6 +74,10 @@ public class TableColumnDescriptor implements Serializable {
 
     public int length() {
         return length;
+    }
+
+    public DefaultValue defaultValue() {
+        return defaultValue;
     }
 
     /** {@inheritDoc} */
