@@ -17,8 +17,12 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.thread.NamedThreadFactory.threadPrefix;
 import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,10 +30,13 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.index.event.IndexEvent;
@@ -58,6 +65,7 @@ import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups;
@@ -67,7 +75,6 @@ import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
@@ -91,20 +98,34 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    /** Index building executor. */
+    private final ExecutorService buildIndexExecutor;
+
     /**
      * Constructor.
      *
+     * @param nodeName Node name.
      * @param tablesCfg Tables and indexes configuration.
      * @param schemaManager Schema manager.
      * @param tableManager Table manager.
      */
-    public IndexManager(TablesConfiguration tablesCfg, SchemaManager schemaManager, TableManager tableManager) {
+    public IndexManager(String nodeName, TablesConfiguration tablesCfg, SchemaManager schemaManager, TableManager tableManager) {
         this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
         this.schemaManager = Objects.requireNonNull(schemaManager, "schemaManager");
         this.tableManager = tableManager;
+
+        int cpus = Runtime.getRuntime().availableProcessors();
+
+        buildIndexExecutor = new ThreadPoolExecutor(
+                cpus,
+                cpus,
+                30,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                new NamedThreadFactory(threadPrefix(nodeName, "build-index"), LOG)
+        );
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() {
         LOG.debug("Index manager is about to start");
@@ -112,12 +133,12 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         tablesCfg.indexes().listenElements(new ConfigurationListener());
         tableManager.listen(TableEvent.CREATE, (param, ex) -> {
             if (ex != null) {
-                return CompletableFuture.completedFuture(false);
+                return completedFuture(false);
             }
 
             List<String> pkColumns = Arrays.stream(param.table().schemaView().schema().keyColumns().columns())
                     .map(Column::name)
-                    .collect(Collectors.toList());
+                    .collect(toList());
 
             String pkName = param.tableName() + "_PK";
 
@@ -126,13 +147,12 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                             .changeColumnNames(pkColumns.toArray(STRING_EMPTY_ARRAY))
             );
 
-            return CompletableFuture.completedFuture(false);
+            return completedFuture(false);
         });
 
         LOG.info("Index manager started");
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
         LOG.debug("Index manager is about to stop");
@@ -146,6 +166,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         busyLock.block();
 
         LOG.info("Index manager stopped");
+
+        shutdownAndAwaitTermination(buildIndexExecutor, 10, TimeUnit.SECONDS);
     }
 
     /**
@@ -233,7 +255,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             return future;
         } catch (Exception ex) {
-            return CompletableFuture.failedFuture(ex);
+            return failedFuture(ex);
         } finally {
             busyLock.leaveBusy();
         }
@@ -253,7 +275,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             boolean failIfNotExists
     ) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         LOG.debug("Going to drop index [schema={}, index={}]", schemaName, indexName);
@@ -384,6 +406,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                             schemaManager.schemaRegistry(tableId),
                             index.descriptor().columns().toArray(STRING_EMPTY_ARRAY)
                     );
+
+                    // TODO: IGNITE-18539 а что если тут мы добавим какой-то билд статус для индекса и будем как-то с ним работать дальше?
+                    // TODO: IGNITE-18539 слушать что мы создали хранилище для партиции и тогда начинать стоить индекс для нее или нет?
 
                     if (index instanceof HashIndex) {
                         table.registerHashIndex(tableIndexView.id(), tableIndexView.uniq(), tableRowConverter::convert);
@@ -534,32 +559,28 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     }
 
     private class ConfigurationListener implements ConfigurationNamedListListener<TableIndexView> {
-        /** {@inheritDoc} */
         @Override
-        public @NotNull CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
+        public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<TableIndexView> ctx) {
             return onIndexCreate(ctx);
         }
 
-        /** {@inheritDoc} */
         @Override
-        public @NotNull CompletableFuture<?> onRename(
+        public CompletableFuture<?> onRename(
                 String oldName,
                 String newName,
                 ConfigurationNotificationEvent<TableIndexView> ctx
         ) {
-            return CompletableFuture.failedFuture(new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-16196"));
+            return failedFuture(new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-16196"));
         }
 
-        /** {@inheritDoc} */
         @Override
-        public @NotNull CompletableFuture<?> onDelete(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
+        public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<TableIndexView> ctx) {
             return onIndexDrop(ctx);
         }
 
-        /** {@inheritDoc} */
         @Override
-        public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
-            return CompletableFuture.failedFuture(new IllegalStateException("Should not be called"));
+        public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<TableIndexView> ctx) {
+            return failedFuture(new IllegalStateException("Should not be called"));
         }
     }
 }

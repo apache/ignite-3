@@ -350,7 +350,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 new OutgoingSnapshotsManager(clusterSvc.messagingService())
         );
 
-        var indexManager = new IndexManager(tblCfg, schemaManager, tableManager);
+        var indexManager = new IndexManager("test", tblCfg, schemaManager, tableManager);
 
         // Preparing the result map.
 

@@ -142,7 +142,7 @@ public class IndexManagerTest {
         SchemaManager schManager = mock(SchemaManager.class);
         when(schManager.schemaRegistry(anyLong(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
-        indexManager = new IndexManager(tablesConfig, schManager, tableManagerMock);
+        indexManager = new IndexManager("test", tablesConfig, schManager, tableManagerMock);
         indexManager.start();
 
         tablesConfig.tables().change(tableChange -> tableChange.create("tName", chg -> {
