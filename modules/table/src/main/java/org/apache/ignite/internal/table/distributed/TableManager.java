@@ -84,6 +84,7 @@ import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -1351,71 +1352,80 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
 
         tableAsyncInternal(name)
-                .thenCompose(tbl -> {
+                .thenAccept(tbl -> {
                     if (tbl != null) {
                         tblFut.completeExceptionally(new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name));
-
-                        throw new IgniteException();
                     } else {
-                        return completedFuture(null);
+                        cmgMgr.logicalTopology()
+                                .thenAccept(cmgTopology -> {
+                                    int zoneId = 0;
+
+                                    Exception e = null;
+
+                                    try {
+                                        zoneId = distributionZoneManager.getZoneId(zoneName);
+                                    } catch (DistributionZoneNotFoundException e0) {
+                                        e = e0;
+                                    }
+
+                                    if (e != null) {
+                                        tblFut.completeExceptionally(e);
+                                    } else {
+                                        distributionZoneManager.getDataNodes(zoneId, cmgTopology.version())
+                                                .thenCompose(dataNodes -> {
+
+                                                    tablesCfg.change(tablesChange -> tablesChange.changeTables(tablesListChange -> {
+                                                        if (tablesListChange.get(name) != null) {
+                                                            throw new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name);
+                                                        }
+
+                                                        tablesListChange.create(name, (tableChange) -> {
+                                                            tableChange.changeDataStorage(
+                                                                    dataStorageMgr.defaultTableDataStorageConsumer(
+                                                                            tablesChange.defaultDataStorage())
+                                                            );
+
+                                                            tableInitChange.accept(tableChange);
+
+                                                            var extConfCh = ((ExtendedTableChange) tableChange);
+
+                                                            int intTableId = tablesChange.globalIdCounter() + 1;
+                                                            tablesChange.changeGlobalIdCounter(intTableId);
+
+                                                            extConfCh.changeTableId(intTableId);
+
+                                                            extConfCh.changeSchemaId(INITIAL_SCHEMA_VERSION);
+
+                                                            tableCreateFuts.put(extConfCh.id(), tblFut);
+
+                                                            // Affinity assignments calculation.
+                                                            extConfCh.changeAssignments(
+                                                                    ByteUtils.toBytes(AffinityUtils.calculateAssignments(
+                                                                            dataNodes,
+                                                                            tableChange.partitions(),
+                                                                            tableChange.replicas())));
+                                                        });
+                                                    })).exceptionally(t -> {
+                                                        Throwable ex = getRootCause(t);
+
+                                                        if (ex instanceof TableAlreadyExistsException) {
+                                                            tblFut.completeExceptionally(ex);
+                                                        } else {
+                                                            LOG.debug("Unable to create table [name={}]", ex, name);
+
+                                                            tblFut.completeExceptionally(ex);
+
+                                                            tableCreateFuts.values().removeIf(fut -> fut == tblFut);
+                                                        }
+
+                                                        return null;
+                                                    });
+
+                                                    return null;
+                                                });
+                                    }
+                                });
                     }
-                })
-                .thenCompose(ignored -> {
-                    return cmgMgr.logicalTopology();
-                })
-                .thenCompose(cmgTopology -> {
-                    int zoneId = distributionZoneManager.getZoneId(zoneName);
-
-                    return distributionZoneManager.getDataNodes(zoneId, cmgTopology.version());
-                })
-                .thenCompose(dataNodes -> {
-
-                    tablesCfg.change(tablesChange -> tablesChange.changeTables(tablesListChange -> {
-                        if (tablesListChange.get(name) != null) {
-                            throw new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name);
-                        }
-
-                        tablesListChange.create(name, (tableChange) -> {
-                            tableChange.changeDataStorage(
-                                    dataStorageMgr.defaultTableDataStorageConsumer(tablesChange.defaultDataStorage())
-                            );
-
-                            tableInitChange.accept(tableChange);
-
-                            var extConfCh = ((ExtendedTableChange) tableChange);
-
-                            int intTableId = tablesChange.globalIdCounter() + 1;
-                            tablesChange.changeGlobalIdCounter(intTableId);
-
-                            extConfCh.changeTableId(intTableId);
-
-                            extConfCh.changeSchemaId(INITIAL_SCHEMA_VERSION);
-
-                            tableCreateFuts.put(extConfCh.id(), tblFut);
-
-                            // Affinity assignments calculation.
-                            extConfCh.changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
-                                    dataNodes,
-                                    tableChange.partitions(),
-                                    tableChange.replicas())));
-                        });
-                    })).exceptionally(t -> {
-                        Throwable ex = getRootCause(t);
-
-                        if (ex instanceof TableAlreadyExistsException) {
-                            tblFut.completeExceptionally(ex);
-                        } else {
-                            LOG.debug("Unable to create table [name={}]", ex, name);
-
-                            tblFut.completeExceptionally(ex);
-
-                            tableCreateFuts.values().removeIf(fut -> fut == tblFut);
-                        }
-
-                        return null;
-                    });
-
-                    return null;
                 });
 
         return tblFut;

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
@@ -32,6 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -46,6 +49,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -158,6 +162,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     IndexManager idxManager;
 
+    ClusterManagementGroupManager cmgMgr;
+
     SqlQueryProcessor queryProc;
 
     /** Test node. */
@@ -173,7 +179,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @Mock
     private ConfigurationRegistry configRegistry;
 
-    @Mock
     private DistributionZoneManager distributionZoneManager;
 
     DataStorageManager dataStorageManager;
@@ -238,6 +243,17 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         schemaManager = new SchemaManager(revisionUpdater, tblsCfg, msm);
 
         schemaManager.start();
+
+        cmgMgr = mock(ClusterManagementGroupManager.class);
+
+        LogicalTopologySnapshot logicalTopologySnapshot = new LogicalTopologySnapshot(0, emptySet());
+
+        when(cmgMgr.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));
+
+        distributionZoneManager = mock(DistributionZoneManager.class);
+
+        when(distributionZoneManager.getZoneId(anyString())).thenReturn(0);
+        when(distributionZoneManager.getDataNodes(anyInt(), anyLong())).thenReturn(completedFuture(emptySet()));
 
         tblManager = mockManagers();
 
@@ -367,7 +383,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                                 + "with partitions=1,replicas=1,primary_zone='%s'", tableName, zoneName)))
         );
 
-        assertInstanceOf(DistributionZoneNotFoundException.class, exception.getCause().getCause());
+        assertInstanceOf(DistributionZoneNotFoundException.class, exception.getCause());
     }
 
     /**
@@ -570,8 +586,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 null,
                 clock,
                 mock(OutgoingSnapshotsManager.class),
-                mock(ClusterManagementGroupManager.class),
-                mock(DistributionZoneManager.class)
+                cmgMgr,
+                distributionZoneManager
         );
 
         tableManager.start();
