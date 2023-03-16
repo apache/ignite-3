@@ -18,28 +18,29 @@
 package org.apache.ignite.internal.cli.decorators;
 
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.StringJoiner;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.rest.client.model.MetricSource;
+import org.apache.ignite.rest.client.model.Metric;
+import org.apache.ignite.rest.client.model.MetricSet;
 
-/** Decorator for printing list of {@link MetricSource}. */
-public class MetricListDecorator implements Decorator<List<MetricSource>, TerminalOutput> {
+/** Decorator for printing list of {@link MetricSet}. */
+public class MetricSetListDecorator implements Decorator<List<MetricSet>, TerminalOutput> {
     @Override
-    public TerminalOutput decorate(List<MetricSource> data) {
+    public TerminalOutput decorate(List<MetricSet> data) {
         return () -> {
-            String enabled = data.stream()
-                    .filter(MetricSource::getEnabled)
-                    .map(MetricSource::getName)
-                    .collect(Collectors.joining(System.lineSeparator()));
-            String disabled = data.stream()
-                    .filter(metricSource -> !metricSource.getEnabled())
-                    .map(MetricSource::getName)
-                    .collect(Collectors.joining(System.lineSeparator()));
-            return Stream.of("Enabled metric sources:", enabled, "Disabled metric sources:", disabled)
-                    .filter(s -> !s.isEmpty())
-                    .collect(Collectors.joining(System.lineSeparator()));
+            StringJoiner joiner = new StringJoiner(System.lineSeparator());
+
+            joiner.add("Metric sets:");
+            for (MetricSet metricSet : data) {
+                joiner.add("  " + metricSet.getName());
+                for (Metric metric : metricSet.getMetrics()) {
+                    String desc = metric.getDesc();
+                    joiner.add("    " + metric.getName() + (desc != null ? " - " + desc : ""));
+                }
+            }
+
+            return joiner.toString();
         };
     }
 }

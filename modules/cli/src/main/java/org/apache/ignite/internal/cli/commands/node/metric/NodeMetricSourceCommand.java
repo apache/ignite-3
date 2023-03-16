@@ -20,12 +20,13 @@ package org.apache.ignite.internal.cli.commands.node.metric;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
 
-/** Node metric command. */
-@Command(name = "metric",
+/** Node metric sources command. */
+@Command(name = "source",
         subcommands = {
-                NodeMetricSetListCommand.class,
-                NodeMetricSourceCommand.class
+                NodeMetricSourceEnableCommand.class,
+                NodeMetricSourceDisableCommand.class,
+                NodeMetricSourceListCommand.class,
         },
-        description = "Node metric operations")
-public class NodeMetricCommand extends BaseCommand {
+        description = "Node metric sources operations")
+public class NodeMetricSourceCommand extends BaseCommand {
 }

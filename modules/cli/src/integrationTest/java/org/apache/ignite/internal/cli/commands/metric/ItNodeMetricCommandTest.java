@@ -26,10 +26,10 @@ import org.junit.jupiter.api.Test;
 /** Tests for node metric commands. */
 class ItNodeMetricCommandTest extends CliCommandTestInitializedIntegrationBase {
     @Test
-    @DisplayName("Should display empty node metric list when valid node-url is given")
+    @DisplayName("Should display empty enabled node metric sources list when valid node-url is given")
     void nodeMetricList() {
         // When list node metric with valid url
-        execute("node", "metric", "list", "--node-url", NODE_URL);
+        execute("node", "metric", "source", "list", "--node-url", NODE_URL);
 
         // Then
         assertAll(
@@ -45,7 +45,7 @@ class ItNodeMetricCommandTest extends CliCommandTestInitializedIntegrationBase {
     @DisplayName("Should display error message when enabling nonexistent metric source and valid node-url is given")
     void nodeMetricEnableNonexistent() {
         // When list node metric with valid url
-        execute("node", "metric", "enable", "no.such.metric", "--node-url", NODE_URL);
+        execute("node", "metric", "source", "enable", "no.such.metric", "--node-url", NODE_URL);
 
         // Then
         assertAll(
@@ -59,7 +59,7 @@ class ItNodeMetricCommandTest extends CliCommandTestInitializedIntegrationBase {
     @DisplayName("Should display error message when disabling nonexistent metric source and valid node-url is given")
     void nodeMetricDisableNonexistent() {
         // When list node metric with valid url
-        execute("node", "metric", "disable", "no.such.metric", "--node-url", NODE_URL);
+        execute("node", "metric", "source", "disable", "no.such.metric", "--node-url", NODE_URL);
 
         // Then
         assertAll(

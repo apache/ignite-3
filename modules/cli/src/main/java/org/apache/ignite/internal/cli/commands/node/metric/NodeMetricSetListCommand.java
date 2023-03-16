@@ -18,36 +18,36 @@
 package org.apache.ignite.internal.cli.commands.node.metric;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.node.metric.NodeMetricListCall;
+import java.util.concurrent.Callable;
+import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSetListCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
-import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.internal.cli.core.call.StringCallInput;
-import org.apache.ignite.internal.cli.core.flow.builder.Flows;
-import org.apache.ignite.internal.cli.decorators.MetricListDecorator;
+import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
+import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.internal.cli.core.call.UrlCallInput;
+import org.apache.ignite.internal.cli.decorators.MetricSetListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
-/** Command that lists node metric sources in REPL mode. */
-@Command(name = "list", description = "Lists node metric sources")
-public class NodeMetricListReplCommand extends BaseCommand implements Runnable {
+/** Command that lists node metrics. */
+@Command(name = "list", description = "Lists node metrics")
+public class NodeMetricSetListCommand extends BaseCommand implements Callable<Integer> {
     /** Node URL option. */
     @Mixin
-    private NodeUrlMixin nodeUrl;
+    private NodeUrlProfileMixin nodeUrl;
 
     @Inject
-    private NodeMetricListCall call;
-
-    @Inject
-    private ConnectToClusterQuestion question;
+    private NodeMetricSetListCall call;
 
     /** {@inheritDoc} */
     @Override
-    public void run() {
-        question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
-                .map(StringCallInput::new)
-                .then(Flows.fromCall(call))
-                .print(new MetricListDecorator())
-                .start();
+    public Integer call() {
+        return CallExecutionPipeline.builder(call)
+                .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
+                .output(spec.commandLine().getOut())
+                .errOutput(spec.commandLine().getErr())
+                .decorator(new MetricSetListDecorator())
+                .verbose(verbose)
+                .build()
+                .runPipeline();
     }
 }

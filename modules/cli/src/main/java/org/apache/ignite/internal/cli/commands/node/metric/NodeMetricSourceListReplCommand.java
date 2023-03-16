@@ -18,37 +18,36 @@
 package org.apache.ignite.internal.cli.commands.node.metric;
 
 import jakarta.inject.Inject;
-import java.util.concurrent.Callable;
-import org.apache.ignite.internal.cli.call.node.metric.NodeMetricEnableCall;
+import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceListCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.metric.MetricSourceMixin;
-import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
-import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
+import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.core.call.UrlCallInput;
+import org.apache.ignite.internal.cli.core.flow.builder.Flows;
+import org.apache.ignite.internal.cli.decorators.MetricSourceListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
-/** Command that enables node metric source. */
-@Command(name = "enable", description = "Enables node metric source")
-public class NodeMetricEnableCommand extends BaseCommand implements Callable<Integer> {
+/** Command that lists node metric sources in REPL mode. */
+@Command(name = "list", description = "Lists node metric sources")
+public class NodeMetricSourceListReplCommand extends BaseCommand implements Runnable {
     /** Node URL option. */
     @Mixin
-    private NodeUrlProfileMixin nodeUrl;
-
-    @Mixin
-    private MetricSourceMixin metricSource;
+    private NodeUrlMixin nodeUrl;
 
     @Inject
-    private NodeMetricEnableCall call;
+    private NodeMetricSourceListCall call;
+
+    @Inject
+    private ConnectToClusterQuestion question;
 
     /** {@inheritDoc} */
     @Override
-    public Integer call() {
-        return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> metricSource.buildEnableCallInput(nodeUrl.getNodeUrl()))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+    public void run() {
+        question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
+                .map(UrlCallInput::new)
+                .then(Flows.fromCall(call))
+                .print(new MetricSourceListDecorator())
+                .start();
     }
 }

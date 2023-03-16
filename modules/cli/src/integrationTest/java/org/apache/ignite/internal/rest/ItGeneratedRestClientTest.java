@@ -352,12 +352,17 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void nodeMetricList() throws ApiException {
+    void nodeMetricSourcesList() throws ApiException {
         List<MetricSource> metricSources = List.of(
                 new MetricSource().name("jvm").enabled(false)
         );
 
-        assertThat(nodeMetricApi.listNodeMetrics(), containsInAnyOrder(metricSources.toArray()));
+        assertThat(nodeMetricApi.listNodeMetricSources(), containsInAnyOrder(metricSources.toArray()));
+    }
+
+    @Test
+    void nodeMetricSetsList() throws ApiException {
+        assertThat(nodeMetricApi.listNodeMetricSets(), empty());
     }
 
     @Test

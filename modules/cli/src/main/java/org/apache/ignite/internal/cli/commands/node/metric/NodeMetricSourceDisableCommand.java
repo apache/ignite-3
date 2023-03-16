@@ -19,33 +19,34 @@ package org.apache.ignite.internal.cli.commands.node.metric;
 
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
-import org.apache.ignite.internal.cli.call.node.metric.NodeMetricListCall;
+import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
+import org.apache.ignite.internal.cli.commands.metric.MetricSourceMixin;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.call.StringCallInput;
-import org.apache.ignite.internal.cli.decorators.MetricListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
-/** Command that lists node metric sources. */
-@Command(name = "list", description = "Lists node metric sources")
-public class NodeMetricListCommand extends BaseCommand implements Callable<Integer> {
+/** Command that disables node metric source. */
+@Command(name = "disable", description = "Disables node metric source")
+public class NodeMetricSourceDisableCommand extends BaseCommand implements Callable<Integer> {
     /** Node URL option. */
     @Mixin
     private NodeUrlProfileMixin nodeUrl;
 
+    @Mixin
+    private MetricSourceMixin metricSource;
+
     @Inject
-    private NodeMetricListCall call;
+    private NodeMetricSourceEnableCall call;
 
     /** {@inheritDoc} */
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new StringCallInput(nodeUrl.getNodeUrl()))
+                .inputProvider(() -> metricSource.buildDisableCallInput(nodeUrl.getNodeUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
-                .decorator(new MetricListDecorator())
                 .verbose(verbose)
                 .build()
                 .runPipeline();
