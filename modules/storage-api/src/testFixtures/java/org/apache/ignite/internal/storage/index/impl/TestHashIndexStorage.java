@@ -34,6 +34,7 @@ import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.util.Cursor;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Test-only implementation of a {@link HashIndexStorage}.
@@ -47,11 +48,15 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     private volatile boolean rebalance;
 
+    private volatile @Nullable RowId lastBuildRowId;
+
     /**
      * Constructor.
      */
-    public TestHashIndexStorage(HashIndexDescriptor descriptor) {
+    public TestHashIndexStorage(HashIndexDescriptor descriptor, int partitionId) {
         this.descriptor = descriptor;
+
+        lastBuildRowId = RowId.lowestRowId(partitionId);
     }
 
     @Override
@@ -204,5 +209,19 @@ public class TestHashIndexStorage implements HashIndexStorage {
      */
     public Set<RowId> allRowsIds() {
         return index.values().stream().flatMap(Set::stream).collect(Collectors.toSet());
+    }
+
+    @Override
+    public @Nullable RowId getLastBuildRowId() {
+        checkStorageClosedOrInProcessOfRebalance();
+
+        return lastBuildRowId;
+    }
+
+    @Override
+    public void setLastBuildRowId(@Nullable RowId rowId) {
+        checkStorageClosedOrInProcessOfRebalance();
+
+        lastBuildRowId = rowId;
     }
 }

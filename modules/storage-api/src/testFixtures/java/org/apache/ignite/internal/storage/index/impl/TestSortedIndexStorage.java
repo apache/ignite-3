@@ -63,12 +63,16 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
     private volatile boolean rebalance;
 
+    private volatile @Nullable RowId lastBuildRowId;
+
     /**
      * Constructor.
      */
-    public TestSortedIndexStorage(SortedIndexDescriptor descriptor) {
+    public TestSortedIndexStorage(SortedIndexDescriptor descriptor, int partitionId) {
         this.descriptor = descriptor;
         this.index = new ConcurrentSkipListMap<>(new BinaryTupleComparator(descriptor));
+
+        lastBuildRowId = RowId.lowestRowId(partitionId);
     }
 
     @Override
@@ -379,5 +383,19 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
      */
     public Set<RowId> allRowsIds() {
         return index.values().stream().flatMap(m -> m.keySet().stream()).collect(Collectors.toSet());
+    }
+
+    @Override
+    public @Nullable RowId getLastBuildRowId() {
+        checkStorageClosedOrInProcessOfRebalance();
+
+        return lastBuildRowId;
+    }
+
+    @Override
+    public void setLastBuildRowId(@Nullable RowId rowId) {
+        checkStorageClosedOrInProcessOfRebalance();
+
+        lastBuildRowId = rowId;
     }
 }

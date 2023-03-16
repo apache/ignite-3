@@ -42,6 +42,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of Hash index storage using Page Memory.
@@ -94,6 +95,8 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
         lowestRowId = RowId.lowestRowId(partitionId);
 
         highestRowId = RowId.highestRowId(partitionId);
+
+        lastBuildRowId = lowestRowId;
     }
 
     @Override
@@ -328,5 +331,28 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
      */
     public void finishCleanup() {
         state.compareAndSet(StorageState.CLEANUP, StorageState.RUNNABLE);
+    }
+
+    // TODO: IGNITE-18539 персистить
+    private volatile @Nullable RowId lastBuildRowId;
+
+    @Override
+    public @Nullable RowId getLastBuildRowId() {
+        return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            return lastBuildRowId;
+        });
+    }
+
+    @Override
+    public void setLastBuildRowId(@Nullable RowId rowId) {
+        busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            lastBuildRowId = rowId;
+
+            return null;
+        });
     }
 }

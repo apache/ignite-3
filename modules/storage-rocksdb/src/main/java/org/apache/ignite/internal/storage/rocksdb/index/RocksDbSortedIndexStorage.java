@@ -100,6 +100,8 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
         this.descriptor = descriptor;
         this.indexCf = indexCf;
         this.partitionStorage = partitionStorage;
+
+        lastBuildRowId = RowId.lowestRowId(partitionStorage.partitionId());
     }
 
     @Override
@@ -493,5 +495,28 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
         if (state.compareAndSet(StorageState.CLEANUP, StorageState.RUNNABLE)) {
             busyLock.unblock();
         }
+    }
+
+    // TODO: IGNITE-18539 персистить
+    private volatile @Nullable RowId lastBuildRowId;
+
+    @Override
+    public @Nullable RowId getLastBuildRowId() {
+        return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            return lastBuildRowId;
+        });
+    }
+
+    @Override
+    public void setLastBuildRowId(@Nullable RowId rowId) {
+        busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            lastBuildRowId = rowId;
+
+            return null;
+        });
     }
 }

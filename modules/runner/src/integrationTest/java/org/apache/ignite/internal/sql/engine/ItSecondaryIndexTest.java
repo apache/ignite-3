@@ -1022,6 +1022,29 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
         }
     }
 
+    @Test
+    void testDummy() throws Exception {
+        // TODO: IGNITE-18539 тест просто проверить не пустую таблицу, скорее всего удалиться или переделаеться
+        try {
+            sql("CREATE TABLE t(i0 INTEGER PRIMARY KEY, i1 INTEGER, i2 INTEGER)");
+
+            sql("INSERT INTO t VALUES (1, null, 0), (2, 1, null), (3, 2, 2), (4, 3, null)");
+
+            sql("CREATE INDEX t_idx ON t(i1, i2)");
+            // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+            waitForIndex("t_idx");
+
+            Thread.sleep(100);
+
+            assertQuery("SELECT * FROM t WHERE i1 = ?")
+                    .withParams(null)
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .check();
+        } finally {
+            sql("DROP TABLE IF EXISTS t");
+        }
+    }
+
     private List<RowCountingIndex> injectRowCountingIndex(String tableName, String idxName) {
         List<RowCountingIndex> countingIdxs = new ArrayList<>();
 

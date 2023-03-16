@@ -21,6 +21,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.util.Cursor;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Common interface for all Index Storage implementations.
@@ -54,4 +55,26 @@ public interface IndexStorage {
      * @throws StorageException If failed to remove data.
      */
     void remove(IndexRow row) throws StorageException;
+
+    /**
+     * Returns last row ID for which the index was built, {@code null} means that the index was built.
+     *
+     * @throws StorageException If failed to get the last row ID.
+     */
+    // TODO: IGNITE-18539 покрыть тестами
+    // TODO: IGNITE-18539 подумать на счет ребаланса и остановки/уничтожении
+    @Nullable RowId getLastBuildRowId();
+
+    /**
+     * Sets last row ID for which the index was built, {@code null} means index building is finished.
+     *
+     * @apiNote This method <b>must</b> always be called inside the corresponding partition's
+     *     {@link org.apache.ignite.internal.storage.MvPartitionStorage#runConsistently} closure.
+     *
+     * @param rowId Row ID.
+     * @throws StorageException If failed to set the last row ID.
+     */
+    // TODO: IGNITE-18539 покрыть тестами
+    // TODO: IGNITE-18539 подумать на счет ребаланса и остановки/уничтожении
+    void setLastBuildRowId(@Nullable RowId rowId);
 }

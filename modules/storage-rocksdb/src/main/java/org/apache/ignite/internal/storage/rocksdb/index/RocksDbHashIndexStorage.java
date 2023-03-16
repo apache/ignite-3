@@ -45,6 +45,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.HashUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
@@ -68,9 +69,7 @@ import org.rocksdb.WriteOptions;
  * <p>We use an empty array as values, because all required information can be extracted from the key.
  */
 public class RocksDbHashIndexStorage implements HashIndexStorage {
-    /**
-     * Length of the fixed part of the key: Index ID + Partition ID + Hash.
-     */
+    /** Length of the fixed part of the key: Index ID + Partition ID + Hash. */
     public static final int FIXED_PREFIX_LENGTH = 2 * Long.BYTES + Short.BYTES + Integer.BYTES;
 
     private final HashIndexDescriptor descriptor;
@@ -79,9 +78,7 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
 
     private final RocksDbMvPartitionStorage partitionStorage;
 
-    /**
-     * Constant prefix of every index key.
-     */
+    /** Constant prefix of every index key. */
     private final byte[] constantPrefix;
 
     /** Busy lock. */
@@ -114,6 +111,8 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
                 .putLong(indexId.getLeastSignificantBits())
                 .putShort((short) partitionStorage.partitionId())
                 .array();
+
+        lastBuildRowId = RowId.lowestRowId(partitionStorage.partitionId());
     }
 
     @Override
@@ -368,5 +367,28 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
         if (state.compareAndSet(StorageState.CLEANUP, StorageState.RUNNABLE)) {
             busyLock.unblock();
         }
+    }
+
+    // TODO: IGNITE-18539 персистить
+    private volatile @Nullable RowId lastBuildRowId;
+
+    @Override
+    public @Nullable RowId getLastBuildRowId() {
+        return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            return lastBuildRowId;
+        });
+    }
+
+    @Override
+    public void setLastBuildRowId(@Nullable RowId rowId) {
+        busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            lastBuildRowId = rowId;
+
+            return null;
+        });
     }
 }

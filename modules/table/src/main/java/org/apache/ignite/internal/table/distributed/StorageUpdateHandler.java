@@ -416,4 +416,37 @@ public class StorageUpdateHandler {
     public void waitIndexes() {
         indexes.get();
     }
+
+    /**
+     * Builds an index for all versions of a row.
+     *
+     * <p>Index is expected to exist, skips the tombstones.
+     *
+     * @param indexId Index ID.
+     * @param rowUuids Row uuids.
+     * @param finish Index build completion flag.
+     */
+    public void buildIndex(UUID indexId, List<UUID> rowUuids, boolean finish) {
+        TableSchemaAwareIndexStorage index = indexes.get().get(indexId);
+
+        assert index != null : "indexId=" + indexId + ", partitionId=" + partitionId;
+
+        RowId lastRowId = null;
+
+        for (UUID rowUuid : rowUuids) {
+            lastRowId = new RowId(partitionId, rowUuid);
+
+            try (Cursor<ReadResult> cursor = storage.scanVersions(lastRowId)) {
+                while (cursor.hasNext()) {
+                    ReadResult next = cursor.next();
+
+                    if (!next.isEmpty()) {
+                        index.put(next.binaryRow(), lastRowId);
+                    }
+                }
+            }
+        }
+
+        index.storage().setLastBuildRowId(finish ? null : lastRowId);
+    }
 }

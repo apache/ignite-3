@@ -55,6 +55,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public abstract class IndexBaseTest extends BaseMvStoragesTest {
+    private static final int PARTITION_ID = 1;
+
     private static final BinaryTupleSchema TUPLE_SCHEMA = BinaryTupleSchema.createRowSchema(schemaDescriptor);
 
     private static final BinaryTupleSchema PK_INDEX_SCHEMA = BinaryTupleSchema.createKeySchema(schemaDescriptor);
@@ -84,7 +86,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         UUID sortedIndexId = UUID.randomUUID();
         UUID hashIndexId = UUID.randomUUID();
 
-        pkInnerStorage = new TestHashIndexStorage(null);
+        pkInnerStorage = new TestHashIndexStorage(null, PARTITION_ID);
 
         TableSchemaAwareIndexStorage pkStorage = new TableSchemaAwareIndexStorage(
                 pkIndexId,
@@ -95,7 +97,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         sortedInnerStorage = new TestSortedIndexStorage(new SortedIndexDescriptor(sortedIndexId, List.of(
                 new SortedIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false, true),
                 new SortedIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false, true)
-        )));
+        )), PARTITION_ID);
 
         TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(
                 sortedIndexId,
@@ -106,7 +108,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         hashInnerStorage = new TestHashIndexStorage(new HashIndexDescriptor(hashIndexId, List.of(
                 new HashIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false),
                 new HashIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false)
-        )));
+        )), PARTITION_ID);
 
         TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
                 hashIndexId,
@@ -114,9 +116,9 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                 USER_INDEX_BINARY_TUPLE_CONVERTER::toTuple
         );
 
-        storage = new TestMvPartitionStorage(1);
+        storage = new TestMvPartitionStorage(PARTITION_ID);
 
-        storageUpdateHandler = new StorageUpdateHandler(1, new TestPartitionDataStorage(storage),
+        storageUpdateHandler = new StorageUpdateHandler(PARTITION_ID, new TestPartitionDataStorage(storage),
                 () -> Map.of(
                         pkIndexId, pkStorage,
                         sortedIndexId, sortedIndexStorage,

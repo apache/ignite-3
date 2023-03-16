@@ -81,6 +81,7 @@ import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.network.ClusterService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -142,7 +143,7 @@ public class IndexManagerTest {
         SchemaManager schManager = mock(SchemaManager.class);
         when(schManager.schemaRegistry(anyLong(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
-        indexManager = new IndexManager("test", tablesConfig, schManager, tableManagerMock);
+        indexManager = new IndexManager("test", tablesConfig, schManager, tableManagerMock, mock(ClusterService.class));
         indexManager.start();
 
         tablesConfig.tables().change(tableChange -> tableChange.create("tName", chg -> {

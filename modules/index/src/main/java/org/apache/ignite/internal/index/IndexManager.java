@@ -45,6 +45,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -62,8 +64,14 @@ import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -75,6 +83,7 @@ import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.network.ClusterService;
 
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
@@ -83,8 +92,14 @@ import org.apache.ignite.lang.TableNotFoundException;
 public class IndexManager extends Producer<IndexEvent, IndexEventParameters> implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
+    /** Batch size of row IDs to build the index. */
+    private static final int BUILD_INDEX_ROW_ID_BATCH_SIZE = 5;
+
+    /** Message factory to create messages - RAFT commands. */
+    private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
+
     /** Common tables and indexes configuration. */
-    private final TablesConfiguration tablesCfg;
+    private final TablesConfiguration tablesConfig;
 
     /** Schema manager. */
     private final SchemaManager schemaManager;
@@ -98,6 +113,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    /** Cluster service. */
+    private final ClusterService clusterService;
+
     /** Index building executor. */
     private final ExecutorService buildIndexExecutor;
 
@@ -105,14 +123,22 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * Constructor.
      *
      * @param nodeName Node name.
-     * @param tablesCfg Tables and indexes configuration.
+     * @param tablesConfig Tables and indexes configuration.
      * @param schemaManager Schema manager.
      * @param tableManager Table manager.
+     * @param clusterService Cluster service.
      */
-    public IndexManager(String nodeName, TablesConfiguration tablesCfg, SchemaManager schemaManager, TableManager tableManager) {
-        this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
+    public IndexManager(
+            String nodeName,
+            TablesConfiguration tablesConfig,
+            SchemaManager schemaManager,
+            TableManager tableManager,
+            ClusterService clusterService
+    ) {
+        this.tablesConfig = Objects.requireNonNull(tablesConfig, "tablesCfg");
         this.schemaManager = Objects.requireNonNull(schemaManager, "schemaManager");
         this.tableManager = tableManager;
+        this.clusterService = clusterService;
 
         int cpus = Runtime.getRuntime().availableProcessors();
 
@@ -130,7 +156,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     public void start() {
         LOG.debug("Index manager is about to start");
 
-        tablesCfg.indexes().listenElements(new ConfigurationListener());
+        tablesConfig.indexes().listenElements(new ConfigurationListener());
         tableManager.listen(TableEvent.CREATE, (param, ex) -> {
             if (ex != null) {
                 return completedFuture(false);
@@ -201,7 +227,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             // Check index existence flag, avoid usage of hasCause + IndexAlreadyExistsException.
             AtomicBoolean idxExist = new AtomicBoolean(false);
 
-            tablesCfg.indexes().change(indexListChange -> {
+            tablesConfig.indexes().change(indexListChange -> {
                 idxExist.set(false);
 
                 if (indexListChange.get(indexName) != null) {
@@ -210,7 +236,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     throw new IndexAlreadyExistsException(schemaName, indexName);
                 }
 
-                TableConfiguration tableCfg = tablesCfg.tables().get(tableName);
+                TableConfiguration tableCfg = tablesConfig.tables().get(tableName);
 
                 if (tableCfg == null) {
                     throw new TableNotFoundException(schemaName, tableName);
@@ -234,7 +260,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                         future.completeExceptionally(th);
                     }
                 } else {
-                    TableIndexConfiguration idxCfg = tablesCfg.indexes().get(indexName);
+                    TableIndexConfiguration idxCfg = tablesConfig.indexes().get(indexName);
 
                     if (idxCfg != null && idxCfg.value() != null) {
                         LOG.info("Index created [schema={}, table={}, index={}, indexId={}]",
@@ -288,7 +314,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             // Check index existence flag, avoid usage of hasCause + IndexAlreadyExistsException.
             AtomicBoolean idxOrTblNotExist = new AtomicBoolean(false);
 
-            tablesCfg.indexes().change(indexListChange -> {
+            tablesConfig.indexes().change(indexListChange -> {
                 idxOrTblNotExist.set(false);
 
                 TableIndexView idxView = indexListChange.get(indexName);
@@ -407,8 +433,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                             index.descriptor().columns().toArray(STRING_EMPTY_ARRAY)
                     );
 
-                    // TODO: IGNITE-18539 а что если тут мы добавим какой-то билд статус для индекса и будем как-то с ним работать дальше?
-                    // TODO: IGNITE-18539 слушать что мы создали хранилище для партиции и тогда начинать стоить индекс для нее или нет?
+                    initIndexBuildIfNeeded(tableIndexView.id(), table);
 
                     if (index instanceof HashIndex) {
                         table.registerHashIndex(tableIndexView.id(), tableIndexView.uniq(), tableRowConverter::convert);
@@ -581,6 +606,132 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         @Override
         public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<TableIndexView> ctx) {
             return failedFuture(new IllegalStateException("Should not be called"));
+        }
+    }
+
+    private void initIndexBuildIfNeeded(UUID indexId, TableImpl table) {
+        InternalTable internalTable = table.internalTable();
+
+        for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
+            IndexStorage index = internalTable.storage().getOrCreateIndex(partitionId, indexId);
+            MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(partitionId);
+
+            assert mvPartition != null : "tableId=" + table.tableId() + ", partId=" + partitionId;
+
+            RowId lastBuildRowId = index.getLastBuildRowId();
+
+            if (lastBuildRowId == null) {
+                // Partition index is already built.
+                continue;
+            }
+
+            if (mvPartition.closestRowId(lastBuildRowId) == null) {
+                // There is nothing to build, the partition is empty.
+                mvPartition.runConsistently(() -> {
+                    index.setLastBuildRowId(null);
+
+                    return null;
+                });
+
+                continue;
+            }
+
+            // TODO: IGNITE-18539 нужно что-то еще сделать помимо создания таски
+            // TODO: IGNITE-18539 еще есть проблемы с ребалансом/отменой/удалением партиции/таблицы
+            buildIndexExecutor.submit(new BuildIndexTask(table, indexId, partitionId, true));
+        }
+    }
+
+
+    /**
+     * Task of building a table index for a partition.
+     */
+    private class BuildIndexTask implements Runnable {
+        private final TableImpl table;
+
+        private final UUID indexId;
+
+        private final int partitionId;
+
+        private boolean firstBatch;
+
+        private BuildIndexTask(TableImpl table, UUID indexId, int partitionId, boolean firstBatch) {
+            this.table = table;
+            this.indexId = indexId;
+            this.partitionId = partitionId;
+            this.firstBatch = firstBatch;
+        }
+
+        @Override
+        public void run() {
+            RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(partitionId);
+
+            if (!isLocalNodeLeader(raftGroupService)) {
+                // TODO: IGNITE-18539 не забыть про тикет об смене лидера
+                return;
+            }
+
+            if (firstBatch) {
+                LOG.info("Start building the index: [tableId={}, partitionId={}, indexId={}]", table.tableId(), partitionId, indexId);
+            }
+
+            List<RowId> batchRowIds = createBatchRowIds(BUILD_INDEX_ROW_ID_BATCH_SIZE);
+
+            boolean finish = batchRowIds.size() < BUILD_INDEX_ROW_ID_BATCH_SIZE;
+
+            raftGroupService.run(createBuildIndexCommand(batchRowIds, finish))
+                    .thenAccept(unused -> {
+                        if (!finish) {
+                            buildIndexExecutor.submit(new BuildIndexTask(table, indexId, partitionId, false));
+                        }
+                    });
+        }
+
+        private boolean isLocalNodeLeader(RaftGroupService raftGroupService) {
+            Peer leader = raftGroupService.leader();
+
+            assert leader != null : "tableId=" + table.tableId() + ", partitionId=" + partitionId;
+
+            return clusterService.topologyService().localMember().name().equals(leader.consistentId());
+        }
+
+        private List<RowId> createBatchRowIds(int batchSize) {
+            InternalTable internalTable = table.internalTable();
+
+            MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(partitionId);
+
+            assert mvPartition != null : "tableId=" + table.tableId() + ", partitionId=" + partitionId;
+
+            RowId lastBuildRowId = internalTable.storage().getOrCreateIndex(partitionId, indexId).getLastBuildRowId();
+
+            assert lastBuildRowId != null : "tableId=" + table.tableId() + ", partitionId=" + partitionId + ", indexId=" + indexId;
+
+            List<RowId> batch = new ArrayList<>(batchSize);
+
+            for (int i = 0; i < batchSize; i++) {
+                lastBuildRowId = mvPartition.closestRowId(lastBuildRowId.increment());
+
+                if (lastBuildRowId == null) {
+                    break;
+                }
+
+                batch.add(lastBuildRowId);
+            }
+
+            return batch;
+        }
+
+        private BuildIndexCommand createBuildIndexCommand(List<RowId> rowIds, boolean finish) {
+            return TABLE_MESSAGES_FACTORY.buildIndexCommand()
+                    .tablePartitionId(TABLE_MESSAGES_FACTORY.tablePartitionIdMessage()
+                            .tableId(table.tableId())
+                            .partitionId(partitionId)
+                            .build()
+                    )
+                    .indexId(indexId)
+                    .rowIds(rowIds.stream().map(RowId::uuid).collect(toList()))
+                    .finish(finish)
+                    .build();
         }
     }
 }

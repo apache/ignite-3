@@ -99,6 +99,8 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         lowestRowId = RowId.lowestRowId(partitionId);
 
         highestRowId = RowId.highestRowId(partitionId);
+
+        lastBuildRowId = lowestRowId;
     }
 
     @Override
@@ -496,5 +498,28 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
      */
     public void finishCleanup() {
         state.compareAndSet(StorageState.CLEANUP, StorageState.RUNNABLE);
+    }
+
+    // TODO: IGNITE-18539 персистить
+    private volatile @Nullable RowId lastBuildRowId;
+
+    @Override
+    public @Nullable RowId getLastBuildRowId() {
+        return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            return lastBuildRowId;
+        });
+    }
+
+    @Override
+    public void setLastBuildRowId(@Nullable RowId rowId) {
+        busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            lastBuildRowId = rowId;
+
+            return null;
+        });
     }
 }
