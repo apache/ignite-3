@@ -157,10 +157,6 @@ public class ItImplicitCastsTest extends ClusterPerClassIntegrationTest {
             return generateValue(lhs, idx, true);
         }
 
-        String rhsLiteral(int idx) {
-            return generateValue(rhs, idx, true);
-        }
-
         static String generateValue(RelDataType type, int i, boolean literal) {
             if (SqlTypeUtil.isNumeric(type)) {
                 return Integer.toString(i);
