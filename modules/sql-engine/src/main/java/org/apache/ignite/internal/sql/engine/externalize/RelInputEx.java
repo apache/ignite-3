@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.externalize;
 
 import java.util.List;
-import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelInput;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
@@ -36,13 +35,6 @@ public interface RelInputEx extends RelInput {
      * @return A collation value.
      */
     RelCollation getCollation(String tag);
-
-    /**
-     * Returns table by its id.
-     *
-     * @return A table with given id.
-     */
-    RelOptTable getTableById();
 
     /**
      * Returns search bounds.
