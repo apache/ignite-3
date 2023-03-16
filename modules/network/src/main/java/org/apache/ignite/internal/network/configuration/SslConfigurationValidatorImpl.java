@@ -99,9 +99,14 @@ public class SslConfigurationValidatorImpl implements Validator<SslConfiguration
             Set<String> ciphers = Arrays.stream(ssl.ciphers().split(","))
                     .map(String::strip)
                     .collect(Collectors.toSet());
-            if (!supported.containsAll(ciphers)) {
-                ciphers.removeAll(supported);
-                ctx.addIssue(new ValidationIssue(ctx.currentKey(), "There are unsupported cipher suites: " + ciphers));
+
+            // If removeAll returns true, it means that there were at least some supported ciphers.
+            boolean haveSupported = ciphers.removeAll(supported);
+            if (!ciphers.isEmpty()) {
+                if (!haveSupported) {
+                    ctx.addIssue(new ValidationIssue(ctx.currentKey(), "None of the configured cipher suites are supported: " + ciphers));
+                }
+                LOG.info("Some of the configured cipher suites are unsupported: {}", ciphers);
             }
         } catch (SSLException e) {
             ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Can't create SSL engine"));

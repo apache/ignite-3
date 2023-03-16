@@ -39,6 +39,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -83,6 +84,8 @@ public class PlacementDriverManager implements IgniteComponent {
     /** Lease updater. */
     private final LeaseUpdater leaseUpdater;
 
+    private final RaftGroupEventsClientListener raftGroupEventsClientListener;
+
     /** The flag is true when the instance of placement driver renews leases, false when the instance only tracks leases. */
     private volatile boolean isActiveActor;
 
@@ -110,7 +113,8 @@ public class PlacementDriverManager implements IgniteComponent {
             LogicalTopologyService logicalTopologyService,
             ScheduledExecutorService raftClientExecutor,
             TablesConfiguration tablesCfg,
-            HybridClock clock
+            HybridClock clock,
+            RaftGroupEventsClientListener raftGroupEventsClientListener
     ) {
         this.replicationGroupId = replicationGroupId;
         this.clusterService = clusterService;
@@ -118,6 +122,7 @@ public class PlacementDriverManager implements IgniteComponent {
         this.placementDriverNodesNamesProvider = placementDriverNodesNamesProvider;
         this.logicalTopologyService = logicalTopologyService;
         this.raftClientExecutor = raftClientExecutor;
+        this.raftGroupEventsClientListener = raftGroupEventsClientListener;
 
         this.raftClientFuture = new CompletableFuture<>();
         this.leaseTracker = new LeaseTracker(vaultManager, metaStorageMgr);
@@ -150,6 +155,7 @@ public class PlacementDriverManager implements IgniteComponent {
                                 true,
                                 raftClientExecutor,
                                 logicalTopologyService,
+                                raftGroupEventsClientListener,
                                 true
                             ).thenCompose(client -> {
                                 TopologyAwareRaftGroupService topologyAwareClient = (TopologyAwareRaftGroupService) client;

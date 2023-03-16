@@ -75,6 +75,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -131,7 +132,21 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         when(cmgManager.metaStorageNodes())
                 .thenReturn(completedFuture(Set.of(clusterService.localConfiguration().getName())));
 
-        raftManager = new Loza(clusterService, raftConfiguration, workDir.resolve("loza"), new HybridClockImpl());
+        raftExecutorService = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
+                new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterService.localConfiguration().getName(),
+                        CLIENT_POOL_NAME), log
+                ));
+
+        RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
+
+        raftManager = new Loza(
+                clusterService,
+                raftConfiguration,
+                workDir.resolve("loza"),
+                new HybridClockImpl(),
+                raftExecutorService,
+                eventsClientListener
+        );
 
         var storage = new SimpleInMemoryKeyValueStorage(nodeName);
 
@@ -143,11 +158,6 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
                 raftManager,
                 storage
         );
-
-        raftExecutorService = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterService.localConfiguration().getName(),
-                        CLIENT_POOL_NAME), log
-                ));
 
         placementDriverManager = new PlacementDriverManager(
                 metaStorageManager,
@@ -163,7 +173,9 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
                 new LogicalTopologyServiceTestImpl(clusterService),
                 raftExecutorService,
                 tblsCfg,
-                clock);
+                clock,
+                eventsClientListener
+        );
 
         vaultManager.start();
         clusterService.start();
