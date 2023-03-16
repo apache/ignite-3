@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.runtime.CalciteContextException;
@@ -129,7 +128,7 @@ public class ItImplicitCastsTest extends ClusterPerClassIntegrationTest {
         return result.stream();
     }
 
-    private static void prepareTables(ColumnPair columnPair) {
+    private static void initData(ColumnPair columnPair) {
         Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
         sql(tx, format("INSERT INTO T11 VALUES(1, CAST({} AS {}))", columnPair.lhsLiteral(1), columnPair.lhs));
         sql(tx, format("INSERT INTO T11 VALUES(2, CAST({} AS {}))", columnPair.lhsLiteral(3), columnPair.lhs));
@@ -165,9 +164,9 @@ public class ItImplicitCastsTest extends ClusterPerClassIntegrationTest {
         static String generateValue(RelDataType type, int i, boolean literal) {
             if (SqlTypeUtil.isNumeric(type)) {
                 return Integer.toString(i);
-            } else if (type.getSqlTypeName() == SqlTypeName.CHAR || type.getSqlTypeName() == SqlTypeName.VARCHAR) {
-                return generateUuid(i, literal);
-            } else if (type instanceof UuidType) {
+            } else if (type instanceof UuidType
+                    || type.getSqlTypeName() == SqlTypeName.CHAR
+                    || type.getSqlTypeName() == SqlTypeName.VARCHAR) {
                 return generateUuid(i, literal);
             } else {
                 throw new IllegalArgumentException("Unsupported type: " + type);
