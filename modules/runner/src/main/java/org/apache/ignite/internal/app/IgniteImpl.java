@@ -343,6 +343,7 @@ public class IgniteImpl implements Ignite {
                 )
         );
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19051
         RaftGroupEventsClientListener raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
         raftMgr = new Loza(

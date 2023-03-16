@@ -71,8 +71,6 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     /** Leader election handler. */
     private final ServerEventHandler serverEventHandler;
 
-    private final BiConsumer<ClusterNode, Long> leaderElectionListener;
-
     private final RaftGroupEventsClientListener eventsClientListener;
 
     /** Executor to invoke RPC requests. */
@@ -115,11 +113,10 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         this.raftClient = raftClient;
         this.logicalTopologyService = logicalTopologyService;
         this.serverEventHandler = new ServerEventHandler();
-        this.leaderElectionListener = serverEventHandler::onLeaderElected;
         this.eventsClientListener = eventsClientListener;
         this.notifyOnSubscription = notifyOnSubscription;
 
-        this.eventsClientListener.addLeaderElectionListener(groupId(), leaderElectionListener);
+        this.eventsClientListener.addLeaderElectionListener(groupId(), serverEventHandler);
 
         logicalTopologyService.addEventListener(new LogicalTopologyEventListener() {
             @Override
@@ -420,7 +417,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
     @Override
     public void shutdown() {
-        eventsClientListener.removeLeaderElectionListener(groupId(), leaderElectionListener);
+        eventsClientListener.removeLeaderElectionListener(groupId(), serverEventHandler);
 
         raftClient.shutdown();
     }
@@ -433,7 +430,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     /**
      * Leader election handler.
      */
-    private static class ServerEventHandler {
+    private static class ServerEventHandler implements BiConsumer<ClusterNode, Long> {
         /** A term of last elected leader. */
         private long term = 0;
 
@@ -470,6 +467,11 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
          */
         public synchronized boolean isSubscribed() {
             return onLeaderElectedCallback != null;
+        }
+
+        @Override
+        public void accept(ClusterNode clusterNode, Long term) {
+            onLeaderElected(clusterNode, term);
         }
     }
 }
