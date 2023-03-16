@@ -19,6 +19,7 @@
 
 #include "ignite/client/network/cluster_node.h"
 #include "ignite/client/primitive.h"
+#include "ignite/client/table/ignite_tuple.h"
 #include "ignite/client/transaction/transaction.h"
 #include "ignite/common/config.h"
 #include "ignite/common/ignite_result.h"
@@ -98,6 +99,19 @@ public:
                 broadcast_async(nodes, job_class_name, args, std::move(callback));
             });
     }
+
+    /**
+     * Executes a compute job represented by the given class on one of the specified nodes asynchronously.
+     *
+     * @param tableName Name of the table to be used with @c key to determine target node.
+     * @param key Table key to be used to determine the target node for job execution.
+     * @param job_class_name Java class name of the job to execute.
+     * @param args Job arguments.
+     * @param callback A callback called on operation completion with job execution result.
+     */
+    IGNITE_API void execute_colocated_async(const std::string &table_name, const ignite_tuple& key,
+        std::string_view job_class_name, const std::vector<primitive>& args,
+        ignite_callback<std::optional<primitive>> callback);
 
 private:
     /**

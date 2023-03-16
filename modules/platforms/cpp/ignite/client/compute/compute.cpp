@@ -16,6 +16,7 @@
  */
 
 #include "ignite/client/compute/compute.h"
+#include "ignite/client/detail/argument_check_utils.h"
 #include "ignite/client/detail/compute/compute_impl.h"
 
 #include <random>
@@ -38,15 +39,12 @@ typename T::value_type get_random_element(const T &cont) {
     return cont[distrib(gen)];
 }
 
-/**
- * Check value argument.
- *
- * @param value Value tuple.
- */
-template<typename T>
-void inline check_non_empty(const T &cont, const std::string& title) {
-    if (cont.empty())
-        throw ignite_error(title + " can not be empty");
+void compute::execute_async(const std::vector<cluster_node>& nodes, std::string_view job_class_name,
+    const std::vector<primitive>& args, ignite_callback<std::optional<primitive>> callback) {
+    detail::arg_check::container_non_empty(nodes, "Nodes container");
+    detail::arg_check::container_non_empty(job_class_name, "Job class name");
+
+    m_impl->execute_on_one_node(get_random_element(nodes), job_class_name, args, std::move(callback));
 }
 
 void compute::broadcast_async(const std::set<cluster_node>& nodes, std::string_view job_class_name,
@@ -54,8 +52,8 @@ void compute::broadcast_async(const std::set<cluster_node>& nodes, std::string_v
     ignite_callback<std::map<cluster_node, ignite_result<std::optional<primitive>>>> callback) {
     typedef std::map<cluster_node, ignite_result<std::optional<primitive>>> result_type;
 
-    check_non_empty(nodes, "Nodes set");
-    check_non_empty(job_class_name, "Job class name");
+    detail::arg_check::container_non_empty(nodes, "Nodes set");
+    detail::arg_check::container_non_empty(job_class_name, "Job class name");
 
     struct result_group {
         explicit result_group(std::int32_t cnt, ignite_callback<result_type> &&cb) : m_cnt(cnt), m_callback(cb) {}
@@ -81,12 +79,13 @@ void compute::broadcast_async(const std::set<cluster_node>& nodes, std::string_v
     }
 }
 
-void compute::execute_async(const std::vector<cluster_node>& nodes, std::string_view job_class_name,
-    const std::vector<primitive>& args, ignite_callback<std::optional<primitive>> callback) {
-    check_non_empty(nodes, "Nodes container");
-    check_non_empty(job_class_name, "Job class name");
+void compute::execute_colocated_async(const std::string &table_name, const ignite_tuple &key,
+    std::string_view job_class_name, const std::vector<primitive> &args,
+    ignite_callback<std::optional<primitive>> callback) {
+    detail::arg_check::container_non_empty(table_name, "Table name");
+    detail::arg_check::container_non_empty(job_class_name, "Job class name");
 
-    m_impl->execute_on_one_node(get_random_element(nodes), job_class_name, args, std::move(callback));
+    // TODO: Implement me.
 }
 
 } // namespace ignite

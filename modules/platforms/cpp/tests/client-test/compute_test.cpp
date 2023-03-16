@@ -25,7 +25,6 @@
 
 #include <chrono>
 #include <limits>
-#include <sstream>
 
 using namespace ignite;
 
@@ -240,8 +239,4 @@ TEST_F(compute_test, all_arg_types) {
     check_argument<uuid>({0, 0}, "00000000-0000-0000-0000-000000000000");
     check_argument<uuid>({0x123e4567e89b12d3, 0x7456426614174000}, "123e4567-e89b-12d3-7456-426614174000");
 }
-
-
-
-
 
