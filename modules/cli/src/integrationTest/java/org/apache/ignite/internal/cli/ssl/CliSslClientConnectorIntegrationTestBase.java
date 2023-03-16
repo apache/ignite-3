@@ -31,6 +31,9 @@ public class CliSslClientConnectorIntegrationTestBase extends CliCommandTestInit
     static final String trustStorePath = "ssl/truststore.jks";
     static final String trustStorePassword = "changeit";
 
+    static final String resolvedKeystorePath = getResourcePath(CliSslClientConnectorIntegrationTestBase.class, keyStorePath);
+    static final String resolvedTruststorePath = getResourcePath(CliSslClientConnectorIntegrationTestBase.class, trustStorePath);
+
     @Override
     protected String nodeBootstrapConfigTemplate() {
         return "{\n"
@@ -45,14 +48,12 @@ public class CliSslClientConnectorIntegrationTestBase extends CliCommandTestInit
                 + "      enabled: " + true + ",\n"
                 + "      clientAuth: \"require\",\n"
                 + "      keyStore: {\n"
-                + "        path: \"" + escapeWindowsPath(getResourcePath(CliSslClientConnectorIntegrationTestBase.class, keyStorePath))
-                + "\",\n"
+                + "        path: \"" + escapeWindowsPath(resolvedKeystorePath) + "\",\n"
                 + "        password: " + keyStorePassword + "\n"
                 + "      }, \n"
                 + "      trustStore: {\n"
                 + "        type: JKS,\n"
-                + "        path: \"" + escapeWindowsPath(getResourcePath(CliSslClientConnectorIntegrationTestBase.class, trustStorePath))
-                + "\",\n"
+                + "        path: \"" + escapeWindowsPath(resolvedTruststorePath) + "\",\n"
                 + "        password: " + trustStorePassword + "\n"
                 + "      }\n"
                 + "    }\n"

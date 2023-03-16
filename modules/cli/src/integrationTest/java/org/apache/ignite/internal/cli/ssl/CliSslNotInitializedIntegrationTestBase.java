@@ -26,11 +26,13 @@ import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedInteg
  * Integration test base for SSL tests.
  */
 public class CliSslNotInitializedIntegrationTestBase extends CliCommandTestNotInitializedIntegrationBase {
-
     protected static final String keyStorePath = "ssl/keystore.p12";
     protected static final String keyStorePassword = "changeit";
     protected static final String trustStorePath = "ssl/truststore.jks";
     protected static final String trustStorePassword = "changeit";
+
+    static final String resolvedKeystorePath = getResourcePath(CliSslClientConnectorIntegrationTestBase.class, keyStorePath);
+    static final String resolvedTruststorePath = getResourcePath(CliSslClientConnectorIntegrationTestBase.class, trustStorePath);
 
     /**
      * Template for node bootstrap config with Scalecube and Logical Topology settings for fast failure detection.
@@ -48,14 +50,12 @@ public class CliSslNotInitializedIntegrationTestBase extends CliCommandTestNotIn
             + "      enabled: " + true + ",\n"
             + "      clientAuth: \"require\",\n"
             + "      keyStore: {\n"
-            + "        path: \"" +  escapeWindowsPath(getResourcePath(CliSslClientConnectorIntegrationTestBase.class, keyStorePath))
-            + "\",\n"
+            + "        path: \"" +  escapeWindowsPath(resolvedKeystorePath) + "\",\n"
             + "        password: " + keyStorePassword + "\n"
             + "      }, \n"
             + "      trustStore: {\n"
             + "        type: JKS,\n"
-            + "        path: \"" + escapeWindowsPath(getResourcePath(CliSslClientConnectorIntegrationTestBase.class, trustStorePath))
-            + "\",\n"
+            + "        path: \"" + escapeWindowsPath(resolvedTruststorePath) + "\",\n"
             + "        password: " + trustStorePassword + "\n"
             + "      }\n"
             + "    }\n"
