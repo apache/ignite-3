@@ -559,6 +559,11 @@ namespace Apache.Ignite.Internal
         {
             if (!ShouldRetry(exception, op, attempt))
             {
+                if (_logger?.IsEnabled(LogLevel.Debug) == true)
+                {
+                    _logger.Debug($"Not retrying operation [opCode={(int)op}, opType={op}, attempt={attempt}, lastError={exception}]");
+                }
+
                 if (errors == null)
                 {
                     return false;
@@ -571,6 +576,11 @@ namespace Apache.Ignite.Internal
                     ErrorGroups.Client.Connection,
                     $"Operation {op} failed after {attempt} retries, examine InnerException for details.",
                     inner);
+            }
+
+            if (_logger?.IsEnabled(LogLevel.Debug) == true)
+            {
+                _logger.Debug($"Retrying operation [opCode={(int)op}, opType={op}, attempt={attempt}, lastError={exception}]");
             }
 
             if (errors == null)
