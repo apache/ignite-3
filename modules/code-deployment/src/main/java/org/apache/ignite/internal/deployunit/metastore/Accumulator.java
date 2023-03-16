@@ -20,7 +20,7 @@ package org.apache.ignite.internal.deployunit.metastore;
 import org.apache.ignite.internal.metastorage.Entry;
 
 /**
- * Values accumulator.
+ * Values accumulator. Implementation should NOT be thead-safe.
  *
  * @param <R> Result value type.
  */

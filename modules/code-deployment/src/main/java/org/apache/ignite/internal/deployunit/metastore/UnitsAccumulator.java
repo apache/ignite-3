@@ -33,6 +33,7 @@ import org.apache.ignite.internal.metastorage.Entry;
  */
 public class UnitsAccumulator implements Accumulator<List<UnitStatus>> {
     private final Map<String, UnitStatusBuilder> map = new HashMap<>();
+
     private final Predicate<UnitMeta> filter;
 
     public UnitsAccumulator() {

@@ -208,8 +208,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
         checkId(id);
         Objects.requireNonNull(version);
 
-        String version1 = version.render();
-        ByteArray key = key(id, version1);
+        ByteArray key = key(id, version.render());
 
         return metaStorage.invoke(exists(key), Operations.remove(key), Operations.noop())
                 .thenCompose(success -> {

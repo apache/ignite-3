@@ -29,6 +29,7 @@ import org.apache.ignite.internal.metastorage.Entry;
  */
 public class UnitStatusAccumulator implements Accumulator<UnitStatus> {
     private final String id;
+
     private UnitStatusBuilder builder;
 
     /**

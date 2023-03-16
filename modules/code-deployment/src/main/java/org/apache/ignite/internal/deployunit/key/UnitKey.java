@@ -55,6 +55,7 @@ public final class UnitKey {
 
     /**
      * Key for unit with required id and version. Only one unit should exist with this key.
+     *  Version can be not {@code null} only in case when {@param id} is not {@code null}.
      *
      * @param id Required unit id.
      * @param version Required unit version.
@@ -65,10 +66,10 @@ public final class UnitKey {
         Encoder encoder = Base64.getEncoder();
         if (id != null) {
             sb.append(encoder.encodeToString(id.getBytes(StandardCharsets.UTF_8)));
-            sb.append(":");
-        }
-        if (version != null) {
-            sb.append(encoder.encodeToString(version.getBytes(StandardCharsets.UTF_8)));
+            if (version != null) {
+                sb.append(":");
+                sb.append(encoder.encodeToString(version.getBytes(StandardCharsets.UTF_8)));
+            }
         }
         return new ByteArray(sb.toString());
     }
