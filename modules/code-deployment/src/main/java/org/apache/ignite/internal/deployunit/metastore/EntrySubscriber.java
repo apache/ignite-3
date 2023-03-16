@@ -29,6 +29,7 @@ import org.apache.ignite.internal.metastorage.Entry;
  */
 public class EntrySubscriber<R> implements Subscriber<Entry> {
     private final CompletableFuture<R> result;
+
     private final Accumulator<R> collector;
 
     /**
