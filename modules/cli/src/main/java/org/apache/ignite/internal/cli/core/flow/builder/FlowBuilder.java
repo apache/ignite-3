@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.core.flow.builder;
 
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
@@ -101,6 +102,42 @@ public interface FlowBuilder<I, O>  {
      * @return instance of builder
      */
     FlowBuilder<I, O> exceptionHandler(ExceptionHandler<?> exceptionHandler);
+
+    /**
+     * Adds success handler to the flow chain which will be called at the end of the flow if the flow has succeeded.
+     *
+     * @param handler handler
+     * @return instance of builder
+     */
+    FlowBuilder<I, O> onSuccess(Consumer<O> handler);
+
+    /**
+     * Adds success handler to the flow chain which will be called at the end of the flow if the flow has succeeded.
+     *
+     * @param handler handler
+     * @return instance of builder
+     */
+    default FlowBuilder<I, O> onSuccess(Runnable handler) {
+        return onSuccess(result -> handler.run());
+    }
+
+    /**
+     * Adds failure handler to the flow chain which will be called at the end of the flow if flow resulted in error.
+     *
+     * @param handler handler
+     * @return instance of builder
+     */
+    FlowBuilder<I, O> onFailure(Consumer<Throwable> handler);
+
+    /**
+     * Adds failure handler to the flow chain which will be called at the end of the flow if flow resulted in error.
+     *
+     * @param handler handler
+     * @return instance of builder
+     */
+    default FlowBuilder<I, O> onFailure(Runnable handler) {
+        return onFailure(throwable -> handler.run());
+    }
 
     /**
      * Adds verbose output from debug log to the output.
