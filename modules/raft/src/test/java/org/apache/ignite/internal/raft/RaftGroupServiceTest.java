@@ -41,7 +41,6 @@ import static org.mockito.Mockito.when;
 
 import java.net.ConnectException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
@@ -54,7 +53,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -683,38 +682,5 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     }
 
     private static class TestResponse {
-    }
-
-    /**
-     * Test replication group id.
-     */
-    private static class TestReplicationGroupId implements ReplicationGroupId {
-        private final String name;
-
-        TestReplicationGroupId(String name) {
-            this.name = name;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            TestReplicationGroupId that = (TestReplicationGroupId) o;
-            return Objects.equals(name, that.name);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(name);
-        }
-
-        @Override
-        public String toString() {
-            return name;
-        }
     }
 }
