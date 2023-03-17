@@ -658,7 +658,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
 
                     futures[i] = updatePendingAssignmentsKeys(tblCfg.name().value(), replicaGrpId,
-                            distributionZoneManager.getDataNodes(tblCfg.zoneId().value()), newReplicas,
+                            baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()), newReplicas,
                             replicasCtx.storageRevision(), metaStorageMgr, i, tableAssignments.get(i));
                 }
 
