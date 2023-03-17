@@ -37,7 +37,10 @@ list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 
 get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
-set(conan_packages msgpack-c/4.0.0 gtest/1.12.1)
+set(conan_packages
+    msgpack-c/4.0.0
+    gtest/1.12.1
+)
 
 # Install required libraries.
 if (${ENABLE_CONAN})
