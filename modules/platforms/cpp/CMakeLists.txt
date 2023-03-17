@@ -29,20 +29,56 @@ list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 
 include(conan)
 
-conan_cmake_configure(REQUIRES msgpack-c/4.0.0 gtest/1.12.1
-                      GENERATORS cmake_find_package)
+get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
-conan_cmake_autodetect(conan_settings)
+# Install required libraries.
+if (is_multi_config)
+    # These settings are for multi-config generators like Visual Studio.
+    message(STATUS "Using a multi-config generator")
 
-conan_cmake_install(PATH_OR_REFERENCE .
-                    BUILD missing
-                    REMOTE conancenter
-                    SETTINGS ${conan_settings})
+    conan_cmake_configure(REQUIRES msgpack-c/4.0.0 gtest/1.12.1
+                          GENERATORS cmake_find_package_multi)
 
+    foreach(TYPE ${CMAKE_CONFIGURATION_TYPES})
+        conan_cmake_autodetect(settings BUILD_TYPE ${TYPE})
+
+        conan_cmake_install(PATH_OR_REFERENCE .
+                            BUILD missing
+                            REMOTE conancenter
+                            SETTINGS ${settings})
+    endforeach()
+else()
+    # These settings are for single-config generators like makefiles, ninja.
+    message(STATUS "Using a single-config generator")
+
+    conan_cmake_configure(REQUIRES msgpack-c/4.0.0 gtest/1.12.1
+                          GENERATORS cmake_find_package)
+
+    conan_cmake_autodetect(conan_settings)
+
+    conan_cmake_install(PATH_OR_REFERENCE .
+                        BUILD missing
+                        REMOTE conancenter
+                        SETTINGS ${conan_settings})
+endif()
+
+# Configure paths.
 if (WIN32)
     add_definitions(-DNOMINMAX)
-    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
+    if (is_multi_config)
+        foreach(TYPE ${CMAKE_CONFIGURATION_TYPES})
+            string(TOUPPER ${TYPE} UTYPE)
+
+            set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${UTYPE} ${CMAKE_BINARY_DIR}/${TYPE}/lib)
+            set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${UTYPE} ${CMAKE_BINARY_DIR}/${TYPE}/lib)
+            set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${UTYPE} ${CMAKE_BINARY_DIR}/${TYPE}/bin)
+        endforeach()
+    else()
+        set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+        set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+    endif()
 else()
     include(GNUInstallDirs)
 endif()
