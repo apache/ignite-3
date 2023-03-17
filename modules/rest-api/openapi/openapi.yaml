@@ -800,21 +800,29 @@ components:
       type: object
       properties:
         name:
+          required:
+          - "true"
           type: string
-          description: Returns the metric name.
+          description: Metric set name.
         metrics:
+          required:
+          - "true"
           type: array
-          description: Returns metrics.
+          description: List of metrics.
           items:
             $ref: '#/components/schemas/Metric'
       description: REST representation of MetricSet.
     MetricSource:
+      required:
+      - enabled
       type: object
       properties:
         name:
           type: string
           description: Metric source name.
         enabled:
+          required:
+          - "true"
           type: boolean
           description: "If True, the metric is tracked. Otherwise, the metric is not\
             \ tracked."

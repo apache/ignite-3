@@ -29,9 +29,11 @@ import java.util.Collection;
 @Schema(name = "MetricSet")
 public class MetricSetDto {
     /** Metric set name. */
+    @Schema(description = "Metric set name.", required = true)
     private final String name;
 
     /** Metrics. */
+    @Schema(description = "List of metrics.", required = true)
     private final Collection<MetricDto> metrics;
 
     /**

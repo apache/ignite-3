@@ -17,23 +17,25 @@
 
 package org.apache.ignite.internal.cli.call.node.metric;
 
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.core.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
+import org.apache.ignite.internal.cli.core.repl.registry.MetricRegistry;
 import org.apache.ignite.rest.client.api.NodeMetricApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 
 /** Enables or disables metric source. */
 @Singleton
 public class NodeMetricSourceEnableCall implements Call<NodeMetricSourceEnableCallInput, String> {
-    private final ApiClientFactory clientFactory;
+    @Inject
+    private ApiClientFactory clientFactory;
 
-    public NodeMetricSourceEnableCall(ApiClientFactory clientFactory) {
-        this.clientFactory = clientFactory;
-    }
+    @Inject
+    private MetricRegistry registry;
 
     /** {@inheritDoc} */
     @Override
@@ -46,6 +48,7 @@ public class NodeMetricSourceEnableCall implements Call<NodeMetricSourceEnableCa
             } else {
                 api.disableNodeMetric(input.getSrcName());
             }
+            registry.refresh();
             String message = input.getEnable() ? "enabled" : "disabled";
             return DefaultCallOutput.success("Metric source was " + message + " successfully");
         } catch (ApiException | IllegalArgumentException e) {
