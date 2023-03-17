@@ -43,7 +43,7 @@ cmake .. -DENABLE_CONAN=0 -DCMAKE_BUILD_TYPE=Release
 ...
 ```
 
-All the build examples below use Conan though.
+However Conan is enabled by default and so all the build examples below use it.
 
 ### Linux Build
 
