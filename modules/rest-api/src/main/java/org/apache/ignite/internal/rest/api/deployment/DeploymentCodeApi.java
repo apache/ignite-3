@@ -128,7 +128,7 @@ public interface DeploymentCodeApi {
      */
     @Operation(operationId = "units", description = "All units statutes.")
     @ApiResponse(responseCode = "200",
-            description = "All statutes returned successful.",
+            description = "All statutes returned successfully.",
             content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = UnitStatusDto.class)))
     )
     @ApiResponse(responseCode = "500",
@@ -148,7 +148,7 @@ public interface DeploymentCodeApi {
      */
     @Operation(operationId = "versions", description = "All versions of unit with provided unit identifier.")
     @ApiResponse(responseCode = "200",
-            description = "Versions returned successful.",
+            description = "Versions returned successfully.",
             content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = String.class)))
     )
     @ApiResponse(responseCode = "404",
@@ -171,7 +171,7 @@ public interface DeploymentCodeApi {
      */
     @Operation(operationId = "status", description = "Status of unit with provided identifier.")
     @ApiResponse(responseCode = "200",
-            description = "Status returned successful.",
+            description = "Status returned successfully.",
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = UnitStatusDto.class))
     )
     @ApiResponse(responseCode = "404",
@@ -196,7 +196,7 @@ public interface DeploymentCodeApi {
      */
     @Operation(operationId = "byConsistentId", description = "Status of units which deployed on node.")
     @ApiResponse(responseCode = "200",
-            description = "All statutes returned successful.",
+            description = "All statutes returned successfully.",
             content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = UnitStatusDto.class)))
     )
     @ApiResponse(responseCode = "500",

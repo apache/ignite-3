@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.deployunit.metastore;
 
+import org.apache.ignite.lang.IgniteInternalCheckedException;
+
 /**
- * Boxed exception for accumulation errors.
+ * Throws when accumulation process finished unsuccessfully {@link Accumulator#get()}.
  */
-public class AccumulateException extends Exception {
+public class AccumulateException extends IgniteInternalCheckedException {
     /**
      * Constructor.
      *

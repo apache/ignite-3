@@ -39,7 +39,7 @@ public final class UnitKey {
      *
      * @return Key in {@link ByteArray} format.
      */
-    public static ByteArray all() {
+    public static ByteArray allUnits() {
         return key(null, null);
     }
 

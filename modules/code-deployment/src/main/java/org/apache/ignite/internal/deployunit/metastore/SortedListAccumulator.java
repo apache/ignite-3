@@ -24,11 +24,11 @@ import java.util.function.Function;
 import org.apache.ignite.internal.metastorage.Entry;
 
 /**
- * Plain list accumulator.
+ * Plain list accumulator. The resulted list will be sorted.
  *
  * @param <T> Result value type.
  */
-public class ListAccumulator<T extends Comparable<T>> implements Accumulator<List<T>> {
+public class SortedListAccumulator<T extends Comparable<T>> implements Accumulator<List<T>> {
     private final Function<Entry, T> mapper;
 
     private final List<T> result = new ArrayList<>();
@@ -38,7 +38,7 @@ public class ListAccumulator<T extends Comparable<T>> implements Accumulator<Lis
      *
      * @param mapper Value mapper.
      */
-    public ListAccumulator(Function<Entry, T> mapper) {
+    public SortedListAccumulator(Function<Entry, T> mapper) {
         this.mapper = mapper;
     }
 

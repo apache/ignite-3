@@ -22,7 +22,7 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.SYNC;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
-import static org.apache.ignite.internal.deployunit.key.UnitKey.all;
+import static org.apache.ignite.internal.deployunit.key.UnitKey.allUnits;
 import static org.apache.ignite.internal.deployunit.key.UnitKey.key;
 import static org.apache.ignite.internal.deployunit.key.UnitKey.withId;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
@@ -59,7 +59,7 @@ import org.apache.ignite.internal.deployunit.message.UndeployUnitRequestImpl;
 import org.apache.ignite.internal.deployunit.message.UndeployUnitResponse;
 import org.apache.ignite.internal.deployunit.message.UndeployUnitResponseImpl;
 import org.apache.ignite.internal.deployunit.metastore.EntrySubscriber;
-import org.apache.ignite.internal.deployunit.metastore.ListAccumulator;
+import org.apache.ignite.internal.deployunit.metastore.SortedListAccumulator;
 import org.apache.ignite.internal.deployunit.metastore.UnitStatusAccumulator;
 import org.apache.ignite.internal.deployunit.metastore.UnitsAccumulator;
 import org.apache.ignite.internal.future.InFlightFutures;
@@ -240,7 +240,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
     @Override
     public CompletableFuture<List<UnitStatus>> unitsAsync() {
         CompletableFuture<List<UnitStatus>> result = new CompletableFuture<>();
-        metaStorage.prefix(all())
+        metaStorage.prefix(allUnits())
                 .subscribe(new EntrySubscriber<>(result, new UnitsAccumulator()));
         return result;
     }
@@ -253,7 +253,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
                 .subscribe(
                         new EntrySubscriber<>(
                                 result,
-                                new ListAccumulator<>(e -> UnitMetaSerializer.deserialize(e.value()).version())
+                                new SortedListAccumulator<>(e -> UnitMetaSerializer.deserialize(e.value()).version())
                         )
                 );
         return result;
@@ -273,7 +273,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
         Objects.requireNonNull(consistentId);
 
         CompletableFuture<List<UnitStatus>> result = new CompletableFuture<>();
-        metaStorage.prefix(all())
+        metaStorage.prefix(allUnits())
                 .subscribe(
                         new EntrySubscriber<>(
                                 result,

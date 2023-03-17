@@ -30,7 +30,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 public class EntrySubscriber<R> implements Subscriber<Entry> {
     private final CompletableFuture<R> result;
 
-    private final Accumulator<R> collector;
+    private final Accumulator<R> accumulator;
 
     /**
      * Constructor.
@@ -40,7 +40,7 @@ public class EntrySubscriber<R> implements Subscriber<Entry> {
      */
     public EntrySubscriber(CompletableFuture<R> result, Accumulator<R> accumulator) {
         this.result = result;
-        this.collector = accumulator;
+        this.accumulator = accumulator;
     }
 
     @Override
@@ -50,7 +50,7 @@ public class EntrySubscriber<R> implements Subscriber<Entry> {
 
     @Override
     public void onNext(Entry item) {
-        collector.accumulate(item);
+        accumulator.accumulate(item);
     }
 
     @Override
@@ -61,7 +61,7 @@ public class EntrySubscriber<R> implements Subscriber<Entry> {
     @Override
     public void onComplete() {
         try {
-            result.complete(collector.get());
+            result.complete(accumulator.get());
         } catch (AccumulateException e) {
             result.completeExceptionally(e.getCause());
         }
