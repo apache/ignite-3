@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.raft.server;
 
+import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.RaftMetaStorageFactory;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Options specific to a Raft group that is being started.
@@ -36,6 +38,10 @@ public class RaftGroupOptions {
 
     /** Raft meta storage factory. */
     private RaftMetaStorageFactory raftMetaStorageFactory;
+
+    /** Nullable latch that will be completed when storage is ready to process user requests. */
+    @Nullable
+    private CountDownLatch storageReadyLatch;
 
     /**
      * Returns default options as defined by classic Raft (so stores are persistent).
@@ -123,6 +129,22 @@ public class RaftGroupOptions {
      */
     public RaftGroupOptions raftMetaStorageFactory(RaftMetaStorageFactory raftMetaStorageFactory) {
         this.raftMetaStorageFactory = raftMetaStorageFactory;
+
+        return this;
+    }
+
+    /**
+     * Returns the latch that will be completed when storage is ready to process user requests.
+     */
+    public CountDownLatch getStorageReadyLatch() {
+        return storageReadyLatch;
+    }
+
+    /**
+     * Adds storage ready latch to options.
+     */
+    public RaftGroupOptions setStorageReadyLatch(CountDownLatch storageReadyLatch) {
+        this.storageReadyLatch = storageReadyLatch;
 
         return this;
     }
