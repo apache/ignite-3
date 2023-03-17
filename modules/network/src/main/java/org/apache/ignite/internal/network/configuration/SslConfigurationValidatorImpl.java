@@ -19,24 +19,36 @@ package org.apache.ignite.internal.network.configuration;
 
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
+import io.netty.buffer.ByteBufAllocator;
 import io.netty.handler.ssl.ClientAuth;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+import javax.net.ssl.SSLException;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * SSL configuration validator implementation.
  */
-public class SslConfigurationValidatorImpl implements Validator<SslConfigurationValidator, SslView> {
+public class SslConfigurationValidatorImpl implements Validator<SslConfigurationValidator, AbstractSslView> {
 
     public static final SslConfigurationValidatorImpl INSTANCE = new SslConfigurationValidatorImpl();
 
+    private static final IgniteLogger LOG = Loggers.forClass(SslConfigurationValidatorImpl.class);
+
     @Override
-    public void validate(SslConfigurationValidator annotation, ValidationContext<SslView> ctx) {
-        SslView ssl = ctx.getNewValue();
+    public void validate(SslConfigurationValidator annotation, ValidationContext<AbstractSslView> ctx) {
+        AbstractSslView ssl = ctx.getNewValue();
         if (ssl.enabled()) {
             validateKeyStore(ctx, ".keyStore", "Key store", ssl.keyStore());
 
@@ -48,10 +60,14 @@ public class SslConfigurationValidatorImpl implements Validator<SslConfiguration
             } catch (IllegalArgumentException e) {
                 ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Incorrect client auth parameter " + ssl.clientAuth()));
             }
+
+            if (!ssl.ciphers().isBlank()) {
+                validateCiphers(ctx, ssl);
+            }
         }
     }
 
-    private static void validateKeyStore(ValidationContext<SslView> ctx, String keyName, String type, KeyStoreView keyStore) {
+    private static void validateKeyStore(ValidationContext<AbstractSslView> ctx, String keyName, String type, KeyStoreView keyStore) {
         String keyStorePath = keyStore.path();
         if (nullOrBlank(keyStorePath) && nullOrBlank(keyStore.password())) {
             return;
@@ -71,6 +87,30 @@ public class SslConfigurationValidatorImpl implements Validator<SslConfiguration
             } catch (InvalidPathException e) {
                 ctx.addIssue(new ValidationIssue(ctx.currentKey() + keyName, type + " file path is incorrect: " + keyStorePath));
             }
+        }
+    }
+
+    private static void validateCiphers(ValidationContext<AbstractSslView> ctx, AbstractSslView ssl) {
+        try {
+            SslContext context = SslContextBuilder.forClient().build();
+            Set<String> supported = Arrays.stream(context.newEngine(ByteBufAllocator.DEFAULT).getSupportedCipherSuites())
+                    .filter(Objects::nonNull) // OpenSSL engine returns null string in the array so we need to filter them out
+                    .collect(Collectors.toSet());
+            Set<String> ciphers = Arrays.stream(ssl.ciphers().split(","))
+                    .map(String::strip)
+                    .collect(Collectors.toSet());
+
+            // If removeAll returns true, it means that there were at least some supported ciphers.
+            boolean haveSupported = ciphers.removeAll(supported);
+            if (!ciphers.isEmpty()) {
+                if (!haveSupported) {
+                    ctx.addIssue(new ValidationIssue(ctx.currentKey(), "None of the configured cipher suites are supported: " + ciphers));
+                }
+                LOG.info("Some of the configured cipher suites are unsupported: {}", ciphers);
+            }
+        } catch (SSLException e) {
+            ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Can't create SSL engine"));
+            LOG.warn("Can't create SSL engine", e);
         }
     }
 }

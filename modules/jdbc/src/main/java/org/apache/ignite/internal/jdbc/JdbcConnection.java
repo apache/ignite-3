@@ -179,6 +179,7 @@ public class JdbcConnection implements Connection {
                     .trustStorePath(connProps.getTrustStorePath())
                     .trustStorePassword(connProps.getTrustStorePassword())
                     .clientAuth(connProps.getClientAuth())
+                    .ciphers(connProps.getCiphers())
                     .keyStoreType(connProps.getKeyStoreType())
                     .keyStorePath(connProps.getKeyStorePath())
                     .keyStorePassword(connProps.getKeyStorePassword())
@@ -297,7 +298,7 @@ public class JdbcConnection implements Connection {
         if (autoCommit != this.autoCommit) {
             this.autoCommit = autoCommit;
         }
-        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-16432
+        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-18985
     }
 
     /** {@inheritDoc} */
@@ -316,7 +317,7 @@ public class JdbcConnection implements Connection {
         if (autoCommit) {
             throw new SQLException("Transaction cannot be committed explicitly in auto-commit mode.");
         }
-        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-16432
+        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-18985
     }
 
     /** {@inheritDoc} */
@@ -327,7 +328,7 @@ public class JdbcConnection implements Connection {
         if (autoCommit) {
             throw new SQLException("Transaction cannot be rolled back explicitly in auto-commit mode.");
         }
-        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-16432
+        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-18985
     }
 
     /** {@inheritDoc} */

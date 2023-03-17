@@ -30,12 +30,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.UUID;
 import java.util.function.Function;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptSchema;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.prepare.RelOptTableImpl;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelDistribution;
@@ -50,8 +49,7 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
+import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.sql.SqlException;
 
@@ -61,14 +59,13 @@ import org.apache.ignite.sql.SqlException;
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class RelJsonReader {
-    private static final TypeReference<LinkedHashMap<String, Object>> TYPE_REF = new TypeReference<>() {
-    };
+    private static final TypeReference<LinkedHashMap<String, Object>> TYPE_REF = new TypeReference<>() {};
 
     private final ObjectMapper mapper = new ObjectMapper().enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
 
-    private final SqlSchemaManager schemaManager;
-
     private final RelJson relJson;
+
+    private final RelOptSchema relOptSchema;
 
     private final Map<String, RelNode> relMap = new LinkedHashMap<>();
 
@@ -78,8 +75,8 @@ public class RelJsonReader {
      * FromJson.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static <T extends RelNode> T fromJson(SqlSchemaManager schemaManager, String json) {
-        RelJsonReader reader = new RelJsonReader(schemaManager);
+    public static <T extends RelNode> T fromJson(BaseQueryContext ctx, String json) {
+        RelJsonReader reader = new RelJsonReader(ctx.catalogReader());
 
         return (T) reader.read(json);
     }
@@ -88,8 +85,8 @@ public class RelJsonReader {
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public RelJsonReader(SqlSchemaManager schemaManager) {
-        this.schemaManager = schemaManager;
+    public RelJsonReader(RelOptSchema relOptSchema) {
+        this.relOptSchema = relOptSchema;
 
         relJson = new RelJson();
     }
@@ -147,25 +144,8 @@ public class RelJsonReader {
         /** {@inheritDoc} */
         @Override
         public RelOptTable getTable(String table) {
-            // For deserialization #getTableById() should be used instead because
-            // it's the only way to find out that someone just recreate the table
-            // (probably with different schema) with the same name while the plan
-            // was serialized
-            throw new AssertionError("Unexpected method was called");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public RelOptTable getTableById() {
-            String tableId = getString("tableId");
-            int ver = ((Number) get("tableVer")).intValue();
-
-            IgniteTable table = schemaManager.tableById(UUID.fromString(tableId), ver);
-
-            List<String> tableName = getStringList("table");
-
-            return RelOptTableImpl.create(null, table.getRowType(Commons.typeFactory()), tableName,
-                    table, c -> null);
+            List<String> list = getStringList(table);
+            return relOptSchema.getTableForMember(list);
         }
 
         /** {@inheritDoc} */

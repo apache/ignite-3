@@ -25,15 +25,35 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceTest;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 /**
  * Placement driver active actor test.
  */
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class ActiveActorTest extends TopologyAwareRaftGroupServiceTest {
     private Map<String, PlacementDriverManager> placementDriverManagers = new HashMap<>();
+
+    @Mock
+    MetaStorageManager msm;
+
+    @InjectConfiguration()
+    private TablesConfiguration tblsCfg;
 
     @AfterEach
     @Override
@@ -49,19 +69,39 @@ public class ActiveActorTest extends TopologyAwareRaftGroupServiceTest {
 
     /** {@inheritDoc} */
     @Override
-    protected void afterNodeStart(String nodeName, ClusterService clusterService, Set<String> placementDriverNodesNames) {
+    protected void afterNodeStart(
+            String nodeName,
+            ClusterService clusterService,
+            Set<String> placementDriverNodesNames,
+            RaftGroupEventsClientListener eventsClientListener
+    ) {
         PlacementDriverManager placementDriverManager = new PlacementDriverManager(
+                msm,
+                new VaultManager(new InMemoryVaultService()),
                 TestReplicationGroup.GROUP_ID,
                 clusterService,
                 raftConfiguration,
                 () -> completedFuture(placementDriverNodesNames),
                 new LogicalTopologyServiceTestImpl(clusterService),
-                executor
+                executor,
+                tblsCfg,
+                new HybridClockImpl(),
+                eventsClientListener
         );
 
         placementDriverManager.start();
 
         placementDriverManagers.put(nodeName, placementDriverManager);
+    }
+
+    /**
+     * The method is called after every node of the cluster starts.
+     *
+     * @param nodeName Node name.
+     */
+    @Override
+    protected void afterNodeStop(String nodeName) {
+        placementDriverManagers.remove(nodeName);
     }
 
     /** {@inheritDoc} */

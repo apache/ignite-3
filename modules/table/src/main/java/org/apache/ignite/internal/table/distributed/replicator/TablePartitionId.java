@@ -44,6 +44,18 @@ public class TablePartitionId implements ReplicationGroupId {
     }
 
     /**
+     * Converts a string representation of table partition id to the object.
+     *
+     * @param str String representation.
+     * @return An table partition id.
+     */
+    public static TablePartitionId fromString(String str) {
+        String[] parts = str.split("_part_");
+
+        return new TablePartitionId(UUID.fromString(parts[0]), Integer.valueOf(parts[1]));
+    }
+
+    /**
      * Get the partition id.
      *
      * @return Partition id.

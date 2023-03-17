@@ -111,8 +111,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
                 fragmentDesc,
                 ArrayRowHandler.INSTANCE,
                 Map.of(),
-                TxAttributes.fromTx(new NoOpTransaction("fake-test-node")),
-                null
+                TxAttributes.fromTx(new NoOpTransaction("fake-test-node"))
         );
     }
 

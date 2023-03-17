@@ -203,12 +203,15 @@ public final class CliRequests {
         boolean subscribe();
     }
 
-    @Transferable(value = RpcClientMessageGroup.SUBSCRIPTION_LEADER_CHANGE_RESPONSE_ACKNOWLEDGE)
+    @Transferable(value = RpcClientMessageGroup.SUBSCRIPTION_LEADER_CHANGE_REQUEST_ACKNOWLEDGE)
     public interface SubscriptionLeaderChangeRequestAcknowledge extends Message {
     }
 
-    @Transferable(value = RpcClientMessageGroup.SUBSCRIPTION_LEADER_CHANGE_RESPONSE)
+    @Transferable(value = RpcClientMessageGroup.LEADER_CHANGE_NOTIFICATION)
     public interface LeaderChangeNotification extends Message {
         long term();
+
+        @Marshallable
+        ReplicationGroupId groupId();
     }
 }

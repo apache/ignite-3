@@ -55,7 +55,7 @@ namespace Apache.Ignite.Log
         /// <param name="logger">The logger.</param>
         /// <param name="ex">The exception.</param>
         /// <param name="message">The message.</param>
-        public static void Trace(this IIgniteLogger logger, Exception ex, string message)
+        public static void Trace(this IIgniteLogger logger, Exception? ex, string message)
         {
             Log(logger, LogLevel.Trace, ex, message);
         }
@@ -67,7 +67,7 @@ namespace Apache.Ignite.Log
         /// <param name="ex">The exception.</param>
         /// <param name="message">The message.</param>
         /// <param name="args">The arguments.</param>
-        public static void Trace(this IIgniteLogger logger, Exception ex, string message, params object?[]? args)
+        public static void Trace(this IIgniteLogger logger, Exception? ex, string message, params object?[]? args)
         {
             Log(logger, LogLevel.Trace, ex, message, args);
         }
@@ -99,7 +99,7 @@ namespace Apache.Ignite.Log
         /// <param name="logger">The logger.</param>
         /// <param name="ex">The exception.</param>
         /// <param name="message">The message.</param>
-        public static void Debug(this IIgniteLogger logger, Exception ex, string message)
+        public static void Debug(this IIgniteLogger logger, Exception? ex, string message)
         {
             Log(logger, LogLevel.Debug, ex, message);
         }
@@ -111,7 +111,7 @@ namespace Apache.Ignite.Log
         /// <param name="ex">The exception.</param>
         /// <param name="message">The message.</param>
         /// <param name="args">The arguments.</param>
-        public static void Debug(this IIgniteLogger logger, Exception ex, string message, params object?[]? args)
+        public static void Debug(this IIgniteLogger logger, Exception? ex, string message, params object?[]? args)
         {
             Log(logger, LogLevel.Debug, ex, message, args);
         }
@@ -143,7 +143,7 @@ namespace Apache.Ignite.Log
         /// <param name="logger">The logger.</param>
         /// <param name="ex">The exception.</param>
         /// <param name="message">The message.</param>
-        public static void Info(this IIgniteLogger logger, Exception ex, string message)
+        public static void Info(this IIgniteLogger logger, Exception? ex, string message)
         {
             Log(logger, LogLevel.Info, ex, message);
         }
@@ -155,7 +155,7 @@ namespace Apache.Ignite.Log
         /// <param name="ex">The exception.</param>
         /// <param name="message">The message.</param>
         /// <param name="args">The arguments.</param>
-        public static void Info(this IIgniteLogger logger, Exception ex, string message, params object?[]? args)
+        public static void Info(this IIgniteLogger logger, Exception? ex, string message, params object?[]? args)
         {
             Log(logger, LogLevel.Info, ex, message, args);
         }
@@ -187,7 +187,7 @@ namespace Apache.Ignite.Log
         /// <param name="logger">The logger.</param>
         /// <param name="ex">The exception.</param>
         /// <param name="message">The message.</param>
-        public static void Warn(this IIgniteLogger logger, Exception ex, string message)
+        public static void Warn(this IIgniteLogger logger, Exception? ex, string message)
         {
             Log(logger, LogLevel.Warn, ex, message);
         }
@@ -199,7 +199,7 @@ namespace Apache.Ignite.Log
         /// <param name="ex">The exception.</param>
         /// <param name="message">The message.</param>
         /// <param name="args">The arguments.</param>
-        public static void Warn(this IIgniteLogger logger, Exception ex, string message, params object?[]? args)
+        public static void Warn(this IIgniteLogger logger, Exception? ex, string message, params object?[]? args)
         {
             Log(logger, LogLevel.Warn, ex, message, args);
         }
@@ -231,7 +231,7 @@ namespace Apache.Ignite.Log
         /// <param name="logger">The logger.</param>
         /// <param name="ex">The exception.</param>
         /// <param name="message">The message.</param>
-        public static void Error(this IIgniteLogger logger, Exception ex, string message)
+        public static void Error(this IIgniteLogger logger, Exception? ex, string message)
         {
             Log(logger, LogLevel.Error, ex, message);
         }
@@ -243,7 +243,7 @@ namespace Apache.Ignite.Log
         /// <param name="ex">The exception.</param>
         /// <param name="message">The message.</param>
         /// <param name="args">The arguments.</param>
-        public static void Error(this IIgniteLogger logger, Exception ex, string message, params object?[]? args)
+        public static void Error(this IIgniteLogger logger, Exception? ex, string message, params object?[]? args)
         {
             Log(logger, LogLevel.Error, ex, message, args);
         }
@@ -282,7 +282,7 @@ namespace Apache.Ignite.Log
         /// <param name="level">The level.</param>
         /// <param name="ex">The exception.</param>
         /// <param name="message">The message.</param>
-        public static void Log(this IIgniteLogger logger, LogLevel level, Exception ex, string message)
+        public static void Log(this IIgniteLogger logger, LogLevel level, Exception? ex, string message)
         {
             IgniteArgumentCheck.NotNull(logger, "logger");
 
@@ -297,7 +297,7 @@ namespace Apache.Ignite.Log
         /// <param name="ex">The exception.</param>
         /// <param name="message">The message.</param>
         /// <param name="args">The arguments.</param>
-        public static void Log(this IIgniteLogger logger, LogLevel level, Exception ex, string message, params object?[]? args)
+        public static void Log(this IIgniteLogger logger, LogLevel level, Exception? ex, string message, params object?[]? args)
         {
             IgniteArgumentCheck.NotNull(logger, "logger");
 

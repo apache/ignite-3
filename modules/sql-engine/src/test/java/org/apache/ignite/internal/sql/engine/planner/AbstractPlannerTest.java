@@ -94,7 +94,6 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
-import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.Cloner;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
@@ -528,18 +527,25 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         checkSplitAndSerialization(plan, schemas);
 
-        if (!predicate.test((T) plan)) {
-            String invalidPlanMsg = "Invalid plan (" + lastErrorMsg + "):\n"
+        try {
+            if (predicate.test((T) plan)) {
+                return;
+            }
+        } catch (Throwable th) {
+            String invalidPlanMsg = "Failed to validate plan (" + lastErrorMsg + "):\n"
                     + RelOptUtil.toString(plan, SqlExplainLevel.ALL_ATTRIBUTES);
 
-            fail(invalidPlanMsg);
+            fail(invalidPlanMsg, th);
         }
+
+        fail("Invalid plan (" + lastErrorMsg + "):\n"
+                + RelOptUtil.toString(plan, SqlExplainLevel.ALL_ATTRIBUTES));
     }
 
     /**
      * Predicate builder for "Instance of class" condition.
      */
-    protected <T extends RelNode> Predicate<T> isInstanceOf(Class<T> cls) {
+    protected <T> Predicate<T> isInstanceOf(Class<T> cls) {
         return node -> {
             if (cls.isInstance(node)) {
                 return true;
@@ -556,8 +562,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      */
     protected <T extends RelNode> Predicate<IgniteTableScan> isTableScan(String tableName) {
         return isInstanceOf(IgniteTableScan.class).and(
-            n -> {
-                String scanTableName = Util.last(n.getTable().getQualifiedName());
+                n -> {
+                    String scanTableName = Util.last(n.getTable().getQualifiedName());
 
                     if (tableName.equalsIgnoreCase(scanTableName)) {
                         return true;
@@ -691,8 +697,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         List<RelNode> deserializedNodes = new ArrayList<>();
 
+        BaseQueryContext ctx = baseQueryContext(schemas, null);
+
         for (String s : serialized) {
-            RelJsonReader reader = new RelJsonReader(new PredefinedSchemaManager(schemas));
+            RelJsonReader reader = new RelJsonReader(ctx.catalogReader());
             deserializedNodes.add(reader.read(s));
         }
 
@@ -1239,20 +1247,33 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
     }
 
-    static class TestHashIndex implements Index<IndexDescriptor> {
+    /** Test Hash index implementation. */
+    public static class TestHashIndex implements Index<IndexDescriptor> {
         private final UUID id = UUID.randomUUID();
 
-        private final UUID tableId = UUID.randomUUID();
+        private UUID tableId = UUID.randomUUID();
 
         private final IndexDescriptor descriptor;
 
+        /** Create index. */
+        public static TestHashIndex create(List<String> indexedColumns, String name, UUID tableId) {
+            var descriptor = new IndexDescriptor(name, indexedColumns);
+
+            TestHashIndex idx = new TestHashIndex(descriptor);
+
+            idx.tableId = tableId;
+
+            return idx;
+        }
+
+        /** Create index. */
         public static TestHashIndex create(List<String> indexedColumns, String name) {
             var descriptor = new IndexDescriptor(name, indexedColumns);
 
             return new TestHashIndex(descriptor);
         }
 
-        public TestHashIndex(IndexDescriptor descriptor) {
+        TestHashIndex(IndexDescriptor descriptor) {
             this.descriptor = descriptor;
         }
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
@@ -249,12 +250,19 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
 
         secondNode.metaStorageManager.registerExactWatch(key, new WatchListener() {
             @Override
-            public void onUpdate(WatchEvent event) {
+            public String id() {
+                return "test";
+            }
+
+            @Override
+            public CompletableFuture<Void> onUpdate(WatchEvent event) {
                 // Skip the first update event, because it's not guaranteed to arrive here (insert may have happened before the watch was
                 // registered).
                 if (event.revision() != 1) {
                     awaitFuture.complete(event.entryEvent());
                 }
+
+                return completedFuture(null);
             }
 
             @Override

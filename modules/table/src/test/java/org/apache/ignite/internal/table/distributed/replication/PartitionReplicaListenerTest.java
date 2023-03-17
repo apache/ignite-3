@@ -143,7 +143,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     /** The storage stores partition data. */
     private static final TestMvPartitionStorage testMvPartitionStorage = new TestMvPartitionStorage(partId);
 
-    private static LockManager lockManager = new HeapLockManager();
+    private static final LockManager lockManager = new HeapLockManager();
 
     private static final Function<PartitionCommand, CompletableFuture<?>> DEFAULT_MOCK_RAFT_FUTURE_CLOSURE = cmd -> {
         if (cmd instanceof TxCleanupCommand) {
@@ -195,7 +195,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private static final PlacementDriver placementDriver = mock(PlacementDriver.class);
 
-    private static PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(testMvPartitionStorage);
+    private static final PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(testMvPartitionStorage);
 
     @Mock
     private static RaftGroupService mockRaftClient = mock(RaftGroupService.class);
@@ -1180,7 +1180,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private BinaryRow roGet(BinaryRow row, HybridTimestamp readTimestamp) {
-        CompletableFuture<Object> future = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
+        CompletableFuture<?> future = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
                 .requestType(RequestType.RO_GET)
                 .readTimestamp(readTimestamp)
                 .binaryRow(row)
@@ -1191,7 +1191,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private List<BinaryRow> roGetAll(Collection<BinaryRow> rows, HybridTimestamp readTimestamp) {
-        CompletableFuture<Object> future = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlyMultiRowReplicaRequest()
+        CompletableFuture<?> future = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlyMultiRowReplicaRequest()
                 .requestType(RequestType.RO_GET_ALL)
                 .readTimestamp(readTimestamp)
                 .binaryRows(rows)

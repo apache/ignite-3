@@ -53,7 +53,6 @@ import org.apache.ignite.internal.client.io.ClientMessageHandler;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Netty-based multiplexer.
@@ -105,6 +104,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
             SslConfiguration ssl = clientCfg.ssl();
             SslContextBuilder builder = SslContextBuilder.forClient().trustManager(loadTrustManagerFactory(ssl));
 
+            builder.ciphers(ssl.ciphers());
             ClientAuth clientAuth = toNettyClientAuth(ssl.clientAuthenticationMode());
             if (ClientAuth.NONE != clientAuth) {
                 builder.clientAuth(clientAuth).keyManager(loadKeyManagerFactory(ssl));
@@ -119,7 +119,6 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
 
     }
 
-    @NotNull
     private static KeyManagerFactory loadKeyManagerFactory(SslConfiguration ssl)
             throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException {
         KeyStore ks = KeyStore.getInstance(ssl.keyStoreType());
@@ -138,7 +137,6 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
         return keyManagerFactory;
     }
 
-    @NotNull
     private static TrustManagerFactory loadTrustManagerFactory(SslConfiguration ssl)
             throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
         KeyStore ts = KeyStore.getInstance(ssl.trustStoreType());

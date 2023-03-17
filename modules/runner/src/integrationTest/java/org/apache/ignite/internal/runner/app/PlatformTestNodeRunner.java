@@ -19,6 +19,8 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -46,7 +48,6 @@ import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType.TemporalColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
-import org.apache.ignite.internal.ssl.ItSslTest;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -182,8 +183,8 @@ public class PlatformTestNodeRunner {
         Files.createDirectories(BASE_PATH);
 
         var sslPassword = "123456";
-        var trustStorePath = ItSslTest.class.getClassLoader().getResource("ssl/trust.jks").getPath();
-        var keyStorePath = ItSslTest.class.getClassLoader().getResource("ssl/server.jks").getPath();
+        var trustStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/trust.jks"));
+        var keyStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/server.jks"));
 
         List<CompletableFuture<Ignite>> igniteFutures = nodesBootstrapCfg.entrySet().stream()
                 .map(e -> {

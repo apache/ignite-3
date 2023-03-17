@@ -28,6 +28,7 @@ import org.apache.calcite.sql.type.ReturnTypes;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeTransforms;
 import org.apache.calcite.sql.util.ReflectiveSqlOperatorTable;
+import org.apache.ignite.internal.sql.engine.type.UuidType;
 
 /**
  * Operator table that contains only Ignite-specific functions and operators.
@@ -106,6 +107,29 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
             ReturnTypes.ARG0_NULLABLE_VARYING, null,
             OperandTypes.STRING_INTEGER_OPTIONAL_INTEGER,
             SqlFunctionCategory.STRING);
+
+    /**
+     * The {@code RAND_UUID()} function, which yields a random UUID.
+     */
+    public static final SqlFunction RAND_UUID =
+            new SqlFunction(
+                    "RAND_UUID",
+                    SqlKind.OTHER_FUNCTION,
+                    ReturnTypes.explicit(new UuidType(false)),
+                    null,
+                    OperandTypes.NILADIC,
+                    SqlFunctionCategory.SYSTEM
+            ) {
+                @Override
+                public boolean isDynamicFunction() {
+                    return true;
+                }
+
+                @Override
+                public boolean isDeterministic() {
+                    return false;
+                }
+            };
 
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
@@ -374,5 +398,6 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(LEAST2);
         register(GREATEST2);
         register(NULL_BOUND);
+        register(RAND_UUID);
     }
 }

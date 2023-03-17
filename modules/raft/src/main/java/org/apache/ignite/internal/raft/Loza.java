@@ -44,6 +44,7 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.TestOnly;
 
@@ -99,7 +100,8 @@ public class Loza implements RaftManager {
             RaftConfiguration raftConfiguration,
             Path dataPath,
             HybridClock clock,
-            ScheduledExecutorService executor
+            ScheduledExecutorService executor,
+            RaftGroupEventsClientListener raftGroupEventsClientListener
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.raftConfiguration = raftConfiguration;
@@ -110,7 +112,7 @@ public class Loza implements RaftManager {
 
         this.opts = options;
 
-        this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath, options);
+        this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath, options, raftGroupEventsClientListener);
 
         this.executor = executor;
     }
@@ -138,7 +140,8 @@ public class Loza implements RaftManager {
                         new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
                                 CLIENT_POOL_NAME), LOG
                         )
-                )
+                ),
+                new RaftGroupEventsClientListener()
         );
     }
 
