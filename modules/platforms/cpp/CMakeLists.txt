@@ -23,43 +23,53 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
 
+option(ENABLE_CONAN "Install required libraries via Conan package manager" ON)
+option(ENABLE_CLIENT "Build Ignite.C++ Client module" ON)
+option(ENABLE_TESTS "Build Ignite.C++ tests" OFF)
+option(ENABLE_ADDRESS_SANITIZER "If address sanitizer is enabled" OFF)
+option(ENABLE_UB_SANITIZER "If undefined behavior sanitizer is enabled" OFF)
+option(WARNINGS_AS_ERRORS "Treat warning as errors" OFF)
+option(INSTALL_IGNITE_FILES "Install Ignite files" ON)
+
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
 list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 
-include(conan)
-
 get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
 # Install required libraries.
-if (is_multi_config)
-    # These settings are for multi-config generators like Visual Studio.
-    message(STATUS "Using a multi-config generator")
+if (${ENABLE_CONAN})
+    include(conan)
 
-    conan_cmake_configure(REQUIRES msgpack-c/4.0.0 gtest/1.12.1
-                          GENERATORS cmake_find_package_multi)
+    if (is_multi_config)
+        # These settings are for multi-config generators like Visual Studio.
+        message(STATUS "Using a multi-config generator")
 
-    foreach(TYPE ${CMAKE_CONFIGURATION_TYPES})
-        conan_cmake_autodetect(settings BUILD_TYPE ${TYPE})
+        conan_cmake_configure(REQUIRES msgpack-c/4.0.0 gtest/1.12.1
+                              GENERATORS cmake_find_package_multi)
+
+        foreach(TYPE ${CMAKE_CONFIGURATION_TYPES})
+            conan_cmake_autodetect(conan_settings BUILD_TYPE ${TYPE})
+
+            conan_cmake_install(PATH_OR_REFERENCE .
+                                BUILD missing
+                                REMOTE conancenter
+                                SETTINGS ${conan_settings})
+        endforeach()
+    else()
+        # These settings are for single-config generators like makefiles, ninja.
+        message(STATUS "Using a single-config generator")
+
+        conan_cmake_configure(REQUIRES msgpack-c/4.0.0 gtest/1.12.1
+                              GENERATORS cmake_find_package)
+
+        conan_cmake_autodetect(conan_settings)
 
         conan_cmake_install(PATH_OR_REFERENCE .
                             BUILD missing
                             REMOTE conancenter
-                            SETTINGS ${settings})
-    endforeach()
-else()
-    # These settings are for single-config generators like makefiles, ninja.
-    message(STATUS "Using a single-config generator")
-
-    conan_cmake_configure(REQUIRES msgpack-c/4.0.0 gtest/1.12.1
-                          GENERATORS cmake_find_package)
-
-    conan_cmake_autodetect(conan_settings)
-
-    conan_cmake_install(PATH_OR_REFERENCE .
-                        BUILD missing
-                        REMOTE conancenter
-                        SETTINGS ${conan_settings})
+                            SETTINGS ${conan_settings})
+    endif()
 endif()
 
 # Configure paths.
@@ -87,13 +97,6 @@ set(IGNITE_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR}/ignite)
 message(STATUS "CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
 message(STATUS "IGNITE_INCLUDEDIR=${IGNITE_INCLUDEDIR}")
 include(ignite_install_headers)
-
-option(ENABLE_ADDRESS_SANITIZER "If address sanitizer is enabled" OFF)
-option(ENABLE_UB_SANITIZER "If undefined behavior sanitizer is enabled" OFF)
-option(ENABLE_CLIENT "Build Ignite.C++ Client module" ON)
-option(ENABLE_TESTS "Build Ignite.C++ tests" OFF)
-option(WARNINGS_AS_ERRORS "Treat warning as errors" OFF)
-option(INSTALL_IGNITE_FILES "Install Ignite files" ON)
 
 # Turn on DLL export directives.
 add_definitions(-DIGNITE_IMPL)
