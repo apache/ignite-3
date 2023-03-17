@@ -134,10 +134,10 @@ public final class ChannelInfo {
 
     /**
      * Returns channel with provided identifier or
-     *      {@code null} if channel with {@param id} doesn't registered yet.
+     *      {@code null} if channel with id doesn't registered yet.
      *
      * @param id Channel identifier.
-     * @return Channel with provided identifier or {@code null} if channel with {@param id} doesn't registered yet.
+     * @return Channel with provided identifier or {@code null} if channel with id doesn't registered yet.
      */
     public static ChannelInfo getChannel(short id) {
         lock.readLock().lock();

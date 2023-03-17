@@ -57,7 +57,7 @@ public interface MessagingService {
     }
 
     /**
-     * Tries to send the given message via specified channel {@param type} asynchronously to the specific cluster member.
+     * Tries to send the given message via specified channel asynchronously to the specific cluster member.
      *
      * <p>Guarantees:
      * <ul>
@@ -117,7 +117,7 @@ public interface MessagingService {
     }
 
     /**
-     * Sends a response to a {@link #invoke} request via specified channel {@param chanelType}.
+     * Sends a response to a {@link #invoke} request via specified channel.
      * Guarantees are the same as for the {@link #send(ClusterNode, NetworkMessage)}.
      *
      * <p>If the recipient cannot be resolved (because it has already left the physical topology), the returned future is resolved
@@ -146,7 +146,7 @@ public interface MessagingService {
     }
 
     /**
-     * Sends a message asynchronously  via specified channel {@param channelType} with same guarantees as
+     * Sends a message asynchronously  via specified channel with same guarantees as
      * {@link #send(ClusterNode, NetworkMessage)} and returns a future that will be
      * completed successfully upon receiving a response.
      *
@@ -173,7 +173,7 @@ public interface MessagingService {
     }
 
     /**
-     * Sends a message via specified channel {@param channelType} asynchronously with same guarantees as
+     * Sends a message via specified channel asynchronously with same guarantees as
      * {@link #send(ClusterNode, NetworkMessage)} and returns a future that will be
      * completed successfully upon receiving a response.
      *
