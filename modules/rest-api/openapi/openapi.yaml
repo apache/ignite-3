@@ -386,6 +386,35 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+  /management/v1/deployment/units/consistentId/{consistentId}:
+    get:
+      tags:
+      - deployment
+      description: Status of units which deployed on node.
+      operationId: byConsistentId
+      parameters:
+      - name: consistentId
+        in: path
+        required: true
+        schema:
+          required:
+          - "true"
+          type: string
+      responses:
+        "200":
+          description: All statutes returned successful.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UnitStatus'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
   /management/v1/deployment/units/{unitId}:
     delete:
       tags:

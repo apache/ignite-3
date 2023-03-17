@@ -131,6 +131,36 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         assertThat(newVersions, willBe(List.of(unit1.version)));
     }
 
+    @Test
+    public void testFindByConsistentId() throws InterruptedException {
+        String id = "test";
+        String version = "1.1.0";
+        Unit unit = deployAndVerify(id, Version.parseVersion(version), 1);
+
+        IgniteImpl cmg = cluster.node(0);
+        waitUnitReplica(cmg, unit);
+
+        IgniteImpl node = node(1);
+        CompletableFuture<List<UnitStatus>> nodes = node.deployment().findUnitByConsistentIdAsync(node.name());
+        assertThat(nodes, willBe(Collections.singletonList(
+                        UnitStatus.builder(id)
+                                .append(unit.version, List.of(node.name(), cmg.name()))
+                                .build())
+                )
+        );
+
+        nodes = node.deployment().findUnitByConsistentIdAsync(node.name());
+        assertThat(nodes, willBe(Collections.singletonList(
+                        UnitStatus.builder(id)
+                                .append(unit.version, List.of(node.name(), cmg.name()))
+                                .build())
+                )
+        );
+
+        nodes = node.deployment().findUnitByConsistentIdAsync("not-existed-node");
+        assertThat(nodes, willBe(Collections.emptyList()));
+    }
+
     private Unit deployAndVerify(String id, Version version, int nodeIndex) {
         IgniteImpl entryNode = node(nodeIndex);
 

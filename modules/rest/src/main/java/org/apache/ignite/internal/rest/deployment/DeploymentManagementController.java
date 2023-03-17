@@ -81,6 +81,13 @@ public class DeploymentManagementController implements DeploymentCodeApi {
         return deployment.statusAsync(unitId).thenApply(UnitStatusDto::fromUnitStatus);
     }
 
+    @Override
+    public CompletableFuture<Collection<UnitStatusDto>> findByConsistentId(String consistentId) {
+        return deployment.findUnitByConsistentIdAsync(consistentId)
+                .thenApply(units -> units.stream().map(UnitStatusDto::fromUnitStatus)
+                        .collect(Collectors.toList()));
+    }
+
     private static DeploymentUnit toDeploymentUnit(CompletedFileUpload unitContent) throws IOException {
         String fileName = unitContent.getFilename();
         InputStream is = unitContent.getInputStream();
