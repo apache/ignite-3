@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.System.Logger;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.ResourceBundle;
 import java.util.function.Supplier;
@@ -64,7 +65,7 @@ public class TestLoggerFactory implements LoggerFactory {
     public static class ListLogger implements System.Logger {
         private final String name;
 
-        private final List<String> logEntries = new ArrayList<>();
+        private final List<String> logEntries = Collections.synchronizedList(new ArrayList<>());
 
         ListLogger(String name) {
             this.name = name;
