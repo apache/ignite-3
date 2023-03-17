@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -47,11 +47,11 @@ public interface ColumnMetadata {
     Class<?> valueClass();
 
     /**
-     * Returns column type.
+     * Returns SQL column type.
      *
      * @return Value type.
      */
-    ColumnType type();
+    SqlColumnType type();
 
     /**
      * Returns SQL column precision or {@code -1} if precision is not applicable for the type.
@@ -63,7 +63,7 @@ public interface ColumnMetadata {
     int precision();
 
     /**
-     * Returns SQL column scale or {@link Integer#MIN_VALUE} if scale is not applicable for this type.
+     * Returns SQL column scale or {@code -1} if scale is not applicable for this type.
      *
      * @return Number of digits of scale.
      */

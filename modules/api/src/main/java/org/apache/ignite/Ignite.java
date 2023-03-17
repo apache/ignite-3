@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.deployment.IgniteDeployment;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -32,14 +31,14 @@ import org.apache.ignite.tx.IgniteTransactions;
  */
 public interface Ignite extends AutoCloseable {
     /**
-     * Returns ignite node name.
+     * Returns the Ignite node name.
      *
      * @return Ignite node name.
      */
     String name();
 
     /**
-     * Gets an object for manipulate Ignite tables.
+     * Returns an object for manipulating the Ignite tables.
      *
      * @return Ignite tables.
      */
@@ -53,14 +52,14 @@ public interface Ignite extends AutoCloseable {
     IgniteTransactions transactions();
 
     /**
-     * Returns a facade for SQL query engine.
+     * Returns a facade for the SQL query engine.
      *
      * @return Ignite SQL facade.
      */
     IgniteSql sql();
 
     /**
-     * Returns {@link IgniteCompute} which can be used to execute compute jobs.
+     * Returns {@link IgniteCompute}, which can be used to execute compute jobs.
      *
      * @return compute management object
      * @see IgniteCompute
@@ -69,25 +68,19 @@ public interface Ignite extends AutoCloseable {
     IgniteCompute compute();
 
     /**
-     * Returns {@link IgniteDeployment} which can be used to deploy units.
-     *
-     * @return Deployment management object.
-     */
-    IgniteDeployment deployment();
-
-    /**
-     * Gets the cluster nodes.
-     * NOTE: Temporary API to enable Compute until we have proper Cluster API.
+     * Returns cluster nodes.
+     * NOTE: A temporary API to enable Compute until the permanent Cluster API becomes available.
      *
      * @return Collection of cluster nodes.
      */
     Collection<ClusterNode> clusterNodes();
 
     /**
-     * Gets the cluster nodes.
-     * NOTE: Temporary API to enable Compute until we have proper Cluster API.
+     * Returns cluster nodes.
+     * NOTE: A temporary API to enable Compute until the permanent Cluster API becomes available.
      *
      * @return Collection of cluster nodes.
      */
     CompletableFuture<Collection<ClusterNode>> clusterNodesAsync();
+    //The same description is offered for the last two methods... shouldn't there be a difference? One is "async".
 }

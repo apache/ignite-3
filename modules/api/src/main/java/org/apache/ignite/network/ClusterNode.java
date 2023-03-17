@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,8 +18,8 @@
 package org.apache.ignite.network;
 
 import java.io.Serializable;
+import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Representation of a node in a cluster.
@@ -34,25 +34,6 @@ public class ClusterNode implements Serializable {
     /** Network address of this node. */
     private final NetworkAddress address;
 
-    /** Metadata of this node. */
-    @Nullable
-    private final NodeMetadata nodeMetadata;
-
-    /**
-     * Constructor.
-     *
-     * @param id      Local id that changes between restarts.
-     * @param name    Unique name of a member in a cluster.
-     * @param address Node address.
-     * @param nodeMetadata Node metadata.
-     */
-    public ClusterNode(String id, String name, NetworkAddress address, @Nullable NodeMetadata nodeMetadata) {
-        this.id = id;
-        this.name = name;
-        this.address = address;
-        this.nodeMetadata = nodeMetadata;
-    }
-
     /**
      * Constructor.
      *
@@ -64,7 +45,6 @@ public class ClusterNode implements Serializable {
         this.id = id;
         this.name = name;
         this.address = address;
-        this.nodeMetadata = null;
     }
 
     /**
@@ -94,11 +74,6 @@ public class ClusterNode implements Serializable {
         return address;
     }
 
-    @Nullable
-    public NodeMetadata nodeMetadata() {
-        return nodeMetadata;
-    }
-
     /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
@@ -115,9 +90,7 @@ public class ClusterNode implements Serializable {
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        int result = name.hashCode();
-        result = 31 * result + address.hashCode();
-        return result;
+        return Objects.hash(name, address);
     }
 
     /** {@inheritDoc} */

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,14 +17,11 @@
 
 package org.apache.ignite.sql.async;
 
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
-import org.apache.ignite.table.mapper.Mapper;
-import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -49,14 +46,9 @@ import org.jetbrains.annotations.Nullable;
  *      }
  * </code></pre>
  *
- * @param <T> A type of the objects contained by this result set (when row set is present). This will be either {@link SqlRow}
- *     if no explicit mapper is provided or a particular type defined by supplied mapper.
- *
  * @see ResultSet
- * @see Session#executeAsync(Transaction, String, Object...)
- * @see Session#executeAsync(Transaction, Mapper, String, Object...)
  */
-public interface AsyncResultSet<T> {
+public interface AsyncResultSet {
     /**
      * Returns metadata for the results if the result contains rows ({@link #hasRowSet()} returns {@code true}), or {@code null} if
      * inapplicable.
@@ -106,7 +98,7 @@ public interface AsyncResultSet<T> {
      * @return Iterable over rows.
      * @throws NoRowSetExpectedException if no row set is expected as a query result.
      */
-    Iterable<T> currentPage();
+    Iterable<SqlRow> currentPage();
 
     /**
      * Returns the current page size if the query return rows.
@@ -126,7 +118,7 @@ public interface AsyncResultSet<T> {
      * @return Operation future.
      * @throws NoRowSetExpectedException if no row set is expected as a query result.
      */
-    CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage();
+    CompletionStage<? extends AsyncResultSet> fetchNextPage();
 
     /**
      * Returns whether there are more pages of results.
@@ -140,5 +132,5 @@ public interface AsyncResultSet<T> {
      *
      * @return Operation future.
      */
-    CompletableFuture<Void> closeAsync();
+    CompletionStage<Void> closeAsync();
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -256,6 +256,7 @@ public class IgniteException extends RuntimeException {
         return traceId;
     }
 
+
     /**
      * Wraps another exception in IgniteException, extracting {@link #traceId} and {@link #code} when the specified exception
      * or one of its causes is an IgniteException itself.
@@ -287,15 +288,5 @@ public class IgniteException extends RuntimeException {
         }
 
         return new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
-    }
-
-    /**
-     * Gets the Ignite error code if the specified throwable is an {@link IgniteException}.
-     *
-     * @param t Throwable.
-     * @return Ignite error code or UNKNOWN_ERR.
-     */
-    public static int getIgniteErrorCode(Throwable t) {
-        return (t instanceof IgniteException) ? ((IgniteException) t).code() : UNKNOWN_ERR;
     }
 }

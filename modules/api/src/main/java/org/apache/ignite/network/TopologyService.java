@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,7 +21,7 @@ import java.util.Collection;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Entry point for obtaining information about a cluster's physical topology.
+ * Entry point for obtaining information about a cluster's topology.
  */
 // TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
 public interface TopologyService {
@@ -40,14 +40,14 @@ public interface TopologyService {
     Collection<ClusterNode> allMembers();
 
     /**
-     * Registers a handler for physical topology change events.
+     * Registers a handler for topology change events.
      *
-     * @param handler Physical topology events handler.
+     * @param handler Topology events handler.
      */
     void addEventHandler(TopologyEventHandler handler);
 
     /**
-     * Returns a cluster node by its network address.
+     * Returns a cluster node by its network address in host:port format.
      *
      * @param addr The address.
      * @return The node or {@code null} if the node has not yet been discovered or is offline.

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,17 +18,18 @@
 package org.apache.ignite.compute;
 
 /**
- * A Compute job that may be executed on an Ignite node (or a few nodes, or on the whole cluster).
+ * A Compute job that may be executed on a single Ignite node, on several nodes, or on the entire cluster.
  *
- * @param <R> job result type
+ * @param <R> Job result type.
  */
+//What does "job result type" mean?
 public interface ComputeJob<R> {
     /**
      * Executes the job on an Ignite node.
      *
-     * @param context  context
-     * @param args     job arguments
-     * @return job result
+     * @param context  The execution context.
+     * @param args     Job arguments.
+     * @return Job result.
      */
     R execute(JobExecutionContext context, Object... args);
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,12 +17,14 @@
 
 package org.apache.ignite.table.mapper;
 
+import org.apache.ignite.schema.definition.ColumnType;
+
 /**
  * Type converter interface provides methods for additional transformation for data of the field type to a type, which is compatible with
  * the column type, and vice versa.
  *
  * <p>The converter can be used to convert object (or their fields), which type is incompatible with the schema.
- * E.g. serialize an arbitrary object to a byte[] for storing is a BLOB column.
+ * E.g. serialize an arbitrary object to a byte[] for storing is a BLOB column {@link ColumnType#blob()}.
  *
  * @param <ObjectT> Object type.
  * @param <ColumnT> Column type.

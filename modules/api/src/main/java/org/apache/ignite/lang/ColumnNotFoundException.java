@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,10 +17,7 @@
 
 package org.apache.ignite.lang;
 
-import static org.apache.ignite.internal.util.IgniteNameUtils.canonicalName;
-import static org.apache.ignite.internal.util.IgniteNameUtils.quote;
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_NOT_FOUND_ERR;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.UUID;
 
@@ -34,19 +31,17 @@ public class ColumnNotFoundException extends IgniteException {
      * @param columnName Column name.
      */
     public ColumnNotFoundException(String columnName) {
-        super(COLUMN_NOT_FOUND_ERR, format("Column does not exist [name={}]", quote(columnName)));
+        super(COLUMN_NOT_FOUND_ERR, "Column '" + columnName + "' does not exist");
     }
 
     /**
      * Create a new exception with given column name.
      *
-     * @param schemaName Name of the schema the table belongs to.
-     * @param tableName Name of the table the column belongs to.
-     * @param columnName Name of the column of interest.
+     * @param columnName Column name.
+     * @param fullName Table canonical name.
      */
-    public ColumnNotFoundException(String schemaName, String tableName, String columnName) {
-        super(COLUMN_NOT_FOUND_ERR, format("Column does not exist [tableName={}, columnName={}]",
-                canonicalName(schemaName, tableName), quote(columnName)));
+    public ColumnNotFoundException(String columnName, String fullName) {
+        super(COLUMN_NOT_FOUND_ERR, "Column '" + columnName + "' does not exist in table '" + fullName + '\'');
     }
 
     /**

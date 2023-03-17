@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -62,6 +62,13 @@ public interface Statement extends AutoCloseable {
     int pageSize();
 
     /**
+     * Returns a value indicating whether this is a prepared statement.
+     *
+     * @return Whether this is a prepared statement.
+     */
+    boolean prepared();
+
+    /**
      * Returns statement property value that overrides the session property value or {@code null} if session property value should be used.
      *
      * @param name Property name.
@@ -95,6 +102,21 @@ public interface Statement extends AutoCloseable {
          * @return {@code this} for chaining.
          */
         StatementBuilder query(String sql);
+
+        /**
+         * Returns prepared flag.
+         *
+         * @return Prepared flag.
+         */
+        boolean prepared();
+
+        /**
+         * Marks current statement as prepared.
+         *
+         * @param prepared if {@code true} marks current statement as prepared.
+         * @return {@code this} for chaining.
+         */
+        StatementBuilder prepared(boolean prepared);
 
         /**
          * Returns query timeout.

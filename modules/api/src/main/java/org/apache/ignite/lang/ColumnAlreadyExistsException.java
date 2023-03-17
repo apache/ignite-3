@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,7 +17,6 @@
 
 package org.apache.ignite.lang;
 
-import static org.apache.ignite.internal.util.IgniteNameUtils.quote;
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
 
 import java.util.UUID;
@@ -32,7 +31,7 @@ public class ColumnAlreadyExistsException extends IgniteException {
      * @param name Column name.
      */
     public ColumnAlreadyExistsException(String name) {
-        super(COLUMN_ALREADY_EXISTS_ERR, "Column already exists [name=" + quote(name) + ']');
+        super(COLUMN_ALREADY_EXISTS_ERR, "Column already exists [name=" + name + ']');
     }
 
     /**

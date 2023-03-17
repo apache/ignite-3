@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,10 +22,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.sql.ResultSetImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
-import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,11 +51,11 @@ public interface Session extends AutoCloseable {
      * @return SQL query results set.
      * @throws SqlException If failed.
      */
-    default ResultSet<SqlRow> execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
+    default ResultSet execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
         try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, query, arguments).join());
+            return new ResultSetImpl(executeAsync(transaction, query, arguments).join());
         } catch (CompletionException e) {
             throw IgniteException.wrap(e);
         }
@@ -69,59 +69,11 @@ public interface Session extends AutoCloseable {
      * @param arguments Arguments for the statement.
      * @return SQL query results set.
      */
-    default ResultSet<SqlRow> execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
+    default ResultSet execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
         Objects.requireNonNull(statement);
 
         try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, statement, arguments).join());
-        } catch (CompletionException e) {
-            throw IgniteException.wrap(e);
-        }
-    }
-
-    /**
-     * Executes single SQL statement and maps results to objects with the provided mapper.
-     *
-     * @param transaction Transaction to execute the statement within or {@code null}.
-     * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
-     * @param query SQL query template.
-     * @param arguments Arguments for the statement.
-     * @param <T> A type of object contained in result set.
-     * @return SQL query results set.
-     */
-    default <T> ResultSet<T> execute(
-            @Nullable Transaction transaction,
-            @Nullable Mapper<T> mapper,
-            String query,
-            @Nullable Object... arguments) {
-        Objects.requireNonNull(query);
-
-        try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, query, arguments).join());
-        } catch (CompletionException e) {
-            throw IgniteException.wrap(e);
-        }
-    }
-
-    /**
-     * Executes single SQL statement and maps results to objects with the provided mapper.
-     *
-     * @param transaction Transaction to execute the statement within or {@code null}.
-     * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
-     * @param statement SQL statement to execute.
-     * @param arguments Arguments for the statement.
-     * @param <T> A type of object contained in result set.
-     * @return SQL query results set.
-     */
-    default <T> ResultSet<T> execute(
-            @Nullable Transaction transaction,
-            @Nullable Mapper<T> mapper,
-            Statement statement,
-            @Nullable Object... arguments) {
-        Objects.requireNonNull(statement);
-
-        try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, statement, arguments).join());
+            return new ResultSetImpl(executeAsync(transaction, statement, arguments).join());
         } catch (CompletionException e) {
             throw IgniteException.wrap(e);
         }
@@ -136,7 +88,7 @@ public interface Session extends AutoCloseable {
      * @return Operation future.
      * @throws SqlException If failed.
      */
-    CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments);
+    CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments);
 
     /**
      * Executes SQL statement in an asynchronous way.
@@ -147,42 +99,7 @@ public interface Session extends AutoCloseable {
      * @return Operation future.
      * @throws SqlException If failed.
      */
-    CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
-            @Nullable Transaction transaction,
-            Statement statement,
-            @Nullable Object... arguments);
-
-    /**
-     * Executes SQL statement in an asynchronous way and maps results to objects with the provided mapper.
-     *
-     * @param transaction Transaction to execute the statement within or {@code null}.
-     * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
-     * @param query SQL query template.
-     * @param arguments Arguments for the statement.
-     * @param <T> A type of object contained in result set.
-     * @return Operation future.
-     */
-    <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
-            @Nullable Transaction transaction,
-            @Nullable Mapper<T> mapper,
-            String query,
-            @Nullable Object... arguments);
-
-    /**
-     * Executes SQL statement in an asynchronous way and maps results to objects with the provided mapper.
-     *
-     * @param transaction Transaction to execute the statement within or {@code null}.
-     * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
-     * @param statement SQL statement to execute.
-     * @param arguments Arguments for the statement.
-     * @param <T> A type of object contained in result set.
-     * @return Operation future.
-     */
-    <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
-            @Nullable Transaction transaction,
-            @Nullable Mapper<T> mapper,
-            Statement statement,
-            @Nullable Object... arguments);
+    CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments);
 
     /**
      * Executes SQL query in a reactive way.
@@ -298,23 +215,12 @@ public interface Session extends AutoCloseable {
     CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments);
 
     /**
-     * Return default query timeout which bound query execution time. In case a query take more time it's will be interrupted.
+     * Return default query timeout.
      *
      * @param timeUnit Timeunit to convert timeout to.
      * @return Default query timeout in the given timeunit.
      */
-    long defaultQueryTimeout(TimeUnit timeUnit);
-
-    /**
-     * Return default idle session timeout.
-     *
-     * <p>The maximum idle time (that is, time when no requests are performed on behalf the session) in milliseconds, after which this
-     * session will be considered expired.
-     *
-     * @param timeUnit Timeunit to convert timeout to.
-     * @return Session timeout in the given timeunit.
-     */
-    long idleTimeout(TimeUnit timeUnit);
+    long defaultTimeout(TimeUnit timeUnit);
 
     /**
      * Returns session default schema.
@@ -375,7 +281,7 @@ public interface Session extends AutoCloseable {
          * @param timeUnit Timeunit to convert timeout to.
          * @return Default query timeout in the given timeunit.
          */
-        long defaultQueryTimeout(TimeUnit timeUnit);
+        long defaultTimeout(TimeUnit timeUnit);
 
         /**
          * Sets default query timeout.
@@ -384,30 +290,7 @@ public interface Session extends AutoCloseable {
          * @param timeUnit Timeunit.
          * @return {@code this} for chaining.
          */
-        SessionBuilder defaultQueryTimeout(long timeout, TimeUnit timeUnit);
-
-        /**
-         * Return the idle timeout.
-         *
-         * <p>The maximum idle time (that is, time when no requests are performed on behalf the session) in milliseconds, after which this
-         * session will be considered expired.
-         *
-         * @param timeUnit Timeunit to convert timeout to.
-         * @return Session timeout in the given timeunit.
-         */
-        long idleTimeout(TimeUnit timeUnit);
-
-        /**
-         * Sets idle timeout.
-         *
-         * <p>The maximum idle time (that is, time when no requests are performed on behalf the session) in milliseconds, after which this
-         * session will be considered expired.
-         *
-         * @param timeout Session timeout value.
-         * @param timeUnit Timeunit.
-         * @return {@code this} for chaining.
-         */
-        SessionBuilder idleTimeout(long timeout, TimeUnit timeUnit);
+        SessionBuilder defaultTimeout(long timeout, TimeUnit timeUnit);
 
         /**
          * Returns session default schema.

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -32,8 +32,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.IgniteNameUtils;
+import org.apache.ignite.internal.util.IgniteObjectName;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -101,7 +100,7 @@ class TupleImpl implements Tuple, Serializable {
     /** {@inheritDoc} */
     @Override
     public Tuple set(@NotNull String columnName, Object val) {
-        String columnName0 = IgniteNameUtils.parseSimpleName(columnName);
+        String columnName0 = IgniteObjectName.parse(columnName);
 
         int idx = colMapping.computeIfAbsent(Objects.requireNonNull(columnName0), name -> colMapping.size());
 
@@ -129,7 +128,7 @@ class TupleImpl implements Tuple, Serializable {
     public int columnIndex(@NotNull String columnName) {
         Objects.requireNonNull(columnName);
 
-        Integer idx = colMapping.get(IgniteNameUtils.parseSimpleName(columnName));
+        Integer idx = colMapping.get(IgniteObjectName.parse(columnName));
 
         return idx == null ? -1 : idx;
     }
@@ -394,11 +393,5 @@ class TupleImpl implements Tuple, Serializable {
         for (int i = 0; i < colNames.size(); i++) {
             colMapping.put(colNames.get(i), i);
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return S.toString(Tuple.class.getSimpleName(), colNames, colValues);
     }
 }
