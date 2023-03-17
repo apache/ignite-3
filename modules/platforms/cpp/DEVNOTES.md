@@ -2,9 +2,28 @@
 
 ### Prerequisites
 * C++ compiler supporting C++17
-* One of build systems: ninja, make, MS Visual Studio, etc
-* Conan C/C++ package manager
+* One of build systems: make, ninja, MS Visual Studio, etc
+* Conan C/C++ package manager 1.X
 * CMake 3.10+
+
+### Installing Conan Package Manager
+
+The Conan package manager can be obtained from [its website](https://conan.io).
+
+Currently we support Conan versions 1.X. The version 2.0+ is **not** supported yet.
+
+One way to install Conan is as follows (need python in your system):
+
+```shell
+pip install conan==1.59.0
+```
+
+Also before use it might be required to configure the default conan profile:
+
+```
+conan profile new --detect default
+conan profile update settings.compiler.libcxx=libstdc++11 default
+```
 
 ### Linux Build
 
@@ -31,6 +50,12 @@ cmake --build . -j8
 ```
 
 ### MacOS Build
+
+On macOS it is typically required to use the C++ standard library from the LLVM project:
+
+```
+conan profile update settings.compiler.libcxx=libc++11 default
+```
 
 #### Building in debug mode with tests.
 
