@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
@@ -1160,7 +1161,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 partitions, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
 
         // TODO: IGNITE-16288 directIndexIds should use async configuration API
-        var table = new TableImpl(internalTable, lockMgr, () -> CompletableFuture.supplyAsync(() -> directIndexIds()));
+        var table = new TableImpl(internalTable, lockMgr, () -> supplyAsync(this::directIndexIds, ioExecutor));
 
         tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
@@ -1586,7 +1587,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private CompletableFuture<List<Table>> tablesAsyncInternal() {
         // TODO: IGNITE-16288 directTableIds should use async configuration API
-        return CompletableFuture.supplyAsync(() -> inBusyLock(busyLock, this::directTableIds))
+        return supplyAsync(() -> inBusyLock(busyLock, this::directTableIds), ioExecutor)
                 .thenCompose(tableIds -> inBusyLock(busyLock, () -> {
                     var tableFuts = new CompletableFuture[tableIds.size()];
 
@@ -1735,7 +1736,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
         try {
             // TODO: IGNITE-16288 directTableId should use async configuration API
-            return CompletableFuture.supplyAsync(() -> inBusyLock(busyLock, () -> directTableId(name)))
+            return supplyAsync(() -> inBusyLock(busyLock, () -> directTableId(name)), ioExecutor)
                     .thenCompose(tableId -> inBusyLock(busyLock, () -> {
                         if (tableId == null) {
                             return completedFuture(null);
@@ -1758,7 +1759,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     public CompletableFuture<TableImpl> tableAsyncInternal(UUID id, boolean checkConfiguration) {
         CompletableFuture<Boolean> tblCfgFut = checkConfiguration
                 // TODO: IGNITE-16288 isTableConfigured should use async configuration API
-                ? CompletableFuture.supplyAsync(() -> inBusyLock(busyLock, () -> isTableConfigured(id)))
+                ? supplyAsync(() -> inBusyLock(busyLock, () -> isTableConfigured(id)), ioExecutor)
                 : completedFuture(true);
 
         return tblCfgFut.thenCompose(isCfg -> inBusyLock(busyLock, () -> {

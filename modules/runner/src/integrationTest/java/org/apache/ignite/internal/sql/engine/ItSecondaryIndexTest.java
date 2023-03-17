@@ -27,7 +27,6 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
@@ -75,6 +74,7 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
      */
     @BeforeAll
     static void initTestData() throws InterruptedException {
+        /*
         sql("CREATE TABLE developer (id INT PRIMARY KEY, name VARCHAR, depid INT, city VARCHAR, age INT)");
         sql("CREATE INDEX " + DEPID_IDX + " ON developer (depid)");
         sql("CREATE INDEX " + NAME_CITY_IDX + " ON developer (name DESC, city DESC)");
@@ -157,6 +157,7 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
                 {6, 6},
                 {7, null}
         });
+         */
     }
 
     @Test
@@ -1026,9 +1027,25 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
     void testDummy() throws Exception {
         // TODO: IGNITE-18539 тест просто проверить не пустую таблицу, скорее всего удалиться или переделаеться
         try {
-            sql("CREATE TABLE t(i0 INTEGER PRIMARY KEY, i1 INTEGER, i2 INTEGER)");
+            sql("CREATE TABLE t(i0 INTEGER PRIMARY KEY, i1 INTEGER, i2 INTEGER) WITH replicas=2, partitions=2");
 
-            sql("INSERT INTO t VALUES (1, null, 0), (2, 1, null), (3, 2, 2), (4, 3, null)");
+            sql("INSERT INTO t VALUES "
+                    + "(1, null, 0), "
+                    + "(2, 1, null), "
+                    + "(3, 2, 2), "
+                    + "(4, 3, null), "
+                    + "(5, 4, null), "
+                    + "(6, 5, null), "
+                    + "(7, 6, null), "
+                    + "(8, 7, null), "
+                    + "(9, 8, null), "
+                    + "(10, 9, null), "
+                    + "(11, 10, null), "
+                    + "(12, 11, null), "
+                    + "(13, 12, null), "
+                    + "(14, 13, null), "
+                    + "(15, 14, null)"
+            );
 
             sql("CREATE INDEX t_idx ON t(i1, i2)");
             // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203

@@ -66,7 +66,6 @@ import org.apache.ignite.internal.schema.configuration.index.TableIndexConfigura
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -436,7 +435,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                             index.descriptor().columns().toArray(STRING_EMPTY_ARRAY)
                     );
 
-                    initIndexBuildIfNeeded(tableIndexView.id(), table);
+                    initIndexBuildIfNeeded(tableIndexView, table);
 
                     if (index instanceof HashIndex) {
                         table.registerHashIndex(tableIndexView.id(), tableIndexView.uniq(), tableRowConverter::convert);
@@ -613,44 +612,13 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     }
 
     /**
-     * Initializes the build of the index if it has not yet been built or if the partition is not empty.
-     *
-     * @param indexId Index ID.
-     * @param table Index table.
+     * Initializes the build of the index.
      */
-    private void initIndexBuildIfNeeded(UUID indexId, TableImpl table) {
-        InternalTable internalTable = table.internalTable();
-
-        for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
-            IndexStorage index = internalTable.storage().getOrCreateIndex(partitionId, indexId);
-            MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(partitionId);
-
-            assert mvPartition != null : "tableId=" + table.tableId() + ", partId=" + partitionId;
-
-            RowId lastBuildRowId = index.getLastBuildRowId();
-
-            if (lastBuildRowId == null) {
-                // Partition index is already built.
-                continue;
-            }
-
-            if (mvPartition.closestRowId(lastBuildRowId) == null) {
-                // There is nothing to build, the partition is empty.
-                mvPartition.runConsistently(() -> {
-                    index.setLastBuildRowId(null);
-
-                    return null;
-                });
-
-                continue;
-            }
-
-            // TODO: IGNITE-18539 нужно что-то еще сделать помимо создания таски ?
-            // TODO: IGNITE-18539 еще есть проблемы с ребалансом/отменой/удалением партиции/таблицы
-            buildIndexExecutor.submit(new BuildIndexTask(table, indexId, partitionId, true));
+    private void initIndexBuildIfNeeded(TableIndexView tableIndexView, TableImpl table) {
+        for (int partitionId = 0; partitionId < table.internalTable().partitions(); partitionId++) {
+            buildIndexExecutor.submit(new BuildIndexTask(table, tableIndexView, partitionId, true));
         }
     }
-
 
     /**
      * Task of building a table index for a partition.
@@ -665,15 +633,15 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     private class BuildIndexTask implements Runnable {
         private final TableImpl table;
 
-        private final UUID indexId;
+        private final TableIndexView tableIndexView;
 
         private final int partitionId;
 
         private final boolean firstBatch;
 
-        private BuildIndexTask(TableImpl table, UUID indexId, int partitionId, boolean firstBatch) {
+        private BuildIndexTask(TableImpl table, TableIndexView tableIndexView, int partitionId, boolean firstBatch) {
             this.table = table;
-            this.indexId = indexId;
+            this.tableIndexView = tableIndexView;
             this.partitionId = partitionId;
             this.firstBatch = firstBatch;
         }
@@ -685,28 +653,34 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             }
 
             try {
-                RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(partitionId);
+                InternalTable internalTable = table.internalTable();
+
+                RaftGroupService raftGroupService = internalTable.partitionRaftGroupService(partitionId);
 
                 if (!isLocalNodeLeader(raftGroupService)) {
                     // TODO: IGNITE-19053 Must handle the change of leader
                     return;
                 }
 
-                if (firstBatch) {
-                    LOG.info(
-                            "Start building the index: [tableId={}, partitionId={}, indexId={}]",
-                            table.tableId(), partitionId, indexId
-                    );
+                RowId lastBuildRowId = internalTable.storage().getOrCreateIndex(partitionId, tableIndexView.id()).getLastBuildRowId();
+
+                if (lastBuildRowId == null) {
+                    // Index has already been built.
+                    return;
                 }
 
-                List<RowId> batchRowIds = createBatchRowIds(BUILD_INDEX_ROW_ID_BATCH_SIZE);
+                if (firstBatch) {
+                    LOG.info("Start building the index: [{}]", createCommonTableIndexInfo());
+                }
+
+                List<RowId> batchRowIds = createBatchRowIds(lastBuildRowId, BUILD_INDEX_ROW_ID_BATCH_SIZE);
 
                 boolean finish = batchRowIds.size() < BUILD_INDEX_ROW_ID_BATCH_SIZE;
 
                 raftGroupService.run(createBuildIndexCommand(batchRowIds, finish))
                         .thenAccept(unused -> {
                             if (!finish) {
-                                buildIndexExecutor.submit(new BuildIndexTask(table, indexId, partitionId, false));
+                                buildIndexExecutor.submit(new BuildIndexTask(table, tableIndexView, partitionId, false));
                             }
                         });
             } finally {
@@ -719,19 +693,13 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             assert leader != null : "tableId=" + table.tableId() + ", partitionId=" + partitionId;
 
-            return clusterService.topologyService().localMember().name().equals(leader.consistentId());
+            return localNodeConsistentId().equals(leader.consistentId());
         }
 
-        private List<RowId> createBatchRowIds(int batchSize) {
-            InternalTable internalTable = table.internalTable();
+        private List<RowId> createBatchRowIds(RowId lastBuildRowId, int batchSize) {
+            MvPartitionStorage mvPartition = table.internalTable().storage().getMvPartition(partitionId);
 
-            MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(partitionId);
-
-            assert mvPartition != null : "tableId=" + table.tableId() + ", partitionId=" + partitionId;
-
-            RowId lastBuildRowId = internalTable.storage().getOrCreateIndex(partitionId, indexId).getLastBuildRowId();
-
-            assert lastBuildRowId != null : "tableId=" + table.tableId() + ", partitionId=" + partitionId + ", indexId=" + indexId;
+            assert mvPartition != null : createCommonTableIndexInfo();
 
             List<RowId> batch = new ArrayList<>(batchSize);
 
@@ -755,10 +723,20 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                             .partitionId(partitionId)
                             .build()
                     )
-                    .indexId(indexId)
+                    .indexId(tableIndexView.id())
                     .rowIds(rowIds.stream().map(RowId::uuid).collect(toList()))
                     .finish(finish)
                     .build();
         }
+
+        private String createCommonTableIndexInfo() {
+            return "table=" + table.name() + ", tableId=" + table.tableId()
+                    + ", partitionId=" + partitionId
+                    + ", index=" + tableIndexView.name() + ", indexId=" + tableIndexView.id();
+        }
+    }
+
+    private String localNodeConsistentId() {
+        return clusterService.topologyService().localMember().name();
     }
 }
