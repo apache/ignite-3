@@ -3,7 +3,7 @@
 ### Prerequisites
 * C++ compiler supporting C++17
 * One of build systems: make, ninja, MS Visual Studio, etc
-* Conan C/C++ package manager 1.X
+* Conan C/C++ package manager 1.X (optional)
 * CMake 3.10+
 
 ### Installing Conan Package Manager
@@ -24,6 +24,26 @@ Also before use it might be required to configure the default conan profile:
 conan profile new --detect default
 conan profile update settings.compiler.libcxx=libstdc++11 default
 ```
+
+### Avoiding Conan Package Manager
+
+It is possible to build the project without Conan if all the dependencies are installed on the system manually.
+The project dependencies include the following libraries:
+
+	- msgpack-c 4.0.0
+	- gtest 1.12.1
+
+When the project is configured with the `-DENABLE_CONAN=OFF` CMake option, the Conan machinery is turned off and
+the dependencies are resolved by using the standard means of the build platform. For example, the project can be
+configured like this:
+
+```shell
+...
+cmake .. -DENABLE_CONAN=0 -DCMAKE_BUILD_TYPE=Release
+...
+```
+
+All the build examples below use Conan though.
 
 ### Linux Build
 
