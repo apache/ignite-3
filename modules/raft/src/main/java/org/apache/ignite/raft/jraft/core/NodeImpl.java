@@ -26,6 +26,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledFuture;
@@ -146,6 +147,9 @@ public class NodeImpl implements Node, RaftServerService {
         .writeLock();
     protected final Lock readLock = this.readWriteLock
         .readLock();
+
+    /** The future completes when all committed actions applied to RAFT state machine. */
+    private final CompletableFuture<Long> applyCommittedFuture;
     private volatile State state;
     private volatile CountDownLatch shutdownLatch;
     private long currTerm;
@@ -557,6 +561,7 @@ public class NodeImpl implements Node, RaftServerService {
         updateLastLeaderTimestamp(Utils.monotonicMs());
         this.confCtx = new ConfigurationCtx(this);
         this.wakingCandidate = null;
+        this.applyCommittedFuture = new CompletableFuture<>();
     }
 
     public HybridClock clock() {
@@ -1063,17 +1068,12 @@ public class NodeImpl implements Node, RaftServerService {
         // Wait committed.
         long commitIdx = logManager.getLastLogIndex();
 
-        boolean externalAwaitStorageLatch = opts.getStorageReadyLatch() != null;
-
         if (commitIdx > fsmCaller.getLastAppliedIndex()) {
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-19047 Meta storage and cmg raft log re-application in async manner
-            CountDownLatch applyCommitLatch = externalAwaitStorageLatch ? opts.getStorageReadyLatch() : new CountDownLatch(1);
-
             LastAppliedLogIndexListener lnsr = new LastAppliedLogIndexListener() {
                 @Override
                 public void onApplied( long lastAppliedLogIndex) {
                     if (lastAppliedLogIndex >= commitIdx) {
-                        applyCommitLatch.countDown();
+                        applyCommittedFuture.complete(lastAppliedLogIndex);
                         fsmCaller.removeLastAppliedLogIndexListener(this);
                     }
                 }
@@ -1082,20 +1082,8 @@ public class NodeImpl implements Node, RaftServerService {
             fsmCaller.addLastAppliedLogIndexListener(lnsr);
 
             fsmCaller.onCommitted(commitIdx);
-
-            try {
-                if (!externalAwaitStorageLatch) {
-                    applyCommitLatch.await();
-                }
-            } catch (InterruptedException e) {
-                LOG.error("Fail to apply committed updates.", e);
-
-                return false;
-            }
         } else {
-            if (externalAwaitStorageLatch) {
-                opts.getStorageReadyLatch().countDown();
-            }
+            applyCommittedFuture.complete(0L);
         }
 
         if (!this.rpcClientService.init(this.options)) {
@@ -1148,6 +1136,13 @@ public class NodeImpl implements Node, RaftServerService {
         return true;
     }
 
+    /**
+     * Gets a future to apply committed revisions.
+     * @return Future completes when committed revisions apply to state machine.
+     */
+    public CompletableFuture<Long> getApplyCommittedFuture() {
+        return applyCommittedFuture;
+    }
     /**
      * Validates a required option if shared pools are enabled.
      *

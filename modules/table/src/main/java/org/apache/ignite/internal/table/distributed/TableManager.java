@@ -57,7 +57,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -721,8 +720,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 CompletableFuture<Void> startGroupFut;
 
-                CountDownLatch storageReadyLatch = new CountDownLatch(1);
-
                 // start new nodes, only if it is table creation, other cases will be covered by rebalance logic
                 if (oldPartAssignment.isEmpty() && localMemberAssignment != null) {
                     startGroupFut = partitionStoragesFut.thenComposeAsync(partitionStorages -> {
@@ -771,8 +768,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                 internalTbl.storage(),
                                                 internalTbl.txStateStorage(),
                                                 partitionKey(internalTbl, partId),
-                                                storageUpdateHandler,
-                                                storageReadyLatch
+                                                storageUpdateHandler
                                         );
 
                                         Peer serverPeer = newConfiguration.peer(localMemberName);
@@ -835,6 +831,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                         try {
                                             replicaMgr.startReplica(replicaGrpId,
+                                                    CompletableFuture.allOf(
+                                                            ((Loza) raftMgr).raftNodeReadyFuture(replicaGrpId),
+                                                            table.indexesReadyFuture()
+                                                    ),
                                                     new PartitionReplicaListener(
                                                             partitionStorage,
                                                             updatedRaftGroupService,
@@ -853,7 +853,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             storageUpdateHandler,
                                                             this::isLocalPeer,
                                                             schemaManager.schemaRegistry(causalityToken, tblId),
-                                                            storageReadyLatch
                                                     ),
                                                     updatedRaftGroupService,
                                                     storageIndexTracker
@@ -926,8 +925,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             MvTableStorage mvTableStorage,
             TxStateTableStorage txStateTableStorage,
             PartitionKey partitionKey,
-            StorageUpdateHandler storageUpdateHandler,
-            CountDownLatch storageReadyLatch
+            StorageUpdateHandler storageUpdateHandler
     ) {
         RaftGroupOptions raftGroupOptions;
 
@@ -952,8 +950,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 ),
                 incomingSnapshotsExecutor
         ));
-
-        raftGroupOptions.setStorageReadyLatch(storageReadyLatch);
 
         return raftGroupOptions;
     }
@@ -2013,8 +2009,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 internalTable.storage(),
                                 internalTable.txStateStorage(),
                                 partitionKey(internalTable, partId),
-                                storageUpdateHandler,
-                                null
+                                storageUpdateHandler
                         );
 
                         RaftGroupListener raftGrpLsnr = new PartitionListener(
@@ -2053,6 +2048,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             UUID tblId = tbl.tableId();
 
                             replicaMgr.startReplica(replicaGrpId,
+                                    CompletableFuture.allOf(
+                                            ((Loza) raftMgr).raftNodeReadyFuture(replicaGrpId),
+                                            tbl.indexesReadyFuture()
+                                    ),
                                     new PartitionReplicaListener(
                                             mvPartitionStorage,
                                             internalTable.partitionRaftGroupService(partId),

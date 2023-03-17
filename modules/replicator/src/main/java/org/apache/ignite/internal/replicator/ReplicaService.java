@@ -142,9 +142,13 @@ public class ReplicaService {
                                                 throwable0));
                                     }
                                 } else {
-                                    res.get().thenCompose(ignore -> sendToReplica(targetNodeConsistentId, req));
-
-                                    res.get().complete(null);
+                                    sendToReplica(targetNodeConsistentId, req).whenComplete((r, e) -> {
+                                        if (e != null) {
+                                            res.get().completeExceptionally(e);
+                                        } else {
+                                            res.get().complete((R) r);
+                                        }
+                                    });
                                 }
 
                                 return null;

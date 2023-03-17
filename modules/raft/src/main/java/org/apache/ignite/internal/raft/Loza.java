@@ -174,7 +174,12 @@ public class Loza implements RaftManager {
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr
     ) throws NodeStoppingException {
-        return startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, RaftGroupOptions.defaults());
+        CompletableFuture<RaftGroupService> fut = startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, RaftGroupOptions.defaults());
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19047 Meta storage and cmg raft log re-application in async manner
+        raftServer.raftNodeReadyFuture(nodeId.groupId()).join();
+
+        return fut;
     }
 
     @Override
@@ -309,6 +314,17 @@ public class Loza implements RaftManager {
                 true,
                 executor
         );
+    }
+
+
+    /**
+     * Gets a future that completes when all committed updates are applied to state machine.
+     *
+     * @param groupId Raft group id.
+     * @return Future to last applied revision.
+     */
+    public CompletableFuture<Long> raftNodeReadyFuture(ReplicationGroupId groupId) {
+        return raftServer.raftNodeReadyFuture(groupId);
     }
 
     @Override

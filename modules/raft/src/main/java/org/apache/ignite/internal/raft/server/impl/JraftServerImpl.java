@@ -30,7 +30,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -414,8 +416,6 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setRaftGrpEvtsLsnr(new RaftGroupEventsListenerAdapter(nodeId.groupId(), serviceEventInterceptor, evLsnr));
 
-            nodeOptions.setStorageReadyLatch(groupOptions.getStorageReadyLatch());
-
             LogStorageFactory logStorageFactory = groupOptions.getLogStorageFactory() == null
                     ? this.logStorageFactory : groupOptions.getLogStorageFactory();
 
@@ -455,6 +455,14 @@ public class JraftServerImpl implements RaftServer {
 
             return true;
         }
+    }
+
+    @Override
+    public CompletableFuture<Long> raftNodeReadyFuture(ReplicationGroupId groupId) {
+        RaftGroupService jraftNode = nodes.entrySet().stream().filter(entry -> entry.getKey().groupId().equals(groupId))
+                .map(Entry::getValue).findAny().get();
+
+        return jraftNode.getApplyCommittedFuture();
     }
 
     @Override

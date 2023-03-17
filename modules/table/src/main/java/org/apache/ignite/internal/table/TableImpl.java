@@ -269,6 +269,19 @@ public class TableImpl implements Table {
     }
 
     /**
+     * The future completes when indexes are ready.
+     *
+     * @return Future to complete.
+     */
+    public CompletableFuture<Void> indexesReadyFuture() {
+        var fut = new CompletableFuture<Void>();
+
+        pkId.whenComplete((uuid, throwable) -> fut.complete(null));
+
+        return fut;
+    }
+
+    /**
      * Register the index with given id in a table.
      *
      * @param indexId An index id os the index to register.
