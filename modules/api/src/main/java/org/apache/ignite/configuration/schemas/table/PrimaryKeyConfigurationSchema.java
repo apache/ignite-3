@@ -22,7 +22,7 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 
 /**
- * Configuration for primary key constraint in SQL table.
+ * Configuration for a primary key constraint in an SQL table.
  */
 @Config
 public class PrimaryKeyConfigurationSchema {
@@ -31,7 +31,7 @@ public class PrimaryKeyConfigurationSchema {
     @Immutable
     public String[] columns;
 
-    /** Primary key colocation columns names. */
+    /** Primary key colocation column names. */
     @Value(hasDefault = true)
     @Immutable
     public String[] colocationColumns = new String[0];

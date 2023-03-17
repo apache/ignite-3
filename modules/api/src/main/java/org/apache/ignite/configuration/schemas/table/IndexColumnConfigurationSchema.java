@@ -22,7 +22,7 @@ import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Configuration for single column in index.
+ * Configuration for a single column in an index.
  */
 @Config
 public class IndexColumnConfigurationSchema {

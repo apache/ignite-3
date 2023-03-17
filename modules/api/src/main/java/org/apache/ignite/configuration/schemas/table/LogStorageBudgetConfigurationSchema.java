@@ -21,11 +21,11 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 
 /**
- * Configuration schema for RAFT log storage budget.
+ * Configuration schema for the RAFT log storage budget.
  */
 @PolymorphicConfig
 public class LogStorageBudgetConfigurationSchema {
-    /** Name of budget. */
+    /** Name of the budget. */
     @PolymorphicId(hasDefault = true)
     public String name = UnlimitedBudgetConfigurationSchema.NAME;
 }

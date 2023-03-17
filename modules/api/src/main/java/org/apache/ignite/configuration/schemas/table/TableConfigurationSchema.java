@@ -57,7 +57,7 @@ public class TableConfigurationSchema {
     @ConfigValue
     public DataStorageConfigurationSchema dataStorage;
 
-    /** Columns configuration. */
+    /** Column configuration. */
     @NamedConfigValue
     public ColumnConfigurationSchema columns;
 
@@ -65,13 +65,13 @@ public class TableConfigurationSchema {
     @ConfigValue
     public PrimaryKeyConfigurationSchema primaryKey;
 
-    /** Indices configuration. */
+    /** Index configuration. */
     @NamedConfigValue
     public TableIndexConfigurationSchema indices;
 
     // TODO: IGNITE-16647 - RAFT configuration should be moved elsewhere
 
-    /** Configuration for Raft groups corresponding to table partitions. */
+    /** Configuration for RAFT groups that correspond to table partitions. */
     @ConfigValue
     public VolatileRaftConfigurationSchema volatileRaft;
 }

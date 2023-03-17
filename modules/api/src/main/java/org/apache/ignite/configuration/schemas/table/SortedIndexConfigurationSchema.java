@@ -27,7 +27,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
  */
 @PolymorphicConfigInstance(SORTED_INDEX_TYPE)
 public class SortedIndexConfigurationSchema extends TableIndexConfigurationSchema {
-    /** Columns configuration for sorted indexes. */
+    /** Column configuration for the sorted index. */
     @NamedConfigValue
     public IndexColumnConfigurationSchema columns;
 }

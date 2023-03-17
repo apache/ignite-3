@@ -16,7 +16,7 @@
  */
 
 /**
- * Configuration schemas for Table and Schema components.
+ * Configuration schemas for the Table and Schema components.
  */
 
 package org.apache.ignite.configuration.schemas.table;
