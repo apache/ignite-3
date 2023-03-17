@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -39,12 +39,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
+import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
@@ -119,7 +121,7 @@ public class ExecutionServiceImplTest {
     private final TestTable table = createTable("TEST_TBL", 1_000_000, IgniteDistributions.random(),
             "ID", NativeTypes.INT32, "VAL", NativeTypes.INT32);
 
-    private final IgniteSchema schema = new IgniteSchema("PUBLIC", Map.of(table.name(), table), null);
+    private final IgniteSchema schema = new IgniteSchema("PUBLIC", Map.of(table.name(), table), null, -1);
 
     private TestCluster testCluster;
     private List<ExecutionServiceImpl<?>> executionServices;
@@ -147,7 +149,7 @@ public class ExecutionServiceImplTest {
     public void testCloseByCursor() throws Exception {
         ExecutionService execService = executionServices.get(0);
         BaseQueryContext ctx = createContext();
-        QueryPlan plan = prepare("SELECT *  FROM test_tbl", ctx);
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
@@ -182,7 +184,7 @@ public class ExecutionServiceImplTest {
     public void testCancelOnInitiator() throws InterruptedException {
         ExecutionService execService = executionServices.get(0);
         BaseQueryContext ctx = createContext();
-        QueryPlan plan = prepare("SELECT *  FROM test_tbl", ctx);
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
@@ -217,7 +219,7 @@ public class ExecutionServiceImplTest {
     public void testInitializationFailedOnRemoteNode() throws InterruptedException {
         ExecutionService execService = executionServices.get(0);
         BaseQueryContext ctx = createContext();
-        QueryPlan plan = prepare("SELECT *  FROM test_tbl", ctx);
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
@@ -270,7 +272,7 @@ public class ExecutionServiceImplTest {
 
         ExecutionService execService = executionServices.get(0);
         BaseQueryContext ctx = createContext();
-        QueryPlan plan = prepare("SELECT *  FROM test_tbl", ctx);
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
@@ -297,7 +299,7 @@ public class ExecutionServiceImplTest {
     public void testCancelOnRemote() throws InterruptedException {
         ExecutionService execService = executionServices.get(0);
         BaseQueryContext ctx = createContext();
-        QueryPlan plan = prepare("SELECT *  FROM test_tbl", ctx);
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
@@ -333,7 +335,7 @@ public class ExecutionServiceImplTest {
     public void testCursorIsClosedAfterAllDataRead() throws InterruptedException {
         ExecutionService execService = executionServices.get(0);
         BaseQueryContext ctx = createContext();
-        QueryPlan plan = prepare("SELECT *  FROM test_tbl", ctx);
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
         AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
@@ -360,7 +362,7 @@ public class ExecutionServiceImplTest {
     public void testCursorIsClosedAfterAllDataRead2() throws InterruptedException {
         ExecutionService execService = executionServices.get(0);
         BaseQueryContext ctx = createContext();
-        QueryPlan plan = prepare("SELECT *  FROM test_tbl", ctx);
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
         AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
@@ -400,7 +402,15 @@ public class ExecutionServiceImplTest {
 
         when(topologyService.localMember()).thenReturn(clusterNode);
 
-        when(schemaManagerMock.tableById(any(), anyInt())).thenReturn(table);
+        when(schemaManagerMock.tableById(any())).thenReturn(table);
+
+        when(schemaManagerMock.actualSchemaAsync(isA(long.class))).thenReturn(CompletableFuture.completedFuture(null));
+
+        CalciteSchema rootSch = CalciteSchema.createRootSchema(false);
+        rootSch.add(schema.getName(), schema);
+        SchemaPlus plus = rootSch.plus();
+
+        when(schemaManagerMock.schema(any())).thenReturn(plus);
 
         var executionService = new ExecutionServiceImpl<>(
                 messageService,

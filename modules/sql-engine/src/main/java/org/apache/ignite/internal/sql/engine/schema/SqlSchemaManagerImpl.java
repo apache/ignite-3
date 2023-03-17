@@ -19,12 +19,13 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.causality.VersionedValue.NOT_INITIALIZED;
 import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.OBJECT_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_EVALUATION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.TABLE_VER_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -35,12 +36,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.causality.OutdatedTokenException;
 import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.Index;
@@ -57,7 +60,6 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -69,10 +71,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     private final VersionedValue<Map<String, IgniteSchema>> schemasVv;
 
     private final VersionedValue<Map<UUID, IgniteTable>> tablesVv;
+    private final Map<UUID, CompletableFuture<?>> pkIdxReady = new ConcurrentHashMap<>();
 
     private final VersionedValue<Map<UUID, IgniteIndex>> indicesVv;
 
-    private final TableManager tableManager;
     private final SchemaManager schemaManager;
     private final ReplicaService replicaService;
     private final HybridClock clock;
@@ -96,7 +98,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             Consumer<Function<Long, CompletableFuture<?>>> registry,
             IgniteSpinBusyLock busyLock
     ) {
-        this.tableManager = tableManager;
         this.schemaManager = schemaManager;
         this.replicaService = replicaService;
         this.clock = clock;
@@ -145,35 +146,50 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     public SchemaPlus schema(@Nullable String schema) {
         SchemaPlus schemaPlus = calciteSchemaVv.latest();
 
+        // stub for waiting pk indexes, more clear place is IgniteSchema
+        CompletableFuture.allOf(pkIdxReady.values().toArray(CompletableFuture[]::new)).join();
+
         return schema != null ? schemaPlus.getSubSchema(schema) : schemaPlus.getSubSchema(DEFAULT_SCHEMA_NAME);
     }
 
     /** {@inheritDoc} */
     @Override
+    public CompletableFuture<?> actualSchemaAsync(long ver) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+        try {
+            if (ver == NOT_INITIALIZED) {
+                return completedFuture(null);
+            }
+
+            CompletableFuture<SchemaPlus> lastSchemaFut;
+
+            try {
+                lastSchemaFut = calciteSchemaVv.get(ver);
+            } catch (OutdatedTokenException e) {
+                return completedFuture(null);
+            }
+
+            return lastSchemaFut;
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
     @NotNull
-    public IgniteTable tableById(UUID id, int ver) {
+    public IgniteTable tableById(UUID id) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
         try {
             IgniteTable table = tablesVv.latest().get(id);
 
-            // there is a chance that someone tries to resolve table before
-            // the distributed event of that table creation has been processed
-            // by TableManager, so we need to get in sync with the TableManager
-            if (table == null || ver > table.version()) {
-                table = awaitLatestTableSchema(id);
-            }
-
             if (table == null) {
                 throw new IgniteInternalException(OBJECT_NOT_FOUND_ERR,
-                        IgniteStringFormatter.format("Table not found [tableId={}]", id));
-            }
-
-            if (table.version() < ver) {
-                throw new IgniteInternalException(TABLE_VER_NOT_FOUND_ERR,
-                        IgniteStringFormatter.format("Table version not found [tableId={}, requiredVer={}, latestKnownVer={}]",
-                                id, ver, table.version()));
+                        format("Table not found [tableId={}]", id));
             }
 
             return table;
@@ -184,22 +200,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     public void registerListener(SchemaUpdateListener listener) {
         listeners.add(listener);
-    }
-
-    private @Nullable IgniteTable awaitLatestTableSchema(UUID tableId) {
-        try {
-            TableImpl table = tableManager.table(tableId);
-
-            if (table == null) {
-                return null;
-            }
-
-            table.schemaView().waitLatestSchema();
-
-            return convert(table);
-        } catch (NodeStoppingException e) {
-            throw new IgniteInternalException(NODE_STOPPING_ERR, e);
-        }
     }
 
     /**
@@ -223,9 +223,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 Map<String, IgniteSchema> res = new HashMap<>(schemas);
 
                 IgniteSchema schema = res.compute(schemaName,
-                        (k, v) -> v == null ? new IgniteSchema(schemaName) : IgniteSchema.copy(v));
+                        (k, v) -> v == null ? new IgniteSchema(schemaName, causalityToken) : IgniteSchema.copy(v, causalityToken));
 
                 CompletableFuture<IgniteTableImpl> igniteTableFuture = convert(causalityToken, table);
+
+                pkIdxReady.put(table.tableId(), new CompletableFuture<>());
 
                 return tablesVv.update(causalityToken, (tables, ex) ->
                                 inBusyLock(busyLock, () -> {
@@ -295,12 +297,14 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 Map<String, IgniteSchema> res = new HashMap<>(schemas);
 
                 IgniteSchema schema = res.compute(schemaName,
-                        (k, v) -> v == null ? new IgniteSchema(schemaName) : IgniteSchema.copy(v));
+                        (k, v) -> v == null ? new IgniteSchema(schemaName, causalityToken) : IgniteSchema.copy(v, causalityToken));
 
                 IgniteTable table = (IgniteTable) schema.getTable(tableName);
 
                 if (table != null) {
                     schema.removeTable(tableName);
+
+                    pkIdxReady.remove(table.id());
 
                     return tablesVv.update(causalityToken, (tables, ex) -> inBusyLock(busyLock, () -> {
                         if (ex != null) {
@@ -414,7 +418,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 Map<String, IgniteSchema> res = new HashMap<>(schemas);
 
                 IgniteSchema schema = res.compute(schemaName,
-                        (k, v) -> v == null ? new IgniteSchema(schemaName) : IgniteSchema.copy(v));
+                        (k, v) -> v == null ? new IgniteSchema(schemaName, causalityToken) : IgniteSchema.copy(v, causalityToken));
 
                 return tablesVv.update(
                         causalityToken,
@@ -441,7 +445,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                                         resIdxs.put(index.id(), schemaIndex);
 
-                                        return CompletableFuture.completedFuture(resIdxs);
+                                        return completedFuture(resIdxs);
                                     })
                             ).thenCompose(ignore -> {
                                 table.addIndex(schemaIndex);
@@ -453,6 +457,15 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                         })
                 ).thenCompose(v -> completedFuture(res));
             }));
+
+            // this stub is necessary for observing pk index creation.
+            schemasVv.whenComplete((token, stringIgniteSchemaMap, throwable) -> {
+                CompletableFuture<?> pkFut = pkIdxReady.get(index.tableId());
+                // this listener is called repeatedly on node stop.
+                if (pkFut != null) {
+                    pkFut.complete(null);
+                }
+            });
 
             return calciteSchemaVv.get(causalityToken);
         } finally {
@@ -481,9 +494,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 Map<String, IgniteSchema> res = new HashMap<>(schemas);
 
                 IgniteSchema schema = res.compute(schemaName,
-                        (k, v) -> v == null ? new IgniteSchema(schemaName) : IgniteSchema.copy(v));
+                        (k, v) -> v == null ? new IgniteSchema(schemaName, causalityToken) : IgniteSchema.copy(v, causalityToken));
 
                 IgniteIndex rmvIndex = schema.removeIndex(indexId);
+
                 if (rmvIndex != null) {
                     return tablesVv.update(
                             causalityToken,

@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.ssl;
 
 import static org.apache.ignite.client.ClientAuthenticationMode.REQUIRE;
-import static org.apache.ignite.internal.rest.RestNode.escapeWindowsPath;
-import static org.apache.ignite.internal.rest.RestNode.getResourcePath;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willTimeoutIn;
@@ -65,8 +65,8 @@ public class ItSslTest extends IgniteIntegrationTest {
     @BeforeAll
     static void beforeAll() {
         password = "changeit";
-        trustStorePath = getResourcePath(ItSslTest.class.getClassLoader().getResource("ssl/truststore.jks"));
-        keyStorePath = getResourcePath(ItSslTest.class.getClassLoader().getResource("ssl/keystore.p12"));
+        trustStorePath = getResourcePath(ItSslTest.class, "ssl/truststore.jks");
+        keyStorePath = getResourcePath(ItSslTest.class, "ssl/keystore.p12");
     }
 
     @Nested

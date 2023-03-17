@@ -245,8 +245,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 .build();
     }
 
-    private QueryPlan prepareFragment(String jsonFragment) {
-        IgniteRel plan = physNodesCache.computeIfAbsent(jsonFragment, ser -> fromJson(sqlSchemaManager, ser));
+    private QueryPlan prepareFragment(String jsonFragment, BaseQueryContext ctx) {
+        IgniteRel plan = physNodesCache.computeIfAbsent(jsonFragment, ser -> fromJson(ctx, ser));
 
         return new FragmentPlan(plan);
     }
@@ -260,8 +260,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             case DML:
                 // TODO a barrier between previous operation and this one
             case QUERY:
-                return executeQuery(tx, ctx, (MultiStepPlan) plan
-                );
+                return executeQuery(tx, ctx, (MultiStepPlan) plan);
             case EXPLAIN:
                 return executeExplain((ExplainPlan) plan);
             case DDL:
@@ -321,13 +320,20 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private void onMessage(String nodeName, QueryStartRequest msg) {
         assert nodeName != null && msg != null;
 
-        DistributedQueryManager queryManager = queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
-            BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters());
+        CompletableFuture<?> fut = sqlSchemaManager.actualSchemaAsync(msg.schemaVersion());
 
-            return new DistributedQueryManager(ctx);
-        });
+        if (fut.isDone()) {
+            submitFragment(nodeName, msg);
+        } else {
+            fut.whenComplete((mgr, ex) -> {
+                if (ex != null) {
+                    handleError(ex, nodeName, msg);
+                    return;
+                }
 
-        queryManager.submitFragment(nodeName, msg.root(), msg.fragmentDescription(), msg.txAttributes());
+                taskExecutor.execute(msg.queryId(), msg.fragmentId(), () -> submitFragment(nodeName, msg));
+            });
+        }
     }
 
     private void onMessage(String nodeName, QueryStartResponse msg) {
@@ -395,6 +401,28 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return mgr.localFragments();
     }
 
+    private void submitFragment(String nodeName, QueryStartRequest msg) {
+        DistributedQueryManager queryManager = getOrCreateQueryManager(msg);
+
+        queryManager.submitFragment(nodeName, msg.root(), msg.fragmentDescription(), msg.txAttributes());
+    }
+
+    private void handleError(Throwable ex, String nodeName, QueryStartRequest msg) {
+        DistributedQueryManager queryManager = getOrCreateQueryManager(msg);
+
+        queryManager.handleError(ex, nodeName, msg.fragmentDescription().fragmentId());
+    }
+
+    private DistributedQueryManager getOrCreateQueryManager(QueryStartRequest msg) {
+        DistributedQueryManager queryManager = queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
+            BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters());
+
+            return new DistributedQueryManager(ctx);
+        });
+
+        return queryManager;
+    }
+
     /**
      * A convenient class that manages the initialization and termination of distributed queries.
      */
@@ -414,9 +442,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private volatile Long rootFragmentId = null;
 
 
-        private DistributedQueryManager(
-                BaseQueryContext ctx
-        ) {
+        private DistributedQueryManager(BaseQueryContext ctx) {
             this.ctx = ctx;
 
             var root = new CompletableFuture<AsyncRootNode<RowT, List<Object>>>();
@@ -445,6 +471,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .fragmentDescription(desc)
                     .parameters(ctx.parameters())
                     .txAttributes(txAttributes)
+                    .schemaVersion(ctx.schemaVersion())
                     .build();
 
             var fut = new CompletableFuture<Void>();
@@ -554,30 +581,39 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             );
         }
 
-        private void submitFragment(String initiatorNode, String fragmentString, FragmentDescription desc, TxAttributes txAttributes) {
+        private void submitFragment(
+                String initiatorNode,
+                String fragmentString,
+                FragmentDescription desc,
+                TxAttributes txAttributes
+        ) {
             try {
-                QueryPlan qryPlan = prepareFragment(fragmentString);
+                QueryPlan qryPlan = prepareFragment(fragmentString, ctx);
 
                 FragmentPlan plan = (FragmentPlan) qryPlan;
 
                 executeFragment(plan, createContext(initiatorNode, desc, txAttributes));
             } catch (Throwable ex) {
-                LOG.debug("Unable to start query fragment", ex);
+                handleError(ex, initiatorNode, desc.fragmentId());
+            }
+        }
 
-                try {
-                    msgSrvc.send(
-                            initiatorNode,
-                            FACTORY.queryStartResponse()
-                                    .queryId(ctx.queryId())
-                                    .fragmentId(desc.fragmentId())
-                                    .error(ex)
-                                    .build()
-                    );
-                } catch (Exception e) {
-                    LOG.info("Unable to send error message", e);
+        private void handleError(Throwable ex, String initiatorNode, long fragmentId) {
+            LOG.debug("Unable to start query fragment", ex);
 
-                    close(true);
-                }
+            try {
+                msgSrvc.send(
+                        initiatorNode,
+                        FACTORY.queryStartResponse()
+                                .queryId(ctx.queryId())
+                                .fragmentId(fragmentId)
+                                .error(ex)
+                                .build()
+                );
+            } catch (Exception e) {
+                LOG.info("Unable to send error message", e);
+
+                close(true);
             }
         }
 

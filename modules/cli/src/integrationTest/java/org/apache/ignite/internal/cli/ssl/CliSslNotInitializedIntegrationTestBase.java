@@ -17,21 +17,22 @@
 
 package org.apache.ignite.internal.cli.ssl;
 
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.Path;
-import java.util.Objects;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
+
 import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
 
 /**
  * Integration test base for SSL tests.
  */
-public class CliSslIntegrationTestBase extends CliCommandTestNotInitializedIntegrationBase {
+public class CliSslNotInitializedIntegrationTestBase extends CliCommandTestNotInitializedIntegrationBase {
+    protected static final String keyStorePath = "ssl/keystore.p12";
+    protected static final String keyStorePassword = "changeit";
+    protected static final String trustStorePath = "ssl/truststore.jks";
+    protected static final String trustStorePassword = "changeit";
 
-    private static final String keyStorePath = "ssl/keystore.p12";
-    private static final String keyStorePassword = "changeit";
-    private static final String trustStorePath = "ssl/truststore.jks";
-    private static final String trustStorePassword = "changeit";
+    static final String resolvedKeystorePath = getResourcePath(CliSslClientConnectorIntegrationTestBase.class, keyStorePath);
+    static final String resolvedTruststorePath = getResourcePath(CliSslClientConnectorIntegrationTestBase.class, trustStorePath);
 
     /**
      * Template for node bootstrap config with Scalecube and Logical Topology settings for fast failure detection.
@@ -49,28 +50,17 @@ public class CliSslIntegrationTestBase extends CliCommandTestNotInitializedInteg
             + "      enabled: " + true + ",\n"
             + "      clientAuth: \"require\",\n"
             + "      keyStore: {\n"
-            + "        path: \"" + getResourcePath(keyStorePath) + "\",\n"
+            + "        path: \"" +  escapeWindowsPath(resolvedKeystorePath) + "\",\n"
             + "        password: " + keyStorePassword + "\n"
             + "      }, \n"
             + "      trustStore: {\n"
             + "        type: JKS,\n"
-            + "        path: \"" + getResourcePath(trustStorePath) + "\",\n"
+            + "        path: \"" + escapeWindowsPath(resolvedTruststorePath) + "\",\n"
             + "        password: " + trustStorePassword + "\n"
             + "      }\n"
             + "    }\n"
             + "  }\n"
             + "}";
-
-    protected static String getResourcePath(String resource) {
-        try {
-            URL url = CliSslIntegrationTestBase.class.getClassLoader().getResource(resource);
-            Objects.requireNonNull(url, "Resource " + resource + " not found.");
-            Path path = Path.of(url.toURI()); // Properly extract file system path from the "file:" URL
-            return path.toString().replace("\\", "\\\\"); // Escape backslashes for the config parser
-        } catch (URISyntaxException e) {
-            throw new RuntimeException(e); // Shouldn't happen since URL is obtained from the class loader
-        }
-    }
 
     @Override
     protected String nodeBootstrapConfigTemplate() {
