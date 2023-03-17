@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
@@ -28,6 +29,7 @@ import static org.apache.ignite.internal.distributionzones.util.DistributionZone
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.mockMetaStorageListener;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -296,7 +298,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     }
 
     @Test
-    void testLogicalTopologyIsNullOnZoneManagerStart() throws InterruptedException {
+    void testLogicalTopologyIsNullOnZoneManagerStart1() {
         mockCmgLocalNodes();
 
         when(vaultMgr.get(zonesLogicalTopologyKey()))
@@ -305,9 +307,10 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
         distributionZoneManager.start();
 
         // 1 invoke because only invoke to zones logical topology happens
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
 
-        assertDataNodesForZone(DEFAULT_ZONE_ID, Set.of(), keyValueStorage);
+        assertNull(keyValueStorage.get(zoneDataNodesKey(DEFAULT_ZONE_ID).bytes()).value());
+        assertNull(keyValueStorage.get(zoneDataNodesKey(1).bytes()).value());
     }
 
     private void mockVaultZonesLogicalTopologyKey(Set<String> nodes) {

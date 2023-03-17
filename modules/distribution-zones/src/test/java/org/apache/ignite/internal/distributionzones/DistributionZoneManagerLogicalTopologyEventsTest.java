@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -279,7 +280,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         distributionZoneManager1.start();
 
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
 
         assertLogicalTopVer(1L);
 
@@ -298,7 +299,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         distributionZoneManager1.start();
 
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
 
         assertLogicalTopVer(2L);
 
@@ -317,7 +318,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         distributionZoneManager1.start();
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
+        verify(keyValueStorage, after(500).never()).invoke(any());
 
         assertLogicalTopVer(2L);
 
@@ -336,7 +337,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         distributionZoneManager1.start();
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
+        verify(keyValueStorage, after(500).never()).invoke(any());
 
         assertLogicalTopVer(3L);
 

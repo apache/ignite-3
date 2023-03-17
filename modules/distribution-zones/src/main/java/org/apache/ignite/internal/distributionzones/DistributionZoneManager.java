@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.Collections.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
@@ -873,25 +874,25 @@ public class DistributionZoneManager implements IgniteComponent {
                         try {
                             if (vaultEntry != null && vaultEntry.value() != null) {
                                 logicalTopology = fromBytes(vaultEntry.value());
+
+                                // init keys and data nodes for default zone
+                                saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+                                        DEFAULT_ZONE_ID,
+                                        appliedRevision,
+                                        logicalTopology
+                                );
+
+                                zonesConfiguration.distributionZones().value().namedListKeys()
+                                        .forEach(zoneName -> {
+                                            int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
+
+                                            saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+                                                    zoneId,
+                                                    appliedRevision,
+                                                    logicalTopology
+                                            );
+                                        });
                             }
-
-                            // init keys and data nodes for default zone
-                            saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                                    DEFAULT_ZONE_ID,
-                                    appliedRevision,
-                                    logicalTopology
-                            );
-
-                            zonesConfiguration.distributionZones().value().namedListKeys()
-                                    .forEach(zoneName -> {
-                                        int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
-
-                                        saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                                                zoneId,
-                                                appliedRevision,
-                                                logicalTopology
-                                        );
-                                    });
                         } finally {
                             busyLock.leaveBusy();
                         }
@@ -1093,11 +1094,35 @@ public class DistributionZoneManager implements IgniteComponent {
                     return completedFuture(null);
                 }
 
-                Map<String, Integer> dataNodesFromMetaStorage = fromBytes(values.get(zoneDataNodesKey(zoneId)).value());
+                Entry dataNodesValue = values.get(zoneDataNodesKey(zoneId));
 
-                long scaleUpTriggerRevision = bytesToLong(values.get(zoneScaleUpChangeTriggerKey(zoneId)).value());
+                Entry zoneScaleUpChangeTriggerValue = values.get(zoneScaleUpChangeTriggerKey(zoneId));
 
-                long scaleDownTriggerRevision = bytesToLong(values.get(zoneScaleDownChangeTriggerKey(zoneId)).value());
+                Entry zoneScaleDownChangeTriggerValue = values.get(zoneScaleDownChangeTriggerKey(zoneId));
+
+                Map<String, Integer> dataNodesFromMetaStorage;
+
+                long scaleUpTriggerRevision;
+
+                long scaleDownTriggerRevision;
+
+                if (dataNodesValue != null && dataNodesValue.value() != null) {
+                    dataNodesFromMetaStorage = fromBytes(dataNodesValue.value());
+                } else {
+                    dataNodesFromMetaStorage = emptyMap();
+                }
+
+                if (zoneScaleUpChangeTriggerValue != null && zoneScaleUpChangeTriggerValue.value() != null) {
+                    scaleUpTriggerRevision = bytesToLong(zoneScaleUpChangeTriggerValue.value());
+                } else {
+                    scaleUpTriggerRevision = 0;
+                }
+
+                if (zoneScaleDownChangeTriggerValue != null && zoneScaleDownChangeTriggerValue.value() != null) {
+                    scaleDownTriggerRevision = bytesToLong(zoneScaleDownChangeTriggerValue.value());
+                } else {
+                    scaleDownTriggerRevision = 0;
+                }
 
                 if (revision <= scaleUpTriggerRevision) {
                     return completedFuture(null);
@@ -1180,11 +1205,35 @@ public class DistributionZoneManager implements IgniteComponent {
                     return completedFuture(null);
                 }
 
-                Map<String, Integer> dataNodesFromMetaStorage = fromBytes(values.get(zoneDataNodesKey(zoneId)).value());
+                Entry dataNodesValue = values.get(zoneDataNodesKey(zoneId));
 
-                long scaleUpTriggerRevision = bytesToLong(values.get(zoneScaleUpChangeTriggerKey(zoneId)).value());
+                Entry zoneScaleUpChangeTriggerValue = values.get(zoneScaleUpChangeTriggerKey(zoneId));
 
-                long scaleDownTriggerRevision = bytesToLong(values.get(zoneScaleDownChangeTriggerKey(zoneId)).value());
+                Entry zoneScaleDownChangeTriggerValue = values.get(zoneScaleDownChangeTriggerKey(zoneId));
+
+                Map<String, Integer> dataNodesFromMetaStorage;
+
+                long scaleUpTriggerRevision;
+
+                long scaleDownTriggerRevision;
+
+                if (dataNodesValue != null && dataNodesValue.value() != null) {
+                    dataNodesFromMetaStorage = fromBytes(dataNodesValue.value());
+                } else {
+                    dataNodesFromMetaStorage = emptyMap();
+                }
+
+                if (zoneScaleUpChangeTriggerValue != null && zoneScaleUpChangeTriggerValue.value() != null) {
+                    scaleUpTriggerRevision = bytesToLong(zoneScaleUpChangeTriggerValue.value());
+                } else {
+                    scaleUpTriggerRevision = 0;
+                }
+
+                if (zoneScaleDownChangeTriggerValue != null && zoneScaleDownChangeTriggerValue.value() != null) {
+                    scaleDownTriggerRevision = bytesToLong(zoneScaleDownChangeTriggerValue.value());
+                } else {
+                    scaleDownTriggerRevision = 0;
+                }
 
                 if (revision <= scaleDownTriggerRevision) {
                     return completedFuture(null);
