@@ -23,7 +23,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
 
-option(ENABLE_CONAN "Install required libraries via Conan package manager" ON)
+option(ENABLE_CONAN "Use Conan package manager to get dependencies" ON)
 option(ENABLE_CLIENT "Build Ignite.C++ Client module" ON)
 option(ENABLE_TESTS "Build Ignite.C++ tests" OFF)
 option(ENABLE_ADDRESS_SANITIZER "If address sanitizer is enabled" OFF)
