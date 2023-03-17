@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
-import static org.apache.ignite.network.ChannelType.fromId;
+import static org.apache.ignite.network.ChannelInfo.getChannel;
 
 import io.netty.bootstrap.Bootstrap;
 import java.net.InetSocketAddress;
@@ -45,7 +45,7 @@ import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.ChannelType;
+import org.apache.ignite.network.ChannelInfo;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -136,7 +136,7 @@ public class ConnectionManager {
      * @param launchId                      Launch id of this node.
      * @param consistentId                  Consistent id of this node.
      * @param bootstrapFactory              Bootstrap factory.
-     * @param clientHandshakeManagerFactory  Factory for {@link RecoveryClientHandshakeManager} instances.
+     * @param clientHandshakeManagerFactory Factory for {@link RecoveryClientHandshakeManager} instances.
      */
     public ConnectionManager(
             NetworkView networkConfiguration,
@@ -210,7 +210,7 @@ public class ConnectionManager {
      * @param address      Another node's address.
      * @return Sender.
      */
-    public OrderingFuture<NettySender> channel(@Nullable String consistentId, ChannelType type, InetSocketAddress address) {
+    public OrderingFuture<NettySender> channel(@Nullable String consistentId, ChannelInfo type, InetSocketAddress address) {
         if (consistentId != null) {
             // If consistent id is known, try looking up a channel by consistent id. There can be an outbound connection
             // or an inbound connection associated with that consistent id.
@@ -254,7 +254,7 @@ public class ConnectionManager {
      * @param channel Channel from client to this {@link #server}.
      */
     private void onNewIncomingChannel(NettySender channel) {
-        ConnectorKey<String> key = new ConnectorKey<>(channel.consistentId(), fromId(channel.channelId()));
+        ConnectorKey<String> key = new ConnectorKey<>(channel.consistentId(), getChannel(channel.channelId()));
         NettySender oldChannel = channels.put(key, channel);
 
         if (oldChannel != null) {
@@ -268,21 +268,21 @@ public class ConnectionManager {
      * @param address Target address.
      * @return New netty client.
      */
-    private NettyClient connect(InetSocketAddress address, ChannelType channelType) {
+    private NettyClient connect(InetSocketAddress address, ChannelInfo channelInfo) {
         var client = new NettyClient(
                 address,
                 serializationService,
-                createClientHandshakeManager(channelType.id()),
+                createClientHandshakeManager(channelInfo.id()),
                 this::onMessage,
                 this.networkConfiguration.ssl()
         );
 
         client.start(clientBootstrap).whenComplete((sender, throwable) -> {
             if (throwable == null) {
-                ConnectorKey<String> key = new ConnectorKey<>(sender.consistentId(), fromId(sender.channelId()));
+                ConnectorKey<String> key = new ConnectorKey<>(sender.consistentId(), getChannel(sender.channelId()));
                 channels.put(key, sender);
             } else {
-                clients.remove(new ConnectorKey<>(address, channelType));
+                clients.remove(new ConnectorKey<>(address, channelInfo));
             }
         });
 

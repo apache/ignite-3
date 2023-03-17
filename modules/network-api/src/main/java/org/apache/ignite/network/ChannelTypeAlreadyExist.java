@@ -18,26 +18,16 @@
 package org.apache.ignite.network;
 
 /**
- * Channel type with unique identifier.
+ * Throws when register channel with already used identifier.
  */
-public enum ChannelType {
-    DEFAULT((short) 0),
-    DEPLOYMENT_UNITS((short) 1),
-
-    TEST(Short.MAX_VALUE);
-
-    private final short id;
-
-    ChannelType(short id) {
-        this.id = id;
-    }
-
-    public short id() {
-        return id;
-    }
-
-    public static ChannelType fromId(short id) {
-        ChannelType[] values = values();
-        return values[id];
+public class ChannelTypeAlreadyExist extends Exception {
+    /**
+     * Constructor.
+     *
+     * @param id Channel identifier.
+     * @param name Channel name.
+     */
+    public ChannelTypeAlreadyExist(short id, String name) {
+        super("Channel " + name + " can't be registered because id " + id + " already used.");
     }
 }

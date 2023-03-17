@@ -185,7 +185,8 @@ class DefaultMessagingServiceTest {
     private static RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactoryAdding(Runnable beforeHandshake) {
         return new RecoveryClientHandshakeManagerFactory() {
             @Override
-            public RecoveryClientHandshakeManager create(UUID launchId,
+            public RecoveryClientHandshakeManager create(
+                    UUID launchId,
                     String consistentId,
                     short connectionId,
                     RecoveryDescriptorProvider recoveryDescriptorProvider) {

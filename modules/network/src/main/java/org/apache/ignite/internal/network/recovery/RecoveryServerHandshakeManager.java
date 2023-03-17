@@ -139,8 +139,11 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
             this.receivedCount = msg.receivedCount();
             this.remoteChannelId = msg.connectionId();
 
-            this.recoveryDescriptor = recoveryDescriptorProvider.getRecoveryDescriptor(remoteConsistentId, remoteLaunchId,
-                    msg.connectionId(), true);
+            this.recoveryDescriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
+                    remoteConsistentId,
+                    remoteLaunchId,
+                    remoteChannelId,
+                    true);
 
             handshake(recoveryDescriptor);
 

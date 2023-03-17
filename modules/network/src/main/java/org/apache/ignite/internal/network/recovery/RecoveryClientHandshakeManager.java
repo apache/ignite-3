@@ -114,7 +114,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             this.remoteLaunchId = msg.launchId();
             this.remoteConsistentId = msg.consistentId();
 
-            this.recoveryDescriptor = recoveryDescriptorProvider.getRecoveryDescriptor(remoteConsistentId,
+            this.recoveryDescriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
+                    remoteConsistentId,
                     remoteLaunchId,
                     connectionId,
                     false
