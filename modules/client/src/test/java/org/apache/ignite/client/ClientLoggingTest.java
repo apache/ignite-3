@@ -94,11 +94,9 @@ public class ClientLoggingTest {
             client.tables().tables();
             client.tables().table("t");
 
-            assertTrue(IgniteTestUtils.waitForCondition(() -> loggerFactory.logger.entries().size() > 10, 5_000));
-
-            loggerFactory.assertLogContains("Connection established");
-            loggerFactory.assertLogContains("c:Sending request [opCode=3, remoteAddress=127.0.0.1:1095");
-            loggerFactory.assertLogContains("c:Failed to establish connection to 127.0.0.1:1095");
+            loggerFactory.waitForLogContains("Connection established", 5000);
+            loggerFactory.waitForLogContains("c:Sending request [opCode=3, remoteAddress=127.0.0.1:1095", 5000);
+            loggerFactory.waitForLogContains("c:Failed to establish connection to 127.0.0.1:1095", 5000);
         }
     }
 
