@@ -2,67 +2,92 @@
 
 ### Prerequisites
 * C++ compiler supporting C++17
+* One of build systems: ninja, make, MS Visual Studio, etc
 * Conan C/C++ package manager
 * CMake 3.10+
 
-### For Windows Developers
-Building in debug mode with tests. In this dir:
+### Linux Build
+
+#### Building in debug mode with tests
+
+In this dir:
+
 ```shell
 mkdir cmake-build-debug
 cd cmake-build-debug
-conan install .. --build=missing -s build_type=Debug
+cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+cmake --build . -j8
+```
+
+#### Building in release mode without tests
+
+In this dir:
+
+```shell
+mkdir cmake-build-release
+cd cmake-build-release
+cmake .. -DENABLE_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
+cmake --build . -j8
+```
+
+### MacOS Build
+
+#### Building in debug mode with tests.
+
+In this dir:
+
+```shell
+mkdir cmake-build-debug
+cd cmake-build-debug
+cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+cmake --build . -j8
+```
+
+#### Building in release mode without tests.
+
+In this dir:
+
+```shell
+mkdir cmake-build-release
+cd cmake-build-release
+cmake .. -DENABLE_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
+cmake --build . -j8
+```
+
+### Windows Build
+
+#### Building in debug mode with tests
+
+In this dir (using the ninja build system, other single-config systems can be used too):
+
+```shell
+mkdir cmake-build-debug
+cd cmake-build-debug
+cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -GNinja
+cmake --build . -j8
+```
+
+#### Building in release mode without tests
+
+In this dir (using the ninja build system, other single-config systems can be used too):
+
+```shell
+mkdir cmake-build-release
+cd cmake-build-release
+cmake .. -DENABLE_TESTS=OFF -DCMAKE_BUILD_TYPE=Release -GNinja
+cmake --build . -j8
+```
+
+#### Building with Visual Studio in multi-config mode
+
+Run in this dir from, for example, [VS developer PowerShell](https://learn.microsoft.com/en-us/visualstudio/ide/reference/command-prompt-powershell?view=vs-2022):
+
+```shell
+mkdir cmake-build
+cd cmake-build
 cmake .. -DENABLE_TESTS=ON
-cmake --build . -j8
-```
-
-### For Linux Developers
-Building in debug mode with tests. In this dir:
-```shell
-mkdir cmake-build-debug
-cd cmake-build-debug
-conan install .. --build=missing -s build_type=Debug -s compiler.libcxx=libstdc++11
-cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
-cmake --build . -j8
-```
-
-### For macOS Developers
-Building in debug mode with tests. In this dir:
-```shell
-mkdir cmake-build-debug
-cd cmake-build-debug
-conan install .. --build=missing -s build_type=Debug -s compiler.libcxx=libc++
-cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
-cmake --build . -j8
-```
-
-### For Windows users
-Building in release mode without tests. In this dir:
-```shell
-mkdir cmake-build-release
-cd cmake-build-release
-conan install .. --build=missing -s build_type=Release
-cmake .. -DENABLE_TESTS=OFF
-cmake --build . -j8
-```
-
-### For Linux users
-Building in release mode without tests. In this dir:
-```shell
-mkdir cmake-build-release
-cd cmake-build-release
-conan install .. --build=missing -s build_type=Release -s compiler.libcxx=libstdc++11
-cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Release
-cmake --build . -j8
-```
-
-### For macOS users
-Building in release mode without tests. In this dir:
-```shell
-mkdir cmake-build-release
-cd cmake-build-release
-conan install .. --build=missing -s build_type=Release -s compiler.libcxx=libc++
-cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Release
-cmake --build . -j8
+cmake --build . --config Debug -j8
+cmake --build . --config Release -j8
 ```
 
 ## Run Tests
