@@ -84,6 +84,11 @@ public class NettySender {
         return consistentId;
     }
 
+    /**
+     * Returns channel identifier.
+     *
+     * @return Channel identifier.
+     */
     public short channelId() {
         return channelId;
     }
