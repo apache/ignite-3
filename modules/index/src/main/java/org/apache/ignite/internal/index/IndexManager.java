@@ -89,11 +89,13 @@ import org.apache.ignite.network.ClusterService;
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
  * as well as managing indexes' lifecycle.
  */
+// TODO: IGNITE-18539 не забыть про перезапуск узла
+// TODO: IGNITE-18539 проверить есть ли проблемы с распределением
 public class IndexManager extends Producer<IndexEvent, IndexEventParameters> implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
     /** Batch size of row IDs to build the index. */
-    private static final int BUILD_INDEX_ROW_ID_BATCH_SIZE = 5;
+    private static final int BUILD_INDEX_ROW_ID_BATCH_SIZE = 100;
 
     /** Message factory to create messages - RAFT commands. */
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
@@ -412,7 +414,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             return createIndexLocally(
                     evt.storageRevision(),
                     tableId,
-                    evt.newValue());
+                    evt.newValue()
+            );
         } finally {
             busyLock.leaveBusy();
         }
@@ -609,6 +612,12 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
     }
 
+    /**
+     * Initializes the build of the index if it has not yet been built or if the partition is not empty.
+     *
+     * @param indexId Index ID.
+     * @param table Index table.
+     */
     private void initIndexBuildIfNeeded(UUID indexId, TableImpl table) {
         InternalTable internalTable = table.internalTable();
 
@@ -636,7 +645,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 continue;
             }
 
-            // TODO: IGNITE-18539 нужно что-то еще сделать помимо создания таски
+            // TODO: IGNITE-18539 нужно что-то еще сделать помимо создания таски ?
             // TODO: IGNITE-18539 еще есть проблемы с ребалансом/отменой/удалением партиции/таблицы
             buildIndexExecutor.submit(new BuildIndexTask(table, indexId, partitionId, true));
         }
@@ -645,6 +654,13 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
     /**
      * Task of building a table index for a partition.
+     *
+     * <p>Only the leader of the raft group will manage the building of the index. Leader sends batches of row IDs via
+     * {@link BuildIndexCommand}, the next batch will only be send after the previous batch has been processed.
+     *
+     * <p>Index building itself occurs locally on each node of the raft group (majority) when processing {@link BuildIndexCommand}. This
+     * ensures that the index build in the raft group is consistent and that the index build is restored after restarting the raft group
+     * (not from the beginning).
      */
     private class BuildIndexTask implements Runnable {
         private final TableImpl table;
@@ -653,7 +669,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         private final int partitionId;
 
-        private boolean firstBatch;
+        private final boolean firstBatch;
 
         private BuildIndexTask(TableImpl table, UUID indexId, int partitionId, boolean firstBatch) {
             this.table = table;
@@ -664,27 +680,38 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         @Override
         public void run() {
-            RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(partitionId);
-
-            if (!isLocalNodeLeader(raftGroupService)) {
-                // TODO: IGNITE-18539 не забыть про тикет об смене лидера
+            if (!busyLock.enterBusy()) {
                 return;
             }
 
-            if (firstBatch) {
-                LOG.info("Start building the index: [tableId={}, partitionId={}, indexId={}]", table.tableId(), partitionId, indexId);
+            try {
+                RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(partitionId);
+
+                if (!isLocalNodeLeader(raftGroupService)) {
+                    // TODO: IGNITE-19053 Must handle the change of leader
+                    return;
+                }
+
+                if (firstBatch) {
+                    LOG.info(
+                            "Start building the index: [tableId={}, partitionId={}, indexId={}]",
+                            table.tableId(), partitionId, indexId
+                    );
+                }
+
+                List<RowId> batchRowIds = createBatchRowIds(BUILD_INDEX_ROW_ID_BATCH_SIZE);
+
+                boolean finish = batchRowIds.size() < BUILD_INDEX_ROW_ID_BATCH_SIZE;
+
+                raftGroupService.run(createBuildIndexCommand(batchRowIds, finish))
+                        .thenAccept(unused -> {
+                            if (!finish) {
+                                buildIndexExecutor.submit(new BuildIndexTask(table, indexId, partitionId, false));
+                            }
+                        });
+            } finally {
+                busyLock.leaveBusy();
             }
-
-            List<RowId> batchRowIds = createBatchRowIds(BUILD_INDEX_ROW_ID_BATCH_SIZE);
-
-            boolean finish = batchRowIds.size() < BUILD_INDEX_ROW_ID_BATCH_SIZE;
-
-            raftGroupService.run(createBuildIndexCommand(batchRowIds, finish))
-                    .thenAccept(unused -> {
-                        if (!finish) {
-                            buildIndexExecutor.submit(new BuildIndexTask(table, indexId, partitionId, false));
-                        }
-                    });
         }
 
         private boolean isLocalNodeLeader(RaftGroupService raftGroupService) {
