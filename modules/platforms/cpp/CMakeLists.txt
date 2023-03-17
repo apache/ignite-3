@@ -37,6 +37,8 @@ list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 
 get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
+set(conan_packages msgpack-c/4.0.0 gtest/1.12.1)
+
 # Install required libraries.
 if (${ENABLE_CONAN})
     include(conan)
@@ -45,7 +47,7 @@ if (${ENABLE_CONAN})
         # These settings are for multi-config generators like Visual Studio.
         message(STATUS "Using a multi-config generator")
 
-        conan_cmake_configure(REQUIRES msgpack-c/4.0.0 gtest/1.12.1
+        conan_cmake_configure(REQUIRES ${conan_packages}
                               GENERATORS cmake_find_package_multi)
 
         foreach(TYPE ${CMAKE_CONFIGURATION_TYPES})
@@ -60,7 +62,7 @@ if (${ENABLE_CONAN})
         # These settings are for single-config generators like makefiles, ninja.
         message(STATUS "Using a single-config generator")
 
-        conan_cmake_configure(REQUIRES msgpack-c/4.0.0 gtest/1.12.1
+        conan_cmake_configure(REQUIRES ${conan_packages}
                               GENERATORS cmake_find_package)
 
         conan_cmake_autodetect(conan_settings)
