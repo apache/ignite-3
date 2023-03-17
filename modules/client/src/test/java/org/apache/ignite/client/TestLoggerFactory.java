@@ -65,7 +65,7 @@ public class TestLoggerFactory implements LoggerFactory {
     public static class ListLogger implements System.Logger {
         private final String name;
 
-        private final List<String> logEntries = Collections.synchronizedList(new ArrayList<>());
+        private final List<String> logEntries = new ArrayList<>();
 
         ListLogger(String name) {
             this.name = name;
@@ -121,11 +121,11 @@ public class TestLoggerFactory implements LoggerFactory {
             throw new AssertionError("Should not be called");
         }
 
-        public List<String> entries() {
-            return logEntries;
+        public synchronized List<String> entries() {
+            return new ArrayList<>(logEntries);
         }
 
-        private void captureLog(String msg) {
+        private synchronized void captureLog(String msg) {
             logEntries.add(name + ":" + msg);
         }
     }
