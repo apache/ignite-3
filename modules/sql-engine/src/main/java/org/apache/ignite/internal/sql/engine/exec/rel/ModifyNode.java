@@ -435,7 +435,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         Object newValue;
 
         if (desc.key() && Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(desc.name())) {
-            assert val != RexImpTable.DEFAULT_VALUE_PLACEHOLDER  : "IMPLICIT_PK should have been replaced by a function call";
+            assert val != RexImpTable.DEFAULT_VALUE_PLACEHOLDER  : "Implicit primary key value should have already been generated";
             newValue = val;
         } else {
             newValue = val == RexImpTable.DEFAULT_VALUE_PLACEHOLDER ? desc.defaultValue() : val;
