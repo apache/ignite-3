@@ -75,7 +75,9 @@ import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionInfo;
 import org.apache.ignite.internal.sql.engine.session.SessionManager;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlScriptNode;
+import org.apache.ignite.internal.sql.engine.sql.ParseResult;
+import org.apache.ignite.internal.sql.engine.sql.ScriptParseResult;
+import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -407,15 +409,12 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
                 .thenApply(v -> {
-                    var nodes = IgniteSqlParser.parse(sql);
+                    StatementParseResult parseResult = IgniteSqlParser.parse(sql, StatementParseResult.MODE);
+                    SqlNode sqlNode = parseResult.statement();
 
-                    if (nodes.size() > 1) {
-                        throw new SqlException(QUERY_INVALID_ERR, "Multiple statements aren't allowed.");
-                    }
+                    validateParsedStatement(context, parseResult, sqlNode, params);
 
-                    validateParsedStatement(context, nodes, nodes.get(0), params);
-
-                    return nodes.get(0);
+                    return sqlNode;
                 })
                 .thenCompose(sqlNode -> {
                     boolean rwOp = dataModificationOp(sqlNode);
@@ -488,24 +487,22 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         CompletableFuture<Void> start = new CompletableFuture<>();
 
-        IgniteSqlScriptNode nodes;
+        ScriptParseResult parseResult;
         List<CompletableFuture<AsyncSqlCursor<List<Object>>>> res;
 
         try {
-            nodes = IgniteSqlParser.parse(sql);
-            res = new ArrayList<>(nodes.size());
+            parseResult = IgniteSqlParser.parse(sql, ScriptParseResult.MODE);
+            res = new ArrayList<>(parseResult.statements().size());
         } catch (Throwable th) {
             start.completeExceptionally(th);
 
-            nodes = IgniteSqlScriptNode.EMPTY;
+            parseResult = new ScriptParseResult(Collections.emptyList(), 0);
             res = Collections.singletonList(CompletableFuture.completedFuture(failedCursor(th)));
         }
 
-        IgniteSqlScriptNode script = nodes;
-
-        for (SqlNode sqlNode : nodes) {
+        for (SqlNode sqlNode : parseResult.statements()) {
             try {
-                validateParsedStatement(context, script, sqlNode, params);
+                validateParsedStatement(context, parseResult, sqlNode, params);
             } catch (Exception e) {
                 start.completeExceptionally(e);
 
@@ -681,7 +678,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     /** Performs additional validation of a parsed statement. **/
-    private static void validateParsedStatement(QueryContext context, IgniteSqlScriptNode nodes, SqlNode node, Object[] params) {
+    private static void validateParsedStatement(QueryContext context, ParseResult parseResult, SqlNode node, Object[] params) {
         var allowedTypes = context.allowedQueryTypes();
         var planType = Commons.getPlanType(node);
 
@@ -696,10 +693,10 @@ public class SqlQueryProcessor implements QueryProcessor {
             throw new QueryValidationException(message);
         }
 
-        if (nodes.dynamicParamsCount() != params.length) {
+        if (parseResult.dynamicParamsCount() != params.length) {
             var message = format(
                     "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
-                    params.length, nodes.dynamicParamsCount()
+                    params.length, parseResult.dynamicParamsCount()
             );
             throw new SqlException(QUERY_INVALID_ERR, message);
         }

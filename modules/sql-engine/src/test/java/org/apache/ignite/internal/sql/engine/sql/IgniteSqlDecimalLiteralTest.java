@@ -28,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.math.BigDecimal;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
@@ -149,12 +148,13 @@ public class IgniteSqlDecimalLiteralTest extends AbstractPlannerTest {
      */
     @Test
     public void testDecimalAsAlias() {
-        SqlNodeList nodeList = parseQuery("SELECT DECIMAL \"10\"");
+        var node = parseQuery("SELECT DECIMAL \"10\"");
 
-        assertEquals("SELECT `DECIMAL` AS `10`", nodeList.get(0).toString());
+        assertEquals("SELECT `DECIMAL` AS `10`", node.toString());
     }
 
-    private static SqlNodeList parseQuery(String qry) {
-        return IgniteSqlParser.parse(qry);
+    private static SqlNode parseQuery(String qry) {
+        StatementParseResult parseResult = IgniteSqlParser.parse(qry, StatementParseResult.MODE);
+        return parseResult.statement();
     }
 }

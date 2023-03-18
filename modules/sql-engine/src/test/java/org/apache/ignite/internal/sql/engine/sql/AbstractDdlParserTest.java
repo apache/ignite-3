@@ -20,8 +20,6 @@ package org.apache.ignite.internal.sql.engine.sql;
 import java.util.function.Predicate;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
-import org.apache.calcite.sql.parser.SqlParser;
-import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 
@@ -36,9 +34,8 @@ public abstract class AbstractDdlParserTest {
      * @return An AST.
      */
     protected SqlNode parse(String stmt) throws SqlParseException {
-        SqlParser parser = SqlParser.create(stmt, SqlParser.config().withParserFactory(IgniteSqlParserImpl.FACTORY));
-
-        return parser.parseStmt();
+        StatementParseResult parseResult = IgniteSqlParser.parse(stmt, StatementParseResult.MODE);
+        return parseResult.statement();
     }
 
     /**

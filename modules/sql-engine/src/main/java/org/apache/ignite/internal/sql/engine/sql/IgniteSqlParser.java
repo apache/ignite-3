@@ -34,142 +34,129 @@ import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImp
 import org.apache.ignite.sql.SqlException;
 
 /**
- * Implementation of SQL parser.
+ * Provides method for parsing SQL statements in SQL dialect of Apache Ignite 3.
+ *
+ * <p>One should use parsing methods defined in this class,
+ * instead of creating SqlParsers that use {@link IgniteSqlParserImpl} directly.
  */
-public final class IgniteSqlParser extends IgniteSqlParserImpl {
-
-    /**
-     * A factory that create instances of {@link IgniteSqlParser}.
-     */
-    public static final SqlParserImplFactory FACTORY = new SqlParserImplFactory() {
-        @Override
-        public SqlAbstractParserImpl getParser(Reader reader) {
-            IgniteSqlParser parser = new IgniteSqlParser(reader);
-            if (reader instanceof SourceStringReader) {
-                String sql = ((SourceStringReader) reader).getSourceString();
-                parser.setOriginalSql(sql);
-            }
-            return parser;
-        }
-    };
+public final class IgniteSqlParser  {
 
     /**
      * Parser configuration.
      */
     public static final SqlParser.Config PARSER_CONFIG = SqlParser.config()
-            .withParserFactory(FACTORY)
+            .withParserFactory(InternalIgniteSqlParser.FACTORY)
             .withLex(Lex.ORACLE)
             .withConformance(IgniteSqlConformance.INSTANCE);
 
-    // We store the number of dynamic parameters in a thread local since
-    // it is not possible to access an instance of IgniteSqlParser created by a parser factory.
-    private static final ThreadLocal<Integer> dynamicParamCount = new ThreadLocal<>();
+    private IgniteSqlParser() {
 
-    /** Constructor. **/
-    IgniteSqlParser(Reader reader) {
-        super(reader);
     }
 
-    /** {@inheritDoc} **/
-    @Override
-    public SqlNode parseSqlExpressionEof() throws Exception {
-        try {
-            return super.parseSqlExpressionEof();
-        } finally {
-            dynamicParamCount.set(nDynamicParams);
-        }
-    }
-
-    /** {@inheritDoc} **/
-    @Override
-    public SqlNode parseSqlStmtEof() throws Exception {
-        try {
-            return super.parseSqlStmtEof();
-        } finally {
-            dynamicParamCount.set(nDynamicParams);
-        }
-    }
-
-    /** {@inheritDoc} **/
-    @Override
-    public SqlNodeList parseSqlStmtList() throws Exception {
-        try {
-            return super.parseSqlStmtList();
-        } finally {
-            dynamicParamCount.set(nDynamicParams);
+    /**
+     * Parses the given SQL string in the specified {@link ParseMode mode},
+     * which determines the result of the parse operation.
+     *
+     * @param sql  An SQL string.
+     * @param mode  A parse mode.
+     * @return  A parse result.
+     *
+     * @see StatementParseResult#MODE
+     * @see ScriptParseResult#MODE
+     */
+    public static <T extends ParseResult> T parse(String sql, ParseMode<T> mode) {
+        try (SourceStringReader reader = new SourceStringReader(sql)) {
+            return parse(reader, mode);
         }
     }
 
     /**
-     * Parses an SQL statement or a sequence of statements using {@link #PARSER_CONFIG default parser config}.
+     * Parses an SQL string from the given reader in the specified {@link ParseMode mode},
+     * which determines the result of the parse operation.
      *
-     * @param qry Query string.
-     * @return Parsed query.
-     */
-    public static IgniteSqlScriptNode parse(String qry) {
-        try {
-            return parse(new SourceStringReader(qry), PARSER_CONFIG);
-        } catch (SqlParseException e) {
-            throw withCauseAndCode(
-                    SqlException::new,
-                    QUERY_INVALID_ERR,
-                    "Failed to parse query: " + extractCauseMessage(e.getMessage()),
-                    e);
-        }
-    }
-
-    /**
-     * Parses an SQL statement or a sequence of statements using the given parser configuration.
+     * @param reader  A read that contains an SQL string.
+     * @param mode  A parse mode.
+     * @return  A parse result.
      *
-     * @param qry Query string.
-     * @param parserCfg Parser config.
-     * @return Parsed query.
+     * @see StatementParseResult#MODE
+     * @see ScriptParseResult#MODE
      */
-    public static IgniteSqlScriptNode parse(String qry, SqlParser.Config parserCfg) {
-        try {
-            return parse(new SourceStringReader(qry), parserCfg);
-        } catch (SqlParseException e) {
-            throw withCauseAndCode(
-                    SqlException::new,
-                    QUERY_INVALID_ERR,
-                    "Failed to parse query: " + extractCauseMessage(e.getMessage()),
-                    e);
-        }
-    }
+    public static <T extends ParseResult> T parse(Reader reader, ParseMode<T> mode) {
+        try  {
+            InternalIgniteSqlParser.dynamicParamCount.set(null);
 
-    /**
-     * Parses an SQL statement or a sequence of statements using {@link #PARSER_CONFIG default parser config}.
-     *
-     * @param reader Source string reader.
-     * @return Parsed query.
-     * @throws SqlParseException on parse error.
-     */
-    public static IgniteSqlScriptNode parse(Reader reader) throws SqlParseException {
-        return parse(reader, PARSER_CONFIG);
-    }
-
-    /**
-     * Parses an SQL statement or a sequence of statements using the given parser configuration.
-     *
-     * @param reader Source string reader.
-     * @param parserCfg Parser config.
-     * @return Parsed query.
-     * @throws SqlParseException on parse error.
-     */
-    public static IgniteSqlScriptNode parse(Reader reader, SqlParser.Config parserCfg) throws SqlParseException {
-        try {
-            dynamicParamCount.set(null);
-
-            SqlParser parser = SqlParser.create(reader, parserCfg);
+            SqlParser parser = SqlParser.create(reader, PARSER_CONFIG);
             SqlNodeList nodeList = parser.parseStmtList();
 
-            Integer dynamicParamsCount = dynamicParamCount.get();
+            Integer dynamicParamsCount = InternalIgniteSqlParser.dynamicParamCount.get();
             assert dynamicParamsCount != null : "dynamicParamCount has not been updated";
 
-            return new IgniteSqlScriptNode(nodeList, dynamicParamsCount);
+            return mode.createResult(nodeList.getList(), dynamicParamsCount);
+        } catch (SqlParseException e) {
+            throw withCauseAndCode(
+                    SqlException::new,
+                    QUERY_INVALID_ERR,
+                    "Failed to parse query: " + extractCauseMessage(e.getMessage()),
+                    e);
         } finally {
-            dynamicParamCount.set(null);
+            InternalIgniteSqlParser.dynamicParamCount.set(null);
+        }
+    }
+
+    private static final class InternalIgniteSqlParser extends IgniteSqlParserImpl {
+
+        /**
+         * A factory that create instances of {@link IgniteSqlParser}.
+         */
+        private static final SqlParserImplFactory FACTORY = new SqlParserImplFactory() {
+            @Override
+            public SqlAbstractParserImpl getParser(Reader reader) {
+                InternalIgniteSqlParser parser = new InternalIgniteSqlParser(reader);
+                if (reader instanceof SourceStringReader) {
+                    String sql = ((SourceStringReader) reader).getSourceString();
+                    parser.setOriginalSql(sql);
+                }
+                return parser;
+            }
+        };
+
+
+        // We store the number of dynamic parameters in a thread local since
+        // it is not possible to access an instance of IgniteSqlParser created by a parser factory.
+        static final ThreadLocal<Integer> dynamicParamCount = new ThreadLocal<>();
+
+        InternalIgniteSqlParser(Reader reader) {
+            super(reader);
         }
 
+        /** {@inheritDoc} **/
+        @Override
+        public SqlNode parseSqlExpressionEof() throws Exception {
+            try {
+                return super.parseSqlExpressionEof();
+            } finally {
+                dynamicParamCount.set(nDynamicParams);
+            }
+        }
+
+        /** {@inheritDoc} **/
+        @Override
+        public SqlNode parseSqlStmtEof() throws Exception {
+            try {
+                return super.parseSqlStmtEof();
+            } finally {
+                dynamicParamCount.set(nDynamicParams);
+            }
+        }
+
+        /** {@inheritDoc} **/
+        @Override
+        public SqlNodeList parseSqlStmtList() throws Exception {
+            try {
+                return super.parseSqlStmtList();
+            } finally {
+                dynamicParamCount.set(nDynamicParams);
+            }
+        }
     }
 }

@@ -37,6 +37,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
+import org.apache.ignite.sql.SqlException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
@@ -126,7 +127,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
     @Test
     public void createZoneWithInvalidOptions() {
         // Unknown option.
-        assertThrows(SqlParseException.class, () -> parseCreateZone("create zone test_zone with foo='bar'"));
+        assertThrows(SqlException.class, () -> parseCreateZone("create zone test_zone with foo='bar'"));
 
         // Invalid option type.
         String query = "create zone test_zone with %s=%s";
@@ -202,7 +203,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
      */
     @Test
     public void alterZoneRenameToWithCompoundIdIsIllegal() {
-        assertThrows(SqlParseException.class, () -> parse("alter zone a.test_zone rename to b.zone1"));
+        assertThrows(SqlException.class, () -> parse("alter zone a.test_zone rename to b.zone1"));
     }
 
     /**
@@ -267,7 +268,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
      */
     @Test
     public void alterZoneSetNoOptionsIsIllegal() {
-        assertThrows(SqlParseException.class, () -> parse("alter zone test_zone set"));
+        assertThrows(SqlException.class, () -> parse("alter zone test_zone set"));
     }
 
     /**
@@ -279,7 +280,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
 
         // invalid option
 
-        assertThrows(SqlParseException.class, () -> parse(String.format(query, "foo", "'bar'")));
+        assertThrows(SqlException.class, () -> parse(String.format(query, "foo", "'bar'")));
 
         // invalid option values
 
@@ -338,7 +339,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     private void assertSqlParseError(String stmt, String name) {
-        assertThrows(SqlParseException.class, () -> parse(stmt), name);
+        assertThrows(SqlException.class, () -> parse(stmt), name);
     }
 
     private void assertThatZoneOptionPresent(List<SqlNode> optionList, IgniteSqlZoneOptionEnum name, Object expVal) {

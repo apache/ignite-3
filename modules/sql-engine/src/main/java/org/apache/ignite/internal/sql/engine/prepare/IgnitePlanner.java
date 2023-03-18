@@ -77,7 +77,7 @@ import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlScriptNode;
+import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.lang.IgniteException;
@@ -167,19 +167,19 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     /** {@inheritDoc} */
     @Override
     public SqlNode parse(Reader reader) throws SqlParseException {
-        IgniteSqlScriptNode sqlNodes = IgniteSqlParser.parse(reader, parserCfg);
+        StatementParseResult parseResult = IgniteSqlParser.parse(reader, StatementParseResult.MODE);
         Object[] parameters = ctx.parameters();
 
         // Parse method is only used in tests.
-        if (parameters.length != sqlNodes.dynamicParamsCount()) {
+        if (parameters.length != parseResult.dynamicParamsCount()) {
             var message = format(
                     "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
-                    parameters.length, sqlNodes.dynamicParamsCount()
+                    parameters.length, parseResult.dynamicParamsCount()
             );
             throw new SqlException(QUERY_INVALID_ERR, message);
         }
 
-        return sqlNodes.size() == 1 ? sqlNodes.get(0) : sqlNodes;
+        return parseResult.statement();
     }
 
     /** {@inheritDoc} */
