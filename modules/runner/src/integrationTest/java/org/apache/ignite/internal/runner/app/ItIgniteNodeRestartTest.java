@@ -783,6 +783,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19079")
     @Test
+    // Hangs at org.apache.ignite.internal.table.TableImpl.pkId(TableImpl.java:127)
+    @Disabled
     public void testTwoNodesRestartReverse() throws InterruptedException {
         twoNodesRestart(false);
     }
