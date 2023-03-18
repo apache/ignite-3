@@ -168,7 +168,7 @@ class DirectProxyAsmGenerator extends AbstractAsmGenerator {
     }
 
     /**
-     * Generates {@link DirectPropertyProxy#directProxy()} method implementation.
+     * Generates {@link DirectPropertyProxy#directProxy()} method implementation that returns {@code this}.
      */
     private void addDirectProxyMethod() {
         MethodDefinition directProxy = classDef.declareMethod(

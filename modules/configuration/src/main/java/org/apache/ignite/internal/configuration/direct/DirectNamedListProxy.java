@@ -30,6 +30,7 @@ import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.internal.configuration.DynamicConfigurationChanger;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link DirectPropertyProxy} implementation for named lists.
@@ -59,12 +60,14 @@ public class DirectNamedListProxy<T extends ConfigurationProperty<VIEWT>, VIEWT,
         this.creator = creator;
     }
 
-    /** {@inheritDoc} */
-    @Override public T get(String name) {
+    @Override
+    @Nullable
+    public T get(String name) {
         return creator.apply(appendKey(keys, new KeyPathNode(name, true)), changer);
     }
 
     @Override
+    @Nullable
     public T get(UUID internalId) {
         return creator.apply(appendKey(keys, new KeyPathNode(internalId.toString(), false)), changer);
     }

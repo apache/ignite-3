@@ -44,7 +44,7 @@ public interface NamedConfigurationTree<T extends ConfigurationProperty<VIEWT>, 
      * @param internalId Internal id.
      * @return Named list element, associated with the passed internal id, or {@code null} if it doesn't exist.
      */
-    T get(UUID internalId);
+    @Nullable T get(UUID internalId);
 
     /**
      * Returns all internal ids of the elements from the list.

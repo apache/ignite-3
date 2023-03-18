@@ -98,6 +98,7 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
     }
 
     @Override
+    @Nullable
     public T get(UUID internalId) {
         var value = (NamedListNode<?>) value();
 
