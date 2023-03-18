@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relati
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.type.RelDataType;
