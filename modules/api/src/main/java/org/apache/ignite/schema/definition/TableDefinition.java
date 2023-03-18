@@ -29,7 +29,7 @@ import org.apache.ignite.schema.modification.TableModificationBuilder;
 public interface TableDefinition extends SchemaObject {
 
     /**
-     * Returns table name.
+     * Returns a table name.
      *
      * @return Table name.
      */
@@ -51,7 +51,7 @@ public interface TableDefinition extends SchemaObject {
     List<String> colocationColumns();
 
     /**
-     * Returns table columns in user-defined order.
+     * Returns table columns in a user-defined order.
      *
      * @return List of columns.
      */
@@ -65,7 +65,7 @@ public interface TableDefinition extends SchemaObject {
     Collection<IndexDefinition> indices();
 
     /**
-     * Converts table descriptor to table modification builder.
+     * Converts a table descriptor to a table modification builder.
      *
      * @return Table modification builder.
      */

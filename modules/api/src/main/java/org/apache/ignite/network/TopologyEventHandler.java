@@ -18,23 +18,23 @@
 package org.apache.ignite.network;
 
 /**
- * Interface for handling events related to topology changes.
+ * Interface for handling the topology change events.
  */
 public interface TopologyEventHandler {
     /**
-     * Called when a new member has been detected joining a cluster.
+     * Called when a new cluster member has been detected.
      *
-     * @param member Appeared cluster member.
+     * @param member New cluster member.
      */
     default void onAppeared(ClusterNode member) {
         // no-op
     }
 
     /**
-     * Indicates that a member has left a cluster. This method is only called when a member leaves permanently (i.e. it is not possible to
+     * Indicates that a member has left a cluster. Called only when a member leaves permanently (i.e., it is not possible to
      * re-establish a connection to it).
      *
-     * @param member Disappeared cluster member.
+     * @param member Member that has left the cluster.
      */
     default void onDisappeared(ClusterNode member) {
         // no-op

@@ -34,7 +34,7 @@ import org.apache.ignite.sql.SqlColumnType;
  */
 public class SqlColumnTypeConverter {
     /**
-     * Column type to Java class.
+     * Column type converted to a Java class.
      */
     public static Class<?> columnTypeToClass(SqlColumnType type) {
         assert type != null;

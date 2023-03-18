@@ -18,10 +18,10 @@
 package org.apache.ignite.schema.definition;
 
 /**
- * Enumeration of all supported value generators that could be used as a default value provider
- * (i.e. could be specified as a default in column definition).
+ * Enumeration of all value generators that could be used as a default value provider
+ * (i.e., could be specified as a default in the column definition).
  */
 public class DefaultValueGenerators {
-    /** Generator that generates random UUID string. */
+    /** Generates a random UUID string. */
     public static final String GEN_RANDOM_UUID = "GEN_RANDOM_UUID";
 }

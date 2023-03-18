@@ -27,7 +27,7 @@ public interface PrimaryKeyDefinitionBuilder extends SchemaObjectBuilder {
     /**
      * Sets colocation columns.
      *
-     * @param cols Colocation columns. Must be a valid subset of key columns.
+     * @param cols Colocation columns; must be a valid subset of key columns.
      * @return Primary index builder.
      */
     PrimaryKeyDefinitionBuilder withColocationColumns(String... cols);
@@ -35,10 +35,11 @@ public interface PrimaryKeyDefinitionBuilder extends SchemaObjectBuilder {
     /**
      * Sets colocation columns.
      *
-     * @param cols Colocation columns. Must be a valid subset of key columns.
+     * @param cols Colocation columns; must be a valid subset of key columns.
      * @return Primary index builder.
      */
     PrimaryKeyDefinitionBuilder withColocationColumns(List<String> cols);
+//The descriptions of the last two methods are identical but the methods themselves are not. 
 
     /**
      * Sets primary key columns.
@@ -55,6 +56,7 @@ public interface PrimaryKeyDefinitionBuilder extends SchemaObjectBuilder {
      * @return {@code this} for chaining.
      */
     PrimaryKeyDefinitionBuilder withColumns(List<String> columns);
+//The descriptions of the last two methods are identical but the methods themselves are not. 
 
     /**
      * Builds primary key.

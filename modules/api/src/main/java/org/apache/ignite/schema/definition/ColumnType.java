@@ -49,7 +49,7 @@ public class ColumnType {
     public static final ColumnType DATE = new ColumnType(ColumnTypeSpec.DATE);
 
     /**
-     * Returns bit mask type.
+     * Returns a bit mask type.
      *
      * @param bits Bit mask size in bits.
      * @return Bitmap type.
@@ -59,7 +59,7 @@ public class ColumnType {
     }
 
     /**
-     * Returns string type of unlimited length.
+     * Returns a string type of unlimited length.
      *
      * @return String type.
      */
@@ -68,7 +68,7 @@ public class ColumnType {
     }
 
     /**
-     * Return string type of limited size.
+     * Return a string type of limited size.
      *
      * @param length String length in chars.
      * @return String type.
@@ -78,7 +78,7 @@ public class ColumnType {
     }
 
     /**
-     * Returns blob type of unlimited length.
+     * Returns a blob type of unlimited length.
      *
      * @return Blob type.
      * @see #blobOf(int)
@@ -88,7 +88,7 @@ public class ColumnType {
     }
 
     /**
-     * Return blob type of limited length.
+     * Return a blob type of limited length.
      *
      * @param length Blob length in bytes.
      * @return Blob type.
@@ -98,11 +98,11 @@ public class ColumnType {
     }
 
     /**
-     * Returns number type with given precision.
+     * Returns a number type with a given precision.
      *
-     * @param precision Precision of value.
+     * @param precision Precision of the value.
      * @return Number type.
-     * @throws IllegalArgumentException If precision value was invalid.
+     * @throws IllegalArgumentException If the precision value is invalid.
      */
     public static NumberColumnType numberOf(int precision) {
         if (precision <= 0) {
@@ -113,7 +113,7 @@ public class ColumnType {
     }
 
     /**
-     * Returns number type with the default precision.
+     * Returns a number type with the default precision.
      *
      * @return Number type.
      * @see #numberOf(int)
@@ -123,12 +123,12 @@ public class ColumnType {
     }
 
     /**
-     * Returns decimal type with given precision and scale.
+     * Returns a decimal type with a given precision and scale.
      *
      * @param precision Precision.
      * @param scale     Scale.
      * @return Decimal type.
-     * @throws IllegalArgumentException If precision and/or scale values were invalid.
+     * @throws IllegalArgumentException If the precision and/or scale values are invalid.
      */
     public static DecimalColumnType decimalOf(int precision, int scale) {
         if (precision <= 0) {
@@ -148,7 +148,7 @@ public class ColumnType {
     }
 
     /**
-     * Returns decimal type with default precision and scale values.
+     * Returns a decimal type with the default precision and scale values.
      *
      * @return Decimal type.
      * @see #decimalOf(int, int)
@@ -162,7 +162,7 @@ public class ColumnType {
     }
 
     /**
-     * Returns timezone-free type representing a time of day in hours, minutes, seconds, and fractional seconds with the default precision
+     * Returns a timezone-free type representing a time of day in hours, minutes, seconds, and fractional seconds, with the default precision
      * of 0 (seconds).
      *
      * @return Native type.
@@ -174,13 +174,13 @@ public class ColumnType {
     }
 
     /**
-     * Returns timezone-free type representing a time of day in hours, minutes, seconds, and fractional seconds.
+     * Returns a timezone-free type representing a time of day in hours, minutes, seconds, and fractional seconds.
      *
-     * <p>Precision is a number of digits in fractional seconds part, from 0 - whole seconds precision up to 9 - nanoseconds precision.
+     * <p>Precision is a number of digits in the 'fractional seconds' part, from 0 (whole seconds) to 9 (nanoseconds).
      *
-     * @param precision The number of digits in fractional seconds part. Accepted values are in range [0-9].
+     * @param precision The number of digits in the 'fractional seconds' part (0 to 9).
      * @return Native type.
-     * @throws IllegalArgumentException If precision value was invalid.
+     * @throws IllegalArgumentException If the precision value is invalid.
      */
     public static TemporalColumnType time(int precision) {
         if (precision < 0 || precision > 9) {
@@ -191,7 +191,7 @@ public class ColumnType {
     }
 
     /**
-     * Returns timezone-free datetime encoded as (date, time) with the default time precision of 6 (microseconds).
+     * Returns a timezone-free datetime encoded as (date, time) with the default time precision of 6 (microseconds).
      *
      * @return Native type.
      * @see TemporalColumnType#DEFAULT_TIMESTAMP_PRECISION
@@ -202,14 +202,12 @@ public class ColumnType {
     }
 
     /**
-     * Returns timezone-free datetime encoded as (date, time).
+     * Returns a timezone-free datetime encoded as (date, time).
      *
-     * <p>Precision is a number of digits in fractional seconds part of time, from 0 - whole seconds precision up to 9 - nanoseconds
-     * precision.
+     * <p>Precision is a number of digits in the 'fractional seconds' part of time, from 0 (whole seconds) to 9 (nanoseconds).
      *
-     * @param precision The number of digits in fractional seconds part. Accepted values are in range [0-9].
-     * @return Native type.
-     * @throws IllegalArgumentException If precision value was invalid.
+     * @param precision The number of digits in the 'fractional seconds' part (0 to 9).
+     * @throws IllegalArgumentException If the precision value is invalid.
      */
     public static TemporalColumnType datetime(int precision) {
         if (precision < 0 || precision > 9) {
@@ -220,7 +218,7 @@ public class ColumnType {
     }
 
     /**
-     * Returns point in time as number of ticks since {@code 1970-01-01T00:00:00Z} with the default precision of 6
+     * Returns a point in time as a number of ticks since {@code 1970-01-01T00:00:00Z} with the default precision of 6
      * (microseconds).
      *
      * @return Native type.
@@ -232,15 +230,14 @@ public class ColumnType {
     }
 
     /**
-     * Returns point in time as number of ticks since {@code 1970-01-01T00:00:00Z}. Ticks that are stored can be precised to
-     * second, millisecond, microsecond or nanosecond.
+     * Returns a point in time as a number of ticks since {@code 1970-01-01T00:00:00Z}. Ticks can have precision of a
+     * second, millisecond, microsecond, or nanosecond.
      *
-     * <p>Precision is a number of digits in fractional seconds part of time, from 0 - whole seconds precision up to 9 - nanoseconds
-     * precision.
+     * <p>Precision is a number of digits in the 'fractional seconds' part of time, from 0 (whole seconds) to 9 (nanoseconds).
      *
-     * @param precision The number of digits in fractional seconds part. Accepted values are in range [0-9].
+     * @param precision The number of digits in the 'fractional seconds' part (0 to 9).
      * @return Native type.
-     * @throws IllegalArgumentException If precision value was invalid.
+     * @throws IllegalArgumentException If the precision value is invalid.
      */
     public static TemporalColumnType timestamp(int precision) {
         if (precision < 0 || precision > 9) {
@@ -254,19 +251,19 @@ public class ColumnType {
      * Column type of variable length.
      */
     public static class VarLenColumnType extends ColumnType {
-        /** String varlen type of unlimited length. */
+        /** String varlen type of an unlimited length. */
         private static final VarLenColumnType UNLIMITED_STRING = new VarLenColumnType(ColumnTypeSpec.STRING, 0);
 
-        /** Blob varlen type of unlimited length. */
+        /** Blob varlen type of an unlimited length. */
         private static final VarLenColumnType UNLIMITED_BLOB = new VarLenColumnType(ColumnTypeSpec.BLOB, 0);
 
         /** Max length. */
         private final int length;
 
         /**
-         * Creates variable-length column type.
+         * Creates a variable-length column type.
          *
-         * @param typeSpec Type spec.
+         * @param typeSpec Type specification.
          * @param length   Type max length.
          */
         private VarLenColumnType(ColumnTypeSpec typeSpec, int length) {
@@ -276,9 +273,9 @@ public class ColumnType {
         }
 
         /**
-         * Max column value length.
+         * Returns max length of a column value.
          *
-         * @return Max column value length or {@code 0} if unlimited.
+         * @return Max length of the column value or {@code 0} if unlimited.
          */
         public int length() {
             return length;
@@ -328,9 +325,9 @@ public class ColumnType {
         private final int scale;
 
         /**
-         * Creates numeric column type.
+         * Creates a numeric column type.
          *
-         * @param typeSpec  Type spec.
+         * @param typeSpec  Type specification.
          * @param precision Precision.
          * @param scale     Scale.
          */
@@ -342,7 +339,7 @@ public class ColumnType {
         }
 
         /**
-         * Returns column precision.
+         * Returns a column precision.
          *
          * @return Precision.
          */
@@ -351,7 +348,7 @@ public class ColumnType {
         }
 
         /**
-         * Returns column scale.
+         * Returns a column scale.
          *
          * @return Scale.
          */
@@ -390,10 +387,10 @@ public class ColumnType {
      * Number column type.
      */
     public static class NumberColumnType extends ColumnType {
-        /** Number type with unlimited precision. */
+        /** Number type with an unlimited precision. */
         public static final NumberColumnType UNLIMITED_NUMBER = new NumberColumnType(ColumnTypeSpec.NUMBER, 0);
 
-        /** Max precision of value. If -1, column has no precision restrictions. */
+        /** Max precision of the value. If -1, the column has no precision restrictions. */
         private final int precision;
 
         /**
@@ -409,7 +406,7 @@ public class ColumnType {
         }
 
         /**
-         * Returns column precision.
+         * Returns a column precision.
          *
          * @return Max number of digits.
          */
@@ -445,18 +442,18 @@ public class ColumnType {
     }
 
     /**
-     * Column type of variable length.
+     * Column type of a variable length.
      */
     public static class TemporalColumnType extends ColumnType {
         /**
-         * Default TIMESTAMP type precision: microseconds.
+         * Default TIMESTAMP type's precision: microseconds.
          *
          * <p>SQL99 part 2 section 6.1 syntax rule 30
          */
         public static final int DEFAULT_TIMESTAMP_PRECISION = 6;
 
         /**
-         * Default TIME type precision: seconds.
+         * Default TIME type's precision: seconds.
          *
          * <p>SQL99 part 2 section 6.1 syntax rule 30
          */
@@ -469,15 +466,15 @@ public class ColumnType {
          */
         public static final int MAX_TIME_PRECISION = 9;
 
-        /** Fractional seconds precision. */
+        /** Fractional second precision. */
         private final int precision;
 
         /**
-         * Creates temporal type.
+         * Creates a temporal type.
          *
-         * @param typeSpec  Type spec.
-         * @param precision Fractional seconds meaningful digits. Allowed values are 0-9, where {@code 0} means second precision, {@code 9}
-         *                  means 1-ns precision.
+         * @param typeSpec  Type specification.
+         * @param precision Meaningful digits in fractional seconds (0 to 9, where {@code 0} means second precision, {@code 9}
+         * means 1-ns precision.
          */
         private TemporalColumnType(ColumnTypeSpec typeSpec, int precision) {
             super(typeSpec);
@@ -488,9 +485,9 @@ public class ColumnType {
         }
 
         /**
-         * Return column precision.
+         * Returns a column precision.
          *
-         * @return Number of fractional seconds meaningful digits.
+         * @return Number of meaningful digits in fractional seconds.
          */
         public int precision() {
             return precision;
@@ -524,7 +521,7 @@ public class ColumnType {
     }
 
     /**
-     * Column type spec.
+     * Column type specification.
      */
     public enum ColumnTypeSpec {
         /** 8-bit signed integer. */
@@ -557,7 +554,7 @@ public class ColumnType {
         /** Timezone-free datetime. */
         DATETIME,
 
-        /** Point on the time-line. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision. */
+        /** Point on the timeline. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision. */
         TIMESTAMP,
 
         /** 128-bit UUID. */
@@ -576,22 +573,22 @@ public class ColumnType {
         NUMBER,
     }
 
-    /** Type spec. */
+    /** Type specification. */
     private final ColumnTypeSpec typeSpec;
 
     /**
-     * Creates column type.
+     * Creates a column type.
      *
-     * @param typeSpec Type spec.
+     * @param typeSpec Type specification.
      */
     private ColumnType(ColumnTypeSpec typeSpec) {
         this.typeSpec = typeSpec;
     }
 
     /**
-     * Returns column type spec.
+     * Returns a column type specification.
      *
-     * @return Type spec.
+     * @return Type specification.
      */
     public ColumnTypeSpec typeSpec() {
         return typeSpec;

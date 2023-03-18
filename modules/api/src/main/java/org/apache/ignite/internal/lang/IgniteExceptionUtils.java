@@ -20,7 +20,7 @@ package org.apache.ignite.internal.lang;
 import org.apache.ignite.lang.IgniteException;
 
 /**
- * Ignite exception utils.
+ * Ignite exception utility.
  */
 public final class IgniteExceptionUtils {
     /**

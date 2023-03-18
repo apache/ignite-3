@@ -22,30 +22,30 @@ package org.apache.ignite.schema.definition;
  */
 public interface ColumnDefinition {
     /**
-     * Returns column name.
+     * Returns a column name.
      *
      * @return Column name.
      */
     String name();
 
     /**
-     * Returns column type.
+     * Returns a column type.
      *
      * @return Column type.
      */
     ColumnType type();
 
     /**
-     * Returns {@code Nullable} flag value.
+     * Returns a {@code Nullable} flag value.
      *
-     * @return {@code True} if null-values is allowed, {@code false} otherwise.
+     * @return {@code True} if null-values are allowed, {@code false} otherwise.
      */
     boolean nullable();
 
     /**
-     * Returns default value definition.
+     * Returns a default value definition.
      *
-     * @param <T> Desired subtype of the definition.
+     * @param <T> Subtype of the definition.
      * @return Default value definition.
      */
     <T extends DefaultValueDefinition> T defaultValueDefinition();

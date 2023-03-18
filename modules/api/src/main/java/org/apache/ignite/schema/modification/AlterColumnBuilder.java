@@ -22,8 +22,10 @@ import org.apache.ignite.schema.definition.ColumnType;
 /**
  * Alter column builder.
  *
- * <p>NOTE: Only safe actions that can be applied automatically on-fly are allowed.
+ * <p>NOTE: Only safe actions, which can be applied automatically on-the-fly, are allowed.
  */
+
+//The above description is titally unclear.
 public interface AlterColumnBuilder {
     /**
      * Renames a column.
@@ -34,9 +36,9 @@ public interface AlterColumnBuilder {
     AlterColumnBuilder withNewName(String newName);
 
     /**
-     * Convert column to a new type.
+     * Converts a column to a new type.
      *
-     * <p>Note: New type must be compatible with old.
+     * <p>Note: The new column type must be compatible with the old one.
      *
      * @param newType New column type.
      * @return {@code this} for chaining.
@@ -44,7 +46,7 @@ public interface AlterColumnBuilder {
     AlterColumnBuilder convertTo(ColumnType newType);
 
     /**
-     * Sets new column default value.
+     * Sets a new column default value.
      *
      * @param defaultValue Default value.
      * @return {@code this} for chaining.
@@ -52,26 +54,27 @@ public interface AlterColumnBuilder {
     AlterColumnBuilder withNewDefault(Object defaultValue);
 
     /**
-     * Set nullability attribute.
+     * Sets the nullability attribute.
      *
      * @return {@code this} for chaining.
      */
     AlterColumnBuilder asNullable();
 
     /**
-     * Mark column as non-nullable.
+     * Marks a column as non-nullable.
      *
-     * <p>Note: Replacement param is mandatory, all previously stored 'nulls' will be treated as replacement value on read.
+     * <p>Note: A replacement parameter is mandatory; all previously stored 'nulls' will be treated as a replacement value by the read operation.
      *
-     * @param replacement Non-null value, that 'null' will be converted to.
+     * @param replacement Non-null value to convert the 'null' to.
      * @return {@code this} for chaining.
      */
     AlterColumnBuilder asNonNullable(Object replacement);
 
     /**
-     * Builds alter column descriptor and pass it to parent table modification builder.
+     * Builds alter column descriptor and passes it to the parent table modification builder.
      *
      * @return Parent builder.
      */
     TableModificationBuilder done();
 }
+//What is "alter" column descriptor?

@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A representation of a network address including a host name and a port.
+ * Representation of a network address that includes a host name and a port.
  */
 public class NetworkAddress implements Serializable {
     /** Regexp for parsing strings in the "host:port" format. */
@@ -37,7 +37,9 @@ public class NetworkAddress implements Serializable {
     /** Port. */
     private final int port;
 
-    /** Consistent id. TODO: IGNITE-16373 Temporary until ticket is not resolved. */
+    /** Consistent ID. */
+
+//TODO: IGNITE-16373 Temporary until ticket is not resolved.
     @Nullable
     private final String consistentId;
 
@@ -58,7 +60,7 @@ public class NetworkAddress implements Serializable {
      *
      * @param host Host.
      * @param port Port.
-     * @param consistentId Consistent id.
+     * @param consistentId Consistent ID.
      */
     public NetworkAddress(String host, int port, String consistentId) {
         this.host = host;
@@ -69,9 +71,9 @@ public class NetworkAddress implements Serializable {
     /**
      * Parses a {@code NetworkAddress} from a string in the "host:port" format.
      *
-     * @param addrStr String in "host:port" format.
+     * @param addrStr String in the "host:port" format.
      * @return Parsed address.
-     * @throws IllegalArgumentException If the provided string does not match the required format.
+     * @throws IllegalArgumentException If the provided string does not match the expected format.
      */
     public static NetworkAddress from(String addrStr) {
         Matcher matcher = ADDRESS_PATTERN.matcher(addrStr);
@@ -124,9 +126,9 @@ public class NetworkAddress implements Serializable {
     }
 
     /**
-     * Returns the consistent id.
+     * Returns the consistent ID.
      *
-     * @return Consistent id.
+     * @return Consistent ID.
      */
     @Nullable
     public String consistentId() {

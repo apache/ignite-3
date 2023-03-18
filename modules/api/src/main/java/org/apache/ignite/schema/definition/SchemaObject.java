@@ -25,14 +25,14 @@ public interface SchemaObject {
     String DEFAULT_DATABASE_SCHEMA_NAME = "PUBLIC";
 
     /**
-     * Returns name of schema object.
+     * Returns a name of the schema object.
      *
      * @return Object name.
      */
     String name();
 
     /**
-     * Returns database schema name this object belongs to.
+     * Returns a name of the database schema the object belongs to.
      *
      * @return Database schema name.
      */
@@ -41,7 +41,7 @@ public interface SchemaObject {
     }
 
     /**
-     * Returns object`s canonical name.
+     * Returns object's canonical name.
      *
      * @return Canonical name.
      */

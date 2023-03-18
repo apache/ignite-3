@@ -16,7 +16,7 @@
  */
 
 /**
- * Contains index definition interfaces.
+ * Index definition interfaces.
  */
 
 package org.apache.ignite.schema.definition.index;

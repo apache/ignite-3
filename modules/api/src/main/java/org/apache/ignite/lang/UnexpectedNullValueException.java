@@ -18,12 +18,12 @@
 package org.apache.ignite.lang;
 
 /**
- * This exception is thrown instead of returning a null value from a method which doesn't respect {@code null}-value to avoid ambiguity
- * whether the value is absent or value is {@code null}.
+ * This exception is thrown instead of returning a null value from a method that does not respect {@code null}-value to avoid ambiguity
+ * (whether the value is absent or is {@code null}).
  */
 public class UnexpectedNullValueException extends IgniteException {
     /**
-     * Creates a new exception.
+     * Creates an exception.
      *
      * @param msg Message.
      */
@@ -31,3 +31,5 @@ public class UnexpectedNullValueException extends IgniteException {
         super("Got unexpected null value: " + msg);
     }
 }
+
+//Creates an exception with the given message?

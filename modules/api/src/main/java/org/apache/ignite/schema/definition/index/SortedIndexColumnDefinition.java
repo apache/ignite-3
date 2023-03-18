@@ -22,7 +22,7 @@ package org.apache.ignite.schema.definition.index;
  */
 public interface SortedIndexColumnDefinition extends IndexColumnDefinition {
     /**
-     * Returns column sort order.
+     * Returns a column sort order.
      *
      * @return Column sort order.
      */

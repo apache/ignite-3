@@ -21,11 +21,11 @@ import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.index.IndexDefinition;
 
 /**
- * Collect schema modification commands and pass them to manager to create a schema upgrade script.
+ * Collects schema modification commands and passes them to the manager to create a schema upgrade script.
  */
 public interface TableModificationBuilder {
     /**
-     * Adds new value column.
+     * Adds a new value column.
      *
      * @param column Column.
      * @return {@code this} for chaining.
@@ -33,7 +33,7 @@ public interface TableModificationBuilder {
     TableModificationBuilder addColumn(ColumnDefinition column);
 
     /**
-     * Adds new non-affinity key column.
+     * Adds a new non-affinity key column.
      *
      * @param column Column.
      * @return {@code this} for chaining.
@@ -41,17 +41,18 @@ public interface TableModificationBuilder {
     TableModificationBuilder addKeyColumn(ColumnDefinition column);
 
     /**
-     * Creates alter column builder..
+     * Creates an alter column builder.
      *
      * @param columnName Column name.
      * @return Alter column builder.
      */
     AlterColumnBuilder alterColumn(String columnName);
+//What is "alter"?
 
     /**
-     * Drops value column.
+     * Drops a value column.
      *
-     * <p>Note: Key column drop is not allowed.
+     * <p>Note: Dropping key columns is not allowed.
      *
      * @param columnName Column.
      * @return {@code this} for chaining.
@@ -59,7 +60,7 @@ public interface TableModificationBuilder {
     TableModificationBuilder dropColumn(String columnName);
 
     /**
-     * Adds new table index.
+     * Adds a new table index.
      *
      * @param indexDefinition Table index.
      * @return {@code this} for chaining.
@@ -67,9 +68,9 @@ public interface TableModificationBuilder {
     TableModificationBuilder addIndex(IndexDefinition indexDefinition);
 
     /**
-     * Drops table index.
+     * Drops a table index.
      *
-     * <p>Note: PK can't be dropped.
+     * <p>Note: Primary Key cannot be dropped.
      *
      * @param indexName Index name.
      * @return {@code this} for chaining.
@@ -77,7 +78,7 @@ public interface TableModificationBuilder {
     TableModificationBuilder dropIndex(String indexName);
 
     /**
-     * Apply changes.
+     * Applies changes.
      */
     void apply();
 }

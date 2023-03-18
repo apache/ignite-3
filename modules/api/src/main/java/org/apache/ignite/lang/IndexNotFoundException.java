@@ -21,11 +21,11 @@ import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups.Index;
 
 /**
- * Exception is thrown when appropriate index is not found.
+ * Exception is thrown when the specified index is not found.
  */
 public class IndexNotFoundException extends IgniteException {
     /**
-     * Create a new exception with given index name.
+     * Creates an exception with the given index name.
      *
      * @param indexName Index canonical name.
      */
@@ -34,10 +34,10 @@ public class IndexNotFoundException extends IgniteException {
     }
 
     /**
-     * Creates a new exception with the given trace id, error code, detail message and cause.
+     * Creates an exception with the given trace ID, error code, detailed message, and cause.
      *
-     * @param traceId Unique identifier of this exception.
-     * @param message Detail message.
+     * @param traceId Unique identifier of the exception.
+     * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IndexNotFoundException(UUID traceId, String message, Throwable cause) {

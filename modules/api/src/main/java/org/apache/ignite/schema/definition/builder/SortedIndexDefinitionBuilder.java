@@ -25,7 +25,7 @@ import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
  */
 public interface SortedIndexDefinitionBuilder extends SchemaObjectBuilder {
     /**
-     * Adds a column to index.
+     * Adds a column to an index.
      *
      * @param name Table column name.
      * @return Index builder.
@@ -39,13 +39,13 @@ public interface SortedIndexDefinitionBuilder extends SchemaObjectBuilder {
     /**
      * Unique index flag.
      *
-     * @param b {@code True} if a unique index.
+     * @param b {@code True} if the index is unique.
      * @return {@code This} for chaining.
      */
     SortedIndexDefinitionBuilder unique(boolean b);
 
     /**
-     * Builds sorted index.
+     * Builds a sorted index.
      *
      * @return Sorted index.
      */
@@ -58,21 +58,21 @@ public interface SortedIndexDefinitionBuilder extends SchemaObjectBuilder {
     @SuppressWarnings("PublicInnerClass")
     interface SortedIndexColumnBuilder {
         /**
-         * Sets descending sort order.
+         * Sets the descending sort order.
          *
          * @return {@code this} for chaining.
          */
         SortedIndexColumnBuilder desc();
 
         /**
-         * Sets ascending sort order.
+         * Sets the ascending sort order.
          *
          * @return {@code this} for chaining.
          */
         SortedIndexColumnBuilder asc();
 
         /**
-         * Sets column name.
+         * Sets a column name.
          *
          * @param name Column name.
          * @return {@code this} for chaining.
@@ -80,7 +80,7 @@ public interface SortedIndexDefinitionBuilder extends SchemaObjectBuilder {
         SortedIndexColumnBuilder withName(String name);
 
         /**
-         * Builds and adds the column to the index.
+         * Builds and adds a column to an index.
          *
          * @return Parent builder for chaining.
          */

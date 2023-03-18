@@ -40,13 +40,14 @@ public interface HashIndexDefinitionBuilder extends SchemaObjectBuilder {
      * @return {@code this} for chaining.
      */
     HashIndexDefinitionBuilder withColumns(List<String> columns);
+    //The descriptions of the last two methods are identical but the methods themselves are not. 
 
     /** {@inheritDoc} */
     @Override
     HashIndexDefinitionBuilder withHints(Map<String, String> hints);
 
     /**
-     * Builds hash index.
+     * Builds a hash index.
      *
      * @return Hash index.
      */

@@ -26,16 +26,16 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface ColumnDefinitionBuilder extends SchemaObjectBuilder {
     /**
-     * Set nullable attribute.
+     * Sets a nullable attribute.
      *
-     * @param nullable If {@code false}, null values will not be allowed for this column.
+     * @param nullable If {@code false}, null values are not allowed in this column.
      *
      * @return {@code this} for chaining.
      */
     ColumnDefinitionBuilder asNullable(boolean nullable);
 
     /**
-     * Sets column default value expression.
+     * Sets a default value expression for a column.
      *
      * @param defValExpr Default value expression.
      * @return {@code this} for chaining.
@@ -47,9 +47,9 @@ public interface ColumnDefinitionBuilder extends SchemaObjectBuilder {
     ColumnDefinitionBuilder withHints(Map<String, String> hints);
 
     /**
-     * Builds column.
+     * Builds a column.
      *
-     * @return Built column.
+     * @return The built column.
      */
     @Override
     ColumnDefinition build();

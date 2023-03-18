@@ -16,7 +16,7 @@
  */
 
 /**
- * Table schema manipulation API.
+ * API for table schema manipulation .
  */
 
 package org.apache.ignite.schema.modification;

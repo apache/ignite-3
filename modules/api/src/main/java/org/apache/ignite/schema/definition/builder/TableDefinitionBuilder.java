@@ -29,20 +29,21 @@ import org.apache.ignite.schema.definition.index.IndexDefinition;
  */
 public interface TableDefinitionBuilder extends SchemaObjectBuilder {
     /**
-     * Adds columns to the table.
+     * Adds columns to a table.
      *
-     * @param columns Table columns definitions.
+     * @param columns Table column definitions.
      * @return {@code This} for chaining.
      */
     TableDefinitionBuilder columns(List<ColumnDefinition> columns);
 
     /**
-     * Adds columns to the table.
+     * Adds columns to a table.
      *
      * @param columns Table columns definitions.
      * @return {@code This} for chaining.
      */
     TableDefinitionBuilder columns(ColumnDefinition... columns);
+//The descriptions of the last two methods are identical but the methods themselves are not. 
 
     /**
      * Adds an index.
@@ -53,7 +54,7 @@ public interface TableDefinitionBuilder extends SchemaObjectBuilder {
     TableDefinitionBuilder withIndex(IndexDefinition indexDefinition);
 
     /**
-     * Shortcut method for adding {@link PrimaryKeyDefinition} of single column.
+     * Adds {@link PrimaryKeyDefinition} of a single column (a shortcut method).
      *
      * @param colName Key column name.
      * @return {@code This} for chaining.
@@ -61,7 +62,7 @@ public interface TableDefinitionBuilder extends SchemaObjectBuilder {
     TableDefinitionBuilder withPrimaryKey(String colName);
 
     /**
-     * Adds primary key constraint to the table.
+     * Adds a primary key constraint to a table.
      *
      * @param primaryKeyDefinition Primary key definition.
      * @return {@code This} for chaining.
@@ -72,7 +73,7 @@ public interface TableDefinitionBuilder extends SchemaObjectBuilder {
     @Override TableDefinitionBuilder withHints(Map<String, String> hints);
 
     /**
-     * Builds table definition.
+     * Builds a table definition.
      *
      * @return Table definition.
      */

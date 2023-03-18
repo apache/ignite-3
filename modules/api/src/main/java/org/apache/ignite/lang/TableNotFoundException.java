@@ -22,11 +22,11 @@ import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 import java.util.UUID;
 
 /**
- * Exception is thrown when appropriate table can`t be found.
+ * Exception is thrown when a specified table cannot be found.
  */
 public class TableNotFoundException extends IgniteException {
     /**
-     * Create a new exception with given table name.
+     * Creates an exception with the given table name.
      *
      * @param name Table name.
      */
@@ -35,11 +35,11 @@ public class TableNotFoundException extends IgniteException {
     }
 
     /**
-     * Creates a new exception with the given trace id, error code, detail message and cause.
+     * Creates an exception with the given trace ID, error code, detailed message, and cause.
      *
-     * @param traceId Unique identifier of this exception.
+     * @param traceId Unique identifier of the exception.
      * @param code Full error code.
-     * @param message Detail message.
+     * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
     public TableNotFoundException(UUID traceId, int code, String message, Throwable cause) {

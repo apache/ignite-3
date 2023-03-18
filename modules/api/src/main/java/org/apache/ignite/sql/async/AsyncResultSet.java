@@ -25,7 +25,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Asynchronous result set provides methods for query results processing in asynchronous way.
+ * Provides methods for query result processing in an asynchronous way.
  *
  * <p>Usage example:
  * <pre><code>
@@ -50,31 +50,33 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface AsyncResultSet {
     /**
-     * Returns metadata for the results if the result contains rows ({@link #hasRowSet()} returns {@code true}), or {@code null} if
-     * inapplicable.
+     * Returns metadata for query results. If the result set contains rows ({@link #hasRowSet()}, returns {@code true}). 
+     * If not applicable, returns {@code null}.
      *
-     * @return ResultSet metadata.
+     * @return ResultSet Metadata.
      * @see ResultSet#metadata()
      */
     @Nullable ResultSetMetadata metadata();
+//What does "if not applicable" mean in the above description?
 
     /**
-     * Returns whether the result of the query execution is a collection of rows, or not.
+     * Defines whether the result of a query is a collection of rows or not.
      *
-     * <p>Note: when returns {@code false}, then calling {@link #currentPage()} will failed, and either {@link #affectedRows()} return
+     * <p>Note: If the method returns {@code false}, calling {@link #currentPage()} will fail, and either {@link #affectedRows()} return
      * number of affected rows or {@link #wasApplied()} returns {@code true}.
      *
-     * @return {@code True} if the query returns rows, {@code false} otherwise.
+     * @return {@code True} if a query returned rows, {@code false} otherwise.
      */
     boolean hasRowSet();
+//I don't understand wha the Note above means.
 
     /**
-     * Returns number of rows affected by the DML statement execution (such as "INSERT", "UPDATE", etc.), or {@code 0} if statement return
-     * nothing (such as "ALTER TABLE", etc) or {@code -1} if inapplicable.
+     * Returns the number of rows affected by the DML statement execution (such as "INSERT", "UPDATE", etc.), or {@code 0} if the statement returns
+     * nothing (such as "ALTER TABLE", etc), or {@code -1} if inapplicable.
      *
-     * <p>Note: when returns {@code -1}, then either {@link #hasRowSet()} or {@link #wasApplied()} returns {@code true}.
+     * <p>Note: If the method returns {@code -1}, either {@link #hasRowSet()} or {@link #wasApplied()} returns {@code true}.
      *
-     * @return Number of rows affected by the query, or {@code 0} if statement return nothing, or {@code -1} if inapplicable.
+     * @return Number of rows affected by the query, or {@code 0} if the statement returns nothing, or {@code -1} if inapplicable.
      * @see ResultSet#affectedRows()
      */
     long affectedRows();

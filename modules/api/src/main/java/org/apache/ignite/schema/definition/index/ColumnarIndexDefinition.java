@@ -31,7 +31,7 @@ public interface ColumnarIndexDefinition extends IndexDefinition {
     List<? extends IndexColumnDefinition> columns();
 
     /**
-     * Returns all index columns: user defined + implicitly attched.
+     * Returns all index columns, both user-defined and implicitly attached.
      *
      * @return Indexed columns.
      */

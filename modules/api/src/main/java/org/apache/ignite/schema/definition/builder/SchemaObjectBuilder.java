@@ -20,11 +20,11 @@ package org.apache.ignite.schema.definition.builder;
 import java.util.Map;
 
 /**
- * Builder base interface.
+ * Base interface builder.
  */
 public interface SchemaObjectBuilder {
     /**
-     * Provide hints to a builder.
+     * Provides hints to a builder.
      *
      * @param hints Hints.
      * @return {@code This} for chaining.
@@ -32,9 +32,9 @@ public interface SchemaObjectBuilder {
     SchemaObjectBuilder withHints(Map<String, String> hints);
 
     /**
-     * Builds schema object.
+     * Builds a schema object.
      *
-     * @return Built object.
+     * @return The built object.
      */
     Object build();
 }

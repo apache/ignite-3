@@ -25,20 +25,20 @@ import org.apache.ignite.internal.tostring.S;
  * Representation of a node in a cluster.
  */
 public class ClusterNode implements Serializable {
-    /** Local id assigned to this node instance. Changes between restarts. */
+    /** Local ID assigned to the node instance. The ID changes between restarts. */
     private final String id;
 
-    /** Unique name of member in the cluster. Consistent between restarts. */
+    /** Unique name of a cluster member. Consistent between restarts. */
     private final String name;
 
-    /** Network address of this node. */
+    /** Network address of the node. */
     private final NetworkAddress address;
 
     /**
      * Constructor.
      *
-     * @param id      Local id that changes between restarts.
-     * @param name    Unique name of a member in a cluster.
+     * @param id      Local ID that changes between restarts.
+     * @param name    Unique name of a cluster member.
      * @param address Node address.
      */
     public ClusterNode(String id, String name, NetworkAddress address) {
@@ -48,27 +48,27 @@ public class ClusterNode implements Serializable {
     }
 
     /**
-     * Returns this node's local ID.
+     * Returns the node's local ID.
      *
-     * @return Node's local id.
+     * @return Node's local ID.
      */
     public String id() {
         return id;
     }
 
     /**
-     * Returns the unique name (consistent id) of this node in a cluster. Doesn't change between restarts.
+     * Returns the unique name (consistent ID) of the node in the cluster. Does not change between restarts.
      *
-     * @return Unique name of the member in a cluster.
+     * @return Unique name of a cluster member.
      */
     public String name() {
         return name;
     }
 
     /**
-     * Returns the network address of this node.
+     * Returns the network address of the node.
      *
-     * @return Network address of this node.
+     * @return Network address of the node.
      */
     public NetworkAddress address() {
         return address;

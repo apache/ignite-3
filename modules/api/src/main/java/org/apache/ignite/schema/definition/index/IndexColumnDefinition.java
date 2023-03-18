@@ -22,7 +22,7 @@ package org.apache.ignite.schema.definition.index;
  */
 public interface IndexColumnDefinition {
     /**
-     * Returns column name.
+     * Returns a column name.
      *
      * @return Column name.
      */

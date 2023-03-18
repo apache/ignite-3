@@ -20,16 +20,16 @@ package org.apache.ignite.schema.definition;
 import java.util.Objects;
 
 /**
- * Definition of value provider to use as default.
+ * Default value definition.
  */
 @SuppressWarnings("PublicInnerClass")
 public class DefaultValueDefinition {
     private static final DefaultValueDefinition NULL = new DefaultValueDefinition(DefaultValueType.NULL);
 
     /**
-     * Defines value provider as functional provider.
+     * Defines default value as a function call.
      *
-     * @param name Name of the function to invoke to generate the value
+     * @param name Name of the function to invoke for generating the default value.
      * @return Default value definition.
      * @see DefaultValueGenerators
      */
@@ -38,18 +38,18 @@ public class DefaultValueDefinition {
     }
 
     /**
-     * Defines value provider as non-null constant value provider.
+     * Defines default value as a non-null constant.
      *
-     * @param value A value to use as default.
+     * @param value Value to use as the default.
      * @return Default value definition.
-     * @throws NullPointerException If value argument is null.
+     * @throws NullPointerException If the value argument is null.
      */
     public static DefaultValueDefinition constant(Object value) {
         return new ConstantValue(Objects.requireNonNull(value, "value"));
     }
 
     /**
-     * Defines value provider as constant null provider.
+     * Defines default value as null.
      *
      * @return Default value definition.
      */
@@ -57,12 +57,12 @@ public class DefaultValueDefinition {
         return NULL;
     }
 
-    /** Types of the defaults. */
+    /** Default types. */
     public enum DefaultValueType {
-        /** Default is not specified or explicitly specified as null. */
+        /** Default is explicitly specified as null or is not specified. */
         NULL,
 
-        /** Default is specified as non-null constant. */
+        /** Default is specified as a non-null constant. */
         CONSTANT,
 
         /** Default is specified as a call to a function. */
@@ -75,12 +75,12 @@ public class DefaultValueDefinition {
         this.type = type;
     }
 
-    /** Returns type of the default value. */
+    /** Returns a default value's type. */
     public DefaultValueType type() {
         return type;
     }
 
-    /** Defines default value provider as a function call. */
+    /** Defines default value as a function call. */
     public static class FunctionCall extends DefaultValueDefinition {
         private final String functionName;
 
@@ -89,13 +89,13 @@ public class DefaultValueDefinition {
             this.functionName = functionName;
         }
 
-        /** Returns name of the function to use as value generator. */
+        /** Returns a name of the function to invoke for generating the default value. */
         public String functionName() {
             return functionName;
         }
     }
 
-    /** Defines default value provider as a constant. */
+    /** Defines default value as a constant. */
     public static class ConstantValue extends DefaultValueDefinition {
         private final Object value;
 
@@ -104,7 +104,7 @@ public class DefaultValueDefinition {
             this.value = value;
         }
 
-        /** Returns value to use as default. */
+        /** Returns a value to use as the default. */
         public Object value() {
             return value;
         }

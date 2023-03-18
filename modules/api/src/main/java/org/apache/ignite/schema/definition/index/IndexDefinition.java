@@ -24,7 +24,7 @@ import org.apache.ignite.schema.definition.SchemaObject;
  */
 public interface IndexDefinition extends SchemaObject {
     /**
-     * Returns index name.
+     * Returns an index name.
      *
      * @return Index name.
      */
@@ -32,9 +32,9 @@ public interface IndexDefinition extends SchemaObject {
     String name();
 
     /**
-     * Unique index flag.
+     * Sets a unique index flag.
      *
-     * <p>Limitation: Index MUST have all affinity columns declared explicitly. This requirement allows omitting cluster wide constraint
+     * <p>Limitation: Index MUST have all affinity columns declared explicitly to allow omitting cluster-wide constraint
      * checks.
      *
      * @return Unique flag.
@@ -44,7 +44,7 @@ public interface IndexDefinition extends SchemaObject {
     }
 
     /**
-     * Returns index type.
+     * Returns an index type.
      *
      * @return Index type.
      */
