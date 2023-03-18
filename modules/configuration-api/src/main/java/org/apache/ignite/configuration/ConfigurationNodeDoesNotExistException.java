@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.tree;
+package org.apache.ignite.configuration;
 
 /**
  * This exception is thrown when an operation attempts to access a node with a key that no longer exists.

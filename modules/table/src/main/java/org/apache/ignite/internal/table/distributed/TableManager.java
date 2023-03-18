@@ -23,7 +23,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesPrefix;
@@ -83,7 +82,6 @@ import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.causality.VersionedValue;
-import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -1623,7 +1621,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return A list of direct table ids.
      */
     private List<UUID> directTableIds() {
-        return ConfigurationUtil.internalIds(directProxy(tablesCfg.tables()));
+        return directProxy(tablesCfg.tables()).internalIds();
     }
 
     /**
@@ -1632,7 +1630,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return A list of direct index ids.
      */
     private List<UUID> directIndexIds() {
-        return ConfigurationUtil.internalIds(directProxy(tablesCfg.indexes()));
+        return directProxy(tablesCfg.indexes()).internalIds();
     }
 
     /**
@@ -1815,7 +1813,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private boolean isTableConfigured(UUID id) {
         try {
-            ((ExtendedTableConfiguration) getByInternalId(directProxy(tablesCfg.tables()), id)).id().value();
+            ((ExtendedTableConfiguration) directProxy(tablesCfg.tables()).get(id)).id().value();
 
             return true;
         } catch (NoSuchElementException e) {
@@ -2272,7 +2270,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @see #getMetadataLocallyOnly
      */
     private <T extends ConfigurationProperty<?>> T directProxy(T property) {
-        return getMetadataLocallyOnly ? property : ConfigurationUtil.directProxy(property);
+        return getMetadataLocallyOnly ? property : (T) property.directProxy();
     }
 
     private static PeersAndLearners configurationFromAssignments(Collection<Assignment> assignments) {

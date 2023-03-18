@@ -20,9 +20,9 @@ package org.apache.ignite.internal.storage.configuration;
 import com.google.auto.service.AutoService;
 import java.util.ServiceLoader;
 import java.util.Set;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.storage.DataStorageModule;
 
 /**

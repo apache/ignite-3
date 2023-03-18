@@ -15,16 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.tree;
+package org.apache.ignite.configuration;
 
 /**
- * The base class for exceptions that can be thrown during modification of {@link NamedListNode}.
+ * This exception is thrown when an operation attempts to modify a node with a key that was removed.
  */
-public abstract class ConfigurationNodeModificationException extends IllegalArgumentException {
+public class ConfigurationNodeRemovedException extends ConfigurationNodeModificationException {
 
-    private static final long serialVersionUID = 4149783684472013922L;
+    private static final long serialVersionUID = 2493615156271124701L;
 
-    ConfigurationNodeModificationException(String message) {
-        super(message);
+    /**
+     * The constructor.
+     *
+     * @param key   the key.
+     */
+    public ConfigurationNodeRemovedException(String key) {
+        super(String.format("Named List element with key \"%s\" has been removed", key));
     }
 }
