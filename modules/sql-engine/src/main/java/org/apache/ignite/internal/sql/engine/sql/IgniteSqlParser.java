@@ -37,7 +37,7 @@ import org.apache.ignite.sql.SqlException;
  * Provides method for parsing SQL statements in SQL dialect of Apache Ignite 3.
  *
  * <p>One should use parsing methods defined in this class,
- * instead of creating SqlParsers that use {@link IgniteSqlParserImpl} directly.
+ * instead of creating {@link SqlParser} that use {@link IgniteSqlParserImpl} directly.
  */
 public final class IgniteSqlParser  {
 
