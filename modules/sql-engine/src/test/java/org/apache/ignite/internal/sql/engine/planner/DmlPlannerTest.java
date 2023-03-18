@@ -51,7 +51,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * Test for INSERT .. VALUES when table has non single distributions.
+     * Test for INSERT .. VALUES when table has non single distribution.
      */
     @ParameterizedTest
     @MethodSource("nonSingleDistributions")
