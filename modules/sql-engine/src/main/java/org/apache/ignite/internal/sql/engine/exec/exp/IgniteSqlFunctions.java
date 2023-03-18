@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.time.LocalTime;
+import java.util.UUID;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.config.CalciteConnectionConfig;
@@ -172,6 +173,11 @@ public class IgniteSqlFunctions {
     /** GREATEST2. */
     public static @Nullable Object greatest2(Object arg0, Object arg1) {
         return leastOrGreatest(false, arg0, arg1);
+    }
+
+    /** Generates a value of implicit primary key. **/
+    public static String generateImplicitPk() {
+        return UUID.randomUUID().toString();
     }
 
     private static @Nullable Object leastOrGreatest(boolean least, Object arg0, Object arg1) {

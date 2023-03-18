@@ -45,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.util.CollectionUtils;
 
@@ -225,16 +226,26 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
      * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery, MappingQueryContext)}.
      */
     public FragmentMapping fragmentMapping(IgniteTableModify rel, RelMetadataQuery mq, MappingQueryContext ctx) {
-        FragmentMapping mapping = fragmentMappingForMetadataQuery(rel.getInput(), mq, ctx);
+        RelNode input = rel.getInput();
+        FragmentMapping mapping = fragmentMappingForMetadataQuery(input, mq, ctx);
 
         // In case of the statement like UPDATE t SET a = a + 1
         // this will be the second call to the collation group, hence the result may differ.
         // But such query should be rejected during execution, since we will try to do RW read
         // from replica that is not primary anymore.
-        List<NodeWithTerm> assignments = rel.getTable().unwrap(IgniteTable.class)
-                .colocationGroup(ctx).assignments().stream()
+        ColocationGroup tableColocationGroup = rel.getTable().unwrap(IgniteTable.class).colocationGroup(ctx);
+        List<NodeWithTerm> assignments = tableColocationGroup.assignments().stream()
                 .map(CollectionUtils::first)
                 .collect(Collectors.toList());
+
+        if (Commons.modifyPushDownEnabled()) {
+            FragmentMapping tableMapping = FragmentMapping.create(-1, tableColocationGroup);
+            try {
+                mapping = tableMapping.colocate(mapping);
+            } catch (ColocationMappingException e) {
+                throw new NodeMappingException("Failed to calculate physical distribution", input, e);
+            }
+        }
 
         mapping = mapping.updatingTableAssignments(assignments);
 

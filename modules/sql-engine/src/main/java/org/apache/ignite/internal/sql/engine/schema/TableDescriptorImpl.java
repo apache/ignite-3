@@ -29,10 +29,10 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.ColumnStrategy;
-import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.NullInitializerExpressionFactory;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -162,14 +162,21 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
                 return rexBuilder.makeNullLiteral(fieldType);
             }
             case DEFAULT_CONSTANT: {
-                var typeFactory = (IgniteTypeFactory) rexBuilder.getTypeFactory();
+                Class<?> storageType = Commons.nativeTypeToClass(descriptor.physicalType());
+                Object defaultVal = descriptor.defaultValue();
+                Object internalValue = TypeUtils.toInternal(defaultVal, storageType);
+                RelDataType relDataType = deriveLogicalType(rexBuilder.getTypeFactory(), descriptor);
 
-                Object defaultValue = TypeUtils.toInternal(descriptor.defaultValue());
-
-                return rexBuilder.makeLiteral(defaultValue, deriveLogicalType(typeFactory, descriptor), false);
+                return rexBuilder.makeLiteral(internalValue, relDataType, false);
             }
             case DEFAULT_COMPUTED: {
-                return rexBuilder.makeCall(SqlStdOperatorTable.DEFAULT);
+                assert descriptor.key() : "DEFAULT_COMPUTED is only supported for primary key columns. Column: " + descriptor.name();
+
+                if (Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(descriptor.name())) {
+                    return rexBuilder.makeCall(IgniteSqlOperatorTable.GENERATE_IMPLICIT_PK);
+                } else {
+                    return rexBuilder.makeCall(IgniteSqlOperatorTable.GEN_RANDOM_UUID);
+                }
             }
             default:
                 throw new IllegalStateException("Unknown default strategy: " + descriptor.defaultStrategy());

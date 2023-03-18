@@ -98,7 +98,10 @@ public enum IgniteMethod {
     IS_NOT_DISTINCT_FROM(Objects.class, "equals", Object.class, Object.class),
 
     /** See {@link UUID#randomUUID()}. */
-    RAND_UUID(UUID.class, "randomUUID");
+    RAND_UUID(UUID.class, "randomUUID"),
+
+    /** See {@link IgniteSqlFunctions#generateImplicitPk()}. */
+    GENERATE_IMPLICIT_PK(IgniteSqlFunctions.class, "generateImplicitPk");
 
     private final Method method;
 

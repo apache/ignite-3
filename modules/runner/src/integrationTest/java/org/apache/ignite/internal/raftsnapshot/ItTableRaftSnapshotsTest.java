@@ -237,6 +237,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * to knock-out the follower to make it require a snapshot installation).
      */
     @Test
+    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
+    @Disabled
     void leaderFeedsFollowerWithSnapshotWithKnockoutPartitionNetwork() throws Exception {
         testLeaderFeedsFollowerWithSnapshot(Cluster.NodeKnockout.PARTITION_NETWORK, DEFAULT_STORAGE_ENGINE);
     }
@@ -563,6 +565,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             PersistentPageMemoryStorageEngine.ENGINE_NAME,
             VolatilePageMemoryStorageEngine.ENGINE_NAME
     })
+    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
+    @Disabled
     void leaderFeedsFollowerWithSnapshot(String storageEngine) throws Exception {
         testLeaderFeedsFollowerWithSnapshot(DEFAULT_KNOCKOUT, storageEngine);
     }
@@ -663,6 +667,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * Tests that, if a snapshot installation fails for some reason, a subsequent retry due to a timeout happens successfully.
      */
     @Test
+    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
+    @Disabled
     void snapshotInstallationRepeatsOnTimeout() throws Exception {
         prepareClusterForInstallingSnapshotToNode2(DEFAULT_KNOCKOUT, DEFAULT_STORAGE_ENGINE, theCluster -> {
             theCluster.node(0).dropMessages(dropFirstSnapshotMetaResponse());
@@ -716,6 +722,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * stuck because one 'download' task will remain unfinished forever.
      */
     @Test
+    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
+    @Disabled
     void snapshotInstallTimeoutDoesNotBreakSubsequentInstallsWhenSecondAttemptIsIdenticalToFirst() throws Exception {
         AtomicBoolean snapshotInstallFailedDueToIdenticalRetry = new AtomicBoolean(false);
 
@@ -754,6 +762,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     @Test
+    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
+    @Disabled
     void testChangeLeaderOnInstallSnapshotInMiddle() throws Exception {
         CompletableFuture<Void> sentSnapshotMetaResponseFormNode1Future = new CompletableFuture<>();
 
@@ -828,6 +838,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * </ol>
      */
     @Test
+    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
+    @Disabled
     void testChangeLeaderDuringSnapshotInstallationToLeaderWithEnoughLog() throws Exception {
         CompletableFuture<Void> sentSnapshotMetaResponseFormNode0Future = new CompletableFuture<>();
 

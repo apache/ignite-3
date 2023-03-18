@@ -18,9 +18,13 @@
 package org.apache.ignite.internal.sql.engine;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+import org.apache.ignite.internal.sql.engine.metadata.RemoteException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -73,8 +77,9 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
                 if (implicitTx != null) {
                     implicitTx.rollback();
                 }
+                Throwable cause = unwrapRemoteCause(t);
 
-                throw IgniteException.wrap(t);
+                throw IgniteException.wrap(cause);
             }
 
             if (implicitTx != null && !batch.hasMore()) {
@@ -90,5 +95,19 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     @Override
     public CompletableFuture<Void> closeAsync() {
         return dataCursor.closeAsync();
+    }
+
+    private static Throwable unwrapRemoteCause(@NotNull Throwable t) {
+        Throwable err = t;
+
+        while (err != null) {
+            if (err instanceof RemoteException || err instanceof CompletionException || err instanceof ExecutionException) {
+                err = err.getCause();
+            } else {
+                return err;
+            }
+        }
+
+        return t;
     }
 }

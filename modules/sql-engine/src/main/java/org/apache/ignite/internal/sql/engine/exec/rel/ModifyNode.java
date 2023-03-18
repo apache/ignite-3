@@ -422,16 +422,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
                 ColumnDescriptor columnDescriptor = tableDescriptor.columnDescriptor(i);
 
                 Object oldValue = handler.get(columnDescriptor.logicalIndex(), row);
-
-                Object newValue;
-                if (columnDescriptor.key()
-                        && Commons.implicitPkEnabled()
-                        && Commons.IMPLICIT_PK_COL_NAME.equals(columnDescriptor.name())
-                ) {
-                    newValue = columnDescriptor.defaultValue();
-                } else {
-                    newValue = replaceDefaultValuePlaceholder(oldValue, columnDescriptor);
-                }
+                Object newValue = replaceDefaultValuePlaceholder(oldValue, columnDescriptor);
 
                 if (oldValue != newValue) {
                     handler.set(columnDescriptor.logicalIndex(), row, newValue);
@@ -441,7 +432,18 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     }
 
     private static @Nullable Object replaceDefaultValuePlaceholder(@Nullable Object val, ColumnDescriptor desc) {
-        return val == RexImpTable.DEFAULT_VALUE_PLACEHOLDER ? desc.defaultValue() : val;
+        Object newValue;
+
+        if (desc.key() && Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(desc.name())) {
+            assert val != RexImpTable.DEFAULT_VALUE_PLACEHOLDER  : "IMPLICIT_PK should have been replaced by a function call";
+            newValue = val;
+        } else {
+            newValue = val == RexImpTable.DEFAULT_VALUE_PLACEHOLDER ? desc.defaultValue() : val;
+        }
+
+        assert newValue != RexImpTable.DEFAULT_VALUE_PLACEHOLDER : "Placeholder should have been replaced. Column: " + desc.name();
+
+        return newValue;
     }
 
     private enum State {

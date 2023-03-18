@@ -17,12 +17,16 @@
 
 package org.apache.ignite.internal.sql.engine.sql.fun;
 
+import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlFunctionCategory;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlSpecialOperator;
+import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.fun.SqlLibraryOperators;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.fun.SqlSubstringFunction;
+import org.apache.calcite.sql.type.InferTypes;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -130,6 +134,45 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     return false;
                 }
             };
+
+    public static final SqlFunction GEN_RANDOM_UUID =
+            new SqlFunction(
+                    "GEN_RANDOM_UUID",
+                    SqlKind.OTHER_FUNCTION,
+                    ReturnTypes.explicit(SqlTypeName.VARCHAR),
+                    null,
+                    OperandTypes.NILADIC,
+                    SqlFunctionCategory.SYSTEM
+            ) {
+                @Override
+                public boolean isDynamicFunction() {
+                    return true;
+                }
+
+                @Override
+                public boolean isDeterministic() {
+                    return false;
+                }
+            };
+
+    public static final SqlSpecialOperator GENERATE_IMPLICIT_PK = new ImplicitPkOperator();
+
+    /**
+     * {@code IMPLICIT_PK}.
+     */
+    public static class ImplicitPkOperator extends SqlSpecialOperator {
+
+        ImplicitPkOperator() {
+            super("GENERATE_IMPLICIT_PK", SqlKind.OTHER_FUNCTION, 100, true,
+                    ReturnTypes.explicit(SqlTypeName.ANY), InferTypes.RETURN_TYPE,
+                    OperandTypes.NILADIC);
+        }
+
+        @Override public void unparse(SqlWriter writer, SqlCall call, int leftPrec,
+                int rightPrec) {
+            writer.keyword(getName());
+        }
+    }
 
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
@@ -399,5 +442,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(GREATEST2);
         register(NULL_BOUND);
         register(RAND_UUID);
+        register(GEN_RANDOM_UUID);
+        register(GENERATE_IMPLICIT_PK);
     }
 }
