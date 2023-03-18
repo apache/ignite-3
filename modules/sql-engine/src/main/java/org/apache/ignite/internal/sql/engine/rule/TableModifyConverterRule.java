@@ -88,6 +88,7 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
         RelOptCluster cluster = rel.getCluster();
         RelOptTable relTable = rel.getTable();
         IgniteTable igniteTable = relTable.unwrap(IgniteTable.class);
+        assert igniteTable != null;
 
         RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
                 .replace(igniteTable.distribution())
@@ -98,7 +99,11 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
         IgniteTableModify tableModify = new IgniteTableModify(cluster, traits, relTable, input,
                 rel.getOperation(), rel.getUpdateColumnList(), rel.getSourceExpressionList(), rel.isFlattened());
 
-        return createAggregate(tableModify, cluster);
+        if (igniteTable.distribution().equals(IgniteDistributions.single())) {
+            return tableModify;
+        } else {
+            return createAggregate(tableModify, cluster);
+        }
     }
 
     private static PhysicalNode createAggregate(IgniteTableModify tableModify, RelOptCluster cluster) {
