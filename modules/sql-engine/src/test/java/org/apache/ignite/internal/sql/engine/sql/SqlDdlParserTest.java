@@ -74,7 +74,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
      */
     @Test
     public void createTableAutogenFuncDefault() {
-        String query = "create table my_table(id varchar default gen_random_uuid() primary key, val varchar)";
+        String query = "create table my_table(id varchar default gen_random_uuid primary key, val varchar)";
 
         SqlNode node = parse(query);
 
