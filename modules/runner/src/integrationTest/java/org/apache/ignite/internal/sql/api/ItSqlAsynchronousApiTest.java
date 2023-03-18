@@ -571,7 +571,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         // Multiple statements error.
         assertThrowsWithCause(() -> await(ses.executeAsync(null, "SELECT 1; SELECT 2")),
-                SqlException.class, "Multiple statements aren't allowed");
+                SqlException.class, "Multiple statements are not allowed");
 
         // Planning error.
         assertThrowsWithCause(() -> await(ses.executeAsync(null, "CREATE TABLE TEST2 (VAL INT)")),

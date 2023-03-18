@@ -22,7 +22,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Result of a parsing SQL string that multiple statements.
+ * Result of parsing SQL string that multiple statements.
  */
 public final class ScriptParseResult extends ParseResult {
 

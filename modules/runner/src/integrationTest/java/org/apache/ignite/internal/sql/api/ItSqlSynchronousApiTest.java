@@ -246,7 +246,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         assertThrowsWithCause(
                 () -> ses.execute(null, "SELECT 1; SELECT 2"),
                 SqlException.class,
-                "Multiple statements aren't allowed"
+                "Multiple statements are not allowed"
         );
 
         // Planning error.

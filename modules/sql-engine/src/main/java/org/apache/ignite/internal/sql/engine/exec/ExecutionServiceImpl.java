@@ -70,6 +70,7 @@ import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
@@ -256,7 +257,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     public AsyncCursor<List<Object>> executePlan(
             InternalTransaction tx, QueryPlan plan, BaseQueryContext ctx
     ) {
-        switch (plan.type()) {
+        Type type = plan.type();
+        assert type != null : "Root plan can not be a fragment";
+
+        switch (type) {
             case DML:
                 // TODO a barrier between previous operation and this one
             case QUERY:

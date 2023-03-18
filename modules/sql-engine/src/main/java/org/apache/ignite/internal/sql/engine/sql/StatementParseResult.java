@@ -26,7 +26,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.SqlException;
 
 /**
- * Result of a parsing SQL string that contains exactly one statement.
+ * Result of parsing SQL string that contains exactly one statement.
  */
 public final class StatementParseResult extends ParseResult {
 
@@ -38,7 +38,7 @@ public final class StatementParseResult extends ParseResult {
         @Override
         StatementParseResult createResult(List<SqlNode> list, int dynamicParamsCount) {
             if (list.size() > 1) {
-                throw new SqlException(QUERY_INVALID_ERR, "Multiple statements aren't allowed.");
+                throw new SqlException(QUERY_INVALID_ERR, "Multiple statements are not allowed.");
             }
 
             return new StatementParseResult(list.get(0), dynamicParamsCount);

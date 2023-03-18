@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 import java.util.EnumSet;
 import java.util.Set;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * QueryPlan interface.
@@ -28,18 +29,18 @@ import org.apache.ignite.sql.ResultSetMetadata;
 public interface QueryPlan {
     /** Query type. */
     enum Type {
-        QUERY, FRAGMENT, DML, DDL, EXPLAIN
+        QUERY, DML, DDL, EXPLAIN
     }
 
     /**
-     * All plan type except for {@code FRAGMENT}.
+     * All plan types.
      */
-    Set<Type> TOP_LEVEL_TYPES = EnumSet.of(Type.QUERY, Type.DDL, Type.DML, Type.EXPLAIN);
+    Set<Type> TOP_LEVEL_TYPES = EnumSet.allOf(Type.class);
 
     /**
-     * Get query type.
+     * Get query type, or {@code null} if this is a fragment.
      */
-    Type type();
+    @Nullable Type type();
 
     /**
      * Get fields metadata.
