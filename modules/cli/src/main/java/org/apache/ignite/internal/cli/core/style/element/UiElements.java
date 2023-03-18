@@ -24,22 +24,36 @@ import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Style;
 
 /** Defines all UI Elements that are used in the CLI. */
 public class UiElements {
+    /** URL UI element. */
     public static UiElement url(String content) {
         return new MarkedUiElement(content, Style.UNDERLINE);
     }
 
+    /** Command UI element. */
     public static UiElement command(String content) {
         return new MarkedUiElement(content, Style.BOLD);
     }
 
+    /** Deployment unit UI element. */
+    public static UiElement unit(String id, String version) {
+        if (version == null) {
+            return new MarkedUiElement(id, Style.BOLD);
+        } else {
+            return new MarkedUiElement(id + ":" + version, Style.BOLD);
+        }
+    }
+
+    /** Option UI element. */
     public static UiElement option(String content) {
         return new MarkedUiElement(content, fg(Color.YELLOW));
     }
 
+    /** Done UI element. */
     public static UiElement done() {
         return new MarkedUiElement("Done", fg(Color.GREEN).with(Style.BOLD));
     }
 
+    /** UI element for the [Y/n] option. */
     public static UiElement yesNo() {
         return new MarkedUiElement("[Y/n]", fg(Color.GRAY));
     }

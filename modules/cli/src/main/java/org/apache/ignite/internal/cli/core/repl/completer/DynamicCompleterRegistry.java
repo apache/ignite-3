@@ -34,7 +34,14 @@ import java.util.stream.Collectors;
 @Singleton
 public class DynamicCompleterRegistry {
 
-    private final List<CompletionStrategy> completionStrategiesList = new ArrayList<>();
+    private final List<CompletionStrategy> completionStrategiesList;
+
+    private final DynamicCompletionInsider dynamicCompletionInsider;
+
+    public DynamicCompleterRegistry() {
+        completionStrategiesList = new ArrayList<>();
+        dynamicCompletionInsider = new DynamicCompletionInsider();
+    }
 
     /** Returns the list of dynamic completers that can provide completions for given typed words. */
     public List<DynamicCompleter> findCompleters(String[] words) {
@@ -61,7 +68,7 @@ public class DynamicCompleterRegistry {
         completionStrategiesList.add(strategy);
     }
 
-    private static class CompletionStrategy {
+    private class CompletionStrategy {
         private final CompleterConf conf;
 
         private final DynamicCompleterFactory factory;
@@ -73,7 +80,7 @@ public class DynamicCompleterRegistry {
             this.factory = factory;
         }
 
-        private static boolean samePrefix(String[] words, String[] prefixWords) {
+        private boolean samePrefix(String[] words, String[] prefixWords) {
             if (words.length < prefixWords.length) {
                 return false;
             }
@@ -86,6 +93,14 @@ public class DynamicCompleterRegistry {
         }
 
         boolean canBeApplied(String[] words) {
+            // If it is a single positional parameter completer, it can be applied only once
+            if (conf.isSinglePositionalParameter()) {
+                boolean alreadyHasPositionalArgument = dynamicCompletionInsider.wasPositionalParameterCompleted(words);
+                if (alreadyHasPositionalArgument) {
+                    return false;
+                }
+            }
+
             // empty command means can be applied to all words
             if (!conf.commandSpecific()) {
                 return canBeAppliedCommandMatch(words);

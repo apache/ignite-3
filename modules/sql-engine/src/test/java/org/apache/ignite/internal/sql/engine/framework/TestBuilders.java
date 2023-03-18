@@ -219,8 +219,7 @@ public class TestBuilders {
                     description,
                     ArrayRowHandler.INSTANCE,
                     Map.of(),
-                    TxAttributes.fromTx(new NoOpTransaction(node.name())),
-                    null
+                    TxAttributes.fromTx(new NoOpTransaction(node.name()))
             );
         }
     }
@@ -268,7 +267,7 @@ public class TestBuilders {
                     .map(ClusterTableBuilderImpl::build)
                     .collect(Collectors.toMap(TestTable::name, Function.identity()));
 
-            var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", tableMap, null));
+            var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", tableMap, null, -1));
 
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> new TestNode(name, clusterService.forNode(name), schemaManager))
@@ -324,7 +323,10 @@ public class TestBuilders {
             }
 
             return new TestTable(
-                    new TableDescriptorImpl(columns, distribution), name, dataProviders, size
+                    new TableDescriptorImpl(columns, distribution),
+                    Objects.requireNonNull(name),
+                    dataProviders,
+                    size
             );
         }
 

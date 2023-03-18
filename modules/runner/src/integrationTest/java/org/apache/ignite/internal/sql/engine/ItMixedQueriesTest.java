@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -208,7 +207,6 @@ public class ItMixedQueriesTest extends ClusterPerClassIntegrationTest {
      * Verifies that table modification events are passed to a calcite schema modification listener.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
     public void testIgniteSchemaAwaresAlterTableCommand() {
         String selectAllQry = "select * from test_tbl";
 

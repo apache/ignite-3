@@ -72,7 +72,8 @@
       url: storage/volatile
 - title: Binary Client Protocol
   url: binary-protocol
-
+- title: SSL/TLS
+  url: ssl-tls
 - title: Data Rebalancing
   url: rebalance
 - title: Performing Transactions

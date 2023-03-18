@@ -36,6 +36,8 @@ import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.WriteCommand;
@@ -85,6 +87,8 @@ import org.jetbrains.annotations.Nullable;
  * Dummy table storage implementation.
  */
 public class DummyInternalTableImpl extends InternalTableImpl {
+    private static final IgniteLogger LOG = Loggers.forClass(DummyInternalTableImpl.class);
+
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
     private static final int PART_ID = 0;
@@ -95,13 +99,18 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             new Column[]{new Column("value", NativeTypes.INT64, false)}
     );
 
+    private static final HybridClock CLOCK = new HybridClockImpl();
+
     private static final ReplicationGroupId crossTableGroupId = new TablePartitionId(UUID.randomUUID(), 0);
 
     private PartitionListener partitionListener;
 
     private ReplicaListener replicaListener;
 
-    private ReplicationGroupId groupId;
+    private final ReplicationGroupId groupId;
+
+    /** The thread updates safe time on the dummy replica. */
+    private Thread safeTimeUpdaterThread;
 
     /**
      * Creates a new local table.
@@ -172,11 +181,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                 1,
                 name -> mock(ClusterNode.class),
-                txManager == null ? new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl()) : txManager,
+                txManager == null ? new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK) : txManager,
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaSvc,
-                new HybridClockImpl()
+                CLOCK
         );
         RaftGroupService svc = partitionMap.get(0);
 
@@ -189,12 +198,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         if (!crossTableUsage) {
             // Delegate replica requests directly to replica listener.
-            lenient().doAnswer(
-                    invocationOnMock -> {
-                        CompletableFuture<Object> invoke = replicaListener.invoke(invocationOnMock.getArgument(1));
-                        return invoke;
-                    }
-            ).when(replicaSvc).invoke(any(ClusterNode.class), any());
+            lenient().doAnswer(invocationOnMock -> replicaListener.invoke(invocationOnMock.getArgument(1)))
+                    .when(replicaSvc).invoke(any(ClusterNode.class), any());
         }
 
         AtomicLong raftIndex = new AtomicLong();
@@ -256,7 +261,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2Tuple);
 
-        HybridClock clock = new HybridClockImpl();
         PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
         PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
         Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes = () -> Map.of(pkStorage.get().id(), pkStorage.get());
@@ -281,7 +285,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 () -> Map.of(pkLocker.id(), pkLocker),
                 pkStorage,
                 () -> Map.of(),
-                clock,
+                CLOCK,
                 safeTime,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 placementDriver,
@@ -296,6 +300,34 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 safeTime
         );
+
+        safeTimeUpdaterThread = new Thread(new SafeTimeUpdater(safeTime), "safe-time-updater");
+
+        safeTimeUpdaterThread.start();
+    }
+
+    /**
+     * A process to update safe time periodically.
+     */
+    private static class SafeTimeUpdater implements Runnable {
+        PendingComparableValuesTracker<HybridTimestamp> safeTime;
+
+        public SafeTimeUpdater(PendingComparableValuesTracker<HybridTimestamp> safeTime) {
+            this.safeTime = safeTime;
+        }
+
+        @Override
+        public void run() {
+            while (true) {
+                safeTime.update(CLOCK.now());
+
+                try {
+                    Thread.sleep(1_000);
+                } catch (InterruptedException e) {
+                    LOG.warn("The sfe time updater thread is interrupted");
+                }
+            }
+        }
     }
 
     /**
@@ -353,5 +385,16 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     @Override
     public CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
         return CompletableFuture.completedFuture(mock(ClusterNode.class));
+    }
+
+    @Override
+    public void close() {
+        super.close();
+
+        if (safeTimeUpdaterThread != null) {
+            safeTimeUpdaterThread.interrupt();
+
+            safeTimeUpdaterThread = null;
+        }
     }
 }

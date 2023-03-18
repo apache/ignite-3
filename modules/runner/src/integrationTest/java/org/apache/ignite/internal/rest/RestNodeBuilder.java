@@ -35,6 +35,8 @@ public class RestNodeBuilder {
     private boolean sslClientAuthEnabled = false;
     private boolean dualProtocol = false;
 
+    private String ciphers = "";
+
     public RestNodeBuilder keyStorePath(String keyStorePath) {
         this.keyStorePath = keyStorePath;
         return this;
@@ -95,6 +97,11 @@ public class RestNodeBuilder {
         return this;
     }
 
+    public RestNodeBuilder ciphers(String ciphers) {
+        this.ciphers = ciphers;
+        return this;
+    }
+
     /** Builds {@link RestNode}. */
     public RestNode build() {
         return new RestNode(
@@ -109,7 +116,8 @@ public class RestNodeBuilder {
                 httpsPort,
                 sslEnabled,
                 sslClientAuthEnabled,
-                dualProtocol
+                dualProtocol,
+                ciphers
         );
     }
 }

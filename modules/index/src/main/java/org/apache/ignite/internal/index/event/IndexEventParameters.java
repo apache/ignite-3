@@ -59,7 +59,7 @@ public class IndexEventParameters extends EventParameters {
      * @param indexId An index identifier.
      * @param index An index instance.
      */
-    protected IndexEventParameters(long revision, UUID indexId, @Nullable Index<?> index) {
+    private IndexEventParameters(long revision, UUID indexId, @Nullable Index<?> index) {
         super(revision);
 
         this.indexId = indexId;

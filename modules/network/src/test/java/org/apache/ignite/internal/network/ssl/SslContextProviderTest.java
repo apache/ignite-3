@@ -142,7 +142,8 @@ class SslContextProviderTest {
         // Then
         assertThat(thrown.groupName(), equalTo(Common.COMMON_ERR_GROUP.name()));
         assertThat(thrown.code(), equalTo(Common.SSL_CONFIGURATION_ERR));
-        assertThat(thrown.getMessage(), containsString("File /no/such/file.pfx not found"));
+        // May need to replace \ with / on Windows.
+        assertThat(thrown.getMessage().replace('\\', '/'), containsString("File /no/such/file.pfx not found"));
     }
 
     @Test
@@ -159,7 +160,8 @@ class SslContextProviderTest {
         // Then
         assertThat(thrown.groupName(), equalTo(Common.COMMON_ERR_GROUP.name()));
         assertThat(thrown.code(), equalTo(Common.SSL_CONFIGURATION_ERR));
-        assertThat(thrown.getMessage(), containsString("File /no/such/file.pfx not found"));
+        // May need to replace \ with / on Windows.
+        assertThat(thrown.getMessage().replace('\\', '/'), containsString("File /no/such/file.pfx not found"));
     }
 
     @Test

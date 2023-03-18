@@ -23,6 +23,7 @@ import java.net.ConnectException;
 import java.net.UnknownHostException;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.net.ssl.SSLException;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
@@ -59,6 +60,11 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
                 errorComponentBuilder
                         .header("Node unavailable")
                         .details("Could not connect to node with URL %s", UiElements.url(e.getUrl()))
+                        .verbose(apiCause.getMessage());
+            } else if (apiCause instanceof SSLException) {
+                errorComponentBuilder
+                        .header("SSL error")
+                        .details("Could not connect to node with URL %s. Check SSL configuration", UiElements.url(e.getUrl()))
                         .verbose(apiCause.getMessage());
             } else if (apiCause != null) {
                 errorComponentBuilder.header(apiCause.getMessage());

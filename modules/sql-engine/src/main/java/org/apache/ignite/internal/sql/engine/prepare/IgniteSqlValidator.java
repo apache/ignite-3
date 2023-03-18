@@ -598,15 +598,20 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     private RelDataType inferDynamicParamType(SqlDynamicParam dynamicParam) {
+        RelDataType parameterType;
+
         Object param = parameters[dynamicParam.getIndex()];
         // IgniteCustomType: first we must check whether dynamic parameter is a custom data type.
         // If so call createCustomType with appropriate arguments.
         if (param instanceof UUID) {
-            return typeFactory().createCustomType(UuidType.NAME);
+            parameterType =  typeFactory().createCustomType(UuidType.NAME);
         } else if (param != null) {
-            return typeFactory().toSql(typeFactory().createType(param.getClass()));
+            parameterType = typeFactory().toSql(typeFactory().createType(param.getClass()));
         } else {
-            return typeFactory().createSqlType(SqlTypeName.NULL);
+            parameterType = typeFactory().createSqlType(SqlTypeName.NULL);
         }
+
+        // Dynamic parameters are nullable.
+        return typeFactory().createTypeWithNullability(parameterType, true);
     }
 }
