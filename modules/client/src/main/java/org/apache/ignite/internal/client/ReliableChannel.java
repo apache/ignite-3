@@ -36,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -156,13 +157,17 @@ public final class ReliableChannel implements AutoCloseable {
             if (chFut != null) {
                 var ch = ClientFutureUtils.getNowSafe(chFut);
 
-                if (ch != null) {
+                if (ch != null && !ch.closed()) {
                     res.add(ch.protocolContext().clusterNode());
                 }
             }
         }
 
         return res;
+    }
+
+    public IgniteClientConfiguration configuration() {
+        return clientCfg;
     }
 
     /**
@@ -484,7 +489,7 @@ public final class ReliableChannel implements AutoCloseable {
         var fut = getDefaultChannelAsync();
 
         // Establish secondary connections in the background.
-        fut.thenAccept(unused -> initAllChannelsAsync());
+        fut.thenAccept(unused -> ForkJoinPool.commonPool().submit(this::initAllChannelsAsync));
 
         return fut;
     }
@@ -559,7 +564,19 @@ public final class ReliableChannel implements AutoCloseable {
     private boolean shouldRetry(int opCode, ClientFutureUtils.RetryContext ctx) {
         ClientOperationType opType = ClientUtils.opCodeToClientOperationType(opCode);
 
-        return shouldRetry(opType, ctx);
+        boolean res = shouldRetry(opType, ctx);
+
+        if (log.isDebugEnabled()) {
+            if (res) {
+                log.debug("Retrying operation [opCode=" + opCode + ", opType=" + opType + ", attempt=" + ctx.attempt
+                        + ", lastError=" + ctx.lastError() + ']');
+            } else {
+                log.debug("Not retrying operation [opCode=" + opCode + ", opType=" + opType + ", attempt=" + ctx.attempt
+                        + ", lastError=" + ctx.lastError() + ']');
+            }
+        }
+
+        return res;
     }
 
     /** Determines whether specified operation should be retried. */
@@ -595,37 +612,37 @@ public final class ReliableChannel implements AutoCloseable {
         RetryPolicyContext retryPolicyContext = new RetryPolicyContextImpl(clientCfg, opType, ctx.attempt, exception);
 
         // Exception in shouldRetry will be handled by ClientFutureUtils.doWithRetryAsync
-        boolean shouldRetry = plc.shouldRetry(retryPolicyContext);
-
-        if (shouldRetry) {
-            log.debug("Going to retry operation because of error [op={}, currentAttempt={}, errMsg={}]",
-                    exception, opType, ctx.attempt, exception.getMessage());
-        }
-
-        return shouldRetry;
+        return plc.shouldRetry(retryPolicyContext);
     }
 
     /**
-     * Asynchronously try to establish a connection to all configured servers.
+     * Establish or repair connections to all configured servers.
      */
     private void initAllChannelsAsync() {
-        ForkJoinPool.commonPool().submit(
-                () -> {
-                    List<ClientChannelHolder> holders = channels;
+        List<ClientChannelHolder> holders = channels;
+        List<CompletableFuture<ClientChannel>> futs = new ArrayList<>(holders.size());
 
-                    for (ClientChannelHolder hld : holders) {
-                        if (closed) {
-                            return; // New reinit task scheduled or channel is closed.
-                        }
+        for (ClientChannelHolder hld : holders) {
+            if (closed) {
+                return;
+            }
 
-                        try {
-                            hld.getOrCreateChannelAsync(true);
-                        } catch (Exception e) {
-                            log.warn("Failed to establish connection to " + hld.chCfg.getAddress() + ": " + e.getMessage(), e);
-                        }
-                    }
-                }
-        );
+            try {
+                futs.add(hld.getOrCreateChannelAsync(true));
+            } catch (Exception e) {
+                log.warn("Failed to establish connection to " + hld.chCfg.getAddress() + ": " + e.getMessage(), e);
+            }
+        }
+
+        long interval = clientCfg.reconnectInterval();
+
+        if (interval > 0 && !closed) {
+            // After current round of connection attempts is finished, schedule the next one with a configured delay.
+            CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new))
+                    .whenCompleteAsync(
+                            (res, err) -> initAllChannelsAsync(),
+                            CompletableFuture.delayedExecutor(interval, TimeUnit.MILLISECONDS));
+        }
     }
 
     private void onTopologyAssignmentChanged(ClientChannel clientChannel) {

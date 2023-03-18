@@ -50,9 +50,9 @@ import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
-import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.util.ArrayUtils;
 
@@ -157,7 +157,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private CalciteCatalogReader catalogReader;
 
-    private long plannerTimeout;
+    private final long plannerTimeout;
 
     /**
      * Private constructor, used by a builder.
@@ -232,6 +232,10 @@ public final class BaseQueryContext extends AbstractQueryContext {
         return plannerTimeout;
     }
 
+    public long schemaVersion() {
+        return Objects.requireNonNull(schema().unwrap(IgniteSchema.class)).schemaVersion();
+    }
+
     /**
      * Returns calcite catalog reader.
      */
@@ -292,8 +296,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
 
-        private TxAttributes txAttributes;
-
         private long plannerTimeout;
 
         public Builder frameworkConfig(FrameworkConfig frameworkCfg) {
@@ -321,18 +323,14 @@ public final class BaseQueryContext extends AbstractQueryContext {
             return this;
         }
 
-        public Builder txAttributes(TxAttributes txAttributes) {
-            this.txAttributes = txAttributes;
-            return this;
-        }
-
         public Builder plannerTimeout(long plannerTimeout) {
             this.plannerTimeout = plannerTimeout;
             return this;
         }
 
         public BaseQueryContext build() {
-            return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters, log, plannerTimeout);
+            return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters,
+                    log, plannerTimeout);
         }
     }
 

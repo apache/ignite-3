@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,8 +26,12 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.sql.ColumnType;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -54,9 +59,9 @@ public class LeastRestrictiveTypesTest {
 
     private static final RelDataType DECIMAL = TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 1000, 10);
 
-    private static final RelDataType UUID = TYPE_FACTORY.createCustomType(UuidType.NAME);
-
     private static final RelDataType VARCHAR = TYPE_FACTORY.createSqlType(SqlTypeName.VARCHAR, 36);
+
+    private static final RelDataType CUSTOM_TYPE = new TestCustomType(false);
 
     // ANY produced by the default implementation of leastRestrictiveType has nullability = true
     private static final RelDataType ANY = TYPE_FACTORY.createTypeWithNullability(TYPE_FACTORY.createSqlType(SqlTypeName.ANY), true);
@@ -216,24 +221,85 @@ public class LeastRestrictiveTypesTest {
     }
 
     @ParameterizedTest
-    @MethodSource("uuidTests")
+    @MethodSource("customTypeTests")
     public void testUuid(RelDataType t1, RelDataType t2, LeastRestrictiveType leastRestrictiveType) {
         expectLeastRestrictiveType(t1, t2, leastRestrictiveType);
         expectLeastRestrictiveType(t2, t1, leastRestrictiveType);
     }
 
-    private static Stream<Arguments> uuidTests() {
+    private static Stream<Arguments> customTypeTests() {
         List<Arguments> tests = new ArrayList<>();
 
-        tests.add(Arguments.arguments(UUID, TINYINT, new LeastRestrictiveType(ANY)));
-        tests.add(Arguments.arguments(UUID, SMALLINT, new LeastRestrictiveType(ANY)));
-        tests.add(Arguments.arguments(UUID, INTEGER, new LeastRestrictiveType(ANY)));
-        tests.add(Arguments.arguments(UUID, FLOAT, new LeastRestrictiveType(ANY)));
-        tests.add(Arguments.arguments(UUID, REAL, new LeastRestrictiveType(ANY)));
-        tests.add(Arguments.arguments(UUID, DOUBLE, new LeastRestrictiveType(ANY)));
-        tests.add(Arguments.arguments(UUID, DECIMAL, new LeastRestrictiveType(ANY)));
-        tests.add(Arguments.arguments(UUID, BIGINT, new LeastRestrictiveType(ANY)));
-        tests.add(Arguments.arguments(UUID, VARCHAR, new LeastRestrictiveType(UUID)));
+        tests.add(Arguments.arguments(CUSTOM_TYPE, TINYINT, LeastRestrictiveType.none()));
+        tests.add(Arguments.arguments(CUSTOM_TYPE, SMALLINT, LeastRestrictiveType.none()));
+        tests.add(Arguments.arguments(CUSTOM_TYPE, INTEGER, LeastRestrictiveType.none()));
+        tests.add(Arguments.arguments(CUSTOM_TYPE, FLOAT, LeastRestrictiveType.none()));
+        tests.add(Arguments.arguments(CUSTOM_TYPE, REAL, LeastRestrictiveType.none()));
+        tests.add(Arguments.arguments(CUSTOM_TYPE, DOUBLE, LeastRestrictiveType.none()));
+        tests.add(Arguments.arguments(CUSTOM_TYPE, DECIMAL, LeastRestrictiveType.none()));
+        tests.add(Arguments.arguments(CUSTOM_TYPE, BIGINT, LeastRestrictiveType.none()));
+        tests.add(Arguments.arguments(CUSTOM_TYPE, VARCHAR, LeastRestrictiveType.none()));
+        tests.add(Arguments.arguments(CUSTOM_TYPE, CUSTOM_TYPE, new LeastRestrictiveType(CUSTOM_TYPE)));
+
+        return tests.stream();
+    }
+
+    @ParameterizedTest
+    @MethodSource("anyTests")
+    public void testAny(RelDataType t1, RelDataType t2, LeastRestrictiveType leastRestrictiveType) {
+        expectLeastRestrictiveType(t1, t2, leastRestrictiveType);
+        expectLeastRestrictiveType(t2, t1, leastRestrictiveType);
+    }
+
+    private static Stream<Arguments> anyTests() {
+        List<Arguments> tests = new ArrayList<>();
+        LeastRestrictiveType anyType = new LeastRestrictiveType(ANY);
+
+        tests.add(Arguments.arguments(ANY, TINYINT, anyType));
+        tests.add(Arguments.arguments(ANY, SMALLINT, anyType));
+        tests.add(Arguments.arguments(ANY, INTEGER, anyType));
+        tests.add(Arguments.arguments(ANY, FLOAT, anyType));
+        tests.add(Arguments.arguments(ANY, REAL, anyType));
+        tests.add(Arguments.arguments(ANY, DOUBLE, anyType));
+        tests.add(Arguments.arguments(ANY, DECIMAL, anyType));
+        tests.add(Arguments.arguments(ANY, BIGINT, anyType));
+        tests.add(Arguments.arguments(ANY, VARCHAR, anyType));
+        tests.add(Arguments.arguments(ANY, CUSTOM_TYPE, anyType));
+
+        return tests.stream();
+    }
+
+    @Test
+    public void testCustomDataTypeLeastRestrictiveTypeForMoreThanTwoTypes() {
+        // no least restrictive type between ANY, a built-in type and a custom data type.
+        assertNull(TYPE_FACTORY.leastRestrictive(List.of(CUSTOM_TYPE, INTEGER, ANY)));
+        assertNull(TYPE_FACTORY.leastRestrictive(List.of(INTEGER, ANY, CUSTOM_TYPE)));
+        assertNull(TYPE_FACTORY.leastRestrictive(List.of(ANY, CUSTOM_TYPE, INTEGER)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("types")
+    public void testLeastRestrictiveTypeForAnyAndMoreThanTwoTypes(RelDataType type) {
+        // Behaves the same as two argument version.
+        // Compatibility with default implementation.
+        assertEquals(ANY, TYPE_FACTORY.leastRestrictive(List.of(type, type, ANY)));
+        assertEquals(ANY, TYPE_FACTORY.leastRestrictive(List.of(type, ANY, type)));
+        assertEquals(ANY, TYPE_FACTORY.leastRestrictive(List.of(ANY, type, type)));
+    }
+
+    private static Stream<Arguments> types() {
+        List<Arguments> tests = new ArrayList<>();
+
+        tests.add(Arguments.arguments(TINYINT));
+        tests.add(Arguments.arguments(SMALLINT));
+        tests.add(Arguments.arguments(INTEGER));
+        tests.add(Arguments.arguments(FLOAT));
+        tests.add(Arguments.arguments(REAL));
+        tests.add(Arguments.arguments(DOUBLE));
+        tests.add(Arguments.arguments(DECIMAL));
+        tests.add(Arguments.arguments(BIGINT));
+        tests.add(Arguments.arguments(VARCHAR));
+        tests.add(Arguments.arguments(CUSTOM_TYPE));
 
         return tests.stream();
     }
@@ -247,6 +313,10 @@ public class LeastRestrictiveTypesTest {
 
         private LeastRestrictiveType(RelDataType relDataType) {
             this.relDataType = relDataType;
+        }
+
+        private static LeastRestrictiveType none() {
+            return new LeastRestrictiveType((RelDataType) null);
         }
 
         @Override
@@ -269,5 +339,30 @@ public class LeastRestrictiveTypesTest {
     private static void expectLeastRestrictiveType(RelDataType type1, RelDataType type2, LeastRestrictiveType expectedType) {
         RelDataType actualType = TYPE_FACTORY.leastRestrictive(Arrays.asList(type1, type2));
         assertEquals(expectedType.relDataType, actualType, "leastRestrictive(" + type1 + "," + type2 + ")");
+    }
+
+    private static final class TestCustomType extends IgniteCustomType {
+
+        private static final IgniteCustomTypeSpec SPEC = new IgniteCustomTypeSpec("TestType",
+                NativeTypes.INT8, ColumnType.INT8, Byte.class,
+                IgniteCustomTypeSpec.getCastFunction(TestCustomType.class, "cast"));
+
+        private TestCustomType(boolean nullable) {
+            super(SPEC, nullable, -1);
+        }
+
+        @Override
+        public IgniteCustomType createWithNullability(boolean nullable) {
+            throw new AssertionError();
+        }
+
+        @Override
+        protected void generateTypeString(StringBuilder sb, boolean withDetail) {
+            sb.append("TestType");
+        }
+
+        public static byte cast(Object ignore) {
+            throw new AssertionError();
+        }
     }
 }

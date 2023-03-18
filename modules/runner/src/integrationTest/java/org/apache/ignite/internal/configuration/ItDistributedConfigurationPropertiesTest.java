@@ -43,6 +43,7 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorageListener;
+import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -161,11 +162,23 @@ public class ItDistributedConfigurationPropertiesTest {
                 /** {@inheritDoc} */
                 @Override
                 public synchronized void registerConfigurationListener(ConfigurationStorageListener listener) {
-                    super.registerConfigurationListener(changedEntries -> {
-                        if (receivesUpdates) {
-                            return listener.onEntriesChanged(changedEntries);
-                        } else {
-                            return CompletableFuture.completedFuture(null);
+                    super.registerConfigurationListener(new ConfigurationStorageListener() {
+                        @Override
+                        public CompletableFuture<Void> onEntriesChanged(Data changedEntries) {
+                            if (receivesUpdates) {
+                                return listener.onEntriesChanged(changedEntries);
+                            } else {
+                                return CompletableFuture.completedFuture(null);
+                            }
+                        }
+
+                        @Override
+                        public CompletableFuture<Void> onRevisionUpdated(long newRevision) {
+                            if (receivesUpdates) {
+                                return listener.onRevisionUpdated(newRevision);
+                            } else {
+                                return CompletableFuture.completedFuture(null);
+                            }
                         }
                     });
                 }

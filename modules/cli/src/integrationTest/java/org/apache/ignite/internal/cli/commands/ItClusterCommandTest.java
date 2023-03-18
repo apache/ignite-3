@@ -19,9 +19,13 @@ package org.apache.ignite.internal.cli.commands;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -38,6 +42,8 @@ import org.apache.ignite.internal.cli.AbstractCliTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.jul.NoOpHandler;
+import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -158,7 +164,7 @@ class ItClusterCommandTest extends AbstractCliTest {
      * @param testInfo test info (used to derive node names)
      */
     @Test
-    void initClusterWithNodesOfDifferentRoles(TestInfo testInfo) {
+    void initClusterWithNodesOfDifferentRoles(TestInfo testInfo) throws InterruptedException {
         int exitCode = execute(
                 "cluster", "init",
                 "--cluster-endpoint-url", FIRST_NODE.restHostPort(),
@@ -171,9 +177,34 @@ class ItClusterCommandTest extends AbstractCliTest {
                 String.format("Wrong exit code; std is '%s', stderr is '%s'", out.toString(UTF_8), err.toString(UTF_8)),
                 exitCode, is(0)
         );
+
         assertThat(out.toString(UTF_8), is("Cluster was initialized successfully" + NL));
 
-        // TODO: when IGNITE-16526 is implemented, also check that the logical topology contains all 4 nodes
+        Matcher<String> nodeNameMatcher = NODES.stream()
+                .map(node -> node.nodeName(testInfo))
+                .map(Matchers::containsString)
+                .collect(collectingAndThen(toList(), (List<Matcher<? super String>> matchers) -> allOf(matchers)));
+
+        boolean success = waitForCondition(() -> {
+            out.reset();
+            err.reset();
+
+            int code = execute(
+                    "cluster", "topology", "logical",
+                    "--cluster-endpoint-url", FIRST_NODE.restHostPort()
+            );
+
+            assertThat(
+                    String.format("Wrong exit code; std is '%s', stderr is '%s'", out.toString(UTF_8), err.toString(UTF_8)),
+                    code, is(0)
+            );
+
+            return nodeNameMatcher.matches(out.toString(UTF_8));
+        }, 10_000);
+
+        if (!success) {
+            assertThat(out.toString(UTF_8), nodeNameMatcher);
+        }
     }
 
     private static class Node {

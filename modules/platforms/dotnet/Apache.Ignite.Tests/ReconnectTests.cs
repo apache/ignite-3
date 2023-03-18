@@ -89,7 +89,7 @@ public class ReconnectTests
             ReconnectInterval = TimeSpan.FromMilliseconds(300)
         };
 
-        using var servers = FakeServerGroup.Create(10, _ => new FakeServer());
+        using var servers = FakeServerGroup.Create(10);
         using var client = await servers.ConnectClientAsync(cfg);
 
         TestUtils.WaitForCondition(() => client.GetConnections().Count == 10, 3000);
@@ -139,7 +139,7 @@ public class ReconnectTests
             Logger = logger
         };
 
-        using var servers = FakeServerGroup.Create(10, _ => new FakeServer());
+        using var servers = FakeServerGroup.Create(10);
         using var client = await servers.ConnectClientAsync(cfg);
 
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());

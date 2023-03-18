@@ -25,6 +25,7 @@ namespace Apache.Ignite.Internal.Table
     using Buffers;
     using Ignite.Table;
     using Ignite.Transactions;
+    using Log;
     using Proto;
     using Proto.MsgPack;
     using Serialization;
@@ -49,6 +50,9 @@ namespace Apache.Ignite.Internal.Table
 
         /** */
         private readonly object _latestSchemaLock = new();
+
+        /** */
+        private readonly IIgniteLogger? _logger;
 
         /** */
         private readonly SemaphoreSlim _partitionAssignmentSemaphore = new(1);
@@ -76,6 +80,8 @@ namespace Apache.Ignite.Internal.Table
 
             Name = name;
             Id = id;
+
+            _logger = socket.Configuration.Logger.GetLogger(GetType());
 
             RecordBinaryView = new RecordView<IIgniteTuple>(
                 this,
@@ -337,6 +343,11 @@ namespace Apache.Ignite.Internal.Table
             var schema = new Schema(schemaVersion, keyColumnCount, columns);
 
             _schemas[schemaVersion] = schema;
+
+            if (_logger?.IsEnabled(LogLevel.Debug) == true)
+            {
+                _logger.Debug($"Schema loaded [tableId={Id}, schemaVersion={schema.Version}]");
+            }
 
             lock (_latestSchemaLock)
             {
