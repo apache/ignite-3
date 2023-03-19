@@ -60,10 +60,6 @@ public class UnitMeta {
         this.consistentIdLocation.addAll(consistentIdLocation);
     }
 
-    public UnitMeta(String id, String name, List<String> consistentIdLocation) {
-        this(id, Version.LATEST, name, consistentIdLocation);
-    }
-
     /**
      * Returns identifier of deployment unit.
      *

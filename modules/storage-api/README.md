@@ -17,10 +17,10 @@ To add a new data storage you need:
     * Add an inheritor of `org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema`, with type equal
       to `org.apache.ignite.internal.storage.engine.StorageEngine.name`;
     * If necessary, add a specific configuration of the data storage engine;
-    * Implement `org.apache.ignite.internal.configuration.ConfigurationModule`;
+    * Implement `org.apache.ignite.configuration.ConfigurationModule`;
 * Add services (which are loaded via `java.util.ServiceLoader.load(java.lang.Class<S>)`):
     * Implementation of `org.apache.ignite.internal.storage.DataStorageModule`;
-    * Implementation of `org.apache.ignite.internal.configuration.ConfigurationModule`.
+    * Implementation of `org.apache.ignite.configuration.ConfigurationModule`.
 
 Take `org.apache.ignite.internal.storage.impl.TestStorageEngine` as an example.
 

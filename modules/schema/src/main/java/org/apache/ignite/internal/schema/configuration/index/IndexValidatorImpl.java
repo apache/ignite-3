@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.schema.configuration.index;
 
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -62,7 +60,7 @@ public class IndexValidatorImpl implements Validator<IndexValidator, NamedListVi
 
             UUID tableId = idxView.tableId();
 
-            TableView tableView = getByInternalId(tablesView, tableId);
+            TableView tableView = tablesView.get(tableId);
 
             if (tableView == null) {
                 ctx.addIssue(new ValidationIssue(key, "Unable to create index [name=" + key + "]. Table not found."));

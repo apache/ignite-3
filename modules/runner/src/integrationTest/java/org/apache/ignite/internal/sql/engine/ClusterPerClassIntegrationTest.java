@@ -446,7 +446,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
     protected static void waitForIndex(String indexName) throws InterruptedException {
         // FIXME: Wait for the index to be created on all nodes,
-        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18203 to avoid missed updates to the index.
+        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18733 to avoid missed updates to the index.
         assertTrue(waitForCondition(
                 () -> CLUSTER_NODES.stream().map(node -> getIndexConfiguration(node, indexName)).allMatch(Objects::nonNull),
                 10_000)

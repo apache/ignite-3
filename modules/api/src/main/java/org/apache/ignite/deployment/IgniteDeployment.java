@@ -93,4 +93,12 @@ public interface IgniteDeployment {
      *      Future will be failed if unit with specified identifier not exist.
      */
     CompletableFuture<UnitStatus> statusAsync(String id);
+
+    /**
+     * Returns list with deployed units on node with provided consistent id.
+     *
+     * @param consistentId Node consistent id.
+     * @return List with deployed units on node with provided consistent id.
+     */
+    CompletableFuture<List<UnitStatus>> findUnitByConsistentIdAsync(String consistentId);
 }

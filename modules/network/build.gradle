@@ -26,7 +26,8 @@ description = 'ignite-network'
 dependencies {
     api project(':ignite-api')
     api project(':ignite-network-api')
-    implementation project(':ignite-configuration')
+
+    implementation project(':ignite-configuration-api')
     implementation project(':ignite-core')
     implementation libs.jetbrains.annotations
     implementation libs.scalecube.cluster
