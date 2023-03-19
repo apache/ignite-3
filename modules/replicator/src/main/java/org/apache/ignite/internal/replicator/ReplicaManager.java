@@ -280,7 +280,7 @@ public class ReplicaManager implements IgniteComponent {
             TopologyAwareRaftGroupService raftClient,
             PendingComparableValuesTracker<HybridTimestamp> safeTime
     ) {
-        Replica newReplica = new Replica(replicaGrpId, listener, clock, safeTime, raftClient, localNodeSupplier);
+        Replica newReplica = new Replica(replicaGrpId, listener, safeTime, raftClient, localNodeSupplier);
 
         replicas.compute(replicaGrpId, (replicationGroupId, replicaFut) -> {
             if (replicaFut == null) {

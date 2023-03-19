@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
@@ -49,9 +48,6 @@ public class Replica {
     /** Replica listener. */
     private final ReplicaListener listener;
 
-    /** Hybrid clock. */
-    private final HybridClock hybridClock;
-
     /** Safe time tracker. */
     private final PendingComparableValuesTracker<HybridTimestamp> safeTime;
 
@@ -77,7 +73,6 @@ public class Replica {
      *
      * @param replicaGrpId Replication group id.
      * @param listener Replica listener.
-     * @param hybridClock Hybrid clock.
      * @param safeTime Safe time tracker.
      * @param raftClient Topology aware Raft client.
      * @param localNodeSupplier Supplier that returns a {@link ClusterNode} instance of the local node.
@@ -85,14 +80,12 @@ public class Replica {
     public Replica(
             ReplicationGroupId replicaGrpId,
             ReplicaListener listener,
-            HybridClock hybridClock,
             PendingComparableValuesTracker<HybridTimestamp> safeTime,
             TopologyAwareRaftGroupService raftClient,
             Supplier<ClusterNode> localNodeSupplier
     ) {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
-        this.hybridClock = hybridClock;
         this.safeTime = safeTime;
         this.raftClient = raftClient;
         this.localNodeSupplier = localNodeSupplier;

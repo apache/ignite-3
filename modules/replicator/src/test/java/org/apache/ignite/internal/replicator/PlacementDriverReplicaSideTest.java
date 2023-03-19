@@ -29,7 +29,6 @@ import static org.mockito.Mockito.when;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
-import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
@@ -85,7 +84,6 @@ public class PlacementDriverReplicaSideTest {
         Replica replica = new Replica(
                 GRP_ID,
                 mock(ReplicaListener.class),
-                new TestHybridClock(() -> replicaPhysicalTime),
                 safeTime,
                 raftClient,
                 () -> LOCAL_NODE

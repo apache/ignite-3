@@ -23,6 +23,9 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
+/**
+ * Factory that can be used to create customized Raft service.
+ */
 public interface RaftServiceFactory<T extends RaftGroupService> {
     CompletableFuture<T> startRaftGroupService(
             ReplicationGroupId groupId,
