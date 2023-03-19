@@ -363,7 +363,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
             session.execute(null, "CREATE TABLE " + name
                     + " (id INT PRIMARY KEY, name VARCHAR)"
                     + " ENGINE aimem"
-                    + " WITH PRIMARY_ZONE='ZONE_" + name + "';");
+                    + " WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
 
             for (int i = 0; i < 100; i++) {
                 session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
