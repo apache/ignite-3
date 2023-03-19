@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceTest;
@@ -54,6 +55,9 @@ public class ActiveActorTest extends TopologyAwareRaftGroupServiceTest {
 
     @InjectConfiguration()
     private TablesConfiguration tblsCfg;
+
+    @InjectConfiguration
+    private DistributionZonesConfiguration distributionZonesConfiguration;
 
     @AfterEach
     @Override
@@ -85,6 +89,7 @@ public class ActiveActorTest extends TopologyAwareRaftGroupServiceTest {
                 new LogicalTopologyServiceTestImpl(clusterService),
                 executor,
                 tblsCfg,
+                distributionZonesConfiguration,
                 new HybridClockImpl(),
                 eventsClientListener
         );

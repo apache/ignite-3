@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -100,6 +101,7 @@ public class LeaseUpdater {
             MetaStorageManager msManager,
             LogicalTopologyService topologyService,
             TablesConfiguration tablesConfiguration,
+            DistributionZonesConfiguration distributionZonesConfiguration,
             LeaseTracker leaseTracker,
             HybridClock clock
     ) {
@@ -107,7 +109,7 @@ public class LeaseUpdater {
         this.leaseTracker = leaseTracker;
         this.clock = clock;
 
-        this.assignmentsTracker = new AssignmentsTracker(vaultManager, msManager, tablesConfiguration);
+        this.assignmentsTracker = new AssignmentsTracker(vaultManager, msManager, tablesConfiguration, distributionZonesConfiguration);
         this.topologyTracker = new TopologyTracker(topologyService);
         this.updater = new Updater();
     }

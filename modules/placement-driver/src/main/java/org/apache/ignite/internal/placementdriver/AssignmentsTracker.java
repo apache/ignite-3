@@ -30,6 +30,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.EntryEvent;
@@ -63,6 +66,8 @@ public class AssignmentsTracker {
     /** Tables configuration. */
     private final TablesConfiguration tablesCfg;
 
+    private final DistributionZonesConfiguration distributionZonesConfiguration;
+
     /** Map replication group id to assignment nodes. */
     private final Map<ReplicationGroupId, Set<Assignment>> groupAssignments;
 
@@ -79,10 +84,11 @@ public class AssignmentsTracker {
      * @param msManager Metastorage manager.
      * @param tablesCfg Table configuration.
      */
-    public AssignmentsTracker(VaultManager vaultManager, MetaStorageManager msManager, TablesConfiguration tablesCfg) {
+    public AssignmentsTracker(VaultManager vaultManager, MetaStorageManager msManager, TablesConfiguration tablesCfg, DistributionZonesConfiguration distributionZonesConfiguration) {
         this.vaultManager = vaultManager;
         this.msManager = msManager;
         this.tablesCfg = tablesCfg;
+        this.distributionZonesConfiguration = distributionZonesConfiguration;
 
         this.groupAssignments = new ConcurrentHashMap<>();
         this.assignmentsCfgListener = new AssignmentsCfgListener();
@@ -147,6 +153,19 @@ public class AssignmentsTracker {
         public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
             ExtendedTableConfiguration tblCfg = assignmentsCtx.config(ExtendedTableConfiguration.class);
 
+            // TODO: KKK fix this dirty piece
+
+            DistributionZoneView distributionZoneView = null;
+            for (String zoneName : distributionZonesConfiguration.distributionZones().value().namedListKeys()) {
+                if (distributionZonesConfiguration.distributionZones().get(zoneName).value().zoneId() == tblCfg.zoneId().value()) {
+                    distributionZoneView = distributionZonesConfiguration.distributionZones().get(zoneName).value();
+                }
+            }
+
+            if (distributionZoneView == null) {
+                throw new IllegalStateException("Couldn't find the zone with id " + tblCfg.zoneId().value());
+            }
+
             UUID tblId = tblCfg.id().value();
 
             LOG.debug("Table assignments configuration update for placement driver [revision={}, tblId={}]",
@@ -157,7 +176,7 @@ public class AssignmentsTracker {
 
             boolean leaseRenewalRequired = false;
 
-            for (int part = 0; part < tblCfg.partitions().value(); part++) {
+            for (int part = 0; part < distributionZoneView.partitions(); part++) {
                 var replicationGrpId = new TablePartitionId(tblId, part);
 
                 if (tableAssignments == null) {

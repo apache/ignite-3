@@ -53,6 +53,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -103,6 +105,9 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private TablesConfiguration tblsCfg;
+
+    @InjectConfiguration
+    private DistributionZonesConfiguration distZonesCfg;
 
     private MetaStorageManagerImpl metaStorageManager;
 
@@ -173,6 +178,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
                 new LogicalTopologyServiceTestImpl(clusterService),
                 raftExecutorService,
                 tblsCfg,
+                distZonesCfg,
                 clock,
                 eventsClientListener
         );
@@ -331,11 +337,20 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
         List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(Collections.singleton(nodeName), 1, 1);
 
+        distZonesCfg.distributionZones().change(zones -> {
+
+            zones.create("zone1", ch -> {
+                ch.changePartitions(1);
+                ch.changeReplicas(1);
+            });
+                }).join();
+
+        // TODO: KKK get(0) is a dangerous
+        DistributionZoneView distributionZoneView = distZonesCfg.distributionZones().value().get(0);
         tblsCfg.tables().change(tableViewTableChangeNamedListChange -> {
             tableViewTableChangeNamedListChange.create("test-table", tableChange -> {
                 var extConfCh = ((ExtendedTableChange) tableChange);
-                extConfCh.changePartitions(1);
-                extConfCh.changeReplicas(1);
+                extConfCh.changeZoneId(distributionZoneView.zoneId());
 
                 tblIdRef.set(extConfCh.id());
 

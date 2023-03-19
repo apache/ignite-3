@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -113,6 +114,7 @@ public class PlacementDriverManager implements IgniteComponent {
             LogicalTopologyService logicalTopologyService,
             ScheduledExecutorService raftClientExecutor,
             TablesConfiguration tablesCfg,
+            DistributionZonesConfiguration distributionZonesConfiguration,
             HybridClock clock,
             RaftGroupEventsClientListener raftGroupEventsClientListener
     ) {
@@ -131,6 +133,7 @@ public class PlacementDriverManager implements IgniteComponent {
                 metaStorageMgr,
                 logicalTopologyService,
                 tablesCfg,
+                distributionZonesConfiguration,
                 leaseTracker,
                 clock
         );
