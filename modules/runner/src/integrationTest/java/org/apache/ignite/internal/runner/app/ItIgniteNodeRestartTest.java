@@ -330,12 +330,15 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         TablesConfiguration tblCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
 
+        DistributionZonesConfiguration distZonesCfg = clusterCfgMgr.configurationRegistry().getConfiguration(DistributionZonesConfiguration.KEY);
+
         SchemaManager schemaManager = new SchemaManager(registry, tblCfg, metaStorageMgr);
 
         TableManager tableManager = new TableManager(
                 name,
                 registry,
                 tblCfg,
+                distZonesCfg,
                 clusterSvc,
                 raftMgr,
                 replicaMgr,

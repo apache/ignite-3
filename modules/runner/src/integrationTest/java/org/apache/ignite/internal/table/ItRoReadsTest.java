@@ -45,6 +45,8 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -528,12 +530,25 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         cols.add(SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build());
         cols.add(SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build());
 
+        int zoneId = createZone(node);
+
         return await(((TableManager) node.tables()).createTableAsync(
                 tableName,
                 tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(
                         cols).withPrimaryKey("key").build(), tblCh)
-                        .changePartitions(1)
+                        .changeZoneId(zoneId)
         ));
+    }
+
+    private static int createZone(Ignite node) {
+        DistributionZoneManager distributionZoneManager = ((IgniteImpl) node).distributionZoneManager();
+
+        DistributionZoneConfigurationParameters parameters = new DistributionZoneConfigurationParameters.Builder("zone1")
+                .replicas(1)
+                .build();
+        distributionZoneManager.createZone(parameters);
+
+        return distributionZoneManager.getZoneId("zone1");
     }
 
     private static void stopTable(Ignite node, String tableName) {
