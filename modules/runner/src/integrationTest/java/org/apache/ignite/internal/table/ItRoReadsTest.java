@@ -530,7 +530,8 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         cols.add(SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build());
         cols.add(SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build());
 
-        int zoneId = createZone(node);
+        String zoneName = "zone_" + tableName;
+        int zoneId = createZone(zoneName, node);
 
         return await(((TableManager) node.tables()).createTableAsync(
                 tableName,
@@ -540,19 +541,20 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         ));
     }
 
-    private static int createZone(Ignite node) {
+    private static int createZone(String zoneName, Ignite node) {
         DistributionZoneManager distributionZoneManager = ((IgniteImpl) node).distributionZoneManager();
 
-        DistributionZoneConfigurationParameters parameters = new DistributionZoneConfigurationParameters.Builder("zone1")
-                .replicas(1)
+        DistributionZoneConfigurationParameters parameters = new DistributionZoneConfigurationParameters.Builder(zoneName)
+                .partitions(1)
                 .build();
-        distributionZoneManager.createZone(parameters);
+        distributionZoneManager.createZone(parameters).join();
 
-        return distributionZoneManager.getZoneId("zone1");
+        return distributionZoneManager.getZoneId(zoneName);
     }
 
     private static void stopTable(Ignite node, String tableName) {
         await(((TableManager) node.tables()).dropTableAsync(tableName));
+        await(((IgniteImpl) node).distributionZoneManager().dropZone("zone_" + tableName));
     }
 
     protected static int nodes() {

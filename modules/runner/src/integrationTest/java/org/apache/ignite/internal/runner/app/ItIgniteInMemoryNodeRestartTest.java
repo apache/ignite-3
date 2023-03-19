@@ -359,10 +359,11 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
      */
     private static void createTableWithData(Ignite ignite, String name, int replicas, int partitions) {
         try (Session session = ignite.sql().createSession()) {
+            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d", name, replicas, partitions));
             session.execute(null, "CREATE TABLE " + name
                     + " (id INT PRIMARY KEY, name VARCHAR)"
                     + " ENGINE aimem"
-                    + " WITH replicas=" + replicas + ", partitions=" + partitions);
+                    + " WITH PRIMARY_ZONE='ZONE_" + name + "';");
 
             for (int i = 0; i < 100; i++) {
                 session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",

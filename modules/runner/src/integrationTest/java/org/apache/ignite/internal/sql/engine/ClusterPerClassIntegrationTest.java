@@ -292,8 +292,9 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param partitions Partitions count.
      */
     protected static Table createTable(String name, int replicas, int partitions) {
+        sql(IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={};", "zone_" + name, replicas, partitions));
         sql(IgniteStringFormatter.format("CREATE TABLE IF NOT EXISTS {} (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE) "
-                + "WITH replicas={}, partitions={}", name, replicas, partitions));
+                + "WITH PRIMARY_ZONE='{}'", name, "ZONE_" + name.toUpperCase()));
 
         return CLUSTER_NODES.get(0).tables().table(name);
     }

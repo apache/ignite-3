@@ -721,8 +721,10 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
      * @return Ignite table.
      */
     private static TableImpl getOrCreateTable() {
+        sql("CREATE ZONE IF NOT EXISTS zone1 WITH REPLICAS=1, PARTITIONS=1;");
+        // TODO: zone name uppercased in a result, always
         sql("CREATE TABLE IF NOT EXISTS " + TABLE_NAME
-                + " (key INTEGER PRIMARY KEY, valInt INTEGER NOT NULL, valStr VARCHAR NOT NULL) WITH REPLICAS=1, PARTITIONS=1;");
+                + " (key INTEGER PRIMARY KEY, valInt INTEGER NOT NULL, valStr VARCHAR NOT NULL) WITH PRIMARY_ZONE='ZONE1';");
 
         sql("CREATE INDEX IF NOT EXISTS " + SORTED_IDX + " ON " + TABLE_NAME + " USING TREE (valInt)");
 

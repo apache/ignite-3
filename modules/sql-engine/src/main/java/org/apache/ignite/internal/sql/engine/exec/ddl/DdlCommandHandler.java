@@ -175,6 +175,14 @@ public class DdlCommandHandler {
             zoneCfgBuilder.dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown());
         }
 
+        if (cmd.replicas() != null) {
+            zoneCfgBuilder.replicas(cmd.replicas());
+        }
+
+        if (cmd.partitions() != null) {
+            zoneCfgBuilder.partitions(cmd.partitions());
+        }
+
         return distributionZoneManager.createZone(zoneCfgBuilder.build())
                 .handle(handleModificationResult(cmd.ifNotExists(), DistributionZoneAlreadyExistsException.class));
     }
@@ -242,12 +250,10 @@ public class DdlCommandHandler {
 
             if (cmd.partitions() != null) {
                 throw new RuntimeException("Change partitions not implemented yet");
-//                tableChange.changePartitions(cmd.partitions());
             }
 
             if (cmd.replicas() != null) {
                 throw new RuntimeException("Change replicas not implemented yet");
-//                tableChange.changeReplicas(cmd.replicas());
             }
 
             if (cmd.zone() != null) {

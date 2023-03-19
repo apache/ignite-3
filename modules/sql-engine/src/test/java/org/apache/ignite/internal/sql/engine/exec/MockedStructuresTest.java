@@ -297,7 +297,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         String curMethodName = getCurrentMethodName();
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                + "with partitions=1,replicas=1,primary_zone='zone123'", curMethodName);
+                + "with primary_zone='zone123'", curMethodName);
 
         readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
@@ -309,18 +309,18 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         assertThrows(TableAlreadyExistsException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql1)));
 
         String finalNewTblSql2 = String.format("CREATE TABLE \"PUBLIC\".%s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                + "with partitions=1,replicas=1,primary_zone='zone123'", curMethodName);
+                + "with primary_zone='zone123'", curMethodName);
 
         assertThrows(TableAlreadyExistsException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql2)));
 
         assertThrows(SqlException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
-                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,replicas=1,primary_zone='zone123'")));
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,primary_zone='zone123'")));
 
         assertThrows(SqlException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
-                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1,replicas__wrong=1,primary_zone='zone123'")));
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas__wrong=1,primary_zone='zone123'")));
 
         assertThrows(SqlException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
-                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1,replicas=1,primary_zone__wrong='zone123'")));
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with primary_zone__wrong='zone123'")));
 
         newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))",
                 " IF NOT EXISTS " + curMethodName);
@@ -339,8 +339,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         String zoneName = "zone123";
 
-        String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                + "with partitions=1,replicas=1", tableName);
+        String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) ",
+                 tableName);
 
         readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
@@ -352,7 +352,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         when(distributionZoneManager.getZoneId(zoneName)).thenReturn(5);
 
         newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                + "with partitions=1,replicas=1,primary_zone='%s'", tableName, zoneName);
+                + "with primary_zone='%s'", tableName, zoneName);
 
         readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
@@ -367,7 +367,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 IgniteException.class,
                 () -> readFirst(queryProc.queryAsync("PUBLIC",
                         String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                                + "with partitions=1,replicas=1,primary_zone='%s'", tableName, zoneName)))
+                                + "with primary_zone='%s'", tableName, zoneName)))
         );
 
         assertInstanceOf(DistributionZoneNotFoundException.class, exception.getCause().getCause());
@@ -411,28 +411,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
                 "PUBLIC",
-                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=1", method + 0)
-        )));
-
-        assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
-                "PUBLIC",
-                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with REPLICAS=1", method + 1)
-        )));
-
-        assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
-                "PUBLIC",
-                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with \"replicas\"=1", method + 2)
-        )));
-
-        assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
-                "PUBLIC",
-                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with \"replICAS\"=1", method + 3)
-        )));
-
-        assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
-                "PUBLIC",
                 String.format(
-                        "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=1, partitions=1, primary_zone='zone123'",
+                        "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with primary_zone='zone123'",
                         method + 4
                 )
         )));
@@ -441,31 +421,11 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 IgniteException.class,
                 () -> readFirst(queryProc.queryAsync(
                         "PUBLIC",
-                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas='%s'", method + 5, method)
-                ))
-        );
-
-        assertThat(exception.getMessage(), containsString("Unsuspected table option type"));
-
-        exception = assertThrows(
-                IgniteException.class,
-                () -> readFirst(queryProc.queryAsync(
-                        "PUBLIC",
                         String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with %s='%s'", method + 6, method, method)
                 ))
         );
 
         assertThat(exception.getMessage(), containsString("Unexpected table option"));
-
-        exception = assertThrows(
-                IgniteException.class,
-                () -> readFirst(queryProc.queryAsync(
-                        "PUBLIC",
-                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=-1", method + 7)
-                ))
-        );
-
-        assertThat(exception.getMessage(), containsString("Table option validation failed"));
     }
 
     @Test

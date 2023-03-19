@@ -49,7 +49,8 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
     static void initTestData() throws InterruptedException {
         createAndPopulateTable();
 
-        sql("CREATE TABLE test (id INT PRIMARY KEY, grp0 INT, grp1 INT, val0 INT, val1 INT) WITH replicas=2,partitions=10");
+        sql("CREATE ZONE test_zone with replicas=2, partitions=10");
+        sql("CREATE TABLE test (id INT PRIMARY KEY, grp0 INT, grp1 INT, val0 INT, val1 INT) WITH PRIMARY_ZONE='TEST_ZONE'");
         sql("CREATE TABLE test_one_col_idx (pk INT PRIMARY KEY, col0 INT)");
 
         sql("CREATE INDEX test_idx ON test(grp0, grp1)");

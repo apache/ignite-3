@@ -39,6 +39,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.sql.Session;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -112,8 +113,9 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
         }
 
         try (Session session = startedNodes.get(0).sql().createSession()) {
+            session.execute(null, "CREATE ZONE test_zone with replicas=1, partitions=10");
             session.execute(null, "CREATE TABLE " + TABLE_NAME + "("
-                    + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH replicas=1, partitions=10");
+                    + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
         }
 
         client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build();
