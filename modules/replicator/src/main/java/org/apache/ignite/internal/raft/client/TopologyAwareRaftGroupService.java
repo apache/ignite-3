@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.raft.client;
 
-import static org.apache.ignite.raft.jraft.RaftMessageGroup.RpcClientMessageGroup.LEADER_CHANGE_NOTIFICATION;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;

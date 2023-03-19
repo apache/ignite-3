@@ -40,8 +40,6 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.jetbrains.annotations.TestOnly;
 
 /**

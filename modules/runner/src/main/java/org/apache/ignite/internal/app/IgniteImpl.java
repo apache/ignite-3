@@ -396,7 +396,8 @@ public class IgniteImpl implements Ignite {
         TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                 clusterSvc,
                 logicalTopologyService,
-                Loza.FACTORY
+                Loza.FACTORY,
+                raftGroupEventsClientListener
         );
 
         // TODO: IGNITE-16985 Design table management flow

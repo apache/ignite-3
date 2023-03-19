@@ -26,6 +26,7 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 
 /**
  * Factory for creation {@link TopologyAwareRaftGroupService}.
@@ -37,21 +38,26 @@ public class TopologyAwareRaftGroupServiceFactory implements RaftServiceFactory<
 
     private final RaftMessagesFactory raftMessagesFactory;
 
+    private final RaftGroupEventsClientListener eventsClientListener;
+
     /**
      * Constructor.
      *
      * @param clusterService Cluster service.
      * @param logicalTopologyService Logical topology service.
      * @param raftMessagesFactory Raft messages factory.
+     * @param eventsClientListener Raft events client listener.
      */
     public TopologyAwareRaftGroupServiceFactory(
             ClusterService clusterService,
             LogicalTopologyService logicalTopologyService,
-            RaftMessagesFactory raftMessagesFactory
+            RaftMessagesFactory raftMessagesFactory,
+            RaftGroupEventsClientListener eventsClientListener
     ) {
         this.clusterService = clusterService;
         this.logicalTopologyService = logicalTopologyService;
         this.raftMessagesFactory = raftMessagesFactory;
+        this.eventsClientListener = eventsClientListener;
     }
 
     @Override
@@ -70,6 +76,7 @@ public class TopologyAwareRaftGroupServiceFactory implements RaftServiceFactory<
                     true,
                     raftClientExecutor,
                     logicalTopologyService,
+                    eventsClientListener,
                     true
             ).thenApply(TopologyAwareRaftGroupService.class::cast);
     }

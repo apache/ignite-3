@@ -111,6 +111,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
@@ -444,7 +445,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                         clusterServices.get(assignment),
                         logicalTopologyService(clusterServices.get(assignment)),
-                        Loza.FACTORY
+                        Loza.FACTORY,
+                        new RaftGroupEventsClientListener()
                 );
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(

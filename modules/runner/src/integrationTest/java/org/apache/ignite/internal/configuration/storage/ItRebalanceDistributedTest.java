@@ -150,6 +150,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.Nullable;
@@ -735,7 +736,8 @@ public class ItRebalanceDistributedTest {
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                     clusterService,
                     logicalTopologyService,
-                    Loza.FACTORY
+                    Loza.FACTORY,
+                    new RaftGroupEventsClientListener()
             );
 
             tableManager = new TableManager(

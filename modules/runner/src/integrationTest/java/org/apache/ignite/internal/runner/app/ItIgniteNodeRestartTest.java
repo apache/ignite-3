@@ -114,6 +114,7 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
@@ -335,7 +336,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                 clusterSvc,
                 new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
-                Loza.FACTORY
+                Loza.FACTORY,
+                new RaftGroupEventsClientListener()
         );
 
         TableManager tableManager = new TableManager(
