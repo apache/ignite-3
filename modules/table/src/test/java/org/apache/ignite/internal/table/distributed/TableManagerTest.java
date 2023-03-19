@@ -490,7 +490,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         TableImpl table = mockManagersAndCreateTable(scmTbl, tblManagerFut);
 
-        verify(rm, times(PARTITIONS)).startRaftGroupService(any(), any());
+        verify(rm, times(PARTITIONS)).startRaftGroupService(any(), any(), any());
 
         TableManager tableManager = tblManagerFut.join();
 
