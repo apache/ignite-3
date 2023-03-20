@@ -20,7 +20,7 @@ package org.apache.ignite.network;
 /**
  * Throws when register channel with already used identifier.
  */
-public class ChannelTypeAlreadyExist extends Exception {
+public class ChannelTypeAlreadyExist extends RuntimeException {
     /**
      * Constructor.
      *

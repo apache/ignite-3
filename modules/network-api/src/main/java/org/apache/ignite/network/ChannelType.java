@@ -20,27 +20,16 @@ package org.apache.ignite.network;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.IgniteUtils;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Data class with channel information.
  *      May be used as channel pointer in {@link MessagingService} for sending messages in exclusive channel.
  */
-public final class ChannelInfo {
-    static {
-        Map<Short, ChannelInfo> tmpChannels = new ConcurrentHashMap<>(IgniteUtils.capacity(Short.MAX_VALUE));
-        tmpChannels.put((short) 0, new ChannelInfo((short) 0, "Default"));
+public final class ChannelType {
+    public static final ChannelType DEFAULT = new ChannelType((short) 0, "Default");
 
-        channels = tmpChannels;
-    }
-
-    private static final Map<Short, ChannelInfo> channels;
-
-    private static final ReadWriteLock lock = new ReentrantReadWriteLock();
+    private static final Map<Short, ChannelType> channels = new ConcurrentHashMap<>();
 
     /**
      * Channel identifier.
@@ -52,7 +41,7 @@ public final class ChannelInfo {
      */
     private final String name;
 
-    private ChannelInfo(short id, String name) {
+    private ChannelType(short id, String name) {
         this.id = id;
         this.name = name;
     }
@@ -82,30 +71,16 @@ public final class ChannelInfo {
 
     @Override
     public boolean equals(Object obj) {
-        if (!(obj instanceof ChannelInfo)) {
+        if (!(obj instanceof ChannelType)) {
             return false;
         }
-        ChannelInfo type = (ChannelInfo) obj;
+        ChannelType type = (ChannelType) obj;
         return Objects.equals(id(), type.id());
     }
 
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    /**
-     * Returns default channel info.
-     *
-     * @return Default channel info.
-     */
-    public static ChannelInfo defaultChannel() {
-        lock.readLock().lock();
-        try {
-            return channels.get((short) 0);
-        } finally {
-            lock.readLock().unlock();
-        }
     }
 
     /**
@@ -117,19 +92,16 @@ public final class ChannelInfo {
      * @return Register channel.
      * @throws ChannelTypeAlreadyExist In case when channel identifier already used.
      */
-    public static ChannelInfo register(short id, String name) throws ChannelTypeAlreadyExist {
-        lock.writeLock().lock();
-        try {
-            if (channels.get(id) == null) {
-                ChannelInfo result = new ChannelInfo(id, name);
-                channels.put(id, result);
-                return result;
-            }
-
+    public static ChannelType register(short id, String name) {
+        if (id == 0) {
             throw new ChannelTypeAlreadyExist(id, name);
-        } finally {
-            lock.writeLock().unlock();
         }
+        ChannelType newChannel = new ChannelType(id, name);
+        ChannelType channelType = channels.putIfAbsent(id, newChannel);
+        if (channelType != null) {
+            throw new ChannelTypeAlreadyExist(id, name);
+        }
+        return newChannel;
     }
 
     /**
@@ -139,34 +111,7 @@ public final class ChannelInfo {
      * @param id Channel identifier.
      * @return Channel with provided identifier or {@code null} if channel with id doesn't registered yet.
      */
-    public static ChannelInfo getChannel(short id) {
-        lock.readLock().lock();
-        try {
-            return channels.get(id);
-        } finally {
-            lock.readLock().unlock();
-        }
-    }
-
-    /**
-     * Generate and return channel with free identifier or {@code null} if all identifiers already used.
-     *
-     * @param name Channel name.
-     * @return Channel with free identifier or {@code null} if all identifiers already used.
-     */
-    public static @Nullable ChannelInfo generate(String name) {
-        lock.writeLock().lock();
-        try {
-            for (short i = 0; i < Short.MAX_VALUE; i++) {
-                if (!channels.containsKey(i)) {
-                    ChannelInfo result = new ChannelInfo(i, name);
-                    channels.put(i, result);
-                    return result;
-                }
-            }
-            return null;
-        } finally {
-            lock.writeLock().unlock();
-        }
+    public static ChannelType getChannel(short id) {
+        return channels.get(id);
     }
 }

@@ -53,7 +53,7 @@ public interface MessagingService {
      * @return Future of the send operation.
      */
     default CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg) {
-        return send(recipient, ChannelInfo.defaultChannel(), msg);
+        return send(recipient, ChannelType.DEFAULT, msg);
     }
 
     /**
@@ -74,7 +74,7 @@ public interface MessagingService {
      * @param msg       Message which should be delivered.
      * @return Future of the send operation.
      */
-    CompletableFuture<Void> send(ClusterNode recipient, ChannelInfo channelInfo, NetworkMessage msg);
+    CompletableFuture<Void> send(ClusterNode recipient, ChannelType channelType, NetworkMessage msg);
 
     /**
      * Sends a response to a {@link #invoke} request.
@@ -86,7 +86,7 @@ public interface MessagingService {
      * @return Future of the send operation.
      */
     default CompletableFuture<Void> respond(ClusterNode recipient, NetworkMessage msg, long correlationId) {
-        return respond(recipient, ChannelInfo.defaultChannel(), msg, correlationId);
+        return respond(recipient, ChannelType.DEFAULT, msg, correlationId);
     }
 
     /**
@@ -98,7 +98,7 @@ public interface MessagingService {
      * @param correlationId Correlation id when replying to the request.
      * @return Future of the send operation.
      */
-    CompletableFuture<Void> respond(ClusterNode recipient, ChannelInfo channelInfo, NetworkMessage msg, long correlationId);
+    CompletableFuture<Void> respond(ClusterNode recipient, ChannelType channelType, NetworkMessage msg, long correlationId);
 
     /**
      * Sends a response to a {@link #invoke} request via default channel.
@@ -113,7 +113,7 @@ public interface MessagingService {
      * @return Future of the send operation.
      */
     default CompletableFuture<Void> respond(String recipientConsistentId, NetworkMessage msg, long correlationId) {
-        return respond(recipientConsistentId, ChannelInfo.defaultChannel(), msg, correlationId);
+        return respond(recipientConsistentId, ChannelType.DEFAULT, msg, correlationId);
     }
 
     /**
@@ -124,12 +124,12 @@ public interface MessagingService {
      * with the corresponding exception ({@link UnresolvableConsistentIdException}).
      *
      * @param recipientConsistentId Consistent ID of the recipient of the message.
-     * @param channelInfo Channel which will be used to message transfer.
+     * @param channelType Channel which will be used to message transfer.
      * @param msg Message which should be delivered.
      * @param correlationId Correlation id when replying to the request.
      * @return Future of the send operation.
      */
-    CompletableFuture<Void> respond(String recipientConsistentId, ChannelInfo channelInfo, NetworkMessage msg, long correlationId);
+    CompletableFuture<Void> respond(String recipientConsistentId, ChannelType channelType, NetworkMessage msg, long correlationId);
 
     /**
      * Sends a message via default channel asynchronously with same guarantees as
@@ -142,7 +142,7 @@ public interface MessagingService {
      * @return A future holding the response or error if the expected response was not received.
      */
     default CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, NetworkMessage msg, long timeout) {
-        return invoke(recipient, ChannelInfo.defaultChannel(), msg, timeout);
+        return invoke(recipient, ChannelType.DEFAULT, msg, timeout);
     }
 
     /**
@@ -151,12 +151,12 @@ public interface MessagingService {
      * completed successfully upon receiving a response.
      *
      * @param recipient Recipient of the message.
-     * @param channelInfo Channel which will be used to message transfer.
+     * @param channelType Channel which will be used to message transfer.
      * @param msg Message which should be delivered.
      * @param timeout Waiting for response timeout in milliseconds.
      * @return A future holding the response or error if the expected response was not received.
      */
-    CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, ChannelInfo channelInfo, NetworkMessage msg, long timeout);
+    CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, ChannelType channelType, NetworkMessage msg, long timeout);
 
     /**
      * Sends a message via default channel asynchronously with same guarantees as
@@ -169,7 +169,7 @@ public interface MessagingService {
      * @return A future holding the response or error if the expected response was not received.
      */
     default CompletableFuture<NetworkMessage> invoke(String recipientConsistentId, NetworkMessage msg, long timeout) {
-        return invoke(recipientConsistentId, ChannelInfo.defaultChannel(), msg, timeout);
+        return invoke(recipientConsistentId, ChannelType.DEFAULT, msg, timeout);
     }
 
     /**
@@ -178,12 +178,12 @@ public interface MessagingService {
      * completed successfully upon receiving a response.
      *
      * @param recipientConsistentId Consistent ID of the recipient of the message.
-     * @param channelInfo Channel which will be used to message transfer.
+     * @param channelType Channel which will be used to message transfer.
      * @param msg The message.
      * @param timeout Waiting for response timeout in milliseconds.
      * @return A future holding the response or error if the expected response was not received.
      */
-    CompletableFuture<NetworkMessage> invoke(String recipientConsistentId, ChannelInfo channelInfo, NetworkMessage msg, long timeout);
+    CompletableFuture<NetworkMessage> invoke(String recipientConsistentId, ChannelType channelType, NetworkMessage msg, long timeout);
 
     /**
      * Registers a listener for a group of network message events.

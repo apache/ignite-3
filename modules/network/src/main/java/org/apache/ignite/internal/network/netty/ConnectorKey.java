@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
-import org.apache.ignite.network.ChannelInfo;
+import org.apache.ignite.network.ChannelType;
 
 /**
  * Composite key object for connectors.
@@ -27,7 +27,7 @@ import org.apache.ignite.network.ChannelInfo;
 public class ConnectorKey<T> {
     private final T id;
 
-    private final ChannelInfo type;
+    private final ChannelType type;
 
     /**
      * Constructor.
@@ -35,7 +35,7 @@ public class ConnectorKey<T> {
      * @param id Connector identifier.
      * @param type Channel type.
      */
-    public ConnectorKey(T id, ChannelInfo type) {
+    public ConnectorKey(T id, ChannelType type) {
         this.id = id;
         this.type = type;
     }
@@ -44,7 +44,7 @@ public class ConnectorKey<T> {
         return id;
     }
 
-    public ChannelInfo type() {
+    public ChannelType type() {
         return type;
     }
 

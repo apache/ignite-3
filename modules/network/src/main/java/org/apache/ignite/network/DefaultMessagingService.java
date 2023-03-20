@@ -36,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
+import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -127,17 +128,17 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     @Override
-    public CompletableFuture<Void> send(ClusterNode recipient, ChannelInfo channelInfo, NetworkMessage msg) {
-        return send0(recipient, channelInfo, msg, null);
+    public CompletableFuture<Void> send(ClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
+        return send0(recipient, channelType, msg, null);
     }
 
     @Override
-    public CompletableFuture<Void> respond(ClusterNode recipient, ChannelInfo type, NetworkMessage msg, long correlationId) {
+    public CompletableFuture<Void> respond(ClusterNode recipient, ChannelType type, NetworkMessage msg, long correlationId) {
         return send0(recipient, type, msg, correlationId);
     }
 
     @Override
-    public CompletableFuture<Void> respond(String recipientConsistentId, ChannelInfo type, NetworkMessage msg, long correlationId) {
+    public CompletableFuture<Void> respond(String recipientConsistentId, ChannelType type, NetworkMessage msg, long correlationId) {
         ClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
@@ -150,13 +151,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     @Override
-    public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, ChannelInfo type, NetworkMessage msg, long timeout) {
+    public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, ChannelType type, NetworkMessage msg, long timeout) {
         return invoke0(recipient, type, msg, timeout);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<NetworkMessage> invoke(String recipientConsistentId, ChannelInfo type, NetworkMessage msg, long timeout) {
+    public CompletableFuture<NetworkMessage> invoke(String recipientConsistentId, ChannelType type, NetworkMessage msg, long timeout) {
         ClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
@@ -176,7 +177,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param correlationId Correlation id. Not null iff the message is a response to a {@link #invoke} request.
      * @return Future of the send operation.
      */
-    private CompletableFuture<Void> send0(ClusterNode recipient, ChannelInfo type, NetworkMessage msg, @Nullable Long correlationId) {
+    private CompletableFuture<Void> send0(ClusterNode recipient, ChannelType type, NetworkMessage msg, @Nullable Long correlationId) {
         if (connectionManager.isStopped()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -217,7 +218,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param timeout Invocation timeout.
      * @return A future holding the response or error if the expected response was not received.
      */
-    private CompletableFuture<NetworkMessage> invoke0(ClusterNode recipient, ChannelInfo type, NetworkMessage msg, long timeout) {
+    private CompletableFuture<NetworkMessage> invoke0(ClusterNode recipient, ChannelType type, NetworkMessage msg, long timeout) {
         if (connectionManager.isStopped()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -259,7 +260,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      */
     private CompletableFuture<Void> sendMessage0(
             @Nullable String consistentId,
-            ChannelInfo type,
+            ChannelType type,
             InetSocketAddress addr,
             NetworkMessage message
     ) {
@@ -276,7 +277,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new IgniteException("Failed to marshal message: " + e.getMessage(), e));
         }
 
-        return connectionManager.channel(consistentId, type, addr)
+        OrderingFuture<NettySender> channel = connectionManager.channel(consistentId, type, addr);
+        return channel
                 .thenComposeToCompletable(sender -> sender.send(new OutNetworkObject(message, descriptors)));
     }
 

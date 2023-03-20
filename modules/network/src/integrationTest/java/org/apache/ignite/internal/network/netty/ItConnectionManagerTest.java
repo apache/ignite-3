@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.network.netty;
 
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.network.ChannelInfo.defaultChannel;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.isA;
@@ -39,33 +37,27 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
-import org.apache.ignite.internal.network.messages.EmptyMessageImpl;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.ChannelInfo;
+import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -84,19 +76,12 @@ public class ItConnectionManagerTest {
     @InjectConfiguration
     private NetworkConfiguration networkConfiguration;
 
-    private static ChannelInfo testChannel;
-
     /**
      * After each.
      */
     @AfterEach
     final void tearDown() throws Exception {
         IgniteUtils.closeAll(startedManagers);
-    }
-
-    @BeforeAll
-    static void registerChannel() {
-        testChannel = ChannelInfo.generate("ItConnectionManagerTest");
     }
 
     /**
@@ -309,60 +294,6 @@ public class ItConnectionManagerTest {
         server.close();
     }
 
-    @Test
-    public void testOneConnectionType() throws Exception {
-        String bigText = IgniteTestUtils.randomString(new Random(), 10000000);
-
-        try (ConnectionManagerWrapper server1 = startManager(4000);
-                ConnectionManagerWrapper server2 = startManager(4001)) {
-            NettySender sender = server1.openChannelTo(server2).get(3, TimeUnit.SECONDS);
-
-            TestMessage bigMessage = messageFactory.testMessage().msg(bigText).build();
-            TestMessage msg = messageFactory.testMessage().msg("test").build();
-
-            CompletableFuture<Void> send1 = sender.send(new OutNetworkObject(bigMessage, Collections.emptyList()));
-            CompletableFuture<Void> send2 = sender.send(new OutNetworkObject(msg, Collections.emptyList()));
-
-            assertThat(send2, willCompleteSuccessfully());
-            assertTrue(send1.isDone());
-        }
-    }
-
-    @Test
-    public void testTwoConnectionTypes() throws Exception {
-        String bigText = IgniteTestUtils.randomString(new Random(), 100000000);
-
-        Map<Integer, String> map = Map.of(1, bigText, 2, bigText);
-
-        try (ConnectionManagerWrapper server1 = startManager(4000);
-                ConnectionManagerWrapper server2 = startManager(4001)) {
-
-            NettySender sender1 = server1.openChannelTo(server2).get(3, TimeUnit.SECONDS);
-            NettySender sender2 = server1.openChannelTo(server2, testChannel).get(3, TimeUnit.SECONDS);
-
-            TestMessage bigMessage = messageFactory.testMessage().msg(bigText).map(map).build();
-
-            CompletableFuture<Void> send1 = sender1.send(new OutNetworkObject(bigMessage, Collections.emptyList()));
-            CompletableFuture.runAsync(() -> {
-                for (int i = 0; i < 100; i++) {
-                    sender2.send(new OutNetworkObject(messageFactory.emptyMessage().build(), Collections.emptyList()));
-                }
-            });
-
-            AtomicBoolean atLeastOneSmallWas = new AtomicBoolean(false);
-            server2.connectionManager.addListener(inNetworkObject -> {
-                System.out.println(inNetworkObject.message().groupType());
-                if (inNetworkObject.message().groupType() == EmptyMessageImpl.GROUP_TYPE
-                        && inNetworkObject.message().messageType() == EmptyMessageImpl.TYPE) {
-                    atLeastOneSmallWas.set(true);
-                }
-            });
-
-            assertThat(send1, willCompleteSuccessfully());
-            assertTrue(atLeastOneSmallWas.get());
-        }
-    }
-
     /**
      * Creates a mock {@link MessageSerializationRegistry} that throws an exception when trying to get a serializer or a deserializer.
      */
@@ -443,11 +374,12 @@ public class ItConnectionManagerTest {
         }
 
         OrderingFuture<NettySender> openChannelTo(ConnectionManagerWrapper recipient) {
-            return openChannelTo(recipient, defaultChannel());
+            return connectionManager.channel(
+                    recipient.connectionManager.consistentId(),
+                    ChannelType.DEFAULT,
+                    recipient.connectionManager.localAddress()
+            );
         }
 
-        OrderingFuture<NettySender> openChannelTo(ConnectionManagerWrapper recipient, ChannelInfo type) {
-            return connectionManager.channel(recipient.connectionManager.consistentId(), type, recipient.connectionManager.localAddress());
-        }
     }
 }

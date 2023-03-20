@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
-import static org.apache.ignite.network.ChannelInfo.getChannel;
+import static org.apache.ignite.network.ChannelType.getChannel;
 
 import io.netty.bootstrap.Bootstrap;
 import java.net.InetSocketAddress;
@@ -45,7 +45,7 @@ import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.ChannelInfo;
+import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -210,7 +210,7 @@ public class ConnectionManager {
      * @param address      Another node's address.
      * @return Sender.
      */
-    public OrderingFuture<NettySender> channel(@Nullable String consistentId, ChannelInfo type, InetSocketAddress address) {
+    public OrderingFuture<NettySender> channel(@Nullable String consistentId, ChannelType type, InetSocketAddress address) {
         if (consistentId != null) {
             // If consistent id is known, try looking up a channel by consistent id. There can be an outbound connection
             // or an inbound connection associated with that consistent id.
@@ -268,11 +268,11 @@ public class ConnectionManager {
      * @param address Target address.
      * @return New netty client.
      */
-    private NettyClient connect(InetSocketAddress address, ChannelInfo channelInfo) {
+    private NettyClient connect(InetSocketAddress address, ChannelType channelType) {
         var client = new NettyClient(
                 address,
                 serializationService,
-                createClientHandshakeManager(channelInfo.id()),
+                createClientHandshakeManager(channelType.id()),
                 this::onMessage,
                 this.networkConfiguration.ssl()
         );
@@ -282,7 +282,7 @@ public class ConnectionManager {
                 ConnectorKey<String> key = new ConnectorKey<>(sender.consistentId(), getChannel(sender.channelId()));
                 channels.put(key, sender);
             } else {
-                clients.remove(new ConnectorKey<>(address, channelInfo));
+                clients.remove(new ConnectorKey<>(address, channelType));
             }
         });
 
@@ -354,6 +354,11 @@ public class ConnectionManager {
     @TestOnly
     public NettyServer server() {
         return server;
+    }
+
+    @TestOnly
+    public SerializationService serializationService() {
+        return serializationService;
     }
 
     /**
