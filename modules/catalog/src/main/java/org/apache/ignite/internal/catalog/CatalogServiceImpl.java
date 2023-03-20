@@ -48,6 +48,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Catalog service implementation.
+ * TODO: IGNITE-18535 Introduce catalog events and make CatalogServiceImpl extends Producer.
  */
 public class CatalogServiceImpl implements CatalogService, CatalogManager {
     private static final AtomicInteger TABLE_ID_GEN = new AtomicInteger();
