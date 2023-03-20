@@ -29,4 +29,4 @@ public interface BinaryObject {
      */
     byte[] bytes();
 }
-//No clear what any of the Javadoc comments mean in this file.
+//Not clear what any of the Javadoc comments mean in this file.

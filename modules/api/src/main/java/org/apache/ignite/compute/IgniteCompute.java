@@ -83,7 +83,7 @@ public interface IgniteCompute {
 
     /**
      * Executes a job of the given class on the node where the given key is located. The node is a leader
-     * of the corresponding Raft group.
+     * of the corresponding RAFT group.
      *
      * @param tableName Name of the table whose key is used to determine the node to execute the job on.
      * @param key Key that identifies the node to execute the job on.
@@ -96,7 +96,7 @@ public interface IgniteCompute {
 
     /**
      * Executes a job of the given class on the node where the given key is located. The node is a leader
-     * of the corresponding Raft group.
+     * of the corresponding RAFT group.
      *
      * @param tableName Name of the table whose key is used to determine the node to execute the job on.
      * @param key Key that identifies the node to execute the job on.
