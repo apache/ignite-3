@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -32,6 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -58,11 +61,14 @@ import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -201,6 +207,10 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private SchemaManager sm;
 
+    private ClusterManagementGroupManager cmgMgr;
+
+    private DistributionZoneManager distributionZoneManager;
+
     /** Test node. */
     private final ClusterNode node = new ClusterNode(
             UUID.randomUUID().toString(),
@@ -230,6 +240,17 @@ public class TableManagerTest extends IgniteAbstractTest {
                 return function.apply(newStorageRevision);
             });
         };
+
+        cmgMgr = mock(ClusterManagementGroupManager.class);
+
+        LogicalTopologySnapshot logicalTopologySnapshot = new LogicalTopologySnapshot(0, emptySet());
+
+        when(cmgMgr.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));
+
+        distributionZoneManager = mock(DistributionZoneManager.class);
+
+        when(distributionZoneManager.getZoneId(anyString())).thenReturn(0);
+        when(distributionZoneManager.getDataNodes(anyInt(), anyLong())).thenReturn(completedFuture(emptySet()));
 
         tblManagerFut = new CompletableFuture<>();
     }
@@ -732,8 +753,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 budgetView -> new LocalLogStorageFactory(),
                 new HybridClockImpl(),
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
-                null,
-                null
+                cmgMgr,
+                distributionZoneManager
         ) {
             @Override
             protected MvTableStorage createTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {

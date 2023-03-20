@@ -1357,7 +1357,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         tblFut.completeExceptionally(new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name));
                     } else {
                         cmgMgr.logicalTopology()
-                                .thenAccept(cmgTopology -> {
+                                .thenCompose(cmgTopology -> {
                                     int zoneId = 0;
 
                                     Exception e = null;
@@ -1372,7 +1372,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         tblFut.completeExceptionally(e);
                                     } else {
                                         distributionZoneManager.getDataNodes(zoneId, cmgTopology.version())
-                                                .thenCompose(dataNodes -> {
+                                                .thenCompose(dataNodes0 -> {
 
                                                     tablesCfg.change(tablesChange -> tablesChange.changeTables(tablesListChange -> {
                                                         if (tablesListChange.get(name) != null) {
@@ -1398,10 +1398,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                                             tableCreateFuts.put(extConfCh.id(), tblFut);
 
+                                                            int zoneId0 = distributionZoneManager.getZoneId(zoneName);
+
+                                                            CompletableFuture<Set<String>> dataNodesFut =
+                                                                    distributionZoneManager.getDataNodes(zoneId0, cmgTopology.version());
+
+                                                            assert dataNodesFut.isDone();
+
                                                             // Affinity assignments calculation.
                                                             extConfCh.changeAssignments(
                                                                     ByteUtils.toBytes(AffinityUtils.calculateAssignments(
-                                                                            dataNodes,
+                                                                            dataNodesFut.join(),
                                                                             tableChange.partitions(),
                                                                             tableChange.replicas())));
                                                         });
@@ -1422,9 +1429,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     });
 
                                                     return null;
-                                                });
+                                                })
+                                                .exceptionally(e0 -> tblFut.completeExceptionally(e0));
                                     }
-                                });
+
+                                    return null;
+                                })
+                                .exceptionally(e1 -> tblFut.completeExceptionally(e1));
                     }
                 });
 
