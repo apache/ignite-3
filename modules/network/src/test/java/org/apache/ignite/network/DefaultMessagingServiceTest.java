@@ -173,7 +173,7 @@ class DefaultMessagingServiceTest {
 
             assertThat(latch.getCount(), is(2L));
             release.set(true);
-            assertTrue(latch.await(100, TimeUnit.SECONDS));
+            assertTrue(latch.await(1, TimeUnit.SECONDS));
         }
     }
 
