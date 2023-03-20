@@ -104,7 +104,8 @@ public interface FlowBuilder<I, O>  {
     FlowBuilder<I, O> exceptionHandler(ExceptionHandler<?> exceptionHandler);
 
     /**
-     * Adds success handler to the flow chain which will be called at the end of the flow if the flow has succeeded.
+     * Adds success handler to the flow chain which will be called at the end of the flow if the flow has succeeded. The order in which
+     * handlers are executed is not determined.
      *
      * @param handler handler
      * @return instance of builder
@@ -112,7 +113,8 @@ public interface FlowBuilder<I, O>  {
     FlowBuilder<I, O> onSuccess(Consumer<O> handler);
 
     /**
-     * Adds success handler to the flow chain which will be called at the end of the flow if the flow has succeeded.
+     * Adds success handler to the flow chain which will be called at the end of the flow if the flow has succeeded. The order in which
+     * handlers are executed is not determined.
      *
      * @param handler handler
      * @return instance of builder
@@ -122,7 +124,8 @@ public interface FlowBuilder<I, O>  {
     }
 
     /**
-     * Adds failure handler to the flow chain which will be called at the end of the flow if flow resulted in error.
+     * Adds failure handler to the flow chain which will be called at the end of the flow if flow resulted in error. The order in which
+     * handlers are executed is not determined.
      *
      * @param handler handler
      * @return instance of builder
@@ -130,7 +133,8 @@ public interface FlowBuilder<I, O>  {
     FlowBuilder<I, O> onFailure(Consumer<Throwable> handler);
 
     /**
-     * Adds failure handler to the flow chain which will be called at the end of the flow if flow resulted in error.
+     * Adds failure handler to the flow chain which will be called at the end of the flow if flow resulted in error. The order in which
+     * handlers are executed is not determined.
      *
      * @param handler handler
      * @return instance of builder
