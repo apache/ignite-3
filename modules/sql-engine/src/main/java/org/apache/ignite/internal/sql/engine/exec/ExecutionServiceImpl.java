@@ -46,6 +46,7 @@ import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.AsyncRootNode;
@@ -70,7 +71,6 @@ import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
@@ -257,10 +257,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     public AsyncCursor<List<Object>> executePlan(
             InternalTransaction tx, QueryPlan plan, BaseQueryContext ctx
     ) {
-        Type type = plan.type();
-        assert type != null : "Root plan can not be a fragment";
+        SqlQueryType queryType = plan.type();
+        assert queryType != null : "Root plan can not be a fragment";
 
-        switch (type) {
+        switch (queryType) {
             case DML:
                 // TODO a barrier between previous operation and this one
             case QUERY:
@@ -271,7 +271,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 return executeDdl((DdlPlan) plan);
 
             default:
-                throw new AssertionError("Unexpected plan type: " + plan);
+                throw new AssertionError("Unexpected query type: " + plan);
         }
     }
 

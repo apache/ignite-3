@@ -146,14 +146,14 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         try {
             assert single(sqlNode);
 
-            var planType = Commons.getPlanType(sqlNode);
-            assert planType != null : "No plan type for query: " + sqlNode;
+            var queryType = Commons.getQueryType(sqlNode);
+            assert queryType != null : "No query type for query: " + sqlNode;
 
             var planningContext = PlanningContext.builder()
                     .parentContext(ctx)
                     .build();
 
-            switch (planType) {
+            switch (queryType) {
                 case QUERY:
                     return prepareQuery(sqlNode, planningContext);
 

@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Set;
 import org.apache.calcite.plan.Context;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,7 +34,7 @@ public class QueryContext implements Context {
     private static final QueryContext EMPTY = new QueryContext(Set.of(), ArrayUtils.OBJECT_EMPTY_ARRAY);
 
     /** A set of types of SQL commands that can be executed within an operation this context is associated with. **/
-    private final Set<QueryPlan.Type> allowedQueries;
+    private final Set<SqlQueryType> allowedQueries;
 
     /** Context params. */
     private final Object[] params;
@@ -46,13 +45,13 @@ public class QueryContext implements Context {
      * @param allowedQueries  Allowed query types.
      * @param params Context params.
      */
-    private QueryContext(Set<QueryPlan.Type> allowedQueries, Object[] params) {
+    private QueryContext(Set<SqlQueryType> allowedQueries, Object[] params) {
         this.params = params;
         this.allowedQueries = allowedQueries;
     }
 
     /** Returns a set of {@link QueryPlan.Type allowed query types}. **/
-    public Set<Type> allowedQueryTypes() {
+    public Set<SqlQueryType> allowedQueryTypes() {
         return allowedQueries;
     }
 
@@ -77,7 +76,7 @@ public class QueryContext implements Context {
      * @param allowedQueries  A set of allowed query types.
      * @return Query context.
      */
-    public static QueryContext create(Set<QueryPlan.Type> allowedQueries) {
+    public static QueryContext create(Set<SqlQueryType> allowedQueries) {
         return create(allowedQueries, null, ArrayUtils.OBJECT_EMPTY_ARRAY);
     }
 
@@ -88,7 +87,7 @@ public class QueryContext implements Context {
      * @param param A context parameter.
      * @return Query context.
      */
-    public static QueryContext create(Set<Type> allowedQueries, @Nullable Object param) {
+    public static QueryContext create(Set<SqlQueryType> allowedQueries, @Nullable Object param) {
         return create(allowedQueries, param, ArrayUtils.OBJECT_EMPTY_ARRAY);
     }
 
@@ -100,7 +99,7 @@ public class QueryContext implements Context {
      * @param params Optional array of additional parameters.
      * @return Query context.
      */
-    public static QueryContext create(Set<QueryPlan.Type> allowedQueries, @Nullable Object param, Object... params) {
+    public static QueryContext create(Set<SqlQueryType> allowedQueries, @Nullable Object param, Object... params) {
         Object[] paramsArray = params == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : params;
 
         if (param == null && paramsArray.length == 0) {

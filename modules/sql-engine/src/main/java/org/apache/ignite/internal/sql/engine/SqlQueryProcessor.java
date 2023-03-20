@@ -311,7 +311,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** {@inheritDoc} */
     @Override
     public List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(String schemaName, String qry, Object... params) {
-        QueryContext context = QueryContext.create(QueryPlan.TOP_LEVEL_TYPES);
+        QueryContext context = QueryContext.create(SqlQueryType.ALL);
 
         return queryAsync(context, schemaName, qry, params);
     }
@@ -439,8 +439,11 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                                 var dataCursor = executionSrvc.executePlan(tx, plan, ctx);
 
+                                SqlQueryType queryType = plan.type();
+                                assert queryType != null : "Expected a full plan but got a fragment: " + plan;
+
                                 return new AsyncSqlCursorImpl<>(
-                                        SqlQueryType.mapPlanTypeToSqlType(plan.type()),
+                                        queryType,
                                         plan.metadata(),
                                         implicitTxRequired ? tx : null,
                                         new AsyncCursor<List<Object>>() {
@@ -529,8 +532,11 @@ public class SqlQueryProcessor implements QueryProcessor {
             CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
                     .thenCompose(none -> prepareSvc.prepareAsync(sqlNode, ctx))
                     .thenApply(plan -> {
+                        SqlQueryType queryType = plan.type();
+                        assert queryType != null : "Expected a full plan but got a fragment: " + plan;
+
                         return new AsyncSqlCursorImpl<>(
-                                SqlQueryType.mapPlanTypeToSqlType(plan.type()),
+                                queryType,
                                 plan.metadata(),
                                 implicitTx,
                                 executionSrvc.executePlan(implicitTx, plan, ctx)
@@ -680,16 +686,16 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Performs additional validation of a parsed statement. **/
     private static void validateParsedStatement(QueryContext context, ParseResult parseResult, SqlNode node, Object[] params) {
         var allowedTypes = context.allowedQueryTypes();
-        var planType = Commons.getPlanType(node);
+        var queryType = Commons.getQueryType(node);
 
-        if (planType == null) {
+        if (queryType == null) {
             throw new IgniteInternalException(UNSUPPORTED_SQL_OPERATION_KIND_ERR, "Unsupported operation ["
                     + "sqlNodeKind=" + node.getKind() + "; "
                     + "querySql=\"" + node + "\"]");
         }
 
-        if (!allowedTypes.contains(planType)) {
-            var message = format("Invalid SQL statement type in the batch. Expected {} but got {}.", allowedTypes, planType);
+        if (!allowedTypes.contains(queryType)) {
+            var message = format("Invalid SQL statement type in the batch. Expected {} but got {}.", allowedTypes, queryType);
             throw new QueryValidationException(message);
         }
 

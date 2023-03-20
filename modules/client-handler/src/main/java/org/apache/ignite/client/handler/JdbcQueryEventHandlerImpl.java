@@ -54,9 +54,8 @@ import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -68,6 +67,13 @@ import org.apache.ignite.sql.ResultSetMetadata;
  * Jdbc query event handler implementation.
  */
 public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
+
+    /** {@link SqlQueryType}s allowed in JDBC select statements. **/
+    private static final Set<SqlQueryType> SELECT_STATEMENT_QUERIES = Set.of(SqlQueryType.QUERY, SqlQueryType.EXPLAIN);
+
+    /** {@link SqlQueryType}s allowed in JDBC update statements. **/
+    private static final Set<SqlQueryType> UPDATE_STATEMENT_QUERIES = Set.of(SqlQueryType.DML, SqlQueryType.DDL);
+
     /** Sql query processor. */
     private final QueryProcessor processor;
 
@@ -145,11 +151,11 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     private QueryContext createQueryContext(JdbcStatementType stmtType) {
         switch (stmtType) {
             case ANY_STATEMENT_TYPE:
-                return QueryContext.create(QueryPlan.TOP_LEVEL_TYPES);
+                return QueryContext.create(SqlQueryType.ALL);
             case SELECT_STATEMENT_TYPE:
-                return QueryContext.create(Set.of(Type.QUERY, Type.EXPLAIN));
+                return QueryContext.create(SELECT_STATEMENT_QUERIES);
             case UPDATE_STATEMENT_TYPE:
-                return QueryContext.create(Set.of(Type.DML, Type.DDL));
+                return QueryContext.create(UPDATE_STATEMENT_QUERIES);
             default:
                 throw new AssertionError("Unexpected jdbc statement type: " + stmtType);
         }

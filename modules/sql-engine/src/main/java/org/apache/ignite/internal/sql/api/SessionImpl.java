@@ -38,8 +38,8 @@ import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -165,7 +165,7 @@ public class SessionImpl implements Session {
         }
 
         try {
-            QueryContext ctx = QueryContext.create(QueryPlan.TOP_LEVEL_TYPES, transaction);
+            QueryContext ctx = QueryContext.create(SqlQueryType.ALL, transaction);
 
             CompletableFuture<AsyncResultSet<SqlRow>> result = qryProc.querySingleAsync(sessionId, ctx, query, arguments)
                     .thenCompose(cur -> cur.requestNextAsync(pageSize)
@@ -231,7 +231,7 @@ public class SessionImpl implements Session {
         }
 
         try {
-            QueryContext ctx = QueryContext.create(Set.of(Type.DML), transaction);
+            QueryContext ctx = QueryContext.create(Set.of(SqlQueryType.DML), transaction);
 
             var counters = new LongArrayList(batch.size());
             CompletableFuture<Void> tail = CompletableFuture.completedFuture(null);

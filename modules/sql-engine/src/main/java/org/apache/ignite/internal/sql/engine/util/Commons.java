@@ -82,6 +82,7 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NumberNativeType;
 import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.VarlenNativeType;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexExecutorImpl;
@@ -89,8 +90,6 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteConvertletTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlConformance;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
@@ -764,7 +763,7 @@ public final class Commons {
     }
 
     /**
-     * Returns a {@link QueryPlan.Type} for the given {@link SqlNode}.
+     * Returns a {@link SqlQueryType} for the given {@link SqlNode}.
      * 
      * <p>If the given node is neither {@code QUERY}, nor {@code DDL}, nor {@code DML}, this method returns {@code null}.
      *
@@ -772,10 +771,10 @@ public final class Commons {
      * @return A query type.
      */
     @Nullable
-    public static QueryPlan.Type getPlanType(SqlNode sqlNode) {
+    public static SqlQueryType getQueryType(SqlNode sqlNode) {
         SqlKind sqlKind = sqlNode.getKind();
         if (SqlKind.DDL.contains(sqlKind)) {
-            return Type.DDL;
+            return SqlQueryType.DDL;
         }
 
         switch (sqlKind) {
@@ -786,16 +785,16 @@ public final class Commons {
             case UNION:
             case EXCEPT:
             case INTERSECT:
-                return Type.QUERY;
+                return SqlQueryType.QUERY;
 
             case INSERT:
             case DELETE:
             case UPDATE:
             case MERGE:
-                return Type.DML;
+                return SqlQueryType.DML;
 
             case EXPLAIN:
-                return Type.EXPLAIN;
+                return SqlQueryType.EXPLAIN;
 
             default:
                 return null;
