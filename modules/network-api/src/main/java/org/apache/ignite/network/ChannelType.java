@@ -21,15 +21,25 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Data class with channel information.
  *      May be used as channel pointer in {@link MessagingService} for sending messages in exclusive channel.
  */
 public final class ChannelType {
-    public static final ChannelType DEFAULT = new ChannelType((short) 0, "Default");
+    static {
+        Map<Short, ChannelType> tmpChannels = new ConcurrentHashMap<>(IgniteUtils.capacity(Short.MAX_VALUE));
+        ChannelType defaultChannel = new ChannelType((short) 0, "Default");
+        tmpChannels.put((short) 0, defaultChannel);
 
-    private static final Map<Short, ChannelType> channels = new ConcurrentHashMap<>();
+        DEFAULT = defaultChannel;
+        channels = tmpChannels;
+    }
+
+    public static final ChannelType DEFAULT;
+
+    private static final Map<Short, ChannelType> channels;
 
     /**
      * Channel identifier.
@@ -85,20 +95,23 @@ public final class ChannelType {
 
     /**
      * Try to register channel with provided identifier. If identifier already used
-     *    by another channel will throw {@link ChannelTypeAlreadyExist}.
+     *    by another channel and name is not the same, will throw {@link ChannelTypeAlreadyExist}.
      *
-     * @param id Channel identifier.
+     * @param id Channel identifier. Must be positive.
      * @param name Channel name.
-     * @return Register channel.
-     * @throws ChannelTypeAlreadyExist In case when channel identifier already used.
+     * @return Register channel or existed one.
+     * @throws ChannelTypeAlreadyExist In case when channel identifier already used with another name.
      */
     public static ChannelType register(short id, String name) {
-        if (id == 0) {
-            throw new ChannelTypeAlreadyExist(id, name);
+        if (id < 0) {
+            throw new IllegalArgumentException("Negative identifier is not supported.");
         }
         ChannelType newChannel = new ChannelType(id, name);
         ChannelType channelType = channels.putIfAbsent(id, newChannel);
-        if (channelType != null) {
+        if (channelType != null
+                && (newChannel.id != channelType.id
+                || !newChannel.name.equals(channelType.name))
+        ) {
             throw new ChannelTypeAlreadyExist(id, name);
         }
         return newChannel;
