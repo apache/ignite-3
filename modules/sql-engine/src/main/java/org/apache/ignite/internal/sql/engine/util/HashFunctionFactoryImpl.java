@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
+
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.UUID;
@@ -118,11 +120,10 @@ public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
 
                 if (Commons.modifyPushDownEnabled()) {
                     if (value == RexImpTable.DEFAULT_VALUE_PLACEHOLDER) {
-                        throw new IllegalArgumentException("row: " + Arrays.toString((Object[]) row) + " " + nativeTypeSpec + " " + value);
-                    } else if (value instanceof NlsString) {
-                        // Calcite wraps the value of implicit pk in NlsString.
-                        NlsString nlsString = (NlsString) value;
-                        value = TypeUtils.fromInternal(nlsString.getValue(), storageType);
+                        var error = format("Placeholder should have been replaced. field: {} nativeTypeSpec: {} row: {} ",
+                                fields[i], nativeTypeSpec, rowHandler.toString(row));
+
+                        throw new IllegalArgumentException(error);
                     } else {
                         value = TypeUtils.fromInternal(value, storageType);
                     }

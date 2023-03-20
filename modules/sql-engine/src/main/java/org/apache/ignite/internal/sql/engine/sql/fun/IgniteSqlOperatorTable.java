@@ -164,7 +164,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
 
         ImplicitPkOperator() {
             super("GENERATE_IMPLICIT_PK", SqlKind.OTHER_FUNCTION, 100, true,
-                    ReturnTypes.explicit(SqlTypeName.ANY), InferTypes.RETURN_TYPE,
+                    ReturnTypes.explicit(SqlTypeName.VARCHAR), InferTypes.RETURN_TYPE,
                     OperandTypes.NILADIC);
         }
 
