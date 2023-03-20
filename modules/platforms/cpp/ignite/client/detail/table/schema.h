@@ -23,6 +23,7 @@
 
 #include <msgpack.h>
 
+#include <array>
 #include <memory>
 #include <string>
 
@@ -35,9 +36,34 @@ namespace ignite::detail {
  * @return Matching client data type.
  */
 inline ignite_type ignite_type_from_int(std::int32_t val) {
-    if (val < 1 || val >= std::int32_t(ignite_type::UNDEFINED))
+    // Wire protocol uses ClientDataType that needs to be converted to ignite_type.
+
+    static constexpr ignite_type wire_types[]{
+        ignite_type::INT8,
+        ignite_type::INT16,
+        ignite_type::INT32,
+        ignite_type::INT64,
+        ignite_type::FLOAT,
+        ignite_type::DOUBLE,
+        ignite_type::DECIMAL,
+        ignite_type::UUID,
+        ignite_type::STRING,
+        ignite_type::BYTE_ARRAY,
+        ignite_type::BITMASK,
+        ignite_type::DATE,
+        ignite_type::TIME,
+        ignite_type::DATETIME,
+        ignite_type::TIMESTAMP,
+        ignite_type::NUMBER,
+        ignite_type::BOOLEAN,
+        ignite_type::DURATION,
+        ignite_type::PERIOD,
+    };
+
+    if (val < 1 || (val - 1) >= std::size(wire_types))
         throw ignite_error("Value is out of range for Ignite type: " + std::to_string(val));
-    return ignite_type(val);
+
+    return wire_types[val - 1];
 }
 
 /**
