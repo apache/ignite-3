@@ -79,7 +79,7 @@ void compute::broadcast_async(const std::set<cluster_node>& nodes, std::string_v
     }
 }
 
-void compute::execute_colocated_async(const std::string &table_name, const ignite_tuple &key,
+void compute::execute_colocated_async(std::string_view table_name, const ignite_tuple &key,
     std::string_view job_class_name, const std::vector<primitive> &args,
     ignite_callback<std::optional<primitive>> callback) {
     detail::arg_check::container_non_empty(table_name, "Table name");

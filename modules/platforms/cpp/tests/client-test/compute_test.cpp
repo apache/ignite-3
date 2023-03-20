@@ -240,3 +240,21 @@ TEST_F(compute_test, all_arg_types) {
     check_argument<uuid>({0x123e4567e89b12d3, 0x7456426614174000}, "123e4567-e89b-12d3-7456-426614174000");
 }
 
+TEST_F(compute_test, execute_colocated) {
+    std::map<std::int32_t, std::string> nodes_for_values = {
+        {1, ""},
+        {2, "_2"},
+        {3, ""},
+        {5, "_2"}
+    };
+
+    for (const auto &var : nodes_for_values) {
+        SCOPED_TRACE("key=" + std::to_string(var.first) + ", node=" + var.second);
+        auto key = get_tuple(var.first);
+
+        auto resNodeName = m_client.get_compute().execute_colocated(TABLE_1, key, NODE_NAME_JOB, {});
+        auto expectedNodeName = PLATFORM_TEST_NODE_RUNNER + var.second;
+
+        EXPECT_EQ(expectedNodeName, resNodeName);
+    }
+}

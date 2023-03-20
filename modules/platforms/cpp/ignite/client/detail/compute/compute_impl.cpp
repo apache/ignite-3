@@ -83,11 +83,10 @@ void compute_impl::execute_on_one_node(cluster_node node, std::string_view job_c
         client_operation::COMPUTE_EXECUTE, writer_func, std::move(reader_func), std::move(callback));
 }
 
-void compute_impl::execute_colocated_async(const std::string &table_name, const ignite_tuple &key,
-    std::string_view job, const std::vector<primitive> &args,
-    ignite_callback<std::optional<primitive>> callback) {
-    m_tables->get_table_async(table_name,
-        [table_name, callback = std::move(callback), key, job = std::string(job), args, conn = m_connection]
+void compute_impl::execute_colocated_async(std::string_view table_name, const ignite_tuple &key, std::string_view job,
+    const std::vector<primitive> &args, ignite_callback<std::optional<primitive>> callback) {
+    m_tables->get_table_async(table_name, [table_name = std::string(table_name), callback = std::move(callback),
+            key, job = std::string(job), args, conn = m_connection]
         (auto &&res) mutable {
         if (res.has_error()) {
             callback({std::move(res.error())});

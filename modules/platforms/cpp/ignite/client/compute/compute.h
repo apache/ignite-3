@@ -109,9 +109,25 @@ public:
      * @param args Job arguments.
      * @param callback A callback called on operation completion with job execution result.
      */
-    IGNITE_API void execute_colocated_async(const std::string &table_name, const ignite_tuple& key,
+    IGNITE_API void execute_colocated_async(std::string_view table_name, const ignite_tuple& key,
         std::string_view job_class_name, const std::vector<primitive>& args,
         ignite_callback<std::optional<primitive>> callback);
+
+    /**
+     * Synchronously executes a job represented by the given class on one node where the given key is located.
+     *
+     * @param tableName Name of the table to be used with @c key to determine target node.
+     * @param key Table key to be used to determine the target node for job execution.
+     * @param job_class_name Java class name of the job to execute.
+     * @param args Job arguments.
+     * @return Job execution result.
+     */
+    IGNITE_API std::optional<primitive> execute_colocated(std::string_view table_name, const ignite_tuple& key,
+        std::string_view job_class_name, const std::vector<primitive>& args) {
+        return sync<std::optional<primitive>>([this, &table_name, &key, job_class_name, &args](auto callback) mutable {
+            execute_colocated_async(table_name, key, job_class_name, args, std::move(callback));
+        });
+    }
 
 private:
     /**
