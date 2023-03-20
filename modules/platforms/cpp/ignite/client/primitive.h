@@ -253,9 +253,7 @@ public:
      *
      * @return Value indicating whether element is null.
      */
-    [[nodiscard]] bool is_null() const noexcept {
-        return m_value.index() == 0;
-    }
+    [[nodiscard]] bool is_null() const noexcept { return m_value.index() == 0; }
 
     /**
      * Get primitive type.

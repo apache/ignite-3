@@ -87,9 +87,8 @@ void ignite_client::get_cluster_nodes_async(ignite_callback<std::vector<cluster_
 }
 
 std::vector<cluster_node> ignite_client::get_cluster_nodes() {
-    return sync<std::vector<cluster_node>>([this](auto callback) mutable {
-        get_cluster_nodes_async(std::move(callback));
-    });
+    return sync<std::vector<cluster_node>>(
+        [this](auto callback) mutable { get_cluster_nodes_async(std::move(callback)); });
 }
 
 detail::ignite_client_impl &ignite_client::impl() noexcept {

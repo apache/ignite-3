@@ -28,7 +28,7 @@ namespace ignite::detail::arg_check {
  *
  * @param key Key tuple.
  */
-void inline tuple_non_empty(const ignite_tuple &value, const std::string& title) {
+void inline tuple_non_empty(const ignite_tuple &value, const std::string &title) {
     if (0 == value.column_count())
         throw ignite_error(title + " can not be empty");
 }
@@ -57,7 +57,7 @@ void inline value_tuple_non_empty(const ignite_tuple &value) {
  * @param value Value tuple.
  */
 template<typename T>
-void inline container_non_empty(const T &cont, const std::string& title) {
+void inline container_non_empty(const T &cont, const std::string &title) {
     if (cont.empty())
         throw ignite_error(title + " can not be empty");
 }

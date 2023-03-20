@@ -51,27 +51,21 @@ public:
      *
      * @return Local node id.
      */
-    [[nodiscard]] const std::string& get_id() const {
-        return m_id;
-    }
+    [[nodiscard]] const std::string &get_id() const { return m_id; }
 
     /**
      * Gets the unique name of the cluster member. Does not change after node restart.
      *
      * @return Unique name of the cluster member.
      */
-    [[nodiscard]] const std::string& get_name() const {
-        return m_name;
-    }
+    [[nodiscard]] const std::string &get_name() const { return m_name; }
 
     /**
      * Gets the node address.
      *
      * @return Node address.
      */
-    [[nodiscard]] const network::end_point& get_address() const {
-        return m_address;
-    }
+    [[nodiscard]] const network::end_point &get_address() const { return m_address; }
 
     /**
      * Compare to another instance.

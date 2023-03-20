@@ -39,16 +39,16 @@ typename T::value_type get_random_element(const T &cont) {
     return cont[distrib(gen)];
 }
 
-void compute::execute_async(const std::vector<cluster_node>& nodes, std::string_view job_class_name,
-    const std::vector<primitive>& args, ignite_callback<std::optional<primitive>> callback) {
+void compute::execute_async(const std::vector<cluster_node> &nodes, std::string_view job_class_name,
+    const std::vector<primitive> &args, ignite_callback<std::optional<primitive>> callback) {
     detail::arg_check::container_non_empty(nodes, "Nodes container");
     detail::arg_check::container_non_empty(job_class_name, "Job class name");
 
     m_impl->execute_on_one_node(get_random_element(nodes), job_class_name, args, std::move(callback));
 }
 
-void compute::broadcast_async(const std::set<cluster_node>& nodes, std::string_view job_class_name,
-    const std::vector<primitive>& args,
+void compute::broadcast_async(const std::set<cluster_node> &nodes, std::string_view job_class_name,
+    const std::vector<primitive> &args,
     ignite_callback<std::map<cluster_node, ignite_result<std::optional<primitive>>>> callback) {
     typedef std::map<cluster_node, ignite_result<std::optional<primitive>>> result_type;
 
@@ -56,7 +56,9 @@ void compute::broadcast_async(const std::set<cluster_node>& nodes, std::string_v
     detail::arg_check::container_non_empty(job_class_name, "Job class name");
 
     struct result_group {
-        explicit result_group(std::int32_t cnt, ignite_callback<result_type> &&cb) : m_cnt(cnt), m_callback(cb) {}
+        explicit result_group(std::int32_t cnt, ignite_callback<result_type> &&cb)
+            : m_cnt(cnt)
+            , m_callback(cb) {}
 
         std::mutex m_mutex;
         result_type m_res_map;

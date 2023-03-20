@@ -294,16 +294,14 @@ public:
      * @param tb Table.
      * @return Implementation.
      */
-    [[nodiscard]] static std::shared_ptr<table_impl> from_facade(table& tb);
+    [[nodiscard]] static std::shared_ptr<table_impl> from_facade(table &tb);
 
     /**
      * Get table ID.
      *
      * @return ID.
      */
-    [[nodiscard]] uuid get_id() const {
-        return m_id;
-    }
+    [[nodiscard]] uuid get_id() const { return m_id; }
 
 private:
     /**

@@ -51,9 +51,8 @@ protected:
      */
     cluster_node get_node(size_t id) {
         auto nodes = m_client.get_cluster_nodes();
-        std::sort(nodes.begin(), nodes.end(), [] (const auto &n1, const auto &n2) {
-            return n1.get_name() < n2.get_name();
-        });
+        std::sort(
+            nodes.begin(), nodes.end(), [](const auto &n1, const auto &n2) { return n1.get_name() < n2.get_name(); });
         return nodes[id];
     }
 
@@ -100,9 +99,8 @@ protected:
 TEST_F(compute_test, get_cluster_nodes) {
     auto cluster_nodes = m_client.get_cluster_nodes();
 
-    std::sort(cluster_nodes.begin(), cluster_nodes.end(), [] (const auto &n1, const auto &n2) {
-        return n1.get_name() < n2.get_name();
-    });
+    std::sort(cluster_nodes.begin(), cluster_nodes.end(),
+        [](const auto &n1, const auto &n2) { return n1.get_name() < n2.get_name(); });
 
     ASSERT_EQ(2, cluster_nodes.size());
 
@@ -176,8 +174,9 @@ TEST_F(compute_test, job_error_propagates_to_client) {
                 m_client.get_compute().execute(cluster_nodes, ERROR_JOB, {"unused"});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), testing::HasSubstr("Custom job error"));
-                EXPECT_THAT(e.what_str(), testing::HasSubstr(
-                    "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$CustomException"));
+                EXPECT_THAT(e.what_str(),
+                    testing::HasSubstr(
+                        "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$CustomException"));
                 EXPECT_THAT(e.what_str(), testing::HasSubstr("IGN-TBL-3"));
                 throw;
             }
@@ -241,12 +240,7 @@ TEST_F(compute_test, all_arg_types) {
 }
 
 TEST_F(compute_test, execute_colocated) {
-    std::map<std::int32_t, std::string> nodes_for_values = {
-        {1, ""},
-        {2, "_2"},
-        {3, ""},
-        {5, "_2"}
-    };
+    std::map<std::int32_t, std::string> nodes_for_values = {{1, ""}, {2, "_2"}, {3, ""}, {5, "_2"}};
 
     for (const auto &var : nodes_for_values) {
         SCOPED_TRACE("key=" + std::to_string(var.first) + ", node=" + var.second);

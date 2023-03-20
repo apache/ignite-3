@@ -16,8 +16,8 @@
  */
 
 #include "ignite/client/table/record_view.h"
-#include "ignite/client/detail/table/table_impl.h"
 #include "ignite/client/detail/argument_check_utils.h"
+#include "ignite/client/detail/table/table_impl.h"
 
 namespace ignite {
 

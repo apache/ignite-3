@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <ignite/client/detail/compute/compute_impl.h>
 #include <ignite/client/detail/cluster_connection.h>
+#include <ignite/client/detail/compute/compute_impl.h>
 #include <ignite/client/detail/sql/sql_impl.h>
 #include <ignite/client/detail/table/tables_impl.h>
 #include <ignite/client/detail/transaction/transactions_impl.h>

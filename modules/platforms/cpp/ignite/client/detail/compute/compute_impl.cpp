@@ -27,7 +27,7 @@ namespace ignite::detail {
  * @param writer Writer to use.
  * @param args Arguments.
  */
-void write_primitives_as_binary_tuple(protocol::writer &writer, const std::vector<primitive>& args) {
+void write_primitives_as_binary_tuple(protocol::writer &writer, const std::vector<primitive> &args) {
     auto args_num = std::int32_t(args.size());
 
     writer.write(args_num);
@@ -64,7 +64,7 @@ std::optional<primitive> read_primitive_from_binary_tuple(protocol::reader &read
 }
 
 void compute_impl::execute_on_one_node(cluster_node node, std::string_view job_class_name,
-    const std::vector<primitive>& args, ignite_callback<std::optional<primitive>> callback) {
+    const std::vector<primitive> &args, ignite_callback<std::optional<primitive>> callback) {
 
     auto writer_func = [&node, job_class_name, args](protocol::writer &writer) {
         writer.write(node.get_name());
@@ -85,41 +85,42 @@ void compute_impl::execute_on_one_node(cluster_node node, std::string_view job_c
 
 void compute_impl::execute_colocated_async(std::string_view table_name, const ignite_tuple &key, std::string_view job,
     const std::vector<primitive> &args, ignite_callback<std::optional<primitive>> callback) {
-    m_tables->get_table_async(table_name, [table_name = std::string(table_name), callback = std::move(callback),
-            key, job = std::string(job), args, conn = m_connection]
-        (auto &&res) mutable {
-        if (res.has_error()) {
-            callback({std::move(res.error())});
-            return;
-        }
-        auto &table_opt = res.value();
-        if (!table_opt) {
-            callback({ignite_error("Table does not exist: '" + table_name + "'")});
-            return;
-        }
+    m_tables->get_table_async(table_name,
+        [table_name = std::string(table_name), callback = std::move(callback), key, job = std::string(job), args,
+            conn = m_connection](auto &&res) mutable {
+            if (res.has_error()) {
+                callback({std::move(res.error())});
+                return;
+            }
+            auto &table_opt = res.value();
+            if (!table_opt) {
+                callback({ignite_error("Table does not exist: '" + table_name + "'")});
+                return;
+            }
 
-        auto table = table_impl::from_facade(*table_opt);
-        table->template with_latest_schema_async<std::optional<primitive>>(std::move(callback),
-            [table, key = std::move(key), job = std::move(job), args = std::move(args), conn] // NOLINT(performance-move-const-arg)
-            (const schema& sch, auto callback) mutable {
-                auto writer_func = [&key, &sch, &table, &job, &args](protocol::writer &writer) {
-                    writer.write(table->get_id());
-                    writer.write(sch.version);
-                    write_tuple(writer, sch, key, true);
-                    writer.write(job);
-                    write_primitives_as_binary_tuple(writer, args);
-                };
+            auto table = table_impl::from_facade(*table_opt);
+            table->template with_latest_schema_async<std::optional<primitive>>(std::move(callback),
+                [table, key = std::move(key), job = std::move(job), args = std::move(args),
+                    conn] // NOLINT(performance-move-const-arg)
+                (const schema &sch, auto callback) mutable {
+                    auto writer_func = [&key, &sch, &table, &job, &args](protocol::writer &writer) {
+                        writer.write(table->get_id());
+                        writer.write(sch.version);
+                        write_tuple(writer, sch, key, true);
+                        writer.write(job);
+                        write_primitives_as_binary_tuple(writer, args);
+                    };
 
-                auto reader_func = [](protocol::reader &reader) -> std::optional<primitive> {
-                    if (reader.try_read_nil())
-                        return std::nullopt;
+                    auto reader_func = [](protocol::reader &reader) -> std::optional<primitive> {
+                        if (reader.try_read_nil())
+                            return std::nullopt;
 
-                    return read_primitive_from_binary_tuple(reader);
-                };
+                        return read_primitive_from_binary_tuple(reader);
+                    };
 
-                conn->perform_request<std::optional<primitive>>(
-                    client_operation::COMPUTE_EXECUTE_COLOCATED, writer_func, std::move(reader_func), std::move(callback));
-            });
+                    conn->perform_request<std::optional<primitive>>(client_operation::COMPUTE_EXECUTE_COLOCATED,
+                        writer_func, std::move(reader_func), std::move(callback));
+                });
         });
 }
 

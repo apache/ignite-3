@@ -24,11 +24,11 @@
 #include "ignite/common/config.h"
 #include "ignite/common/ignite_result.h"
 
+#include <map>
 #include <memory>
+#include <set>
 #include <utility>
 #include <vector>
-#include <map>
-#include <set>
 
 namespace ignite {
 
@@ -54,8 +54,8 @@ public:
      * @param args Job arguments.
      * @param callback A callback called on operation completion with job execution result.
      */
-    IGNITE_API void execute_async(const std::vector<cluster_node>& nodes, std::string_view job_class_name,
-        const std::vector<primitive>& args, ignite_callback<std::optional<primitive>> callback);
+    IGNITE_API void execute_async(const std::vector<cluster_node> &nodes, std::string_view job_class_name,
+        const std::vector<primitive> &args, ignite_callback<std::optional<primitive>> callback);
 
     /**
      * Executes a compute job represented by the given class on one of the specified nodes.
@@ -66,7 +66,7 @@ public:
      * @return Job execution result.
      */
     IGNITE_API std::optional<primitive> execute(
-        const std::vector<cluster_node>& nodes, std::string_view job_class_name, const std::vector<primitive>& args) {
+        const std::vector<cluster_node> &nodes, std::string_view job_class_name, const std::vector<primitive> &args) {
         return sync<std::optional<primitive>>([this, nodes, job_class_name, args](auto callback) mutable {
             execute_async(nodes, job_class_name, args, std::move(callback));
         });
@@ -80,8 +80,8 @@ public:
      * @param args Job arguments.
      * @param callback A callback called on operation completion with jobs execution result.
      */
-    IGNITE_API void broadcast_async(const std::set<cluster_node>& nodes, std::string_view job_class_name,
-        const std::vector<primitive>& args,
+    IGNITE_API void broadcast_async(const std::set<cluster_node> &nodes, std::string_view job_class_name,
+        const std::vector<primitive> &args,
         ignite_callback<std::map<cluster_node, ignite_result<std::optional<primitive>>>> callback);
 
     /**
@@ -93,11 +93,10 @@ public:
      * @return Job execution result.
      */
     IGNITE_API std::map<cluster_node, ignite_result<std::optional<primitive>>> broadcast(
-        const std::set<cluster_node>& nodes, std::string_view job_class_name, const std::vector<primitive>& args) {
+        const std::set<cluster_node> &nodes, std::string_view job_class_name, const std::vector<primitive> &args) {
         return sync<std::map<cluster_node, ignite_result<std::optional<primitive>>>>(
-            [this, nodes, job_class_name, args](auto callback) mutable {
-                broadcast_async(nodes, job_class_name, args, std::move(callback));
-            });
+            [this, nodes, job_class_name, args](
+                auto callback) mutable { broadcast_async(nodes, job_class_name, args, std::move(callback)); });
     }
 
     /**
@@ -109,8 +108,8 @@ public:
      * @param args Job arguments.
      * @param callback A callback called on operation completion with job execution result.
      */
-    IGNITE_API void execute_colocated_async(std::string_view table_name, const ignite_tuple& key,
-        std::string_view job_class_name, const std::vector<primitive>& args,
+    IGNITE_API void execute_colocated_async(std::string_view table_name, const ignite_tuple &key,
+        std::string_view job_class_name, const std::vector<primitive> &args,
         ignite_callback<std::optional<primitive>> callback);
 
     /**
@@ -122,8 +121,8 @@ public:
      * @param args Job arguments.
      * @return Job execution result.
      */
-    IGNITE_API std::optional<primitive> execute_colocated(std::string_view table_name, const ignite_tuple& key,
-        std::string_view job_class_name, const std::vector<primitive>& args) {
+    IGNITE_API std::optional<primitive> execute_colocated(std::string_view table_name, const ignite_tuple &key,
+        std::string_view job_class_name, const std::vector<primitive> &args) {
         return sync<std::optional<primitive>>([this, &table_name, &key, job_class_name, &args](auto callback) mutable {
             execute_colocated_async(table_name, key, job_class_name, args, std::move(callback));
         });

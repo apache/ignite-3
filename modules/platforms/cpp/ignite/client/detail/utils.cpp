@@ -282,7 +282,7 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
             break;
         }
         case column_type::DECIMAL: {
-            const auto& dec_value = value.get<big_decimal>();
+            const auto &dec_value = value.get<big_decimal>();
             claim_type_and_scale(builder, ignite_type::DECIMAL, dec_value.get_scale());
             builder.claim_number(dec_value);
             break;
@@ -385,7 +385,7 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
             break;
         }
         case column_type::DECIMAL: {
-            const auto& dec_value = value.get<big_decimal>();
+            const auto &dec_value = value.get<big_decimal>();
             append_type_and_scale(builder, ignite_type::DECIMAL, dec_value.get_scale());
             builder.append_number(dec_value);
             break;

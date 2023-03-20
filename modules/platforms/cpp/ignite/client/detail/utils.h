@@ -74,7 +74,6 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
  */
 [[nodiscard]] ignite_tuple concat(const ignite_tuple &left, const ignite_tuple &right);
 
-
 /**
  * Write tuple using table schema and writer.
  *
