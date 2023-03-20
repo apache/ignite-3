@@ -125,8 +125,10 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Id of the default distribution zone. */
     public static final int DEFAULT_ZONE_ID = 0;
 
+    /** Default number of zone replicas. */
     public static final int DEFAULT_REPLICA_COUNT = 1;
 
+    /** Default number of zone partitions. */
     public static final int DEFAULT_PARTITION_COUNT = 25;
 
     /** Default infinite value for the distribution zones' timers. */
@@ -740,9 +742,11 @@ public class DistributionZoneManager implements IgniteComponent {
         if (distributionZoneCfg.replicas() != null) {
             zoneChange.changeReplicas(distributionZoneCfg.replicas());
         }
+
         if (distributionZoneCfg.partitions() != null) {
             zoneChange.changePartitions(distributionZoneCfg.partitions());
         }
+
         if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
             zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
             zoneChange.changeDataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE);

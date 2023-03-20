@@ -53,7 +53,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -107,7 +106,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
     private TablesConfiguration tblsCfg;
 
     @InjectConfiguration
-    private DistributionZonesConfiguration distZonesCfg;
+    private DistributionZonesConfiguration dstZnsCfg;
 
     private MetaStorageManagerImpl metaStorageManager;
 
@@ -178,7 +177,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
                 new LogicalTopologyServiceTestImpl(clusterService),
                 raftExecutorService,
                 tblsCfg,
-                distZonesCfg,
+                dstZnsCfg,
                 clock,
                 eventsClientListener
         );
@@ -337,20 +336,12 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
         List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(Collections.singleton(nodeName), 1, 1);
 
-        distZonesCfg.distributionZones().change(zones -> {
+        int zoneId = createZone();
 
-            zones.create("zone1", ch -> {
-                ch.changePartitions(1);
-                ch.changeReplicas(1);
-            });
-                }).join();
-
-        // TODO: KKK get(0) is a dangerous
-        DistributionZoneView distributionZoneView = distZonesCfg.distributionZones().value().get(0);
         tblsCfg.tables().change(tableViewTableChangeNamedListChange -> {
             tableViewTableChangeNamedListChange.create("test-table", tableChange -> {
                 var extConfCh = ((ExtendedTableChange) tableChange);
-                extConfCh.changeZoneId(distributionZoneView.zoneId());
+                extConfCh.changeZoneId(zoneId);
 
                 tblIdRef.set(extConfCh.id());
 
@@ -362,6 +353,22 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
         log.info("Fake table created [id={}, repGrp={}]", tblIdRef.get(), grpPart0);
         return grpPart0;
+    }
+
+    /**
+     * Create an distribution zone.
+     *
+     * @return Id of created distribution zone.
+     */
+    private int createZone() {
+        dstZnsCfg.distributionZones().change(zones -> {
+            zones.create("zone1", ch -> {
+                ch.changePartitions(1);
+                ch.changeReplicas(1);
+            });
+        }).join();
+
+        return dstZnsCfg.distributionZones().get("zone1").value().zoneId();
     }
 
     /**

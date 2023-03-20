@@ -57,7 +57,7 @@ public class ActiveActorTest extends TopologyAwareRaftGroupServiceTest {
     private TablesConfiguration tblsCfg;
 
     @InjectConfiguration
-    private DistributionZonesConfiguration distributionZonesConfiguration;
+    private DistributionZonesConfiguration dstZnsCfg;
 
     @AfterEach
     @Override
@@ -89,7 +89,7 @@ public class ActiveActorTest extends TopologyAwareRaftGroupServiceTest {
                 new LogicalTopologyServiceTestImpl(clusterService),
                 executor,
                 tblsCfg,
-                distributionZonesConfiguration,
+                dstZnsCfg,
                 new HybridClockImpl(),
                 eventsClientListener
         );
