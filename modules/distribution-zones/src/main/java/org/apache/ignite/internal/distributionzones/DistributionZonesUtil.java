@@ -44,12 +44,6 @@ import org.apache.ignite.lang.ByteArray;
  * Util class for Distribution Zones flow.
  */
 public class DistributionZonesUtil {
-    /**
-     * The initial value of trigger revision in case when it is not initialized in the meta storage.
-     * The trigger revision in the meta storage can be uninitialized for the default distribution zone.
-     */
-    static final long INITIAL_TRIGGER_REVISION_VALUE = 0;
-
     /** Key prefix for zone's data nodes. */
     private static final String DISTRIBUTION_ZONE_DATA_NODES_PREFIX = "distributionZone.dataNodes.";
 
@@ -74,6 +68,12 @@ public class DistributionZonesUtil {
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION}. */
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY =
             new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION);
+
+    /**
+     * The initial value of trigger revision in case when it is not initialized in the meta storage.
+     * The trigger revision in the meta storage can be uninitialized for the default distribution zone.
+     */
+    private static final long INITIAL_TRIGGER_REVISION_VALUE = 0;
 
     /**
      * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}.
@@ -172,7 +172,7 @@ public class DistributionZonesUtil {
     static CompoundCondition triggerScaleUpScaleDownKeysCondition(long scaleUpTriggerRevision, long scaleDownTriggerRevision,  int zoneId) {
         SimpleCondition scaleUpCondition;
 
-        if (scaleUpTriggerRevision != 0) {
+        if (scaleUpTriggerRevision != INITIAL_TRIGGER_REVISION_VALUE) {
             scaleUpCondition = value(zoneScaleUpChangeTriggerKey(zoneId)).eq(ByteUtils.longToBytes(scaleUpTriggerRevision));
         } else {
             scaleUpCondition = notExists(zoneScaleUpChangeTriggerKey(zoneId));
@@ -180,7 +180,7 @@ public class DistributionZonesUtil {
 
         SimpleCondition scaleDownCondition;
 
-        if (scaleDownTriggerRevision != 0) {
+        if (scaleDownTriggerRevision != INITIAL_TRIGGER_REVISION_VALUE) {
             scaleDownCondition = value(zoneScaleDownChangeTriggerKey(zoneId)).eq(ByteUtils.longToBytes(scaleDownTriggerRevision));
         } else {
             scaleDownCondition = notExists(zoneScaleDownChangeTriggerKey(zoneId));
