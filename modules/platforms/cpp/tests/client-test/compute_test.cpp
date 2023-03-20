@@ -272,4 +272,41 @@ TEST_F(compute_test, execute_colocated_throws_when_table_does_not_exist) {
         ignite_error);
 }
 
+TEST_F(compute_test, execute_colocated_throws_when_key_column_is_missing) {
+    EXPECT_THROW(
+        {
+            try {
+                (void) m_client.get_compute().execute_colocated(TABLE_1, get_tuple("some"), ECHO_JOB, {});
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Missed key column: KEY"));
+                throw;
+            }
+        },
+        ignite_error);
+}
 
+TEST_F(compute_test, execute_colocated_throws_when_key_is_empty) {
+    EXPECT_THROW(
+        {
+            try {
+                (void) m_client.get_compute().execute_colocated(TABLE_1, {}, ECHO_JOB, {});
+            } catch (const ignite_error &e) {
+                EXPECT_EQ("Key tuple can not be empty", e.what_str());
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(compute_test, exception_in_server_job_propogates_to_client) {
+    EXPECT_THROW(
+        {
+            try {
+                (void) m_client.get_compute().execute_colocated(TABLE_1, {}, ECHO_JOB, {});
+            } catch (const ignite_error &e) {
+                EXPECT_EQ("Key tuple can not be empty", e.what_str());
+                throw;
+            }
+        },
+        ignite_error);
+}
