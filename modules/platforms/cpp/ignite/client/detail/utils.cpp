@@ -16,11 +16,186 @@
  */
 
 #include "ignite/client/detail/utils.h"
+#include "ignite/common/bits.h"
 #include "ignite/common/uuid.h"
 
 #include <string>
 
 namespace ignite::detail {
+
+/**
+ * Claim space for the column.
+ *
+ * @param builder Binary tuple builder.
+ * @param typ Column type.
+ * @param value Value.
+ * @param scale Column scale.
+ */
+void claim_column(binary_tuple_builder &builder, ignite_type typ, const primitive &value, std::int32_t scale) {
+    switch (typ) {
+        case ignite_type::INT8:
+            builder.claim_int8(value.get<std::int8_t>());
+            break;
+        case ignite_type::INT16:
+            builder.claim_int16(value.get<std::int16_t>());
+            break;
+        case ignite_type::INT32:
+            builder.claim_int32(value.get<std::int32_t>());
+            break;
+        case ignite_type::INT64:
+            builder.claim_int64(value.get<std::int64_t>());
+            break;
+        case ignite_type::FLOAT:
+            builder.claim_float(value.get<float>());
+            break;
+        case ignite_type::DOUBLE:
+            builder.claim_double(value.get<double>());
+            break;
+        case ignite_type::UUID:
+            builder.claim_uuid(value.get<uuid>());
+            break;
+        case ignite_type::STRING:
+            builder.claim_string(value.get<std::string>());
+            break;
+        case ignite_type::BINARY:
+            builder.claim_bytes(value.get<std::vector<std::byte>>());
+            break;
+        case ignite_type::DECIMAL: {
+            big_decimal to_write;
+            value.get<big_decimal>().set_scale(scale, to_write);
+            builder.claim_number(to_write);
+            break;
+        }
+        case ignite_type::NUMBER:
+            builder.claim_number(value.get<big_integer>());
+            break;
+        case ignite_type::DATE:
+            builder.claim_date(value.get<ignite_date>());
+            break;
+        case ignite_type::TIME:
+            builder.claim_time(value.get<ignite_time>());
+            break;
+        case ignite_type::DATETIME:
+            builder.claim_date_time(value.get<ignite_date_time>());
+            break;
+        case ignite_type::TIMESTAMP:
+            builder.claim_timestamp(value.get<ignite_timestamp>());
+            break;
+        case ignite_type::BITMASK:
+            builder.claim_bytes(value.get<bit_array>().get_raw());
+            break;
+        default:
+            throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
+    }
+}
+
+/**
+ * Append column value to binary tuple.
+ *
+ * @param builder Binary tuple builder.
+ * @param typ Column type.
+ * @param value Value.
+ * @param scale Column scale.
+ */
+void append_column(binary_tuple_builder &builder, ignite_type typ, const primitive &value, std::int32_t scale) {
+    switch (typ) {
+        case ignite_type::INT8:
+            builder.append_int8(value.get<std::int8_t>());
+            break;
+        case ignite_type::INT16:
+            builder.append_int16(value.get<std::int16_t>());
+            break;
+        case ignite_type::INT32:
+            builder.append_int32(value.get<std::int32_t>());
+            break;
+        case ignite_type::INT64:
+            builder.append_int64(value.get<std::int64_t>());
+            break;
+        case ignite_type::FLOAT:
+            builder.append_float(value.get<float>());
+            break;
+        case ignite_type::DOUBLE:
+            builder.append_double(value.get<double>());
+            break;
+        case ignite_type::UUID:
+            builder.append_uuid(value.get<uuid>());
+            break;
+        case ignite_type::STRING:
+            builder.append_string(value.get<std::string>());
+            break;
+        case ignite_type::BINARY:
+            builder.append_bytes(value.get<std::vector<std::byte>>());
+            break;
+        case ignite_type::DECIMAL: {
+            big_decimal to_write;
+            value.get<big_decimal>().set_scale(scale, to_write);
+            builder.append_number(to_write);
+            break;
+        }
+        case ignite_type::NUMBER:
+            builder.append_number(value.get<big_integer>());
+            break;
+        case ignite_type::DATE:
+            builder.append_date(value.get<ignite_date>());
+            break;
+        case ignite_type::TIME:
+            builder.append_time(value.get<ignite_time>());
+            break;
+        case ignite_type::DATETIME:
+            builder.append_date_time(value.get<ignite_date_time>());
+            break;
+        case ignite_type::TIMESTAMP:
+            builder.append_timestamp(value.get<ignite_timestamp>());
+            break;
+        case ignite_type::BITMASK:
+            builder.append_bytes(value.get<bit_array>().get_raw());
+            break;
+        default:
+            throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
+    }
+}
+
+/**
+ * Serialize tuple using table schema.
+ *
+ * @param sch Schema.
+ * @param tuple Tuple.
+ * @param key_only Should only key fields be serialized.
+ * @param no_value No value bitset.
+ * @return Serialized binary tuple.
+ */
+std::vector<std::byte> pack_tuple(
+    const schema &sch, const ignite_tuple &tuple, bool key_only, protocol::bitset_span &no_value) {
+    auto count = std::int32_t(key_only ? sch.key_column_count : sch.columns.size());
+    binary_tuple_builder builder{count};
+
+    builder.start();
+
+    for (std::int32_t i = 0; i < count; ++i) {
+        const auto &col = sch.columns[i];
+        auto col_idx = tuple.column_ordinal(col.name);
+
+        if (col_idx >= 0)
+            claim_column(builder, col.type, tuple.get(col_idx), col.scale);
+        else
+            builder.claim(std::nullopt);
+    }
+
+    builder.layout();
+    for (std::int32_t i = 0; i < count; ++i) {
+        const auto &col = sch.columns[i];
+        auto col_idx = tuple.column_ordinal(col.name);
+
+        if (col_idx >= 0)
+            append_column(builder, col.type, tuple.get(col_idx), col.scale);
+        else {
+            builder.append(std::nullopt);
+            no_value.set(std::size_t(i));
+        }
+    }
+
+    return builder.build();
+}
 
 /**
  * Claim type and scale header for a value written in binary tuple.
@@ -360,6 +535,25 @@ ignite_tuple concat(const ignite_tuple &left, const ignite_tuple &right) {
     }
 
     return res;
+}
+
+void write_tuple(protocol::writer &writer, const schema &sch, const ignite_tuple &tuple, bool key_only) {
+    const std::size_t count = key_only ? sch.key_column_count : sch.columns.size();
+    const std::size_t bytes_num = bytes_for_bits(count);
+
+    auto no_value_bytes = reinterpret_cast<std::byte *>(alloca(bytes_num));
+    protocol::bitset_span no_value(no_value_bytes, bytes_num);
+
+    auto tuple_data = pack_tuple(sch, tuple, key_only, no_value);
+
+    writer.write_bitset(no_value.data());
+    writer.write_binary(tuple_data);
+}
+
+void write_tuples(protocol::writer &writer, const schema &sch, const std::vector<ignite_tuple> &tuples, bool key_only) {
+    writer.write(std::int32_t(tuples.size()));
+    for (auto &tuple : tuples)
+        write_tuple(writer, sch, tuple, key_only);
 }
 
 } // namespace ignite::detail

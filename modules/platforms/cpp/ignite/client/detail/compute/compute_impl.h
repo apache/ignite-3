@@ -18,8 +18,10 @@
 #pragma once
 
 #include "ignite/client/detail/cluster_connection.h"
+#include "ignite/client/detail/table/tables_impl.h"
 #include "ignite/client/network/cluster_node.h"
 #include "ignite/client/primitive.h"
+#include "ignite/client/table/ignite_tuple.h"
 #include "ignite/common/ignite_result.h"
 
 #include <memory>
@@ -39,8 +41,9 @@ public:
      *
      * @param connection Connection.
      */
-    explicit compute_impl(std::shared_ptr<cluster_connection> connection)
-        : m_connection(std::move(connection)) {}
+    explicit compute_impl(std::shared_ptr<cluster_connection> connection, std::shared_ptr<tables_impl> tables)
+        : m_connection(std::move(connection))
+        , m_tables(std::move(tables)) {}
 
     /**
      * Executes a compute job represented by the given class on the specified node asynchronously.
@@ -53,9 +56,25 @@ public:
     void execute_on_one_node(cluster_node node, std::string_view job_class_name, const std::vector<primitive>& args,
         ignite_callback<std::optional<primitive>> callback);
 
+    /**
+     * Asynchronously executes a job represented by the given class on one node where the given key is located.
+     *
+     * @param tableName Name of the table to be used with @c key to determine target node.
+     * @param key Table key to be used to determine the target node for job execution.
+     * @param job_class_name Java class name of the job to execute.
+     * @param args Job arguments.
+     * @param callback A callback called on operation completion with job execution result.
+     */
+    void execute_colocated_async(const std::string &table_name, const ignite_tuple& key,
+        std::string_view job_class_name, const std::vector<primitive>& args,
+        ignite_callback<std::optional<primitive>> callback);
+
 private:
     /** Cluster connection. */
     std::shared_ptr<cluster_connection> m_connection;
+
+    /** Tables. */
+    std::shared_ptr<tables_impl> m_tables;
 };
 
 } // namespace ignite::detail

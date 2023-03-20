@@ -83,9 +83,10 @@ void compute::execute_colocated_async(const std::string &table_name, const ignit
     std::string_view job_class_name, const std::vector<primitive> &args,
     ignite_callback<std::optional<primitive>> callback) {
     detail::arg_check::container_non_empty(table_name, "Table name");
+    detail::arg_check::tuple_non_empty(key, "Key tuple");
     detail::arg_check::container_non_empty(job_class_name, "Job class name");
 
-    // TODO: Implement me.
+    m_impl->execute_colocated_async(table_name, key, job_class_name, args, std::move(callback));
 }
 
 } // namespace ignite

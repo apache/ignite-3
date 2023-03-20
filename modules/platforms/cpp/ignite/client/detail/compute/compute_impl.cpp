@@ -66,4 +66,52 @@ void compute_impl::execute_on_one_node(cluster_node node, std::string_view job_c
         client_operation::COMPUTE_EXECUTE, writer_func, std::move(reader_func), std::move(callback));
 }
 
+void compute_impl::execute_colocated_async(const std::string &table_name, const ignite_tuple &key,
+    std::string_view job, const std::vector<primitive> &args,
+    ignite_callback<std::optional<primitive>> callback) {
+    m_tables->get_table_async(table_name,
+        [table_name, callback = std::move(callback), key, job = std::string(job), args, conn = m_connection]
+        (auto &&res) mutable {
+        if (res.has_error()) {
+            callback({std::move(res.error())});
+            return;
+        }
+        auto &table_opt = res.value();
+        if (!table_opt) {
+            callback({ignite_error("Table does not exist: '" + table_name + "'")});
+            return;
+        }
+
+        auto table = table_impl::from_facade(*table_opt);
+        table->template with_latest_schema_async<std::optional<primitive>>(std::move(callback),
+            [table, key = std::move(key), job = std::move(job), args = std::move(args), conn] // NOLINT(performance-move-const-arg)
+            (const schema& sch, auto callback) mutable {
+                auto writer_func = [&key, &sch, &table, &job](protocol::writer &writer) {
+                    writer.write(table->get_id());
+                    writer.write(sch.version);
+                    write_tuple(writer, sch, key, true);
+                    writer.write(job);
+                    // TODO: write arguments.
+                };
+
+                auto reader_func = [](protocol::reader &reader) -> std::optional<primitive> {
+                    if (reader.try_read_nil())
+                        return std::nullopt;
+
+                    // TODO: Tuple to object.
+                    auto tuple_data = reader.read_binary();
+                    ignite_tuple res(3);
+                    binary_tuple_parser parser(3, tuple_data);
+                    auto typ = column_type(binary_tuple_parser::get_int32(*parser.get_next()));
+                    auto scale = binary_tuple_parser::get_int32(*parser.get_next());
+
+                    return read_next_column(parser, typ, scale);
+                };
+
+                conn->perform_request<std::optional<primitive>>(
+                    client_operation::COMPUTE_EXECUTE_COLOCATED, writer_func, std::move(reader_func), std::move(callback));
+            });
+        });
+}
+
 } // namespace ignite::detail
