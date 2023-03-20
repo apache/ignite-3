@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Table;
 
+using System;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics.CodeAnalysis;
 using NodaTime;
@@ -41,4 +42,5 @@ public record PocoAllColumnsSql(
     [property:Column("DATETIME")] LocalDateTime DateTime,
     [property:Column("TIMESTAMP")] Instant Timestamp,
     byte[] Blob,
-    decimal Decimal);
+    decimal Decimal,
+    Guid Uuid);

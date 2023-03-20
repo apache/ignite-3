@@ -35,16 +35,15 @@ using Table;
 public class IgniteDbDataReaderTests : IgniteTestsBase
 {
     private const string AllColumnsQuery = "select \"KEY\", \"STR\", \"INT8\", \"INT16\", \"INT32\", \"INT64\", \"FLOAT\", " +
-                                           "\"DOUBLE\", \"DATE\", \"TIME\", \"DATETIME\", \"TIMESTAMP\", \"BLOB\", \"DECIMAL\" " +
+                                           "\"DOUBLE\", \"DATE\", \"TIME\", \"DATETIME\", \"TIMESTAMP\", \"BLOB\", \"DECIMAL\", \"UUID\" " +
                                            "from TBL_ALL_COLUMNS_SQL ORDER BY KEY";
 
     private static readonly LocalDate LocalDate = new(2023, 01, 18);
-
     private static readonly LocalTime LocalTime = new(09, 28);
-
     private static readonly LocalDateTime LocalDateTime = new(2023, 01, 18, 09, 29);
     private static readonly Instant Instant = Instant.FromUnixTimeSeconds(123);
     private static readonly byte[] Bytes = { 1, 2 };
+    private static readonly Guid Guid = Guid.NewGuid();
 
     [OneTimeSetUp]
     public async Task InsertTestData()
@@ -65,7 +64,8 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
             DateTime: LocalDateTime,
             Timestamp: Instant,
             Blob: Bytes,
-            Decimal: 8.7M);
+            Decimal: 8.7M,
+            Uuid: Guid);
 
         var pocoAllColumns2 = new PocoAllColumnsSqlNullable(
             Key: 2,
@@ -128,6 +128,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         Assert.AreEqual(Instant.ToDateTimeUtc(), reader.GetDateTime("TIMESTAMP"));
         Assert.AreEqual(8.7m, reader.GetDecimal("DECIMAL"));
         Assert.AreEqual(2, reader.GetBytes("BLOB", 0, null!, 0, 0));
+        Assert.AreEqual(Guid.Empty, reader.GetGuid("UUID"));
     }
 
     [Test]
