@@ -19,6 +19,7 @@ namespace Apache.Ignite;
 
 using System.IO;
 using System.Net.Security;
+using System.Threading.Tasks;
 using Internal.Common;
 
 /// <summary>
@@ -32,7 +33,7 @@ public sealed class SslStreamFactory : ISslStreamFactory
     public SslClientAuthenticationOptions? SslClientAuthenticationOptions { get; set; }
 
     /// <inheritdoc />
-    public SslStream Create(Stream stream, string targetHost)
+    public async Task<SslStream?> CreateAsync(Stream stream, string targetHost)
     {
         IgniteArgumentCheck.NotNull(stream, "stream");
 
@@ -41,8 +42,7 @@ public sealed class SslStreamFactory : ISslStreamFactory
         var options = SslClientAuthenticationOptions ?? new SslClientAuthenticationOptions();
         options.TargetHost ??= targetHost;
 
-        // TODO: Make async?
-        sslStream.AuthenticateAsClient(options);
+        await sslStream.AuthenticateAsClientAsync(options).ConfigureAwait(false);
 
         return sslStream;
     }

@@ -207,12 +207,12 @@ public class SslTests : IgniteTestsBase
 
     private class NullSslStreamFactory : ISslStreamFactory
     {
-        public SslStream? Create(Stream stream, string targetHost) => null;
+        public Task<SslStream?> CreateAsync(Stream stream, string targetHost) => Task.FromResult<SslStream?>(null);
     }
 
     private class CustomSslStreamFactory : ISslStreamFactory
     {
-        public SslStream Create(Stream stream, string targetHost)
+        public async Task<SslStream?> CreateAsync(Stream stream, string targetHost)
         {
             var sslStream = new SslStream(
                 innerStream: stream,
@@ -220,7 +220,7 @@ public class SslTests : IgniteTestsBase
                 userCertificateValidationCallback: (_, certificate, _, _) => certificate!.Issuer.Contains("ignite"),
                 userCertificateSelectionCallback: null);
 
-            sslStream.AuthenticateAsClient(targetHost, null, SslProtocols.None, false);
+            await sslStream.AuthenticateAsClientAsync(targetHost, null, SslProtocols.None, false);
 
             return sslStream;
         }
