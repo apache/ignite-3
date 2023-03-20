@@ -17,9 +17,12 @@
 
 #pragma once
 
+#include "ignite/client/detail/table/schema.h"
 #include "ignite/client/primitive.h"
 #include "ignite/client/table/ignite_tuple.h"
 #include "ignite/client/transaction/transaction.h"
+
+#include "ignite/protocol/writer.h"
 #include "ignite/schema/binary_tuple_builder.h"
 #include "ignite/schema/binary_tuple_parser.h"
 #include "ignite/schema/ignite_type.h"
@@ -70,5 +73,25 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
  * @return Resulting tuple.
  */
 [[nodiscard]] ignite_tuple concat(const ignite_tuple &left, const ignite_tuple &right);
+
+/**
+ * Write tuple using table schema and writer.
+ *
+ * @param writer Writer.
+ * @param sch Schema.
+ * @param tuple Tuple.
+ * @param key_only Should only key fields be written or not.
+ */
+void write_tuple(protocol::writer &writer, const schema &sch, const ignite_tuple &tuple, bool key_only);
+
+/**
+ * Write tuples using table schema and writer.
+ *
+ * @param writer Writer.
+ * @param sch Schema.
+ * @param tuples Tuples.
+ * @param key_only Should only key fields be written or not.
+ */
+void write_tuples(protocol::writer &writer, const schema &sch, const std::vector<ignite_tuple> &tuples, bool key_only);
 
 } // namespace ignite::detail

@@ -160,6 +160,9 @@ public class TcpIgniteClient implements IgniteClient {
             List<ClusterNode> res = new ArrayList<>(cnt);
 
             for (int i = 0; i < cnt; i++) {
+                int fieldCnt = r.in().unpackArrayHeader();
+                assert fieldCnt == 4;
+
                 res.add(new ClusterNode(
                         r.in().unpackString(),
                         r.in().unpackString(),
