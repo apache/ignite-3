@@ -25,7 +25,6 @@ namespace ignite {
 
 template<typename T>
 typename T::value_type get_random_element(const T &cont) {
-    // TODO: Move to utils
     static std::mutex randomMutex;
     static std::random_device rd;
     static std::mt19937 gen(rd());
