@@ -22,7 +22,7 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 dependencies {
     implementation project(':ignite-api')
     implementation project(':ignite-core')
-    implementation project(':ignite-configuration')
+    implementation project(':ignite-configuration-api')
     implementation project(':ignite-schema')
     implementation project(':ignite-table')
     implementation project(':ignite-transactions')
@@ -30,6 +30,7 @@ dependencies {
     implementation project(':ignite-network-api')
     implementation project(':ignite-raft-api')
     implementation libs.jetbrains.annotations
+
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation libs.mockito.core

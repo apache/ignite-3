@@ -21,10 +21,10 @@ import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
 
 /**
  * {@link ConfigurationModule} for node-local configuration provided by ignite-network.

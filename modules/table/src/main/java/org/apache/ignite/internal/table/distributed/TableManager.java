@@ -24,7 +24,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesPrefix;
@@ -59,6 +58,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -83,7 +83,6 @@ import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.causality.VersionedValue;
-import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -775,19 +774,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 CompletableFuture<Void> startGroupFut;
 
+                CountDownLatch storageReadyLatch = new CountDownLatch(1);
+
                 // start new nodes, only if it is table creation, other cases will be covered by rebalance logic
                 if (oldPartAssignment.isEmpty() && localMemberAssignment != null) {
                     startGroupFut = partitionStoragesFut.thenComposeAsync(partitionStorages -> {
-                        MvPartitionStorage mvPartitionStorage = partitionStorages.getMvPartitionStorage();
-
-                        boolean hasData = mvPartitionStorage.lastAppliedIndex() > 0;
-
                         CompletableFuture<Boolean> fut;
 
                         // If Raft is running in in-memory mode or the PDS has been cleared, we need to remove the current node
                         // from the Raft group in order to avoid the double vote problem.
                         // <MUTED> See https://issues.apache.org/jira/browse/IGNITE-16668 for details.
-                        if (internalTbl.storage().isVolatile() || !hasData) {
+                        // TODO: https://issues.apache.org/jira/browse/IGNITE-19046 Restore "|| !hasData"
+                        if (internalTbl.storage().isVolatile()) {
                             fut = queryDataNodesCount(tblId, partId, newConfiguration.peers()).thenApply(dataNodesCount -> {
                                 boolean fullPartitionRestart = dataNodesCount == 0;
 
@@ -827,7 +825,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                 internalTbl.storage(),
                                                 internalTbl.txStateStorage(),
                                                 partitionKey(internalTbl, partId),
-                                                storageUpdateHandler
+                                                storageUpdateHandler,
+                                                storageReadyLatch
                                         );
 
                                         Peer serverPeer = newConfiguration.peer(localMemberName);
@@ -910,7 +909,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     placementDriver,
                                                     storageUpdateHandler,
                                                     this::isLocalPeer,
-                                                    schemaManager.schemaRegistry(causalityToken, tblId)
+                                                    schemaManager.schemaRegistry(causalityToken, tblId),
+                                                    storageReadyLatch
                                             )
                                     );
                                 } catch (NodeStoppingException ex) {
@@ -981,7 +981,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             MvTableStorage mvTableStorage,
             TxStateTableStorage txStateTableStorage,
             PartitionKey partitionKey,
-            StorageUpdateHandler storageUpdateHandler
+            StorageUpdateHandler storageUpdateHandler,
+            CountDownLatch storageReadyLatch
     ) {
         RaftGroupOptions raftGroupOptions;
 
@@ -1006,6 +1007,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 ),
                 incomingSnapshotsExecutor
         ));
+
+        raftGroupOptions.setStorageReadyLatch(storageReadyLatch);
 
         return raftGroupOptions;
     }
@@ -1619,7 +1622,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return A list of direct table ids.
      */
     private List<UUID> directTableIds() {
-        return ConfigurationUtil.internalIds(directProxy(tablesCfg.tables()));
+        return directProxy(tablesCfg.tables()).internalIds();
     }
 
     /**
@@ -1628,7 +1631,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return A list of direct index ids.
      */
     private List<UUID> directIndexIds() {
-        return ConfigurationUtil.internalIds(directProxy(tablesCfg.indexes()));
+        return directProxy(tablesCfg.indexes()).internalIds();
     }
 
     /**
@@ -1811,7 +1814,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private boolean isTableConfigured(UUID id) {
         try {
-            ((ExtendedTableConfiguration) getByInternalId(directProxy(tablesCfg.tables()), id)).id().value();
+            ((ExtendedTableConfiguration) directProxy(tablesCfg.tables()).get(id)).id().value();
 
             return true;
         } catch (NoSuchElementException e) {
@@ -2067,7 +2070,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 internalTable.storage(),
                                 internalTable.txStateStorage(),
                                 partitionKey(internalTable, partId),
-                                storageUpdateHandler
+                                storageUpdateHandler,
+                                null
                         );
 
                         RaftGroupListener raftGrpLsnr = new PartitionListener(
@@ -2267,7 +2271,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @see #getMetadataLocallyOnly
      */
     private <T extends ConfigurationProperty<?>> T directProxy(T property) {
-        return getMetadataLocallyOnly ? property : ConfigurationUtil.directProxy(property);
+        return getMetadataLocallyOnly ? property : (T) property.directProxy();
     }
 
     private static PeersAndLearners configurationFromAssignments(Collection<Assignment> assignments) {
