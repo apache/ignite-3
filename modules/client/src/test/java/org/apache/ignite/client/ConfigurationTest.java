@@ -158,24 +158,26 @@ public class ConfigurationTest extends AbstractClientTest {
 
     @Test
     public void testCustomAsyncContinuationExecutor() throws Exception {
-        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try (var testServer = new TestServer(10900, 10, 0, server, null, x -> 1000, "n2", clusterId)) {
+            ExecutorService executor = Executors.newSingleThreadExecutor();
 
-        var builderThreadName = new AtomicReference<String>();
+            var builderThreadName = new AtomicReference<String>();
 
-        CompletableFuture<IgniteClient> builder = IgniteClient.builder()
-                .addresses("127.0.0.1:" + serverPort)
-                .asyncContinuationExecutor(executor)
-                .buildAsync()
-                .whenComplete((res, err) -> builderThreadName.set(Thread.currentThread().getName()));
+            CompletableFuture<IgniteClient> builder = IgniteClient.builder()
+                    .addresses("127.0.0.1:" + testServer.port())
+                    .asyncContinuationExecutor(executor)
+                    .buildAsync()
+                    .whenComplete((res, err) -> builderThreadName.set(Thread.currentThread().getName()));
 
-        try (IgniteClient ignite = builder.join()) {
-            String threadName = ignite.tables().tablesAsync().thenApply(unused -> Thread.currentThread().getName()).join();
+            try (IgniteClient ignite = builder.join()) {
+                String threadName = ignite.tables().tablesAsync().thenApply(unused -> Thread.currentThread().getName()).join();
 
-            assertEquals(executor, ignite.configuration().asyncContinuationExecutor());
-            assertThat(threadName, startsWith("pool-"));
-            assertThat(builderThreadName.get(), startsWith("pool-"));
+                assertEquals(executor, ignite.configuration().asyncContinuationExecutor());
+                assertThat(threadName, startsWith("pool-"));
+                assertThat(builderThreadName.get(), startsWith("pool-"));
+            }
+
+            executor.shutdown();
         }
-
-        executor.shutdown();
     }
 }
