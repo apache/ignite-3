@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit;
+package org.apache.ignite.internal.deployunit.key;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -25,11 +25,12 @@ import java.util.Base64.Decoder;
 import java.util.Base64.Encoder;
 import java.util.List;
 import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.deployunit.UnitMeta;
 
 /**
  * Serializer for {@link UnitMeta}.
  */
-public class UnitMetaSerializer {
+public final class UnitMetaSerializer {
     private static final String SEPARATOR = ";";
 
     /**
@@ -72,15 +73,12 @@ public class UnitMetaSerializer {
      */
     public static UnitMeta deserialize(byte[] bytes) {
         String s = new String(bytes, UTF_8);
-
         String[] split = s.split(SEPARATOR);
 
         Decoder decoder = Base64.getDecoder();
 
         String id = new String(decoder.decode(split[0]), UTF_8);
-
         String version = new String(decoder.decode(split[1]), UTF_8);
-
         String unitName = new String(decoder.decode(split[2]), UTF_8);
 
         List<String> ids = new ArrayList<>();

@@ -59,7 +59,7 @@ public class ItOrToUnionRuleTest extends ClusterPerClassIntegrationTest {
         sql("CREATE INDEX " + IDX_SUBCATEGORY + " ON products (subcategory)");
         sql("CREATE INDEX " + IDX_SUBCAT_ID + " ON products (subcat_id)");
 
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
         waitForIndex(IDX_CATEGORY);
         waitForIndex(IDX_CAT_ID);
         waitForIndex(IDX_SUBCATEGORY);

@@ -15,21 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.tree;
+package org.apache.ignite.internal.deployunit.metastore;
+
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * This exception is thrown when an operation attempts to access a node with a key that no longer exists.
+ * Throws when accumulation process finished unsuccessfully {@link Accumulator#get()}.
  */
-public class ConfigurationNodeDoesNotExistException extends ConfigurationNodeModificationException {
-
-    private static final long serialVersionUID = 4545533114006120896L;
-
+public class AccumulateException extends IgniteInternalCheckedException {
     /**
-     * The constructor.
+     * Constructor.
      *
-     * @param key   the key.
+     * @param cause Cause exception.
      */
-    public ConfigurationNodeDoesNotExistException(String key) {
-        super(String.format("Named List element with key \"%s\" does not exist", key));
+    public AccumulateException(Throwable cause) {
+        super(cause);
     }
 }
