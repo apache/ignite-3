@@ -88,8 +88,6 @@ import org.apache.ignite.network.ClusterService;
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
  * as well as managing indexes' lifecycle.
  */
-// TODO: IGNITE-18539 не забыть про перезапуск узла
-// TODO: IGNITE-18539 проверить есть ли проблемы с распределением
 public class IndexManager extends Producer<IndexEvent, IndexEventParameters> implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
@@ -683,6 +681,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                                 buildIndexExecutor.submit(new BuildIndexTask(table, tableIndexView, partitionId, false));
                             }
                         });
+            } catch (Throwable t) {
+                LOG.error("Index build error: [{}]", t, createCommonTableIndexInfo());
             } finally {
                 busyLock.leaveBusy();
             }
