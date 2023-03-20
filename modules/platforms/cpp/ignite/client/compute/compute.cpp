@@ -62,8 +62,8 @@ void compute::broadcast_async(const std::set<cluster_node> &nodes, std::string_v
 
         std::mutex m_mutex;
         result_type m_res_map;
-        ignite_callback<result_type> m_callback;
         std::int32_t m_cnt{0};
+        ignite_callback<result_type> m_callback;
     };
 
     auto shared_res = std::make_shared<result_group>(std::int32_t(nodes.size()), std::move(callback));
