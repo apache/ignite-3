@@ -91,6 +91,7 @@ import org.mockito.Mockito;
 /**
  * Test class to verify {@link IndexManager}.
  */
+// TODO: IGNITE-19072 Refactoring
 @ExtendWith(ConfigurationExtension.class)
 public class IndexManagerTest {
     /** Configuration registry with one table for each test. */

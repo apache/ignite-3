@@ -447,6 +447,8 @@ public class StorageUpdateHandler {
             }
         }
 
+        assert lastRowId != null || finish : "indexId=" + indexId + ", partitionId=" + partitionId;
+
         index.storage().setLastBuildRowId(finish ? null : lastRowId);
     }
 }

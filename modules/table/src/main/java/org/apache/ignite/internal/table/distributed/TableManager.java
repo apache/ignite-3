@@ -931,8 +931,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }).join();
     }
 
-    private boolean isLocalPeer(@Nullable Peer peer) {
-        return peer != null && peer.consistentId().equals(clusterService.topologyService().localMember().name());
+    private boolean isLocalPeer(Peer peer) {
+        return peer.consistentId().equals(clusterService.topologyService().localMember().name());
     }
 
     private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
