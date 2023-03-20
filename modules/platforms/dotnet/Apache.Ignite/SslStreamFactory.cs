@@ -41,6 +41,7 @@ public sealed class SslStreamFactory : ISslStreamFactory
         var options = SslClientAuthenticationOptions ?? new SslClientAuthenticationOptions();
         options.TargetHost ??= targetHost;
 
+        // TODO: Make async?
         sslStream.AuthenticateAsClient(options);
 
         return sslStream;
