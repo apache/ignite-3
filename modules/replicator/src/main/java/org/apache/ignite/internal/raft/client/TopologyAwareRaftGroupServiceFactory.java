@@ -60,6 +60,7 @@ public class TopologyAwareRaftGroupServiceFactory implements RaftServiceFactory<
         this.eventsClientListener = eventsClientListener;
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<TopologyAwareRaftGroupService> startRaftGroupService(
             ReplicationGroupId groupId,

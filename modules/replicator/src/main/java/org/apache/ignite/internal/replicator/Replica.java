@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -133,11 +134,28 @@ public class Replica {
         return leaderFuture.thenApply(AtomicReference::get);
     }
 
-    public CompletableFuture<NetworkMessage> processPlacementDriverMessage(PlacementDriverReplicaMessage msg0) {
-        assert msg0 instanceof LeaseGrantedMessage;
+    /**
+     * Process placement driver message.
+     *
+     * @param msg Message to process.
+     * @return Future that contains a result.
+     */
+    public CompletableFuture<? extends NetworkMessage> processPlacementDriverMessage(PlacementDriverReplicaMessage msg) {
+        if (msg instanceof LeaseGrantedMessage) {
+            return processLeaseGrantedMessage((LeaseGrantedMessage) msg);
+        }
 
-        LeaseGrantedMessage msg = (LeaseGrantedMessage) msg0;
+        return failedFuture(new AssertionError("Unknown message type, msg=" + msg));
+    }
 
+    /**
+     * Process lease granted message. Can either accept lease or decline with redirection proposal. In the case of lease acceptance,
+     * initiates the leadership transfer, if this replica is not a group leader.
+     *
+     * @param msg Message to process.
+     * @return Future that contains a result.
+     */
+    public CompletableFuture<LeaseGrantedMessageResponse> processLeaseGrantedMessage(LeaseGrantedMessage msg) {
         return leaderFuture().thenCompose(leader -> {
             if (hasAcceptedLease(msg.leaseStartTime(), msg.leaseExpirationTime())) {
                 return acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
@@ -146,7 +164,8 @@ public class Replica {
                     // Replica must wait till safe time reaches the lease start timestamp to make sure that all updates made on the
                     // group leader are received.
                     return safeTime.waitFor(msg.leaseStartTime()).thenCompose(v -> {
-                        CompletableFuture<NetworkMessage> respFut = acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
+                        CompletableFuture<LeaseGrantedMessageResponse> respFut =
+                                acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
 
                         return raftClient.transferLeadership(new Peer(localNodeSupplier.get().name()))
                                 .thenCompose(ignored -> respFut);
@@ -164,7 +183,7 @@ public class Replica {
         });
     }
 
-    private CompletableFuture<NetworkMessage> acceptLease(HybridTimestamp leaseStartTime, HybridTimestamp leaseExpirationTime) {
+    private CompletableFuture<LeaseGrantedMessageResponse> acceptLease(HybridTimestamp leaseStartTime, HybridTimestamp leaseExpirationTime) {
         synchronized (leaseAcceptanceMutex) {
             this.leaseStartTime = leaseStartTime;
             this.leaseExpirationTime = leaseExpirationTime;
@@ -177,7 +196,7 @@ public class Replica {
         return completedFuture(resp);
     }
 
-    private CompletableFuture<NetworkMessage> proposeLeaseRedirect(ClusterNode groupLeader) {
+    private CompletableFuture<LeaseGrantedMessageResponse> proposeLeaseRedirect(ClusterNode groupLeader) {
         LeaseGrantedMessageResponse resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
                 .accepted(false)
                 .redirectProposal(groupLeader.name())

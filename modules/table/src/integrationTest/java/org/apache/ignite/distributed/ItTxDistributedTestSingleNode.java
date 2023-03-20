@@ -592,7 +592,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
-
         for (Entry<String, Loza> entry : raftServers.entrySet()) {
             Loza rs = entry.getValue();
 

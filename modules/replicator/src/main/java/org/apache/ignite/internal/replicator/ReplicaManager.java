@@ -220,11 +220,11 @@ public class ReplicaManager implements IgniteComponent {
             }
 
             // replicaFut is always completed here.
-            CompletableFuture<NetworkMessage> result = replicaFut.join().processPlacementDriverMessage(msg);
+            CompletableFuture<? extends NetworkMessage> result = replicaFut.join().processPlacementDriverMessage(msg);
 
             result.handle((response, ex) -> {
                 if (ex == null) {
-                    clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
+                    clusterNetSvc.messagingService().respond(senderConsistentId, response, correlationId);
                 } else {
                     LOG.error("Failed to process placement driver message [msg={}]", ex, msg);
                 }

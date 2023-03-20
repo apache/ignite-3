@@ -27,6 +27,15 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
  * Factory that can be used to create customized Raft service.
  */
 public interface RaftServiceFactory<T extends RaftGroupService> {
+    /**
+     * Creates Raft group service.
+     *
+     * @param groupId Group id.
+     * @param peersAndLearners Peers configuration.
+     * @param raftConfiguration Raft configuration.
+     * @param raftClientExecutor Client executor.
+     * @return Future that contains client when completes.
+     */
     CompletableFuture<T> startRaftGroupService(
             ReplicationGroupId groupId,
             PeersAndLearners peersAndLearners,
