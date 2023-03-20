@@ -19,11 +19,9 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.calcite.util.ImmutableIntList;
-import org.apache.calcite.util.NlsString;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
