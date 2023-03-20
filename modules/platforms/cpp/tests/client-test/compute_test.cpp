@@ -102,7 +102,7 @@ TEST_F(compute_test, get_cluster_nodes) {
     std::sort(cluster_nodes.begin(), cluster_nodes.end(),
         [](const auto &n1, const auto &n2) { return n1.get_name() < n2.get_name(); });
 
-    ASSERT_EQ(2, cluster_nodes.size());
+    ASSERT_EQ(4, cluster_nodes.size());
 
     EXPECT_FALSE(cluster_nodes[0].get_id().empty());
     EXPECT_FALSE(cluster_nodes[1].get_id().empty());
@@ -150,10 +150,12 @@ TEST_F(compute_test, execute_broadcast_one_node) {
 TEST_F(compute_test, execute_broadcast_all_nodes) {
     auto res = m_client.get_compute().broadcast(get_node_set(), NODE_NAME_JOB, {"42"});
 
-    ASSERT_EQ(res.size(), 2);
+    ASSERT_EQ(res.size(), 4);
 
     EXPECT_EQ(res[get_node(0)].value(), get_node(0).get_name() + "42");
     EXPECT_EQ(res[get_node(1)].value(), get_node(1).get_name() + "42");
+    EXPECT_EQ(res[get_node(2)].value(), get_node(2).get_name() + "42");
+    EXPECT_EQ(res[get_node(3)].value(), get_node(3).get_name() + "42");
 }
 
 TEST_F(compute_test, execute_with_args) {
@@ -240,7 +242,7 @@ TEST_F(compute_test, all_arg_types) {
 }
 
 TEST_F(compute_test, execute_colocated) {
-    std::map<std::int32_t, std::string> nodes_for_values = {{1, ""}, {2, "_2"}, {3, ""}, {5, "_2"}};
+    std::map<std::int32_t, std::string> nodes_for_values = {{1, "_4"}, {5, "_2"}, {9, "_3"}, {10, ""}, {11, "_2"}};
 
     for (const auto &var : nodes_for_values) {
         SCOPED_TRACE("key=" + std::to_string(var.first) + ", node=" + var.second);
