@@ -25,6 +25,7 @@ import java.util.Set;
  */
 @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
 public class AlterTableDropColumnParams extends AbstractTableCommandParams {
+    private static final long serialVersionUID = 4111208774796975682L;
     /** Quietly ignore this command if column is not exist. */
     private boolean ifColumnExists;
 

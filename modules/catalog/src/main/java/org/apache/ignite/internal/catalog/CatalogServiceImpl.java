@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+
 import java.util.Collection;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
@@ -33,6 +36,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -46,6 +51,9 @@ import org.jetbrains.annotations.Nullable;
  */
 public class CatalogServiceImpl implements CatalogService, CatalogManager {
     private static final AtomicInteger TABLE_ID_GEN = new AtomicInteger();
+
+    /** The logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(CatalogServiceImpl.class);
 
     /** Versioned catalog descriptors. */
     //TODO: IGNITE-18535 Use copy-on-write approach with IntMap instead??
@@ -67,14 +75,20 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
         catalogVersionsListener = new CatalogEventListener();
     }
 
+    /** {@inheritDoc} */
+    @Override
     public void start() {
-        metaStorageMgr.registerPrefixWatch(ByteArray.fromString("catalog-"), catalogVersionsListener);
+        if (CatalogService.useCatalogService()) {
+            metaStorageMgr.registerPrefixWatch(ByteArray.fromString("catalog-"), catalogVersionsListener);
+        }
 
         //TODO: IGNITE-18535 restore state.
         registerCatalog(new CatalogDescriptor(0, 0L,
                 new SchemaDescriptor(0, "PUBLIC", 0, new TableDescriptor[0], new IndexDescriptor[0])));
     }
 
+    /** {@inheritDoc} */
+    @Override
     public void stop() {
         metaStorageMgr.unregisterWatch(catalogVersionsListener);
     }
@@ -135,15 +149,26 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
         return entry.getValue();
     }
 
+    /**
+     * MetaStorage event listener for catalog metadata updates.
+     */
     private static class CatalogEventListener implements WatchListener {
+        /** {@inheritDoc} */
         @Override
-        public void onUpdate(WatchEvent event) {
-
+        public String id() {
+            return "catalog-history-watch";
         }
 
+        /** {@inheritDoc} */
+        @Override
+        public CompletableFuture<Void> onUpdate(WatchEvent event) {
+            return completedFuture(null);
+        }
+
+        /** {@inheritDoc} */
         @Override
         public void onError(Throwable e) {
-
+            LOG.warn("Unable to process catalog update event", e);
         }
     }
 
@@ -176,12 +201,13 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
 
             if (schema.table(params.tableName()) != null) {
                 return params.ifTableExists()
-                        ? CompletableFuture.completedFuture(false)
-                        : CompletableFuture.failedFuture(new TableAlreadyExistsException(schemaName, params.tableName()));
+                        ? completedFuture(false)
+                        : failedFuture(new TableAlreadyExistsException(schemaName, params.tableName()));
             }
 
             int newVersion = catalogByVer.lastKey() + 1;
 
+            //TODO: IGNITE-18535 Fix tableId generation. Make it consistent on all nodes.
             TableDescriptor table = CatalogUtils.fromParams(TABLE_ID_GEN.incrementAndGet(), params);
 
             CatalogDescriptor newCatalog = new CatalogDescriptor(
@@ -199,25 +225,25 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
             registerCatalog(newCatalog);
         }
 
-        return CompletableFuture.completedFuture(true);
+        return completedFuture(true);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<?> dropTable(DropTableParams params) {
-        return CompletableFuture.failedFuture(new UnsupportedOperationException("Not implemented yet."));
+        return failedFuture(new UnsupportedOperationException("Not implemented yet."));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<?> addColumn(AlterTableAddColumnParams params) {
-        return CompletableFuture.failedFuture(new UnsupportedOperationException("Not implemented yet."));
+        return failedFuture(new UnsupportedOperationException("Not implemented yet."));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<?> dropColumn(AlterTableDropColumnParams params) {
-        return CompletableFuture.failedFuture(new UnsupportedOperationException("Not implemented yet."));
+        return failedFuture(new UnsupportedOperationException("Not implemented yet."));
     }
 
     private void registerCatalog(CatalogDescriptor newCatalog) {

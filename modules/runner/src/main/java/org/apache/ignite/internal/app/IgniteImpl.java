@@ -47,7 +47,6 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.deployment.IgniteDeployment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
@@ -280,7 +279,7 @@ public class IgniteImpl implements Ignite {
     private final ScheduledExecutorService raftExecutorService;
 
     private final DistributedConfigurationUpdater distributedConfigurationUpdater;
-    private CatalogManager catalogManager;
+    private final CatalogManager catalogManager;
 
     /**
      * The Constructor.
@@ -496,9 +495,7 @@ public class IgniteImpl implements Ignite {
 
         indexManager = new IndexManager(tablesConfiguration, schemaManager, distributedTblMgr);
 
-        if (CatalogService.USE_CATALOG) {
-            catalogManager = new CatalogServiceImpl(metaStorageMgr);
-        }
+        catalogManager = new CatalogServiceImpl(metaStorageMgr);
 
         qryEngine = new SqlQueryProcessor(
                 registry,
@@ -676,6 +673,7 @@ public class IgniteImpl implements Ignite {
                                     volatileLogStorageFactoryCreator,
                                     outgoingSnapshotsManager,
                                     distributedTblMgr,
+                                    catalogManager,
                                     indexManager,
                                     qryEngine,
                                     clientHandlerModule,

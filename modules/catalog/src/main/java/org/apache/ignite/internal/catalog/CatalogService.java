@@ -33,10 +33,15 @@ import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
  */
 public interface CatalogService {
     String PUBLIC = "PUBLIC";
-    String IGNITE_USE_CATALOG_PROPERTY = "IGNITE_USE_CATALOG";
-    //TODO: IGNITE-18535 Remove when all versioned schema stuff will be moved to Catalog.
+
+    //TODO: IGNITE-18535 Drop this stuff when all versioned schema stuff will be moved to Catalog.
     @Deprecated(forRemoval = true)
-    boolean USE_CATALOG = Boolean.getBoolean(IGNITE_USE_CATALOG_PROPERTY);
+    String IGNITE_USE_CATALOG_PROPERTY = "IGNITE_USE_CATALOG";
+
+    @Deprecated(forRemoval = true)
+    static boolean useCatalogService() {
+        return Boolean.getBoolean(IGNITE_USE_CATALOG_PROPERTY);
+    }
 
     TableDescriptor table(String tableName, long timestamp);
 

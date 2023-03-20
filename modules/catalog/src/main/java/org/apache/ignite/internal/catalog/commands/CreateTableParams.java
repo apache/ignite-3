@@ -25,6 +25,8 @@ import org.jetbrains.annotations.Nullable;
  * CREATE TABLE statement.
  */
 public class CreateTableParams extends AbstractTableCommandParams {
+    private static final long serialVersionUID = 8940651692824552250L;
+
     public static Builder builder() {
         return new Builder();
     }
@@ -125,6 +127,9 @@ public class CreateTableParams extends AbstractTableCommandParams {
         return zone;
     }
 
+    /**
+     * Parameters builder.
+     */
     public static class Builder extends AbstractBuilder<CreateTableParams, Builder> {
         private Builder() {
             super(new CreateTableParams());
@@ -169,6 +174,7 @@ public class CreateTableParams extends AbstractTableCommandParams {
 
         /**
          * Set primary key columns.
+         *
          * @return {@code this}.
          */
         public Builder primaryKeyColumns(List<String> pkCols) {

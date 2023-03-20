@@ -22,11 +22,12 @@ import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
  * Catalog manager provides schema manipulation methods is responsible for managing distributed operations.
  */
-public interface CatalogManager {
+public interface CatalogManager extends IgniteComponent {
     /**
      * Creates new table.
      *

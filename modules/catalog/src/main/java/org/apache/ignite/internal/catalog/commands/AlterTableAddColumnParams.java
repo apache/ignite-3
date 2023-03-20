@@ -23,6 +23,8 @@ import java.util.List;
  * ALTER TABLE ... ADD COLUMN statement.
  */
 public class AlterTableAddColumnParams extends AbstractTableCommandParams {
+    private static final long serialVersionUID = 4208842258200745736L;
+
     public static Builder builder() {
         return new Builder();
     }

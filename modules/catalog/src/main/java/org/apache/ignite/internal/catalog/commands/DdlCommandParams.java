@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import java.io.Serializable;
+
 /**
  * Marker interface for DDL command parameters.
  */
-public interface DdlCommandParams {
+public interface DdlCommandParams extends Serializable {
 }

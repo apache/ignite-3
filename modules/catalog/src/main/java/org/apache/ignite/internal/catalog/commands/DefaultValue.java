@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import java.io.Serializable;
 import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
 
@@ -24,7 +25,9 @@ import org.jetbrains.annotations.Nullable;
  * Definition of value provider to use as default.
  */
 @SuppressWarnings("PublicInnerClass")
-public class DefaultValue {
+public class DefaultValue implements Serializable {
+    private static final long serialVersionUID = -3056041395340876711L;
+
     /**
      * Defines value provider as functional provider.
      *
@@ -67,6 +70,7 @@ public class DefaultValue {
 
     /** Defines default value provider as a function call. */
     public static class FunctionCall extends DefaultValue {
+        private static final long serialVersionUID = -8166753714497411236L;
         private final String functionName;
 
         private FunctionCall(String functionName) {
@@ -82,15 +86,16 @@ public class DefaultValue {
 
     /** Defines default value provider as a constant. */
     public static class ConstantValue extends DefaultValue {
-        private final Object value;
+        private static final long serialVersionUID = -5909897953153236118L;
+        private final @Nullable Serializable value;
 
-        private ConstantValue(Object value) {
+        private ConstantValue(@Nullable Object value) {
             super(Type.CONSTANT);
-            this.value = value;
+            this.value = (Serializable) value;
         }
 
         /** Returns value to use as default. */
-        public Object value() {
+        public @Nullable Serializable value() {
             return value;
         }
     }

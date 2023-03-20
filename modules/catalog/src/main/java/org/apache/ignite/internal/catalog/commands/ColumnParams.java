@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import java.io.Serializable;
 import java.util.Objects;
 import org.apache.ignite.sql.ColumnType;
 
 /** Defines a particular column within table. */
-public class ColumnParams {
+public class ColumnParams implements Serializable {
+    private static final long serialVersionUID = 5602599481844743521L;
+
     private final String name;
 
     private final ColumnType type;

@@ -21,11 +21,15 @@ package org.apache.ignite.internal.catalog.commands;
  * DROP TABLE statement.
  */
 public class DropTableParams extends AbstractTableCommandParams {
+    private static final long serialVersionUID = 1359515719066409410L;
 
     public static Builder builder() {
         return new Builder();
     }
 
+    /**
+     * Parameters builder.
+     */
     public static class Builder extends AbstractBuilder<DropTableParams, Builder> {
         Builder() {
             super(new DropTableParams());

@@ -25,6 +25,13 @@ import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
  * Catalog utils.
  */
 public class CatalogUtils {
+    /**
+     * Converts CreateTable command params to descriptor.
+     *
+     * @param id Table id.
+     * @param params Parameters.
+     * @return Table descriptor.
+     */
     public static TableDescriptor fromParams(int id, CreateTableParams params) {
         return new TableDescriptor(id,
                 params.tableName(),

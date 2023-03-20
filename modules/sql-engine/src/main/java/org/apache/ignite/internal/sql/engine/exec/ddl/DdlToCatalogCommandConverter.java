@@ -35,6 +35,9 @@ class DdlToCatalogCommandConverter {
         List<ColumnParams> columns = cmd.columns().stream().map(DdlToCatalogCommandConverter::convert).collect(Collectors.toList());
 
         return CreateTableParams.builder()
+                .schemaName(cmd.schemaName())
+                .tableName(cmd.tableName())
+
                 .columns(columns)
                 .colocationColumns(cmd.colocationColumns())
                 .primaryKeyColumns(cmd.primaryKeyColumns())

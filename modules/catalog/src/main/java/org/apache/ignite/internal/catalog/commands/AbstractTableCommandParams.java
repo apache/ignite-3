@@ -21,6 +21,8 @@ package org.apache.ignite.internal.catalog.commands;
  * Abstract table ddl command.
  */
 public class AbstractTableCommandParams implements DdlCommandParams {
+    private static final long serialVersionUID = 8407221742102950843L;
+
     /** Table name. */
     protected String tableName;
 

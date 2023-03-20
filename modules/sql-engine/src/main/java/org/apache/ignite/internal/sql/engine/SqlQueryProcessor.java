@@ -228,7 +228,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         this.prepareSvc = prepareSvc;
 
-        var ddlCommandHandler = CatalogService.USE_CATALOG
+        var ddlCommandHandler = CatalogService.useCatalogService()
                 ? new DdlCommandHandlerWrapper(distributionZoneManager, tableManager, indexManager, dataStorageManager, catalogManager)
                 : new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager);
 

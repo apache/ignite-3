@@ -64,7 +64,7 @@ public class TableDescriptor extends ObjectDescriptor {
     ) {
         super(id, Type.TABLE, name);
 
-        this.columns = Objects.requireNonNull(columns,"No columns defined.").toArray(TableColumnDescriptor[]::new);
+        this.columns = Objects.requireNonNull(columns, "No columns defined.").toArray(TableColumnDescriptor[]::new);
         primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.").toArray(String[]::new);
         colocationColumns = colocationCols == null ? primaryKeyColumns : colocationCols.toArray(String[]::new);
 
