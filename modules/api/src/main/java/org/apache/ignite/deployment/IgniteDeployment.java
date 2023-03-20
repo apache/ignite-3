@@ -26,79 +26,77 @@ import org.apache.ignite.deployment.version.Version;
  */
 public interface IgniteDeployment {
     /**
-     * Deploy provided unit to current node with latest version.
+     * Deploys the specified unit to the current node with the latest version.
      *
      * @param id Unit identifier. Not empty and not null.
      * @param deploymentUnit Unit content.
-     * @return Future with success or not result.
+     * @return CompletableFuture (success or failure).
      */
     default CompletableFuture<Boolean> deployAsync(String id, DeploymentUnit deploymentUnit) {
         return deployAsync(id, Version.LATEST, deploymentUnit);
     }
 
     /**
-     * Deploy provided unit to current node.
-     * After deploy finished, this deployment unit will be place to CMG group asynchronously.
+     * Deploys the specified unit to the current node.
+     * The deployment unit is placed in the CMG group asynchronously.
      *
      * @param id Unit identifier. Not empty and not null.
      * @param version Unit version.
      * @param deploymentUnit Unit content.
-     * @return Future with success or not result.
+     * @return CompletableFuture (success or failure).
      */
     CompletableFuture<Boolean> deployAsync(String id, Version version, DeploymentUnit deploymentUnit);
 
     /**
-     * Undeploy latest version of unit with corresponding identifier.
+     * Un-deploys the latest version of the specified unit.
      *
      * @param id Unit identifier. Not empty and not null.
-     * @return Future completed when unit will be undeployed.
-     *      In case when specified unit not exist future will be failed.
+     * @return CompletableFuture; 'failure' if the specified unit does not exist.
      */
     default CompletableFuture<Void> undeployAsync(String id) {
         return undeployAsync(id, Version.LATEST);
     }
 
     /**
-     * Undeploy unit with corresponding identifier and version.
-     * Note that unit files will be deleted asynchronously.
+     * Un-deploys the unit specified by the identifier and version.
+     * The unit files are deleted asynchronously.
      *
      * @param id Unit identifier.
      * @param version Unit version.
-     * @return Future completed when unit will be undeployed.
-     *      In case when specified unit not exist future will be failed.
+     * @return CompletableFuture; 'failure' if the specified unit does not exist.
      */
     CompletableFuture<Void> undeployAsync(String id, Version version);
 
     /**
      * Lists all deployed units.
      *
-     * @return Future with result.
+     * @return CompletableFuture with the list.
      */
     CompletableFuture<List<UnitStatus>> unitsAsync();
 
     /**
-     * List all deployed versions of the specified unit.
+     * Lists all deployed versions of the specified unit.
      *
      * @param id Unit identifier. Not empty and not null.
-     * @return Future with list of all available version of unit.
-     *      In case when unit with specified identifier not exist future list will be empty.
+     * @return CompletableFuture with the version list.
+     *      If the specified unit does not exist, the list is empty.
      */
     CompletableFuture<List<Version>> versionsAsync(String id);
 
     /**
-     * Return status of unit with provided identifier.
+     * Returns status of the specified unit.
      *
      * @param id Unit identifier. Not empty and not null.
-     * @return Future with unit status.
-     *      Future will be failed if unit with specified identifier not exist.
+     * @return CompletableFuture with the unit status.
+     *      'Failure' if the specified unit does not exist.
      */
     CompletableFuture<UnitStatus> statusAsync(String id);
 
     /**
-     * Returns list with deployed units on node with provided consistent id.
+     * Lists all units deplored to a node specified by the consistent ID.
      *
-     * @param consistentId Node consistent id.
-     * @return List with deployed units on node with provided consistent id.
+     * @param consistentId Node consistent ID.
+     * @return List of the units deployed to the specified node.
      */
     CompletableFuture<List<UnitStatus>> findUnitByConsistentIdAsync(String consistentId);
 }

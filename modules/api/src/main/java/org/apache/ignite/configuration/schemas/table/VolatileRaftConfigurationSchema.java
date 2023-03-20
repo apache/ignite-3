@@ -21,11 +21,11 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 
 /**
- * Configuration for Raft group corresponding to volatile tables.
+ * Configuration for the RAFT group corresponding to volatile tables.
  */
 @Config
 public class VolatileRaftConfigurationSchema {
-    /** Config of log storage budget. */
+    /** Configuration of a log storage budget. */
     @ConfigValue
     public LogStorageBudgetConfigurationSchema logStorage;
 }

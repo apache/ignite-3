@@ -24,7 +24,7 @@ import java.util.UUID;
  */
 public class IndexAlreadyExistsException extends IgniteException {
     /**
-     * Creates an exception with teh given index name.
+     * Creates an exception with the given index name.
      *
      * @param name Index name.
      */

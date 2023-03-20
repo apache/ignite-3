@@ -24,12 +24,12 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.schemas.store.ExistingDataStorage;
 
 /**
- * Tables configuration schema.
+ * Table configuration schema.
  */
 @SuppressWarnings("PMD.UnusedPrivateField")
 @ConfigurationRoot(rootName = "table", type = ConfigurationType.DISTRIBUTED)
 public class TablesConfigurationSchema {
-    /** Global integer id counter. Used as an auto-increment counter to generate integer identifiers for table. */
+    /** Global integer ID counter. Used as an auto-increment counter to generate integer identifiers for the table. */
     @Value(hasDefault = true)
     public int globalIdCounter = 0;
 

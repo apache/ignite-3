@@ -18,7 +18,7 @@
 package org.apache.ignite.lang;
 
 /**
- * This exception is caused by a failure to marshall or unmarshall a valu.
+ * This exception is caused by a failure to marshall or unmarshall a value.
  * The failure can be due to a value not matching the a schema or to another reason.
  */
 public class MarshallerException extends IgniteException {
