@@ -17,21 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.sql.fun;
 
-import org.apache.calcite.sql.SqlCall;
+import java.util.UUID;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlFunctionCategory;
 import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.SqlSpecialOperator;
-import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.fun.SqlLibraryOperators;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.fun.SqlSubstringFunction;
-import org.apache.calcite.sql.type.InferTypes;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeTransforms;
 import org.apache.calcite.sql.util.ReflectiveSqlOperatorTable;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 
 /**
@@ -154,25 +152,6 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     return false;
                 }
             };
-
-    public static final SqlSpecialOperator GENERATE_IMPLICIT_PK = new ImplicitPkOperator();
-
-    /**
-     * {@code IMPLICIT_PK}.
-     */
-    public static class ImplicitPkOperator extends SqlSpecialOperator {
-
-        ImplicitPkOperator() {
-            super("GENERATE_IMPLICIT_PK", SqlKind.OTHER_FUNCTION, 100, true,
-                    ReturnTypes.explicit(SqlTypeName.VARCHAR), InferTypes.RETURN_TYPE,
-                    OperandTypes.NILADIC);
-        }
-
-        @Override public void unparse(SqlWriter writer, SqlCall call, int leftPrec,
-                int rightPrec) {
-            writer.keyword(getName());
-        }
-    }
 
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
@@ -443,6 +422,5 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(NULL_BOUND);
         register(RAND_UUID);
         register(GEN_RANDOM_UUID);
-        register(GENERATE_IMPLICIT_PK);
     }
 }

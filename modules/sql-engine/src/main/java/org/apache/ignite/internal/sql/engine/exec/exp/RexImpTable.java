@@ -508,8 +508,7 @@ public class RexImpTable {
         defineMethod(IS_NOT_DISTINCT_FROM, IgniteMethod.IS_NOT_DISTINCT_FROM.method(), NullPolicy.NONE);
 
         defineMethod(RAND_UUID, IgniteMethod.RAND_UUID.method(), NullPolicy.NONE);
-        defineMethod(IgniteSqlOperatorTable.GEN_RANDOM_UUID, IgniteMethod.GENERATE_IMPLICIT_PK.method(), NullPolicy.NONE);
-        defineMethod(IgniteSqlOperatorTable.GENERATE_IMPLICIT_PK, IgniteMethod.GENERATE_IMPLICIT_PK.method(), NullPolicy.NONE);
+        defineMethod(IgniteSqlOperatorTable.GEN_RANDOM_UUID, IgniteMethod.GEN_RANDOM_UUID.method(), NullPolicy.NONE);
     }
 
     private void defineMethod(SqlOperator operator, String functionName, NullPolicy nullPolicy) {

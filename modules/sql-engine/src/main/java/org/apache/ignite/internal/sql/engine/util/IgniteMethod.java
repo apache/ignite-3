@@ -100,8 +100,8 @@ public enum IgniteMethod {
     /** See {@link UUID#randomUUID()}. */
     RAND_UUID(UUID.class, "randomUUID"),
 
-    /** See {@link IgniteSqlFunctions#generateImplicitPk()}. */
-    GENERATE_IMPLICIT_PK(IgniteSqlFunctions.class, "generateImplicitPk");
+    /** See {@link IgniteSqlFunctions#genRandomUuid()}. */
+    GEN_RANDOM_UUID(IgniteSqlFunctions.class, "genRandomUuid");
 
     private final Method method;
 

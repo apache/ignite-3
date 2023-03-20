@@ -175,8 +175,8 @@ public class IgniteSqlFunctions {
         return leastOrGreatest(false, arg0, arg1);
     }
 
-    /** Generates a value of implicit primary key. **/
-    public static String generateImplicitPk() {
+    /** Generates a random UUID and converts it to string. **/
+    public static String genRandomUuid() {
         return UUID.randomUUID().toString();
     }
 
