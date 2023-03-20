@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.Collections.emptyMap;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -24,13 +25,15 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
+import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
@@ -41,6 +44,12 @@ import org.apache.ignite.lang.ByteArray;
  * Util class for Distribution Zones flow.
  */
 public class DistributionZonesUtil {
+    /**
+     * The initial value of trigger revision in case when it is not initialized in the meta storage.
+     * The trigger revision in the meta storage can be uninitialized for the default distribution zone.
+     */
+    static final long INITIAL_TRIGGER_REVISION_VALUE = 0;
+
     /** Key prefix for zone's data nodes. */
     private static final String DISTRIBUTION_ZONE_DATA_NODES_PREFIX = "distributionZone.dataNodes.";
 
@@ -262,7 +271,7 @@ public class DistributionZonesUtil {
      * @return Returns a set of data nodes retrieved from data nodes map, which value is more than 0.
      */
     public static Set<String> dataNodes(Map<String, Integer> dataNodesMap) {
-        return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Entry::getKey).collect(Collectors.toSet());
+        return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Map.Entry::getKey).collect(Collectors.toSet());
     }
 
     /**
@@ -279,5 +288,33 @@ public class DistributionZonesUtil {
         dataNodes.forEach(n -> dataNodesMap.merge(n, 1, Integer::sum));
 
         return dataNodesMap;
+    }
+
+    /**
+     * Returns data nodes from the meta storage entry or empty map if the value is null.
+     *
+     * @param dataNodesEntry Meta storage entry with data nodes.
+     * @return Data nodes.
+     */
+    static Map<String, Integer> extractDataNodes(Entry dataNodesEntry) {
+        if (!dataNodesEntry.empty()) {
+            return fromBytes(dataNodesEntry.value());
+        } else {
+            return emptyMap();
+        }
+    }
+
+    /**
+     * Returns a trigger revision from the meta storage entry or {@link INITIAL_TRIGGER_REVISION_VALUE} if the value is null.
+     *
+     * @param revisionEntry Meta storage entry with data nodes.
+     * @return Revision.
+     */
+    static long extractChangeTriggerRevision(Entry revisionEntry) {
+        if (!revisionEntry.empty()) {
+            return bytesToLong(revisionEntry.value());
+        } else {
+            return INITIAL_TRIGGER_REVISION_VALUE;
+        }
     }
 }

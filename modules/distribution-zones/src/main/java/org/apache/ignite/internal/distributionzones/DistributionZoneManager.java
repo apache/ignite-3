@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static java.util.Collections.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractChangeTriggerRevision;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyConditionForZonesChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerScaleUpScaleDownKeysCondition;
@@ -1446,22 +1447,6 @@ public class DistributionZoneManager implements IgniteComponent {
         Augmentation(Set<String> nodeNames, boolean addition) {
             this.nodeNames = nodeNames;
             this.addition = addition;
-        }
-    }
-
-    private static Map<String, Integer> extractDataNodes(Entry dataNodesEntry) {
-        if (!dataNodesEntry.empty()) {
-            return fromBytes(dataNodesEntry.value());
-        } else {
-            return emptyMap();
-        }
-    }
-
-    private static long extractChangeTriggerRevision(Entry revisionEntry) {
-        if (!revisionEntry.empty()) {
-            return bytesToLong(revisionEntry.value());
-        } else {
-            return 0;
         }
     }
 }
