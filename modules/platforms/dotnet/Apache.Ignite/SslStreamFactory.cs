@@ -38,7 +38,10 @@ public sealed class SslStreamFactory : ISslStreamFactory
 
         var sslStream = new SslStream(stream, false, null, null);
 
-        sslStream.AuthenticateAsClient(SslClientAuthenticationOptions ?? new SslClientAuthenticationOptions());
+        var options = SslClientAuthenticationOptions ?? new SslClientAuthenticationOptions();
+        options.TargetHost ??= targetHost;
+
+        sslStream.AuthenticateAsClient(options);
 
         return sslStream;
     }
