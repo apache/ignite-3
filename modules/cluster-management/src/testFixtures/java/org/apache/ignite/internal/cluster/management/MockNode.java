@@ -28,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -117,7 +118,9 @@ public class MockNode {
                 clusterStateStorage,
                 logicalTopologyService,
                 cmgConfiguration,
-                distributedConfigurationUpdater);
+                distributedConfigurationUpdater,
+                null
+        );
 
         components.add(vaultManager);
         components.add(clusterService);
@@ -203,7 +206,7 @@ public class MockNode {
         return clusterService;
     }
 
-    CompletableFuture<Set<ClusterNode>> logicalTopologyNodes() {
+    CompletableFuture<Set<LogicalNode>> logicalTopologyNodes() {
         return clusterManager().logicalTopology().thenApply(LogicalTopologySnapshot::nodes);
     }
 

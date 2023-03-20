@@ -662,7 +662,9 @@ public class ItRebalanceDistributedTest {
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    distributedConfigurationUpdater);
+                    distributedConfigurationUpdater,
+                    null
+            );
 
             String nodeName = clusterService.localConfiguration().getName();
 

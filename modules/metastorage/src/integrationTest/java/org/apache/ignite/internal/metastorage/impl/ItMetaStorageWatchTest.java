@@ -129,7 +129,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     clusterStateStorage,
                     logicalTopology,
                     cmgConfiguration,
-                    distributedConfigurationUpdater
+                    distributedConfigurationUpdater,
+                    null
             );
 
             components.add(cmgManager);

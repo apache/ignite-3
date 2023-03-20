@@ -146,7 +146,9 @@ public class ItDistributedConfigurationPropertiesTest {
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    distributedConfigurationUpdater);
+                    distributedConfigurationUpdater,
+                    null
+            );
 
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,

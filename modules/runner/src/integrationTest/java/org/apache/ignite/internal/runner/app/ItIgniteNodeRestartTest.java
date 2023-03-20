@@ -287,7 +287,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 clusterStateStorage,
                 logicalTopology,
                 clusterManagementConfiguration,
-                distributedConfigurationUpdater);
+                distributedConfigurationUpdater,
+                null
+        );
 
         var metaStorageMgr = new MetaStorageManagerImpl(
                 vault,

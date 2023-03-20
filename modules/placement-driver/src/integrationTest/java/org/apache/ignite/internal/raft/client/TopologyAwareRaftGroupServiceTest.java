@@ -39,6 +39,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -523,7 +524,10 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
 
         @Override
         public CompletableFuture<LogicalTopologySnapshot> logicalTopologyOnLeader() {
-            return CompletableFuture.completedFuture(new LogicalTopologySnapshot(1, clusterService.topologyService().allMembers()));
+            return CompletableFuture.completedFuture(new LogicalTopologySnapshot(
+                    1,
+                    clusterService.topologyService().allMembers().stream().map(n -> new LogicalNode(n, "")).collect(toSet()))
+            );
         }
 
         @Override

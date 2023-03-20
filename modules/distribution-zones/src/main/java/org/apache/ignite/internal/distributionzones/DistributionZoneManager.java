@@ -71,6 +71,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -162,12 +163,12 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Listener for a topology events. */
     private final LogicalTopologyEventListener topologyEventListener = new LogicalTopologyEventListener() {
         @Override
-        public void onNodeJoined(ClusterNode joinedNode, LogicalTopologySnapshot newTopology) {
+        public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
             updateLogicalTopologyInMetaStorage(newTopology, false);
         }
 
         @Override
-        public void onNodeLeft(ClusterNode leftNode, LogicalTopologySnapshot newTopology) {
+        public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
             updateLogicalTopologyInMetaStorage(newTopology, false);
         }
 

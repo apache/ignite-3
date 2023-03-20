@@ -36,6 +36,7 @@ import org.apache.ignite.internal.Cluster.NodeKnockout;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
@@ -53,22 +54,22 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
     private final LogicalTopologyEventListener listener = new LogicalTopologyEventListener() {
         @Override
-        public void onNodeValidated(ClusterNode validatedNode) {
+        public void onNodeValidated(LogicalNode validatedNode) {
             events.add(new Event(EventType.VALIDATED, validatedNode, -1));
         }
 
         @Override
-        public void onNodeInvalidated(ClusterNode invalidatedNode) {
+        public void onNodeInvalidated(LogicalNode invalidatedNode) {
             events.add(new Event(EventType.INVALIDATED, invalidatedNode, -1));
         }
 
         @Override
-        public void onNodeJoined(ClusterNode joinedNode, LogicalTopologySnapshot newTopology) {
+        public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
             events.add(new Event(EventType.JOINED, joinedNode, newTopology.version()));
         }
 
         @Override
-        public void onNodeLeft(ClusterNode leftNode, LogicalTopologySnapshot newTopology) {
+        public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
             events.add(new Event(EventType.LEFT, leftNode, newTopology.version()));
         }
     };
@@ -165,7 +166,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
         entryNode.logicalTopologyService().addEventListener(new LogicalTopologyEventListener() {
             @Override
-            public void onNodeJoined(ClusterNode joinedNode, LogicalTopologySnapshot newTopology) {
+            public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
                 if (joinedNode.name().equals(secondIgnite.name())) {
                     secondIgniteAppeared.countDown();
                 }
@@ -182,7 +183,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
         firstIgnite.logicalTopologyService().addEventListener(new LogicalTopologyEventListener() {
             @Override
-            public void onNodeLeft(ClusterNode leftNode, LogicalTopologySnapshot newTopology) {
+            public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
                 if (leftNode.name().equals(secondIgnite.name())) {
                     secondIgniteDisappeared.countDown();
                 }
@@ -225,7 +226,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         // validation, but before joining the cluster.
         entryNode.logicalTopologyService().addEventListener(new LogicalTopologyEventListener() {
             @Override
-            public void onNodeValidated(ClusterNode validatedNode) {
+            public void onNodeValidated(LogicalNode validatedNode) {
                 entryNode.dropMessages((recipientConsistentId, message) -> validatedNode.name().equals(recipientConsistentId));
             }
         });

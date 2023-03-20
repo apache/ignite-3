@@ -47,6 +47,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyComm
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -169,7 +170,7 @@ public class ItCmgRaftServiceTest {
             return clusterService.topologyService().localMember();
         }
 
-        private CompletableFuture<Set<ClusterNode>> logicalTopologyNodes() {
+        private CompletableFuture<Set<LogicalNode>> logicalTopologyNodes() {
             return raftService.logicalTopology().thenApply(LogicalTopologySnapshot::nodes);
         }
 
@@ -224,7 +225,7 @@ public class ItCmgRaftServiceTest {
         assertThat(node1.logicalTopologyNodes(), willBe(empty()));
         assertThat(node1.validatedNodes(), willBe(empty()));
 
-        assertThat(node1.raftService.startJoinCluster(clusterState.clusterTag()), willCompleteSuccessfully());
+        assertThat(node1.raftService.startJoinCluster(clusterState.clusterTag(), ""), willCompleteSuccessfully());
 
         assertThat(node1.logicalTopologyNodes(), willBe(empty()));
         assertThat(node1.validatedNodes(), will(contains(clusterNode1)));
@@ -234,7 +235,7 @@ public class ItCmgRaftServiceTest {
         assertThat(node1.logicalTopologyNodes(), will(contains(clusterNode1)));
         assertThat(node1.validatedNodes(), will(contains(clusterNode1)));
 
-        assertThat(node2.raftService.startJoinCluster(clusterState.clusterTag()), willCompleteSuccessfully());
+        assertThat(node2.raftService.startJoinCluster(clusterState.clusterTag(), ""), willCompleteSuccessfully());
 
         assertThat(node1.logicalTopologyNodes(), willBe(contains(clusterNode1)));
         assertThat(node1.validatedNodes(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
@@ -256,7 +257,7 @@ public class ItCmgRaftServiceTest {
     }
 
     private static CompletableFuture<Void> joinCluster(Node node, ClusterTag clusterTag) {
-        return node.raftService.startJoinCluster(clusterTag)
+        return node.raftService.startJoinCluster(clusterTag, "")
                 .thenCompose(v -> node.raftService.completeJoinCluster());
     }
 
@@ -378,13 +379,13 @@ public class ItCmgRaftServiceTest {
         assertThat(node1.raftService.initClusterState(state), willCompleteSuccessfully());
 
         // correct tag
-        assertThat(node1.raftService.startJoinCluster(state.clusterTag()), willCompleteSuccessfully());
+        assertThat(node1.raftService.startJoinCluster(state.clusterTag(), ""), willCompleteSuccessfully());
 
         // incorrect tag
         var incorrectTag = clusterTag(msgFactory, "invalid");
 
         assertThrowsWithCause(
-                () -> node2.raftService.startJoinCluster(incorrectTag).get(10, TimeUnit.SECONDS),
+                () -> node2.raftService.startJoinCluster(incorrectTag, "").get(10, TimeUnit.SECONDS),
                 IgniteInternalException.class,
                 String.format(
                         "Join request denied, reason: Cluster tags do not match. Cluster tag: %s, cluster tag stored in CMG: %s",
@@ -412,7 +413,7 @@ public class ItCmgRaftServiceTest {
         assertThat(raftService.initClusterState(state), willCompleteSuccessfully());
 
         assertThrowsWithCause(
-                () -> raftService.startJoinCluster(state.clusterTag()).get(10, TimeUnit.SECONDS),
+                () -> raftService.startJoinCluster(state.clusterTag(), "").get(10, TimeUnit.SECONDS),
                 IgniteInternalException.class,
                 String.format(
                         "Join request denied, reason: Ignite versions do not match. Version: %s, version stored in CMG: %s",
@@ -450,7 +451,7 @@ public class ItCmgRaftServiceTest {
                 errMsg
         );
 
-        assertThat(raftService.startJoinCluster(state.clusterTag()), willCompleteSuccessfully());
+        assertThat(raftService.startJoinCluster(state.clusterTag(), ""), willCompleteSuccessfully());
 
         // Everything is ok after the node has passed validation.
         assertThat(raftService.completeJoinCluster(), willCompleteSuccessfully());
@@ -568,9 +569,9 @@ public class ItCmgRaftServiceTest {
 
         CmgRaftService service = cluster.get(1).raftService;
 
-        assertThat(service.startJoinCluster(state.clusterTag()), willCompleteSuccessfully());
+        assertThat(service.startJoinCluster(state.clusterTag(), ""), willCompleteSuccessfully());
 
-        assertThat(service.startJoinCluster(state.clusterTag()), willCompleteSuccessfully());
+        assertThat(service.startJoinCluster(state.clusterTag(), ""), willCompleteSuccessfully());
 
         assertThat(service.completeJoinCluster(), willCompleteSuccessfully());
 

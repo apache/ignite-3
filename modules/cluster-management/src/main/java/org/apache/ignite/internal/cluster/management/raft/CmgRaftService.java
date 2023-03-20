@@ -135,8 +135,8 @@ public class CmgRaftService implements ManuallyCloseable {
      *         otherwise.
      * @see ValidationManager
      */
-    public CompletableFuture<Void> startJoinCluster(ClusterTag clusterTag) {
-        ClusterNodeMessage localNodeMessage = nodeMessage(clusterService.topologyService().localMember());
+    public CompletableFuture<Void> startJoinCluster(ClusterTag clusterTag, String nodeAttributes) {
+        ClusterNodeMessage localNodeMessage = nodeMessage(clusterService.topologyService().localMember(), nodeAttributes);
 
         JoinRequestCommand command = msgFactory.joinRequestCommand()
                 .node(localNodeMessage)
@@ -161,10 +161,10 @@ public class CmgRaftService implements ManuallyCloseable {
      *
      * @return Future that represents the state of the operation.
      */
-    public CompletableFuture<Void> completeJoinCluster() {
+    public CompletableFuture<Void> completeJoinCluster(String nodeAttributes) {
         LOG.info("Node is ready to join the logical topology");
 
-        ClusterNodeMessage localNodeMessage = nodeMessage(clusterService.topologyService().localMember());
+        ClusterNodeMessage localNodeMessage = nodeMessage(clusterService.topologyService().localMember(), nodeAttributes);
 
         return raftService.run(msgFactory.joinReadyCommand().node(localNodeMessage).build())
                 .thenAccept(response -> {
@@ -177,6 +177,10 @@ public class CmgRaftService implements ManuallyCloseable {
                         LOG.info("JoinReady command executed successfully");
                     }
                 });
+    }
+
+    public CompletableFuture<Void> completeJoinCluster() {
+        return completeJoinCluster(null);
     }
 
     /**
@@ -226,12 +230,23 @@ public class CmgRaftService implements ManuallyCloseable {
                 .collect(toSet());
     }
 
+    private ClusterNodeMessage nodeMessage(ClusterNode node, String nodeAttributes) {
+        return msgFactory.clusterNodeMessage()
+                .id(node.id())
+                .name(node.name())
+                .host(node.address().host())
+                .port(node.address().port())
+                .nodeAttributes(nodeAttributes)
+                .build();
+    }
+
     private ClusterNodeMessage nodeMessage(ClusterNode node) {
         return msgFactory.clusterNodeMessage()
                 .id(node.id())
                 .name(node.name())
                 .host(node.address().host())
                 .port(node.address().port())
+                .nodeAttributes(null)
                 .build();
     }
 

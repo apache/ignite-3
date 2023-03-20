@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.rest.api.cluster.ClusterNodeDto;
 import org.apache.ignite.internal.rest.api.cluster.NetworkAddressDto;
@@ -69,10 +70,14 @@ public class TopologyController implements TopologyApi {
                     return cmgManager.logicalTopology();
                 })
                 .thenApply(LogicalTopologySnapshot::nodes)
-                .thenApply(TopologyController::toClusterNodeDtos);
+                .thenApply(TopologyController::toClusterNodeDtosFromLogicalNodes);
     }
 
     private static List<ClusterNodeDto> toClusterNodeDtos(Collection<ClusterNode> nodes) {
+        return nodes.stream().map(TopologyController::toClusterNodeDto).collect(toList());
+    }
+
+    private static List<ClusterNodeDto> toClusterNodeDtosFromLogicalNodes(Collection<LogicalNode> nodes) {
         return nodes.stream().map(TopologyController::toClusterNodeDto).collect(toList());
     }
 

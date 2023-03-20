@@ -32,6 +32,7 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -67,25 +68,25 @@ public class LogicalTopologyImpl implements LogicalTopology {
     }
 
     @Override
-    public void onNodeValidated(ClusterNode node) {
+    public void onNodeValidated(LogicalNode node) {
         notifyListeners(listener -> listener.onNodeValidated(node), "onNodeValidated");
     }
 
     @Override
-    public void onNodeInvalidated(ClusterNode node) {
+    public void onNodeInvalidated(LogicalNode node) {
         notifyListeners(listener -> listener.onNodeInvalidated(node), "onNodeInvalidated");
     }
 
     @Override
-    public void putNode(ClusterNode nodeToPut) {
+    public void putNode(LogicalNode nodeToPut) {
         LogicalTopologySnapshot snapshot = readLogicalTopology();
 
-        Map<String, ClusterNode> mapByName = snapshot.nodes().stream()
+        Map<String, LogicalNode> mapByName = snapshot.nodes().stream()
                 .collect(toMap(ClusterNode::name, identity()));
 
         Runnable fireRemovalTask = null;
 
-        ClusterNode oldNode = mapByName.remove(nodeToPut.name());
+        LogicalNode oldNode = mapByName.remove(nodeToPut.name());
 
         if (oldNode != null) {
             if (oldNode.id().equals(nodeToPut.id())) {
@@ -119,21 +120,21 @@ public class LogicalTopologyImpl implements LogicalTopology {
     }
 
     @Override
-    public void removeNodes(Set<ClusterNode> nodesToRemove) {
+    public void removeNodes(Set<LogicalNode> nodesToRemove) {
         LogicalTopologySnapshot snapshot = readLogicalTopology();
 
-        Map<String, ClusterNode> mapById = snapshot.nodes().stream()
+        Map<String, LogicalNode> mapById = snapshot.nodes().stream()
                 .collect(toMap(ClusterNode::id, identity()));
 
         // Removing in a well-defined order to make sure that a command produces an identical sequence of events in each CMG listener.
-        List<ClusterNode> sortedNodesToRemove = nodesToRemove.stream()
+        List<LogicalNode> sortedNodesToRemove = nodesToRemove.stream()
                 .sorted(comparing(ClusterNode::id))
                 .collect(toList());
 
         List<Runnable> fireTasks = new ArrayList<>();
 
-        for (ClusterNode nodeToRemove : sortedNodesToRemove) {
-            ClusterNode removedNode = mapById.remove(nodeToRemove.id());
+        for (LogicalNode nodeToRemove : sortedNodesToRemove) {
+            LogicalNode removedNode = mapById.remove(nodeToRemove.id());
 
             if (removedNode != null) {
                 snapshot = new LogicalTopologySnapshot(snapshot.version() + 1, mapById.values());
@@ -151,16 +152,16 @@ public class LogicalTopologyImpl implements LogicalTopology {
     }
 
     @Override
-    public boolean isNodeInLogicalTopology(ClusterNode needle) {
+    public boolean isNodeInLogicalTopology(LogicalNode needle) {
         return readLogicalTopology().nodes().stream()
                 .anyMatch(node -> node.id().equals(needle.id()));
     }
 
-    private void fireNodeJoined(ClusterNode appearedNode, LogicalTopologySnapshot snapshot) {
+    private void fireNodeJoined(LogicalNode appearedNode, LogicalTopologySnapshot snapshot) {
         notifyListeners(listener -> listener.onNodeJoined(appearedNode, snapshot), "onNodeJoined");
     }
 
-    private void fireNodeLeft(ClusterNode oldNode, LogicalTopologySnapshot snapshot) {
+    private void fireNodeLeft(LogicalNode oldNode, LogicalTopologySnapshot snapshot) {
         notifyListeners(listener -> listener.onNodeLeft(oldNode, snapshot), "onNodeLeft");
     }
 

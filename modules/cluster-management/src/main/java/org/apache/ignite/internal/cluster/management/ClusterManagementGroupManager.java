@@ -39,6 +39,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalState;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.network.CmgMessageHandlerFactory;
 import org.apache.ignite.internal.cluster.management.network.auth.Authentication;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
@@ -131,6 +132,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private final DistributedConfigurationUpdater distributedConfigurationUpdater;
 
+    private final NodeAttributesConfiguration nodeAttributes;
+
     /**
      * Whether we attempted to complete join (i.e. send JoinReady command) on Ignite node start.
      *
@@ -153,7 +156,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             ClusterStateStorage clusterStateStorage,
             LogicalTopology logicalTopology,
             ClusterManagementConfiguration configuration,
-            DistributedConfigurationUpdater distributedConfigurationUpdater) {
+            DistributedConfigurationUpdater distributedConfigurationUpdater,
+            NodeAttributesConfiguration nodeAttributes
+    ) {
         this.clusterService = clusterService;
         this.raftManager = raftManager;
         this.clusterStateStorage = clusterStateStorage;
@@ -163,6 +168,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         this.localStateStorage = new LocalStateStorage(vault);
         this.clusterInitializer = new ClusterInitializer(clusterService);
+        this.nodeAttributes = nodeAttributes;
     }
 
     /**
@@ -542,7 +548,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private CompletableFuture<CmgRaftService> completeJoinIfTryingToRejoin(CmgRaftService cmgRaftService) {
         if (attemptedCompleteJoinOnStart) {
-            return cmgRaftService.completeJoinCluster()
+            return cmgRaftService.completeJoinCluster(nodeAttributes.nodeAttributes().value())
                     .thenApply(unused -> cmgRaftService);
         } else {
             return completedFuture(cmgRaftService);
@@ -550,7 +556,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private CompletableFuture<CmgRaftService> joinCluster(CmgRaftService service, ClusterTag clusterTag) {
-        return service.startJoinCluster(clusterTag)
+        return service.startJoinCluster(clusterTag, nodeAttributes.nodeAttributes().value())
                 .thenApply(v -> service)
                 .whenComplete((v, e) -> {
                     if (e == null) {
@@ -847,7 +853,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         attemptedCompleteJoinOnStart = true;
 
         try {
-            return raftServiceAfterJoin().thenCompose(CmgRaftService::completeJoinCluster);
+            return raftServiceAfterJoin().thenCompose(svc -> svc.completeJoinCluster(nodeAttributes.nodeAttributes().value()));
         } finally {
             busyLock.leaveBusy();
         }

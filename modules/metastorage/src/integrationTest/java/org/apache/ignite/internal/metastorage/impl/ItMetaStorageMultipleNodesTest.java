@@ -132,7 +132,8 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
                     clusterStateStorage,
                     logicalTopology,
                     cmgConfiguration,
-                    distributedConfigurationUpdater
+                    distributedConfigurationUpdater,
+                    null
             );
 
             this.metaStorageManager = new MetaStorageManagerImpl(

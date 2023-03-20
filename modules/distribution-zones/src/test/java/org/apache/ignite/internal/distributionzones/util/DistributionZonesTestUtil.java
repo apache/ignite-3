@@ -37,6 +37,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -162,12 +163,28 @@ public class DistributionZonesTestUtil {
      * @throws InterruptedException If thread was interrupted.
      */
     public static void assertLogicalTopology(
-            @Nullable Set<ClusterNode> clusterNodes,
+            @Nullable Set<LogicalNode> clusterNodes,
             KeyValueStorage keyValueStorage
     ) throws InterruptedException {
         byte[] nodes = clusterNodes == null
                 ? null
                 : toBytes(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
+
+        assertTrue(waitForCondition(() -> Arrays.equals(keyValueStorage.get(zonesLogicalTopologyKey().bytes()).value(), nodes), 1000));
+    }
+
+    /**
+     * Asasas.
+     *
+     * @param clusterNodes asdsa.
+     * @param keyValueStorage asda.
+     * @throws InterruptedException asda.
+     */
+    public static void assertLogicalTopologyWithNodeNames(
+            @Nullable Set<String> clusterNodes,
+            KeyValueStorage keyValueStorage
+    ) throws InterruptedException {
+        byte[] nodes = clusterNodes == null ? null : toBytes(clusterNodes);
 
         assertTrue(waitForCondition(() -> Arrays.equals(keyValueStorage.get(zonesLogicalTopologyKey().bytes()).value(), nodes), 1000));
     }

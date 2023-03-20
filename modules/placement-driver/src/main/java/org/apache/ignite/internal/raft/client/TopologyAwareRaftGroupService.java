@@ -26,6 +26,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -123,7 +124,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
         logicalTopologyService.addEventListener(new LogicalTopologyEventListener() {
             @Override
-            public void onNodeJoined(ClusterNode appearedNode, LogicalTopologySnapshot newTopology) {
+            public void onNodeJoined(LogicalNode appearedNode, LogicalTopologySnapshot newTopology) {
                 for (Peer peer : peers()) {
                     if (serverEventHandler.isSubscribed() && appearedNode.name().equals(peer.consistentId())) {
                         LOG.info("New peer will be sending a leader elected notification [grpId={}, consistentId={}]", groupId(),

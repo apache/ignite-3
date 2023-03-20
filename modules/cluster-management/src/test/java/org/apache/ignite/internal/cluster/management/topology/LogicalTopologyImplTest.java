@@ -48,6 +48,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -78,10 +79,10 @@ class LogicalTopologyImplTest {
     private LogicalTopologyEventListener listener;
 
     @Captor
-    private ArgumentCaptor<ClusterNode> nodeCaptor;
+    private ArgumentCaptor<LogicalNode> nodeCaptor;
 
     @Captor
-    private ArgumentCaptor<ClusterNode> nodeCaptor2;
+    private ArgumentCaptor<LogicalNode> nodeCaptor2;
 
     @Captor
     private ArgumentCaptor<LogicalTopologySnapshot> topologyCaptor;
@@ -110,19 +111,19 @@ class LogicalTopologyImplTest {
     void testLogicalTopology() {
         assertThat(topology.getLogicalTopology().nodes(), is(empty()));
 
-        var node1 = new ClusterNode("foo", "bar", new NetworkAddress("localhost", 123));
+        var node1 = new LogicalNode("foo", "bar", new NetworkAddress("localhost", 123), "");
 
         topology.putNode(node1);
 
         assertThat(topology.getLogicalTopology().nodes(), contains(node1));
 
-        var node2 = new ClusterNode("baz", "quux", new NetworkAddress("localhost", 123));
+        var node2 = new LogicalNode("baz", "quux", new NetworkAddress("localhost", 123), "");
 
         topology.putNode(node2);
 
         assertThat(topology.getLogicalTopology().nodes(), containsInAnyOrder(node1, node2));
 
-        var node3 = new ClusterNode("lol", "boop", new NetworkAddress("localhost", 123));
+        var node3 = new LogicalNode("lol", "boop", new NetworkAddress("localhost", 123), "");
 
         topology.putNode(node3);
 
@@ -142,7 +143,7 @@ class LogicalTopologyImplTest {
      */
     @Test
     void testLogicalTopologyIdempotence() {
-        var node = new ClusterNode("foo", "bar", new NetworkAddress("localhost", 123));
+        var node = new LogicalNode("foo", "bar", new NetworkAddress("localhost", 123), "");
 
         topology.putNode(node);
         topology.putNode(node);
@@ -157,11 +158,11 @@ class LogicalTopologyImplTest {
 
     @Test
     void additionUsesNameAsNodeKey() {
-        topology.putNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode("id1", "node", new NetworkAddress("host", 1000), ""));
 
-        topology.putNode(new ClusterNode("id2", "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode("id2", "node", new NetworkAddress("host", 1000), ""));
 
-        Collection<ClusterNode> topology = this.topology.getLogicalTopology().nodes();
+        Collection<LogicalNode> topology = this.topology.getLogicalTopology().nodes();
 
         assertThat(topology, hasSize(1));
 
@@ -170,24 +171,24 @@ class LogicalTopologyImplTest {
 
     @Test
     void removalUsesIdAsNodeKey() {
-        topology.putNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode("id1", "node", new NetworkAddress("host", 1000), ""));
 
-        topology.removeNodes(Set.of(new ClusterNode("id2", "node", new NetworkAddress("host", 1000))));
+        topology.removeNodes(Set.of(new LogicalNode("id2", "node", new NetworkAddress("host", 1000), "")));
 
         assertThat(topology.getLogicalTopology().nodes(), hasSize(1));
         assertThat((topology.getLogicalTopology().nodes()).iterator().next().id(), is("id1"));
 
-        topology.removeNodes(Set.of(new ClusterNode("id1", "another-name", new NetworkAddress("host", 1000))));
+        topology.removeNodes(Set.of(new LogicalNode("id1", "another-name", new NetworkAddress("host", 1000), "")));
 
         assertThat(topology.getLogicalTopology().nodes(), is(empty()));
     }
 
     @Test
     void inLogicalTopologyTestUsesIdAsNodeKey() {
-        topology.putNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode("id1", "node", new NetworkAddress("host", 1000), ""));
 
-        assertTrue(topology.isNodeInLogicalTopology(new ClusterNode("id1", "node", new NetworkAddress("host", 1000))));
-        assertFalse(topology.isNodeInLogicalTopology(new ClusterNode("another-id", "node", new NetworkAddress("host", 1000))));
+        assertTrue(topology.isNodeInLogicalTopology(new LogicalNode("id1", "node", new NetworkAddress("host", 1000), "")));
+        assertFalse(topology.isNodeInLogicalTopology(new LogicalNode("another-id", "node", new NetworkAddress("host", 1000), "")));
     }
 
     @Test
@@ -195,11 +196,11 @@ class LogicalTopologyImplTest {
         Path snapshotDir = workDir.resolve("snapshot");
         Files.createDirectory(snapshotDir);
 
-        topology.putNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode("id1", "node", new NetworkAddress("host", 1000), ""));
 
         storage.snapshot(snapshotDir).get(10, TimeUnit.SECONDS);
 
-        topology.putNode(new ClusterNode("id2", "another-node", new NetworkAddress("host", 1001)));
+        topology.putNode(new LogicalNode("id2", "another-node", new NetworkAddress("host", 1001), ""));
 
         storage.restoreSnapshot(snapshotDir);
 
@@ -211,7 +212,7 @@ class LogicalTopologyImplTest {
 
     @Test
     void addingNewNodeProducesAppearedEvent() {
-        topology.putNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode("id1", "node", new NetworkAddress("host", 1000), ""));
 
         verify(listener).onNodeJoined(nodeCaptor.capture(), topologyCaptor.capture());
 
@@ -225,18 +226,18 @@ class LogicalTopologyImplTest {
 
     @Test
     void addingSameExistingNodeProducesNoEvents() {
-        topology.putNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode("id1", "node", new NetworkAddress("host", 1000), ""));
 
-        topology.putNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode("id1", "node", new NetworkAddress("host", 1000), ""));
 
         verify(listener, times(1)).onNodeJoined(any(), any());
     }
 
     @Test
     void updatingExistingNodeProducesDisappearedAndAppearedEvents() {
-        topology.putNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode("id1", "node", new NetworkAddress("host", 1000), ""));
 
-        topology.putNode(new ClusterNode("id2", "node", new NetworkAddress("host1", 1001)));
+        topology.putNode(new LogicalNode("id2", "node", new NetworkAddress("host1", 1001), ""));
 
         InOrder inOrder = inOrder(listener);
 
@@ -261,9 +262,9 @@ class LogicalTopologyImplTest {
 
     @Test
     void updatingExistingNodeProducesExactlyOneWriteToDb() {
-        topology.putNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode("id1", "node", new NetworkAddress("host", 1000), ""));
 
-        topology.putNode(new ClusterNode("id2", "node", new NetworkAddress("host1", 1001)));
+        topology.putNode(new LogicalNode("id2", "node", new NetworkAddress("host1", 1001), ""));
 
         // Expecting 2 writes because there are two puts. The test verifies that second put also produces just 1 write.
         verify(storage, times(2)).put(eq("logical".getBytes(UTF_8)), any());
@@ -271,7 +272,7 @@ class LogicalTopologyImplTest {
 
     @Test
     void removingExistingNodeProducesDisappearedEvent() {
-        ClusterNode node = new ClusterNode("id1", "node", new NetworkAddress("host", 1000));
+        LogicalNode node = new LogicalNode("id1", "node", new NetworkAddress("host", 1000), "");
         topology.putNode(node);
 
         topology.removeNodes(Set.of(node));
@@ -288,7 +289,7 @@ class LogicalTopologyImplTest {
 
     @Test
     void removingNonExistingNodeProducesNoEvents() {
-        ClusterNode node = new ClusterNode("id1", "node", new NetworkAddress("host", 1000));
+        LogicalNode node = new LogicalNode("id1", "node", new NetworkAddress("host", 1000), "");
 
         topology.removeNodes(Set.of(node));
 
@@ -297,8 +298,8 @@ class LogicalTopologyImplTest {
 
     @Test
     void multiRemovalProducesDisappearedEventsInOrderOfNodeIds() {
-        ClusterNode node1 = new ClusterNode("id1", "node", new NetworkAddress("host", 1000));
-        ClusterNode node2 = new ClusterNode("id2", "node2", new NetworkAddress("host2", 1000));
+        LogicalNode node1 = new LogicalNode("id1", "node", new NetworkAddress("host", 1000), "");
+        LogicalNode node2 = new LogicalNode("id2", "node2", new NetworkAddress("host2", 1000), "");
 
         topology.putNode(node1);
         topology.putNode(node2);
@@ -323,8 +324,8 @@ class LogicalTopologyImplTest {
 
     @Test
     void multiRemovalProducesExactlyOneWriteToDb() {
-        ClusterNode node1 = new ClusterNode("id1", "node", new NetworkAddress("host", 1000));
-        ClusterNode node2 = new ClusterNode("id2", "node2", new NetworkAddress("host2", 1000));
+        LogicalNode node1 = new LogicalNode("id1", "node", new NetworkAddress("host", 1000), "");
+        LogicalNode node2 = new LogicalNode("id2", "node2", new NetworkAddress("host2", 1000), "");
 
         topology.putNode(node1);
         topology.putNode(node2);
@@ -337,7 +338,7 @@ class LogicalTopologyImplTest {
 
     @Test
     void onTopologyLeapIsTriggeredOnSnapshotRestore() {
-        topology.putNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode("id1", "node", new NetworkAddress("host", 1000), ""));
 
         topology.fireTopologyLeap();
 
@@ -357,7 +358,7 @@ class LogicalTopologyImplTest {
 
         topology.addEventListener(secondListener);
 
-        topology.putNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode("id1", "node", new NetworkAddress("host", 1000), ""));
 
         verify(listener).onNodeJoined(any(), any());
         verify(secondListener).onNodeJoined(any(), any());
@@ -369,7 +370,7 @@ class LogicalTopologyImplTest {
 
         assertThrows(
                 TestError.class,
-                () -> topology.putNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)))
+                () -> topology.putNode(new LogicalNode("id1", "node", new NetworkAddress("host", 1000), ""))
         );
     }
 
@@ -381,7 +382,7 @@ class LogicalTopologyImplTest {
 
         topology.addEventListener(secondListener);
 
-        ClusterNode node = new ClusterNode("id1", "node", new NetworkAddress("host", 1000));
+        LogicalNode node = new LogicalNode("id1", "node", new NetworkAddress("host", 1000), "");
 
         topology.putNode(node);
         topology.removeNodes(Set.of(node));
@@ -394,7 +395,7 @@ class LogicalTopologyImplTest {
     void onDisappearedListenerErrorIsRethrown() {
         doThrow(new TestError()).when(listener).onNodeLeft(any(), any());
 
-        ClusterNode node = new ClusterNode("id1", "node", new NetworkAddress("host", 1000));
+        LogicalNode node = new LogicalNode("id1", "node", new NetworkAddress("host", 1000), "");
 
         topology.putNode(node);
 
@@ -426,7 +427,7 @@ class LogicalTopologyImplTest {
     void eventListenerStopsGettingEventsAfterListenerRemoval() {
         topology.removeEventListener(listener);
 
-        topology.putNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
+        topology.putNode(new LogicalNode("id1", "node", new NetworkAddress("host", 1000), ""));
 
         verify(listener, never()).onNodeJoined(any(), any());
     }

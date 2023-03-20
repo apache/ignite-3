@@ -48,6 +48,7 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -72,7 +73,6 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -83,6 +83,10 @@ import org.mockito.Mock;
  * Tests reactions to topology changes in accordance with distribution zones logic.
  */
 public class DistributionZoneManagerLogicalTopologyEventsTest {
+    private static final LogicalNode NODE_1 = new LogicalNode("1", "name1", new NetworkAddress("localhost", 123), "");
+
+    private static final LogicalNode NODE_2 = new LogicalNode("2", "name2", new NetworkAddress("localhost", 123), "");
+
     @Mock
     private ClusterManagementGroupManager cmgManager;
 
@@ -274,7 +278,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
     void testMetaStorageKeysInitializedOnStartWhenTopVerEmpty() throws Exception {
         DistributionZoneManager distributionZoneManager1 = prepareDistributionZoneManager();
 
-        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
+        Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
         mockCmgLocalNodes(1L, clusterNodes);
 
@@ -291,7 +295,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
     void testMetaStorageKeysInitializedOnStartWhenTopVerIsLessThanCmgTopVer() throws Exception {
         DistributionZoneManager distributionZoneManager1 = prepareDistributionZoneManager();
 
-        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
+        Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
         mockCmgLocalNodes(2L, clusterNodes);
 
@@ -310,7 +314,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
     void testMetaStorageKeysInitializedOnStartWhenTopVerEqualsToCmgTopVer() throws Exception {
         DistributionZoneManager distributionZoneManager1 = prepareDistributionZoneManager();
 
-        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
+        Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
         mockCmgLocalNodes(2L, clusterNodes);
 
@@ -329,7 +333,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
     void testMetaStorageKeysInitializedOnStartWhenTopVerGreaterThanCmgTopVer() throws Exception {
         DistributionZoneManager distributionZoneManager1 = prepareDistributionZoneManager();
 
-        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
+        Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
         mockCmgLocalNodes(2L, clusterNodes);
 
@@ -348,21 +352,17 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
     void testNodeAddingUpdatesLogicalTopologyInMetaStorage() throws Exception {
         DistributionZoneManager distributionZoneManager1 = prepareDistributionZoneManager();
 
-        ClusterNode node1 = new ClusterNode("1", "name1", new NetworkAddress("localhost", 123));
+        topology.putNode(NODE_1);
 
-        topology.putNode(node1);
-
-        Set<ClusterNode> clusterNodes = Set.of(node1);
+        Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
         mockCmgLocalNodes(1L, clusterNodes);
 
         distributionZoneManager1.start();
 
-        ClusterNode node2 = new ClusterNode("2", "name2", new NetworkAddress("localhost", 123));
+        topology.putNode(NODE_2);
 
-        topology.putNode(node2);
-
-        var clusterNodes2 = Set.of(node1, node2);
+        var clusterNodes2 = Set.of(NODE_1, NODE_2);
 
         assertLogicalTopology(clusterNodes2, keyValueStorage);
 
@@ -373,11 +373,9 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
     void testNodeStaleAddingDoNotUpdatesLogicalTopologyInMetaStorage() throws Exception {
         DistributionZoneManager distributionZoneManager1 = prepareDistributionZoneManager();
 
-        ClusterNode node1 = new ClusterNode("1", "name1", new NetworkAddress("localhost", 123));
+        topology.putNode(NODE_1);
 
-        topology.putNode(node1);
-
-        Set<ClusterNode> clusterNodes = Set.of(node1);
+        Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
         mockCmgLocalNodes(1L, clusterNodes);
 
@@ -385,9 +383,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(4L));
 
-        ClusterNode node2 = new ClusterNode("2", "name2", new NetworkAddress("localhost", 123));
-
-        topology.putNode(node2);
+        topology.putNode(NODE_2);
 
         assertEquals(2L, topology.getLogicalTopology().version());
 
@@ -400,15 +396,11 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
     void testNodeRemovingUpdatesLogicalTopologyInMetaStorage() throws Exception {
         DistributionZoneManager distributionZoneManager1 = prepareDistributionZoneManager();
 
-        ClusterNode node1 = new ClusterNode("1", "name1", new NetworkAddress("localhost", 123));
+        topology.putNode(NODE_1);
 
-        ClusterNode node2 = new ClusterNode("2", "name2", new NetworkAddress("localhost", 123));
+        topology.putNode(NODE_2);
 
-        topology.putNode(node1);
-
-        topology.putNode(node2);
-
-        Set<ClusterNode> clusterNodes = Set.of(node1, node2);
+        Set<LogicalNode> clusterNodes = Set.of(NODE_1, NODE_2);
 
         mockCmgLocalNodes(2L, clusterNodes);
 
@@ -416,9 +408,9 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         assertLogicalTopology(clusterNodes, keyValueStorage);
 
-        topology.removeNodes(Set.of(node2));
+        topology.removeNodes(Set.of(NODE_2));
 
-        var clusterNodes2 = Set.of(node1);
+        var clusterNodes2 = Set.of(NODE_1);
 
         assertLogicalTopology(clusterNodes2, keyValueStorage);
 
@@ -429,17 +421,13 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
     void testNodeStaleRemovingDoNotUpdatesLogicalTopologyInMetaStorage() throws Exception {
         DistributionZoneManager distributionZoneManager1 = prepareDistributionZoneManager();
 
-        ClusterNode node1 = new ClusterNode("1", "name1", new NetworkAddress("localhost", 123));
+        topology.putNode(NODE_1);
 
-        ClusterNode node2 = new ClusterNode("2", "name2", new NetworkAddress("localhost", 123));
-
-        topology.putNode(node1);
-
-        topology.putNode(node2);
+        topology.putNode(NODE_2);
 
         assertEquals(2L, topology.getLogicalTopology().version());
 
-        Set<ClusterNode> clusterNodes = Set.of(node1, node2);
+        Set<LogicalNode> clusterNodes = Set.of(NODE_1, NODE_2);
 
         mockCmgLocalNodes(2L, clusterNodes);
 
@@ -447,7 +435,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(4L));
 
-        topology.removeNodes(Set.of(node2));
+        topology.removeNodes(Set.of(NODE_2));
 
         assertLogicalTopology(clusterNodes, keyValueStorage);
 
@@ -458,13 +446,9 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
     void testTopologyLeapUpdatesLogicalTopologyInMetaStorage() throws Exception {
         DistributionZoneManager distributionZoneManager1 = prepareDistributionZoneManager();
 
-        ClusterNode node1 = new ClusterNode("1", "name1", new NetworkAddress("localhost", 123));
+        topology.putNode(NODE_1);
 
-        ClusterNode node2 = new ClusterNode("2", "name2", new NetworkAddress("localhost", 123));
-
-        topology.putNode(node1);
-
-        Set<ClusterNode> clusterNodes = Set.of(node1);
+        Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
         mockCmgLocalNodes(2L, clusterNodes);
 
@@ -472,7 +456,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         assertLogicalTopology(clusterNodes, keyValueStorage);
 
-        var clusterNodes2 = Set.of(node1, node2);
+        var clusterNodes2 = Set.of(NODE_1, NODE_2);
 
         clusterStateStorage.put(LOGICAL_TOPOLOGY_KEY, ByteUtils.toBytes(new LogicalTopologySnapshot(10L, clusterNodes2)));
 
@@ -487,13 +471,9 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
     void testStaleTopologyLeapDoNotUpdatesLogicalTopologyInMetaStorage() throws Exception {
         DistributionZoneManager distributionZoneManager1 = prepareDistributionZoneManager();
 
-        ClusterNode node1 = new ClusterNode("1", "name1", new NetworkAddress("localhost", 123));
+        topology.putNode(NODE_1);
 
-        ClusterNode node2 = new ClusterNode("2", "name2", new NetworkAddress("localhost", 123));
-
-        topology.putNode(node1);
-
-        Set<ClusterNode> clusterNodes = Set.of(node1);
+        Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
         mockCmgLocalNodes(2L, clusterNodes);
 
@@ -501,7 +481,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         assertLogicalTopology(clusterNodes, keyValueStorage);
 
-        var clusterNodes2 = Set.of(node1, node2);
+        var clusterNodes2 = Set.of(NODE_1, NODE_2);
 
         clusterStateStorage.put(LOGICAL_TOPOLOGY_KEY, ByteUtils.toBytes(new LogicalTopologySnapshot(10L, clusterNodes2)));
 
@@ -514,7 +494,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
         assertLogicalTopVer(11L);
     }
 
-    private LogicalTopologySnapshot mockCmgLocalNodes(long version, Set<ClusterNode> clusterNodes) {
+    private LogicalTopologySnapshot mockCmgLocalNodes(long version, Set<LogicalNode> clusterNodes) {
         LogicalTopologySnapshot logicalTopologySnapshot = new LogicalTopologySnapshot(version, clusterNodes);
 
         when(cmgManager.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));

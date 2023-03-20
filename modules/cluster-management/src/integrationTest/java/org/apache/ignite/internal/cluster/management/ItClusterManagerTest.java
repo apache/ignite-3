@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -426,7 +427,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
     private void waitForLogicalTopology() throws InterruptedException {
         assertTrue(waitForCondition(() -> {
-            CompletableFuture<Set<ClusterNode>> logicalTopology = cluster.get(0).logicalTopologyNodes();
+            CompletableFuture<Set<LogicalNode>> logicalTopology = cluster.get(0).logicalTopologyNodes();
 
             assertThat(logicalTopology, willCompleteSuccessfully());
 
