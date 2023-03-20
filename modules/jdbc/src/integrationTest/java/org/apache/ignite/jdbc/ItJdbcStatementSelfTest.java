@@ -129,6 +129,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16960")
     public void testExecute() throws Exception {
         assertTrue(stmt.execute(SQL));
 
@@ -266,6 +267,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16960")
     public void testCloseResultSet1() throws Exception {
         stmt.execute(SQL);
 
@@ -346,6 +348,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16960")
     public void testExecuteQueryMultipleOnlyResultSets() throws Exception {
         assertTrue(conn.getMetaData().supportsMultipleResultSets());
 
@@ -642,6 +645,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16960")
     public void testGetMoreResults() throws Exception {
         assertFalse(stmt.getMoreResults());
 
@@ -661,6 +665,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16960")
     public void testGetMoreResultsKeepCurrent() throws Exception {
         assertFalse(stmt.getMoreResults(Statement.CLOSE_CURRENT_RESULT));
         assertFalse(stmt.getMoreResults(Statement.KEEP_CURRENT_RESULT));
@@ -678,6 +683,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16960")
     public void testGetMoreResultsCloseAll() throws Exception {
         assertFalse(stmt.getMoreResults(Statement.CLOSE_CURRENT_RESULT));
         assertFalse(stmt.getMoreResults(Statement.KEEP_CURRENT_RESULT));

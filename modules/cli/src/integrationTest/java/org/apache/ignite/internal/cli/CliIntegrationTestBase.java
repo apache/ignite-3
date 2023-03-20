@@ -24,16 +24,13 @@ import java.io.PrintWriter;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.QueryContext;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.testframework.IntegrationTestBase;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -50,12 +47,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @MicronautTest(rebuildContext = true)
 public class CliIntegrationTestBase extends IntegrationTestBase {
-    /**
-     * Timeout should be big enough to prevent premature session expiration.
-     */
-    private static final long SESSION_IDLE_TIMEOUT = TimeUnit.SECONDS.toMillis(60);
-
-
     /**
      * Template for node bootstrap config with Scalecube and Logical Topology settings for fast failure detection.
      */
@@ -102,9 +93,7 @@ public class CliIntegrationTestBase extends IntegrationTestBase {
     protected static List<List<Object>> sql(@Nullable Transaction tx, String sql, Object... args) {
         var queryEngine = ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
 
-        SessionId sessionId = queryEngine.createSession(SESSION_IDLE_TIMEOUT, PropertiesHolder.fromMap(
-                Map.of(QueryProperty.DEFAULT_SCHEMA, "PUBLIC")
-        ));
+        SessionId sessionId = queryEngine.createSession(PropertiesHelper.emptyHolder());
 
         try {
             var context = QueryContext.create(SqlQueryType.ALL, tx);

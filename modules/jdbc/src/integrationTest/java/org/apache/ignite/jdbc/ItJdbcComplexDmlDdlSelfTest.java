@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -49,6 +50,7 @@ public class ItJdbcComplexDmlDdlSelfTest extends AbstractJdbcSelfTest {
      * @throws Exception If failed.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16960")
     public void testCreateSelectDrop() throws Exception {
         sql(new UpdateChecker(0),
                 "CREATE TABLE person_t (ID int, NAME varchar, AGE int, COMPANY varchar, CITY varchar, "

@@ -17,11 +17,20 @@
 
 package org.apache.ignite.internal.sql.engine.property;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.iterableWithSize;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import org.apache.ignite.internal.util.Pair;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -30,8 +39,10 @@ import org.junit.jupiter.api.Test;
 class PropertiesHelperTest {
     private static final String NON_STATIC_PROP_NAME = "non_static_prop";
 
+    @SuppressWarnings("WeakerAccess")
     public static class TestProps {
         public static final Property<Long> LONG_PROP = new Property<>("long_prop", Long.class);
+        public static final Property<Byte> BYTE_PROP = new Property<>("byte_prop", Byte.class);
         public static final Property<String> STRING_PROP = new Property<>("string_prop", String.class);
         private static final Property<String> PRIVATE_PROP = new Property<>("private_prop", String.class);
         static final Property<String> PROTECTED_PROP = new Property<>("protected_prop", String.class);
@@ -49,6 +60,7 @@ class PropertiesHelperTest {
         {
             var knownPublicProps = List.of(
                     TestProps.LONG_PROP,
+                    TestProps.BYTE_PROP,
                     TestProps.STRING_PROP
             );
 
@@ -56,7 +68,7 @@ class PropertiesHelperTest {
                 var actProp = propMap.get(expProp.name);
 
                 assertEquals(expProp, actProp);
-                assertEquals(expProp.cls, actProp.cls);
+                assertSame(expProp.cls, actProp.cls);
             }
         }
 
@@ -73,6 +85,98 @@ class PropertiesHelperTest {
 
         {
             assertNull(propMap.get(NON_STATIC_PROP_NAME));
+        }
+    }
+
+    @Test
+    public void mergeEmptyHolders() {
+        PropertiesHolder first = PropertiesHelper.emptyHolder();
+        PropertiesHolder second = PropertiesHelper.emptyHolder();
+
+        PropertiesHolder result = PropertiesHelper.merge(first, second);
+
+        assertThat(result, notNullValue());
+        assertThat(result.iterator().hasNext(), is(false));
+    }
+
+    @Test
+    public void mergeEmptyAndNonEmptyHolder() {
+        PropertiesHolder empty = PropertiesHelper.emptyHolder();
+        PropertiesHolder nonEmpty = PropertiesHelper.newBuilder()
+                .set(TestProps.LONG_PROP, 42L)
+                .build();
+
+        List<Pair<PropertiesHolder, PropertiesHolder>> pairs = List.of(new Pair<>(empty, nonEmpty), new Pair<>(nonEmpty, empty));
+
+        for (Pair<PropertiesHolder, PropertiesHolder> pair : pairs) {
+            PropertiesHolder result = PropertiesHelper.merge(pair.getFirst(), pair.getSecond());
+
+            assertThat(result, notNullValue());
+
+            Iterator<Entry<Property<?>, Object>> it = result.iterator();
+
+            assertThat(it.hasNext(), is(true));
+
+            Map.Entry<Property<?>, Object> entry = it.next();
+
+            assertThat(entry.getKey(), is(TestProps.LONG_PROP));
+            assertThat(entry.getValue(), is(42L));
+
+            assertThat(it.hasNext(), is(false));
+        }
+    }
+
+    @Test
+    public void mergeNonEmptyWithConflict() {
+        PropertiesHolder first = PropertiesHelper.newBuilder()
+                .set(TestProps.LONG_PROP, 1L)
+                .set(TestProps.BYTE_PROP, (byte) 1)
+                .build();
+
+        PropertiesHolder second = PropertiesHelper.newBuilder()
+                .set(TestProps.LONG_PROP, 2L)
+                .set(TestProps.STRING_PROP, "2")
+                .build();
+
+        PropertiesHolder result = PropertiesHelper.merge(first, second);
+
+        assertThat(result.get(TestProps.BYTE_PROP), is((byte) 1));
+        assertThat(result.get(TestProps.LONG_PROP), is(1L));
+        assertThat(result.get(TestProps.STRING_PROP), is("2"));
+
+        result = PropertiesHelper.merge(second, first);
+
+        assertThat(result.get(TestProps.BYTE_PROP), is((byte) 1));
+        assertThat(result.get(TestProps.LONG_PROP), is(2L));
+        assertThat(result.get(TestProps.STRING_PROP), is("2"));
+    }
+
+    @Test
+    public void createBuilderFromHolder() {
+        PropertiesHolder base = PropertiesHelper.newBuilder()
+                .set(TestProps.BYTE_PROP, (byte) 1)
+                .set(TestProps.LONG_PROP, 1L)
+                .build();
+
+        {
+            PropertiesHolder newHolder = PropertiesHelper.builderFromHolder(base)
+                    .set(TestProps.STRING_PROP, "1")
+                    .build();
+
+            assertThat(newHolder.get(TestProps.BYTE_PROP), is((byte) 1));
+            assertThat(newHolder.get(TestProps.LONG_PROP), is(1L));
+            assertThat(newHolder.get(TestProps.STRING_PROP), is("1"));
+            assertThat(newHolder, iterableWithSize(3));
+        }
+
+        {
+            PropertiesHolder newHolder = PropertiesHelper.builderFromHolder(base)
+                    .set(TestProps.LONG_PROP, 2L)
+                    .build();
+
+            assertThat(newHolder.get(TestProps.BYTE_PROP), is((byte) 1));
+            assertThat(newHolder.get(TestProps.LONG_PROP), is(2L));
+            assertThat(newHolder, iterableWithSize(2));
         }
     }
 }

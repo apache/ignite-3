@@ -18,65 +18,52 @@
 package org.apache.ignite.internal.sql.engine.property;
 
 import java.util.Map;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * An object that keeps values of the properties.
  *
  * @see Property
  */
-public interface PropertiesHolder {
+public interface PropertiesHolder extends Iterable<Map.Entry<Property<?>, Object>> {
     /**
-     * Returns the value for specified property or {@code null} if such property is not specified in the current holder.
+     * Returns the value for specified property or throws an {@link PropertyNotFound}
+     * if such property is not specified in the current holder.
      *
      * @param prop Property of interest.
      * @param <T> Value type of the property.
-     * @return The value of the property or {@code null} if such property is not specified in the current holder.
+     * @return The value of the property. Never returns null.
+     * @throws PropertyNotFound If a given property is not found in the current holder.
      */
-    <T> @Nullable T get(Property<T> prop);
+    <T> T get(Property<T> prop);
 
     /**
-     * Returns the value for specified property or provided default (which in turn may be null as well) if such property is not
+     * Returns the value for specified property or provided default if such property is not
      * specified in the current holder.
      *
      * @param prop Property of interest.
+     * @param defaultValue A value to return if given property not found in the holder.
      * @param <T> Value type of the property.
      * @return The value of the property or provided default if such property is not specified in the current holder.
      */
-
-    <T> @Nullable T getOrDefault(Property<T> prop, @Nullable T defaultValue);
-
-    /**
-     * Returns the number of values contained in the holder.
-     *
-     * @return The number of values contained in the holder.
-     */
-    int size();
+    <T> T getOrDefault(Property<T> prop, T defaultValue);
 
     /**
-     * Creates a mapping from the current holder.
-     *
-     * @return Mapping of the property to its value.
+     * A builder interface to constructs the holder with certain properties.
      */
-    Map<Property<?>, Object> toMap();
+    public interface Builder {
+        /**
+         * Stores the value of a given property on a future holder.
+         *
+         * <p>If such property was set earlier, then replace the old value with the new one.
+         *
+         * @param property Property to set.
+         * @param value Value to set property with.
+         * @param <T> A type of the value.
+         * @return {@code this} for chaining.
+         */
+        <T> Builder set(Property<T> property, T value);
 
-    /**
-     * Returns a holder created from a provided mapping.
-     *
-     * @param values Values to hold.
-     * @return Holder.
-     */
-    static PropertiesHolder fromMap(Map<Property<?>, Object> values) {
-        for (Map.Entry<Property<?>, Object> e : values.entrySet()) {
-            if (e.getValue() == null) {
-                continue;
-            }
-
-            if (!e.getKey().cls.isAssignableFrom(e.getValue().getClass())) {
-                throw new IllegalArgumentException();
-            }
-        }
-
-        return new PropertiesHolderImpl(Map.copyOf(values));
+        /** Creates a holder object with specified properties. */
+        PropertiesHolder build();
     }
 }

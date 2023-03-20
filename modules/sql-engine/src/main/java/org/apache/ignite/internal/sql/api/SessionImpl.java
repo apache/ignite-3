@@ -26,6 +26,7 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
+import org.apache.ignite.internal.sql.engine.property.Property;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -149,7 +151,13 @@ public class SessionImpl implements Session {
     /** {@inheritDoc} */
     @Override
     public SessionBuilder toBuilder() {
-        return new SessionBuilderImpl(qryProc, new HashMap<>(props.toMap()))
+        Map<String, Object> propertyMap = new HashMap<>();
+
+        for (Map.Entry<Property<?>, Object> entry : props) {
+            propertyMap.put(entry.getKey().name, entry.getValue());
+        }
+
+        return new SessionBuilderImpl(qryProc, propertyMap)
                 .defaultPageSize(pageSize);
     }
 
