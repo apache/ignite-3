@@ -22,6 +22,8 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractChangeTriggerRevision;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyConditionForZonesChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerScaleUpScaleDownKeysCondition;
@@ -1093,11 +1095,11 @@ public class DistributionZoneManager implements IgniteComponent {
                     return completedFuture(null);
                 }
 
-                Map<String, Integer> dataNodesFromMetaStorage = fromBytes(values.get(zoneDataNodesKey(zoneId)).value());
+                Map<String, Integer> dataNodesFromMetaStorage = extractDataNodes(values.get(zoneDataNodesKey(zoneId)));
 
-                long scaleUpTriggerRevision = bytesToLong(values.get(zoneScaleUpChangeTriggerKey(zoneId)).value());
+                long scaleUpTriggerRevision = extractChangeTriggerRevision(values.get(zoneScaleUpChangeTriggerKey(zoneId)));
 
-                long scaleDownTriggerRevision = bytesToLong(values.get(zoneScaleDownChangeTriggerKey(zoneId)).value());
+                long scaleDownTriggerRevision = extractChangeTriggerRevision(values.get(zoneScaleDownChangeTriggerKey(zoneId)));
 
                 if (revision <= scaleUpTriggerRevision) {
                     return completedFuture(null);
@@ -1180,11 +1182,11 @@ public class DistributionZoneManager implements IgniteComponent {
                     return completedFuture(null);
                 }
 
-                Map<String, Integer> dataNodesFromMetaStorage = fromBytes(values.get(zoneDataNodesKey(zoneId)).value());
+                Map<String, Integer> dataNodesFromMetaStorage = extractDataNodes(values.get(zoneDataNodesKey(zoneId)));
 
-                long scaleUpTriggerRevision = bytesToLong(values.get(zoneScaleUpChangeTriggerKey(zoneId)).value());
+                long scaleUpTriggerRevision = extractChangeTriggerRevision(values.get(zoneScaleUpChangeTriggerKey(zoneId)));
 
-                long scaleDownTriggerRevision = bytesToLong(values.get(zoneScaleDownChangeTriggerKey(zoneId)).value());
+                long scaleDownTriggerRevision = extractChangeTriggerRevision(values.get(zoneScaleDownChangeTriggerKey(zoneId)));
 
                 if (revision <= scaleDownTriggerRevision) {
                     return completedFuture(null);
