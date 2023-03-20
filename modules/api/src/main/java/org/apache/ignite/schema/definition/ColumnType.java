@@ -68,7 +68,7 @@ public class ColumnType {
     }
 
     /**
-     * Return a string type of limited size.
+     * Returns a string type of limited size.
      *
      * @param length String length in chars.
      * @return String type.
@@ -88,7 +88,7 @@ public class ColumnType {
     }
 
     /**
-     * Return a blob type of limited length.
+     * Returns a blob type of limited length.
      *
      * @param length Blob length in bytes.
      * @return Blob type.
@@ -218,7 +218,7 @@ public class ColumnType {
     }
 
     /**
-     * Returns a point in time as a number of ticks since {@code 1970-01-01T00:00:00Z} with the default precision of 6
+     * Returns a point in time as a number of ticks since {@code 1970-01-01T00:00:00Z} with the default precision of 6.
      * (microseconds).
      *
      * @return Native type.

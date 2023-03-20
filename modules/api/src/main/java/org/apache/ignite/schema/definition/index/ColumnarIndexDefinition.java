@@ -24,7 +24,7 @@ import java.util.List;
  */
 public interface ColumnarIndexDefinition extends IndexDefinition {
     /**
-     * Configured index columns.
+     * Returns a list of the configured index columns.
      *
      * @return Index columns.
      */

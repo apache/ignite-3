@@ -22,11 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Represents query arguments for batch query execution.
- *
- * <p>TODO: replace inheritance with delegation.
- * TODO: add arguments length validation.
- * TODO: add named arguments support.
+ * Arguments for batch query execution.
  */
 public class BatchedArguments extends ArrayList<List<Object>> implements List<List<Object>> {
     /**
@@ -67,7 +63,7 @@ public class BatchedArguments extends ArrayList<List<Object>> implements List<Li
     }
 
     /**
-     * Appends arguments to the batch.
+     * Appends arguments to a batch.
      *
      * @param args Arguments.
      * @return {@code this} for chaining.
@@ -78,3 +74,4 @@ public class BatchedArguments extends ArrayList<List<Object>> implements List<Li
         return this;
     }
 }
+//"Batched arguments" or "Batch arguments"? Also, do all these methods "create"? Or do some of them "return"?

@@ -24,15 +24,15 @@ import org.apache.ignite.sql.SqlRow;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Reactive result set provides methods to subscribe to the query results in reactive way.
+ * Provides methods to subscribe to query results in a reactive way.
  *
- * <p>Note: It implies to be used with the reactive framework such as ProjectReactor or R2DBC.
+ * <p>Note: To be used with the acreactive framework, such as ProjectReactor or R2DBC.
  *
  * @see ResultSet
  */
 public interface ReactiveResultSet extends Flow.Publisher<SqlRow> {
     /**
-     * Returns publisher for the result metadata.
+     * Returns a publisher for the result metadata.
      *
      * @return Metadata publisher.
      * @see ResultSet#metadata()
@@ -40,9 +40,9 @@ public interface ReactiveResultSet extends Flow.Publisher<SqlRow> {
     Flow.Publisher<@Nullable ResultSetMetadata> metadata();
 
     /**
-     * Returns publisher for the flag that determines whether the result of the query execution is a collection of rows, or not.
+     * Returns a publisher for the flag that determines whether the query result is a collection of rows.
      *
-     * <p>Note: {@code false} value published means the query either is conditional or is an update query.
+     * <p>Note: {@code false} value means that the query is either conditional or an update.
      *
      * @return HasRowSet flag Publisher.
      * @see ResultSet#hasRowSet()
@@ -50,20 +50,21 @@ public interface ReactiveResultSet extends Flow.Publisher<SqlRow> {
     Flow.Publisher<Boolean> hasRowSet();
 
     /**
-     * Returns number of rows affected by the DML statement execution (such as "INSERT", "UPDATE", etc.), or {@code 0} if statement return
-     * nothing (such as "ALTER TABLE", etc) or {@code -1} if inapplicable.
+     * Returns the number of rows affected by the DML statement execution (such as "INSERT", "UPDATE", etc.).
+     * Returns {@code 0} if the statement returns nothing (such as "ALTER TABLE", etc.) or {@code -1} if not applicable.
      *
-     * <p>Note: when returns {@code -1}, then either {@link #hasRowSet()} or {@link #wasApplied()} returns {@code true}.
+     * <p>Note: If the method returns {@code -1}, either {@link #hasRowSet()} or {@link #wasApplied()} returns {@code true}.
      *
-     * @return Publisher for number of rows.
+     * @return Number of rows.
      * @see ResultSet#affectedRows()
      */
     Flow.Publisher<Long> affectedRows();
+//What does "not applicable" mean here?
 
     /**
-     * Returns publisher for a flag which determines whether the query that produce this result was a conditional query, or not.
+     * Returns a publisher for the flag that determines whether the query that produces the result was conditional.
      *
-     * <p>Note: {@code false} value published means the query either returns rows or is an update query.
+     * <p>Note: {@code false} means the query either returned rows or was an update query.
      *
      * @return AppliedFlag Publisher.
      * @see ResultSet#wasApplied()
