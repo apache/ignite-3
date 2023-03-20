@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -65,6 +66,8 @@ public class MockNode {
 
     private final SecurityConfiguration securityConfiguration;
 
+    private final NodeAttributesConfiguration nodeAttributes;
+
     private final List<IgniteComponent> components = new ArrayList<>();
 
     private CompletableFuture<Void> startFuture;
@@ -79,7 +82,8 @@ public class MockNode {
             Path workDir,
             RaftConfiguration raftConfiguration,
             ClusterManagementConfiguration cmgConfiguration,
-            SecurityConfiguration securityConfiguration
+            SecurityConfiguration securityConfiguration,
+            NodeAttributesConfiguration nodeAttributes
     ) {
         this.testInfo = testInfo;
         this.nodeFinder = nodeFinder;
@@ -87,6 +91,7 @@ public class MockNode {
         this.raftConfiguration = raftConfiguration;
         this.cmgConfiguration = cmgConfiguration;
         this.securityConfiguration = securityConfiguration;
+        this.nodeAttributes = nodeAttributes;
 
         try {
             init(addr.port());
@@ -119,7 +124,7 @@ public class MockNode {
                 logicalTopologyService,
                 cmgConfiguration,
                 distributedConfigurationUpdater,
-                null
+                nodeAttributes
         );
 
         components.add(vaultManager);

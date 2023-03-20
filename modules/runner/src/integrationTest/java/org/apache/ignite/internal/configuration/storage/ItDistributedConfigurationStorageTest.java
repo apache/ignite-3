@@ -34,6 +34,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -73,6 +74,9 @@ public class ItDistributedConfigurationStorageTest {
 
     @InjectConfiguration
     private static SecurityConfiguration securityConfiguration;
+
+    @InjectConfiguration
+    private static NodeAttributesConfiguration nodeAttributes;
 
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
@@ -122,7 +126,7 @@ public class ItDistributedConfigurationStorageTest {
                     logicalTopology,
                     clusterManagementConfiguration,
                     distributedConfigurationUpdater,
-                    null
+                    nodeAttributes
             );
 
             metaStorageManager = new MetaStorageManagerImpl(

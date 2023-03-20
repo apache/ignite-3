@@ -413,10 +413,12 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         assertTrue(waitForCondition(() -> nonCmgTopology.getLogicalTopology().nodes().size() == 2, 10_000));
     }
 
+    // TODO:???
     private ClusterNode[] currentPhysicalTopology() {
         return cluster.stream()
                 .map(MockNode::localMember)
-                .toArray(ClusterNode[]::new);
+                .map(n -> new LogicalNode(n, ""))
+                .toArray(LogicalNode[]::new);
     }
 
     private String[] clusterNodeNames() {

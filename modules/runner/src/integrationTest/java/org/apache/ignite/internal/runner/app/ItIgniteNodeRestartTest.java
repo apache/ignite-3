@@ -58,6 +58,7 @@ import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -167,6 +168,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private static SecurityConfiguration securityConfiguration;
+
+    @InjectConfiguration
+    private static NodeAttributesConfiguration nodeAttributes;
 
     private final List<String> clusterNodesNames = new ArrayList<>();
 
@@ -288,7 +292,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 logicalTopology,
                 clusterManagementConfiguration,
                 distributedConfigurationUpdater,
-                null
+                nodeAttributes
         );
 
         var metaStorageMgr = new MetaStorageManagerImpl(
