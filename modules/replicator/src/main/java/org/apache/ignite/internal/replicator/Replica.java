@@ -183,7 +183,10 @@ public class Replica {
         });
     }
 
-    private CompletableFuture<LeaseGrantedMessageResponse> acceptLease(HybridTimestamp leaseStartTime, HybridTimestamp leaseExpirationTime) {
+    private CompletableFuture<LeaseGrantedMessageResponse> acceptLease(
+            HybridTimestamp leaseStartTime,
+            HybridTimestamp leaseExpirationTime
+    ) {
         synchronized (leaseAcceptanceMutex) {
             this.leaseStartTime = leaseStartTime;
             this.leaseExpirationTime = leaseExpirationTime;
