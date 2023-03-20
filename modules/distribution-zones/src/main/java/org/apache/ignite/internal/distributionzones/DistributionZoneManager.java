@@ -1094,35 +1094,11 @@ public class DistributionZoneManager implements IgniteComponent {
                     return completedFuture(null);
                 }
 
-                Entry dataNodesValue = values.get(zoneDataNodesKey(zoneId));
+                Map<String, Integer> dataNodesFromMetaStorage = extractDataNodes(values.get(zoneDataNodesKey(zoneId)));
 
-                Entry zoneScaleUpChangeTriggerValue = values.get(zoneScaleUpChangeTriggerKey(zoneId));
+                long scaleUpTriggerRevision = extractChangeTriggerRevision(values.get(zoneScaleUpChangeTriggerKey(zoneId)));
 
-                Entry zoneScaleDownChangeTriggerValue = values.get(zoneScaleDownChangeTriggerKey(zoneId));
-
-                Map<String, Integer> dataNodesFromMetaStorage;
-
-                long scaleUpTriggerRevision;
-
-                long scaleDownTriggerRevision;
-
-                if (dataNodesValue != null && dataNodesValue.value() != null) {
-                    dataNodesFromMetaStorage = fromBytes(dataNodesValue.value());
-                } else {
-                    dataNodesFromMetaStorage = emptyMap();
-                }
-
-                if (zoneScaleUpChangeTriggerValue != null && zoneScaleUpChangeTriggerValue.value() != null) {
-                    scaleUpTriggerRevision = bytesToLong(zoneScaleUpChangeTriggerValue.value());
-                } else {
-                    scaleUpTriggerRevision = 0;
-                }
-
-                if (zoneScaleDownChangeTriggerValue != null && zoneScaleDownChangeTriggerValue.value() != null) {
-                    scaleDownTriggerRevision = bytesToLong(zoneScaleDownChangeTriggerValue.value());
-                } else {
-                    scaleDownTriggerRevision = 0;
-                }
+                long scaleDownTriggerRevision = extractChangeTriggerRevision(values.get(zoneScaleDownChangeTriggerKey(zoneId)));
 
                 if (revision <= scaleUpTriggerRevision) {
                     return completedFuture(null);
@@ -1205,35 +1181,11 @@ public class DistributionZoneManager implements IgniteComponent {
                     return completedFuture(null);
                 }
 
-                Entry dataNodesValue = values.get(zoneDataNodesKey(zoneId));
+                Map<String, Integer> dataNodesFromMetaStorage = extractDataNodes(values.get(zoneDataNodesKey(zoneId)));
 
-                Entry zoneScaleUpChangeTriggerValue = values.get(zoneScaleUpChangeTriggerKey(zoneId));
+                long scaleUpTriggerRevision = extractChangeTriggerRevision(values.get(zoneScaleUpChangeTriggerKey(zoneId)));
 
-                Entry zoneScaleDownChangeTriggerValue = values.get(zoneScaleDownChangeTriggerKey(zoneId));
-
-                Map<String, Integer> dataNodesFromMetaStorage;
-
-                long scaleUpTriggerRevision;
-
-                long scaleDownTriggerRevision;
-
-                if (dataNodesValue != null && dataNodesValue.value() != null) {
-                    dataNodesFromMetaStorage = fromBytes(dataNodesValue.value());
-                } else {
-                    dataNodesFromMetaStorage = emptyMap();
-                }
-
-                if (zoneScaleUpChangeTriggerValue != null && zoneScaleUpChangeTriggerValue.value() != null) {
-                    scaleUpTriggerRevision = bytesToLong(zoneScaleUpChangeTriggerValue.value());
-                } else {
-                    scaleUpTriggerRevision = 0;
-                }
-
-                if (zoneScaleDownChangeTriggerValue != null && zoneScaleDownChangeTriggerValue.value() != null) {
-                    scaleDownTriggerRevision = bytesToLong(zoneScaleDownChangeTriggerValue.value());
-                } else {
-                    scaleDownTriggerRevision = 0;
-                }
+                long scaleDownTriggerRevision = extractChangeTriggerRevision(values.get(zoneScaleDownChangeTriggerKey(zoneId)));
 
                 if (revision <= scaleDownTriggerRevision) {
                     return completedFuture(null);
@@ -1494,6 +1446,22 @@ public class DistributionZoneManager implements IgniteComponent {
         Augmentation(Set<String> nodeNames, boolean addition) {
             this.nodeNames = nodeNames;
             this.addition = addition;
+        }
+    }
+
+    private static Map<String, Integer> extractDataNodes(Entry dataNodesEntry) {
+        if (!dataNodesEntry.empty()) {
+            return fromBytes(dataNodesEntry.value());
+        } else {
+            return emptyMap();
+        }
+    }
+
+    private static long extractChangeTriggerRevision(Entry revisionEntry) {
+        if (!revisionEntry.empty()) {
+            return bytesToLong(revisionEntry.value());
+        } else {
+            return 0;
         }
     }
 }
