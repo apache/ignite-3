@@ -288,4 +288,11 @@ public class PlacementDriverReplicaSideTest {
         assertTrue(resp1.accepted());
         assertNull(resp1.redirectProposal());
     }
+
+    @Test
+    public void testIncorrectMessageToReplica() {
+        CompletableFuture<?> future = replica.processPlacementDriverMessage(MSG_FACTORY.leaseGrantedMessageResponse().build());
+        assertTrue(future.isDone());
+        assertTrue(future.isCompletedExceptionally());
+    }
 }

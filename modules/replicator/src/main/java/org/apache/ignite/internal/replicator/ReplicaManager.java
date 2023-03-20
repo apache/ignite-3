@@ -211,26 +211,19 @@ public class ReplicaManager implements IgniteComponent {
 
             PlacementDriverReplicaMessage msg = (PlacementDriverReplicaMessage) msg0;
 
-            CompletableFuture<Replica> replicaFut = replicas.get(msg.groupId());
+            CompletableFuture<Replica> replicaFut = replicas.computeIfAbsent(msg.groupId(), k -> new CompletableFuture<>());
 
-            if (replicaFut == null || !replicaFut.isDone()) {
-                sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, msg.groupId(), null);
+            replicaFut
+                    .thenCompose(replica -> replica.processPlacementDriverMessage(msg))
+                    .handle((response, ex) -> {
+                        if (ex == null) {
+                            clusterNetSvc.messagingService().respond(senderConsistentId, response, correlationId);
+                        } else {
+                            LOG.error("Failed to process placement driver message [msg={}]", ex, msg);
+                        }
 
-                return;
-            }
-
-            // replicaFut is always completed here.
-            CompletableFuture<? extends NetworkMessage> result = replicaFut.join().processPlacementDriverMessage(msg);
-
-            result.handle((response, ex) -> {
-                if (ex == null) {
-                    clusterNetSvc.messagingService().respond(senderConsistentId, response, correlationId);
-                } else {
-                    LOG.error("Failed to process placement driver message [msg={}]", ex, msg);
-                }
-
-                return null;
-            });
+                        return null;
+                    });
         } finally {
             busyLock.leaveBusy();
         }
