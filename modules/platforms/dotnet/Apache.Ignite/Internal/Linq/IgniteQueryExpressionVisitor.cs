@@ -297,7 +297,6 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     /** <inheritdoc /> */
     protected override Expression VisitMemberInit(MemberInitExpression expression)
     {
-        Console.WriteLine("TADA");
         var first = true;
 
         if (expression.NewExpression.Arguments.Any())

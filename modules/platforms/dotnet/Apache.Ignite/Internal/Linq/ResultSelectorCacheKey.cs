@@ -127,3 +127,24 @@ internal readonly struct ResultSelectorCacheKey<T> : IEquatable<ResultSelectorCa
         return hash.ToHashCode();
     }
 }
+
+/// <summary>
+/// Key for <see cref="ResultSelector"/> cached delegates. Equality logic is based on column types.
+/// </summary>
+internal static class ResultSelectorCacheKey
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ResultSelectorCacheKey{T}"/> struct.
+    /// </summary>
+    /// <param name="target">Target object (can be type, constructor, etc).</param>
+    /// <param name="columns">Columns.</param>
+    /// <param name="options">Options.</param>
+    /// <typeparam name="T">Target type.</typeparam>
+    /// <returns><see cref="ResultSelector"/>.</returns>
+    public static ResultSelectorCacheKey<T> Create<T>(
+        T target,
+        IReadOnlyList<IColumnMetadata> columns,
+        ResultSelectorOptions options = default)
+        where T : notnull
+        => new(target, columns, options);
+}

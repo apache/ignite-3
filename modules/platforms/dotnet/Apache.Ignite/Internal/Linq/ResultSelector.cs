@@ -41,6 +41,8 @@ internal static class ResultSelector
 {
     private static readonly ConcurrentDictionary<ResultSelectorCacheKey<ConstructorInfo>, object> CtorCache = new();
 
+    private static readonly ConcurrentDictionary<ResultSelectorCacheKey<ConstructorInfo>, object> MemberInitCache = new();
+
     private static readonly ConcurrentDictionary<ResultSelectorCacheKey<Type>, object> SingleColumnReaderCache = new();
 
     private static readonly ConcurrentDictionary<ResultSelectorCacheKey<Type>, object> ReaderCache = new();
@@ -73,6 +75,15 @@ internal static class ResultSelector
             return (RowReader<T>)CtorCache.GetOrAdd(
                 ctorCacheKey,
                 static k => EmitConstructorReader<T>(k.Target, k.Columns, k.Options));
+        }
+
+        if (selectorExpression is MemberInitExpression memberInitExpression)
+        {
+            var ctorInfo = memberInitExpression.NewExpression.Constructor!;
+            var ctorCacheKey = new ResultSelectorCacheKey<ConstructorInfo>(ctorInfo, columns, options);
+            return (RowReader<T>)MemberInitCache.GetOrAdd(
+                ctorCacheKey,
+                static k => EmitMemberInitReader<T>(k.Target, k.Columns, k.Options));
         }
 
         if (columns.Count == 1 && (typeof(T).ToSqlColumnType() is not null || typeof(T).IsEnum))
@@ -108,6 +119,38 @@ internal static class ResultSelector
         return (RowReader<T>)ReaderCache.GetOrAdd(
             readerCacheKey,
             static k => EmitUninitializedObjectReader<T>(k.Columns, k.Options == ReturnDefaultIfNull));
+    }
+
+    private static RowReader<T> EmitMemberInitReader<T>(
+        ConstructorInfo ctorInfo,
+        IReadOnlyList<IColumnMetadata> columns,
+        ResultSelectorOptions options)
+    {
+        var method = new DynamicMethod(
+            name: $"ConstructorFromBinaryTupleReader_{typeof(T).FullName}_{GetNextId()}",
+            returnType: typeof(T),
+            parameterTypes: new[] { typeof(IReadOnlyList<IColumnMetadata>), typeof(BinaryTupleReader).MakeByRefType() },
+            m: typeof(IIgnite).Module,
+            skipVisibility: true);
+
+        var il = method.GetILGenerator();
+        var ctorParams = ctorInfo.GetParameters();
+
+        if (ctorParams.Length != columns.Count)
+        {
+            throw new InvalidOperationException("Constructor parameter count does not match column count, can't emit row reader.");
+        }
+
+        // Read all constructor parameters and push them to the evaluation stack.
+        for (var index = 0; index < ctorParams.Length; index++)
+        {
+            var paramType = ctorParams[index].ParameterType;
+            EmitReadToStack(il, columns[index], paramType, index, options);
+        }
+
+        il.Emit(OpCodes.Newobj, ctorInfo);
+        il.Emit(OpCodes.Ret);
+        return (RowReader<T>)method.CreateDelegate(typeof(RowReader<T>));
     }
 
     private static RowReader<T> EmitSingleColumnReader<T>(IColumnMetadata column, ResultSelectorOptions options)
