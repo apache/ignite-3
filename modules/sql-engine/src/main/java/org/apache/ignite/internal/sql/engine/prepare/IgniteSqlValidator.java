@@ -255,7 +255,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             SqlDynamicParam dynamicParam = (SqlDynamicParam) n;
             int idx = dynamicParam.getIndex();
             Object param = parameters[idx];
-            if (parameters[idx] instanceof Integer) {
+            if (param instanceof Integer) {
                 if ((Integer) param < 0) {
                     throw newValidationError(n, IgniteResource.INSTANCE.correctIntegerLimit(nodeName));
                 }
