@@ -176,6 +176,35 @@ public class SslTests : IgniteTestsBase
         Assert.IsNull(client.GetConnections().Single().SslInfo);
     }
 
+    [Test]
+    public async Task TestCustomCipherSuite()
+    {
+        var cfg = new IgniteClientConfiguration
+        {
+            Endpoints = { SslEndpoint },
+            SslStreamFactory = new SslStreamFactory
+            {
+                SslClientAuthenticationOptions = new SslClientAuthenticationOptions
+                {
+                    RemoteCertificateValidationCallback = (_, _, _, _) => true,
+                    CipherSuitesPolicy = new CipherSuitesPolicy(new[]
+                    {
+                        TlsCipherSuite.TLS_AES_128_GCM_SHA256
+                    })
+                }
+            }
+        };
+
+        using var client = await IgniteClient.StartAsync(cfg);
+
+        var connection = client.GetConnections().Single();
+        var sslInfo = connection.SslInfo;
+
+        Assert.IsNotNull(sslInfo);
+        Assert.IsFalse(sslInfo!.IsMutuallyAuthenticated);
+        Assert.AreEqual(TlsCipherSuite.TLS_AES_128_GCM_SHA256.ToString(), sslInfo.NegotiatedCipherSuiteName);
+    }
+
     private class NullSslStreamFactory : ISslStreamFactory
     {
         public SslStream? Create(Stream stream, string targetHost) => null;
