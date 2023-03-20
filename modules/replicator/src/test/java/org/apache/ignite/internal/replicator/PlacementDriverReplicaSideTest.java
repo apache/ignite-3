@@ -58,8 +58,6 @@ public class PlacementDriverReplicaSideTest {
 
     private AtomicReference<BiConsumer<ClusterNode, Long>> callbackHolder = new AtomicReference<>();
 
-    private long replicaPhysicalTime;
-
     private PendingComparableValuesTracker<HybridTimestamp> safeTime;
 
     private Peer currentLeader = null;
@@ -94,18 +92,30 @@ public class PlacementDriverReplicaSideTest {
 
     @BeforeEach
     public void beforeEach() {
-        replicaPhysicalTime = 2;
         safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
         currentLeader = null;
         replica = startReplica();
     }
 
+    /**
+     * Imitates leader election for the group.
+     *
+     * @param leader The leader.
+     */
     private void leaderElection(ClusterNode leader) {
         if (callbackHolder.get() != null) {
             callbackHolder.get().accept(leader, 1L);
         }
     }
 
+    /**
+     * Imitates sending {@link org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage} to the replica.
+     *
+     * @param leaseStartTime Lease start time.
+     * @param leaseExpirationTime Lease expiration time.
+     * @param force Force flag.
+     * @return Future that is completed when replica sends a response.
+     */
     private CompletableFuture<LeaseGrantedMessageResponse> sendLeaseGranted(
             HybridTimestamp leaseStartTime,
             HybridTimestamp leaseExpirationTime,
@@ -248,6 +258,7 @@ public class PlacementDriverReplicaSideTest {
         assertTrue(resp.accepted());
         assertNull(resp.redirectProposal());
 
+        // Replica should initiate the leadership transfer.
         assertEquals(LOCAL_NODE.name(), currentLeader.consistentId());
     }
 

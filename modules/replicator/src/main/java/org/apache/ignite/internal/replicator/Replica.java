@@ -57,15 +57,19 @@ public class Replica {
     /** Supplier that returns a {@link ClusterNode} instance of the local node. */
     private final Supplier<ClusterNode> localNodeSupplier;
 
-    private final Object leaseAcceptanceMutex = new Object();
-
     // TODO IGNITE-18960 after replica inoperability logic is introduced, this future should be replaced with something like
     //     VersionedValue (so that PlacementDriverMessages would wait for new leader election)
     private CompletableFuture<AtomicReference<ClusterNode>> leaderFuture = new CompletableFuture<>();
 
     private AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
 
+    /** Mutex to change {@link #leaseStartTime} and {@link #leaseExpirationTime} consistently. */
+    private final Object leaseAcceptanceMutex = new Object();
+
+    /** Latest lease start time. */
     private volatile HybridTimestamp leaseStartTime = null;
+
+    /** Latest lease expiration time. */
     private volatile HybridTimestamp leaseExpirationTime = null;
 
     /**
@@ -135,10 +139,12 @@ public class Replica {
         LeaseGrantedMessage msg = (LeaseGrantedMessage) msg0;
 
         return leaderFuture().thenCompose(leader -> {
-            if (hasAcceptedLease(msg.leaseStartTime())) {
+            if (hasAcceptedLease(msg.leaseStartTime(), msg.leaseExpirationTime())) {
                 return acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
             } else if (msg.force()) {
                 if (!leader.equals(localNodeSupplier.get())) {
+                    // Replica must wait till safe time reaches the lease start timestamp to make sure that all updates made on the
+                    // group leader are received.
                     return safeTime.waitFor(msg.leaseStartTime()).thenCompose(v -> {
                         CompletableFuture<NetworkMessage> respFut = acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
 
@@ -180,7 +186,9 @@ public class Replica {
         return completedFuture(resp);
     }
 
-    private boolean hasAcceptedLease(HybridTimestamp leaseStartTime) {
-        return leaseStartTime.between(this.leaseStartTime, leaseExpirationTime);
+    private boolean hasAcceptedLease(HybridTimestamp leaseStartTime, HybridTimestamp leaseExpirationTime) {
+        synchronized (leaseAcceptanceMutex) {
+            return leaseStartTime.equals(this.leaseStartTime) && leaseExpirationTime.equals(this.leaseExpirationTime);
+        }
     }
 }
