@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import java.util.EnumSet;
 import java.util.Set;
 
 /**

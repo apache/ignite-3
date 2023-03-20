@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import java.util.EnumSet;
-import java.util.Set;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
