@@ -32,6 +32,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
+import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
@@ -202,10 +203,23 @@ public class DistributionZonesUtil {
      * @return Update condition.
      */
     static CompoundCondition triggerScaleUpScaleDownKeysCondition(long scaleUpTriggerRevision, long scaleDownTriggerRevision,  int zoneId) {
-        return and(
-                value(zoneScaleUpChangeTriggerKey(zoneId)).eq(ByteUtils.longToBytes(scaleUpTriggerRevision)),
-                value(zoneScaleDownChangeTriggerKey(zoneId)).eq(ByteUtils.longToBytes(scaleDownTriggerRevision))
-        );
+        SimpleCondition scaleUpCondition;
+
+        if (scaleUpTriggerRevision != 0) {
+            scaleUpCondition = value(zoneScaleUpChangeTriggerKey(zoneId)).eq(ByteUtils.longToBytes(scaleUpTriggerRevision));
+        } else {
+            scaleUpCondition = notExists(zoneScaleUpChangeTriggerKey(zoneId));
+        }
+
+        SimpleCondition scaleDownCondition;
+
+        if (scaleDownTriggerRevision != 0) {
+            scaleDownCondition = value(zoneScaleDownChangeTriggerKey(zoneId)).eq(ByteUtils.longToBytes(scaleDownTriggerRevision));
+        } else {
+            scaleDownCondition = notExists(zoneScaleDownChangeTriggerKey(zoneId));
+        }
+
+        return and(scaleUpCondition, scaleDownCondition);
     }
 
     /**

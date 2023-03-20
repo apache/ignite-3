@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -1193,53 +1194,53 @@ public class DistributionZoneManager implements IgniteComponent {
                         try {
                             if (vaultEntry != null && vaultEntry.value() != null) {
                                 logicalTopology = fromBytes(vaultEntry.value());
-                            }
 
-                            // init keys and data nodes for default zone
-                            saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                                    DEFAULT_ZONE_ID,
-                                    appliedRevision,
-                                    logicalTopology
-                            );
-
-                            zonesConfiguration.distributionZones().value().namedListKeys()
-                                    .forEach(zoneName -> {
-                                        int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
-
-                                        saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                                                zoneId,
-                                                appliedRevision,
-                                                logicalTopology
-                                        );
-                                    });
-
-                            synchronized (dataNodesMutex) {
-                                DataNodes defaultZoneDataNodes = dataNodes.get(DEFAULT_ZONE_ID);
-
-                                if (defaultZoneDataNodes.scaleDownRevision() < appliedRevision
-                                        && defaultZoneDataNodes.scaleUpRevision() < appliedRevision) {
-                                    defaultZoneDataNodes.nodes(logicalTopology);
-                                }
+                                // init keys and data nodes for default zone
+                                saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+                                        DEFAULT_ZONE_ID,
+                                        appliedRevision,
+                                        logicalTopology
+                                );
 
                                 zonesConfiguration.distributionZones().value().namedListKeys()
                                         .forEach(zoneName -> {
-                                            NamedConfigurationTree<DistributionZoneConfiguration,
-                                                    DistributionZoneView,
-                                                    DistributionZoneChange> zones = zonesConfiguration.distributionZones();
+                                            int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
 
-                                            for (int i = 0; i < zones.value().size(); i++) {
-                                                DistributionZoneView zoneView = zones.value().get(i);
-
-                                                dataNodes.putIfAbsent(zoneView.zoneId(), new DataNodes());
-
-                                                DataNodes customZoneDataNodes = dataNodes.get(zoneView.zoneId());
-
-                                                if (customZoneDataNodes.scaleDownRevision() < appliedRevision
-                                                        && customZoneDataNodes.scaleUpRevision() < appliedRevision) {
-                                                    customZoneDataNodes.nodes(logicalTopology);
-                                                }
-                                            }
+                                            saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+                                                    zoneId,
+                                                    appliedRevision,
+                                                    logicalTopology
+                                            );
                                         });
+
+                                synchronized (dataNodesMutex) {
+                                    DataNodes defaultZoneDataNodes = dataNodes.get(DEFAULT_ZONE_ID);
+
+                                    if (defaultZoneDataNodes.scaleDownRevision() < appliedRevision
+                                            && defaultZoneDataNodes.scaleUpRevision() < appliedRevision) {
+                                        defaultZoneDataNodes.nodes(logicalTopology);
+                                    }
+
+                                    zonesConfiguration.distributionZones().value().namedListKeys()
+                                            .forEach(zoneName -> {
+                                                NamedConfigurationTree<DistributionZoneConfiguration,
+                                                        DistributionZoneView,
+                                                        DistributionZoneChange> zones = zonesConfiguration.distributionZones();
+
+                                                for (int i = 0; i < zones.value().size(); i++) {
+                                                    DistributionZoneView zoneView = zones.value().get(i);
+
+                                                    dataNodes.putIfAbsent(zoneView.zoneId(), new DataNodes());
+
+                                                    DataNodes customZoneDataNodes = dataNodes.get(zoneView.zoneId());
+
+                                                    if (customZoneDataNodes.scaleDownRevision() < appliedRevision
+                                                            && customZoneDataNodes.scaleUpRevision() < appliedRevision) {
+                                                        customZoneDataNodes.nodes(logicalTopology);
+                                                    }
+                                                }
+                                            });
+                                }
                             }
                         } finally {
                             busyLock.leaveBusy();
@@ -1580,11 +1581,35 @@ public class DistributionZoneManager implements IgniteComponent {
                     return completedFuture(null);
                 }
 
-                Map<String, Integer> dataNodesFromMetaStorage = fromBytes(values.get(zoneDataNodesKey(zoneId)).value());
+                Entry dataNodesValue = values.get(zoneDataNodesKey(zoneId));
 
-                long scaleUpTriggerRevision = bytesToLong(values.get(zoneScaleUpChangeTriggerKey(zoneId)).value());
+                Entry zoneScaleUpChangeTriggerValue = values.get(zoneScaleUpChangeTriggerKey(zoneId));
 
-                long scaleDownTriggerRevision = bytesToLong(values.get(zoneScaleDownChangeTriggerKey(zoneId)).value());
+                Entry zoneScaleDownChangeTriggerValue = values.get(zoneScaleDownChangeTriggerKey(zoneId));
+
+                Map<String, Integer> dataNodesFromMetaStorage;
+
+                long scaleUpTriggerRevision;
+
+                long scaleDownTriggerRevision;
+
+                if (dataNodesValue != null && dataNodesValue.value() != null) {
+                    dataNodesFromMetaStorage = fromBytes(dataNodesValue.value());
+                } else {
+                    dataNodesFromMetaStorage = emptyMap();
+                }
+
+                if (zoneScaleUpChangeTriggerValue != null && zoneScaleUpChangeTriggerValue.value() != null) {
+                    scaleUpTriggerRevision = bytesToLong(zoneScaleUpChangeTriggerValue.value());
+                } else {
+                    scaleUpTriggerRevision = 0;
+                }
+
+                if (zoneScaleDownChangeTriggerValue != null && zoneScaleDownChangeTriggerValue.value() != null) {
+                    scaleDownTriggerRevision = bytesToLong(zoneScaleDownChangeTriggerValue.value());
+                } else {
+                    scaleDownTriggerRevision = 0;
+                }
 
                 if (revision <= scaleUpTriggerRevision) {
                     return completedFuture(null);
@@ -1667,11 +1692,35 @@ public class DistributionZoneManager implements IgniteComponent {
                     return completedFuture(null);
                 }
 
-                Map<String, Integer> dataNodesFromMetaStorage = fromBytes(values.get(zoneDataNodesKey(zoneId)).value());
+                Entry dataNodesValue = values.get(zoneDataNodesKey(zoneId));
 
-                long scaleUpTriggerRevision = bytesToLong(values.get(zoneScaleUpChangeTriggerKey(zoneId)).value());
+                Entry zoneScaleUpChangeTriggerValue = values.get(zoneScaleUpChangeTriggerKey(zoneId));
 
-                long scaleDownTriggerRevision = bytesToLong(values.get(zoneScaleDownChangeTriggerKey(zoneId)).value());
+                Entry zoneScaleDownChangeTriggerValue = values.get(zoneScaleDownChangeTriggerKey(zoneId));
+
+                Map<String, Integer> dataNodesFromMetaStorage;
+
+                long scaleUpTriggerRevision;
+
+                long scaleDownTriggerRevision;
+
+                if (dataNodesValue != null && dataNodesValue.value() != null) {
+                    dataNodesFromMetaStorage = fromBytes(dataNodesValue.value());
+                } else {
+                    dataNodesFromMetaStorage = emptyMap();
+                }
+
+                if (zoneScaleUpChangeTriggerValue != null && zoneScaleUpChangeTriggerValue.value() != null) {
+                    scaleUpTriggerRevision = bytesToLong(zoneScaleUpChangeTriggerValue.value());
+                } else {
+                    scaleUpTriggerRevision = 0;
+                }
+
+                if (zoneScaleDownChangeTriggerValue != null && zoneScaleDownChangeTriggerValue.value() != null) {
+                    scaleDownTriggerRevision = bytesToLong(zoneScaleDownChangeTriggerValue.value());
+                } else {
+                    scaleDownTriggerRevision = 0;
+                }
 
                 if (revision <= scaleDownTriggerRevision) {
                     return completedFuture(null);

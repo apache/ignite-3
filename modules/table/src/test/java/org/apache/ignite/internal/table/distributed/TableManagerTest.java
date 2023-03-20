@@ -376,7 +376,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         TableManager igniteTables = tableManager;
 
-        assertThrows(IgniteException.class, () -> igniteTables.createTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME, DEFAULT_ZONE_NAME, createTableChange));
+        assertThrows(IgniteException.class,
+                () -> igniteTables.createTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME, DEFAULT_ZONE_NAME, createTableChange));
 
         assertThrows(IgniteException.class, () -> igniteTables.alterTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME, addColumnChange));
 
