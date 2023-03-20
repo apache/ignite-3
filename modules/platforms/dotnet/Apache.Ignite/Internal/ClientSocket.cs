@@ -175,8 +175,7 @@ namespace Apache.Ignite.Internal
 
                 if (logger?.IsEnabled(LogLevel.Debug) == true)
                 {
-                    logger.Debug(
-                        $"Socket connection established: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}, starting handshake...");
+                    logger.Debug($"Connection established [remoteAddress={socket.RemoteEndPoint}]");
                 }
 
                 Stream stream = new NetworkStream(socket, ownsSocket: true);
@@ -188,7 +187,8 @@ namespace Apache.Ignite.Internal
 
                     if (logger?.IsEnabled(LogLevel.Debug) == true)
                     {
-                        logger.Debug($"SSL connection established: {sslStream.NegotiatedCipherSuite}");
+                        logger.Debug(
+                            $"SSL connection established [remoteAddress={socket.RemoteEndPoint}]: {sslStream.NegotiatedCipherSuite}");
                     }
                 }
 
@@ -198,14 +198,14 @@ namespace Apache.Ignite.Internal
 
                 if (logger?.IsEnabled(LogLevel.Debug) == true)
                 {
-                    logger.Debug($"Handshake succeeded: {context}.");
+                    logger.Debug($"Handshake succeeded [remoteAddress={socket.RemoteEndPoint}]: {context}.");
                 }
 
                 return new ClientSocket(stream, configuration, context, assignmentChangeCallback, logger);
             }
             catch (Exception e)
             {
-                logger?.Warn($"Connection failed before or during handshake: {e.Message}.", e);
+                logger?.Warn($"Connection failed before or during handshake [remoteAddress={socket.RemoteEndPoint}]: {e.Message}.", e);
 
                 // ReSharper disable once MethodHasAsyncOverload
                 socket.Dispose();
@@ -525,6 +525,12 @@ namespace Apache.Ignite.Internal
             // Reset heartbeat timer - don't sent heartbeats when connection is active anyway.
             _heartbeatTimer.Change(dueTime: _heartbeatInterval, period: TimeSpan.FromMilliseconds(-1));
 
+            if (_logger?.IsEnabled(LogLevel.Trace) == true)
+            {
+                _logger.Trace(
+                    $"Sending request [opCode={(int)op}, remoteAddress={ConnectionContext.ClusterNode.Address}, requestId={requestId}]");
+            }
+
             await _sendLock.WaitAsync(_disposeTokenSource.Token).ConfigureAwait(false);
 
             try
@@ -607,7 +613,9 @@ namespace Apache.Ignite.Internal
 
             if (!_requests.TryRemove(requestId, out var taskCompletionSource))
             {
-                var message = $"Unexpected response ID ({requestId}) received from the server, closing the socket.";
+                var message = $"Unexpected response ID ({requestId}) received from the server " +
+                              $"[remoteAddress={ConnectionContext.ClusterNode.Address}], closing the socket.";
+
                 _logger?.Error(message);
                 Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Protocol, message));
 
@@ -618,6 +626,12 @@ namespace Apache.Ignite.Internal
 
             if (flags.HasFlag(ResponseFlags.PartitionAssignmentChanged))
             {
+                if (_logger?.IsEnabled(LogLevel.Info) == true)
+                {
+                    _logger.Info(
+                        $"Partition assignment change notification received [remoteAddress={ConnectionContext.ClusterNode.Address}]");
+                }
+
                 _assignmentChangeCallback(this);
             }
 
@@ -666,6 +680,15 @@ namespace Apache.Ignite.Internal
             if (_disposeTokenSource.IsCancellationRequested)
             {
                 return;
+            }
+
+            if (ex != null)
+            {
+                _logger?.Warn(ex, $"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]: " + ex.Message);
+            }
+            else if (_logger?.IsEnabled(LogLevel.Debug) == true)
+            {
+                _logger.Debug($"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]");
             }
 
             _heartbeatTimer.Dispose();
