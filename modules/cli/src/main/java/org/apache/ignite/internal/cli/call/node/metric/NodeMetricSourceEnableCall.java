@@ -24,7 +24,6 @@ import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
-import org.apache.ignite.internal.cli.core.repl.registry.MetricRegistry;
 import org.apache.ignite.rest.client.api.NodeMetricApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 
@@ -33,9 +32,6 @@ import org.apache.ignite.rest.client.invoker.ApiException;
 public class NodeMetricSourceEnableCall implements Call<NodeMetricSourceEnableCallInput, String> {
     @Inject
     private ApiClientFactory clientFactory;
-
-    @Inject
-    private MetricRegistry registry;
 
     /** {@inheritDoc} */
     @Override
@@ -48,7 +44,6 @@ public class NodeMetricSourceEnableCall implements Call<NodeMetricSourceEnableCa
             } else {
                 api.disableNodeMetric(input.getSrcName());
             }
-            registry.refresh();
             String message = input.getEnable() ? "enabled" : "disabled";
             return DefaultCallOutput.success("Metric source was " + message + " successfully");
         } catch (ApiException | IllegalArgumentException e) {

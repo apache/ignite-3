@@ -24,6 +24,7 @@ import org.apache.ignite.internal.cli.commands.metric.MetricSourceMixin;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
+import org.apache.ignite.internal.cli.core.repl.registry.MetricRegistry;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -43,11 +44,15 @@ public class NodeMetricSourceEnableReplCommand extends BaseCommand implements Ru
     @Inject
     private ConnectToClusterQuestion question;
 
+    @Inject
+    private MetricRegistry registry;
+
     @Override
     public void run() {
         question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(metricSource::buildEnableCallInput)
                 .then(Flows.fromCall(call))
+                .onSuccess(() -> registry.refresh())
                 .verbose(verbose)
                 .print()
                 .start();
