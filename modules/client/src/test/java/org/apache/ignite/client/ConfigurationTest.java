@@ -31,6 +31,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
@@ -158,7 +159,9 @@ public class ConfigurationTest extends AbstractClientTest {
 
     @Test
     public void testCustomAsyncContinuationExecutor() throws Exception {
-        try (var testServer = new TestServer(10900, 10, 0, server, null, x -> 1000, "n2", clusterId)) {
+        Function<Integer, Integer> responseDelay = x -> 50;
+
+        try (var testServer = new TestServer(10900, 10, 0, server, x -> false, responseDelay, "n2", clusterId)) {
             ExecutorService executor = Executors.newSingleThreadExecutor();
 
             var builderThreadName = new AtomicReference<String>();
