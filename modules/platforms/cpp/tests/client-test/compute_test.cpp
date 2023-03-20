@@ -258,3 +258,18 @@ TEST_F(compute_test, execute_colocated) {
         EXPECT_EQ(expectedNodeName, resNodeName);
     }
 }
+
+TEST_F(compute_test, execute_colocated_throws_when_table_does_not_exist) {
+    EXPECT_THROW(
+        {
+            try {
+                (void) m_client.get_compute().execute_colocated("unknownTable", get_tuple(42), ECHO_JOB, {});
+            } catch (const ignite_error &e) {
+                EXPECT_STREQ("Table does not exist: 'unknownTable'", e.what());
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+
