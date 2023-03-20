@@ -1429,13 +1429,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     });
 
                                                     return null;
-                                                })
-                                                .exceptionally(e0 -> tblFut.completeExceptionally(e0));
+                                                });
                                     }
 
                                     return null;
-                                })
-                                .exceptionally(e1 -> tblFut.completeExceptionally(e1));
+                                });
                     }
                 });
 
