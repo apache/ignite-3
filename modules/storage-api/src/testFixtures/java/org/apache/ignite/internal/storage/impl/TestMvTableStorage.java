@@ -201,7 +201,7 @@ public class TestMvTableStorage implements MvTableStorage {
 
     @Override
     public int partitions() {
-        return 0;
+        return partitions;
     }
 
     @Override

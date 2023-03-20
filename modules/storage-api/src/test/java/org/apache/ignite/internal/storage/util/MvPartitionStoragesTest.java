@@ -55,22 +55,21 @@ import org.junit.jupiter.api.function.Executable;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class MvPartitionStoragesTest {
-    @InjectConfiguration("mock.partitions = 10")
+    @InjectConfiguration
     private TableConfiguration tableConfig;
 
-    @InjectConfiguration
-    private DistributionZonesConfiguration distributionZonesConfiguration;
+    private final int partitions = 10;
 
     private MvPartitionStorages<MvPartitionStorage> mvPartitionStorages;
 
     @BeforeEach
     void setUp() {
-        mvPartitionStorages = new MvPartitionStorages(tableConfig.value(), distributionZonesConfiguration.defaultDistributionZone().partitions().value());
+        mvPartitionStorages = new MvPartitionStorages(tableConfig.value(), partitions);
     }
 
     @Test
     void testGet() {
-        assertThrows(IllegalArgumentException.class, () -> getMvStorage(getPartitionIdOutOfConfig()));
+        assertThrows(IllegalArgumentException.class, () -> getMvStorage(partitions));
 
         assertNull(getMvStorage(0));
 
@@ -109,7 +108,7 @@ public class MvPartitionStoragesTest {
 
     @Test
     void testCreateError() {
-        assertThrows(IllegalArgumentException.class, () -> createMvStorage(getPartitionIdOutOfConfig()));
+        assertThrows(IllegalArgumentException.class, () -> createMvStorage(partitions));
 
         assertThat(createMvStorage(0), willCompleteSuccessfully());
 
@@ -235,7 +234,7 @@ public class MvPartitionStoragesTest {
 
     @Test
     void testDestroyError() {
-        assertThrows(IllegalArgumentException.class, () -> destroyMvStorage(getPartitionIdOutOfConfig()));
+        assertThrows(IllegalArgumentException.class, () -> destroyMvStorage(partitions));
 
         assertThrowsWithMessage(StorageException.class, () -> destroyMvStorage(0), "Storage does not exist");
 
@@ -293,7 +292,7 @@ public class MvPartitionStoragesTest {
 
     @Test
     void testClearError() {
-        assertThrows(IllegalArgumentException.class, () -> clearMvStorage(getPartitionIdOutOfConfig()));
+        assertThrows(IllegalArgumentException.class, () -> clearMvStorage(partitions));
 
         assertThrowsWithMessage(StorageException.class, () -> clearMvStorage(0), "Storage does not exist");
 
@@ -350,7 +349,7 @@ public class MvPartitionStoragesTest {
 
     @Test
     void testStartRebalanceError() {
-        assertThrows(IllegalArgumentException.class, () -> startRebalanceMvStorage(getPartitionIdOutOfConfig()));
+        assertThrows(IllegalArgumentException.class, () -> startRebalanceMvStorage(partitions));
 
         assertThrowsWithMessage(StorageRebalanceException.class, () -> startRebalanceMvStorage(0), "Storage does not exist");
 
@@ -441,7 +440,7 @@ public class MvPartitionStoragesTest {
 
     @Test
     void testAbortRebalanceError() {
-        assertThrows(IllegalArgumentException.class, () -> abortRebalanceMvStorage(getPartitionIdOutOfConfig()));
+        assertThrows(IllegalArgumentException.class, () -> abortRebalanceMvStorage(partitions));
 
         assertThrowsWithMessage(StorageRebalanceException.class, () -> abortRebalanceMvStorage(0), "Storage does not exist");
 
@@ -495,7 +494,7 @@ public class MvPartitionStoragesTest {
 
     @Test
     void testFinishRebalanceError() {
-        assertThrows(IllegalArgumentException.class, () -> finishRebalanceMvStorage(getPartitionIdOutOfConfig()));
+        assertThrows(IllegalArgumentException.class, () -> finishRebalanceMvStorage(partitions));
 
         assertThrowsWithMessage(StorageRebalanceException.class, () -> finishRebalanceMvStorage(0), "Storage does not exist");
 
@@ -679,10 +678,6 @@ public class MvPartitionStoragesTest {
 
     private CompletableFuture<Void> finishRebalanceMvStorage(int partitionId) {
         return mvPartitionStorages.finishRebalance(partitionId, mvStorage -> completedFuture(null));
-    }
-
-    private int getPartitionIdOutOfConfig() {
-        return distributionZonesConfiguration.defaultDistributionZone().partitions().value();
     }
 
     private static <T extends Throwable> void assertThrowsWithMessage(

@@ -50,7 +50,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -110,7 +109,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
      *
      * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
      */
-    protected final void initialize(StorageEngine storageEngine, TablesConfiguration tablesConfig, DistributionZoneConfiguration distributionZoneConfiguration) {
+    protected final void initialize(StorageEngine storageEngine, TablesConfiguration tablesConfig, int partitions) {
         createTestTable(getTableConfig(tablesConfig));
         createTestIndexes(tablesConfig);
 
@@ -118,7 +117,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         this.storageEngine.start();
 
-        this.tableStorage = createMvTableStorage(tablesConfig, distributionZoneConfiguration.partitions().value());
+        this.tableStorage = createMvTableStorage(tablesConfig, partitions);
 
         this.tableStorage.start();
 
