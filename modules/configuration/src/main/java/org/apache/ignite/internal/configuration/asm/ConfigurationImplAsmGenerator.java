@@ -91,7 +91,6 @@ import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.DynamicConfigurationChanger;
 import org.apache.ignite.internal.configuration.DynamicProperty;
 import org.apache.ignite.internal.configuration.NamedListConfiguration;
-import org.apache.ignite.internal.configuration.direct.DirectPropertyProxy;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Handle;
@@ -531,7 +530,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
      */
     private void addDirectProxyMethod(SchemaClassesInfo schemaClassInfo) {
         MethodDefinition methodDef = cfgImplClassDef.declareMethod(
-                EnumSet.of(PUBLIC), "directProxy", type(DirectPropertyProxy.class)
+                EnumSet.of(PUBLIC), "directProxy", typeFromJavaClassName(schemaClassInfo.cfgClassName)
         );
 
         methodDef.getBody().append(newInstance(

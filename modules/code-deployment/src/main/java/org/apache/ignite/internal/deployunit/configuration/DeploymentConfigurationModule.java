@@ -20,9 +20,9 @@ package org.apache.ignite.internal.deployunit.configuration;
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.Collections;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
 
 /**
  * Configuration module for {@link DeploymentConfiguration}.

@@ -17,15 +17,15 @@
 
 package org.apache.ignite.deployment;
 
-import static org.apache.ignite.internal.deployunit.UnitMetaSerializer.deserialize;
-import static org.apache.ignite.internal.deployunit.UnitMetaSerializer.serialize;
+import static org.apache.ignite.internal.deployunit.key.UnitMetaSerializer.deserialize;
+import static org.apache.ignite.internal.deployunit.key.UnitMetaSerializer.serialize;
 import static org.hamcrest.Matchers.is;
 
 import java.util.Arrays;
 import java.util.Collections;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.UnitMeta;
-import org.apache.ignite.internal.deployunit.UnitMetaSerializer;
+import org.apache.ignite.internal.deployunit.key.UnitMetaSerializer;
 import org.hamcrest.MatcherAssert;
 import org.junit.jupiter.api.Test;
 
