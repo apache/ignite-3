@@ -190,9 +190,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         busyLock.block();
 
-        LOG.info("Index manager stopped");
-
         shutdownAndAwaitTermination(buildIndexExecutor, 10, TimeUnit.SECONDS);
+
+        LOG.info("Index manager stopped");
     }
 
     /**

@@ -466,23 +466,19 @@ public class PartitionCommandListenerTest {
         List<UUID> rowUuids1 = List.of(UUID.randomUUID());
         List<UUID> rowUuids2 = List.of(UUID.randomUUID());
 
-        BuildIndexCommand buildIndexCommand0 = createBuildIndexCommand(indexId, rowUuids0, false);
-        BuildIndexCommand buildIndexCommand1 = createBuildIndexCommand(indexId, rowUuids1, true);
-        BuildIndexCommand buildIndexCommand2 = createBuildIndexCommand(indexId, rowUuids2, false);
-
-        commandListener.onWrite(asList(
-                writeCommandCommandClosure(10, 1, buildIndexCommand0, commandClosureResultCaptor),
-                writeCommandCommandClosure(20, 2, buildIndexCommand1, commandClosureResultCaptor),
-                writeCommandCommandClosure(5, 1, buildIndexCommand2, commandClosureResultCaptor)
-        ).iterator());
-
         InOrder inOrder = inOrder(partitionDataStorage, storageUpdateHandler);
+
+        commandListener.handleBuildIndexCommand(createBuildIndexCommand(indexId, rowUuids0, false), 10, 1);
 
         inOrder.verify(partitionDataStorage).lastApplied(10, 1);
         inOrder.verify(storageUpdateHandler).buildIndex(indexId, rowUuids0, false);
 
+        commandListener.handleBuildIndexCommand(createBuildIndexCommand(indexId, rowUuids1, true), 20, 2);
+
         inOrder.verify(partitionDataStorage).lastApplied(20, 2);
         inOrder.verify(storageUpdateHandler).buildIndex(indexId, rowUuids1, true);
+
+        commandListener.handleBuildIndexCommand(createBuildIndexCommand(indexId, rowUuids2, false), 5, 1);
 
         inOrder.verify(partitionDataStorage, never()).lastApplied(5, 1);
         inOrder.verify(storageUpdateHandler, never()).buildIndex(indexId, rowUuids2, false);

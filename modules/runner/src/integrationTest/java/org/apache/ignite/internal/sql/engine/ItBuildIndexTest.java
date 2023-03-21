@@ -43,6 +43,7 @@ import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -61,6 +62,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("replicas")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19085")
     void testBuildIndexOnStableTopology(int replicas) throws Exception {
         sql(IgniteStringFormatter.format(
                 "CREATE TABLE {} (i0 INTEGER PRIMARY KEY, i1 INTEGER) WITH replicas={}, partitions={}",
@@ -90,7 +92,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
     }
 
     private static int[] replicas() {
-        // FIXME: IGNITE-18539 позже добавь тикет про НПЕ
+        // FIXME: IGNITE-19086 Fix NullPointerException on insertALl
         //        return new int[]{1, 2, 3};
         return new int[]{1};
     }
