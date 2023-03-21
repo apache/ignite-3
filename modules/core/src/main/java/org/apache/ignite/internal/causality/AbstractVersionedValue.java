@@ -217,7 +217,12 @@ public class AbstractVersionedValue<T> {
     }
 
     /**
-     * Completes a future related with a specific causality token. It is called only on storage revision update.
+     * Looks for the first complete future that comes before the {@link #actualToken} and completes all futures in the range
+     * {@code (previousCompleteToken, actualToken)} with the value of this this future.
+     *
+     * <p>Must be called under the {@link #readWriteLock writeLock}.
+     *
+     * @return First complete future that comes before {@code actualToken} or {@code null} if no such future exists.
      */
     @Nullable
     private CompletableFuture<T> completePreviousFutures() {
