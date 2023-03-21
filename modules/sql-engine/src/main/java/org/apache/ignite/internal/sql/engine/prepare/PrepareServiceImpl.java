@@ -46,6 +46,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.SchemaUpdateListener;
@@ -146,10 +147,10 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         try {
             assert single(sqlNode);
 
-            var queryType = Commons.getQueryType(sqlNode);
+            SqlQueryType queryType = Commons.getQueryType(sqlNode);
             assert queryType != null : "No query type for query: " + sqlNode;
 
-            var planningContext = PlanningContext.builder()
+            PlanningContext planningContext = PlanningContext.builder()
                     .parentContext(ctx)
                     .build();
 
@@ -220,7 +221,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
         var key = new CacheKey(ctx.schemaName(), sqlNode.toString(), distributed, paramTypes);
 
-        var planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             // Validate
@@ -244,7 +245,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     private CompletableFuture<QueryPlan> prepareDml(SqlNode sqlNode, PlanningContext ctx) {
         var key = new CacheKey(ctx.schemaName(), sqlNode.toString());
 
-        var planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             // Validate

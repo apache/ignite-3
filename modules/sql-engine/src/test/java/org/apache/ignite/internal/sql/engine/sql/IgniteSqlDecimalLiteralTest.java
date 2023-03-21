@@ -148,7 +148,7 @@ public class IgniteSqlDecimalLiteralTest extends AbstractPlannerTest {
      */
     @Test
     public void testDecimalAsAlias() {
-        var node = parseQuery("SELECT DECIMAL \"10\"");
+        SqlNode node = parseQuery("SELECT DECIMAL \"10\"");
 
         assertEquals("SELECT `DECIMAL` AS `10`", node.toString());
     }

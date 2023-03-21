@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -684,8 +685,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Performs additional validation of a parsed statement. **/
     private static void validateParsedStatement(QueryContext context, ParseResult parseResult, SqlNode node, Object[] params) {
-        var allowedTypes = context.allowedQueryTypes();
-        var queryType = Commons.getQueryType(node);
+        Set<SqlQueryType> allowedTypes = context.allowedQueryTypes();
+        SqlQueryType queryType = Commons.getQueryType(node);
 
         if (queryType == null) {
             throw new IgniteInternalException(UNSUPPORTED_SQL_OPERATION_KIND_ERR, "Unsupported operation ["
@@ -694,15 +695,17 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         if (!allowedTypes.contains(queryType)) {
-            var message = format("Invalid SQL statement type in the batch. Expected {} but got {}.", allowedTypes, queryType);
+            String message = format("Invalid SQL statement type in the batch. Expected {} but got {}.", allowedTypes, queryType);
+
             throw new QueryValidationException(message);
         }
 
         if (parseResult.dynamicParamsCount() != params.length) {
-            var message = format(
+            String message = format(
                     "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
                     params.length, parseResult.dynamicParamsCount()
             );
+
             throw new SqlException(QUERY_INVALID_ERR, message);
         }
     }

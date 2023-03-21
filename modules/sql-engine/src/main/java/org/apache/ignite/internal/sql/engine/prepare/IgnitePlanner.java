@@ -172,10 +172,11 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
 
         // Parse method is only used in tests.
         if (parameters.length != parseResult.dynamicParamsCount()) {
-            var message = format(
+            String message = format(
                     "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
                     parameters.length, parseResult.dynamicParamsCount()
             );
+
             throw new SqlException(QUERY_INVALID_ERR, message);
         }
 

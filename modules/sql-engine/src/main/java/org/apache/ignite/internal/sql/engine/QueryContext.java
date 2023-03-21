@@ -22,7 +22,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import org.apache.calcite.plan.Context;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -30,8 +29,6 @@ import org.jetbrains.annotations.Nullable;
  * User query context.
  */
 public class QueryContext implements Context {
-
-    private static final QueryContext EMPTY = new QueryContext(Set.of(), ArrayUtils.OBJECT_EMPTY_ARRAY);
 
     /** A set of types of SQL commands that can be executed within an operation this context is associated with. **/
     private final Set<SqlQueryType> allowedQueries;
@@ -42,7 +39,7 @@ public class QueryContext implements Context {
     /**
      * Constructor.
      *
-     * @param allowedQueries  Allowed query types.
+     * @param allowedQueries Allowed query types.
      * @param params Context params.
      */
     private QueryContext(Set<SqlQueryType> allowedQueries, Object[] params) {
@@ -50,7 +47,7 @@ public class QueryContext implements Context {
         this.allowedQueries = allowedQueries;
     }
 
-    /** Returns a set of {@link QueryPlan.Type allowed query types}. **/
+    /** Returns a set of {@link SqlQueryType allowed query types}. **/
     public Set<SqlQueryType> allowedQueryTypes() {
         return allowedQueries;
     }
@@ -65,15 +62,10 @@ public class QueryContext implements Context {
         return Arrays.stream(params).filter(cls::isInstance).findFirst().map(cls::cast).orElse(null);
     }
 
-    /** Returns query context that contains no parameters and does not allow any query to execute. */
-    public static QueryContext empty() {
-        return EMPTY;
-    }
-
     /**
      * Creates a context that allows the given query types.
      *
-     * @param allowedQueries  A set of allowed query types.
+     * @param allowedQueries A set of allowed query types.
      * @return Query context.
      */
     public static QueryContext create(Set<SqlQueryType> allowedQueries) {
