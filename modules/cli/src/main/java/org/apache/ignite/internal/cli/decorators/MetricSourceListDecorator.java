@@ -17,29 +17,38 @@
 
 package org.apache.ignite.internal.cli.decorators;
 
+import com.jakewharton.fliptables.FlipTable;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
+import org.apache.ignite.internal.cli.util.PlainTableRenderer;
 import org.apache.ignite.rest.client.model.MetricSource;
 
 /** Decorator for printing list of {@link MetricSource}. */
 public class MetricSourceListDecorator implements Decorator<List<MetricSource>, TerminalOutput> {
+    private static final String[] HEADERS = {"Set name", "Enabled"};
+
+    private final boolean plain;
+
+    public MetricSourceListDecorator(boolean plain) {
+        this.plain = plain;
+    }
+
     @Override
     public TerminalOutput decorate(List<MetricSource> data) {
-        return () -> {
-            String enabled = data.stream()
-                    .filter(MetricSource::getEnabled)
-                    .map(MetricSource::getName)
-                    .collect(Collectors.joining(System.lineSeparator()));
-            String disabled = data.stream()
-                    .filter(metricSource -> !metricSource.getEnabled())
-                    .map(MetricSource::getName)
-                    .collect(Collectors.joining(System.lineSeparator()));
-            return Stream.of("Enabled metric sources:", enabled, "Disabled metric sources:", disabled)
-                    .filter(s -> !s.isEmpty())
-                    .collect(Collectors.joining(System.lineSeparator()));
-        };
+        if (plain) {
+            return () -> PlainTableRenderer.render(HEADERS, metricSourcesToContent(data));
+        } else {
+            return () -> FlipTable.of(HEADERS, metricSourcesToContent(data));
+        }
+    }
+
+    private static String[][] metricSourcesToContent(List<MetricSource> data) {
+        return data.stream()
+                .map(metricSource -> new String[]{
+                        metricSource.getName(),
+                        metricSource.getEnabled() ? "enabled" : "disabled"
+                })
+                .toArray(String[][]::new);
     }
 }

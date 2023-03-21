@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.cli.commands.node.metric;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
+
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSetListCall;
@@ -27,6 +30,7 @@ import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.decorators.MetricSetListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
 /** Command that lists node metrics. */
 @Command(name = "list", description = "Lists node metrics")
@@ -34,6 +38,9 @@ public class NodeMetricSetListCommand extends BaseCommand implements Callable<In
     /** Node URL option. */
     @Mixin
     private NodeUrlProfileMixin nodeUrl;
+
+    @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
+    private boolean plain;
 
     @Inject
     private NodeMetricSetListCall call;
@@ -45,7 +52,7 @@ public class NodeMetricSetListCommand extends BaseCommand implements Callable<In
                 .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
-                .decorator(new MetricSetListDecorator())
+                .decorator(new MetricSetListDecorator(plain))
                 .verbose(verbose)
                 .build()
                 .runPipeline();

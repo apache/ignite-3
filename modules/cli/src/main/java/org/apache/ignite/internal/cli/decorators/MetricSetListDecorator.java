@@ -17,30 +17,43 @@
 
 package org.apache.ignite.internal.cli.decorators;
 
+import com.jakewharton.fliptables.FlipTable;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.StringJoiner;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
+import org.apache.ignite.internal.cli.util.PlainTableRenderer;
 import org.apache.ignite.rest.client.model.Metric;
 import org.apache.ignite.rest.client.model.MetricSet;
 
 /** Decorator for printing list of {@link MetricSet}. */
 public class MetricSetListDecorator implements Decorator<List<MetricSet>, TerminalOutput> {
+    private static final String[] HEADERS = {"Set name", "Metric name", "Description"};
+
+    private final boolean plain;
+
+    public MetricSetListDecorator(boolean plain) {
+        this.plain = plain;
+    }
+
     @Override
     public TerminalOutput decorate(List<MetricSet> data) {
-        return () -> {
-            StringJoiner joiner = new StringJoiner(System.lineSeparator());
+        if (plain) {
+            return () -> PlainTableRenderer.render(HEADERS, metricSetsToContent(data));
+        } else {
+            return () -> FlipTable.of(HEADERS, metricSetsToContent(data));
+        }
+    }
 
-            joiner.add("Metric sets:");
-            for (MetricSet metricSet : data) {
-                joiner.add("  " + metricSet.getName());
-                for (Metric metric : metricSet.getMetrics()) {
-                    String desc = metric.getDesc();
-                    joiner.add("    " + metric.getName() + (desc != null ? " - " + desc : ""));
-                }
+    private static String[][] metricSetsToContent(List<MetricSet> data) {
+        List<String[]> result = new ArrayList<>();
+        for (MetricSet metricSet : data) {
+            result.add(new String[]{metricSet.getName(), "", ""});
+            for (Metric metric : metricSet.getMetrics()) {
+                String desc = metric.getDesc();
+                result.add(new String[]{"", metric.getName(), desc != null ? desc : ""});
             }
-
-            return joiner.toString();
-        };
+        }
+        return result.toArray(new String[0][]);
     }
 }

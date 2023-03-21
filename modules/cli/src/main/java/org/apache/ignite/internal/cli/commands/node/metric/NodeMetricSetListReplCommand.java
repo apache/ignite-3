@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.cli.commands.node.metric;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
+
 import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSetListCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
@@ -27,6 +30,7 @@ import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.decorators.MetricSetListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
 /** Command that lists node metrics in REPL mode. */
 @Command(name = "list", description = "Lists node metrics")
@@ -34,6 +38,9 @@ public class NodeMetricSetListReplCommand extends BaseCommand implements Runnabl
     /** Node URL option. */
     @Mixin
     private NodeUrlMixin nodeUrl;
+
+    @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
+    private boolean plain;
 
     @Inject
     private NodeMetricSetListCall call;
@@ -47,7 +54,7 @@ public class NodeMetricSetListReplCommand extends BaseCommand implements Runnabl
         question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(UrlCallInput::new)
                 .then(Flows.fromCall(call))
-                .print(new MetricSetListDecorator())
+                .print(new MetricSetListDecorator(plain))
                 .start();
     }
 }

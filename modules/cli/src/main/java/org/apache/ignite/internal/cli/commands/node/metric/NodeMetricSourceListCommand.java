@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.cli.commands.node.metric;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
+
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceListCall;
@@ -27,6 +30,7 @@ import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.decorators.MetricSourceListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
 /** Command that lists node metric sources. */
 @Command(name = "list", description = "Lists node metric sources")
@@ -34,6 +38,9 @@ public class NodeMetricSourceListCommand extends BaseCommand implements Callable
     /** Node URL option. */
     @Mixin
     private NodeUrlProfileMixin nodeUrl;
+
+    @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
+    private boolean plain;
 
     @Inject
     private NodeMetricSourceListCall call;
@@ -45,7 +52,7 @@ public class NodeMetricSourceListCommand extends BaseCommand implements Callable
                 .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
-                .decorator(new MetricSourceListDecorator())
+                .decorator(new MetricSourceListDecorator(plain))
                 .verbose(verbose)
                 .build()
                 .runPipeline();

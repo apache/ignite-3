@@ -26,18 +26,17 @@ import org.junit.jupiter.api.Test;
 /** Tests for node metric commands. */
 class ItNodeMetricCommandTest extends CliCommandTestInitializedIntegrationBase {
     @Test
-    @DisplayName("Should display empty enabled node metric sources list when valid node-url is given")
+    @DisplayName("Should display disabled jvm metric source when valid node-url is given")
     void nodeMetricList() {
         // When list node metric with valid url
-        execute("node", "metric", "source", "list", "--node-url", NODE_URL);
+        execute("node", "metric", "source", "list", "--plain", "--node-url", NODE_URL);
 
         // Then
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputIs("Enabled metric sources:" + System.lineSeparator()
-                        + "Disabled metric sources:" + System.lineSeparator()
-                        + "jvm" + System.lineSeparator())
+                () -> assertOutputIs("Set name\tEnabled" + System.lineSeparator()
+                        + "jvm\tdisabled" + System.lineSeparator())
         );
     }
 

@@ -322,12 +322,12 @@ paths:
     get:
       tags:
       - deployment
-      description: All units statutes.
+      description: All units statuses.
       operationId: units
       parameters: []
       responses:
         "200":
-          description: All statutes returned successful.
+          description: All statuses returned successfully.
           content:
             application/json:
               schema:
@@ -402,7 +402,7 @@ paths:
           type: string
       responses:
         "200":
-          description: All statutes returned successful.
+          description: All statuses returned successfully.
           content:
             application/json:
               schema:
@@ -464,7 +464,7 @@ paths:
           type: string
       responses:
         "200":
-          description: Status returned successful.
+          description: Status returned successfully.
           content:
             application/json:
               schema:
@@ -497,7 +497,7 @@ paths:
           type: string
       responses:
         "200":
-          description: Versions returned successful.
+          description: Versions returned successfully.
           content:
             application/json:
               schema:
@@ -844,9 +844,12 @@ components:
     MetricSource:
       required:
       - enabled
+      - name
       type: object
       properties:
         name:
+          required:
+          - "true"
           type: string
           description: Metric source name.
         enabled:

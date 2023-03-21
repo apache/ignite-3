@@ -202,11 +202,11 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         )
                         .respond(response(responseBody));
 
-                int exitCode = execute("node metric source list --node-url " + mockUrl);
+                int exitCode = execute("node metric source list --plain --node-url " + mockUrl);
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
-                assertOutputEqual("Enabled metric sources:\nenabledMetric\nDisabled metric sources:\ndisabledMetric\n");
+                assertOutputEqual("Set name\tEnabled\nenabledMetric\tenabled\ndisabledMetric\tdisabled\n");
                 assertThatStderrIsEmpty();
             }
 
@@ -221,11 +221,11 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         )
                         .respond(response(responseBody));
 
-                int exitCode = execute("node metric list --node-url " + mockUrl);
+                int exitCode = execute("node metric list --plain --node-url " + mockUrl);
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
-                assertOutputEqual("Metric sets:\n  metricSet\n    metric - description");
+                assertOutputEqual("Set name\tMetric name\tDescription\nmetricSet\t\t\n\tmetric\tdescription");
                 assertThatStderrIsEmpty();
             }
         }

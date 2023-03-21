@@ -47,18 +47,17 @@ class ItEnabledNodeMetricCommandTest extends CliCommandTestInitializedIntegratio
     }
 
     @Test
-    @DisplayName("Should display node metric sources list when valid node-url is given")
+    @DisplayName("Should display enabled jvm metric source when valid node-url is given")
     void nodeMetricSourcesList() {
         // When list node metric sources with valid url
-        execute("node", "metric", "source", "list", "--node-url", NODE_URL);
+        execute("node", "metric", "source", "list", "--plain", "--node-url", NODE_URL);
 
         // Then
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputIs("Enabled metric sources:" + NL
-                        + "jvm" + NL
-                        + "Disabled metric sources:" + NL)
+                () -> assertOutputIs("Set name\tEnabled" + NL
+                        + "jvm\tenabled" + NL)
         );
     }
 
@@ -66,22 +65,22 @@ class ItEnabledNodeMetricCommandTest extends CliCommandTestInitializedIntegratio
     @DisplayName("Should display node metrics list when valid node-url is given")
     void nodeMetricEnableNonexistent() {
         // When list node metric with valid url
-        execute("node", "metric", "list", "--node-url", NODE_URL);
+        execute("node", "metric", "list", "--plain", "--node-url", NODE_URL);
 
         // Then
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputIs("Metric sets:" + NL
-                        + "  jvm" + NL
-                        + "    memory.heap.committed - Committed amount of heap memory" + NL
-                        + "    memory.heap.max - Maximum amount of heap memory" + NL
-                        + "    memory.non-heap.max - Maximum amount of non-heap memory" + NL
-                        + "    memory.non-heap.init - Initial amount of non-heap memory" + NL
-                        + "    memory.non-heap.committed - Committed amount of non-heap memory" + NL
-                        + "    memory.non-heap.used - Used amount of non-heap memory" + NL
-                        + "    memory.heap.used - Current used amount of heap memory" + NL
-                        + "    memory.heap.init - Initial amount of heap memory" + NL
+                () -> assertOutputIs("Set name\tMetric name\tDescription" + NL
+                        + "jvm\t\t" + NL
+                        + "\tmemory.heap.committed\tCommitted amount of heap memory" + NL
+                        + "\tmemory.heap.max\tMaximum amount of heap memory" + NL
+                        + "\tmemory.non-heap.max\tMaximum amount of non-heap memory" + NL
+                        + "\tmemory.non-heap.init\tInitial amount of non-heap memory" + NL
+                        + "\tmemory.non-heap.committed\tCommitted amount of non-heap memory" + NL
+                        + "\tmemory.non-heap.used\tUsed amount of non-heap memory" + NL
+                        + "\tmemory.heap.used\tCurrent used amount of heap memory" + NL
+                        + "\tmemory.heap.init\tInitial amount of heap memory" + NL
                 )
         );
     }
