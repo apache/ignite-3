@@ -22,7 +22,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Asadasda.
+ * Node's attributes configuration schema.
  */
 @ConfigurationRoot(rootName = "nodeAttributes", type = ConfigurationType.LOCAL)
 public class NodeAttributesConfigurationSchema {

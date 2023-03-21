@@ -17,23 +17,23 @@
 
 package org.apache.ignite.internal.cluster.management.topology.api;
 
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 
 /**
- * Ssdasd.
+ * Representation of a logical node in a cluster.
  */
 public class LogicalNode extends ClusterNode {
-
+    /** Node's attributes. */
     private final String nodeAttributes;
 
     /**
-     * Cdfd.
+     * Constructor.
      *
-     * @param id sdsd.
-     * @param name sdsd.
-     * @param address sds.
-     * @param nodeAttributes sds.
+     * @param id      Local id that changes between restarts.
+     * @param name    Unique name of a member in a cluster.
+     * @param address Node address.
      */
     public LogicalNode(String id, String name, NetworkAddress address, String nodeAttributes) {
         super(id, name, address);
@@ -42,10 +42,10 @@ public class LogicalNode extends ClusterNode {
     }
 
     /**
-     * Cdfd.
+     * Constructor.
      *
-     * @param clusterNode dsd.
-     * @param nodeAttributes sds.
+     * @param clusterNode    Represents a node in a cluster..
+     * @param nodeAttributes Node attributes.
      */
     public LogicalNode(ClusterNode clusterNode, String nodeAttributes) {
         super(clusterNode.id(), clusterNode.name(), clusterNode.address(), clusterNode.nodeMetadata());
@@ -54,11 +54,17 @@ public class LogicalNode extends ClusterNode {
     }
 
     /**
-     *  DSad.
+     * Returns node's attributes.
      *
-     * @return sadad.
+     * @return Node's attributes.
      */
     public String nodeAttributes() {
         return nodeAttributes;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(LogicalNode.class, this);
     }
 }

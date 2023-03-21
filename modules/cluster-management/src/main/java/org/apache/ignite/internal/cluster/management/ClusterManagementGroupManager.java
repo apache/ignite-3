@@ -132,6 +132,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private final DistributedConfigurationUpdater distributedConfigurationUpdater;
 
+    /** Node's attributes configuration. */
     private final NodeAttributesConfiguration nodeAttributes;
 
     /**

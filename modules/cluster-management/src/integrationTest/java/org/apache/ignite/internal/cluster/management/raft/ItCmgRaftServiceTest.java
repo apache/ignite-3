@@ -210,8 +210,8 @@ public class ItCmgRaftServiceTest {
         Node node1 = cluster.get(0);
         Node node2 = cluster.get(1);
 
-        ClusterNode clusterNode1 = node1.localMember();
-        ClusterNode clusterNode2 = node2.localMember();
+        LogicalNode clusterNode1 = new LogicalNode(node1.localMember(), "");
+        LogicalNode clusterNode2 = new LogicalNode(node2.localMember(),"");
 
         var clusterState = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(node1.raftService.nodeNames()))
@@ -269,8 +269,8 @@ public class ItCmgRaftServiceTest {
         Node node1 = cluster.get(0);
         Node node2 = cluster.get(1);
 
-        ClusterNode clusterNode1 = node1.localMember();
-        ClusterNode clusterNode2 = node2.localMember();
+        LogicalNode clusterNode1 = new LogicalNode(node1.localMember(), "");
+        LogicalNode clusterNode2 = new LogicalNode(node2.localMember(), "");
 
         Collection<String> cmgNodes = node1.raftService.nodeNames();
         Collection<String> msNodes = node1.raftService.nodeNames();

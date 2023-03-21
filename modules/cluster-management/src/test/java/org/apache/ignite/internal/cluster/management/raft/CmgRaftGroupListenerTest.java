@@ -50,6 +50,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMe
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -104,7 +105,7 @@ public class CmgRaftGroupListenerTest {
 
         listener.onWrite(iterator(msgFactory.joinRequestCommand().node(node).version(state.version()).clusterTag(clusterTag).build()));
 
-        assertThat(listener.storage().getValidatedNodes(), contains(node.asClusterNode()));
+        assertThat(listener.storage().getValidatedNodes(), contains(new LogicalNode(node.asClusterNode(), "")));
 
         listener.onWrite(iterator(msgFactory.joinReadyCommand().node(node).build()));
 
