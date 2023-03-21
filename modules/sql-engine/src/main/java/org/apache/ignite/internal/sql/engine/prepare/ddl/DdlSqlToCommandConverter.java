@@ -64,6 +64,7 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlUnknownLiteral;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.ddl.SqlDdlNodes;
 import org.apache.calcite.sql.ddl.SqlDropTable;
@@ -774,16 +775,23 @@ public class DdlSqlToCommandConverter {
      */
     private static Object fromLiteral(RelDataType columnType, SqlLiteral literal) {
         try {
-            switch (columnType.getSqlTypeName()) {
+            SqlTypeName sqlColumnType = columnType.getSqlTypeName();
+
+            switch (sqlColumnType) {
                 case VARCHAR:
                 case CHAR:
                     return literal.getValueAs(String.class);
-                case DATE:
-                    return LocalDate.ofEpochDay(literal.getValueAs(DateString.class).getDaysSinceEpoch());
-                case TIME:
-                    return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(literal.getValueAs(TimeString.class).getMillisOfDay()));
+                case DATE: {
+                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(sqlColumnType);
+                    return LocalDate.ofEpochDay(literal0.getValueAs(DateString.class).getDaysSinceEpoch());
+                }
+                case TIME: {
+                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(sqlColumnType);
+                    return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(literal0.getValueAs(TimeString.class).getMillisOfDay()));
+                }
                 case TIMESTAMP: {
-                    var tsString = literal.getValueAs(TimestampString.class);
+                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(sqlColumnType);
+                    var tsString = literal0.getValueAs(TimestampString.class);
 
                     return LocalDateTime.ofEpochSecond(
                             TimeUnit.MILLISECONDS.toSeconds(tsString.getMillisSinceEpoch()),
