@@ -22,45 +22,45 @@
 namespace ignite {
 
 /**
- * @brief A date.
+ * @brief A date-based amount of time.
  *
- * This is modeled after java.time.LocalDate.
+ * This is modeled after java.time.Period.
  */
-class ignite_date {
+class ignite_period {
 public:
     /**
      * Default constructor.
      */
-    constexpr ignite_date() noexcept = default;
+    constexpr ignite_period() noexcept = default;
 
     /**
      * Constructor.
      *
-     * @param year Year to represent, from -999,999,999 to 999,999,999.
-     * @param month Month-of-year, from 1 (January) to 12 (December).
-     * @param day_of_month Day-of-month, from 1 to 31.
+     * @param years The number of years.
+     * @param months The number of months.
+     * @param days The number of days.
      */
-    constexpr ignite_date(std::int32_t year, std::int32_t month, std::int32_t day_of_month)
-        : m_year(year)
-        , m_month(std::int8_t(month))
-        , m_day(std::int8_t(day_of_month)) {
+    constexpr ignite_period(std::int32_t years, std::int32_t months, std::int32_t days)
+        : years(years)
+        , months(months)
+        , days(days) {
         // TODO: check that arguments are in valid ranges.
     }
 
     /**
-     * Gets the year field.
+     * Gets the years field.
      */
-    [[nodiscard]] constexpr std::int32_t get_year() const noexcept { return m_year; }
+    constexpr std::int32_t get_years() const noexcept { return years; }
 
     /**
-     * Gets the month-of-year field.
+     * Gets the months field.
      */
-    [[nodiscard]] constexpr std::int_fast8_t get_month() const noexcept { return m_month; }
+    constexpr std::int32_t get_months() const noexcept { return months; }
 
     /**
-     * Gets the day-of-month field.
+     * Gets the days field.
      */
-    [[nodiscard]] constexpr std::int_fast8_t get_day_of_month() const noexcept { return m_day; }
+    constexpr std::int32_t get_days() const noexcept { return days; }
 
     /**
      * Compare to another value.
@@ -68,20 +68,20 @@ public:
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less, and positive if greater.
      */
-    [[nodiscard]] constexpr int compare(const ignite_date &other) const noexcept {
-        if (m_year != other.m_year) {
-            return m_year - other.m_year;
+    constexpr int compare(const ignite_period &other) const noexcept {
+        if (years != other.years) {
+            return years - other.years;
         }
-        if (m_month != other.m_month) {
-            return m_month - other.m_month;
+        if (months != other.months) {
+            return months - other.months;
         }
-        return m_day - other.m_day;
+        return days - other.days;
     }
 
 private:
-    std::int_least32_t m_year = 0;
-    std::int_least8_t m_month = 1;
-    std::int_least8_t m_day = 1;
+    std::int_least32_t years = 0;
+    std::int_least32_t months = 0;
+    std::int_least32_t days = 0;
 };
 
 /**
@@ -91,7 +91,7 @@ private:
  * @param rhs Second value.
  * @return true If the first value is equal to the second.
  */
-constexpr bool operator==(const ignite_date &lhs, const ignite_date &rhs) noexcept {
+constexpr bool operator==(const ignite_period &lhs, const ignite_period &rhs) noexcept {
     return lhs.compare(rhs) == 0;
 }
 
@@ -102,7 +102,7 @@ constexpr bool operator==(const ignite_date &lhs, const ignite_date &rhs) noexce
  * @param rhs Second value.
  * @return true If the first value is not equal to the second.
  */
-constexpr bool operator!=(const ignite_date &lhs, const ignite_date &rhs) noexcept {
+constexpr bool operator!=(const ignite_period &lhs, const ignite_period &rhs) noexcept {
     return lhs.compare(rhs) != 0;
 }
 
@@ -113,7 +113,7 @@ constexpr bool operator!=(const ignite_date &lhs, const ignite_date &rhs) noexce
  * @param rhs Second value.
  * @return true If the first value is less than the second.
  */
-constexpr bool operator<(const ignite_date &lhs, const ignite_date &rhs) noexcept {
+constexpr bool operator<(const ignite_period &lhs, const ignite_period &rhs) noexcept {
     return lhs.compare(rhs) < 0;
 }
 
@@ -124,7 +124,7 @@ constexpr bool operator<(const ignite_date &lhs, const ignite_date &rhs) noexcep
  * @param rhs Second value.
  * @return true If the first value is less than or equal to the second.
  */
-constexpr bool operator<=(const ignite_date &lhs, const ignite_date &rhs) noexcept {
+constexpr bool operator<=(const ignite_period &lhs, const ignite_period &rhs) noexcept {
     return lhs.compare(rhs) <= 0;
 }
 
@@ -135,7 +135,7 @@ constexpr bool operator<=(const ignite_date &lhs, const ignite_date &rhs) noexce
  * @param rhs Second value.
  * @return true If the first value is greater than the second.
  */
-constexpr bool operator>(const ignite_date &lhs, const ignite_date &rhs) noexcept {
+constexpr bool operator>(const ignite_period &lhs, const ignite_period &rhs) noexcept {
     return lhs.compare(rhs) > 0;
 }
 
@@ -146,7 +146,7 @@ constexpr bool operator>(const ignite_date &lhs, const ignite_date &rhs) noexcep
  * @param rhs Second value.
  * @return true If the first value is greater than or equal to the second.
  */
-constexpr bool operator>=(const ignite_date &lhs, const ignite_date &rhs) noexcept {
+constexpr bool operator>=(const ignite_period &lhs, const ignite_period &rhs) noexcept {
     return lhs.compare(rhs) >= 0;
 }
 

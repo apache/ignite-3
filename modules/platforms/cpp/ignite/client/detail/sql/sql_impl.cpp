@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-#include "ignite/client/detail/sql/sql_impl.h"
+#include "sql_impl.h"
+
 #include "ignite/client/detail/sql/result_set_impl.h"
 #include "ignite/client/detail/utils.h"
 
-#include "ignite/schema/binary_tuple_builder.h"
+#include <ignite/tuple/binary_tuple_builder.h>
 
 namespace ignite::detail {
 

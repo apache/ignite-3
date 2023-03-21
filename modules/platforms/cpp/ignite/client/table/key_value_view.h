@@ -51,7 +51,6 @@ public:
 
     // Default
     key_value_view() = default;
-    ~key_value_view() = default;
     key_value_view(key_value_view &&) noexcept = default;
     key_value_view &operator=(key_value_view &&) noexcept = default;
 };
@@ -73,7 +72,6 @@ public:
 
     // Default
     key_value_view() = default;
-    ~key_value_view() = default;
     key_value_view(key_value_view &&) noexcept = default;
     key_value_view &operator=(key_value_view &&) noexcept = default;
 

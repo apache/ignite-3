@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-#include "ignite/client/detail/table/table_impl.h"
+#include "table_impl.h"
+
 #include "ignite/client/detail/transaction/transaction_impl.h"
 #include "ignite/client/detail/utils.h"
 #include "ignite/client/table/table.h"
@@ -25,7 +26,7 @@
 #include "ignite/protocol/bitset_span.h"
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/writer.h"
-#include "ignite/schema/binary_tuple_parser.h"
+#include "ignite/tuple/binary_tuple_parser.h"
 
 namespace ignite::detail {
 
