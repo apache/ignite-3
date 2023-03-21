@@ -33,283 +33,282 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface RecordView<R> {
     /**
-     * Gets a record with same key columns values as given one from the table.
+     * Gets a record with the same key column values as the given one from a table.
      *
-     * @param tx     The transaction or {@code null} to auto commit.
-     * @param keyRec A record with key columns set. The record cannot be {@code null}.
-     * @return A record with all columns filled from the table.
+     * @param tx     Transaction or {@code null} to auto-commit.
+     * @param keyRec Record with the key columns set. The record cannot be {@code null}.
+     * @return Record with all columns filled from the table.
      */
     R get(@Nullable Transaction tx, @NotNull R keyRec);
 
     /**
-     * Asynchronously gets a record with same key columns values as given one from the table.
+     * Asynchronously gets a record with the same key column values as the given one from a table.
      *
-     * @param tx     The transaction or {@code null} to auto commit.
-     * @param keyRec A record with key columns set. The record cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
+     * @param tx     Transaction or {@code null} to auto-commit.
+     * @param keyRec Record with the key columns set. The record cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
      */
     @NotNull CompletableFuture<R> getAsync(@Nullable Transaction tx, @NotNull R keyRec);
 
     /**
-     * Get records from the table.
+     * Gets records from a table.
      *
-     * @param tx      The transaction or {@code null} to auto commit.
+     * @param tx      Transaction or {@code null} to auto-commit.
      * @param keyRecs Records with key columns set. The records cannot be {@code null}.
      * @return Records with all columns filled from the table. The order of collection elements is
      *     guaranteed to be the same as the order of {@code keyRecs}. If a record does not exist, the
-     *     element at the corresponding index of the resulting collection will be null.
+     *     element at the corresponding index of the resulting collection is null.
      */
     Collection<R> getAll(@Nullable Transaction tx, @NotNull Collection<R> keyRecs);
 
     /**
-     * Asynchronously get records from the table.
+     * Asynchronously gets records from a table.
      *
-     * @param tx      The transaction or {@code null} to auto commit.
-     * @param keyRecs Records with key columns set. The records cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
+     * @param tx      Transaction or {@code null} to auto-commit.
+     * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
      */
     @NotNull CompletableFuture<Collection<R>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs);
 
     /**
-     * Inserts a record into the table if does not exist or replaces the existed one.
+     * Inserts a record into a table, if it does not exist, or replaces an existing one.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
-     * @param rec A record to insert into the table. The record cannot be {@code null}.
+     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param rec Record to insert into the table. The record cannot be {@code null}.
      */
     void upsert(@Nullable Transaction tx, @NotNull R rec);
 
     /**
-     * Asynchronously inserts a record into the table if does not exist or replaces the existed one.
+     * Asynchronously inserts a record into a table, if it does not exist, or replaces the existing one.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
-     * @param rec A record to insert into the table. The record cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
+     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param rec Record to insert into the table. The record cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
      */
     @NotNull CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, @NotNull R rec);
 
     /**
-     * Insert records into the table if does not exist or replaces the existed one.
+     * Inserts records into a table, if they do not exist, or replaces the existing ones.
      *
-     * @param tx   The transaction or {@code null} to auto commit.
+     * @param tx   Transaction or {@code null} to auto-commit.
      * @param recs Records to insert into the table. The records cannot be {@code null}.
      */
     void upsertAll(@Nullable Transaction tx, @NotNull Collection<R> recs);
 
     /**
-     * Asynchronously inserts a record into the table if does not exist or replaces the existed one.
+     * Asynchronously inserts a record into a table, if it does not exist, or replaces the existing one.
      *
-     * @param tx   The transaction or {@code null} to auto commit.
+     * @param tx   Transaction or {@code null} to auto-commit.
      * @param recs Records to insert into the table. The records cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
+     * @return Future that represents the pending completion of the operation.
      */
     @NotNull CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, @NotNull Collection<R> recs);
 
     /**
-     * Inserts a record into the table or replaces if exists and return replaced previous record.
+     * Inserts a record into a table, or replaces an existing record and returns the replaced record.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx  Transaction or {@code null} to auto-commit.
      * @param rec A record to insert into the table. The record cannot be {@code null}.
-     * @return Replaced record or {@code null} if not existed.
+     * @return Replaced record or {@code null} if it did not exist.
      */
     R getAndUpsert(@Nullable Transaction tx, @NotNull R rec);
 
     /**
-     * Asynchronously inserts a record into the table or replaces if exists and return replaced previous record.
+     * Asynchronously inserts a record into a table, or replaces an existing record and returns the replaced record.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
-     * @param rec A record to insert into the table. The record cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
+     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param rec Record to insert into the table. The record cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
      */
     @NotNull CompletableFuture<R> getAndUpsertAsync(@Nullable Transaction tx, @NotNull R rec);
 
     /**
-     * Inserts a record into the table if not exists.
+     * Inserts a record into a table if it does not exists.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
-     * @param rec A record to insert into the table. The record cannot be {@code null}.
+     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param rec Record to insert into the table. The record cannot be {@code null}.
      * @return {@code True} if successful, {@code false} otherwise.
      */
     boolean insert(@Nullable Transaction tx, @NotNull R rec);
 
     /**
-     * Asynchronously inserts a record into the table if not exists.
+     * Asynchronously inserts a record into a table if it does not exists.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
-     * @param rec A record to insert into the table. The record cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
+     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param rec Record to insert into the table. The record cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
      */
     @NotNull CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, @NotNull R rec);
 
     /**
-     * Insert records into the table which do not exist, skipping existed ones.
+     * Inserts into a table records that do not exist, skips those that exist.
      *
-     * @param tx   The transaction or {@code null} to auto commit.
+     * @param tx   Transaction or {@code null} to auto-commit.
      * @param recs Records to insert into the table. The records cannot be {@code null}.
      * @return Skipped records.
      */
     Collection<R> insertAll(@Nullable Transaction tx, @NotNull Collection<R> recs);
 
     /**
-     * Asynchronously insert records into the table which do not exist, skipping existed ones.
+     * Asynchronously inserts into a table records that do not exist, skips those that exist.
      *
-     * @param tx   The transaction or {@code null} to auto commit.
+     * @param tx   Transaction or {@code null} to auto-commit.
      * @param recs Records to insert into the table. The records cannot be {@code null}.
      * @return Future representing pending completion of the operation.
      */
     @NotNull CompletableFuture<Collection<R>> insertAllAsync(@Nullable Transaction tx, @NotNull Collection<R> recs);
 
     /**
-     * Replaces an existed record associated with the same key columns values as the given one has.
+     * Replaces an existing record associated with the same key column values as the given record.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
-     * @param rec A record to replace with. The record cannot be {@code null}.
-     * @return {@code True} if old record was found and replaced successfully, {@code false} otherwise.
+     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param rec Record to replace with. The record cannot be {@code null}.
+     * @return {@code True} if a record was found and replaced successfully, {@code false} otherwise.
      */
     boolean replace(@Nullable Transaction tx, @NotNull R rec);
 
     /**
      * Replaces an expected record in the table with the given new one.
      *
-     * @param tx     The transaction or {@code null} to auto commit.
-     * @param oldRec A record to replace. The record cannot be {@code null}.
-     * @param newRec A record to replace with. The record cannot be {@code null}.
-     * @return {@code True} if the old record replaced successfully, {@code false} otherwise.
+     * @param tx     Transaction or {@code null} to auto-commit.
+     * @param oldRec Record to replace. The record cannot be {@code null}.
+     * @param newRec Record to replace with. The record cannot be {@code null}.
+     * @return {@code True} if a record was replaced successfully, {@code false} otherwise.
      */
     boolean replace(@Nullable Transaction tx, @NotNull R oldRec, @NotNull R newRec);
 
     /**
-     * Asynchronously replaces an existed record associated with the same key columns values as the given one has.
+     * Asynchronously replaces an existing record associated with the same key columns values as the given record.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
-     * @param rec A record to replace with. The record cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
+     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param rec Record to replace with. The record cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
      */
     @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull R rec);
 
     /**
-     * Asynchronously replaces an expected record in the table with the given new one.
+     * Asynchronously replaces an existing record in the table with the given new one.
      *
-     * @param tx     The transaction or {@code null} to auto commit.
-     * @param oldRec A record to replace. The record cannot be {@code null}.
-     * @param newRec A record to replace with. The record cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
+     * @param tx     Transaction or {@code null} to auto-commit.
+     * @param oldRec Record to replace. The record cannot be {@code null}.
+     * @param newRec Record to replace with. The record cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
      */
     @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull R oldRec, @NotNull R newRec);
 
     /**
-     * Gets an existed record associated with the same key columns values as the given one has, then replaces with the given one.
+     * Gets an existing record associated with the same key columns values as the given one, then replaces it with the given one.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
-     * @param rec A record to replace with. The record cannot be {@code null}.
-     * @return Replaced record or {@code null} if not existed.
+     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param rec Record to replace with. The record cannot be {@code null}.
+     * @return Replaced record or {@code null} if it did not exist.
      */
     R getAndReplace(@Nullable Transaction tx, @NotNull R rec);
 
     /**
-     * Asynchronously gets an existed record associated with the same key columns values as the given one has, then replaces with the given
-     * one.
+     * Asynchronously gets an existing record associated with the same key column values as the given one, then replaces it with the given one.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
-     * @param rec A record to replace with. The record cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
+     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param rec Record to replace with. The record cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
      */
     @NotNull CompletableFuture<R> getAndReplaceAsync(@Nullable Transaction tx, @NotNull R rec);
 
     /**
-     * Deletes a record with the same key columns values as the given one from the table.
+     * Deletes a record with the same key column values as the given one from a table.
      *
-     * @param tx     The transaction or {@code null} to auto commit.
-     * @param keyRec A record with key columns set. The record cannot be {@code null}.
+     * @param tx     Transaction or {@code null} to auto-commit.
+     * @param keyRec Record with the key columns set. The record cannot be {@code null}.
      * @return {@code True} if removed successfully, {@code false} otherwise.
      */
     boolean delete(@Nullable Transaction tx, @NotNull R keyRec);
 
     /**
-     * Asynchronously deletes a record with the same key columns values as the given one from the table.
+     * Asynchronously deletes a record with the same key column values as the given one from a table.
      *
-     * @param tx     The transaction or {@code null} to auto commit.
-     * @param keyRec A record with key columns set. The record cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
+     * @param tx     Transaction or {@code null} to auto-commit.
+     * @param keyRec Record with the key columns set. The record cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
      */
     @NotNull CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, @NotNull R keyRec);
 
     /**
-     * Deletes the given record from the table.
+     * Deletes the given record from a table.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
-     * @param rec A record to delete. The record cannot be {@code null}.
+     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param rec Record to delete. The record cannot be {@code null}.
      * @return {@code True} if removed successfully, {@code false} otherwise.
      */
     boolean deleteExact(@Nullable Transaction tx, @NotNull R rec);
 
     /**
-     * Asynchronously deletes given record from the table.
+     * Asynchronously deletes the given record from a table.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
-     * @param rec A record to delete. The record cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
+     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param rec Record to delete. The record cannot be {@code null}.
+     * @return Future tha represents the pending completion of the operation.
      */
     @NotNull CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, @NotNull R rec);
 
     /**
-     * Gets then deletes a record with the same key columns values from the table.
+     * Gets and deletes from a table a record with the same key column values as the given one.
      *
-     * @param tx     The transaction or {@code null} to auto commit.
-     * @param keyRec A record with key columns set. The record cannot be {@code null}.
-     * @return Removed record or {@code null} if not existed.
+     * @param tx     Transaction or {@code null} to auto-commit.
+     * @param keyRec Record with the key columns set. The record cannot be {@code null}.
+     * @return Removed record or {@code null} if it dod not exist.
      */
     R getAndDelete(@Nullable Transaction tx, @NotNull R keyRec);
 
     /**
-     * Asynchronously gets then deletes a record with the same key columns values from the table.
+     * Asynchronously gets and deletes from a table a record with the same key columns values as the given one.
      *
-     * @param tx     The transaction or {@code null} to auto commit.
-     * @param keyRec A record with key columns set. The record cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
+     * @param tx     Transaction or {@code null} to auto-commit.
+     * @param keyRec Record with the key columns set. The record cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
      */
     @NotNull CompletableFuture<R> getAndDeleteAsync(@Nullable Transaction tx, @NotNull R keyRec);
 
     /**
-     * Remove records with the same key columns values as the given one has from the table.
+     * Removes from a table records with the same key column values as the given one.
      *
-     * @param tx      The transaction or {@code null} to auto commit.
-     * @param keyRecs Records with key columns set. The records cannot be {@code null}.
-     * @return Records with key columns set that did not exist.
+     * @param tx      Transaction or {@code null} to auto-commit.
+     * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
+     * @return Records with the key columns set that did not exist.
      */
     Collection<R> deleteAll(@Nullable Transaction tx, @NotNull Collection<R> keyRecs);
 
     /**
-     * Asynchronously remove records with the same key columns values as the given one has from the table.
+     * Asynchronously removes from a table records with the same key column values as the given one.
      *
-     * @param tx      The transaction or {@code null} to auto commit.
-     * @param keyRecs Records with key columns set. The records cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
+     * @param tx      Transaction or {@code null} to auto-commit.
+     * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
      */
     @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs);
 
     /**
-     * Remove given records from the table.
+     * Remove the given records from a table.
      *
-     * @param tx   The transaction or {@code null} to auto commit.
+     * @param tx   Transaction or {@code null} to auto-commit.
      * @param recs Records to delete. The records cannot be {@code null}.
      * @return Records that were not deleted.
      */
     Collection<R> deleteAllExact(@Nullable Transaction tx, @NotNull Collection<R> recs);
 
     /**
-     * Asynchronously remove given records from the table.
+     * Asynchronously removes the given records from a table.
      *
-     * @param tx   The transaction or {@code null} to auto commit.
+     * @param tx   Transaction or {@code null} to auto-commit.
      * @param recs Records to delete. The records cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
+     * @return Future that represents the pending completion of the operation.
      */
     @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(@Nullable Transaction tx, @NotNull Collection<R> recs);
 
     /**
-     * Executes an InvokeProcessor code against a record with the same key columns values as the given one has.
+     * Executes the InvokeProcessor code against a record with the same key column values as the given one.
      *
-     * @param tx     The transaction or {@code null} to auto commit.
-     * @param keyRec A record with key columns set. The record cannot be {@code null}.
+     * @param tx     Transaction or {@code null} to auto-commit.
+     * @param keyRec Record with the key columns set. The record cannot be {@code null}.
      * @param proc   Invoke processor.
      * @param <T>    InvokeProcessor result type.
      * @return Results of the processing.
@@ -317,22 +316,22 @@ public interface RecordView<R> {
     <T extends Serializable> T invoke(@Nullable Transaction tx, @NotNull R keyRec, InvokeProcessor<R, R, T> proc);
 
     /**
-     * Asynchronously executes an InvokeProcessor code against a record with the same key columns values as the given one has.
+     * Asynchronously executes the InvokeProcessor code against a record with the same key columns values as the given one.
      *
-     * @param tx     The transaction or {@code null} to auto commit.
-     * @param keyRec A record with key columns set. The record cannot be {@code null}.
+     * @param tx     Transaction or {@code null} to auto-commit.
+     * @param keyRec A record with the key columns set. The record cannot be {@code null}.
      * @param proc   Invoke processor.
      * @param <T>    InvokeProcessor result type.
-     * @return Future representing pending completion of the operation.
+     * @return Future that represents the pending completion of the operation.
      */
     @NotNull <T extends Serializable> CompletableFuture<T> invokeAsync(@Nullable Transaction tx, @NotNull R keyRec,
             InvokeProcessor<R, R, T> proc);
 
     /**
-     * Executes an InvokeProcessor code against records with the same key columns values as the given ones has.
+     * Executes the InvokeProcessor code against records with the same key column values as the given ones.
      *
-     * @param tx      The transaction or {@code null} to auto commit.
-     * @param keyRecs Records with key columns set. The records cannot be {@code null}.
+     * @param tx      Transaction or {@code null} to auto-commit.
+     * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
      * @param proc    Invoke processor.
      * @param <T>     InvokeProcessor result type.
      * @return Results of the processing.
@@ -340,10 +339,10 @@ public interface RecordView<R> {
     <T extends Serializable> Map<R, T> invokeAll(@Nullable Transaction tx, @NotNull Collection<R> keyRecs, InvokeProcessor<R, R, T> proc);
 
     /**
-     * Asynchronously executes an InvokeProcessor against records with the same key columns values as the given ones has.
+     * Asynchronously executes the InvokeProcessor code against records with the same key columns values as the given ones.
      *
-     * @param tx      The transaction or {@code null} to auto commit.
-     * @param keyRecs Records with key columns set. The records cannot be {@code null}.
+     * @param tx      Transaction or {@code null} to auto-commit.
+     * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
      * @param proc    Invoke processor.
      * @param <T>     InvokeProcessor result type.
      * @return Results of the processing.
