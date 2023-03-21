@@ -51,7 +51,7 @@ public:
      *
      * @param message Message.
      */
-    explicit ignite_error(std::string message)
+    explicit ignite_error(std::string message) noexcept
         : m_status_code(status_code::GENERIC)
         , m_message(std::move(message))
         , m_cause() {} // NOLINT(bugprone-throw-keyword-missing)
@@ -62,7 +62,7 @@ public:
      * @param statusCode Status code.
      * @param message Message.
      */
-    explicit ignite_error(status_code statusCode, std::string message)
+    explicit ignite_error(status_code statusCode, std::string message) noexcept
         : m_status_code(statusCode)
         , m_message(std::move(message))
         , m_cause() {} // NOLINT(bugprone-throw-keyword-missing)
@@ -74,10 +74,10 @@ public:
      * @param message Message.
      * @param cause Error cause.
      */
-    explicit ignite_error(status_code statusCode, std::string message, const std::exception_ptr &cause)
+    explicit ignite_error(status_code statusCode, std::string message, std::exception_ptr cause) noexcept
         : m_status_code(statusCode)
         , m_message(std::move(message))
-        , m_cause(cause) {} // NOLINT(bugprone-throw-keyword-missing)
+        , m_cause(std::move(cause)) {} // NOLINT(bugprone-throw-keyword-missing)
 
     /**
      * Get error message.
@@ -87,21 +87,21 @@ public:
     /**
      * Get error message as std::string.
      */
-    [[nodiscard]] const std::string &what_str() const { return m_message; }
+    [[nodiscard]] const std::string &what_str() const noexcept { return m_message; }
 
     /**
      * Get status code.
      *
      * @return Status code.
      */
-    [[nodiscard]] status_code get_status_code() const { return m_status_code; }
+    [[nodiscard]] status_code get_status_code() const noexcept { return m_status_code; }
 
     /**
      * Get error cause.
      *
      * @return Error cause. Can be empty.
      */
-    [[nodiscard]] std::exception_ptr get_cause() { return m_cause; }
+    [[nodiscard]] std::exception_ptr get_cause() const noexcept { return m_cause; }
 
 private:
     /** Status code. */

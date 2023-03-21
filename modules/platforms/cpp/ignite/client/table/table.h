@@ -44,7 +44,6 @@ class table {
 public:
     // Default
     table() = default;
-    ~table() = default;
     table(table &&) noexcept = default;
     table &operator=(table &&) noexcept = default;
 

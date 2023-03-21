@@ -46,7 +46,6 @@ class ignite_client {
 public:
     // Default
     ignite_client() = default;
-    ~ignite_client() = default;
     ignite_client(ignite_client &&) = default;
     ignite_client &operator=(ignite_client &&) = default;
 
