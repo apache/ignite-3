@@ -35,7 +35,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -234,6 +237,8 @@ public class RocksDbTableStorage implements MvTableStorage {
             try {
                 db = RocksDB.open(dbOptions, tablePath.toAbsolutePath().toString(), cfDescriptors, cfHandles);
 
+                Map<UUID, ColumnFamily> sortedIndexColumnFamilyByIndexId = new HashMap<>();
+
                 // read all existing Column Families from the db and parse them according to type: meta, partition data or index.
                 for (ColumnFamilyHandle cfHandle : cfHandles) {
                     ColumnFamily cf = ColumnFamily.wrap(db, cfHandle);
@@ -262,9 +267,9 @@ public class RocksDbTableStorage implements MvTableStorage {
                         case SORTED_INDEX:
                             UUID indexId = sortedIndexId(cf.name());
 
-                            var indexDescriptor = new SortedIndexDescriptor(indexId, tablesCfg.value());
+                            ColumnFamily previous = sortedIndexColumnFamilyByIndexId.put(indexId, cf);
 
-                            sortedIndices.put(indexId, new SortedIndex(cf, indexDescriptor));
+                            assert previous == null;
 
                             break;
 
@@ -277,6 +282,14 @@ public class RocksDbTableStorage implements MvTableStorage {
                 assert meta != null;
                 assert partitionCf != null;
                 assert hashIndexCf != null;
+
+                for (Entry<UUID, ColumnFamily> entry : sortedIndexColumnFamilyByIndexId.entrySet()) {
+                    UUID indexId = entry.getKey();
+
+                    var indexDescriptor = new SortedIndexDescriptor(indexId, tablesCfg.value());
+
+                    sortedIndices.put(indexId, new SortedIndex(entry.getValue(), indexDescriptor, meta));
+                }
 
                 flusher.init(db, cfHandles);
             } catch (RocksDBException e) {
@@ -472,7 +485,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
         flusher.addColumnFamily(columnFamily.handle());
 
-        return new SortedIndex(columnFamily, indexDescriptor);
+        return new SortedIndex(columnFamily, indexDescriptor, meta);
     }
 
     @Override
@@ -481,7 +494,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             HashIndex storages = hashIndices.computeIfAbsent(indexId, id -> {
                 var indexDescriptor = new HashIndexDescriptor(indexId, tablesCfg.value());
 
-                return new HashIndex(hashIndexCf, indexDescriptor);
+                return new HashIndex(hashIndexCf, indexDescriptor, meta);
             });
 
             RocksDbMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);

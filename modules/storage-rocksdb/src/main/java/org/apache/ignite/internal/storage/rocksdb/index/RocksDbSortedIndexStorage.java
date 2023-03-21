@@ -43,6 +43,7 @@ import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStorage;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.Cursor;
@@ -85,23 +86,27 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     /** Current state of the storage. */
     private final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
+    /** Partition meta storage. */
+    private final RocksDbMetaStorage metaStorage;
+
     /**
      * Creates a storage.
      *
      * @param descriptor Sorted Index descriptor.
      * @param indexCf Column family that stores the index data.
      * @param partitionStorage Partition storage of the corresponding index.
+     * @param metaStorage Partition meta storage.
      */
     public RocksDbSortedIndexStorage(
             SortedIndexDescriptor descriptor,
             ColumnFamily indexCf,
-            RocksDbMvPartitionStorage partitionStorage
+            RocksDbMvPartitionStorage partitionStorage,
+            RocksDbMetaStorage metaStorage
     ) {
         this.descriptor = descriptor;
         this.indexCf = indexCf;
         this.partitionStorage = partitionStorage;
-
-        lastBuildRowId = RowId.lowestRowId(partitionStorage.partitionId());
+        this.metaStorage = metaStorage;
     }
 
     @Override
@@ -497,15 +502,14 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
         }
     }
 
-    // TODO: IGNITE-18539 персистить
-    private volatile @Nullable RowId lastBuildRowId;
-
     @Override
     public @Nullable RowId getLastBuildRowId() {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            return lastBuildRowId;
+            int partitionId = partitionStorage.partitionId();
+
+            return metaStorage.readIndexLastBuildRowId(partitionId, indexDescriptor().id(), RowId.lowestRowId(partitionId));
         });
     }
 
@@ -514,7 +518,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
         busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            lastBuildRowId = rowId;
+            metaStorage.putIndexLastBuildRowId(partitionStorage.partitionId(), indexDescriptor().id(), rowId);
 
             return null;
         });

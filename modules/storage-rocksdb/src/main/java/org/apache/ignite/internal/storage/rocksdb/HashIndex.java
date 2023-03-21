@@ -39,9 +39,12 @@ class HashIndex {
 
     private final ConcurrentMap<Integer, RocksDbHashIndexStorage> storages = new ConcurrentHashMap<>();
 
-    HashIndex(ColumnFamily indexCf, HashIndexDescriptor descriptor) {
+    private final RocksDbMetaStorage metaStorage;
+
+    HashIndex(ColumnFamily indexCf, HashIndexDescriptor descriptor, RocksDbMetaStorage metaStorage) {
         this.indexCf = indexCf;
         this.descriptor = descriptor;
+        this.metaStorage = metaStorage;
     }
 
     /**
@@ -50,7 +53,7 @@ class HashIndex {
     HashIndexStorage getOrCreateStorage(RocksDbMvPartitionStorage partitionStorage) {
         return storages.computeIfAbsent(
                 partitionStorage.partitionId(),
-                partId -> new RocksDbHashIndexStorage(descriptor, indexCf, partitionStorage)
+                partId -> new RocksDbHashIndexStorage(descriptor, indexCf, partitionStorage, metaStorage)
         );
     }
 
