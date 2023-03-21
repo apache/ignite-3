@@ -27,6 +27,8 @@
     <IsPackable>true</IsPackable>
     <EmitCompilerGeneratedFiles>false</EmitCompilerGeneratedFiles>
     <CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>
+
+    <PackageValidationBaselineVersion>3.0.0-beta1</PackageValidationBaselineVersion>
   </PropertyGroup>
 
   <ItemGroup>
