@@ -296,82 +296,81 @@ public interface KeyValueView<K, V> {
     /**
      * Asynchronously removes from a table an expected value associated with the given key.
      *
-     * @param tx The transaction or {@code null} to auto commit.
-     * @param key A key which associated the value is to be removed from the table. The key cannot be {@code null}.
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param key Key whose value is to be removed from the table. The key cannot be {@code null}.
      * @param val Expected value.
-     * @return Future representing pending completion of the operation.
+     * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
     @NotNull CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, @NotNull K key, V val);
 
     /**
-     * Remove values associated with given keys from the table.
+     * Removes from a table values associated with the given keys.
      *
-     * @param tx The transaction or {@code null} to auto commit.
-     * @param keys Keys which mapping is to be removed from the table. The keys cannot be {@code null}.
-     * @return Keys which did not exist.
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param keys Keys whose values are to be removed from the table. The keys cannot be {@code null}.
+     * @return Keys that did not exist.
      * @throws MarshallerException if one of keys doesn't match the schema.
      */
     Collection<K> removeAll(@Nullable Transaction tx, @NotNull Collection<K> keys);
 
     /**
-     * Asynchronously remove values associated with given keys from the table.
+     * Asynchronously remove from a table values associated with the given keys.
      *
-     * @param tx The transaction or {@code null} to auto commit.
-     * @param keys Keys which mapping is to be removed from the table. The keys cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
-     * @throws MarshallerException if one of keys doesn't match the schema.
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param keys Keys whose values are to be removed from the table. The keys cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
+     * @throws MarshallerException if one of the keys doesn't match the schema.
      */
     @NotNull CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, @NotNull Collection<K> keys);
 
     /**
-     * Gets then removes value associated with given key from the table.
+     * Gets and removes from a table a value associated with the given key.
      *
-     * <p>NB: Method doesn't support {@code null} value, use {@link #getNullableAndRemove(Transaction, Object)} (Transaction, Object,
-     * Object)} instead.
+     * <p>NB: Method doesn't support {@code null} value, use {@link #getNullableAndRemove(Transaction, Object)} instead.
      *
-     * @param tx The transaction or {@code null} to auto commit.
-     * @param key A key which associated value is to be removed from the table. The key cannot be {@code null}.
-     * @return Removed value or {@code null}, if not existed.
-     * @throws UnexpectedNullValueException If value for the key exists, and it is {@code null}.
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param key Key whose value is to be removed from the table. The key cannot be {@code null}.
+     * @return Removed value or {@code null} if the value did not exist.
+     * @throws UnexpectedNullValueException If the key value is {@code null}.
      * @throws MarshallerException if the key doesn't match the schema.
      */
     V getAndRemove(@Nullable Transaction tx, @NotNull K key);
 
     /**
-     * Asynchronously gets then removes value associated with given key from the table.
+     * Asynchronously gets and removes from a table a value associated with the given key.
      *
      * <p>NB: Method doesn't support {@code null} value, use {@link #getNullableAndRemoveAsync(Transaction, Object)} instead.
      *
-     * @param tx The transaction or {@code null} to auto commit.
-     * @param key A Key which mapping is to be removed from the table. The key cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param key Key whose value is to be removed from the table. The key cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key doesn't match the schema.
      */
     @NotNull CompletableFuture<V> getAndRemoveAsync(@Nullable Transaction tx, @NotNull K key);
 
     /**
-     * Gets then removes value associated with given key from the table.
+     * Gets and removes from a table a value associated with the given key.
      *
-     * @param tx The transaction or {@code null} to auto commit.
-     * @param key A key which associated value is to be removed from the table. The key cannot be {@code null}.
-     * @return Wrapped nullable value that was removed or {@code null}, if not existed.
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param key Key whose value is to be removed from the table. The key cannot be {@code null}.
+     * @return Wrapped nullable value that was removed or {@code null} if it did not exist.
      * @throws MarshallerException if the key doesn't match the schema.
      */
     NullableValue<V> getNullableAndRemove(@Nullable Transaction tx, @NotNull K key);
 
     /**
-     * Asynchronously gets then removes value associated with given key from the table.
+     * Asynchronously gets and removes from a table a value associated with the given key.
      *
-     * @param tx The transaction or {@code null} to auto commit.
-     * @param key A Key which mapping is to be removed from the table. The key cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param key Key whose value is to be removed from the table. The key cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key doesn't match the schema.
      */
     @NotNull CompletableFuture<NullableValue<V>> getNullableAndRemoveAsync(@Nullable Transaction tx, @NotNull K key);
 
     /**
-     * Replaces the value for a key only if exists. This is equivalent to
+     * Replaces a value for a key if it exists. This is equivalent to
      * <pre><code>
      * if (cache.containsKey(tx, key)) {
      *   cache.put(tx, key, value);
@@ -379,10 +378,10 @@ public interface KeyValueView<K, V> {
      * } else {
      *   return false;
      * }</code></pre>
-     * except that the action is performed atomically.
+     * except the action is performed atomically.
      *
-     * @param tx The transaction or {@code null} to auto commit.
-     * @param key A key with which the specified value is associated. The key cannot be {@code null}.
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param key Key the specified value is associated with. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
      * @return {@code True} if an old value was replaced, {@code false} otherwise.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
@@ -390,7 +389,7 @@ public interface KeyValueView<K, V> {
     boolean replace(@Nullable Transaction tx, @NotNull K key, V val);
 
     /**
-     * Replaces the expected value for a key. This is equivalent to
+     * Replaces an expected value for a key. This is equivalent to
      * <pre><code>
      * if (cache.get(tx, key) == oldValue) {
      *   cache.put(tx, key, newValue);
@@ -398,42 +397,42 @@ public interface KeyValueView<K, V> {
      * } else {
      *   return false;
      * }</code></pre>
-     * except that the action is performed atomically.
+     * except the action is performed atomically.
      *
-     * @param tx The transaction or {@code null} to auto commit.
-     * @param key A key with which the specified value is associated. The key cannot be {@code null}.
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param key Key the specified value is associated with. The key cannot be {@code null}.
      * @param oldValue Expected value associated with the specified key.
      * @param newValue Value to be associated with the specified key.
      * @return {@code True} if an old value was replaced, {@code false} otherwise.
-     * @throws MarshallerException if the key, or the oldValue, or the newValue doesn't match the schema.
+     * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
      */
     boolean replace(@Nullable Transaction tx, @NotNull K key, V oldValue, V newValue);
 
     /**
-     * Asynchronously replaces the value for a key only if exists. See {@link #replace(Transaction, Object, Object)}.
+     * Asynchronously replaces a value for a key if it exists. See {@link #replace(Transaction, Object, Object)}.
      *
-     * @param tx The transaction or {@code null} to auto commit.
-     * @param key A key with which the specified value is associated. The key cannot be {@code null}.
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param key Key the specified value is associated with. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
-     * @return Future representing pending completion of the operation.
-     * @throws MarshallerException if the key, or the oldValue doesn't match the schema.
+     * @return Future that represents the pending completion of the operation.
+     * @throws MarshallerException if the key or the oldValue doesn't match the schema.
      */
     @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull K key, V val);
 
     /**
-     * Asynchronously replaces the expected value for a key. See {@link #replace(Transaction, Object, Object, Object)}
+     * Asynchronously replaces an expected value for a key. See {@link #replace(Transaction, Object, Object, Object)}
      *
-     * @param tx The transaction or {@code null} to auto commit.
-     * @param key A key with which the specified value is associated. The key cannot be {@code null}.
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param key Key the specified value is associated with. The key cannot be {@code null}.
      * @param oldVal Expected value associated with the specified key.
      * @param newVal Value to be associated with the specified key.
-     * @return Future representing pending completion of the operation.
-     * @throws MarshallerException if the key, or the oldValue, or the newValue doesn't match the schema.
+     * @return Future that represents the pending completion of the operation.
+     * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
      */
     @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull K key, V oldVal, V newVal);
 
     /**
-     * Replaces the value for a given key only if exists. This is equivalent to
+     * Replaces a value for a given key if it exists. This is equivalent to
      * <pre><code>
      * if (cache.containsKey(tx, key)) {
      *   V oldValue = cache.get(tx, key);
@@ -443,63 +442,63 @@ public interface KeyValueView<K, V> {
      *   return null;
      * }
      * </code></pre>
-     * except that the action is performed atomically.
+     * except the action is performed atomically.
      *
      * <p>NB: Method doesn't support {@code null} value, use {@link #getNullableAndReplace(Transaction, Object, Object)} instead.
      *
-     * @param tx The transaction or {@code null} to auto commit.
-     * @param key A key with which the specified value is associated. The key cannot be {@code null}.
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param key Key the specified value is associated with. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key. The value cannot be {@code null}.
-     * @return Replaced value, or {@code null} if not existed.
-     * @throws UnexpectedNullValueException If value for the key exists, and it is {@code null}.
+     * @return Replaced value, or {@code null} if it did not exist.
+     * @throws UnexpectedNullValueException If the value for the key is {@code null}.
      * @throws MarshallerException if the key, or the value doesn't match the schema.
      */
     V getAndReplace(@Nullable Transaction tx, @NotNull K key, @NotNull V val);
 
     /**
-     * Asynchronously replaces the value for a given key only if exists.
+     * Asynchronously replaces a value for a given key if it exists.
      *
      * <p>NB: Method doesn't support {@code null} value, use {@link #getNullableAndReplaceAsync(Transaction, Object, Object)} instead.
      *
-     * @param tx The transaction or {@code null} to auto commit.
-     * @param key A key with which the specified value is associated. The key cannot be {@code null}.
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param key Key the specified value is associated with. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
-     * @return Future representing pending completion of the operation.
-     * @throws MarshallerException if the key, or the value doesn't match the schema.
+     * @return Future that represents the pending completion of the operation.
+     * @throws MarshallerException if the key or the value doesn't match the schema.
      * @see #getAndReplace(Transaction, Object, Object)
      */
     @NotNull CompletableFuture<V> getAndReplaceAsync(@Nullable Transaction tx, @NotNull K key, @NotNull V val);
 
     /**
-     * Replaces the value for a given key only if exists.
+     * Replaces a value for a given key if it exists.
      *
-     * @param tx The transaction or {@code null} to auto commit.
-     * @param key A key with which the specified value is associated. The key cannot be {@code null}.
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param key Key the specified value is associated with. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
-     * @return Wrapped nullable value that was replaced or {@code null}, if not existed.
-     * @throws MarshallerException if the key, or the value doesn't match the schema.
+     * @return Wrapped nullable value that was replaced or {@code null} if it did not exist.
+     * @throws MarshallerException if the key or the value doesn't match the schema.
      * @see #getAndReplace(Transaction, Object, Object)
      */
     NullableValue<V> getNullableAndReplace(@Nullable Transaction tx, @NotNull K key, V val);
 
     /**
-     * Asynchronously replaces the value for a given key only if exists.
+     * Asynchronously replaces a value for a given key if it exists.
      *
-     * @param tx The transaction or {@code null} to auto commit.
-     * @param key A key with which the specified value is associated. The key cannot be {@code null}.
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param key Key the specified value is associated with. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
-     * @return Future representing pending completion of the operation.
-     * @throws MarshallerException if the key, or the value doesn't match the schema.
+     * @return Future that represents the pending completion of the operation.
+     * @throws MarshallerException if the key or the value doesn't match the schema.
      * @see #getAndReplace(Transaction, Object, Object)
      */
     @NotNull CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, @NotNull K key, V val);
 
     /**
-     * Executes invoke processor code against the value associated with the provided key.
+     * Executes the invoke processor code against a value associated with the provided key.
      *
-     * @param tx The transaction or {@code null} to auto commit.
-     * @param key A key associated with the value that invoke processor will be applied to. The key cannot be {@code null}.
-     * @param proc An invocation processor.
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param key Key associated with the value that the invoke processor will be applied to. The key cannot be {@code null}.
+     * @param proc Invocation processor.
      * @param args Optional invoke processor arguments.
      * @param <R> Invoke processor result type.
      * @return Result of the processing.
@@ -508,14 +507,14 @@ public interface KeyValueView<K, V> {
     <R extends Serializable> R invoke(@Nullable Transaction tx, @NotNull K key, InvokeProcessor<K, V, R> proc, Serializable... args);
 
     /**
-     * Asynchronously executes invoke processor code against the value associated with the provided key.
+     * Asynchronously executes the invoke processor code against a value associated with the provided key.
      *
-     * @param tx The transaction or {@code null} to auto commit.
-     * @param key A key associated with the value that invoke processor will be applied to. The key cannot be {@code null}.
-     * @param proc An invocation processor.
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param key Key associated with the value that the invoke processor will be applied to. The key cannot be {@code null}.
+     * @param proc Invocation processor.
      * @param args Optional invoke processor arguments.
      * @param <R> Invoke processor result type.
-     * @return Future representing pending completion of the operation.
+     * @return Future that represents the pending completion of the operation.
      * @see InvokeProcessor
      */
     @NotNull <R extends Serializable> CompletableFuture<R> invokeAsync(
@@ -525,12 +524,12 @@ public interface KeyValueView<K, V> {
             Serializable... args);
 
     /**
-     * Executes invoke processor code against values associated with the provided keys.
+     * Executes the invoke processor code against values associated with the provided keys.
      *
-     * @param tx The transaction or {@code null} to auto commit.
+     * @param tx Transaction or {@code null} to auto-commit.
      * @param <R> Invoke processor result type.
-     * @param keys Ordered collection of keys which values associated with should be processed. The keys cannot be {@code null}.
-     * @param proc An invocation processor.
+     * @param keys Ordered collection of keys whose values should be processed. The keys cannot be {@code null}.
+     * @param proc Invocation processor.
      * @param args Optional invoke processor arguments.
      * @return Results of the processing.
      * @see InvokeProcessor
@@ -542,14 +541,14 @@ public interface KeyValueView<K, V> {
             Serializable... args);
 
     /**
-     * Asynchronously executes invoke processor code against values associated with the provided keys.
+     * Asynchronously executes the invoke processor code against values associated with the provided keys.
      *
-     * @param tx The transaction or {@code null} to auto commit.
+     * @param tx Transaction or {@code null} to auto-commit.
      * @param <R> Invoke processor result type.
-     * @param keys Ordered collection of keys which values associated with should be processed. The keys cannot be {@code null}.
-     * @param proc An invocation processor.
+     * @param keys Ordered collection of keys whose values should be processed. The keys cannot be {@code null}.
+     * @param proc Invocation processor.
      * @param args Optional invoke processor arguments.
-     * @return Future representing pending completion of the operation.
+     * @return Future that represents the pending completion of the operation.
      * @see InvokeProcessor
      */
     @NotNull <R extends Serializable> CompletableFuture<Map<K, R>> invokeAllAsync(

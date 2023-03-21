@@ -29,11 +29,11 @@ import org.apache.ignite.binary.BinaryObject;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Tuple represents arbitrary set of columns whose values is accessible by column name.
- * Attention: column name arguments passed to the methods of the tuple must use  SQL-parser style quotation, e.g.
- * "myColumn" - means name "MYCOLUMN", "\"MyColumn\"" - "MyColumn", etc.
+ * Tuple represents an arbitrary set of columns whose values are accessible by column name.
+ * Column name arguments passed to the tuple methods must use  SQL-parser style notation; e.g.,
+ * "myColumn" - column named "MYCOLUMN", "\"MyColumn\"" - "MyColumn", etc.
  *
- * <p>Provides specialized method for some value-types to avoid boxing/unboxing.
+ * <p>Provides a specialized method for some value-types to avoid boxing/unboxing.
  */
 public interface Tuple extends Iterable<Object> {
     /**
@@ -46,7 +46,7 @@ public interface Tuple extends Iterable<Object> {
     }
 
     /**
-     * Creates a tuple with specified initial capacity.
+     * Creates a tuple with a specified initial capacity.
      *
      * @param capacity Initial capacity.
      * @return A new tuple.
@@ -56,7 +56,7 @@ public interface Tuple extends Iterable<Object> {
     }
 
     /**
-     * Creates a tuple from given mapping.
+     * Creates a tuple from a given mapping.
      *
      * @param map Column values.
      * @return A new tuple.
@@ -82,13 +82,13 @@ public interface Tuple extends Iterable<Object> {
     }
 
     /**
-     * Returns the hash code value for the tuple.
+     * Returns a hash code value for the tuple.
      *
-     * <p>The hash code of a tuple is defined to be the sum of the hash codes of each pair of column name and column value. This ensures
-     * that {@code m1.equals(m2)} implies that {@code m1.hashCode()==m2.hashCode()} for any tuples {@code m1} and {@code m2}, as required
-     * by the general contract of {@link Object#hashCode}.
+     * <p>The hash code of a tuple is the sum of the hash codes of each pair of column name and column value. Therefore, 
+     * {@code m1.equals(m2)} implies that {@code m1.hashCode()==m2.hashCode()} for any tuples {@code m1} and {@code m2}, 
+     * as required by the general contract of {@link Object#hashCode}.
      *
-     * <p>The hash code of a pair of column name and column value {@code i} is defined to be:
+     * <p>The hash code of a pair of column name and column value {@code i} is:
      * <pre>(columnName(i).hashCode()) ^ (value(i)==null ? 0 : value(i).hashCode())</pre>
      *
      * @param tuple Tuple.
@@ -108,9 +108,9 @@ public interface Tuple extends Iterable<Object> {
     }
 
     /**
-     * Returns the hash code value for this tuple.
+     * Returns a hash code value for the tuple.
      *
-     * @return the hash code value for this tuple.
+     * @return The hash code value for the tuple.
      * @see #hashCode(Tuple)
      * @see Object#hashCode()
      */
@@ -119,11 +119,11 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Compares tuples for equality.
      *
-     * <p>Returns {@code true} if both tuples represent the same column name to column value mappings.
+     * <p>Returns {@code true} if both tuples represent the same column name-to-value mapping.
      *
-     * <p>This implementation first checks if both tuples is of same size; if not, it returns {@code false}; If so, it iterates over
-     * columns of first tuple and checks that the second tuple contains each mapping that the first one contains.  If the second tuple
-     * fails to contain such a mapping, {@code false} is returned; If the iteration completes, {@code true} is returned.
+     * <p>This implementation first checks if both tuples is of same size. If not, it returns {@code false}. If yes, 
+     * it iterates over columns of the first tuple and checks that the second tuple contains each mapping that the first 
+     * one contains.  If the second tuple fails to contain such a mapping, {@code false} is returned. If the iteration completes, {@code true} is returned.
      *
      * @param firstTuple  First tuple to compare.
      * @param secondTuple Second tuple to compare.
@@ -156,52 +156,53 @@ public interface Tuple extends Iterable<Object> {
     }
 
     /**
-     * Indicates whether some other object is "equal to" this one.
+     * Indicates whether another object is "equal to" the specified one.
      *
-     * @return {@code true} if this object is the same as the obj argument; {@code false} otherwise.
+     * @return {@code true} if this object is the same as the specified one; {@code false} otherwise.
      * @see Tuple#equals(Tuple, Tuple)
      * @see Object#equals(Object)
      */
     boolean equals(Object obj);
+    //I don't see where the "current" object is specified (i.e., the obj param)
 
     /**
-     * Gets the number of columns in this tuple.
+     * Gets a number of columns in the tuple.
      *
      * @return Number of columns.
      */
     int columnCount();
 
     /**
-     * Gets the name of the column with the specified index.
+     * Gets a name of the column with the specified index.
      *
      * @param columnIndex Column index.
      * @return Column name.
-     * @throws IndexOutOfBoundsException If a value for a column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If a value for a column with the given index doesn't exists.
      */
     String columnName(int columnIndex);
 
     /**
-     * Gets the index of the column with the specified name.
+     * Gets an index of the column with the specified name.
      *
      * @param columnName Column name.
-     * @return Column index, or {@code -1} when a column with given name is not present.
+     * @return Column index, or {@code -1} if the column with the given name is not present.
      */
     int columnIndex(@NotNull String columnName);
 
     /**
-     * Gets column value when a column with specified name is present in this tuple; returns default value otherwise.
+     * Gets a column value if the column with the specified name is present in the tuple; returns a default value otherwise.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
+     * @param columnName Column name in SQL-parser style notation; e.g.,
+     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
      * @param defaultValue Default value.
      * @param <T>          Column default value type.
-     * @return Column value if this tuple contains a column with the specified name. Otherwise returns {@code defaultValue}.
+     * @return Column value if the tuple contains a column with the specified name. Otherwise, returns {@code defaultValue}.
      */
     <T> T valueOrDefault(@NotNull String columnName, T defaultValue);
 
     /**
-     * Sets column value.
+     * Sets a column value.
      *
      * @param columnName Column name with SQL-parser style quotation, e.g.
      *                   "myColumn" - sets the column with name "MYCOLUMN",
