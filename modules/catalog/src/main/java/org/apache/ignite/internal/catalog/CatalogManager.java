@@ -25,7 +25,7 @@ import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
- * Catalog manager provides schema manipulation methods is responsible for managing distributed operations.
+ * The catalog manager provides schema manipulation methods and is responsible for managing distributed operations.
  */
 public interface CatalogManager extends IgniteComponent {
     /**

@@ -4,4 +4,4 @@ This module provides database catalog service implementation and descriptor for 
 
 See [CatalogService](src/main/java/org/apache/ignite/internal/catalog/CatalogServiceImpl.java)
 
-TODO: IGNITE-18535 Add comprehensive description.
+TODO: IGNITE-19082 Add comprehensive description.
