@@ -15,19 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.engine.sql;
 
-import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import java.util.List;
+import org.apache.calcite.sql.SqlNode;
 
 /**
- * The query validator interface. Allows validating query plan.
- * */
-public interface QueryValidator {
+ * Result of parsing SQL string.
+ */
+public abstract class ParseResult {
+
+    private final int dynamicParamsCount;
+
     /**
-     * Validate the prepared query plan.
+     * Constructor.
      *
-     * @throws QueryValidationException in the case of a validation error.
+     * @param dynamicParamsCount the number of dynamic parameters.
      */
-    void validatePlan(QueryPlan plan) throws QueryValidationException;
+    ParseResult(int dynamicParamsCount) {
+        if (dynamicParamsCount < 0) {
+            throw new IllegalArgumentException("Number of dynamic parameters must be positive but got " + dynamicParamsCount);
+        }
+        this.dynamicParamsCount = dynamicParamsCount;
+    }
+
+    /** The number of dynamic parameters in this result. */
+    public int dynamicParamsCount() {
+        return dynamicParamsCount;
+    }
+
+    /** Returns a list of parsed statements. */
+    public abstract List<SqlNode> statements();
 }
