@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
@@ -34,8 +35,8 @@ public class MultiStepQueryPlan extends AbstractMultiStepPlan {
     }
 
     /** {@inheritDoc} */
-    @Override public Type type() {
-        return Type.QUERY;
+    @Override public SqlQueryType type() {
+        return SqlQueryType.QUERY;
     }
 
     /** {@inheritDoc} */

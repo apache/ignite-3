@@ -20,13 +20,13 @@ package org.apache.ignite.internal.sql.api;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.INVALID_DML_RESULT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -38,8 +38,7 @@ import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
-import org.apache.ignite.internal.sql.engine.QueryValidator;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -165,7 +164,7 @@ public class SessionImpl implements Session {
         }
 
         try {
-            QueryContext ctx = QueryContext.of(transaction);
+            QueryContext ctx = QueryContext.create(SqlQueryType.ALL, transaction);
 
             CompletableFuture<AsyncResultSet<SqlRow>> result = qryProc.querySingleAsync(sessionId, ctx, query, arguments)
                     .thenCompose(cur -> cur.requestNextAsync(pageSize)
@@ -231,16 +230,9 @@ public class SessionImpl implements Session {
         }
 
         try {
-            QueryContext ctx = QueryContext.of(
-                    transaction,
-                    (QueryValidator) plan -> {
-                        if (plan.type() != Type.DML) {
-                            throw new SqlException(QUERY_INVALID_ERR, "Invalid SQL statement type in the batch [plan=" + plan + ']');
-                        }
-                    }
-            );
+            QueryContext ctx = QueryContext.create(Set.of(SqlQueryType.DML), transaction);
 
-            final var counters = new LongArrayList(batch.size());
+            var counters = new LongArrayList(batch.size());
             CompletableFuture<Void> tail = CompletableFuture.completedFuture(null);
             ArrayList<CompletableFuture<Void>> batchFuts = new ArrayList<>(batch.size());
 
