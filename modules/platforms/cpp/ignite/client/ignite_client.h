@@ -17,7 +17,9 @@
 
 #pragma once
 
+#include "ignite/client/compute/compute.h"
 #include "ignite/client/ignite_client_configuration.h"
+#include "ignite/client/network/cluster_node.h"
 #include "ignite/client/sql/sql.h"
 #include "ignite/client/table/tables.h"
 #include "ignite/client/transaction/transactions.h"
@@ -109,11 +111,34 @@ public:
     [[nodiscard]] IGNITE_API sql get_sql() const noexcept;
 
     /**
+     * Gets the Compute API.
+     *
+     * @return Compute API.
+     */
+    [[nodiscard]] IGNITE_API compute get_compute() const noexcept;
+
+    /**
      * Gets the Transactions API.
      *
      * @return Transactions API.
      */
     [[nodiscard]] IGNITE_API transactions get_transactions() const noexcept;
+
+    /**
+     * Gets the cluster nodes asynchronously.
+     * NOTE: Temporary API to enable Compute until we have proper Cluster API.
+     *
+     * @param callback Callback called with the list of cluster nodes upon success.
+     */
+    IGNITE_API void get_cluster_nodes_async(ignite_callback<std::vector<cluster_node>> callback);
+
+    /**
+     * Gets the cluster nodes.
+     * NOTE: Temporary API to enable Compute until we have proper Cluster API.
+     *
+     * @return The list of cluster nodes upon success.
+     */
+    [[nodiscard]] IGNITE_API std::vector<cluster_node> get_cluster_nodes();
 
 private:
     /**

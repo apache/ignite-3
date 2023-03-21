@@ -16,29 +16,10 @@
  */
 
 #include "ignite/client/table/key_value_view.h"
+#include "ignite/client/detail/argument_check_utils.h"
 #include "ignite/client/detail/table/table_impl.h"
 
 namespace ignite {
-
-/**
- * Check key argument.
- *
- * @param key Key tuple.
- */
-void inline check_key_argument(const ignite_tuple &key) {
-    if (0 == key.column_count())
-        throw ignite_error("Key tuple can not be empty");
-}
-
-/**
- * Check value argument.
- *
- * @param value Value tuple.
- */
-void inline check_value_argument(const ignite_tuple &value) {
-    if (0 == value.column_count())
-        throw ignite_error("Value tuple can not be empty");
-}
 
 /**
  * Process multiple kv pairs by uniting key and value part of the tuple
@@ -58,15 +39,15 @@ std::vector<ignite_tuple> concat_records(const std::vector<std::pair<ignite_tupl
 
 void key_value_view<ignite_tuple, ignite_tuple>::get_async(
     transaction *tx, const ignite_tuple &key, ignite_callback<std::optional<value_type>> callback) {
-    check_key_argument(key);
+    detail::arg_check::key_tuple_non_empty(key);
 
     m_impl->get_async(tx, key, std::move(callback));
 }
 
 void key_value_view<ignite_tuple, ignite_tuple>::put_async(
     transaction *tx, const key_type &key, const value_type &value, ignite_callback<void> callback) {
-    check_key_argument(key);
-    check_value_argument(value);
+    detail::arg_check::key_tuple_non_empty(key);
+    detail::arg_check::value_tuple_non_empty(value);
 
     m_impl->upsert_async(tx, detail::concat(key, value), std::move(callback));
 }
@@ -83,7 +64,7 @@ void key_value_view<ignite_tuple, ignite_tuple>::get_all_async(
 
 void key_value_view<ignite_tuple, ignite_tuple>::contains_async(
     transaction *tx, const ignite_tuple &key, ignite_callback<bool> callback) {
-    check_key_argument(key);
+    detail::arg_check::key_tuple_non_empty(key);
 
     m_impl->contains_async(tx, key, std::move(callback));
 }
@@ -100,31 +81,31 @@ void key_value_view<ignite_tuple, ignite_tuple>::put_all_async(
 
 void key_value_view<ignite_tuple, ignite_tuple>::get_and_put_async(transaction *tx, const key_type &key,
     const value_type &value, ignite_callback<std::optional<value_type>> callback) {
-    check_key_argument(key);
-    check_value_argument(value);
+    detail::arg_check::key_tuple_non_empty(key);
+    detail::arg_check::value_tuple_non_empty(value);
 
     m_impl->get_and_upsert_async(tx, detail::concat(key, value), std::move(callback));
 }
 
 void key_value_view<ignite_tuple, ignite_tuple>::put_if_absent_async(
     transaction *tx, const key_type &key, const value_type &value, ignite_callback<bool> callback) {
-    check_key_argument(key);
-    check_value_argument(value);
+    detail::arg_check::key_tuple_non_empty(key);
+    detail::arg_check::value_tuple_non_empty(value);
 
     m_impl->insert_async(tx, detail::concat(key, value), std::move(callback));
 }
 
 void key_value_view<ignite_tuple, ignite_tuple>::remove_async(
     transaction *tx, const ignite_tuple &key, ignite_callback<bool> callback) {
-    check_key_argument(key);
+    detail::arg_check::key_tuple_non_empty(key);
 
     m_impl->remove_async(tx, key, std::move(callback));
 }
 
 void key_value_view<ignite_tuple, ignite_tuple>::remove_async(
     transaction *tx, const key_type &key, const value_type &value, ignite_callback<bool> callback) {
-    check_key_argument(key);
-    check_value_argument(value);
+    detail::arg_check::key_tuple_non_empty(key);
+    detail::arg_check::value_tuple_non_empty(value);
 
     m_impl->remove_exact_async(tx, detail::concat(key, value), std::move(callback));
 }
@@ -151,32 +132,32 @@ void key_value_view<ignite_tuple, ignite_tuple>::remove_all_async(transaction *t
 
 void key_value_view<ignite_tuple, ignite_tuple>::get_and_remove_async(
     transaction *tx, const ignite_tuple &key, ignite_callback<std::optional<value_type>> callback) {
-    check_key_argument(key);
+    detail::arg_check::key_tuple_non_empty(key);
 
     m_impl->get_and_remove_async(tx, key, std::move(callback));
 }
 
 void key_value_view<ignite_tuple, ignite_tuple>::replace_async(
     transaction *tx, const key_type &key, const value_type &value, ignite_callback<bool> callback) {
-    check_key_argument(key);
-    check_value_argument(value);
+    detail::arg_check::key_tuple_non_empty(key);
+    detail::arg_check::value_tuple_non_empty(value);
 
     m_impl->replace_async(tx, detail::concat(key, value), std::move(callback));
 }
 
 void key_value_view<ignite_tuple, ignite_tuple>::replace_async(transaction *tx, const key_type &key,
     const value_type &old_value, const value_type &new_value, ignite_callback<bool> callback) {
-    check_key_argument(key);
-    check_value_argument(old_value);
-    check_value_argument(new_value);
+    detail::arg_check::key_tuple_non_empty(key);
+    detail::arg_check::value_tuple_non_empty(old_value);
+    detail::arg_check::value_tuple_non_empty(new_value);
 
     m_impl->replace_async(tx, detail::concat(key, old_value), detail::concat(key, new_value), std::move(callback));
 }
 
 void key_value_view<ignite_tuple, ignite_tuple>::get_and_replace_async(transaction *tx, const key_type &key,
     const value_type &value, ignite_callback<std::optional<value_type>> callback) {
-    check_key_argument(key);
-    check_value_argument(value);
+    detail::arg_check::key_tuple_non_empty(key);
+    detail::arg_check::value_tuple_non_empty(value);
 
     m_impl->get_and_replace_async(tx, detail::concat(key, value), std::move(callback));
 }

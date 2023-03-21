@@ -20,13 +20,12 @@ package org.apache.ignite.internal.raft;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
-import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
@@ -85,38 +84,5 @@ public class LozaTest extends IgniteAbstractTest {
         assertThrows(NodeStoppingException.class, () -> loza.startRaftGroupService(raftGroupId, configuration));
         assertThrows(NodeStoppingException.class, () -> loza.stopRaftNode(new RaftNodeId(raftGroupId, serverPeer)));
         assertThrows(NodeStoppingException.class, () -> loza.stopRaftNodes(raftGroupId));
-    }
-
-    /**
-     * Test replication group id.
-     */
-    private static class TestReplicationGroupId implements ReplicationGroupId {
-        private final String name;
-
-        public TestReplicationGroupId(String name) {
-            this.name = name;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            TestReplicationGroupId that = (TestReplicationGroupId) o;
-            return Objects.equals(name, that.name);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(name);
-        }
-
-        @Override
-        public String toString() {
-            return name;
-        }
     }
 }

@@ -56,8 +56,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The class has tests of cluster recovery when no all committed RAFT commands applied to the state machine.
  */
-@Disabled("IGNITE-18203 The test goes to deadlock in cluster restart, because indexes are required to apply RAFT commands on restart , "
-        + "but the table have not started yet.")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-19043")
 public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassIntegrationTest {
 
     private final Object[][] dataSet = {

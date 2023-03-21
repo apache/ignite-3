@@ -15,40 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.serialization;
+package org.apache.ignite.internal.deployunit.metastore;
 
-import java.util.List;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Class that holds a byte array of the serialized object and a list of type descriptor ids with all the descriptors that were
- * used during the serialization.
- * TODO: IGNITE-16081 It's a temporary class that will be removed.
+ * Throws when accumulation process finished unsuccessfully {@link Accumulator#get()}.
  */
-public class SerializationResult {
-    /** Serialized object. */
-    private final byte[] array;
-
-    /** Type descriptors. */
-    private final List<Integer> ids;
-
+public class AccumulateException extends IgniteInternalCheckedException {
     /**
      * Constructor.
      *
-     * @param array Serialized object.
-     * @param ids   Type descriptors.
+     * @param cause Cause exception.
      */
-    public SerializationResult(byte[] array, List<Integer> ids) {
-        this.array = array;
-        this.ids = ids;
-    }
-
-    /** Gets serialized object. */
-    public byte[] array() {
-        return array;
-    }
-
-    /** Gets descriptor ids. */
-    public List<Integer> ids() {
-        return ids;
+    public AccumulateException(Throwable cause) {
+        super(cause);
     }
 }

@@ -414,6 +414,8 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setRaftGrpEvtsLsnr(new RaftGroupEventsListenerAdapter(nodeId.groupId(), serviceEventInterceptor, evLsnr));
 
+            nodeOptions.setStorageReadyLatch(groupOptions.getStorageReadyLatch());
+
             LogStorageFactory logStorageFactory = groupOptions.getLogStorageFactory() == null
                     ? this.logStorageFactory : groupOptions.getLogStorageFactory();
 

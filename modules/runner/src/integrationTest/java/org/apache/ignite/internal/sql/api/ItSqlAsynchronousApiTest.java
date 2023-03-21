@@ -362,7 +362,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         sql("CREATE INDEX TEST_IDX ON TEST(VAL0)");
 
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
         waitForIndex("TEST_IDX");
 
         Matcher<String> planMatcher = containsIndexScan("PUBLIC", "TEST", "TEST_IDX");

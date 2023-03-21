@@ -23,11 +23,12 @@ using namespace ignite;
 
 template<typename T>
 void check_primitive_type(column_type expected) {
-    primitive val_bool(T{});
-    EXPECT_EQ(val_bool.get_type(), expected);
+    primitive val(T{});
+    EXPECT_EQ(val.get_type(), expected);
 }
 
 TEST(primitive, get_column_type) {
+    check_primitive_type<nullptr_t>(column_type::UNDEFINED);
     check_primitive_type<bool>(column_type::BOOLEAN);
     check_primitive_type<int8_t>(column_type::INT8);
     check_primitive_type<int16_t>(column_type::INT16);
@@ -45,4 +46,16 @@ TEST(primitive, get_column_type) {
     check_primitive_type<std::string>(column_type::STRING);
     check_primitive_type<std::vector<std::byte>>(column_type::BYTE_ARRAY);
     check_primitive_type<big_integer>(column_type::NUMBER);
+}
+
+TEST(primitive, null_value_by_nullptr) {
+    primitive val(nullptr);
+    EXPECT_EQ(val.get_type(), column_type::UNDEFINED);
+    EXPECT_TRUE(val.is_null());
+}
+
+TEST(primitive, null_value_by_nullopt) {
+    primitive val(std::nullopt);
+    EXPECT_EQ(val.get_type(), column_type::UNDEFINED);
+    EXPECT_TRUE(val.is_null());
 }
