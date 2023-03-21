@@ -157,9 +157,7 @@ public class Replica {
      */
     public CompletableFuture<LeaseGrantedMessageResponse> processLeaseGrantedMessage(LeaseGrantedMessage msg) {
         return leaderFuture().thenCompose(leader -> {
-            if (hasAcceptedLease(msg.leaseStartTime(), msg.leaseExpirationTime())) {
-                return acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
-            } else if (msg.force()) {
+            if (msg.force()) {
                 if (!leader.equals(localNodeSupplier.get())) {
                     // Replica must wait till safe time reaches the lease start timestamp to make sure that all updates made on the
                     // group leader are received.
@@ -206,11 +204,5 @@ public class Replica {
                 .build();
 
         return completedFuture(resp);
-    }
-
-    private boolean hasAcceptedLease(HybridTimestamp leaseStartTime, HybridTimestamp leaseExpirationTime) {
-        synchronized (leaseAcceptanceMutex) {
-            return leaseStartTime.equals(this.leaseStartTime) && leaseExpirationTime.equals(this.leaseExpirationTime);
-        }
     }
 }

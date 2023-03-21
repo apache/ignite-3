@@ -205,9 +205,7 @@ public class ReplicaManager implements IgniteComponent {
         }
 
         try {
-            if (!(msg0 instanceof PlacementDriverReplicaMessage)) {
-                return;
-            }
+            assert msg0 instanceof PlacementDriverReplicaMessage : "Unexpected message type, msg=" + msg0;
 
             PlacementDriverReplicaMessage msg = (PlacementDriverReplicaMessage) msg0;
 
