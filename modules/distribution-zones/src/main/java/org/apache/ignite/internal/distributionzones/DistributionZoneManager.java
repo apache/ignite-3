@@ -523,19 +523,12 @@ public class DistributionZoneManager implements IgniteComponent {
             // Init timers after restart.
             zonesState.putIfAbsent(DEFAULT_ZONE_ID, new ZoneState(executor));
 
-            // TODO: KKK NPE on the fresh node witn no distributionZones
-            try {
-                if (zonesConfiguration.distributionZones().value() != null) {
-                    zonesConfiguration.distributionZones().value().namedListKeys()
-                            .forEach(zoneName -> {
-                                int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
+            zonesConfiguration.distributionZones().value().namedListKeys()
+                    .forEach(zoneName -> {
+                        int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
 
-                                zonesState.putIfAbsent(zoneId, new ZoneState(executor));
-                            });
-                }
-            } catch (Throwable th) {
-                // no-op
-            }
+                        zonesState.putIfAbsent(zoneId, new ZoneState(executor));
+                    });
 
             logicalTopologyService.addEventListener(topologyEventListener);
 

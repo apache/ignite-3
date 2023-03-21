@@ -180,8 +180,6 @@ public class ItRebalanceDistributedTest {
 
     public static final String HOST = "localhost";
 
-
-
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
 
