@@ -270,8 +270,9 @@ public class TableManagerTest extends IgniteAbstractTest {
                 SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
+        createDistributionZone(1, REPLICAS, PARTITIONS);
+
         tblsCfg.tables().change(tablesChange -> {
-            createDistributionZone(1, REPLICAS, PARTITIONS);
 
             tablesChange.create(scmTbl.name(), tableChange -> {
                 (SchemaConfigurationConverter.convert(scmTbl, tableChange))
@@ -586,8 +587,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         Table table = mockManagersAndCreateTable(scmTbl, tblManagerFut);
 
         assertNotNull(table);
-
-        createDistributionZone(1, REPLICAS, PARTITIONS);
 
         assertThrows(RuntimeException.class,
                 () -> await(tblManagerFut.join().createTableAsync(DYNAMIC_TABLE_NAME,
