@@ -52,9 +52,7 @@ public class IncrementalVersionedValue<T> extends AbstractVersionedValue<T> {
     private long lastCompleteToken = -1;
 
     /**
-     * Future that will be completed after all updates over the value in context of current causality token will be performed. This
-     * {@code updaterFuture} is {@code null} if no updates in context of current causality token have been initiated. See
-     * {@link #update(long, BiFunction)}.
+     * Future that will be completed after all updates over the value in context of current causality token will be performed.
      *
      * <p>Multi-threaded access is guarded by {@link #updateMutex}.
      */
