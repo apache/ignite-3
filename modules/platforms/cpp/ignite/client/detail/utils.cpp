@@ -60,7 +60,7 @@ void claim_column(binary_tuple_builder &builder, ignite_type typ, const primitiv
         case ignite_type::STRING:
             builder.claim_string(value.get<std::string>());
             break;
-        case ignite_type::BINARY:
+        case ignite_type::BYTE_ARRAY:
             builder.claim_bytes(value.get<std::vector<std::byte>>());
             break;
         case ignite_type::DECIMAL: {
@@ -132,7 +132,7 @@ void append_column(binary_tuple_builder &builder, ignite_type typ, const primiti
         case ignite_type::STRING:
             builder.append_string(value.get<std::string>());
             break;
-        case ignite_type::BINARY:
+        case ignite_type::BYTE_ARRAY:
             builder.append_bytes(value.get<std::vector<std::byte>>());
             break;
         case ignite_type::DECIMAL: {
@@ -291,9 +291,9 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
             break;
         }
         case ignite_type::BYTE_ARRAY: {
-            claim_type_and_scale(builder, ignite_type::BINARY);
+            claim_type_and_scale(builder, ignite_type::BYTE_ARRAY);
             auto &data = value.get<std::vector<std::byte>>();
-            builder.claim(ignite_type::BINARY, data);
+            builder.claim(ignite_type::BYTE_ARRAY, data);
             break;
         }
         case ignite_type::DECIMAL: {
@@ -402,9 +402,9 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
             break;
         }
         case ignite_type::BYTE_ARRAY: {
-            append_type_and_scale(builder, ignite_type::BINARY);
+            append_type_and_scale(builder, ignite_type::BYTE_ARRAY);
             auto &data = value.get<std::vector<std::byte>>();
-            builder.append(ignite_type::BINARY, data);
+            builder.append(ignite_type::BYTE_ARRAY, data);
             break;
         }
         case ignite_type::DECIMAL: {

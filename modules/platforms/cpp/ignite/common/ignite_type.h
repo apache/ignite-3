@@ -74,7 +74,6 @@ enum class ignite_type {
 
     /** Binary data. */
     BYTE_ARRAY = 15,
-    BINARY = BYTE_ARRAY,
 
     /** Date interval. */
     PERIOD = 16,

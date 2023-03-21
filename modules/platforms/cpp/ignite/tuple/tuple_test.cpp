@@ -181,7 +181,7 @@ TEST(tuple, AllTypes) {
         {ignite_type::TIMESTAMP, false},
         {ignite_type::STRING, false},
         {ignite_type::UUID, false},
-        {ignite_type::BINARY, false},
+        {ignite_type::BYTE_ARRAY, false},
     };
 
     binary_tuple_schema sch = schema.to_tuple_schema();
@@ -584,7 +584,7 @@ TEST(tuple, ZeroLengthVarlen) { // NOLINT(cert-err58-cpp)
 
     schema.columns = {
         {ignite_type::INT32, false},
-        {ignite_type::BINARY, false},
+        {ignite_type::BYTE_ARRAY, false},
     };
 
     // Single zero-length vector of bytes.
@@ -598,7 +598,7 @@ TEST(tuple, ZeroLengthVarlen) { // NOLINT(cert-err58-cpp)
 
     // Two zero-length vectors of bytes.
     {
-        schema.columns.emplace_back(column_info{ignite_type::BINARY, false});
+        schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, false});
 
         auto values = std::make_tuple(int32_t{0}, ""s, ""s);
 
@@ -612,8 +612,8 @@ TEST(tuple, ZeroLengthVarlen) { // NOLINT(cert-err58-cpp)
         schema.columns.erase(schema.columns.begin() + 1, schema.columns.end());
 
         schema.columns.emplace_back(column_info{ignite_type::INT32, false});
-        schema.columns.emplace_back(column_info{ignite_type::BINARY, false});
-        schema.columns.emplace_back(column_info{ignite_type::BINARY, false});
+        schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, false});
+        schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, false});
 
         auto values = std::make_tuple(int32_t{0}, int32_t{123}, ""s, ""s);
 
@@ -628,7 +628,7 @@ TEST(tuple, SingleVarlen) { // NOLINT(cert-err58-cpp)
 
     schema.columns = {
         {ignite_type::INT32, false},
-        {ignite_type::BINARY, false},
+        {ignite_type::BYTE_ARRAY, false},
     };
 
     auto values = std::make_tuple(int32_t{0}, "\1\2\3"s);
@@ -643,7 +643,7 @@ TEST(tuple, TinyVarlenFormatOverflowLarge) { // NOLINT(cert-err58-cpp)
 
     schema.columns.emplace_back(column_info{ignite_type::INT32, false});
     for (int i = 0; i < 300; i++) {
-        schema.columns.emplace_back(column_info{ignite_type::BINARY, false});
+        schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, false});
     }
 
     // Flags - 1 zero byte
@@ -670,7 +670,7 @@ TEST(tuple, TinyVarlenFormatOverflowMedium) { // NOLINT(cert-err58-cpp)
 
     schema.columns.emplace_back(column_info{ignite_type::INT32, false});
     for (int i = 0; i < 300; i++) {
-        schema.columns.emplace_back(column_info{ignite_type::BINARY, false});
+        schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, false});
     }
 
     // Flags - 1 zero byte
@@ -724,8 +724,8 @@ TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
         {ignite_type::INT32, false},
         {ignite_type::INT32, false},
         {ignite_type::INT32, false},
-        {ignite_type::BINARY, false},
-        {ignite_type::BINARY, false},
+        {ignite_type::BYTE_ARRAY, false},
+        {ignite_type::BYTE_ARRAY, false},
         {ignite_type::STRING, false},
     };
 
@@ -927,7 +927,7 @@ TEST(tuple, StringAfterNull) {
     SchemaDescriptor schema;
 
     schema.columns.emplace_back(column_info{ignite_type::INT32, false});
-    schema.columns.emplace_back(column_info{ignite_type::BINARY, true});
+    schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, true});
     schema.columns.emplace_back(column_info{ignite_type::STRING, false});
 
     // 101, null, "Bob"
@@ -1187,7 +1187,7 @@ TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
 
     schema.columns.emplace_back(column_info{ignite_type::INT32, false});
     for (int i = 0; i < 300; i++) {
-        schema.columns.emplace_back(column_info{ignite_type::BINARY, false});
+        schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, false});
     }
 
     {
