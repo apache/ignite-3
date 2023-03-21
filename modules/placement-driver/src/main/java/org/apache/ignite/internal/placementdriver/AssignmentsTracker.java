@@ -154,8 +154,6 @@ public class AssignmentsTracker {
         public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
             ExtendedTableConfiguration tblCfg = assignmentsCtx.config(ExtendedTableConfiguration.class);
 
-            // TODO: KKK fix this dirty piece
-
             DistributionZoneView distributionZoneView =
                     getZoneById(distributionZonesConfiguration, tblCfg.zoneId().value()).value();
 

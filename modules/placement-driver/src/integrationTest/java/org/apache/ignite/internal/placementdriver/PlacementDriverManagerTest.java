@@ -20,6 +20,7 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
 import static org.apache.ignite.internal.raft.Loza.CLIENT_POOL_NAME;
 import static org.apache.ignite.internal.raft.Loza.CLIENT_POOL_SIZE;
@@ -365,6 +366,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
             zones.create("zone1", ch -> {
                 ch.changePartitions(1);
                 ch.changeReplicas(1);
+                ch.changeZoneId(DEFAULT_ZONE_ID + 1);
             });
         }).join();
 
