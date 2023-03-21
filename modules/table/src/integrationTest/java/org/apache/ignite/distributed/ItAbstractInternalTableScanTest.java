@@ -87,13 +87,15 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     /** Internal table to test. */
     DummyInternalTableImpl internalTbl;
 
-    private final HybridClock clock = new HybridClockImpl();
+    final HybridClock clock = new HybridClockImpl();
 
     /**
      * Prepare test environment using DummyInternalTableImpl and Mocked storage.
      */
     @BeforeEach
     public void setUp(TestInfo testInfo) {
+        when(mockStorage.scan(any(HybridTimestamp.class))).thenReturn(mock(PartitionTimestampCursor.class));
+
         internalTbl = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class), mockStorage, ROW_SCHEMA);
     }
 
