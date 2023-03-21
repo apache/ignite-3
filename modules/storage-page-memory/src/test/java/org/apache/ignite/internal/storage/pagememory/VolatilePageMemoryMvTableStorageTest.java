@@ -64,7 +64,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
             @InjectConfiguration
             VolatilePageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration(
-                    "mock.tables.foo{ partitions = 512, dataStorage.name = " + VolatilePageMemoryStorageEngine.ENGINE_NAME + "}"
+                    "mock.tables.foo{ dataStorage.name = " + VolatilePageMemoryStorageEngine.ENGINE_NAME + "}"
             )
             TablesConfiguration tablesConfig,
             @InjectConfiguration
@@ -75,7 +75,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
         ioRegistry.loadFromServiceLoader();
 
         initialize(new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, pageEvictionTracker),
-                tablesConfig, distributionZonesConfiguration.defaultDistributionZone().partitions().value());
+                tablesConfig, 512);
     }
 
     @Test

@@ -56,9 +56,8 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
         ioRegistry.loadFromServiceLoader();
 
-        initialize(new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null),
-                tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone().partitions().value());
+        initialize(new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry,
+                workDir, null), tablesConfig, 512);
     }
 
     @Test

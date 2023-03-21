@@ -53,14 +53,13 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
             @InjectConfiguration("mock {flushDelayMillis = 0, defaultRegion {size = 16536, writeBufferSize = 16536}}")
             RocksDbStorageEngineConfiguration rocksDbEngineConfig,
             @InjectConfiguration(
-                    "mock.tables.foo{ partitions = 512, dataStorage.name = " + RocksDbStorageEngine.ENGINE_NAME + "}"
+                    "mock.tables.foo{ dataStorage.name = " + RocksDbStorageEngine.ENGINE_NAME + "}"
             )
             TablesConfiguration tablesConfig,
             @InjectConfiguration
             DistributionZonesConfiguration distributionZonesConfiguration
     ) {
-        initialize(new RocksDbStorageEngine(rocksDbEngineConfig, workDir), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone().partitions().value());
+        initialize(new RocksDbStorageEngine(rocksDbEngineConfig, workDir), tablesConfig, 512);
     }
 
     /**
