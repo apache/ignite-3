@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
@@ -234,20 +235,10 @@ public class PlatformTestNodeRunner {
         }
     }
 
-    private static int createZone(Ignite node) {
-        // TODO: KKK dirty hack
-
-        DistributionZoneConfigurationParameters parameters = new DistributionZoneConfigurationParameters.Builder("zone1")
-                .replicas(1).partitions(10).build();
-        DistributionZoneManager distZoneManager = ((IgniteImpl) node).distributionZoneManager();
-        distZoneManager.createZone(parameters).join();
-        return distZoneManager.getZoneId("zone1");
-    }
-
     private static void createTables(Ignite node) {
         var keyCol = "key";
 
-        int zoneId = createZone(node);
+        int zoneId = await(createZone(((IgniteImpl) node).distributionZoneManager(), "zone1", 10, 1));
 
         TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
                 SchemaBuilders.column(keyCol, ColumnType.INT64).build(),

@@ -48,7 +48,7 @@ public class ItIndexSpoolTest extends ClusterPerClassIntegrationTest {
 
         for (Table table : CLUSTER_NODES.get(0).tables().tables()) {
             sql("DROP TABLE " + table.name());
-            sql("DROP ZONE " + "ZONE_" + table.name());
+            sql("DROP ZONE " + "ZONE_" + table.name().toUpperCase());
         }
 
         if (LOG.isInfoEnabled()) {
@@ -93,7 +93,7 @@ public class ItIndexSpoolTest extends ClusterPerClassIntegrationTest {
         }
 
         for (String name : List.of("TEST0", "TEST1")) {
-            sql(String.format("CREATE ZONE %s with replicas=2, partitions=%d", "zone_" + name, parts));
+            sql(String.format("CREATE ZONE %s with replicas=2, partitions=%d", "ZONE_" + name.toUpperCase(), parts));
             sql(String.format("CREATE TABLE " + name + "(id INT PRIMARY KEY, jid INT, val VARCHAR) WITH PRIMARY_ZONE='%s'", "ZONE_" + name.toUpperCase()));
 
             sql("CREATE INDEX " + name + "_jid_idx ON " + name + "(jid)");

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_REPLICA_COUNT;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.runner.app.ItTablesApiTest.SCHEMA;
 import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -531,7 +533,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         cols.add(SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build());
 
         String zoneName = "zone_" + tableName;
-        int zoneId = createZone(zoneName, node);
+        int zoneId = await(createZone(((IgniteImpl) node).distributionZoneManager(), zoneName, 1, DEFAULT_REPLICA_COUNT));
 
         return await(((TableManager) node.tables()).createTableAsync(
                 tableName,
@@ -539,17 +541,6 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
                         cols).withPrimaryKey("key").build(), tblCh)
                         .changeZoneId(zoneId)
         ));
-    }
-
-    private static int createZone(String zoneName, Ignite node) {
-        DistributionZoneManager distributionZoneManager = ((IgniteImpl) node).distributionZoneManager();
-
-        DistributionZoneConfigurationParameters parameters = new DistributionZoneConfigurationParameters.Builder(zoneName)
-                .partitions(1)
-                .build();
-        distributionZoneManager.createZone(parameters).join();
-
-        return distributionZoneManager.getZoneId(zoneName);
     }
 
     private static void stopTable(Ignite node, String tableName) {

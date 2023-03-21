@@ -248,14 +248,6 @@ public class DdlCommandHandler {
 
             tableChange.changeDataStorage(dataStorageManager.tableDataStorageConsumer(cmd.dataStorage(), cmd.dataStorageOptions()));
 
-            if (cmd.partitions() != null) {
-                throw new RuntimeException("Change partitions not implemented yet");
-            }
-
-            if (cmd.replicas() != null) {
-                throw new RuntimeException("Change replicas not implemented yet");
-            }
-
             if (cmd.zone() != null) {
                 tableChange.changeZoneId(distributionZoneManager.getZoneId(cmd.zone()));
             } else {

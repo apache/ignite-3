@@ -113,7 +113,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
         }
 
         try (Session session = startedNodes.get(0).sql().createSession()) {
-            session.execute(null, "CREATE ZONE test_zone with replicas=1, partitions=10");
+            session.execute(null, "CREATE ZONE TEST_ZONE WITH REPLICAS=1, PARTITIONS=10");
             session.execute(null, "CREATE TABLE " + TABLE_NAME + "("
                     + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
         }

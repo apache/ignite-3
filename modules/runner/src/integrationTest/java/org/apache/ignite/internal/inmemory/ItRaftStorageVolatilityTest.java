@@ -20,6 +20,8 @@ package org.apache.ignite.internal.inmemory;
 import static ca.seinesoftware.hamcrest.path.PathMatcher.exists;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -231,14 +233,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createTableWithMaxOneInMemoryEntryAllowed(String tableName) {
-        String zoneName = "zone1";
-        var distributionZoneCfgBuilder = new DistributionZoneConfigurationParameters.Builder(zoneName)
-                .partitions(1);
-        var distributionZoneCfg = distributionZoneCfgBuilder.build();
-
-        node(0).distributionZoneManager().createZone(distributionZoneCfg).join();
-
-        int zoneId = node(0).distributionZoneManager().getZoneId(zoneName);
+        int zoneId = await(createZone(node(0).distributionZoneManager(), "zone1", 1, DEFAULT_PARTITION_COUNT));
 
         TableDefinition tableDef = SchemaBuilders.tableBuilder("PUBLIC", tableName).columns(
                 SchemaBuilders.column("ID", ColumnType.INT32).build(),
