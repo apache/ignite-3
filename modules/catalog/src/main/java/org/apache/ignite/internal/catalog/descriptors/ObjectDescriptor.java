@@ -23,7 +23,7 @@ import org.apache.ignite.internal.tostring.S;
 
 /**
  * Base class for catalog objects.
- * TODO: IGNITE-18535 Implement custom effective serialization instead.
+ * TODO: IGNITE-19082 Implement custom effective serialization instead.
  */
 public abstract class ObjectDescriptor implements Serializable {
     private static final long serialVersionUID = -6525237234280004860L;

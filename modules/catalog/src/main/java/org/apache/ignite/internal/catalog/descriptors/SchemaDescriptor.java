@@ -40,7 +40,7 @@ public class SchemaDescriptor extends ObjectDescriptor {
     @IgniteToStringExclude
     private transient Map<String, TableDescriptor> tablesMap;
     @IgniteToStringExclude
-    private transient Map<String, IndexDescriptor> indexesMap; //TODO: IGNITE-18535 Drop if not used.
+    private transient Map<String, IndexDescriptor> indexesMap;
 
     /**
      * Constructor.

@@ -34,7 +34,7 @@ import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 public interface CatalogService {
     String PUBLIC = "PUBLIC";
 
-    //TODO: IGNITE-18535 Drop this stuff when all versioned schema stuff will be moved to Catalog.
+    //TODO: IGNITE-19082 Drop this stuff when all versioned schema stuff will be moved to Catalog.
     @Deprecated(forRemoval = true)
     String IGNITE_USE_CATALOG_PROPERTY = "IGNITE_USE_CATALOG";
 

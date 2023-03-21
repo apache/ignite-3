@@ -70,7 +70,7 @@ public class TableDescriptor extends ObjectDescriptor {
 
         this.columnsMap = columns.stream().collect(Collectors.toMap(TableColumnDescriptor::name, Function.identity()));
 
-        // TODO: IGNITE-18535 Throw proper exceptions.
+        // TODO: IGNITE-19082 Throw proper exceptions.
         assert !columnsMap.isEmpty() : "No columns.";
         assert primaryKeyColumns.length > 0 : "No primary key columns.";
         assert colocationColumns.length > 0 : "No colocation columns.";

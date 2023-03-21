@@ -48,7 +48,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Catalog service implementation.
- * TODO: IGNITE-18535 Introduce catalog events and make CatalogServiceImpl extends Producer.
+ * TODO: IGNITE-19081 Introduce catalog events and make CatalogServiceImpl extends Producer.
  */
 public class CatalogServiceImpl implements CatalogService, CatalogManager {
     private static final AtomicInteger TABLE_ID_GEN = new AtomicInteger();
@@ -57,11 +57,9 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
     private static final IgniteLogger LOG = Loggers.forClass(CatalogServiceImpl.class);
 
     /** Versioned catalog descriptors. */
-    //TODO: IGNITE-18535 Use copy-on-write approach with IntMap instead??
     private final NavigableMap<Integer, CatalogDescriptor> catalogByVer = new ConcurrentSkipListMap<>();
 
     /** Versioned catalog descriptors sorted in chronological order. */
-    //TODO: IGNITE-18535 Use copy-on-write approach with Map instead??
     private final NavigableMap<Long, CatalogDescriptor> catalogByTs = new ConcurrentSkipListMap<>();
 
     private final MetaStorageManager metaStorageMgr;
@@ -83,7 +81,7 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString("catalog-"), catalogVersionsListener);
         }
 
-        //TODO: IGNITE-18535 restore state.
+        //TODO: IGNITE-19080 restore state.
         registerCatalog(new CatalogDescriptor(0, 0L,
                 new SchemaDescriptor(0, "PUBLIC", 0, new TableDescriptor[0], new IndexDescriptor[0])));
     }
@@ -176,8 +174,6 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<?> createTable(CreateTableParams params) {
-        // Create operation future, which will returned, and saved to a map.
-        //
         // Creates TableDescriptor and saves it to MetaStorage.
         // Atomically:
         //        int id = metaStorage.get("lastId") + 1;
@@ -186,16 +182,14 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
         //        Catalog newCatalog = catalogByVer.get(id -1).copy()
         //        newCatalog.setId(id).addTable(table);
         //
-        //        metaStorage.put("catalog-"+id, new Catalog());
+        //        metaStorage.put("catalog-"+id, newCatalog);
         //        metaStorage.put("lastId", id);
-        //
-        // Subscribes operation future to the MetaStorage future for failure handling
-        // Operation future must be completed when got event from catalog service for expected table.
 
         // Dummy implementation.
         synchronized (this) {
             CatalogDescriptor catalog = catalogByVer.lastEntry().getValue();
 
+            //TODO: IGNITE-19081 Add validation.
             String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
 
             SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
@@ -208,7 +202,6 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
 
             int newVersion = catalogByVer.lastKey() + 1;
 
-            //TODO: IGNITE-18535 Fix tableId generation. Make it consistent on all nodes.
             TableDescriptor table = CatalogUtils.fromParams(TABLE_ID_GEN.incrementAndGet(), params);
 
             CatalogDescriptor newCatalog = new CatalogDescriptor(
