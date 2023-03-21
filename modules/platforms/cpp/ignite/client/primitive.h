@@ -29,6 +29,7 @@
 #include "ignite/common/uuid.h"
 
 #include <cstdint>
+#include <optional>
 #include <type_traits>
 #include <variant>
 #include <vector>
@@ -42,6 +43,16 @@ class primitive {
 public:
     // Default
     primitive() = default;
+
+    /**
+     * Null constructor.
+     */
+    primitive(std::nullptr_t) {} // NOLINT(google-explicit-constructor)
+
+    /**
+     * Null option constructor.
+     */
+    primitive(std::nullopt_t) {} // NOLINT(google-explicit-constructor)
 
     /**
      * Constructor for boolean value.
@@ -238,11 +249,22 @@ public:
     }
 
     /**
+     * Check whether element is null.
+     *
+     * @return Value indicating whether element is null.
+     */
+    [[nodiscard]] bool is_null() const noexcept { return m_value.index() == 0; }
+
+    /**
      * Get primitive type.
      *
      * @return Primitive type.
      */
-    [[nodiscard]] column_type get_type() const { return static_cast<column_type>(m_value.index()); }
+    [[nodiscard]] column_type get_type() const noexcept {
+        if (is_null())
+            return column_type::UNDEFINED;
+        return static_cast<column_type>(m_value.index() - 1);
+    }
 
     /**
      * @brief Comparison operator.
@@ -271,7 +293,8 @@ private:
     typedef void *unsupported_type;
 
     /** Value type. */
-    typedef std::variant<bool, // Bool = 0
+    typedef std::variant<std::nullptr_t,
+        bool, // Bool = 0
         std::int8_t, // Int8 = 1
         std::int16_t, // Int16 = 2
         std::int32_t, // Int32 = 3

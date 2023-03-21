@@ -38,6 +38,7 @@ class tables_impl;
  * Table view.
  */
 class table {
+    friend class detail::table_impl;
     friend class detail::tables_impl;
 
 public:
