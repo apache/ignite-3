@@ -56,7 +56,7 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
         sql("CREATE INDEX test_idx ON test(grp0, grp1)");
         sql("CREATE INDEX test_one_col_idx_idx ON test_one_col_idx(col0)");
 
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
         waitForIndex("test_idx");
         waitForIndex("test_one_col_idx_idx");
 

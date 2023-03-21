@@ -98,7 +98,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
     public void beforeTest() throws InterruptedException {
         TableImpl table = getOrCreateTable();
 
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
         waitForIndex(SORTED_IDX);
 
         loadData(table);

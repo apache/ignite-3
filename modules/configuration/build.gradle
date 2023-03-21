@@ -24,13 +24,11 @@ description = 'ignite-configuration'
 
 dependencies {
     api project(':ignite-configuration-api')
+
     implementation project(':ignite-bytecode')
-    implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation libs.jetbrains.annotations
     implementation libs.typesafe.config
-
-    annotationProcessor project(':ignite-configuration-annotation-processor')
 
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testImplementation project(':ignite-core')

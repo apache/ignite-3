@@ -38,12 +38,12 @@ class tables_impl;
  * Table view.
  */
 class table {
+    friend class detail::table_impl;
     friend class detail::tables_impl;
 
 public:
     // Default
     table() = default;
-    ~table() = default;
     table(table &&) noexcept = default;
     table &operator=(table &&) noexcept = default;
 

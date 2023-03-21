@@ -19,6 +19,7 @@ namespace Apache.Ignite;
 
 using System.IO;
 using System.Net.Security;
+using System.Threading.Tasks;
 
 /// <summary>
 /// SSL Stream Factory defines how SSL connection is established.
@@ -35,5 +36,5 @@ public interface ISslStreamFactory
     /// <returns>
     /// SSL stream, or null if SSL is not enabled.
     /// </returns>
-    SslStream? Create(Stream stream, string targetHost);
+    Task<SslStream?> CreateAsync(Stream stream, string targetHost);
 }

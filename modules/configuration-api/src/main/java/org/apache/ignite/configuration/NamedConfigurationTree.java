@@ -17,6 +17,8 @@
 
 package org.apache.ignite.configuration;
 
+import java.util.List;
+import java.util.UUID;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,6 +37,19 @@ public interface NamedConfigurationTree<T extends ConfigurationProperty<VIEWT>, 
      * @param name Name.
      */
     @Nullable T get(String name);
+
+    /**
+     * Retrieves a named list element by its internal id.
+     *
+     * @param internalId Internal id.
+     * @return Named list element, associated with the passed internal id, or {@code null} if it doesn't exist.
+     */
+    @Nullable T get(UUID internalId);
+
+    /**
+     * Returns all internal ids of the elements from the list.
+     */
+    List<UUID> internalIds();
 
     /**
      * Add named-list-specific configuration values listener.
@@ -62,4 +77,8 @@ public interface NamedConfigurationTree<T extends ConfigurationProperty<VIEWT>, 
      * <p>NOTE: {@link ConfigurationListenOnlyException} will be thrown when trying to get/update the configuration values.
      */
     T any();
+
+    @Override
+    @SuppressWarnings("unchecked")
+    NamedConfigurationTree<T, VIEWT, CHANGET> directProxy();
 }
