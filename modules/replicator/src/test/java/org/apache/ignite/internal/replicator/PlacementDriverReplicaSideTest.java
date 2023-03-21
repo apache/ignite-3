@@ -136,6 +136,7 @@ public class PlacementDriverReplicaSideTest {
 
     @Test
     public void replicationGroupReadinessAwait() {
+        safeTime.update(hts(15));
         CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(10), hts(20), false);
         assertFalse(respFut.isDone());
         leaderElection(LOCAL_NODE);
@@ -153,6 +154,7 @@ public class PlacementDriverReplicaSideTest {
     @Test
     public void testGrantLeaseToLeader() {
         leaderElection(LOCAL_NODE);
+        safeTime.update(hts(15));
         CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(10), hts(20), false);
 
         assertTrue(respFut.isDone());
@@ -188,20 +190,21 @@ public class PlacementDriverReplicaSideTest {
         assertTrue(resp0.accepted());
         assertNull(resp0.redirectProposal());
 
-        // Sending the same message once again, with force == false (placement driver actor may have changed and repeats the message),
-        // but the node should still accept this lease in spite it is not a leader, because it had accepted the lease before.
-        CompletableFuture<LeaseGrantedMessageResponse> respFut1 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);
+        // Sending the same message once again, with force == false (placement driver actor may have changed and the new lease interval
+        // intersects with previous one).
+        CompletableFuture<LeaseGrantedMessageResponse> respFut1 = sendLeaseGranted(hts(leaseStartTime + 8), hts(leaseStartTime + 18), false);
 
         assertTrue(respFut1.isDone());
 
         LeaseGrantedMessageResponse resp1 = respFut1.join();
-        assertTrue(resp1.accepted());
-        assertNull(resp1.redirectProposal());
+        assertFalse(resp1.accepted());
+        assertEquals(ANOTHER_NODE.name(), resp1.redirectProposal());
     }
 
     @Test
     public void testGrantLeaseToNodeWithExpiredLease() {
         long leaseStartTime = 10;
+        safeTime.update(hts(leaseStartTime + 5));
         leaderElection(LOCAL_NODE);
         CompletableFuture<LeaseGrantedMessageResponse> respFut0 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);
 
@@ -211,6 +214,7 @@ public class PlacementDriverReplicaSideTest {
         assertTrue(resp0.accepted());
         assertNull(resp0.redirectProposal());
 
+        safeTime.update(hts(leaseStartTime + 15));
         CompletableFuture<LeaseGrantedMessageResponse> respFut1 =
                 sendLeaseGranted(hts(leaseStartTime + 11), hts(leaseStartTime + 20), false);
         assertTrue(respFut1.isDone());
@@ -223,6 +227,7 @@ public class PlacementDriverReplicaSideTest {
     @Test
     public void testGrantLeaseToNodeWithExpiredLeaseAndAnotherLeaderElected() {
         long leaseStartTime = 10;
+        safeTime.update(hts(leaseStartTime + 5));
         leaderElection(LOCAL_NODE);
         CompletableFuture<LeaseGrantedMessageResponse> respFut0 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);
 
@@ -234,6 +239,7 @@ public class PlacementDriverReplicaSideTest {
 
         leaderElection(ANOTHER_NODE);
 
+        safeTime.update(hts(leaseStartTime + 15));
         CompletableFuture<LeaseGrantedMessageResponse> respFut1 =
                 sendLeaseGranted(hts(leaseStartTime + 11), hts(leaseStartTime + 20), false);
         assertTrue(respFut1.isDone());

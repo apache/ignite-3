@@ -157,23 +157,33 @@ public class Replica {
      */
     public CompletableFuture<LeaseGrantedMessageResponse> processLeaseGrantedMessage(LeaseGrantedMessage msg) {
         return leaderFuture().thenCompose(leader -> {
-            if (msg.force()) {
-                if (!leader.equals(localNodeSupplier.get())) {
-                    // Replica must wait till safe time reaches the lease start timestamp to make sure that all updates made on the
-                    // group leader are received.
-                    return safeTime.waitFor(msg.leaseStartTime()).thenCompose(v -> {
-                        CompletableFuture<LeaseGrantedMessageResponse> respFut =
-                                acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
+            synchronized (leaseAcceptanceMutex) {
+                HybridTimestamp leaseExpirationTime = this.leaseExpirationTime;
 
-                        return raftClient.transferLeadership(new Peer(localNodeSupplier.get().name()))
-                                .thenCompose(ignored -> respFut);
-                    });
-                } else {
-                    return acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
+                if (leaseExpirationTime != null) {
+                    assert msg.leaseExpirationTime().after(leaseExpirationTime) : "Invalid lease expiration time in message, msg=" + msg;
                 }
+            }
+
+            if (msg.force()) {
+                // Replica must wait till safe time reaches the lease start timestamp to make sure that all updates made on the
+                // group leader are received.
+                return safeTime.waitFor(msg.leaseStartTime())
+                        .thenCompose(v -> {
+                            CompletableFuture<LeaseGrantedMessageResponse> respFut =
+                                    acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
+
+                            if (leader.equals(localNodeSupplier.get())) {
+                                return respFut;
+                            } else {
+                                return raftClient.transferLeadership(new Peer(localNodeSupplier.get().name()))
+                                        .thenCompose(ignored -> respFut);
+                            }
+                        });
             } else {
                 if (leader.equals(localNodeSupplier.get())) {
-                    return acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
+                    return safeTime.waitFor(msg.leaseStartTime())
+                            .thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
                 } else {
                     return proposeLeaseRedirect(leader);
                 }
