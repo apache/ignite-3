@@ -59,7 +59,8 @@ public class RocksDbSortedIndexStorageTest extends AbstractSortedIndexStorageTes
 
         engine.start();
 
-        tableStorage = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig, distributionZonesConfiguration.defaultDistributionZone().partitions().value());
+        tableStorage = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig,
+                distributionZonesConfiguration.defaultDistributionZone().partitions().value());
 
         tableStorage.start();
 

@@ -566,7 +566,7 @@ public class IncomingSnapshotCopierTest {
         fillTxStatePartitionStorage(outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, txIds);
 
         MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig,
-               distributionZonesConfiguration.defaultDistributionZone().partitions().value()));
+                distributionZonesConfiguration.defaultDistributionZone().partitions().value()));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
         assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());

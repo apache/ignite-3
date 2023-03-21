@@ -48,7 +48,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
@@ -320,8 +319,6 @@ public class RocksDbTableStorage implements MvTableStorage {
         }
 
         try {
-            TableView tableCfgView = configuration().value();
-
             for (int partitionId = 0; partitionId < partitions; partitionId++) {
                 RocksDbMvPartitionStorage partition = mvPartitionStorages.get(partitionId);
 

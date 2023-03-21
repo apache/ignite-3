@@ -94,7 +94,8 @@ public class ItIndexSpoolTest extends ClusterPerClassIntegrationTest {
 
         for (String name : List.of("TEST0", "TEST1")) {
             sql(String.format("CREATE ZONE %s with replicas=2, partitions=%d", "ZONE_" + name.toUpperCase(), parts));
-            sql(String.format("CREATE TABLE " + name + "(id INT PRIMARY KEY, jid INT, val VARCHAR) WITH PRIMARY_ZONE='%s'", "ZONE_" + name.toUpperCase()));
+            sql(String.format("CREATE TABLE %s(id INT PRIMARY KEY, jid INT, val VARCHAR) WITH PRIMARY_ZONE='%s'",
+                    name, "ZONE_" + name.toUpperCase()));
 
             sql("CREATE INDEX " + name + "_jid_idx ON " + name + "(jid)");
 

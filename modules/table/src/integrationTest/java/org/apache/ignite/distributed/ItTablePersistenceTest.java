@@ -352,8 +352,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 .orElseGet(() -> {
                     TableConfiguration tableCfg = tablesCfg.tables().get("foo");
 
-                    tableCfg.change(t -> t.changePartitions(1)).join();
-
                     RocksDbStorageEngine storageEngine = new RocksDbStorageEngine(engineConfig, path);
                     storageEngine.start();
 
@@ -361,7 +359,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     tableCfg.dataStorage().change(ds -> ds.convert(storageEngine.name())).join();
 
-                    MvTableStorage mvTableStorage = storageEngine.createMvTable(tableCfg, tablesCfg);
+                    MvTableStorage mvTableStorage = storageEngine.createMvTable(tableCfg, tablesCfg, 1);
                     mvTableStorage.start();
                     mvTableStorages.put(index, mvTableStorage);
                     closeables.add(mvTableStorage::close);

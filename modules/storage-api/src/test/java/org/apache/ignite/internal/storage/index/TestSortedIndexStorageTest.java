@@ -45,7 +45,8 @@ public class TestSortedIndexStorageTest extends AbstractSortedIndexStorageTest {
         TableConfiguration tableConfig = tablesConfig.tables().get("foo");
 
 
-        var storage = new TestMvTableStorage(tableConfig, tablesConfig, distributionZonesConfiguration.defaultDistributionZone().partitions().value());
+        var storage = new TestMvTableStorage(tableConfig, tablesConfig,
+                distributionZonesConfiguration.defaultDistributionZone().partitions().value());
 
         initialize(storage, tablesConfig);
     }

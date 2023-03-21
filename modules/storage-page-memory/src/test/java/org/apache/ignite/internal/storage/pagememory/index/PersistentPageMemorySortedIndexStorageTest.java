@@ -62,7 +62,8 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
 
         engine.start();
 
-        table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig, distributionZonesConfiguration.defaultDistributionZone().partitions().value());
+        table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig,
+                distributionZonesConfiguration.defaultDistributionZone().partitions().value());
 
         table.start();
 

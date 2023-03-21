@@ -694,7 +694,8 @@ public class ItRebalanceDistributedTest {
 
             TablesConfiguration tablesCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
 
-            DistributionZonesConfiguration zonesCfg = clusterCfgMgr.configurationRegistry().getConfiguration(DistributionZonesConfiguration.KEY);
+            DistributionZonesConfiguration zonesCfg =
+                    clusterCfgMgr.configurationRegistry().getConfiguration(DistributionZonesConfiguration.KEY);
 
             DataStorageModules dataStorageModules = new DataStorageModules(List.of(
                     new PersistentPageMemoryDataStorageModule(),

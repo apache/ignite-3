@@ -31,7 +31,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -85,7 +84,8 @@ public class AssignmentsTracker {
      * @param msManager Metastorage manager.
      * @param tablesCfg Table configuration.
      */
-    public AssignmentsTracker(VaultManager vaultManager, MetaStorageManager msManager, TablesConfiguration tablesCfg, DistributionZonesConfiguration distributionZonesConfiguration) {
+    public AssignmentsTracker(VaultManager vaultManager, MetaStorageManager msManager,
+            TablesConfiguration tablesCfg, DistributionZonesConfiguration distributionZonesConfiguration) {
         this.vaultManager = vaultManager;
         this.msManager = msManager;
         this.tablesCfg = tablesCfg;
