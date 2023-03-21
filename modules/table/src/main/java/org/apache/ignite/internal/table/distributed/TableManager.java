@@ -211,6 +211,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Tables configuration. */
     private final TablesConfiguration tablesCfg;
 
+    /** Distribution zones configuration. */
     private final DistributionZonesConfiguration distributionZonesConfiguration;
 
     private final ClusterService clusterService;
@@ -341,7 +342,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             String nodeName,
             Consumer<Function<Long, CompletableFuture<?>>> registry,
             TablesConfiguration tablesCfg,
-            DistributionZonesConfiguration distibutionZonesConfiguration,
+            DistributionZonesConfiguration distributionZonesConfiguration,
             ClusterService clusterService,
             RaftManager raftMgr,
             ReplicaManager replicaMgr,
@@ -359,7 +360,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             OutgoingSnapshotsManager outgoingSnapshotsManager
     ) {
         this.tablesCfg = tablesCfg;
-        this.distributionZonesConfiguration = distibutionZonesConfiguration;
+        this.distributionZonesConfiguration = distributionZonesConfiguration;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
         this.baselineMgr = baselineMgr;
@@ -643,23 +644,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return completedFuture(new NodeStoppingException());
         }
 
-        // TODO: KKK valid because of ordering through configuration BUS?
-        DistributionZoneView zoneCfg = replicasCtx.config(DistributionZoneConfiguration.class).value();
-
-        List<TableConfiguration> tblsCfg = new ArrayList<>();
-
-        tablesCfg.tables().value().namedListKeys().forEach(tblName -> {
-            if (tablesCfg.tables().get(tblName).zoneId().value().equals(zoneCfg.zoneId())) {
-                tblsCfg.add(tablesCfg.tables().get(tblName));
-            }
-        });
-
-        CompletableFuture<?>[] futs = new CompletableFuture[tblsCfg.size() * zoneCfg.partitions()];
-
-
         try {
             if (replicasCtx.oldValue() != null && replicasCtx.oldValue() > 0) {
-                int tableNum = 0;
+                DistributionZoneView zoneCfg = replicasCtx.config(DistributionZoneConfiguration.class).value();
+
+                List<TableConfiguration> tblsCfg = new ArrayList<>();
+
+                tablesCfg.tables().value().namedListKeys().forEach(tblName -> {
+                    if (tablesCfg.tables().get(tblName).zoneId().value().equals(zoneCfg.zoneId())) {
+                        tblsCfg.add(tablesCfg.tables().get(tblName));
+                    }
+                });
+
+                CompletableFuture<?>[] futs = new CompletableFuture[tblsCfg.size() * zoneCfg.partitions()];
+
+                int furCur = 0;
+
                 for (TableConfiguration tblCfg : tblsCfg) {
 
                     LOG.info("Received update for replicas number [table={}, oldNumber={}, newNumber={}]",
@@ -669,8 +669,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     int newReplicas = replicasCtx.newValue();
 
-                    CompletableFuture<?>[] futures = new CompletableFuture<?>[partCnt];
-
                     byte[] assignmentsBytes = ((ExtendedTableConfiguration) tblCfg).assignments().value();
 
                     List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
@@ -678,7 +676,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     for (int i = 0; i < partCnt; i++) {
                         TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
 
-                        futs[tableNum * i] = updatePendingAssignmentsKeys(tblCfg.name().value(), replicaGrpId,
+                        futs[furCur++] = updatePendingAssignmentsKeys(tblCfg.name().value(), replicaGrpId,
                                 baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()), newReplicas,
                                 replicasCtx.storageRevision(), metaStorageMgr, i, tableAssignments.get(i));
                     }
@@ -1175,8 +1173,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         TableConfiguration tableCfg = tablesCfg.tables().get(name);
 
-        // TODO: KKK is it valid to get zone here? looks like yes, because configuration events ordered by configuration BUS
-        DistributionZoneView distributionZoneConfiguration = getZoneById(distributionZonesConfiguration, tableCfg.value().zoneId()).value();
+        DistributionZoneView distributionZoneConfiguration =
+                getZoneById(distributionZonesConfiguration, tableCfg.value().zoneId()).value();
 
         int partitions = distributionZoneConfiguration.partitions();
 

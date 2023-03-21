@@ -75,7 +75,7 @@ public class PartitionMover {
                                 if (recoverable(err)) {
                                     LOG.debug("Recoverable error received during changePeersAsync invocation, retrying", err);
                                 } else {
-                                    // TODO: Ideally, rebalance, which has initiated this invocation should be canceled,
+                                    // TODO: IGNITE-19087 Ideally, rebalance, which has initiated this invocation should be canceled,
                                     // TODO: Also it might be reasonable to delegate such exceptional case to a general failure handler.
                                     // TODO: At the moment, we repeat such intents as well.
                                     LOG.debug("Unrecoverable error received during changePeersAsync invocation, retrying", err);

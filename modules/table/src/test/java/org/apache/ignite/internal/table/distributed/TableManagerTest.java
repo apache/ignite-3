@@ -272,6 +272,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         tblsCfg.tables().change(tablesChange -> {
             createDistributionZone(1, REPLICAS, PARTITIONS);
+
             tablesChange.create(scmTbl.name(), tableChange -> {
                 (SchemaConfigurationConverter.convert(scmTbl, tableChange))
                         .changeZoneId(1);
@@ -367,6 +368,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         tableManager.stop();
 
         createDistributionZone(1, REPLICAS, PARTITIONS);
+
         Consumer<TableChange> createTableChange = (TableChange change) ->
                 SchemaConfigurationConverter.convert(SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_FOR_DROP_NAME).columns(
                                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -586,6 +588,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertNotNull(table);
 
         createDistributionZone(1, REPLICAS, PARTITIONS);
+
         assertThrows(RuntimeException.class,
                 () -> await(tblManagerFut.join().createTableAsync(DYNAMIC_TABLE_NAME,
                         tblCh -> SchemaConfigurationConverter.convert(scmTbl, tblCh)
@@ -700,6 +703,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         });
 
         createDistributionZone(1, REPLICAS, PARTITIONS);
+
         CompletableFuture<Table> tbl2Fut = tableManager.createTableAsync(tableDefinition.name(),
                 tblCh -> SchemaConfigurationConverter.convert(tableDefinition, tblCh)
                         .changeZoneId(1)

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed;
 import static java.util.Collections.emptySet;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
@@ -80,7 +81,6 @@ import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -392,7 +392,8 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
     ) {
         for (int i = 0; i < mockedTables.size(); i++) {
             TableView tableView = mockedTables.get(i).get1();
-            DistributionZoneConfiguration distributionZoneConfiguration = findZoneById(tableView.zoneId());
+            DistributionZoneConfiguration distributionZoneConfiguration =
+                    getZoneById(distributionZonesConfiguration, tableView.zoneId());
 
             for (int j = 0; j < distributionZoneConfiguration.partitions().value(); j++) {
                 TablePartitionId partId = new TablePartitionId(new UUID(0, i), j);
@@ -441,7 +442,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
     private IgniteBiTuple<TableView, ExtendedTableConfiguration> mockTable(int tableNum, int zoneId) {
         TableView tableView = mock(TableView.class);
-        DistributionZoneView distributionZoneView = findZoneById(zoneId).value();
+        DistributionZoneView distributionZoneView = getZoneById(distributionZonesConfiguration, zoneId).value();
 
         when(tableView.zoneId()).thenReturn(zoneId);
         when(tableView.name()).thenReturn("table" + tableNum);
@@ -465,16 +466,6 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         return new IgniteBiTuple<>(tableView, tableCfg);
 
-    }
-
-    private void fillZones(List<ZoneDescriptor> zones) {
-        for (ZoneDescriptor e: zones) {
-            DistributionZoneConfiguration zoneMock = mock(DistributionZoneConfiguration.class);
-            ConfigurationValue<Integer> zoneIdValue = mock(ConfigurationValue.class);
-
-            when(zoneIdValue.value()).thenReturn(e.zoneId);
-            when(zoneMock.zoneId()).thenReturn(zoneIdValue);
-        }
     }
 
     private void mockTables(List<IgniteBiTuple<TableView, ExtendedTableConfiguration>> mockedTables) {
@@ -510,34 +501,4 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         when(tablesConfiguration.gcThreads()).thenReturn(gcThreads);
     }
-
-    private DistributionZoneConfiguration findZoneById(int zoneId) {
-        for (String zoneName: distributionZonesConfiguration.distributionZones().value().namedListKeys()) {
-            DistributionZoneConfiguration zone = distributionZonesConfiguration.distributionZones().get(zoneName);
-
-            if (distributionZonesConfiguration.distributionZones().get(zoneName).value().zoneId() == zoneId) {
-                return zone;
-            }
-        }
-
-        throw new IllegalArgumentException("Couldn't find the zone with an id " + zoneId);
-    }
-
-    private class ZoneDescriptor {
-        public final int zoneId;
-
-        public final String zoneName;
-
-        public final long replicas;
-
-        public final long partitions;
-
-        public ZoneDescriptor(int zoneId, String zoneName, long replicas, long partitions) {
-            this.zoneId = zoneId;
-            this.zoneName = zoneName;
-            this.replicas = replicas;
-            this.partitions = partitions;
-        }
-    }
-
 }

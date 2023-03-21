@@ -61,7 +61,8 @@ public class PartitionAccessImplTest {
 
     @Test
     void testMinMaxLastAppliedIndex() {
-        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig, distributionZonesConfiguration.defaultDistributionZone().partitions().value());
+        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig,
+                distributionZonesConfiguration.defaultDistributionZone().partitions().value());
         TestTxStateTableStorage txStateTableStorage = new TestTxStateTableStorage();
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
@@ -102,7 +103,8 @@ public class PartitionAccessImplTest {
 
     @Test
     void testMinMaxLastAppliedTerm() {
-        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig, distributionZonesConfiguration.defaultDistributionZone().partitions().value());
+        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig,
+                distributionZonesConfiguration.defaultDistributionZone().partitions().value());
         TestTxStateTableStorage txStateTableStorage = new TestTxStateTableStorage();
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
@@ -143,7 +145,8 @@ public class PartitionAccessImplTest {
 
     @Test
     void testAddWrite() {
-        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig, distributionZonesConfiguration.defaultDistributionZone().partitions().value());
+        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig,
+                distributionZonesConfiguration.defaultDistributionZone().partitions().value());
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
 

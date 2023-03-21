@@ -46,19 +46,19 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
     @WorkDirectory
     protected Path workDir;
 
-    @InjectConfiguration("mock {partitions=3}")
+    @InjectConfiguration
     private TableConfiguration tableConfig;
 
     @Override
     protected TxStateRocksDbTableStorage createTableStorage() {
-        throw new RuntimeException("Not fixed yet in this branch");
-//        return new TxStateRocksDbTableStorage(
-//                tableConfig,
-//                workDir,
-//                new ScheduledThreadPoolExecutor(1),
-//                Executors.newFixedThreadPool(1),
-//                () -> 1_000
-//        );
+        return new TxStateRocksDbTableStorage(
+                tableConfig,
+                3,
+                workDir,
+                new ScheduledThreadPoolExecutor(1),
+                Executors.newFixedThreadPool(1),
+                () -> 1_000
+        );
     }
 
     @Test

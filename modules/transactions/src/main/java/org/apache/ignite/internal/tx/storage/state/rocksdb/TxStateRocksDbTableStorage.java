@@ -60,7 +60,6 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     /** Column family name for transaction states. */
     private static final String TX_STATE_CF = new String(RocksDB.DEFAULT_COLUMN_FAMILY, StandardCharsets.UTF_8);
 
-
     /** Rocks DB instance. */
     private volatile RocksDB db;
 
@@ -85,6 +84,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     /** Table configuration. */
     private final TableConfiguration tableCfg;
 
+    /** Number of storage partitions. */
     private final int partitions;
 
     /** RocksDB flusher instance. */
@@ -103,7 +103,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
 
     /** Supplier for the value of delay for scheduled database flush. */
     private final IntSupplier flushDelaySupplier;
-    
+
     /**
      * Constructor.
      *

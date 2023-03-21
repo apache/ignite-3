@@ -98,6 +98,8 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     /** Data region for the table. */
     private final RocksDbDataRegion dataRegion;
+
+    /** Number of storage partitions. */
     private final int partitions;
 
     /** RocksDB flusher instance. */

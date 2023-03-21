@@ -74,7 +74,8 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         ioRegistry.loadFromServiceLoader();
 
-        initialize(new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, pageEvictionTracker), tablesConfig, distributionZonesConfiguration.defaultDistributionZone());
+        initialize(new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, pageEvictionTracker),
+                tablesConfig, distributionZonesConfiguration.defaultDistributionZone().partitions().value());
     }
 
     @Test

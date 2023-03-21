@@ -61,7 +61,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
             DistributionZonesConfiguration distributionZonesConfiguration
     ) {
         initialize(new RocksDbStorageEngine(rocksDbEngineConfig, workDir), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone());
+                distributionZonesConfiguration.defaultDistributionZone().partitions().value());
     }
 
     /**

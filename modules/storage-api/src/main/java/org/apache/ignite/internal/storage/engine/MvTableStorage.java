@@ -157,8 +157,7 @@ public interface MvTableStorage extends ManuallyCloseable {
     TablesConfiguration tablesConfiguration();
 
     /**
-     * Partitions
-     * @return partitions.
+     * Returns the storage partitions number.
      */
     int partitions();
 
