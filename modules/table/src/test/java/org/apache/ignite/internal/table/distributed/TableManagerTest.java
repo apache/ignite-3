@@ -305,7 +305,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 ch.changePartitions(partitions);
                 ch.changeReplicas(replicas);
             });
-        });
+        }).join();
     }
 
     /**
