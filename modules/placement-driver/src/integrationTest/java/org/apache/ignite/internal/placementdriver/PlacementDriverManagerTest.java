@@ -356,7 +356,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Create an distribution zone.
+     * Creates a distribution zone.
      *
      * @return Id of created distribution zone.
      */

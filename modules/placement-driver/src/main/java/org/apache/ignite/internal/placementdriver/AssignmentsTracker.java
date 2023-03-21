@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 
 import java.nio.charset.StandardCharsets;
@@ -155,16 +156,8 @@ public class AssignmentsTracker {
 
             // TODO: KKK fix this dirty piece
 
-            DistributionZoneView distributionZoneView = null;
-            for (String zoneName : distributionZonesConfiguration.distributionZones().value().namedListKeys()) {
-                if (distributionZonesConfiguration.distributionZones().get(zoneName).value().zoneId() == tblCfg.zoneId().value()) {
-                    distributionZoneView = distributionZonesConfiguration.distributionZones().get(zoneName).value();
-                }
-            }
-
-            if (distributionZoneView == null) {
-                throw new IllegalStateException("Couldn't find the zone with id " + tblCfg.zoneId().value());
-            }
+            DistributionZoneView distributionZoneView =
+                    getZoneById(distributionZonesConfiguration, tblCfg.zoneId().value()).value();
 
             UUID tblId = tblCfg.id().value();
 

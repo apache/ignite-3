@@ -26,6 +26,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesPrefix;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -176,7 +177,6 @@ import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
-import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Table manager.
@@ -1176,7 +1176,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         TableConfiguration tableCfg = tablesCfg.tables().get(name);
 
         // TODO: KKK is it valid to get zone here? looks like yes, because configuration events ordered by configuration BUS
-        DistributionZoneView distributionZoneConfiguration = getZoneById(tableCfg.value().zoneId()).value();
+        DistributionZoneView distributionZoneConfiguration = getZoneById(distributionZonesConfiguration, tableCfg.value().zoneId()).value();
 
         int partitions = distributionZoneConfiguration.partitions();
 
@@ -1216,22 +1216,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         // TODO should be reworked in IGNITE-16763
         return completedFuture(null);
-    }
-
-    private DistributionZoneConfiguration getZoneById(Integer zoneId) {
-        if (zoneId == 0) {
-            return distributionZonesConfiguration.defaultDistributionZone();
-        }
-
-        for (String name : distributionZonesConfiguration.distributionZones().value().namedListKeys()) {
-            DistributionZoneConfiguration distributionZoneConfiguration = distributionZonesConfiguration.distributionZones().get(name);
-            assert distributionZoneConfiguration != null;
-            if (distributionZoneConfiguration.zoneId().value().equals(zoneId)) {
-                return distributionZoneConfiguration;
-            }
-        }
-
-        throw new IllegalArgumentException("Couldn't find distribution zone with id " + zoneId);
     }
 
     /**
@@ -1362,7 +1346,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return AffinityUtils.calculateAssignmentForPartition(
                 baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
                 partNum,
-                getZoneById(tableCfg.zoneId().value()).replicas().value()
+                getZoneById(distributionZonesConfiguration, tableCfg.zoneId().value()).replicas().value()
         );
     }
 
@@ -1421,7 +1405,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         tableCreateFuts.put(extConfCh.id(), tblFut);
 
-                        DistributionZoneConfiguration distributionZoneConfiguration = getZoneById(tableChange.zoneId());
+                        DistributionZoneConfiguration distributionZoneConfiguration =
+                                getZoneById(distributionZonesConfiguration, tableChange.zoneId());
 
                         // Affinity assignments calculation.
                         extConfCh.changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
@@ -1935,7 +1920,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         int tableZoneId = tableView.zoneId();
 
-                        DistributionZoneConfiguration distributionZoneConfiguration = getZoneById(tableZoneId);
+                        DistributionZoneConfiguration distributionZoneConfiguration =
+                                getZoneById(distributionZonesConfiguration, tableZoneId);
 
                         if (zoneId == tableZoneId) {
                             TableConfiguration tableCfg = tables.get(tableView.name());
@@ -2279,7 +2265,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     return RebalanceUtil.handleReduceChanged(
                                             metaStorageMgr,
                                             baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
-                                            getZoneById(tblCfg.zoneId().value()).replicas().value(),
+                                            getZoneById(distributionZonesConfiguration, tblCfg.zoneId().value()).replicas().value(),
                                             partitionNumber,
                                             replicaGrpId,
                                             evt
