@@ -15,18 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.distributionzones.util;
+package org.apache.ignite.internal.distributionzones;
 
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.lenient;
 
 import java.io.Serializable;
 import java.util.Arrays;
@@ -37,7 +32,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
@@ -53,11 +47,15 @@ import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Assertions;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 
 /**
  * Util class for methods for Distribution zones tests.
@@ -76,7 +74,7 @@ public class DistributionZonesTestUtil {
             @Nullable Set<String> clusterNodes,
             KeyValueStorage keyValueStorage
     ) throws InterruptedException {
-        assertTrue(waitForCondition(
+        Assertions.assertTrue(IgniteTestUtils.waitForCondition(
                 () -> {
                     byte[] dataNodes = keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value();
 
@@ -105,8 +103,8 @@ public class DistributionZonesTestUtil {
             int zoneId,
             KeyValueStorage keyValueStorage
     ) throws InterruptedException {
-        assertTrue(
-                waitForCondition(
+        Assertions.assertTrue(
+                IgniteTestUtils.waitForCondition(
                         () -> ByteUtils.bytesToLong(keyValueStorage.get(zoneScaleUpChangeTriggerKey(zoneId).bytes()).value()) == revision,
                         2000
                 )
@@ -126,8 +124,8 @@ public class DistributionZonesTestUtil {
             int zoneId,
             KeyValueStorage keyValueStorage
     ) throws InterruptedException {
-        assertTrue(
-                waitForCondition(
+        Assertions.assertTrue(
+                IgniteTestUtils.waitForCondition(
                         () -> ByteUtils.bytesToLong(keyValueStorage.get(zoneScaleDownChangeTriggerKey(zoneId).bytes()).value()) == revision,
                         2000
                 )
@@ -147,8 +145,8 @@ public class DistributionZonesTestUtil {
             int zoneId,
             KeyValueStorage keyValueStorage
     ) throws InterruptedException {
-        assertTrue(
-                waitForCondition(
+        Assertions.assertTrue(
+                IgniteTestUtils.waitForCondition(
                         () -> ByteUtils.bytesToLong(keyValueStorage.get(zonesChangeTriggerKey(zoneId).bytes()).value()) == revision, 1000
                 )
         );
@@ -167,9 +165,10 @@ public class DistributionZonesTestUtil {
     ) throws InterruptedException {
         byte[] nodes = clusterNodes == null
                 ? null
-                : toBytes(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
+                : ByteUtils.toBytes(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
 
-        assertTrue(waitForCondition(() -> Arrays.equals(keyValueStorage.get(zonesLogicalTopologyKey().bytes()).value(), nodes), 1000));
+        Assertions.assertTrue(
+                IgniteTestUtils.waitForCondition(() -> Arrays.equals(keyValueStorage.get(zonesLogicalTopologyKey().bytes()).value(), nodes), 1000));
     }
 
     /**
@@ -186,7 +185,7 @@ public class DistributionZonesTestUtil {
             RaftGroupService metaStorageService,
             MetaStorageManager metaStorageManager) {
         // Delegate directly to listener.
-        lenient().doAnswer(
+        Mockito.lenient().doAnswer(
                 invocationClose -> {
                     Command cmd = invocationClose.getArgument(0);
 
@@ -226,9 +225,9 @@ public class DistributionZonesTestUtil {
 
                     return res;
                 }
-        ).when(metaStorageService).run(any(WriteCommand.class));
+        ).when(metaStorageService).run(ArgumentMatchers.any(WriteCommand.class));
 
-        lenient().doAnswer(
+        Mockito.lenient().doAnswer(
                 invocationClose -> {
                     Command cmd = invocationClose.getArgument(0);
 
@@ -268,19 +267,19 @@ public class DistributionZonesTestUtil {
 
                     return res;
                 }
-        ).when(metaStorageService).run(any(ReadCommand.class));
+        ).when(metaStorageService).run(ArgumentMatchers.any(ReadCommand.class));
 
         MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
 
-        lenient().doAnswer(invocationClose -> {
+        Mockito.lenient().doAnswer(invocationClose -> {
             Iif iif = invocationClose.getArgument(0);
 
             MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).build();
 
             return metaStorageService.run(multiInvokeCommand);
-        }).when(metaStorageManager).invoke(any());
+        }).when(metaStorageManager).invoke(ArgumentMatchers.any());
 
-        lenient().doAnswer(invocationClose -> {
+        Mockito.lenient().doAnswer(invocationClose -> {
             Set<ByteArray> keysSet = invocationClose.getArgument(0);
 
             GetAllCommand getAllCommand = commandsFactory.getAllCommand().keys(
@@ -298,9 +297,9 @@ public class DistributionZonesTestUtil {
 
                 return res;
             });
-        }).when(metaStorageManager).getAll(any());
+        }).when(metaStorageManager).getAll(ArgumentMatchers.any());
 
-        lenient().doAnswer(invocationClose -> {
+        Mockito.lenient().doAnswer(invocationClose -> {
             ByteArray key = invocationClose.getArgument(0);
 
             GetCommand getCommand = commandsFactory.getCommand().key(key.bytes()).build();
@@ -308,6 +307,39 @@ public class DistributionZonesTestUtil {
             return metaStorageService.<Entry>run(getCommand).thenApply(
                     entry -> new EntryImpl(entry.key(), entry.value(), entry.revision(), entry.updateCounter())
             );
-        }).when(metaStorageManager).get(any());
+        }).when(metaStorageManager).get(ArgumentMatchers.any());
+    }
+
+    /**
+     * Creates distribution zone.
+     *
+     * @param zoneManager Zone manager.
+     * @param zoneName Zone name.
+     * @param partitions Zone number of partitions.
+     * @param replicas Zone number of replicas.
+     * @return A future, which will be completed, when create operation finished.
+     */
+    public static CompletableFuture<Integer> createZone(DistributionZoneManager zoneManager, String zoneName, int partitions, int replicas) {
+        var distributionZoneCfgBuilder = new DistributionZoneConfigurationParameters.Builder(zoneName)
+                .replicas(replicas)
+                .partitions(partitions);
+        var distributionZoneCfg = distributionZoneCfgBuilder.build();
+
+        return zoneManager.createZone(distributionZoneCfg).thenApply((v) -> zoneManager.getZoneId(zoneName));
+    }
+
+    /**
+     * Alter the number of zone replicas.
+     *
+     * @param zoneManager Zone manager.
+     * @param zoneName Zone name.
+     * @param replicas The new number of zone replicas.
+     * @return A future, which will be completed, when update operation finished.
+     */
+    public static CompletableFuture<Void> alterZoneReplicas(DistributionZoneManager zoneManager, String zoneName, int replicas) {
+        var distributionZoneCfgBuilder = new DistributionZoneConfigurationParameters.Builder(zoneName)
+                  .replicas(replicas);
+
+        return zoneManager.alterZone(zoneName, distributionZoneCfgBuilder.build());
     }
 }

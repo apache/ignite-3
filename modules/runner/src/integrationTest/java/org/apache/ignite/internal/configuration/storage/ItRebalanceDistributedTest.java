@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZoneReplicas;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -173,9 +175,13 @@ public class ItRebalanceDistributedTest {
 
     private static final String TABLE_1_NAME = "TBL1";
 
+    private static final String ZONE_1_NAME = "zone1";
+
     public static final int BASE_PORT = 20_000;
 
     public static final String HOST = "localhost";
+
+
 
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
@@ -235,15 +241,7 @@ public class ItRebalanceDistributedTest {
 
     @Test
     void testOneRebalance() throws Exception {
-        String zoneName = "zone1";
-        var distributionZoneCfgBuilder = new DistributionZoneConfigurationParameters.Builder(zoneName).
-                replicas(1)
-                        .partitions(1);
-        var distributionZoneCfg = distributionZoneCfgBuilder.build();
-
-        nodes.get(0).distributionZoneManager.createZone(distributionZoneCfg).join();
-
-        int zoneId = nodes.get(0).distributionZoneManager.getZoneId(zoneName);
+        int zoneId = createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1).join();
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -257,7 +255,7 @@ public class ItRebalanceDistributedTest {
 
         assertEquals(1, getPartitionClusterNodes(0, 0).size());
 
-        await(nodes.get(0).distributionZoneManager.alterZone(zoneName, distributionZoneCfgBuilder.replicas(2).build()));
+        await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 2));
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
@@ -268,15 +266,7 @@ public class ItRebalanceDistributedTest {
 
     @Test
     void testTwoQueuedRebalances() {
-        String zoneName = "zone1";
-        var distributionZoneCfgBuilder = new DistributionZoneConfigurationParameters.Builder(zoneName).
-                replicas(1)
-                .partitions(1);
-        var distributionZoneCfg = distributionZoneCfgBuilder.build();
-
-        nodes.get(0).distributionZoneManager.createZone(distributionZoneCfg).join();
-
-        int zoneId = nodes.get(0).distributionZoneManager.getZoneId(zoneName);
+        int zoneId = await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -290,8 +280,8 @@ public class ItRebalanceDistributedTest {
 
         assertEquals(1, getPartitionClusterNodes(0, 0).size());
 
-        await(nodes.get(0).distributionZoneManager.alterZone(zoneName, distributionZoneCfgBuilder.replicas(2).build()));
-        await(nodes.get(0).distributionZoneManager.alterZone(zoneName, distributionZoneCfgBuilder.replicas(3).build()));
+        await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 2));
+        await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 3));
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
@@ -302,15 +292,7 @@ public class ItRebalanceDistributedTest {
 
     @Test
     void testThreeQueuedRebalances() throws Exception {
-        String zoneName = "zone1";
-        var distributionZoneCfgBuilder = new DistributionZoneConfigurationParameters.Builder(zoneName).
-                replicas(1)
-                .partitions(1);
-        var distributionZoneCfg = distributionZoneCfgBuilder.build();
-
-        nodes.get(0).distributionZoneManager.createZone(distributionZoneCfg).join();
-
-        int zoneId = nodes.get(0).distributionZoneManager.getZoneId(zoneName);
+        int zoneId = await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -324,9 +306,9 @@ public class ItRebalanceDistributedTest {
 
         assertEquals(1, getPartitionClusterNodes(0, 0).size());
 
-        await(nodes.get(0).distributionZoneManager.alterZone(zoneName, distributionZoneCfgBuilder.replicas(2).build()));
-        await(nodes.get(0).distributionZoneManager.alterZone(zoneName, distributionZoneCfgBuilder.replicas(3).build()));
-        await(nodes.get(0).distributionZoneManager.alterZone(zoneName, distributionZoneCfgBuilder.replicas(2).build()));
+        await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 2));
+        await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 3));
+        await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 2));
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
@@ -337,15 +319,9 @@ public class ItRebalanceDistributedTest {
 
     @Test
     void testOnLeaderElectedRebalanceRestart() throws Exception {
-        String zoneName = "zone1";
-        var distributionZoneCfgBuilder = new DistributionZoneConfigurationParameters.Builder(zoneName).
-                replicas(2)
-                .partitions(1);
-        var distributionZoneCfg = distributionZoneCfgBuilder.build();
+        String zoneName = "zone2";
 
-        nodes.get(0).distributionZoneManager.createZone(distributionZoneCfg).join();
-
-        int zoneId = nodes.get(0).distributionZoneManager.getZoneId(zoneName);
+        int zoneId = await(createZone(nodes.get(0).distributionZoneManager, zoneName, 1, 2));
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "TBL1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -391,7 +367,7 @@ public class ItRebalanceDistributedTest {
                     return false;
                 });
 
-        await(nodes.get(0).distributionZoneManager.alterZone(zoneName, distributionZoneCfgBuilder.replicas(3).build()));
+        await(alterZoneReplicas(nodes.get(0).distributionZoneManager, zoneName, 3));
 
         countDownLatch.await();
 
@@ -408,15 +384,7 @@ public class ItRebalanceDistributedTest {
 
     @Test
     void testRebalanceRetryWhenCatchupFailed() throws Exception {
-        String zoneName = "zone1";
-        var distributionZoneCfgBuilder = new DistributionZoneConfigurationParameters.Builder(zoneName).
-                replicas(1)
-                .partitions(1);
-        var distributionZoneCfg = distributionZoneCfgBuilder.build();
-
-        nodes.get(0).distributionZoneManager.createZone(distributionZoneCfg).join();
-
-        int zoneId = nodes.get(0).distributionZoneManager.getZoneId(zoneName);
+        int zoneId = await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -430,7 +398,7 @@ public class ItRebalanceDistributedTest {
 
         assertEquals(1, getPartitionClusterNodes(0, 0).size());
 
-        await(nodes.get(0).distributionZoneManager.alterZone(zoneName, distributionZoneCfgBuilder.replicas(1).build()));
+        await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1));
 
         waitPartitionAssignmentsSyncedToExpected(0, 1);
 
@@ -456,7 +424,7 @@ public class ItRebalanceDistributedTest {
             return false;
         });
 
-        await(nodes.get(0).distributionZoneManager.alterZone(zoneName, distributionZoneCfgBuilder.replicas(3).build()));
+        await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 3));
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
@@ -465,84 +433,84 @@ public class ItRebalanceDistributedTest {
         assertEquals(3, getPartitionClusterNodes(2, 0).size());
     }
 
-//    @Test
-//    @UseTestTxStateStorage
-//    void testDestroyPartitionStoragesOnEvictNode() {
-//        createTableWithOnePartition(TABLE_1_NAME, 3, true);
-//
-//        Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(0, 0);
-//
-//        nodes.forEach(node -> prepareFinishHandleChangeStableAssignmentEventFuture(node, TABLE_1_NAME, 0));
-//
-//        changeTableReplicasForSinglePartition(TABLE_1_NAME, 2);
-//
-//        Set<Assignment> assignmentsAfterChangeReplicas = getPartitionClusterNodes(0, 0);
-//
-//        Set<Assignment> evictedAssignments = getEvictedAssignments(assignmentsBeforeChangeReplicas, assignmentsAfterChangeReplicas);
-//
-//        assertThat(
-//                String.format("before=%s, after=%s", assignmentsBeforeChangeReplicas, assignmentsAfterChangeReplicas),
-//                evictedAssignments,
-//                hasSize(1)
-//        );
-//
-//        assertThat(collectFinishHandleChangeStableAssignmentEventFuture(null, TABLE_1_NAME, 0), willCompleteSuccessfully());
-//
-//        Node evictedNode = findNodeByConsistentId(first(evictedAssignments).consistentId());
-//
-//        assertNotNull(evictedNode, evictedAssignments.toString());
-//
-//        checkInvokeDestroyedPartitionStorages(evictedNode, TABLE_1_NAME, 0);
-//    }
-//
-//    @Test
-//    @UseTestTxStateStorage
-//    @UseRocksMetaStorage
-//    void testDestroyPartitionStoragesOnRestartEvictedNode(TestInfo testInfo) throws Exception {
-//        createTableWithOnePartition(TABLE_1_NAME, 3, true);
-//
-//        Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(0, 0);
-//
-//        nodes.forEach(node -> {
-//            prepareFinishHandleChangeStableAssignmentEventFuture(node, TABLE_1_NAME, 0);
-//
-//            throwExceptionOnInvokeDestroyPartitionStorages(node, TABLE_1_NAME, 0);
-//        });
-//
-//        changeTableReplicasForSinglePartition(TABLE_1_NAME, 2);
-//
-//        Assignment evictedAssignment = first(getEvictedAssignments(assignmentsBeforeChangeReplicas, getPartitionClusterNodes(0, 0)));
-//
-//        Node evictedNode = findNodeByConsistentId(evictedAssignment.consistentId());
-//
-//        // Let's make sure that we handled the events (STABLE_ASSIGNMENTS_PREFIX) from the metastore correctly.
-//        assertThat(
-//                collectFinishHandleChangeStableAssignmentEventFuture(node -> !node.equals(evictedNode), TABLE_1_NAME, 0),
-//                willCompleteSuccessfully()
-//        );
-//
-//        TablePartitionId tablePartitionId = evictedNode.getTablePartitionId(TABLE_1_NAME, 0);
-//
-//        assertThat(evictedNode.finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId), willFailFast(Exception.class));
-//
-//        // Restart evicted node.
-//        int evictedNodeIndex = findNodeIndexByConsistentId(evictedAssignment.consistentId());
-//
-//        evictedNode.stop();
-//
-//        Node newNode = new Node(testInfo, evictedNode.networkAddress);
-//
-//        newNode.finishHandleChangeStableAssignmentEventFutures.put(tablePartitionId, new CompletableFuture<>());
-//
-//        newNode.start();
-//
-//        nodes.set(evictedNodeIndex, newNode);
-//
-//        // Let's make sure that we will destroy the partition again.
-//        assertThat(newNode.finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId), willSucceedIn(1, TimeUnit.MINUTES));
-//
-//        checkInvokeDestroyedPartitionStorages(newNode, TABLE_1_NAME, 0);
-//    }
+    @Test
+    @UseTestTxStateStorage
+    void testDestroyPartitionStoragesOnEvictNode() {
+        createTableWithOnePartition(TABLE_1_NAME, ZONE_1_NAME, 3, true);
+
+        Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(0, 0);
+
+        nodes.forEach(node -> prepareFinishHandleChangeStableAssignmentEventFuture(node, TABLE_1_NAME, 0));
+
+        changeTableReplicasForSinglePartition(ZONE_1_NAME, 2);
+
+        Set<Assignment> assignmentsAfterChangeReplicas = getPartitionClusterNodes(0, 0);
+
+        Set<Assignment> evictedAssignments = getEvictedAssignments(assignmentsBeforeChangeReplicas, assignmentsAfterChangeReplicas);
+
+        assertThat(
+                String.format("before=%s, after=%s", assignmentsBeforeChangeReplicas, assignmentsAfterChangeReplicas),
+                evictedAssignments,
+                hasSize(1)
+        );
+
+        assertThat(collectFinishHandleChangeStableAssignmentEventFuture(null, TABLE_1_NAME, 0), willCompleteSuccessfully());
+
+        Node evictedNode = findNodeByConsistentId(first(evictedAssignments).consistentId());
+
+        assertNotNull(evictedNode, evictedAssignments.toString());
+
+        checkInvokeDestroyedPartitionStorages(evictedNode, TABLE_1_NAME, 0);
+    }
+
+    @Test
+    @UseTestTxStateStorage
+    @UseRocksMetaStorage
+    void testDestroyPartitionStoragesOnRestartEvictedNode(TestInfo testInfo) throws Exception {
+        createTableWithOnePartition(TABLE_1_NAME, ZONE_1_NAME, 3, true);
+
+        Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(0, 0);
+
+        nodes.forEach(node -> {
+            prepareFinishHandleChangeStableAssignmentEventFuture(node, TABLE_1_NAME, 0);
+
+            throwExceptionOnInvokeDestroyPartitionStorages(node, TABLE_1_NAME, 0);
+        });
+
+        changeTableReplicasForSinglePartition(ZONE_1_NAME, 2);
+
+        Assignment evictedAssignment = first(getEvictedAssignments(assignmentsBeforeChangeReplicas, getPartitionClusterNodes(0, 0)));
+
+        Node evictedNode = findNodeByConsistentId(evictedAssignment.consistentId());
+
+        // Let's make sure that we handled the events (STABLE_ASSIGNMENTS_PREFIX) from the metastore correctly.
+        assertThat(
+                collectFinishHandleChangeStableAssignmentEventFuture(node -> !node.equals(evictedNode), TABLE_1_NAME, 0),
+                willCompleteSuccessfully()
+        );
+
+        TablePartitionId tablePartitionId = evictedNode.getTablePartitionId(TABLE_1_NAME, 0);
+
+        assertThat(evictedNode.finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId), willFailFast(Exception.class));
+
+        // Restart evicted node.
+        int evictedNodeIndex = findNodeIndexByConsistentId(evictedAssignment.consistentId());
+
+        evictedNode.stop();
+
+        Node newNode = new Node(testInfo, evictedNode.networkAddress);
+
+        newNode.finishHandleChangeStableAssignmentEventFutures.put(tablePartitionId, new CompletableFuture<>());
+
+        newNode.start();
+
+        nodes.set(evictedNodeIndex, newNode);
+
+        // Let's make sure that we will destroy the partition again.
+        assertThat(newNode.finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId), willSucceedIn(1, TimeUnit.MINUTES));
+
+        checkInvokeDestroyedPartitionStorages(newNode, TABLE_1_NAME, 0);
+    }
 
     private void waitPartitionAssignmentsSyncedToExpected(int partNum, int replicasNum) {
         while (!IntStream.range(0, nodes.size()).allMatch(n -> getPartitionClusterNodes(n, partNum).size() == replicasNum)) {
@@ -923,44 +891,40 @@ public class ItRebalanceDistributedTest {
         ).withPrimaryKey("key").build();
     }
 
-//    private void createTableWithOnePartition(String tableName, int replicas, boolean testDataStorage) {
-//        assertThat(
-//                nodes.get(0).tableManager.createTableAsync(
-//                        tableName,
-//                        tableChange -> {
-//                            SchemaConfigurationConverter.convert(createTableDefinition(tableName), tableChange)
-//                                    .changeReplicas(replicas)
-//                                    .changePartitions(1);
-//
-//                            if (testDataStorage) {
-//                                tableChange.changeDataStorage(dataStorageChange -> dataStorageChange.convert(TestDataStorageChange.class));
-//                            }
-//                        }
-//                ),
-//                willCompleteSuccessfully()
-//        );
-//
-//        assertEquals(replicas, getPartitionClusterNodes(0, 0).size());
-//        assertEquals(replicas, getPartitionClusterNodes(1, 0).size());
-//        assertEquals(replicas, getPartitionClusterNodes(2, 0).size());
-//    }
-//
-//    private void changeTableReplicasForSinglePartition(String tableName, int replicas) {
-//        assertThat(
-//                nodes.get(0).tableManager.alterTableAsync(tableName, tableChange -> {
-//                    tableChange.changeReplicas(replicas);
-//
-//                    return true;
-//                }),
-//                willCompleteSuccessfully()
-//        );
-//
-//        waitPartitionAssignmentsSyncedToExpected(0, replicas);
-//
-//        assertEquals(replicas, getPartitionClusterNodes(0, 0).size());
-//        assertEquals(replicas, getPartitionClusterNodes(1, 0).size());
-//        assertEquals(replicas, getPartitionClusterNodes(2, 0).size());
-//    }
+    private void createTableWithOnePartition(String tableName, String zoneName, int replicas, boolean testDataStorage) {
+        int zoneId = await(createZone(nodes.get(0).distributionZoneManager, zoneName, 1, replicas));
+        assertThat(
+                nodes.get(0).tableManager.createTableAsync(
+                        tableName,
+                        tableChange -> {
+                            SchemaConfigurationConverter.convert(createTableDefinition(tableName), tableChange)
+                                    .changeZoneId(zoneId);
+
+                            if (testDataStorage) {
+                                tableChange.changeDataStorage(dataStorageChange -> dataStorageChange.convert(TestDataStorageChange.class));
+                            }
+                        }
+                ),
+                willCompleteSuccessfully()
+        );
+
+        assertEquals(replicas, getPartitionClusterNodes(0, 0).size());
+        assertEquals(replicas, getPartitionClusterNodes(1, 0).size());
+        assertEquals(replicas, getPartitionClusterNodes(2, 0).size());
+    }
+
+    private void changeTableReplicasForSinglePartition(String zoneName, int replicas) {
+        assertThat(
+                alterZoneReplicas(nodes.get(0).distributionZoneManager, zoneName, replicas),
+                willCompleteSuccessfully()
+        );
+
+        waitPartitionAssignmentsSyncedToExpected(0, replicas);
+
+        assertEquals(replicas, getPartitionClusterNodes(0, 0).size());
+        assertEquals(replicas, getPartitionClusterNodes(1, 0).size());
+        assertEquals(replicas, getPartitionClusterNodes(2, 0).size());
+    }
 
     private static Set<Assignment> getEvictedAssignments(Set<Assignment> beforeChange, Set<Assignment> afterChange) {
         Set<Assignment> result = new HashSet<>(beforeChange);
