@@ -23,6 +23,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Security;
 using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using Log;
 using NUnit.Framework;
@@ -30,6 +31,7 @@ using NUnit.Framework;
 /// <summary>
 /// SSL tests.
 /// </summary>
+[SuppressMessage("Security", "CA5359:Do Not Disable Certificate Validation", Justification = "Tests.")]
 public class SslTests : IgniteTestsBase
 {
     private const string CertificatePassword = "123456";
@@ -51,7 +53,13 @@ public class SslTests : IgniteTestsBase
         var cfg = new IgniteClientConfiguration
         {
             Endpoints = { SslEndpoint },
-            SslStreamFactory = new SslStreamFactory { SkipServerCertificateValidation = true }
+            SslStreamFactory = new SslStreamFactory
+            {
+                SslClientAuthenticationOptions = new SslClientAuthenticationOptions
+                {
+                    RemoteCertificateValidationCallback = (_, _, _, _) => true
+                }
+            }
         };
 
         using var client = await IgniteClient.StartAsync(cfg);
@@ -76,9 +84,11 @@ public class SslTests : IgniteTestsBase
             Endpoints = { SslEndpointWithClientAuth },
             SslStreamFactory = new SslStreamFactory
             {
-                SkipServerCertificateValidation = true,
-                CertificatePath = CertificatePath,
-                CertificatePassword = CertificatePassword
+                SslClientAuthenticationOptions = new()
+                {
+                    RemoteCertificateValidationCallback = (_, _, _, _) => true,
+                    ClientCertificates = new X509Certificate2Collection(new X509Certificate2(CertificatePath, CertificatePassword))
+                }
             },
             Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
         };
@@ -101,10 +111,7 @@ public class SslTests : IgniteTestsBase
     public void TestSslOnClientWithoutSslOnServerThrows()
     {
         var cfg = GetConfig();
-        cfg.SslStreamFactory = new SslStreamFactory
-        {
-            SslProtocols = SslProtocols.Tls13 | SslProtocols.Tls12
-        };
+        cfg.SslStreamFactory = new SslStreamFactory();
 
         var ex = Assert.ThrowsAsync<AggregateException>(async () => await IgniteClient.StartAsync(cfg));
         Assert.IsInstanceOf<IgniteClientConnectionException>(ex?.InnerException);
@@ -130,8 +137,11 @@ public class SslTests : IgniteTestsBase
             Endpoints = { SslEndpointWithClientAuth },
             SslStreamFactory = new SslStreamFactory
             {
-                SkipServerCertificateValidation = true,
-                CheckCertificateRevocation = true
+                SslClientAuthenticationOptions = new()
+                {
+                    RemoteCertificateValidationCallback = (_, _, _, _) => true,
+                    CertificateRevocationCheckMode = X509RevocationMode.NoCheck
+                }
             }
         };
 
@@ -166,14 +176,43 @@ public class SslTests : IgniteTestsBase
         Assert.IsNull(client.GetConnections().Single().SslInfo);
     }
 
+    [Test]
+    public async Task TestCustomCipherSuite()
+    {
+        var cfg = new IgniteClientConfiguration
+        {
+            Endpoints = { SslEndpoint },
+            SslStreamFactory = new SslStreamFactory
+            {
+                SslClientAuthenticationOptions = new SslClientAuthenticationOptions
+                {
+                    RemoteCertificateValidationCallback = (_, _, _, _) => true,
+                    CipherSuitesPolicy = new CipherSuitesPolicy(new[]
+                    {
+                        TlsCipherSuite.TLS_AES_128_GCM_SHA256
+                    })
+                }
+            }
+        };
+
+        using var client = await IgniteClient.StartAsync(cfg);
+
+        var connection = client.GetConnections().Single();
+        var sslInfo = connection.SslInfo;
+
+        Assert.IsNotNull(sslInfo);
+        Assert.IsFalse(sslInfo!.IsMutuallyAuthenticated);
+        Assert.AreEqual(TlsCipherSuite.TLS_AES_128_GCM_SHA256.ToString(), sslInfo.NegotiatedCipherSuiteName);
+    }
+
     private class NullSslStreamFactory : ISslStreamFactory
     {
-        public SslStream? Create(Stream stream, string targetHost) => null;
+        public Task<SslStream?> CreateAsync(Stream stream, string targetHost) => Task.FromResult<SslStream?>(null);
     }
 
     private class CustomSslStreamFactory : ISslStreamFactory
     {
-        public SslStream Create(Stream stream, string targetHost)
+        public async Task<SslStream?> CreateAsync(Stream stream, string targetHost)
         {
             var sslStream = new SslStream(
                 innerStream: stream,
@@ -181,7 +220,7 @@ public class SslTests : IgniteTestsBase
                 userCertificateValidationCallback: (_, certificate, _, _) => certificate!.Issuer.Contains("ignite"),
                 userCertificateSelectionCallback: null);
 
-            sslStream.AuthenticateAsClient(targetHost, null, SslProtocols.None, false);
+            await sslStream.AuthenticateAsClientAsync(targetHost, null, SslProtocols.None, false);
 
             return sslStream;
         }
