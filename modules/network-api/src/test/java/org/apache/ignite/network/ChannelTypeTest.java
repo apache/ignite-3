@@ -24,6 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
+/**
+ * Test suite for {@link ChannelType}.
+ */
 public class ChannelTypeTest {
     private static short OFFSET = Short.MAX_VALUE - 100;
 
