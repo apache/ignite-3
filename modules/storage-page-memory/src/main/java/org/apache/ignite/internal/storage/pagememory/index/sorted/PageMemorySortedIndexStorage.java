@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -45,6 +46,9 @@ import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaKey;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
+import org.apache.ignite.internal.storage.pagememory.index.meta.UpdateLastBuildRowIdInvokeClosure;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -82,25 +86,33 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     /** Current state of the storage. */
     private final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
+    /** Index meta tree instance. */
+    private final IndexMetaTree indexMetaTree;
+
     /**
      * Constructor.
      *
      * @param descriptor Sorted index descriptor.
      * @param freeList Free list to store index columns.
      * @param sortedIndexTree Sorted index tree instance.
+     * @param indexMetaTree Index meta tree instance.
      */
-    public PageMemorySortedIndexStorage(SortedIndexDescriptor descriptor, IndexColumnsFreeList freeList, SortedIndexTree sortedIndexTree) {
+    public PageMemorySortedIndexStorage(
+            SortedIndexDescriptor descriptor,
+            IndexColumnsFreeList freeList,
+            SortedIndexTree sortedIndexTree,
+            IndexMetaTree indexMetaTree
+    ) {
         this.descriptor = descriptor;
         this.freeList = freeList;
         this.sortedIndexTree = sortedIndexTree;
+        this.indexMetaTree = indexMetaTree;
 
         partitionId = sortedIndexTree.partitionId();
 
         lowestRowId = RowId.lowestRowId(partitionId);
 
         highestRowId = RowId.highestRowId(partitionId);
-
-        lastBuildRowId = lowestRowId;
     }
 
     @Override
@@ -500,15 +512,18 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         state.compareAndSet(StorageState.CLEANUP, StorageState.RUNNABLE);
     }
 
-    // TODO: IGNITE-18539 персистить
-    private volatile @Nullable RowId lastBuildRowId;
-
     @Override
     public @Nullable RowId getLastBuildRowId() {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            return lastBuildRowId;
+            try {
+                UUID lastBuildRowIdUuid = indexMetaTree.findOne(new IndexMetaKey(indexDescriptor().id())).lastBuildRowIdUuid();
+
+                return lastBuildRowIdUuid == null ? null : new RowId(partitionId, lastBuildRowIdUuid);
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Error getting last build row ID: [{}]", e, createStorageInfo());
+            }
         });
     }
 
@@ -517,7 +532,11 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            lastBuildRowId = rowId;
+            try {
+                indexMetaTree.invoke(new IndexMetaKey(indexDescriptor().id()), null, new UpdateLastBuildRowIdInvokeClosure(rowId));
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Error setting last build row ID: [{}, rowId={}]", e, createStorageInfo(), rowId);
+            }
 
             return null;
         });

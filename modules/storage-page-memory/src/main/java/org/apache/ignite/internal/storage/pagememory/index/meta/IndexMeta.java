@@ -21,32 +21,29 @@ import java.util.UUID;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Index tree meta information.
+ * Index meta information.
  */
-public class IndexMeta {
-    private final UUID id;
-
+public class IndexMeta extends IndexMetaKey {
     @IgniteToStringExclude
     private final long metaPageId;
+
+    private final @Nullable UUID lastBuildRowIdUuid;
 
     /**
      * Constructor.
      *
-     * @param id Index ID.
+     * @param indexId Index ID.
      * @param metaPageId Index tree meta page ID.
+     * @param lastBuildRowIdUuid Last row ID for which the index was built, {@code null} means that the index was built.
      */
-    public IndexMeta(UUID id, long metaPageId) {
-        this.id = id;
-        this.metaPageId = metaPageId;
-    }
+    public IndexMeta(UUID indexId, long metaPageId, @Nullable UUID lastBuildRowIdUuid) {
+        super(indexId);
 
-    /**
-     * Returns the index ID.
-     */
-    public UUID id() {
-        return id;
+        this.metaPageId = metaPageId;
+        this.lastBuildRowIdUuid = lastBuildRowIdUuid;
     }
 
     /**
@@ -56,8 +53,15 @@ public class IndexMeta {
         return metaPageId;
     }
 
+    /**
+     * Returns last row ID for which the index was built, {@code null} means that the index was built.
+     */
+    public @Nullable UUID lastBuildRowIdUuid() {
+        return lastBuildRowIdUuid;
+    }
+
     @Override
     public String toString() {
-        return S.toString(IndexMeta.class, this, "metaPageId", IgniteUtils.hexLong(metaPageId));
+        return S.toString(IndexMeta.class, this, "indexId", indexId, "metaPageId", IgniteUtils.hexLong(metaPageId));
     }
 }

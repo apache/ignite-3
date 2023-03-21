@@ -44,7 +44,6 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Persis
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
-import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
@@ -388,14 +387,14 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         for (PageMemoryHashIndexStorage indexStorage : hashIndexes.values()) {
             indexStorage.updateDataStructures(
                     indexFreeList,
-                    createHashIndexTree(indexStorage.indexDescriptor(), new IndexMeta(indexStorage.indexDescriptor().id(), 0L))
+                    createHashIndexTree(indexStorage.indexDescriptor(), createIndexMetaForNewIndex(indexStorage.indexDescriptor().id()))
             );
         }
 
         for (PageMemorySortedIndexStorage indexStorage : sortedIndexes.values()) {
             indexStorage.updateDataStructures(
                     indexFreeList,
-                    createSortedIndexTree(indexStorage.indexDescriptor(), new IndexMeta(indexStorage.indexDescriptor().id(), 0L))
+                    createSortedIndexTree(indexStorage.indexDescriptor(), createIndexMetaForNewIndex(indexStorage.indexDescriptor().id()))
             );
         }
     }

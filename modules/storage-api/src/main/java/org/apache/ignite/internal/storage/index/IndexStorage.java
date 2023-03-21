@@ -61,8 +61,6 @@ public interface IndexStorage {
      *
      * @throws StorageException If failed to get the last row ID.
      */
-    // TODO: IGNITE-18539 покрыть тестами
-    // TODO: IGNITE-18539 подумать на счет ребаланса и остановки/уничтожении
     @Nullable RowId getLastBuildRowId();
 
     /**
@@ -74,7 +72,5 @@ public interface IndexStorage {
      * @param rowId Row ID.
      * @throws StorageException If failed to set the last row ID.
      */
-    // TODO: IGNITE-18539 покрыть тестами
-    // TODO: IGNITE-18539 подумать на счет ребаланса и остановки/уничтожении
     void setLastBuildRowId(@Nullable RowId rowId);
 }
