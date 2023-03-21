@@ -93,7 +93,7 @@ enum class ignite_type {
  * @brief Writes a ignite_type value to an output stream.
  */
 inline std::ostream &operator<<(std::ostream &os, const ignite_type t) {
-    os << static_cast<std::underlying_type<ignite_type>::type>(t);
+    os << static_cast<std::underlying_type_t<ignite_type>>(t);
     return os;
 }
 
