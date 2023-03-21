@@ -17,7 +17,7 @@
 
 #include "ignite/client/detail/compute/compute_impl.h"
 #include "ignite/client/detail/utils.h"
-#include "ignite/schema/binary_tuple_builder.h"
+#include "ignite/tuple/binary_tuple_builder.h"
 
 namespace ignite::detail {
 
