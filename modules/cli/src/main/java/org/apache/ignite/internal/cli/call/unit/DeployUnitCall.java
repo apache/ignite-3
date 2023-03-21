@@ -90,7 +90,7 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
             ApiException apiException = (ApiException) exception;
             if (apiException.getCode() == 409) {
                 // special case when cluster is not initialized
-                if (((ApiException) exception).getResponseBody().contains("Cluster is not initialized")) {
+                if (apiException.getResponseBody().contains("Cluster is not initialized")) {
                     return DefaultCallOutput.failure(new IgniteCliApiException(exception, input.clusterUrl()));
                 }
                 return DefaultCallOutput.failure(new UnitAlreadyExistsException(input.id(), input.version()));
