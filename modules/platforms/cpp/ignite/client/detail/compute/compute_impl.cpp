@@ -15,8 +15,11 @@
  * limitations under the License.
  */
 
-#include "ignite/client/detail/compute/compute_impl.h"
+#include "compute_impl.h"
+
+#include "ignite/client/detail/client_data_type.h"
 #include "ignite/client/detail/utils.h"
+
 #include "ignite/tuple/binary_tuple_builder.h"
 
 namespace ignite::detail {
@@ -58,7 +61,7 @@ std::optional<primitive> read_primitive_from_binary_tuple(protocol::reader &read
     auto tuple_data = reader.read_binary();
     binary_tuple_parser parser(3, tuple_data);
 
-    auto typ = ignite_type(binary_tuple_parser::get_int32(parser.get_next().value()));
+    auto typ = client_data_type::to_ignite_type(binary_tuple_parser::get_int32(parser.get_next().value()));
     auto scale = binary_tuple_parser::get_int32(parser.get_next().value());
     return read_next_column(parser, typ, scale);
 }
