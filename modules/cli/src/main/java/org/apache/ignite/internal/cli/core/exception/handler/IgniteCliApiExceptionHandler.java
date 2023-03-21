@@ -69,7 +69,15 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
             } else if (apiCause != null) {
                 errorComponentBuilder.header(apiCause.getMessage());
             } else {
-                tryToExtractProblem(errorComponentBuilder, cause);
+                if (e.getMessage().contains("Unauthorized")) {
+                    errorComponentBuilder
+                            .header("Authentication error")
+                            .details("Could not connect to node with URL %s. "
+                                    + "Check authentication configuration", UiElements.url(e.getUrl()))
+                            .verbose(e.getMessage());
+                } else {
+                    tryToExtractProblem(errorComponentBuilder, cause);
+                }
             }
         } else {
             errorComponentBuilder.header(e.getCause() != e ? e.getCause().getMessage() : e.getMessage());
