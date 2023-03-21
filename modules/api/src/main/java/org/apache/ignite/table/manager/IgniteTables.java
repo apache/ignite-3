@@ -31,15 +31,15 @@ import org.apache.ignite.table.Table;
  */
 public interface IgniteTables {
     /**
-     * Creates a new table with the given {@code name}. If a table with the same name already exists, an exception will be thrown.
+     * Creates a new table with the given {@code name}. If a table with the same name already exists, an exception is thrown.
      *
-     * @param name Canonical name of the table ([schemaName].[tableName]) with SQL-parser style quotation, e.g.
-     *             "public.tbl0" - the table "PUBLIC.TBL0" will be created,
+     * @param name Canonical name of the table ([schemaName].[tableName]) in SQL-parser style notation, e.g.,
+     *             "public.tbl0" - the "PUBLIC.TBL0" table is created,
      *             "PUBLIC.\"Tbl0\"" - "PUBLIC.Tbl0", "\"MySchema\".\"Tbl0\"" - "MySchema.Tbl0", etc.
      * @param tableInitChange Table changer.
-     * @return Newly created table.
-     * @throws TableAlreadyExistsException If table with given name already exists.
-     * @throws IgniteException             If an unspecified platform exception has happened internally. Is thrown when:
+     * @return The created table.
+     * @throws TableAlreadyExistsException If a table with teh given name already exists.
+     * @throws IgniteException             If an unspecified platform exception has occurred internally. Is thrown when:
      *                                     <ul>
      *                                         <li>the node is stopping.</li>
      *                                     </ul>
@@ -47,15 +47,15 @@ public interface IgniteTables {
     Table createTable(String name, Consumer<TableChange> tableInitChange);
 
     /**
-     * Creates a new table with the given {@code name} asynchronously. If a table with the same name already exists, a future will be
+     * Creates a new table with the given {@code name} asynchronously. If a table with the same name already exists, a future is
      * completed with the {@link TableAlreadyExistsException}.
      *
-     * @param name Canonical name of the table ([schemaName].[tableName]) with SQL-parser style quotation, e.g.
-     *             "public.tbl0" - the table "PUBLIC.TBL0" will be created,
+     * @param name Canonical name of the table ([schemaName].[tableName]) in SQL-parser style notation, e.g.,
+     *             "public.tbl0" - the "PUBLIC.TBL0" table is created,
      *             "PUBLIC.\"Tbl0\"" - "PUBLIC.Tbl0", "\"MySchema\".\"Tbl0\"" - "MySchema.Tbl0", etc.
      * @param tableInitChange Table changer.
-     * @return Future representing pending completion of the operation.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     * @return Future that represents the pending completion of the operation.
+     * @throws IgniteException If an unspecified platform exception has occurred internally. Is thrown when:
      *                         <ul>
      *                             <li>the node is stopping.</li>
      *                         </ul>
@@ -64,14 +64,14 @@ public interface IgniteTables {
     CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange);
 
     /**
-     * Alters a cluster table. If the appropriate table does not exist, an exception will be thrown.
+     * Alters a cluster table. If the specified table does not exist, an exception is thrown.
      *
-     * @param name Canonical name of the table ([schemaName].[tableName]) with SQL-parser style quotation, e.g.
-     *             "public.tbl0" - the table "PUBLIC.TBL0" will be changed,
+     * @param name Canonical name of the table ([schemaName].[tableName]) in SQL-parser style notation, e.g.,
+     *             "public.tbl0" - the "PUBLIC.TBL0" table is changed,
      *             "PUBLIC.\"Tbl0\"" - "PUBLIC.Tbl0", "\"MySchema\".\"Tbl0\"" - "MySchema.Tbl0", etc.
      * @param tableChange Table changer.
      * @throws TableNotFoundException If a table with the {@code name} does not exist.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     * @throws IgniteException If an unspecified platform exception has occurred internally. Is thrown when:
      *                         <ul>
      *                             <li>the node is stopping.</li>
      *                         </ul>
@@ -79,15 +79,14 @@ public interface IgniteTables {
     void alterTable(String name, Consumer<TableChange> tableChange);
 
     /**
-     * Alters a cluster table. If the appropriate table does not exist, a future will
-     * complete with the {@link TableNotFoundException}.
+     * Alters a cluster table. If the specified table does not exist, a future is completed with the {@link TableNotFoundException}.
      *
-     * @param name Canonical name of the table ([schemaName].[tableName]) with SQL-parser style quotation, e.g.
-     *             "public.tbl0" - the table "PUBLIC.TBL0" will be changed,
+     * @param name Canonical name of the table ([schemaName].[tableName]) in SQL-parser style notation, e.g.,
+     *             "public.tbl0" - the "PUBLIC.TBL0" table is changed,
      *             "PUBLIC.\"Tbl0\"" - "PUBLIC.Tbl0", "\"MySchema\".\"Tbl0\"" - "MySchema.Tbl0", etc.
      * @param tableChange Table changer.
-     * @return Future representing pending completion of the operation.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     * @return Future that represents the pending completion of the operation.
+     * @throws IgniteException If an unspecified platform exception has occurred internally. Is thrown when:
      *                         <ul>
      *                             <li>the node is stopping.</li>
      *                         </ul>
@@ -96,13 +95,13 @@ public interface IgniteTables {
     CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange);
 
     /**
-     * Drops a table with the name specified. If the appropriate table does not exist, an exception will be thrown.
+     * Drops a table with the specified name. If the specified table does not exist, an exception is thrown.
      *
-     * @param name Canonical name of the table ([schemaName].[tableName]) with SQL-parser style quotation, e.g.
-     *             "public.tbl0" - the table "PUBLIC.TBL0" will be dropped,
+     * @param name Canonical name of the table ([schemaName].[tableName]) in SQL-parser style notation, e.g.,
+     *             "public.tbl0" - the "PUBLIC.TBL0" table is dropped,
      *             "PUBLIC.\"Tbl0\"" - "PUBLIC.Tbl0", "\"MySchema\".\"Tbl0\"" - "MySchema.Tbl0", etc.
      * @throws TableNotFoundException If a table with the {@code name} does not exist.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     * @throws IgniteException If an unspecified platform exception has occurred internally. Is thrown when:
      *                         <ul>
      *                             <li>the node is stopping.</li>
      *                         </ul>
@@ -110,14 +109,13 @@ public interface IgniteTables {
     void dropTable(String name);
 
     /**
-     * Drops a table with the name specified. If the appropriate table does not exist, a future will
-     * complete with the {@link TableNotFoundException}.
+     * Drops a table with the specified name. If the specified table does not exist, a future is completed with the {@link TableNotFoundException}.
      *
-     * @param name Canonical name of the table ([schemaName].[tableName]) with SQL-parser style quotation, e.g.
-     *             "public.tbl0" - the table "PUBLIC.TBL0" will be dropped,
+     * @param name Canonical name of the table ([schemaName].[tableName]) in SQL-parser style notation, e.g.,
+     *             "public.tbl0" - the "PUBLIC.TBL0" table is dropped,
      *             "PUBLIC.\"Tbl0\"" - "PUBLIC.Tbl0", "\"MySchema\".\"Tbl0\"" - "MySchema.Tbl0", etc.
-     * @return Future representing pending completion of the operation.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     * @return Future that represents the pending completion of the operation.
+     * @throws IgniteException If an unspecified platform exception has occurred internally. Is thrown when:
      *                         <ul>
      *                             <li>the node is stopping.</li>
      *                         </ul>
@@ -129,7 +127,7 @@ public interface IgniteTables {
      * Gets a list of all started tables.
      *
      * @return List of tables.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     * @throws IgniteException If an unspecified platform exception has occurred internally. Is thrown when:
      *                         <ul>
      *                             <li>the node is stopping.</li>
      *                         </ul>
@@ -139,8 +137,8 @@ public interface IgniteTables {
     /**
      * Gets a list of all started tables.
      *
-     * @return Future representing pending completion of the operation.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     * @return Future that represents the pending completion of the operation.
+     * @throws IgniteException If an unspecified platform exception has occurred internally. Is thrown when:
      *                         <ul>
      *                             <li>the node is stopping.</li>
      *                         </ul>
@@ -148,13 +146,13 @@ public interface IgniteTables {
     CompletableFuture<List<Table>> tablesAsync();
 
     /**
-     * Gets a table by name, if it was created before.
+     * Gets a table with the specified name if that table exists.
      *
-     * @param name Canonical name of the table ([schemaName].[tableName]) with SQL-parser style quotation, e.g.
-     *             "public.tbl0" - the table "PUBLIC.TBL0" will be looked up,
+     * @param name Canonical name of the table ([schemaName].[tableName]) in SQL-parser style notation, e.g.,
+     *             "public.tbl0" - the "PUBLIC.TBL0" table is looked up,
      *             "PUBLIC.\"Tbl0\"" - "PUBLIC.Tbl0", "\"MySchema\".\"Tbl0\"" - "MySchema.Tbl0", etc.
-     * @return Tables with corresponding name or {@code null} if table isn't created.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     * @return Table identified by name or {@code null} if table doesn't exist.
+     * @throws IgniteException If an unspecified platform exception has occurred internally. Is thrown when:
      *                         <ul>
      *                             <li>the node is stopping.</li>
      *                         </ul>
@@ -162,13 +160,13 @@ public interface IgniteTables {
     Table table(String name);
 
     /**
-     * Gets a table by name, if it was created before.
+     * Gets a table with the specified name if that table exists.
      *
-     * @param name Canonical name of the table ([schemaName].[tableName]) with SQL-parser style quotation, e.g.
-     *             "public.tbl0" - the table "PUBLIC.TBL0" will be looked up,
+     * @param name Canonical name of the table ([schemaName].[tableName]) in SQL-parser style notation, e.g.,
+     *             "public.tbl0" - the "PUBLIC.TBL0" table is looked up,
      *             "PUBLIC.\"Tbl0\"" - "PUBLIC.Tbl0", "\"MySchema\".\"Tbl0\"" - "MySchema.Tbl0", etc.
-     * @return Future representing pending completion of the operation.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     * @return Future that represents the pending completion of the operation.
+     * @throws IgniteException If an unspecified platform exception has occurred internally. Is thrown when:
      *                         <ul>
      *                             <li>the node is stopping.</li>
      *                         </ul>
