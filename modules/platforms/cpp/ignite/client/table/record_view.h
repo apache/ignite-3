@@ -50,7 +50,6 @@ public:
 
     // Default
     record_view() = default;
-    ~record_view() = default;
     record_view(record_view &&) noexcept = default;
     record_view &operator=(record_view &&) noexcept = default;
 };
@@ -71,7 +70,6 @@ public:
 
     // Default
     record_view() = default;
-    ~record_view() = default;
     record_view(record_view &&) noexcept = default;
     record_view &operator=(record_view &&) noexcept = default;
 

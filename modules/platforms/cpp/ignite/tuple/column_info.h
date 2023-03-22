@@ -17,30 +17,25 @@
 
 #pragma once
 
-#include <ignite/common/bytes_view.h>
-
-#include <cstdint>
-#include <optional>
-#include <vector>
+#include <ignite/common/ignite_type.h>
 
 namespace ignite {
 
-/** C++ version of java int. Used as column number, etc. */
-using IntT = int32_t;
+/**
+ * @brief Basic column info.
+ */
+struct column_info {
+    /** Data type of the values in this column. */
+    ignite_type type;
 
-/** Data size for columns and entire rows too. */
-using SizeT = uint32_t;
+    /** True if the column values may be NULL, false otherwise. */
+    bool nullable;
 
-/** Non-existent column/element number. */
-static constexpr IntT NO_NUM = -1;
+    bool operator==(const column_info &other) const noexcept {
+        return type == other.type && nullable == other.nullable;
+    }
 
-/** Binary value for a potentially nullable column. */
-using element_view = std::optional<bytes_view>;
-
-/** A set of binary values for a whole or partial row. */
-using tuple_view = std::vector<element_view>;
-
-/** A set of binary values for the key part of a row. */
-using key_tuple_view = std::vector<bytes_view>;
+    bool operator!=(const column_info &other) const noexcept { return !(operator==(other)); }
+};
 
 } // namespace ignite

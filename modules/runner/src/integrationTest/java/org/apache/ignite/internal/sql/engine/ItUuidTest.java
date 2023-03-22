@@ -175,7 +175,7 @@ public class ItUuidTest extends ClusterPerClassIntegrationTest {
         // CASE <boolean> WHEN ... END
 
         var query = "SELECT id, CASE uuid_key WHEN uuid_key = ? THEN uuid_key ELSE ? END FROM t;";
-        var t = assertThrows(CalciteContextException.class, () -> sql(query, UUID_1));
+        var t = assertThrows(CalciteContextException.class, () -> sql(query, UUID_1, UUID_1));
         assertThat(t.getMessage(), containsString("Invalid types for comparison: UUID = BOOLEAN"));
     }
 

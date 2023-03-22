@@ -149,7 +149,7 @@ include(ignite_test)
 
 # Add common libraries along with their unit tests if any.
 add_subdirectory(ignite/common)
-add_subdirectory(ignite/schema)
+add_subdirectory(ignite/tuple)
 
 # Add client libraries.
 if (${ENABLE_CLIENT})

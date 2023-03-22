@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import java.util.Set;
 
 /**
  * Possible query types.
@@ -35,24 +35,6 @@ public enum SqlQueryType {
     /** Explain. */
     EXPLAIN;
 
-    /**
-     * Map query plan type to sql type.
-     *
-     * @param type QueryPlan.Type.
-     * @return Associated SqlQueryType.
-     */
-    public static SqlQueryType mapPlanTypeToSqlType(QueryPlan.Type type) {
-        switch (type) {
-            case QUERY:
-                return QUERY;
-            case DML:
-                return DML;
-            case DDL:
-                return DDL;
-            case EXPLAIN:
-                return EXPLAIN;
-            default:
-                throw new UnsupportedOperationException("Unexpected query plan type: " + type.name());
-        }
-    }
+    /** A set of all query types. **/
+    public static final Set<SqlQueryType> ALL = Set.of(values());
 }

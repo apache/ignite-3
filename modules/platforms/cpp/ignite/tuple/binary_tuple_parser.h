@@ -18,14 +18,16 @@
 #pragma once
 
 #include "binary_tuple_schema.h"
-#include "ignite/common/big_decimal.h"
-#include "ignite/common/big_integer.h"
-#include "ignite/common/ignite_date.h"
-#include "ignite/common/ignite_date_time.h"
-#include "ignite/common/ignite_time.h"
-#include "ignite/common/ignite_timestamp.h"
 
+#include <ignite/common/big_decimal.h>
+#include <ignite/common/big_integer.h>
 #include <ignite/common/bytes_view.h>
+#include <ignite/common/ignite_date.h>
+#include <ignite/common/ignite_date_time.h>
+#include <ignite/common/ignite_duration.h>
+#include <ignite/common/ignite_period.h>
+#include <ignite/common/ignite_time.h>
+#include <ignite/common/ignite_timestamp.h>
 #include <ignite/common/uuid.h>
 
 namespace ignite {
@@ -38,13 +40,13 @@ namespace ignite {
 class binary_tuple_parser {
     bytes_view binary_tuple; /**< The binary tuple to parse. */
 
-    const IntT element_count; /**< Total number of elements. */
+    const number_t element_count; /**< Total number of elements. */
 
-    IntT element_index; /**< Index of the next element to parse. */
+    number_t element_index; /**< Index of the next element to parse. */
 
     bool has_nullmap; /**< Flag that indicates if the tuple contains a nullmap. */
 
-    SizeT entry_size; /**< Size of an offset table entry. */
+    data_size_t entry_size; /**< Size of an offset table entry. */
 
     const std::byte *next_entry; /**< Position of the next offset table entry. */
 
@@ -64,7 +66,7 @@ public:
      * @param num_elements Number of tuple elements.
      * @param data Binary tuple buffer.
      */
-    explicit binary_tuple_parser(IntT num_elements, bytes_view data);
+    explicit binary_tuple_parser(number_t num_elements, bytes_view data);
 
     /**
      * @brief Gets the original binary tuple.
@@ -78,44 +80,52 @@ public:
      *
      * @return Tuple size.
      */
-    SizeT get_size() const noexcept { return static_cast<SizeT>(binary_tuple.size()); }
+    data_size_t get_size() const noexcept { return static_cast<data_size_t>(binary_tuple.size()); }
 
     /**
      * @brief Gets the expected total number of tuple elements.
      *
      * @return Number of elements.
      */
-    IntT num_elements() const noexcept { return element_count; }
+    number_t num_elements() const noexcept { return element_count; }
 
     /**
      * @brief Gets the number of parsed tuple elements.
      *
      * @return Number of parsed elements.
      */
-    IntT num_parsed_elements() const noexcept { return element_index; }
+    number_t num_parsed_elements() const noexcept { return element_index; }
 
     /**
      * @brief Gets the next value of the tuple.
      *
      * @return The next value.
      */
-    element_view get_next();
+    value_view get_next();
 
     /**
      * @brief Gets a series of values.
      *
-     * @param num Required number of values. The value of NO_NUM means all the available values.
+     * @param num Required number of values. The value of NOT_NUM means all the available values.
      * @return A set of values.
      */
-    tuple_view parse(IntT num = NO_NUM);
+    tuple_view parse(number_t num = NOT_NUM);
 
     /**
      * @brief Gets a series of values presuming they belong to a key. So no NULL values are allowed.
      *
-     * @param num Required number of values. The value of NO_NUM means all the available values.
+     * @param num Required number of values. The value of NOT_NUM means all the available values.
      * @return A set of values.
      */
-    key_tuple_view parse_key(IntT num = NO_NUM);
+    key_tuple_view parse_key(number_t num = NOT_NUM);
+
+    /**
+     * @brief Reads value of specified element.
+     *
+     * @param bytes Binary view of the element.
+     * @return Element value.
+     */
+    static bool get_bool(bytes_view bytes);
 
     /**
      * @brief Reads value of specified element.
@@ -221,6 +231,22 @@ public:
      * @return Element value.
      */
     static ignite_timestamp get_timestamp(bytes_view bytes);
+
+    /**
+     * @brief Reads value of specified element.
+     *
+     * @param bytes Binary view of the element.
+     * @return Element value.
+     */
+    static ignite_period get_period(bytes_view bytes);
+
+    /**
+     * @brief Reads value of specified element.
+     *
+     * @param bytes Binary view of the element.
+     * @return Element value.
+     */
+    static ignite_duration get_duration(bytes_view bytes);
 };
 
 } // namespace ignite

@@ -43,7 +43,7 @@ struct binary_tuple_header {
     std::byte flags{0};
 
     /** Encodes size as bit mask. */
-    static constexpr unsigned int size_to_flags(SizeT size) noexcept {
+    static constexpr unsigned int size_to_flags(data_size_t size) noexcept {
         if (size <= UINT8_MAX) {
             return 0b00;
         } else if (size <= UINT16_MAX) {
@@ -54,7 +54,7 @@ struct binary_tuple_header {
     }
 
     /** Sets the size of offset-table entries based on the value area size. */
-    unsigned int set_entry_size(SizeT value_area_size) noexcept {
+    unsigned int set_entry_size(data_size_t value_area_size) noexcept {
         const unsigned size_log2 = size_to_flags(value_area_size);
         flags &= ~VARLEN_ENTRY_SIZE_MASK;
         flags |= std::byte(size_log2);
@@ -62,7 +62,7 @@ struct binary_tuple_header {
     }
 
     /** Gets the size of a single offset-table entry, in bytes. */
-    SizeT get_entry_size() const noexcept { return 1u << static_cast<unsigned>(flags & VARLEN_ENTRY_SIZE_MASK); }
+    data_size_t get_entry_size() const noexcept { return 1u << static_cast<unsigned>(flags & VARLEN_ENTRY_SIZE_MASK); }
 
     /** Sets the nullmap flag on. */
     void set_nullmap_flag() noexcept { flags |= NULLMAP_FLAG; }

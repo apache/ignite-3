@@ -21,8 +21,8 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
@@ -59,8 +59,9 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
+import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -177,11 +178,12 @@ public class TestNode implements LifecycleAware {
      * @return A plan to execute.
      */
     public QueryPlan prepare(String query) {
-        SqlNodeList nodes = Commons.parse(query, FRAMEWORK_CONFIG.getParserConfig());
+        StatementParseResult parseResult = IgniteSqlParser.parse(query, StatementParseResult.MODE);
+        BaseQueryContext ctx = createContext();
 
-        assertThat(nodes, hasSize(1));
+        assertEquals(ctx.parameters().length, parseResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
 
-        return await(prepareService.prepareAsync(nodes.get(0), createContext()));
+        return await(prepareService.prepareAsync(parseResult.statement(), ctx));
     }
 
     /**

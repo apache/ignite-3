@@ -53,17 +53,17 @@ public:
     /**
      * Gets the hour-of-day field.
      */
-    [[nodiscard]] constexpr auto get_hour() const noexcept { return m_hour; }
+    [[nodiscard]] constexpr std::int_fast8_t get_hour() const noexcept { return m_hour; }
 
     /**
      * Gets the m_minute-of-m_hour field.
      */
-    [[nodiscard]] constexpr auto get_minute() const noexcept { return m_minute; }
+    [[nodiscard]] constexpr std::int_fast8_t get_minute() const noexcept { return m_minute; }
 
     /**
      * Gets the second-of-m_minute field.
      */
-    [[nodiscard]] constexpr auto get_second() const noexcept { return m_second; }
+    [[nodiscard]] constexpr std::int_fast8_t get_second() const noexcept { return m_second; }
 
     /**
      * Gets the nano-of-second field.
@@ -90,10 +90,10 @@ public:
     }
 
 private:
-    std::int8_t m_hour = 0;
-    std::int8_t m_minute = 0;
-    std::int8_t m_second = 0;
-    std::int32_t m_nano = 0;
+    std::int_least8_t m_hour = 0;
+    std::int_least8_t m_minute = 0;
+    std::int_least8_t m_second = 0;
+    std::int_least32_t m_nano = 0;
 };
 
 /**
