@@ -311,7 +311,7 @@ public class Loza implements RaftManager {
                 FACTORY,
                 raftConfiguration,
                 membersConfiguration,
-                false,
+                true,
                 executor
         );
     }

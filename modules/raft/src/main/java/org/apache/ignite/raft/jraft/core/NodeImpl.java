@@ -1068,12 +1068,14 @@ public class NodeImpl implements Node, RaftServerService {
         // Wait committed.
         long commitIdx = logManager.getLastLogIndex();
 
+        CompletableFuture<Long> logApplyComplition = new CompletableFuture<>();
+
         if (commitIdx > fsmCaller.getLastAppliedIndex()) {
             LastAppliedLogIndexListener lnsr = new LastAppliedLogIndexListener() {
                 @Override
                 public void onApplied( long lastAppliedLogIndex) {
                     if (lastAppliedLogIndex >= commitIdx) {
-                        applyCommittedFuture.complete(lastAppliedLogIndex);
+                        logApplyComplition.complete(lastAppliedLogIndex);
                         fsmCaller.removeLastAppliedLogIndexListener(this);
                     }
                 }
@@ -1083,7 +1085,7 @@ public class NodeImpl implements Node, RaftServerService {
 
             fsmCaller.onCommitted(commitIdx);
         } else {
-            applyCommittedFuture.complete(0L);
+            logApplyComplition.complete(0L);
         }
 
         if (!this.rpcClientService.init(this.options)) {
@@ -1104,34 +1106,42 @@ public class NodeImpl implements Node, RaftServerService {
             return false;
         }
 
-        // set state to follower
-        this.state = State.STATE_FOLLOWER;
+        logApplyComplition.whenComplete((committedIdx, err) -> {
+            if (err != null) {
+                LOG.error("Fail to apply committed updates.", err);
+            }
 
-        if (LOG.isInfoEnabled()) {
-            LOG.info("Node {} init, term={}, lastLogId={}, conf={}, oldConf={}.", getNodeId(), this.currTerm,
-                this.logManager.getLastLogId(false), this.conf.getConf(), this.conf.getOldConf());
-        }
+            // set state to follower
+            this.state = State.STATE_FOLLOWER;
 
-        if (this.snapshotExecutor != null && this.options.getSnapshotIntervalSecs() > 0) {
-            LOG.debug("Node {} start snapshot timer, term={}.", getNodeId(), this.currTerm);
-            this.snapshotTimer.start();
-        }
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Node {} init, term={}, lastLogId={}, conf={}, oldConf={}.", getNodeId(), this.currTerm,
+                    this.logManager.getLastLogId(false), this.conf.getConf(), this.conf.getOldConf());
+            }
 
-        if (!this.conf.isEmpty()) {
-            stepDown(this.currTerm, false, new Status());
-        }
+            if (this.snapshotExecutor != null && this.options.getSnapshotIntervalSecs() > 0) {
+                LOG.debug("Node {} start snapshot timer, term={}.", getNodeId(), this.currTerm);
+                this.snapshotTimer.start();
+            }
 
-        // Now the raft node is started , have to acquire the writeLock to avoid race
-        // conditions
-        this.writeLock.lock();
-        if (this.conf.isStable() && this.conf.getConf().size() == 1 && this.conf.getConf().contains(this.serverId)) {
-            // The group contains only this server which must be the LEADER, trigger
-            // the timer immediately.
-            electSelf();
-        }
-        else {
-            this.writeLock.unlock();
-        }
+            if (!this.conf.isEmpty()) {
+                stepDown(this.currTerm, false, new Status());
+            }
+
+            // Now the raft node is started , have to acquire the writeLock to avoid race
+            // conditions
+            this.writeLock.lock();
+            if (this.conf.isStable() && this.conf.getConf().size() == 1 && this.conf.getConf().contains(this.serverId)) {
+                // The group contains only this server which must be the LEADER, trigger
+                // the timer immediately.
+                electSelf();
+            }
+            else {
+                this.writeLock.unlock();
+            }
+
+            applyCommittedFuture.complete(commitIdx);
+        });
 
         return true;
     }
