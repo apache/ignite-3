@@ -58,7 +58,7 @@ public class ClusterStatusCall implements Call<UrlCallInput, ClusterStatus> {
                     .metadataStorageNodes(clusterState.getMsNodes())
                     .cmgNodes(clusterState.getCmgNodes());
         } catch (ApiException e) {
-            if (e.getCode() == 404) { // NOT_FOUND means the cluster is not initialized yet
+            if (e.getCode() == 409) { // CONFLICT means the cluster is not initialized yet
                 clusterStatusBuilder.initialized(false).nodeCount(fetchNumberOfAllNodes(input));
             } else {
                 return DefaultCallOutput.failure(new IgniteCliApiException(e, clusterUrl));

@@ -411,7 +411,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         ));
 
         try {
-            var context = tx != null ? QueryContext.of(tx) : QueryContext.of();
+            var context = QueryContext.create(SqlQueryType.ALL, tx);
 
             return getAllFromCursor(
                     await(queryEngine.querySingleAsync(sessionId, context, sql, args))

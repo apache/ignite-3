@@ -35,8 +35,8 @@ import java.util.Objects;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
-import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
+import org.apache.ignite.sql.SqlException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
@@ -53,7 +53,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
      * Parse simple CREATE ZONE statement.
      */
     @Test
-    public void createZoneNoOptions() throws SqlParseException {
+    public void createZoneNoOptions() {
         // Simple name.
         IgniteSqlCreateZone createZone = parseCreateZone("create zone test_zone");
 
@@ -77,7 +77,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
      * Parse CREATE ZONE IF NOT EXISTS statement.
      */
     @Test
-    public void createZoneIfNotExists() throws SqlParseException {
+    public void createZoneIfNotExists() {
         IgniteSqlCreateZone createZone = parseCreateZone("create zone if not exists test_zone");
 
         assertTrue(createZone.ifNotExists());
@@ -88,7 +88,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
      * Parse CREATE ZONE WITH ... statement.
      */
     @Test
-    public void createZoneWithOptions() throws SqlParseException {
+    public void createZoneWithOptions() {
         IgniteSqlCreateZone createZone = parseCreateZone(
                 "create zone test_zone with "
                         + "replicas=2, "
@@ -126,7 +126,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
     @Test
     public void createZoneWithInvalidOptions() {
         // Unknown option.
-        assertThrows(SqlParseException.class, () -> parseCreateZone("create zone test_zone with foo='bar'"));
+        assertThrows(SqlException.class, () -> parseCreateZone("create zone test_zone with foo='bar'"));
 
         // Invalid option type.
         String query = "create zone test_zone with %s=%s";
@@ -144,7 +144,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
      * Parsing DROP ZONE statement.
      */
     @Test
-    public void dropZone() throws SqlParseException {
+    public void dropZone() {
         // Simple name.
         SqlNode node = parse("drop zone test_zone");
 
@@ -165,7 +165,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
      * Parsing DROP ZONE IF EXISTS statement.
      */
     @Test
-    public void dropZoneIfExists() throws SqlParseException {
+    public void dropZoneIfExists() {
         IgniteSqlDropZone dropZone = (IgniteSqlDropZone) parse("drop zone if exists test_zone");
 
         assertTrue(dropZone.ifExists());
@@ -177,7 +177,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
      * Parsing ALTER ZONE RENAME TO statement.
      */
     @Test
-    public void alterZoneRenameTo() throws SqlParseException {
+    public void alterZoneRenameTo() {
         IgniteSqlAlterZoneRenameTo alterZone = parseAlterZoneRenameTo("alter zone a.test_zone rename to zone1");
         assertFalse(alterZone.ifExists());
 
@@ -189,7 +189,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
      * Parsing ALTER ZONE RENAME TO statement.
      */
     @Test
-    public void alterZoneIfExistsRenameTo() throws SqlParseException {
+    public void alterZoneIfExistsRenameTo() {
         IgniteSqlAlterZoneRenameTo alterZone = parseAlterZoneRenameTo("alter zone if exists a.test_zone rename to zone1");
         assertTrue(alterZone.ifExists());
 
@@ -202,14 +202,14 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
      */
     @Test
     public void alterZoneRenameToWithCompoundIdIsIllegal() {
-        assertThrows(SqlParseException.class, () -> parse("alter zone a.test_zone rename to b.zone1"));
+        assertThrows(SqlException.class, () -> parse("alter zone a.test_zone rename to b.zone1"));
     }
 
     /**
      * Parsing ALTER ZONE SET statement.
      */
     @Test
-    public void alterZoneSet() throws SqlParseException {
+    public void alterZoneSet() {
         IgniteSqlAlterZoneSet alterZoneSet = parseAlterZoneSet("alter zone a.test_zone set replicas=2");
         assertFalse(alterZoneSet.ifExists());
 
@@ -221,7 +221,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
      * Parsing ALTER ZONE IF EXISTS SET statement.
      */
     @Test
-    public void alterZoneIfExistsSet() throws SqlParseException {
+    public void alterZoneIfExistsSet() {
         IgniteSqlAlterZoneSet alterZoneSet = parseAlterZoneSet("alter zone if exists a.test_zone set replicas=2");
         assertTrue(alterZoneSet.ifExists());
 
@@ -233,7 +233,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
      * Parsing ALTER ZONE SET statement.
      */
     @Test
-    public void alterZoneSetOptions() throws SqlParseException {
+    public void alterZoneSetOptions() {
         IgniteSqlAlterZoneSet alterZoneSet = parseAlterZoneSet(
                 "alter zone a.test_zone set "
                         + "replicas=2, "
@@ -267,7 +267,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
      */
     @Test
     public void alterZoneSetNoOptionsIsIllegal() {
-        assertThrows(SqlParseException.class, () -> parse("alter zone test_zone set"));
+        assertThrows(SqlException.class, () -> parse("alter zone test_zone set"));
     }
 
     /**
@@ -279,7 +279,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
 
         // invalid option
 
-        assertThrows(SqlParseException.class, () -> parse(String.format(query, "foo", "'bar'")));
+        assertThrows(SqlException.class, () -> parse(String.format(query, "foo", "'bar'")));
 
         // invalid option values
 
@@ -303,7 +303,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
      * @param stmt Create zone query.
      * @return {@link org.apache.calcite.sql.SqlCreate SqlCreate} node.
      */
-    private IgniteSqlCreateZone parseCreateZone(String stmt) throws SqlParseException {
+    private IgniteSqlCreateZone parseCreateZone(String stmt) {
         SqlNode node = parse(stmt);
 
         return assertInstanceOf(IgniteSqlCreateZone.class, node);
@@ -312,7 +312,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
     /**
      * Parse ALTER ZONE SET statement.
      */
-    private IgniteSqlAlterZoneSet parseAlterZoneSet(String stmt) throws SqlParseException {
+    private IgniteSqlAlterZoneSet parseAlterZoneSet(String stmt) {
         SqlNode node = parse(stmt);
 
         return assertInstanceOf(IgniteSqlAlterZoneSet.class, node);
@@ -321,7 +321,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
     /**
      * Parse ALTER ZONE RENAME TO statement.
      */
-    private IgniteSqlAlterZoneRenameTo parseAlterZoneRenameTo(String stmt) throws SqlParseException {
+    private IgniteSqlAlterZoneRenameTo parseAlterZoneRenameTo(String stmt) {
         SqlNode node = parse(stmt);
 
         return assertInstanceOf(IgniteSqlAlterZoneRenameTo.class, node);
@@ -338,7 +338,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     private void assertSqlParseError(String stmt, String name) {
-        assertThrows(SqlParseException.class, () -> parse(stmt), name);
+        assertThrows(SqlException.class, () -> parse(stmt), name);
     }
 
     private void assertThatZoneOptionPresent(List<SqlNode> optionList, IgniteSqlZoneOptionEnum name, Object expVal) {

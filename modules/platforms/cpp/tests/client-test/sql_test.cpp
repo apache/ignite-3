@@ -75,7 +75,7 @@ protected:
 };
 
 void check_columns(
-    const result_set_metadata &meta, std::initializer_list<std::tuple<std::string, column_type>> columns) {
+    const result_set_metadata &meta, std::initializer_list<std::tuple<std::string, ignite_type>> columns) {
 
     ASSERT_EQ(columns.size(), meta.columns().size());
     size_t i = 0;
@@ -94,7 +94,7 @@ TEST_F(sql_test, sql_simple_select) {
     EXPECT_TRUE(result_set.has_rowset());
     EXPECT_EQ(-1, result_set.affected_rows());
 
-    check_columns(result_set.metadata(), {{"42", column_type::INT32}, {"'Lorem'", column_type::STRING}});
+    check_columns(result_set.metadata(), {{"42", ignite_type::INT32}, {"'Lorem'", ignite_type::STRING}});
 
     auto page = result_set.current_page();
 
@@ -113,7 +113,7 @@ TEST_F(sql_test, sql_table_select) {
     EXPECT_TRUE(result_set.has_rowset());
     EXPECT_EQ(-1, result_set.affected_rows());
 
-    check_columns(result_set.metadata(), {{"ID", column_type::INT32}, {"VAL", column_type::STRING}});
+    check_columns(result_set.metadata(), {{"ID", ignite_type::INT32}, {"VAL", ignite_type::STRING}});
 
     auto page = result_set.current_page();
 
@@ -138,7 +138,7 @@ TEST_F(sql_test, sql_select_multiple_pages) {
     EXPECT_TRUE(result_set.has_rowset());
     EXPECT_EQ(-1, result_set.affected_rows());
 
-    check_columns(result_set.metadata(), {{"ID", column_type::INT32}, {"VAL", column_type::STRING}});
+    check_columns(result_set.metadata(), {{"ID", ignite_type::INT32}, {"VAL", ignite_type::STRING}});
 
     for (std::int32_t i = 0; i < 10; ++i) {
         auto page = result_set.current_page();

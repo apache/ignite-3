@@ -32,6 +32,7 @@ import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.testframework.IntegrationTestBase;
@@ -106,7 +107,7 @@ public class CliIntegrationTestBase extends IntegrationTestBase {
         ));
 
         try {
-            var context = tx != null ? QueryContext.of(tx) : QueryContext.of();
+            var context = QueryContext.create(SqlQueryType.ALL, tx);
 
             return getAllFromCursor(
                     await(queryEngine.querySingleAsync(sessionId, context, sql, args))

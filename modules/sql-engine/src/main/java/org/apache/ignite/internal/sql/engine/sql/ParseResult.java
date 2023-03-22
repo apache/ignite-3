@@ -15,40 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.serialization;
+package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.List;
+import org.apache.calcite.sql.SqlNode;
 
 /**
- * Class that holds a byte array of the serialized object and a list of type descriptor ids with all the descriptors that were
- * used during the serialization.
- * TODO: IGNITE-16081 It's a temporary class that will be removed.
+ * Result of parsing SQL string.
  */
-public class SerializationResult {
-    /** Serialized object. */
-    private final byte[] array;
+public abstract class ParseResult {
 
-    /** Type descriptors. */
-    private final List<Integer> ids;
+    private final int dynamicParamsCount;
 
     /**
      * Constructor.
      *
-     * @param array Serialized object.
-     * @param ids   Type descriptors.
+     * @param dynamicParamsCount the number of dynamic parameters.
      */
-    public SerializationResult(byte[] array, List<Integer> ids) {
-        this.array = array;
-        this.ids = ids;
+    ParseResult(int dynamicParamsCount) {
+        if (dynamicParamsCount < 0) {
+            throw new IllegalArgumentException("Number of dynamic parameters must be positive but got " + dynamicParamsCount);
+        }
+        this.dynamicParamsCount = dynamicParamsCount;
     }
 
-    /** Gets serialized object. */
-    public byte[] array() {
-        return array;
+    /** The number of dynamic parameters in this result. */
+    public int dynamicParamsCount() {
+        return dynamicParamsCount;
     }
 
-    /** Gets descriptor ids. */
-    public List<Integer> ids() {
-        return ids;
-    }
+    /** Returns a list of parsed statements. */
+    public abstract List<SqlNode> statements();
 }

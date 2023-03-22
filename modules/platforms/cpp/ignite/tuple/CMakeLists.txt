@@ -22,7 +22,6 @@ set(TARGET ${PROJECT_NAME})
 set(SOURCES
     binary_tuple_builder.cpp
     binary_tuple_parser.cpp
-    ignite_type.cpp
 )
 
 set(PUBLIC_HEADERS
@@ -31,7 +30,6 @@ set(PUBLIC_HEADERS
     binary_tuple_parser.h
     binary_tuple_schema.h
     column_info.h
-    ignite_type.h
     types.h
 )
 

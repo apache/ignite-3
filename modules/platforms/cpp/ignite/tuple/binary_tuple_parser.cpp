@@ -73,7 +73,7 @@ ignite_time load_time(bytes_view bytes) {
 
 } // namespace
 
-binary_tuple_parser::binary_tuple_parser(IntT num_elements, bytes_view data)
+binary_tuple_parser::binary_tuple_parser(number_t num_elements, bytes_view data)
     : binary_tuple(data)
     , element_count(num_elements)
     , element_index(0)
@@ -86,12 +86,12 @@ binary_tuple_parser::binary_tuple_parser(IntT num_elements, bytes_view data)
     entry_size = header.get_entry_size();
     has_nullmap = header.get_nullmap_flag();
 
-    SizeT nullmap_size = 0;
+    data_size_t nullmap_size = 0;
     if (has_nullmap) {
         nullmap_size = binary_tuple_schema::get_nullmap_size(element_count);
     }
 
-    SizeT table_size = entry_size * element_count;
+    data_size_t table_size = entry_size * element_count;
     next_entry = binary_tuple.data() + binary_tuple_header::SIZE + nullmap_size;
     value_base = next_entry + table_size;
 
@@ -115,7 +115,7 @@ binary_tuple_parser::binary_tuple_parser(IntT num_elements, bytes_view data)
     }
 }
 
-element_view binary_tuple_parser::get_next() {
+value_view binary_tuple_parser::get_next() {
     assert(num_parsed_elements() < num_elements());
 
     ++element_index;
@@ -136,10 +136,10 @@ element_view binary_tuple_parser::get_next() {
     return bytes_view(value, length);
 }
 
-tuple_view binary_tuple_parser::parse(IntT num) {
+tuple_view binary_tuple_parser::parse(number_t num) {
     assert(element_index == 0);
 
-    if (num == NO_NUM) {
+    if (num == NOT_NUM) {
         num = num_elements();
     }
 
@@ -152,10 +152,10 @@ tuple_view binary_tuple_parser::parse(IntT num) {
     return tuple;
 }
 
-key_tuple_view binary_tuple_parser::parse_key(IntT num) {
+key_tuple_view binary_tuple_parser::parse_key(number_t num) {
     assert(element_index == 0);
 
-    if (num == NO_NUM) {
+    if (num == NOT_NUM) {
         num = num_elements();
     }
 
@@ -166,6 +166,17 @@ key_tuple_view binary_tuple_parser::parse_key(IntT num) {
     }
 
     return key;
+}
+
+bool binary_tuple_parser::get_bool(bytes_view bytes) {
+    switch (bytes.size()) {
+        case 0:
+            return false;
+        case 1:
+            return load_as<std::int8_t>(bytes) != 0;
+        default:
+            throw std::out_of_range("Bad element size");
+    }
 }
 
 std::int8_t binary_tuple_parser::get_int8(bytes_view bytes) {
@@ -314,9 +325,54 @@ ignite_timestamp binary_tuple_parser::get_timestamp(bytes_view bytes) {
             return ignite_timestamp(seconds, 0);
         }
         case 12: {
-            std::int64_t seconds = load_as<std::int64_t>(bytes);
-            std::int32_t nanos = load_as<std::int32_t>(bytes, 8);
+            auto seconds = load_as<std::int64_t>(bytes);
+            auto nanos = load_as<std::int32_t>(bytes, 8);
             return ignite_timestamp(seconds, nanos);
+        }
+        default:
+            throw std::out_of_range("Bad element size");
+    }
+}
+
+ignite_period binary_tuple_parser::get_period(bytes_view bytes) {
+    switch (bytes.size()) {
+        case 0:
+            return ignite_period();
+        case 3: {
+            auto years = load_as<std::int8_t>(bytes, 8);
+            auto months = load_as<std::int8_t>(bytes, 8);
+            auto days = load_as<std::int8_t>(bytes, 8);
+            return ignite_period(years, months, days);
+        }
+        case 6: {
+            auto years = load_as<std::int16_t>(bytes, 8);
+            auto months = load_as<std::int16_t>(bytes, 8);
+            auto days = load_as<std::int16_t>(bytes, 8);
+            return ignite_period(years, months, days);
+        }
+        case 12: {
+            auto years = load_as<std::int32_t>(bytes, 8);
+            auto months = load_as<std::int32_t>(bytes, 8);
+            auto days = load_as<std::int32_t>(bytes, 8);
+            return ignite_period(years, months, days);
+        }
+        default:
+            throw std::out_of_range("Bad element size");
+    }
+}
+
+ignite_duration binary_tuple_parser::get_duration(bytes_view bytes) {
+    switch (bytes.size()) {
+        case 0:
+            return ignite_duration();
+        case 8: {
+            auto seconds = load_as<std::int64_t>(bytes);
+            return ignite_duration(seconds, 0);
+        }
+        case 12: {
+            auto seconds = load_as<std::int64_t>(bytes);
+            auto nanos = load_as<std::int32_t>(bytes, 8);
+            return ignite_duration(seconds, nanos);
         }
         default:
             throw std::out_of_range("Bad element size");
