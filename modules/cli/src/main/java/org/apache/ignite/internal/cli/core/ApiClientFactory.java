@@ -23,8 +23,6 @@ import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STO
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PATH;
 
 import jakarta.inject.Singleton;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
@@ -39,8 +37,6 @@ public class ApiClientFactory {
 
     private final ConfigManagerProvider configManagerProvider;
 
-    private final Map<String, ApiClient> clients = new ConcurrentHashMap<>();
-
     public ApiClientFactory(ConfigManagerProvider configManagerProvider) {
         this.configManagerProvider = configManagerProvider;
     }
@@ -52,7 +48,7 @@ public class ApiClientFactory {
      * @return created API client.
      */
     public ApiClient getClient(String path) {
-        ApiClient apiClient = clients.computeIfAbsent(path, this::createClient);
+        ApiClient apiClient = createClient(path);
         CliLoggers.addApiClient(path, apiClient);
         return apiClient;
     }
