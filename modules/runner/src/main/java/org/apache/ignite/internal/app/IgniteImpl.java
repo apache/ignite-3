@@ -41,6 +41,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.ConfigurationModule;
@@ -519,7 +520,9 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 nettyBootstrapFactory,
                 sql,
-                () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag().clusterId())
+                () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag().clusterId()),
+                metricManager,
+                new ClientHandlerMetricSource()
         );
 
         deploymentManager = new DeploymentManagerImpl(clusterSvc,
