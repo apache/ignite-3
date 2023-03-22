@@ -32,7 +32,7 @@ public class ClientHandlerMetricSource extends AbstractMetricSource<ClientHandle
      * Constructor.
      */
     public ClientHandlerMetricSource() {
-        super("clienthandler");
+        super("client.handler");
     }
 
     /**
