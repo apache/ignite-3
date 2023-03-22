@@ -63,6 +63,9 @@ public class DeployMetastoreService {
         ByteArray key = key(id, version);
         return metaStorage.get(key)
                 .thenCompose(e -> {
+                    if (e.value() == null) {
+                        return CompletableFuture.completedFuture(false);
+                    }
                     UnitMeta prev = UnitMetaSerializer.deserialize(e.value());
 
                     transformer.accept(prev);

@@ -45,6 +45,9 @@ public class DeploymentManagementController implements DeploymentCodeApi {
     public CompletableFuture<Boolean> deploy(String unitId, String unitVersion, CompletedFileUpload unitContent) {
         try {
             DeploymentUnit deploymentUnit = toDeploymentUnit(unitContent);
+            if (unitVersion == null || unitVersion.isBlank()) {
+                return deployment.deployAsync(unitId, Version.LATEST, deploymentUnit);
+            }
             return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit);
         } catch (IOException e) {
             return CompletableFuture.failedFuture(e);
