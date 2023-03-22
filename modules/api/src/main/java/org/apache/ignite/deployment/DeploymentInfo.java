@@ -100,6 +100,11 @@ public class DeploymentInfo {
             return this;
         }
 
+        /**
+         * Build {@link DeploymentInfo} instance.
+         *
+         * @return {@link DeploymentInfo} instance.
+         */
         public DeploymentInfo build() {
             Objects.requireNonNull(status);
 
