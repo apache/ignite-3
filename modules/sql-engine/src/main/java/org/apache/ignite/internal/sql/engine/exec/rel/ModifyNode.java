@@ -412,7 +412,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         return mapping;
     }
 
-    // TODO Remove this method when https://issues.apache.org/jira/browse/IGNITE-18225 is complete
+    // TODO Remove this method when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
     private static <RowT> void injectDefaults(
             TableDescriptor tableDescriptor,
             RowHandler<RowT> handler,
@@ -432,7 +432,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         }
     }
 
-    // TODO Remove this method when https://issues.apache.org/jira/browse/IGNITE-18225 is complete
+    // TODO Remove this method when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
     private static @Nullable Object replaceDefaultValuePlaceholder(@Nullable Object val, ColumnDescriptor desc) {
         Object newValue;
 

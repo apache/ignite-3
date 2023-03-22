@@ -251,7 +251,7 @@ public class RexImpTable {
     private final Map<SqlOperator, RexCallImplementor> map = new HashMap<>();
 
     /** Placeholder for DEFAULT operator value. */
-    // TODO Remove this constant when https://issues.apache.org/jira/browse/IGNITE-18225 is complete
+    // TODO Remove this constant when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
     public static final Object DEFAULT_VALUE_PLACEHOLDER = Placeholder.DEFAULT_VALUE;
 
     /** Placeholder for values, which expressions are not specified. */
@@ -2488,7 +2488,7 @@ public class RexImpTable {
     }
 
     /** Implementor for the {@code DEFAULT} function. */
-    // TODO Remove this class when https://issues.apache.org/jira/browse/IGNITE-18225 is complete
+    // TODO Remove this class when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
     private static class DefaultImplementor extends AbstractRexCallImplementor {
         DefaultImplementor() {
             super(NullPolicy.NONE, false);
@@ -2579,7 +2579,7 @@ public class RexImpTable {
 
     // We use enums for placeholders because enum serialization/deserialization guarantees to preserve object's identity.
     private enum Placeholder {
-        // TODO Remove this enum element when https://issues.apache.org/jira/browse/IGNITE-18225 is complete
+        // TODO Remove this enum element when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
         DEFAULT_VALUE,
         UNSPECIFIED_VALUE
     }

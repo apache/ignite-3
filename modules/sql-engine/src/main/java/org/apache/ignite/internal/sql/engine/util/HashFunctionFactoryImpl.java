@@ -116,7 +116,7 @@ public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
                 NativeTypeSpec nativeTypeSpec = fieldTypes[i].spec();
                 Class<?> storageType = NativeTypeSpec.toClass(nativeTypeSpec, true);
 
-                // TODO Remove this check when https://issues.apache.org/jira/browse/IGNITE-18225 is complete
+                // TODO Remove this check when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
                 if (value == RexImpTable.DEFAULT_VALUE_PLACEHOLDER) {
                     var error = format("Placeholder should have been replaced. field: {} nativeTypeSpec: {} row: {} ",
                             fields[i], nativeTypeSpec, rowHandler.toString(row));
