@@ -453,7 +453,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         );
     }
 
-    private static @Nullable TableIndexConfiguration getIndexConfiguration(Ignite node, String indexName) {
+    public static @Nullable TableIndexConfiguration getIndexConfiguration(Ignite node, String indexName) {
         return ((IgniteImpl) node).clusterConfiguration()
                 .getConfiguration(TablesConfiguration.KEY)
                 .indexes()
