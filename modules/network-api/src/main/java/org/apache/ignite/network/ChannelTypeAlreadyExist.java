@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
-
-import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+package org.apache.ignite.network;
 
 /**
- * The query validator interface. Allows validating query plan.
- * */
-public interface QueryValidator {
+ * Throws when register channel with already used identifier.
+ */
+public class ChannelTypeAlreadyExist extends RuntimeException {
     /**
-     * Validate the prepared query plan.
+     * Constructor.
      *
-     * @throws QueryValidationException in the case of a validation error.
+     * @param id Channel identifier.
+     * @param name Channel name.
      */
-    void validatePlan(QueryPlan plan) throws QueryValidationException;
+    public ChannelTypeAlreadyExist(short id, String name) {
+        super("Channel " + name + " can't be registered because id " + id + " already used.");
+    }
 }

@@ -23,6 +23,7 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.call.StringCallInput;
+import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.decorators.MetricListDecorator;
 import picocli.CommandLine.Command;
@@ -47,6 +48,7 @@ public class NodeMetricListReplCommand extends BaseCommand implements Runnable {
         question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(StringCallInput::new)
                 .then(Flows.fromCall(call))
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list metrics", "cluster init"))
                 .print(new MetricListDecorator())
                 .start();
     }

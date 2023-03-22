@@ -93,10 +93,10 @@ public interface IgniteDeployment {
     CompletableFuture<UnitStatus> statusAsync(String id);
 
     /**
-     * Lists all units deplored to a node specified by the consistent ID.
+     * Returns list with deployed units on node with provided consistent id.
      *
-     * @param consistentId Node consistent ID.
-     * @return List of the units deployed to the specified node.
+     * @param consistentId Node consistent id.
+     * @return List with deployed units on node with provided consistent id.
      */
     CompletableFuture<List<UnitStatus>> findUnitByConsistentIdAsync(String consistentId);
 }

@@ -103,7 +103,7 @@ std::string read_tuple(std::optional<bytes_view> data) {
 struct SchemaDescriptor {
     std::vector<column_info> columns;
 
-    [[nodiscard]] IntT length() const { return IntT(columns.size()); }
+    [[nodiscard]] number_t length() const { return number_t(columns.size()); }
 
     [[nodiscard]] binary_tuple_schema to_tuple_schema() const {
         return binary_tuple_schema({columns.begin(), columns.end()});
@@ -181,7 +181,7 @@ TEST(tuple, AllTypes) {
         {ignite_type::TIMESTAMP, false},
         {ignite_type::STRING, false},
         {ignite_type::UUID, false},
-        {ignite_type::BINARY, false},
+        {ignite_type::BYTE_ARRAY, false},
     };
 
     binary_tuple_schema sch = schema.to_tuple_schema();
@@ -584,7 +584,7 @@ TEST(tuple, ZeroLengthVarlen) { // NOLINT(cert-err58-cpp)
 
     schema.columns = {
         {ignite_type::INT32, false},
-        {ignite_type::BINARY, false},
+        {ignite_type::BYTE_ARRAY, false},
     };
 
     // Single zero-length vector of bytes.
@@ -598,7 +598,7 @@ TEST(tuple, ZeroLengthVarlen) { // NOLINT(cert-err58-cpp)
 
     // Two zero-length vectors of bytes.
     {
-        schema.columns.emplace_back(column_info{ignite_type::BINARY, false});
+        schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, false});
 
         auto values = std::make_tuple(int32_t{0}, ""s, ""s);
 
@@ -612,8 +612,8 @@ TEST(tuple, ZeroLengthVarlen) { // NOLINT(cert-err58-cpp)
         schema.columns.erase(schema.columns.begin() + 1, schema.columns.end());
 
         schema.columns.emplace_back(column_info{ignite_type::INT32, false});
-        schema.columns.emplace_back(column_info{ignite_type::BINARY, false});
-        schema.columns.emplace_back(column_info{ignite_type::BINARY, false});
+        schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, false});
+        schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, false});
 
         auto values = std::make_tuple(int32_t{0}, int32_t{123}, ""s, ""s);
 
@@ -628,7 +628,7 @@ TEST(tuple, SingleVarlen) { // NOLINT(cert-err58-cpp)
 
     schema.columns = {
         {ignite_type::INT32, false},
-        {ignite_type::BINARY, false},
+        {ignite_type::BYTE_ARRAY, false},
     };
 
     auto values = std::make_tuple(int32_t{0}, "\1\2\3"s);
@@ -643,7 +643,7 @@ TEST(tuple, TinyVarlenFormatOverflowLarge) { // NOLINT(cert-err58-cpp)
 
     schema.columns.emplace_back(column_info{ignite_type::INT32, false});
     for (int i = 0; i < 300; i++) {
-        schema.columns.emplace_back(column_info{ignite_type::BINARY, false});
+        schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, false});
     }
 
     // Flags - 1 zero byte
@@ -670,7 +670,7 @@ TEST(tuple, TinyVarlenFormatOverflowMedium) { // NOLINT(cert-err58-cpp)
 
     schema.columns.emplace_back(column_info{ignite_type::INT32, false});
     for (int i = 0; i < 300; i++) {
-        schema.columns.emplace_back(column_info{ignite_type::BINARY, false});
+        schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, false});
     }
 
     // Flags - 1 zero byte
@@ -706,7 +706,7 @@ TEST(tuple, TinyVarlenFormatOverflowMedium) { // NOLINT(cert-err58-cpp)
         EXPECT_EQ(1, next->size());
         EXPECT_EQ(i, read_tuple<int8_t>(next.value()));
     }
-    for (IntT i = 4; i < schema.length(); i++) {
+    for (number_t i = 4; i < schema.length(); i++) {
         auto next = tp.get_next();
         EXPECT_TRUE(next.has_value());
         EXPECT_EQ(0, next.value().size());
@@ -724,8 +724,8 @@ TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
         {ignite_type::INT32, false},
         {ignite_type::INT32, false},
         {ignite_type::INT32, false},
-        {ignite_type::BINARY, false},
-        {ignite_type::BINARY, false},
+        {ignite_type::BYTE_ARRAY, false},
+        {ignite_type::BYTE_ARRAY, false},
         {ignite_type::STRING, false},
     };
 
@@ -927,7 +927,7 @@ TEST(tuple, StringAfterNull) {
     SchemaDescriptor schema;
 
     schema.columns.emplace_back(column_info{ignite_type::INT32, false});
-    schema.columns.emplace_back(column_info{ignite_type::BINARY, true});
+    schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, true});
     schema.columns.emplace_back(column_info{ignite_type::STRING, false});
 
     // 101, null, "Bob"
@@ -970,7 +970,7 @@ TEST(tuple, TupleWriteRead) { // NOLINT(cert-err58-cpp)
     schema.columns.emplace_back(column_info{ignite_type::INT8, false});
 
     for (bool nullable : {false, true}) {
-        for (IntT i = 0; i < schema.length(); i++) {
+        for (number_t i = 0; i < schema.length(); i++) {
             schema.columns[i].nullable = nullable;
         }
 
@@ -1043,7 +1043,7 @@ TEST(tuple, Int8TupleWriteRead) { // NOLINT(cert-err58-cpp)
     schema.columns.emplace_back(column_info{ignite_type::INT8, false});
 
     for (bool nullable : {false, true}) {
-        for (IntT i = 0; i < schema.length(); i++) {
+        for (number_t i = 0; i < schema.length(); i++) {
             schema.columns[i].nullable = nullable;
         }
 
@@ -1187,7 +1187,7 @@ TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
 
     schema.columns.emplace_back(column_info{ignite_type::INT32, false});
     for (int i = 0; i < 300; i++) {
-        schema.columns.emplace_back(column_info{ignite_type::BINARY, false});
+        schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, false});
     }
 
     {
@@ -1220,7 +1220,7 @@ TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
         binary_tuple_parser tp(schema.length(), tuple);
 
         EXPECT_EQ(100500, read_tuple<int32_t>(tp.get_next()));
-        for (IntT i = 1; i < schema.length(); i++) {
+        for (number_t i = 1; i < schema.length(); i++) {
             EXPECT_EQ(value, read_tuple<std::string>(tp.get_next()));
         }
     }
@@ -1259,7 +1259,7 @@ TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
         binary_tuple_parser tp(schema.length(), tuple);
 
         EXPECT_EQ(100500, read_tuple<int32_t>(tp.get_next()));
-        for (IntT i = 1; i < schema.length(); i++) {
+        for (number_t i = 1; i < schema.length(); i++) {
             EXPECT_EQ(value, read_tuple<std::string>(tp.get_next()));
         }
     }

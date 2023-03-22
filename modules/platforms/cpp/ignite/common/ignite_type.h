@@ -17,12 +17,16 @@
 
 #pragma once
 
+#include <ostream>
+
 namespace ignite {
 
 /**
- * SQL column type.
+ * @brief Supported types for column data.
+ *
+ * @note type of enum value is int, size is same as sizeof(int).
  */
-enum class column_type {
+enum class ignite_type {
     /** Boolean. */
     BOOLEAN = 0,
 
@@ -44,7 +48,7 @@ enum class column_type {
     /** 64-bit double-precision floating-point number. */
     DOUBLE = 6,
 
-    /** A decimal floating-point number. */
+    /** A decimal fixed-point number. */
     DECIMAL = 7,
 
     /** Timezone-free date. */
@@ -83,5 +87,13 @@ enum class column_type {
     /** Undefined. */
     UNDEFINED
 };
+
+/**
+ * @brief Writes a ignite_type value to an output stream.
+ */
+inline std::ostream &operator<<(std::ostream &os, const ignite_type t) {
+    os << static_cast<std::underlying_type_t<ignite_type>>(t);
+    return os;
+}
 
 } // namespace ignite
