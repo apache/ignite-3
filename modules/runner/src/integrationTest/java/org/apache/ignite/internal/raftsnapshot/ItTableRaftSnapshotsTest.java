@@ -316,7 +316,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         transferLeadershipOnSolePartitionTo(0);
 
         cluster.knockOutNode(2, knockout);
-        System.out.println("Test::run_dml");
 
         cluster.doInSession(0, session -> {
             executeUpdate("insert into test(key, value) values (1, 'one')", session);
@@ -335,8 +334,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             executeUpdate(sql, session);
         });
 
-        waitForIndex(cluster::nodes, "test" + "_PK");
-        System.out.println("Test::indexes_ready");
+        waitForIndex(cluster::nodes, "test_PK");
 
         waitForTableToStart();
     }
