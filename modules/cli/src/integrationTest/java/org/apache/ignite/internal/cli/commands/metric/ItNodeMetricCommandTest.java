@@ -38,7 +38,7 @@ class ItNodeMetricCommandTest extends CliCommandTestInitializedIntegrationBase {
                 () -> assertOutputIs("Enabled metric sources:" + System.lineSeparator()
                         + "Disabled metric sources:" + System.lineSeparator()
                         + "jvm" + System.lineSeparator()
-                        + "client-handler" + System.lineSeparator())
+                        + "client.handler" + System.lineSeparator())
         );
     }
 
