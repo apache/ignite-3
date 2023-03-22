@@ -130,6 +130,19 @@ public class ReconnectTests
     [Test]
     public async Task TestReconnectAfterFullClusterRestart()
     {
+        // TODO:
+        // Expected: <Apache.Ignite.IgniteClientConnectionException>
+        //  But was:  <System.AggregateException: One or more errors occurred. (Cannot access a disposed object.)
+        // ---> System.ObjectDisposedException: Cannot access a disposed object.
+        //   at System.Threading.TimerQueueTimer.Change(UInt32 dueTime, UInt32 period)
+        //   at System.Threading.Timer.Change(Int64 dueTime, Int64 period)
+        //   at System.Threading.Timer.Change(TimeSpan dueTime, TimeSpan period)
+        //   at Apache.Ignite.Internal.ClientSocket.SendRequestAsync(PooledArrayBuffer request, ClientOp op, Int64 requestId) in /home/pavel/w/ignite-3/modules/platforms/dotnet/Apache.Ignite/Internal/ClientSocket.cs:line 526
+        //   --- End of inner exception stack trace ---
+        //   at Apache.Ignite.Internal.ClientFailoverSocket.DoOutInOpAndGetSocketAsync(ClientOp clientOp, Transaction tx, PooledArrayBuffer request, PreferredNode preferredNode) in /home/pavel/w/ignite-3/modules/platforms/dotnet/Apache.Ignite/Internal/ClientFailoverSocket.cs:line 185
+        //   at Apache.Ignite.Internal.ClientFailoverSocket.DoOutInOpAsync(ClientOp clientOp, PooledArrayBuffer request, PreferredNode preferredNode) in /home/pavel/w/ignite-3/modules/platforms/dotnet/Apache.Ignite/Internal/ClientFailoverSocket.cs:line 145
+        //   at Apache.Ignite.Internal.Table.Tables.GetTablesAsync() in /home/pavel/w/ignite-3/modules/platforms/dotnet/Apache.Ignite/Internal/Table/Tables.cs:line 64
+        //   at Apache.Ignite.Tests.ReconnectTests.<>c__DisplayClass6_0.<<TestReconnectAfterFullClusterRestart>b__1>d.MoveNext() in /home/pavel/w/ignite-3/modules/platforms/dotnet/Apache.Ignite.Tests/ReconnectTests.cs:line 154
         var logger = new ConsoleLogger { MinLevel = LogLevel.Trace };
 
         var cfg = new IgniteClientConfiguration
