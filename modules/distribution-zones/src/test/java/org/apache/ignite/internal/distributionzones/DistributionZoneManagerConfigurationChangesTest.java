@@ -120,7 +120,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         );
 
         // Mock logical topology for distribution zone.
-        vaultMgr.put(zonesLogicalTopologyKey(), toBytes(nodes));
+        // vaultMgr.put(zonesLogicalTopologyKey(), toBytes(nodes));
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), longToBytes(1));
         keyValueStorage.put(zonesLogicalTopologyKey().bytes(), toBytes(nodes));
 
