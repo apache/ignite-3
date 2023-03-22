@@ -79,7 +79,7 @@ progressBar = "0.9.4"
 #Tools
 pmdTool = "6.28.0"
 checkstyleTool = "10.3.3"
-jacocoTool = "0.8.5"
+jacocoTool = "0.8.8"
 
 [plugins]
 openapiGenerator = "org.openapi.generator:5.4.0"

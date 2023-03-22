@@ -38,9 +38,6 @@ public interface IgniteResource {
     @Resources.BaseMessage("Illegal value of {0}. The value must be positive and less than Integer.MAX_VALUE (" + Integer.MAX_VALUE + ").")
     Resources.ExInst<SqlValidatorException> correctIntegerLimit(String a0);
 
-    @Resources.BaseMessage("Unexpected number of query parameters. Provided {0} but there is only {1} dynamic parameter(s).")
-    Resources.ExInst<SqlValidatorException> unexpectedParameter(int provided, int expected);
-
     @Resources.BaseMessage("Invalid decimal literal")
     Resources.ExInst<SqlValidatorException> decimalLiteralInvalid();
 }

@@ -102,8 +102,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** Dynamic parameters. */
     private final Object[] parameters;
 
-    private int dynamicParameterCount;
-
     /**
      * Creates a validator.
      *
@@ -123,34 +121,18 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     public SqlNode validate(SqlNode topNode) {
-        this.dynamicParameterCount = 0;
-        try {
-            SqlNode topNodeToValidate;
-            // Calcite fails to validate a query when its top node is EXPLAIN PLAN FOR
-            // java.lang.NullPointerException: namespace for <query>
-            // at org.apache.calcite.sql.validate.SqlValidatorImpl.getNamespaceOrThrow(SqlValidatorImpl.java:1280)
-            boolean explain = topNode instanceof SqlExplain;
-            if (explain) {
-                SqlExplain explainNode = (SqlExplain) topNode;
-                topNodeToValidate = explainNode.getExplicandum();
-            } else {
-                topNodeToValidate = topNode;
-            }
+        // Calcite fails to validate a query when its top node is EXPLAIN PLAN FOR
+        // java.lang.NullPointerException: namespace for <query>
+        // at org.apache.calcite.sql.validate.SqlValidatorImpl.getNamespaceOrThrow(SqlValidatorImpl.java:1280)
+        if (topNode instanceof SqlExplain) {
+            SqlExplain explainNode = (SqlExplain) topNode;
+            SqlNode topNodeToValidate = explainNode.getExplicandum();
 
             SqlNode validatedNode = super.validate(topNodeToValidate);
-            if (parameters.length != dynamicParameterCount) {
-                throw newValidationError(topNode, IgniteResource.INSTANCE.unexpectedParameter(parameters.length, dynamicParameterCount));
-            }
-
-            if (explain) {
-                SqlExplain explainNode = (SqlExplain) topNode;
-                explainNode.setOperand(0, validatedNode);
-                return explainNode;
-            } else {
-                return validatedNode;
-            }
-        } finally {
-            this.dynamicParameterCount = 0;
+            explainNode.setOperand(0, validatedNode);
+            return explainNode;
+        } else {
+            return super.validate(topNode);
         }
     }
 
@@ -272,18 +254,10 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         } else if (n instanceof SqlDynamicParam) {
             SqlDynamicParam dynamicParam = (SqlDynamicParam) n;
             int idx = dynamicParam.getIndex();
-            // validateDynamicParam is not called by a validator we must call it ourselves.
-            validateDynamicParam(dynamicParam);
-
-            // We must check the number of dynamic parameters unless
-            // https://issues.apache.org/jira/browse/IGNITE-18653
-            // is resolved.
-            if (idx < parameters.length) {
-                Object param = parameters[idx];
-                if (parameters[idx] instanceof Integer) {
-                    if ((Integer) param < 0) {
-                        throw newValidationError(n, IgniteResource.INSTANCE.correctIntegerLimit(nodeName));
-                    }
+            Object param = parameters[idx];
+            if (param instanceof Integer) {
+                if ((Integer) param < 0) {
+                    throw newValidationError(n, IgniteResource.INSTANCE.correctIntegerLimit(nodeName));
                 }
             }
         }
@@ -569,18 +543,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     /** {@inheritDoc} */
     @Override
-    public void validateDynamicParam(SqlDynamicParam dynamicParam) {
-        this.dynamicParameterCount = Integer.max(dynamicParameterCount, dynamicParam.getIndex() + 1);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     protected void inferUnknownTypes(RelDataType inferredType, SqlValidatorScope scope, SqlNode node) {
         if (node instanceof SqlDynamicParam && inferredType.equals(unknownType)) {
             SqlDynamicParam dynamicParam = (SqlDynamicParam) node;
-
-            // We explicitly call validateDynamicParam because the validator does not call it.
-            validateDynamicParam(dynamicParam);
 
             RelDataType type = inferDynamicParamType(dynamicParam);
             setValidatedNodeType(node, type);
@@ -633,24 +598,20 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     private RelDataType inferDynamicParamType(SqlDynamicParam dynamicParam) {
-        // We must check the number of dynamic parameters unless
-        // https://issues.apache.org/jira/browse/IGNITE-18653
-        // is resolved.
-        if (dynamicParam.getIndex() < parameters.length) {
-            Object param = parameters[dynamicParam.getIndex()];
-            // IgniteCustomType: first we must check whether dynamic parameter is a custom data type.
-            // If so call createCustomType with appropriate arguments.
-            if (param instanceof UUID) {
-                return typeFactory().createCustomType(UuidType.NAME);
-            } else if (param != null) {
-                return typeFactory().toSql(typeFactory().createType(param.getClass()));
-            } else {
-                return typeFactory().createSqlType(SqlTypeName.NULL);
-            }
+        RelDataType parameterType;
+
+        Object param = parameters[dynamicParam.getIndex()];
+        // IgniteCustomType: first we must check whether dynamic parameter is a custom data type.
+        // If so call createCustomType with appropriate arguments.
+        if (param instanceof UUID) {
+            parameterType =  typeFactory().createCustomType(UuidType.NAME);
+        } else if (param != null) {
+            parameterType = typeFactory().toSql(typeFactory().createType(param.getClass()));
         } else {
-            // This query will be rejected since the number of dynamic parameters
-            // is not valid.
-            return typeFactory().createSqlType(SqlTypeName.NULL);
+            parameterType = typeFactory().createSqlType(SqlTypeName.NULL);
         }
+
+        // Dynamic parameters are nullable.
+        return typeFactory().createTypeWithNullability(parameterType, true);
     }
 }

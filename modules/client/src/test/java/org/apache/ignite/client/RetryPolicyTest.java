@@ -187,8 +187,8 @@ public class RetryPolicyTest {
             recView.get(null, Tuple.create().set("id", 1L));
             recView.get(null, Tuple.create().set("id", 1L));
 
-            loggerFactory.assertLogContains("Disconnected from server");
-            loggerFactory.assertLogContains("Going to retry operation because of error [op=TUPLE_GET");
+            loggerFactory.assertLogContains("Connection closed");
+            loggerFactory.assertLogContains("Retrying operation [opCode=12, opType=TUPLE_GET, attempt=0, lastError=java.util");
         }
     }
 

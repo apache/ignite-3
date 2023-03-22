@@ -23,19 +23,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Tests for SSL. */
-public class ItSslTest extends CliSslIntegrationTestBase {
-
-    /** Trust store path. */
-    private static final String trustStorePath = "ssl/truststore.jks";
-
-    /** Trust store password. */
-    private static final String trustStorePassword = "changeit";
-
-    /** Key store path. */
-    private static final String keyStorePath = "ssl/keystore.p12";
-
-    /** Key store password. */
-    private static final String keyStorePassword = "changeit";
+public class ItSslTest extends CliSslNotInitializedIntegrationTestBase {
 
     @Test
     @DisplayName("Should get SSL error, when connect to secured node without SSL settings")
@@ -54,9 +42,9 @@ public class ItSslTest extends CliSslIntegrationTestBase {
     @DisplayName("Should connect to cluster with given url")
     void connectToSecuredNode() {
         // When set up ssl configuration
-        execute("cli", "config", "set", "ignite.rest.key-store.path=" + getResourcePath(keyStorePath));
+        execute("cli", "config", "set", "ignite.rest.key-store.path=" + resolvedKeystorePath);
         execute("cli", "config", "set", "ignite.rest.key-store.password=" + keyStorePassword);
-        execute("cli", "config", "set", "ignite.rest.trust-store.path=" + getResourcePath(trustStorePath));
+        execute("cli", "config", "set", "ignite.rest.trust-store.path=" + resolvedTruststorePath);
         execute("cli", "config", "set", "ignite.rest.trust-store.password=" + trustStorePassword);
         resetOutput();
 

@@ -335,7 +335,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     private void waitForTableToStart() throws InterruptedException {
-        // TODO: IGNITE-18203 - remove this wait because when a table creation query is executed, the table must be fully ready.
+        // TODO: IGNITE-18733 - remove this wait because when a table creation query is executed, the table must be fully ready.
 
         BooleanSupplier tableStarted = () -> {
             int numberOfStartedRaftNodes = cluster.runningNodes()

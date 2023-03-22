@@ -38,7 +38,7 @@ dependencies {
     implementation project(':ignite-raft-api')
     implementation project(':ignite-storage-api')
     implementation project(':ignite-transactions')
-    implementation project(':ignite-configuration')
+    implementation project(':ignite-configuration-api')
     implementation project(':ignite-distribution-zones')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core

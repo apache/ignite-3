@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 import java.util.List;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -46,8 +47,8 @@ public class DdlPlan implements QueryPlan {
 
     /** {@inheritDoc} */
     @Override
-    public Type type() {
-        return Type.DDL;
+    public SqlQueryType type() {
+        return SqlQueryType.DDL;
     }
 
     /** {@inheritDoc} */

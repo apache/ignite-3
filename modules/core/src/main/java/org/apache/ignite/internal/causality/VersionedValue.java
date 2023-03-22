@@ -49,7 +49,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class VersionedValue<T> {
     /** Token until the value is initialized. */
-    private static final long NOT_INITIALIZED = -1L;
+    public static final long NOT_INITIALIZED = -1L;
 
     /** Default history size. */
     private static final int DEFAULT_MAX_HISTORY_SIZE = 10;
