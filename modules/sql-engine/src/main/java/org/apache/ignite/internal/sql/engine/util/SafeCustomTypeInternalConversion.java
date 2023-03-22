@@ -74,6 +74,6 @@ final class SafeCustomTypeInternalConversion {
     }
 
     private static String storageTypeMismatch(Object value, Class<?> type) {
-        return String.format("storageType is %s value must also be %s but it was not: %s", type, type, value);
+        return String.format("storageType is %s value must also be %s but it was: %s", type, type, value);
     }
 }

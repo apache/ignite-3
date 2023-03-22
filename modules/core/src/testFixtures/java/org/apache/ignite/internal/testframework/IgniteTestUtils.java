@@ -23,6 +23,9 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -825,5 +828,54 @@ public final class IgniteTestUtils {
 
             throw assertionError;
         }
+    }
+
+    /**
+     * Returns a file system path for a resource name.
+     *
+     * @param cls A class.
+     * @param resourceName A resource name.
+     * @return A file system path matching the path component of the resource URL.
+     */
+    public static String getResourcePath(Class<?> cls, String resourceName) {
+        return getPath(cls.getClassLoader().getResource(resourceName));
+    }
+
+    /**
+     * Converts a URL to a file system path.
+     *
+     * <p>This method is needed to get a proper file system name on the Windows platform. For portable code
+     * it should be used instead of URL::getPath().
+     *
+     * <p>For example, given a URL <i>file:///C:/dir/file.ext</i>, this method returns a Windows-specific
+     * path: <i>C:\dir\file.ext</i>.
+     *
+     * <p>While the URL::getPath() method returns a path that will not work for file system API on Windows:
+     * <i>/C:/dir/file.ext</i>.
+     *
+     * <p>There is no such problem on UNIX-like systems where given an URL <i>file:///dir/file.ext</i>,
+     * both methods return the same result: <i>/dir/file.ext</i>
+     *
+     * @param url A resource URL.
+     * @return A file system path matching the path component of the URL.
+     */
+    public static String getPath(URL url) {
+        try {
+            return Path.of(url.toURI()).toString();
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e); // Shouldn't happen if the URL is obtained from the class loader.
+        }
+    }
+
+    /**
+     * Adds escape characters before backslashes in a path (on Windows), e.g. for the HOCON config parser.
+     *
+     * <p>For example, given a path argument <i>C:\dir\file.ext</i>, this method returns <i>C:\\dir\\file.ext</i>.
+     *
+     * @param path A path string.
+     * @return A path string with escaped backslashes.
+     */
+    public static String escapeWindowsPath(String path) {
+        return path.replace("\\", "\\\\");
     }
 }

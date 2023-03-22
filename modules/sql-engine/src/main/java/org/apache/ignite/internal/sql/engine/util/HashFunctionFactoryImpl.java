@@ -46,7 +46,7 @@ public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
     public RowHashFunction<T> create(int[] fields, UUID tableId) {
         int fieldCnt = fields.length;
         NativeType[] fieldTypes = new NativeType[fieldCnt];
-        TableDescriptor tblDesc = sqlSchemaManager.tableById(tableId, -1).descriptor();
+        TableDescriptor tblDesc = sqlSchemaManager.tableById(tableId).descriptor();
         ImmutableIntList colocationColumns = tblDesc.distribution().getKeys();
 
         assert colocationColumns.size() == fieldCnt : "fieldsCount=" + fieldCnt + ", colocationColumns=" + colocationColumns;

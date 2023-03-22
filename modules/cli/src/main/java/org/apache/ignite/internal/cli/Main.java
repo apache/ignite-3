@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cli;
 
-import static org.apache.ignite.internal.cli.config.ConfigConstants.IGNITE_CLI_LOGS_DIR;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.Constants.IGNITE_CLI_LOGS_DIR;
 
 import io.micronaut.configuration.picocli.MicronautFactory;
 import io.micronaut.context.ApplicationContext;

@@ -636,21 +636,27 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         // We must check the number of dynamic parameters unless
         // https://issues.apache.org/jira/browse/IGNITE-18653
         // is resolved.
+
+        RelDataType parameterType;
+
         if (dynamicParam.getIndex() < parameters.length) {
             Object param = parameters[dynamicParam.getIndex()];
             // IgniteCustomType: first we must check whether dynamic parameter is a custom data type.
             // If so call createCustomType with appropriate arguments.
             if (param instanceof UUID) {
-                return typeFactory().createCustomType(UuidType.NAME);
+                parameterType =  typeFactory().createCustomType(UuidType.NAME);
             } else if (param != null) {
-                return typeFactory().toSql(typeFactory().createType(param.getClass()));
+                parameterType = typeFactory().toSql(typeFactory().createType(param.getClass()));
             } else {
-                return typeFactory().createSqlType(SqlTypeName.NULL);
+                parameterType = typeFactory().createSqlType(SqlTypeName.NULL);
             }
         } else {
             // This query will be rejected since the number of dynamic parameters
             // is not valid.
-            return typeFactory().createSqlType(SqlTypeName.NULL);
+            parameterType = typeFactory().createSqlType(SqlTypeName.NULL);
         }
+
+        // Dynamic parameters are nullable.
+        return typeFactory().createTypeWithNullability(parameterType, true);
     }
 }

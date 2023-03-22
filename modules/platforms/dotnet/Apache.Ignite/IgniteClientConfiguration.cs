@@ -86,6 +86,7 @@ namespace Apache.Ignite
             RetryPolicy = other.RetryPolicy;
             HeartbeatInterval = other.HeartbeatInterval;
             ReconnectInterval = other.ReconnectInterval;
+            SslStreamFactory = other.SslStreamFactory;
         }
 
         /// <summary>
@@ -159,5 +160,14 @@ namespace Apache.Ignite
         /// </summary>
         [DefaultValue(typeof(TimeSpan), "00:00:30")]
         public TimeSpan ReconnectInterval { get; set; } = DefaultReconnectInterval;
+
+        /// <summary>
+        /// Gets or sets the SSL stream factory.
+        /// <para />
+        /// When not null, secure socket connection will be established.
+        /// <para />
+        /// See <see cref="SslStreamFactory"/>.
+        /// </summary>
+        public ISslStreamFactory? SslStreamFactory { get; set; }
     }
 }

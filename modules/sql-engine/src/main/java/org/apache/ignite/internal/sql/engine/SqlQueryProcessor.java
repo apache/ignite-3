@@ -100,10 +100,10 @@ public class SqlQueryProcessor implements QueryProcessor {
     private static final long PLANNER_TIMEOUT = 15000L;
 
     /** Size of the cache for query plans. */
-    public static final int PLAN_CACHE_SIZE = 1024;
+    private static final int PLAN_CACHE_SIZE = 1024;
 
     /** Session expiration check period in milliseconds. */
-    public static final long SESSION_EXPIRE_CHECK_PERIOD = TimeUnit.SECONDS.toMillis(1);
+    private static final long SESSION_EXPIRE_CHECK_PERIOD = TimeUnit.SECONDS.toMillis(1);
 
     /** Name of the default schema. */
     public static final String DEFAULT_SCHEMA_NAME = "PUBLIC";

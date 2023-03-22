@@ -37,7 +37,7 @@ import org.junit.jupiter.api.Test;
  * Test Ignite SQL functions.
  */
 public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
-    private static final Object[] NULL_RESULT = new Object[] { null };
+    private static final Object[] NULL_RESULT = { null };
 
     @Test
     public void testTimestampDiffWithFractionsOfSecond() {

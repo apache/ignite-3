@@ -31,11 +31,13 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.internal.client.ClientChannel;
+import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
@@ -60,6 +62,8 @@ public class ClientTable implements Table {
 
     private final ConcurrentHashMap<Integer, ClientSchema> schemas = new ConcurrentHashMap<>();
 
+    private final IgniteLogger log;
+
     private volatile int latestSchemaVer = -1;
 
     private final Object latestSchemaLock = new Object();
@@ -83,6 +87,7 @@ public class ClientTable implements Table {
         this.ch = ch;
         this.id = id;
         this.name = name;
+        this.log = ClientUtils.logger(ch.configuration(), ClientTable.class);
     }
 
     /**
@@ -160,6 +165,8 @@ public class ClientTable implements Table {
             int schemaCnt = r.in().unpackMapHeader();
 
             if (schemaCnt == 0) {
+                log.warn("Schema not found [tableId=" + id + ", schemaVersion=" + ver + "]");
+
                 throw new IgniteException(UNEXPECTED_ERR, "Schema not found: " + ver);
             }
 
@@ -167,6 +174,10 @@ public class ClientTable implements Table {
 
             for (var i = 0; i < schemaCnt; i++) {
                 last = readSchema(r.in());
+
+                if (log.isDebugEnabled()) {
+                    log.debug("Schema loaded [tableId=" + id + ", schemaVersion=" + last.version() + "]");
+                }
             }
 
             return last;

@@ -57,6 +57,27 @@ class SslConfigurationValidatorImplTest {
     }
 
     @Test
+    public void allCiphersAreIncompatible(@WorkDirectory Path workDir) throws IOException {
+        KeyStoreView keyStore = createValidKeyStoreConfig(workDir);
+        validate(new StubSslView(true, "NONE", "foo", keyStore, null),
+                "None of the configured cipher suites are supported: [foo]");
+    }
+
+    @Test
+    public void someCiphersAreIncompatible(@WorkDirectory Path workDir) throws IOException {
+        KeyStoreView keyStore = createValidKeyStoreConfig(workDir);
+        validate(new StubSslView(true, "NONE", "foo, TLS_AES_256_GCM_SHA384", keyStore, null),
+                (String[]) null);
+    }
+
+    @Test
+    public void allCiphersAreCompatible(@WorkDirectory Path workDir) throws IOException {
+        KeyStoreView keyStore = createValidKeyStoreConfig(workDir);
+        validate(new StubSslView(true, "NONE", "TLS_AES_256_GCM_SHA384", keyStore, null),
+                (String[]) null);
+    }
+
+    @Test
     public void nullTrustStorePath(@WorkDirectory Path workDir) throws IOException {
         validate(createTrustStoreConfig(workDir, "PKCS12", null, "changeIt"),
                 "Trust store path must not be blank");
@@ -83,7 +104,7 @@ class SslConfigurationValidatorImplTest {
     @Test
     public void incorrectAuthType(@WorkDirectory Path workDir) throws IOException {
         KeyStoreView keyStore = createValidKeyStoreConfig(workDir);
-        StubSslView sslView = new StubSslView(true, "foo", keyStore, null);
+        StubSslView sslView = new StubSslView(true, "foo", "", keyStore, null);
 
         validate(sslView, "Incorrect client auth parameter foo");
     }
@@ -91,7 +112,7 @@ class SslConfigurationValidatorImplTest {
     @Test
     public void validKeyStoreConfig(@WorkDirectory Path workDir) throws IOException {
         KeyStoreView keyStore = createValidKeyStoreConfig(workDir);
-        validate(new StubSslView(true, "NONE", keyStore, null), (String[]) null);
+        validate(new StubSslView(true, "NONE", "", keyStore, null), (String[]) null);
     }
 
     @Test
@@ -102,20 +123,20 @@ class SslConfigurationValidatorImplTest {
         validate(createTrustStoreConfig(workDir, "JKS", trustStorePath.toAbsolutePath().toString(), null), (String[]) null);
     }
 
-    private static void validate(SslView config, String ... errorMessagePrefixes) {
+    private static void validate(AbstractSslView config, String ... errorMessagePrefixes) {
         var ctx = mockValidationContext(null, config);
         TestValidationUtil.validate(SslConfigurationValidatorImpl.INSTANCE, mock(SslConfigurationValidator.class), ctx,
                 errorMessagePrefixes);
     }
 
-    private static SslView createKeyStoreConfig(String type, String path, String password) {
-        return new StubSslView(true, "NONE", new StubKeyStoreView(type, path, password), null);
+    private static AbstractSslView createKeyStoreConfig(String type, String path, String password) {
+        return new StubSslView(true, "NONE", "", new StubKeyStoreView(type, path, password), null);
     }
 
-    private static SslView createTrustStoreConfig(Path workDir, String type, String path, String password) throws IOException {
+    private static AbstractSslView createTrustStoreConfig(Path workDir, String type, String path, String password) throws IOException {
         KeyStoreView keyStore = createValidKeyStoreConfig(workDir);
         KeyStoreView trustStore = new StubKeyStoreView(type, path, password);
-        return new StubSslView(true, "OPTIONAL", keyStore, trustStore);
+        return new StubSslView(true, "OPTIONAL", "", keyStore, trustStore);
     }
 
     private static KeyStoreView createValidKeyStoreConfig(Path workDir) throws IOException {

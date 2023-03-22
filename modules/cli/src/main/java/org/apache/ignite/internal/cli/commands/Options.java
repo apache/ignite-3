@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands;
 
-import org.apache.ignite.internal.cli.config.ConfigConstants;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
 
 /**
  * Constants to use in {@code Option} annotations for commands.
@@ -46,6 +46,9 @@ public enum Options {
 
     SCRIPT_FILE(Constants.SCRIPT_FILE_OPTION, Constants.SCRIPT_FILE_OPTION_SHORT, Constants.SCRIPT_FILE_OPTION_DESC),
     JDBC_URL(Constants.JDBC_URL_OPTION, Constants.JDBC_URL_OPTION_SHORT, Constants.JDBC_URL_OPTION_DESC),
+
+    UNIT_PATH(Constants.UNIT_PATH_OPTION, Constants.UNIT_PATH_OPTION_SHORT, Constants.UNIT_PATH_OPTION_DESC),
+    UNIT_VERSION(Constants.VERSION_OPTION, Constants.UNIT_VERSION_OPTION_SHORT, Constants.UNIT_VERSION_OPTION_DESC),
 
     PLAIN(Constants.PLAIN_OPTION, Constants.PLAIN_OPTION, Constants.PLAIN_OPTION_DESC),
     VERBOSE(Constants.VERBOSE_OPTION, Constants.VERBOSE_OPTION_SHORT, Constants.VERBOSE_OPTION_DESC),
@@ -83,7 +86,7 @@ public enum Options {
         public static final String CLUSTER_URL_OPTION_DESC = "URL of cluster endpoint";
 
         /** Cluster endpoint URL option description key. */
-        public static final String CLUSTER_URL_KEY = ConfigConstants.CLUSTER_URL;
+        public static final String CLUSTER_URL_KEY = CliConfigKeys.Constants.CLUSTER_URL;
 
         /** Node URL option long name. */
         public static final String NODE_URL_OPTION = "--node-url";
@@ -208,6 +211,21 @@ public enum Options {
 
         /** Version option long name. */
         public static final String VERSION_OPTION = "--version";
+
+        /** Version option short name. */
+        public static final String UNIT_VERSION_OPTION_SHORT = "-uv";
+
+        /** Unit version option description. */
+        public static final String UNIT_VERSION_OPTION_DESC = "Unit version (x.y.z)";
+
+        /** Path option long name. */
+        public static final String UNIT_PATH_OPTION = "--path";
+
+        /** Unit path option short name. */
+        public static final String UNIT_PATH_OPTION_SHORT = "-up";
+
+        /** Unit path option description. */
+        public static final String UNIT_PATH_OPTION_DESC = "Path to deployment unit file or directory";
 
         /** Version option description. */
         public static final String VERSION_OPTION_DESC = "Print version information and exit";

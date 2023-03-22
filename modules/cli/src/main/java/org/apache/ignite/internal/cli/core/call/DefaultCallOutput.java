@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.core.call;
 
 import java.util.Objects;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Default implementation of {@link CallOutput} with {@link T} body.
@@ -100,7 +101,7 @@ public class DefaultCallOutput<T> implements CallOutput<T> {
      * @param body for successful call output.
      * @return Successful call output with provided body.
      */
-    public static <T> DefaultCallOutput<T> success(T body) {
+    public static <T> DefaultCallOutput<T> success(@Nullable T body) {
         return DefaultCallOutput.<T>builder()
                 .status(CallOutputStatus.SUCCESS)
                 .body(body)
