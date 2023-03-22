@@ -39,7 +39,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
@@ -65,7 +64,6 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 /**
  * Tests distribution zones configuration changes and reaction to that changes.
@@ -185,7 +183,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     void testDataNodesNotPropagatedAfterZoneCreation() throws Exception {
         keyValueStorage.put(zonesChangeTriggerKey(1).bytes(), longToBytes(100));
 
-        Mockito.clearInvocations(keyValueStorage);
+        clearInvocations(keyValueStorage);
 
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
@@ -198,7 +196,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     @Test
     void testZoneDeleteDoNotRemoveMetaStorageKey() throws Exception {
-        Mockito.clearInvocations(keyValueStorage);
+        clearInvocations(keyValueStorage);
 
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
