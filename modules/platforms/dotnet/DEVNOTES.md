@@ -26,6 +26,8 @@ then run .NET tests with `dotnet test` or `dotnet test --filter TEST_NAME`. When
 The test node will stop after 30 minutes by default.
 To change this, set `IGNITE_PLATFORM_TEST_NODE_RUNNER_RUN_TIME_MINUTES` environment variable.
 
+To ensure that external test node is used, and a new one is never started by .NET test code, set `IGNITE_DOTNET_REQUIRE_EXTERNAL_SERVER` to `true`.
+
 ## Static Code Analysis
 
 Static code analysis (Roslyn-based) runs as part of the build and includes code style check. Build fails on any warning.

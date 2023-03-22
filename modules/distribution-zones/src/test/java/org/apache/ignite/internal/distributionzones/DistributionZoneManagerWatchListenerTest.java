@@ -77,7 +77,6 @@ import org.apache.ignite.lang.ByteArray;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
 
 /**
  * Tests distribution zones logical topology changes and reaction to that changes.
@@ -89,9 +88,6 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     private SimpleInMemoryKeyValueStorage keyValueStorage;
 
     private ConfigurationManager clusterCfgMgr;
-
-    @Mock
-    private LogicalTopologyServiceImpl logicalTopologyService;
 
     private LogicalTopology topology;
 
@@ -105,11 +101,9 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
     private DistributionZonesConfiguration zonesConfiguration;
 
-    @Mock
     private ClusterManagementGroupManager cmgManager;
 
-    @Mock
-    RaftGroupService metaStorageService;
+    private RaftGroupService metaStorageService;
 
     @BeforeEach
     public void setUp() {
@@ -355,7 +349,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     }
 
     private void mockVaultAppliedRevision(long revision) {
-        when(metaStorageManager.appliedRevision()).thenReturn(revision);
+        when(metaStorageManager.appliedRevision(any())).thenReturn(completedFuture(revision));
     }
 
     private void mockCmgLocalNodes() {

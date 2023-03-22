@@ -17,12 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
+
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollations;
+import org.apache.calcite.rel.RelHomogeneousShuttle;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.rel.logical.LogicalCorrelate;
+import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlNode;
@@ -36,10 +43,17 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 
 /**
- * PlannerHelper.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Utility class that encapsulates the query optimization pipeline.
  */
-public class PlannerHelper {
+public final class PlannerHelper {
+    /**
+     * Maximum number of tables in join supported for join order optimization.
+     *
+     * <p>If query joins more table than specified, then rules {@link CoreRules#JOIN_COMMUTE} and
+     * {@link CoreRules#JOIN_COMMUTE_OUTER} will be disabled, tables will be joined in the order
+     * of enumeration in the query.
+     */
+    private static final int MAX_SIZE_OF_JOIN_TO_OPTIMIZE = 5;
 
     private static final IgniteLogger LOG = Loggers.forClass(PlannerHelper.class);
 
@@ -51,11 +65,15 @@ public class PlannerHelper {
     }
 
     /**
-     * Optimize.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Optimizes a given query.
      *
-     * @param sqlNode Sql node.
-     * @param planner Planner.
+     * <p>That is, it passes a given AST through the optimization pipeline,
+     * applying different rule sets step by step, and returns the optimized
+     * physical tree of Ignite relations.
+     *
+     * @param sqlNode Validated AST of the query to optimize.
+     * @param planner A planner used to apply a rule set to the query tree.
+     * @return An optimized physical tree of Ignite relations.
      */
     public static IgniteRel optimize(SqlNode sqlNode, IgnitePlanner planner) {
         try {
@@ -74,6 +92,19 @@ public class PlannerHelper {
             rel = planner.replaceCorrelatesCollisions(rel);
 
             rel = planner.trimUnusedFields(root.withRel(rel)).rel;
+
+            JoinSizeFinder joinSizeFinder = new JoinSizeFinder();
+
+            joinSizeFinder.visit(rel);
+
+            if (joinSizeFinder.sizeOfBiggestJoin() > MAX_SIZE_OF_JOIN_TO_OPTIMIZE) {
+                Set<String> disabledRules = new HashSet<>(HintUtils.disabledRules(root.hints));
+
+                disabledRules.add(shortRuleName(CoreRules.JOIN_COMMUTE));
+                disabledRules.add(shortRuleName(CoreRules.JOIN_COMMUTE_OUTER));
+
+                planner.setDisabledRules(Set.copyOf(disabledRules));
+            }
 
             rel = planner.transform(PlannerPhase.HEP_FILTER_PUSH_DOWN, rel.getTraitSet(), rel);
 
@@ -106,6 +137,51 @@ public class PlannerHelper {
             }
 
             throw ex;
+        }
+    }
+
+    /**
+     * A shuttle to estimate a biggest join to optimize.
+     *
+     * <p>There are only two rules: <ol>
+     *     <li>Each achievable leaf node contribute to join complexity, thus must be counted</li>
+     *     <li>If this shuttle reach the {@link LogicalCorrelate} node, only left shoulder will be
+     *         analysed by this shuttle. For right shoulder a new shuttle will be created, and maximum
+     *         of previously found subquery and current one will be saved</li>
+     * </ol>
+     */
+    private static class JoinSizeFinder extends RelHomogeneousShuttle {
+        private int countOfSources = 0;
+        private int maxCountOfSourcesInSubQuery = 0;
+
+        /** {@inheritDoc} */
+        @Override
+        public RelNode visit(RelNode other) {
+            if (other.getInputs().isEmpty()) {
+                countOfSources++;
+
+                return other;
+            }
+
+            return super.visit(other);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public RelNode visit(LogicalCorrelate correlate) {
+            JoinSizeFinder inSubquerySizeFinder = new JoinSizeFinder();
+            inSubquerySizeFinder.visit(correlate.getInput(1));
+
+            maxCountOfSourcesInSubQuery = Math.max(
+                    maxCountOfSourcesInSubQuery,
+                    inSubquerySizeFinder.sizeOfBiggestJoin()
+            );
+
+            return visitChild(correlate, 0, correlate.getInput(0));
+        }
+
+        int sizeOfBiggestJoin() {
+            return Math.max(countOfSources, maxCountOfSourcesInSubQuery);
         }
     }
 }

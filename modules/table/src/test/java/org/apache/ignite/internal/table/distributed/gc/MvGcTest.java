@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.gc;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willTimeoutFast;
@@ -25,6 +26,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -193,7 +195,7 @@ public class MvGcTest {
 
         gc.updateLowWatermark(new HybridTimestamp(2, 2));
 
-        latch.await(1, TimeUnit.SECONDS);
+        assertTrue(latch.await(200, TimeUnit.MILLISECONDS));
     }
 
     @Test
@@ -296,6 +298,43 @@ public class MvGcTest {
         assertDoesNotThrow(gc::close);
     }
 
+    @Test
+    void testParallelUpdateLowWatermark(
+            @InjectConfiguration
+            TablesConfiguration tablesConfig
+    ) throws Exception {
+        // By default, in the tests we work in one thread, we don’t have enough this, we will add more.
+        assertThat(tablesConfig.gcThreads().update(Runtime.getRuntime().availableProcessors()), willCompleteSuccessfully());
+
+        gc.close();
+
+        gc = new MvGc("test", tablesConfig);
+
+        gc.start();
+
+        gc.updateLowWatermark(new HybridTimestamp(1, 1));
+
+        for (int i = 0; i < 100; i++) {
+            CountDownLatch latch = new CountDownLatch(5);
+
+            TablePartitionId tablePartitionId = createTablePartitionId();
+
+            gc.addStorage(tablePartitionId, createWithCountDownOnVacuumWithoutNextBatch(latch));
+
+            runRace(
+                    () -> gc.scheduleGcForAllStorages(),
+                    () -> gc.scheduleGcForAllStorages(),
+                    () -> gc.scheduleGcForAllStorages(),
+                    () -> gc.scheduleGcForAllStorages()
+            );
+
+            // We will check that we will call the vacuum on each update of the low watermark.
+            assertTrue(latch.await(200, TimeUnit.MILLISECONDS), "remaining=" + latch.getCount());
+
+            assertThat(gc.removeStorage(tablePartitionId), willCompleteSuccessfully());
+        }
+    }
+
     private TablePartitionId createTablePartitionId() {
         return new TablePartitionId(UUID.randomUUID(), PARTITION_ID);
     }
@@ -360,5 +399,18 @@ public class MvGcTest {
         IgniteInternalException exception = assertThrows(IgniteInternalException.class, executable);
 
         assertEquals(GarbageCollector.CLOSED_ERR, exception.code());
+    }
+
+    private StorageUpdateHandler createWithCountDownOnVacuumWithoutNextBatch(CountDownLatch latch) {
+        StorageUpdateHandler storageUpdateHandler = mock(StorageUpdateHandler.class);
+
+        when(storageUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
+            latch.countDown();
+
+            // So that there is no processing of the next batch.
+            return false;
+        });
+
+        return storageUpdateHandler;
     }
 }

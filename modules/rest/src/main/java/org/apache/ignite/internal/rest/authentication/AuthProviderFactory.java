@@ -30,7 +30,7 @@ import org.apache.ignite.internal.rest.RestFactory;
 @Factory
 public class AuthProviderFactory implements RestFactory {
 
-    private final DelegatingAuthenticationProvider authenticationProvider;
+    private DelegatingAuthenticationProvider authenticationProvider;
 
     public AuthProviderFactory(AuthenticationConfiguration configuration) {
         this.authenticationProvider = new DelegatingAuthenticationProvider();
@@ -46,5 +46,10 @@ public class AuthProviderFactory implements RestFactory {
     @Singleton
     public DelegatingAuthenticationProvider authenticationProvider() {
         return authenticationProvider;
+    }
+
+    @Override
+    public void cleanResources() {
+        authenticationProvider = null;
     }
 }

@@ -19,14 +19,10 @@ package org.apache.ignite.client.handler;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.ssl.SslContext;
-import io.netty.handler.timeout.IdleState;
-import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.IdleStateHandler;
 import java.net.BindException;
 import java.net.InetSocketAddress;
@@ -189,20 +185,25 @@ public class ClientHandlerModule implements IgniteComponent {
 
         ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
 
+        // Initialize SslContext once on startup to avoid initialization on each connection, and to fail in case of incorrect config.
+        SslContext sslContext = configuration.ssl().enabled() ? SslContextProvider.createServerSslContext(configuration.ssl()) : null;
+
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel ch) {
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("New client connection [remoteAddress=" + ch.remoteAddress() + ']');
+                        }
+
                         if (configuration.idleTimeout() > 0) {
                             IdleStateHandler idleStateHandler = new IdleStateHandler(
                                     configuration.idleTimeout(), 0, 0, TimeUnit.MILLISECONDS);
 
                             ch.pipeline().addLast(idleStateHandler);
-                            ch.pipeline().addLast(new IdleChannelHandler());
+                            ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeout()));
                         }
 
-                        if (configuration.ssl().enabled()) {
-                            SslContext sslContext =  SslContextProvider.createServerSslContext(configuration.ssl());
-
+                        if (sslContext != null) {
                             ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
                         }
 
@@ -243,19 +244,10 @@ public class ClientHandlerModule implements IgniteComponent {
             throw new IgniteException(msg);
         }
 
-        LOG.info("Thin client protocol started successfully[port={}]", port);
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Thin client protocol started successfully [port={}]", port);
+        }
 
         return ch.closeFuture();
-    }
-
-    /** Idle channel state handler. */
-    private static class IdleChannelHandler extends ChannelDuplexHandler {
-        /** {@inheritDoc} */
-        @Override
-        public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-            if (evt instanceof IdleStateEvent && ((IdleStateEvent) evt).state() == IdleState.READER_IDLE) {
-                ctx.close();
-            }
-        }
     }
 }

@@ -113,9 +113,6 @@ public class DistributionZoneManagerScaleUpTest {
 
     private ConfigurationManager clusterCfgMgr;
 
-    @Mock
-    private LogicalTopologyServiceImpl logicalTopologyService;
-
     private LogicalTopology topology;
 
     private ClusterStateStorage clusterStateStorage;
@@ -256,6 +253,36 @@ public class DistributionZoneManagerScaleUpTest {
         watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
 
         assertDataNodesForZone(1, clusterNodes2.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
+    }
+
+    @Test
+    void testDataNodesPropagationAfterScaleUpTriggeredOnNewCluster() throws Exception {
+        ClusterNode node1 = new ClusterNode("1", "name1", new NetworkAddress("localhost", 123));
+
+        topology.putNode(node1);
+
+        Set<ClusterNode> clusterNodes = Set.of(node1);
+
+        mockCmgLocalNodes();
+
+        distributionZoneManager.start();
+
+        distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
+                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
+        ).get();
+
+        distributionZoneManager.createZone(
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
+        ).get();
+
+        int zoneId = distributionZoneManager.getZoneId(ZONE_NAME);
+
+        mockVaultZonesLogicalTopologyKey(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
+
+        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 3);
+
+        assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
+        assertDataNodesForZone(zoneId, clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
     }
 
     @Test
@@ -1583,7 +1610,7 @@ public class DistributionZoneManagerScaleUpTest {
     }
 
     private void mockVaultAppliedRevision(long revision) {
-        when(metaStorageManager.appliedRevision()).thenReturn(revision);
+        when(metaStorageManager.appliedRevision(any())).thenReturn(completedFuture(revision));
     }
 
     private void watchListenerOnUpdate(Set<String> nodes, long rev) {

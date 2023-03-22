@@ -49,16 +49,16 @@ public class UnitVersion implements Version {
     /**
      * Parse string representation of version to {@link UnitVersion} if possible.
      *
-     * @param s String representation of version.
+     * @param rawVersion String representation of version.
      * @return Instance of {@link UnitVersion}.
      * @throws VersionParseException in case when string is not required {@link UnitVersion} format.
      */
-    public static UnitVersion parse(String s) {
-        Objects.requireNonNull(s);
+    public static UnitVersion parse(String rawVersion) {
+        Objects.requireNonNull(rawVersion);
         try {
-            String[] split = s.split("\\.", -1);
+            String[] split = rawVersion.split("\\.", -1);
             if (split.length > 3 || split.length == 0) {
-                throw new VersionParseException("Invalid version format");
+                throw new VersionParseException(rawVersion, "Invalid version format");
             }
 
             short major = Short.parseShort(split[0]);
@@ -67,7 +67,7 @@ public class UnitVersion implements Version {
 
             return new UnitVersion(major, minor, patch);
         } catch (NumberFormatException e) {
-            throw new VersionParseException(e);
+            throw new VersionParseException(rawVersion, e);
         }
     }
 

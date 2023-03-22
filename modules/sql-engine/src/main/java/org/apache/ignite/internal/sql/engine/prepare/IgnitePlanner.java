@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.io.PrintWriter;
 import java.io.Reader;
@@ -60,7 +62,6 @@ import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
@@ -75,10 +76,12 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
+import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 
 /**
  * Query planer.
@@ -164,9 +167,20 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     /** {@inheritDoc} */
     @Override
     public SqlNode parse(Reader reader) throws SqlParseException {
-        SqlNodeList sqlNodes = Commons.parse(reader, parserCfg);
+        StatementParseResult parseResult = IgniteSqlParser.parse(reader, StatementParseResult.MODE);
+        Object[] parameters = ctx.parameters();
 
-        return sqlNodes.size() == 1 ? sqlNodes.get(0) : sqlNodes;
+        // Parse method is only used in tests.
+        if (parameters.length != parseResult.dynamicParamsCount()) {
+            String message = format(
+                    "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
+                    parameters.length, parseResult.dynamicParamsCount()
+            );
+
+            throw new SqlException(QUERY_INVALID_ERR, message);
+        }
+
+        return parseResult.statement();
     }
 
     /** {@inheritDoc} */
@@ -482,31 +496,23 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     }
 
     /**
-     * SetDisabledRules.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Sets names of the rules which should be excluded from query optimization pipeline.
+     *
+     * @param disabledRuleNames Names of the rules to exclude. The name can be derived from rule by
+     *     {@link Commons#shortRuleName(RelOptRule)}.
      */
     public void setDisabledRules(Set<String> disabledRuleNames) {
         ctx.rulesFilter(rulesSet -> {
             List<RelOptRule> newSet = new ArrayList<>();
 
             for (RelOptRule r : rulesSet) {
-                if (!disabledRuleNames.contains(shortRuleName(r.toString()))) {
+                if (!disabledRuleNames.contains(shortRuleName(r))) {
                     newSet.add(r);
                 }
             }
 
             return RuleSets.ofList(newSet);
         });
-    }
-
-    private static String shortRuleName(String ruleDesc) {
-        int pos = ruleDesc.indexOf('(');
-
-        if (pos == -1) {
-            return ruleDesc;
-        }
-
-        return ruleDesc.substring(0, pos);
     }
 
     private static class VolcanoPlannerExt extends VolcanoPlanner {

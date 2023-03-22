@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -34,6 +35,7 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -68,7 +70,7 @@ public class ItSslClientHandlerTest {
             throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
         KeyStore ks = KeyStore.getInstance("PKCS12");
         ks.load(null, null);
-        ks.setKeyEntry("key", cert.key(), null, new Certificate[]{cert.cert()});
+        ks.setKeyEntry("key", cert.key(), "changeit".toCharArray(), new Certificate[]{cert.cert()});
         try (FileOutputStream fos = new FileOutputStream(keyStorePkcs12Path)) {
             ks.store(fos, "changeit".toCharArray());
         }
@@ -106,6 +108,20 @@ public class ItSslClientHandlerTest {
 
         // Then
         assertThrows(SocketException.class, this::performAndCheckMagic);
+    }
+
+    @Test
+    @DisplayName("When SSL is configured incorrectly then exception is thrown on start")
+    @SuppressWarnings("ThrowableNotThrown")
+    void sslMisconfigured(TestInfo testInfo) {
+        testServer = new TestServer(
+                TestSslConfig.builder()
+                        .keyStorePath(keyStorePkcs12Path)
+                        .keyStorePassword("wrong-password")
+                        .build()
+        );
+
+        assertThrowsWithCause(() -> testServer.start(testInfo), IgniteException.class, "keystore password was incorrect");
     }
 
     private void performAndCheckMagic() throws IOException {

@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.rest;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
+
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
@@ -38,6 +41,7 @@ public class RestNode {
     private final boolean sslEnabled;
     private final boolean sslClientAuthEnabled;
     private final boolean dualProtocol;
+    private final String ciphers;
     private CompletableFuture<Ignite> igniteNodeFuture;
 
     /** Constructor. */
@@ -53,7 +57,8 @@ public class RestNode {
             int httpsPort,
             boolean sslEnabled,
             boolean sslClientAuthEnabled,
-            boolean dualProtocol
+            boolean dualProtocol,
+            String ciphers
     ) {
         this.keyStorePath = keyStorePath;
         this.keyStorePassword = keyStorePassword;
@@ -67,6 +72,7 @@ public class RestNode {
         this.sslEnabled = sslEnabled;
         this.sslClientAuthEnabled = sslClientAuthEnabled;
         this.dualProtocol = dualProtocol;
+        this.ciphers = ciphers;
     }
 
     public static RestNodeBuilder builder() {
@@ -112,9 +118,8 @@ public class RestNode {
     }
 
     private String bootstrapCfg() {
-        String keyStoreAbsolutPath = ItRestSslTest.class.getClassLoader().getResource(keyStorePath).getPath();
-        String trustStoreAbsolutPath = ItRestSslTest.class.getClassLoader().getResource(trustStorePath).getPath();
-
+        String keyStoreFilePath = escapeWindowsPath(getResourcePath(ItRestSslTest.class, keyStorePath));
+        String trustStoreFilePath = escapeWindowsPath(getResourcePath(ItRestSslTest.class, trustStorePath));
         return "{\n"
                 + "  network: {\n"
                 + "    port: " + networkPort + ",\n"
@@ -128,18 +133,19 @@ public class RestNode {
                 + "    ssl: {\n"
                 + "      enabled: " + sslEnabled + ",\n"
                 + "      clientAuth: " + (sslClientAuthEnabled ? "require" : "none") + ",\n"
+                + "      ciphers: \"" + ciphers + "\",\n"
                 + "      port: " + httpsPort + ",\n"
                 + "      keyStore: {\n"
-                + "        path: " + keyStoreAbsolutPath + ",\n"
+                + "        path: \"" + keyStoreFilePath + "\",\n"
                 + "        password: " + keyStorePassword + "\n"
                 + "      }, \n"
                 + "      trustStore: {\n"
-                + "        type: JKS, "
-                + "        path: " + trustStoreAbsolutPath + ",\n"
+                + "        type: JKS,\n"
+                + "        path: \"" + trustStoreFilePath + "\",\n"
                 + "        password: " + trustStorePassword + "\n"
                 + "      }\n"
                 + "    }\n"
-                + "  }"
+                + "  }\n"
                 + "}";
     }
 }

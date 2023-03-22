@@ -30,8 +30,8 @@ import org.apache.ignite.internal.rest.configuration.hocon.HoconPresentation;
  */
 @Factory
 public class PresentationsFactory implements RestFactory {
-    private final ConfigurationPresentation<String> nodeCfgPresentation;
-    private final ConfigurationPresentation<String> clusterCfgPresentation;
+    private ConfigurationPresentation<String> nodeCfgPresentation;
+    private ConfigurationPresentation<String> clusterCfgPresentation;
 
     public PresentationsFactory(ConfigurationManager nodeCfgMgr, ConfigurationManager clusterCfgMgr) {
         this.nodeCfgPresentation = new HoconPresentation(nodeCfgMgr.configurationRegistry());
@@ -50,5 +50,11 @@ public class PresentationsFactory implements RestFactory {
     @Named("nodeCfgPresentation")
     public ConfigurationPresentation<String> nodeCfgPresentation() {
         return nodeCfgPresentation;
+    }
+
+    @Override
+    public void cleanResources() {
+        nodeCfgPresentation = null;
+        clusterCfgPresentation = null;
     }
 }

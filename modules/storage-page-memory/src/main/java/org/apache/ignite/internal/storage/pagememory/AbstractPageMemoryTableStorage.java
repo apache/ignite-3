@@ -17,13 +17,16 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.pagememory.DataRegion;
@@ -103,7 +106,11 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         busyLock.block();
 
         try {
-            IgniteUtils.closeAll(mvPartitionStorages.getAllForClose().stream().map(mvPartitionStorage -> mvPartitionStorage::close));
+            CompletableFuture<List<AbstractPageMemoryMvPartitionStorage>> allForCloseOrDestroy
+                    = mvPartitionStorages.getAllForCloseOrDestroy();
+
+            // 10 seconds is taken by analogy with shutdown of thread pool, in general this should be fairly fast.
+            IgniteUtils.closeAllManually(allForCloseOrDestroy.get(10, TimeUnit.SECONDS).stream());
         } catch (Exception e) {
             throw new StorageException("Failed to stop PageMemory table storage: " + getTableName(), e);
         }
@@ -117,7 +124,8 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
         busyLock.block();
 
-        return mvPartitionStorages.destroyAll(this::destroyMvPartitionStorage)
+        return mvPartitionStorages.getAllForCloseOrDestroy()
+                .thenCompose(storages -> allOf(storages.stream().map(this::destroyMvPartitionStorage).toArray(CompletableFuture[]::new)))
                 .whenComplete((unused, throwable) -> {
                     if (throwable == null) {
                         finishDestruction();
@@ -209,7 +217,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> startRebalancePartition(int partitionId) {
-        return inBusyLock(busyLock, () -> mvPartitionStorages.startRebalace(partitionId, mvPartitionStorage -> {
+        return inBusyLock(busyLock, () -> mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
             mvPartitionStorage.startRebalance();
 
             return clearStorageAndUpdateDataStructures(mvPartitionStorage)

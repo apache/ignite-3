@@ -41,6 +41,8 @@
       url: sql-reference/ddl
     - title: Data Manipulation Language (DML)
       url: sql-reference/dml
+    - title: Distribution Zones
+      url: sql-reference/distribution-zones
     - title: Supported Operators and Functions
       url: sql-reference/operators-and-functions
 - title: REST
@@ -70,7 +72,8 @@
       url: storage/volatile
 - title: Binary Client Protocol
   url: binary-protocol
-
+- title: SSL/TLS
+  url: ssl-tls
 - title: Data Rebalancing
   url: rebalance
 - title: Performing Transactions

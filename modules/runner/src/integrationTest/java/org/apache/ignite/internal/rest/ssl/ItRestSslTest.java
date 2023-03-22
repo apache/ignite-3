@@ -39,6 +39,7 @@ import java.security.cert.CertificateException;
 import java.util.stream.Stream;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
 import javax.net.ssl.TrustManagerFactory;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.rest.RestNode;
@@ -73,14 +74,17 @@ public class ItRestSslTest extends IgniteIntegrationTest {
     @WorkDirectory
     private static Path workDir;
 
-    /** HTTP client that is expected to be defined in subclasses. */
+    /** HTTP client. */
     private static HttpClient client;
 
-    /** SSL HTTP client that is expected to be defined in subclasses. */
+    /** SSL HTTP client. */
     private static HttpClient sslClient;
 
-    /** SSL HTTP client that is expected to be defined in subclasses. */
+    /** SSL HTTP client with client auth. */
     private static HttpClient sslClientWithClientAuth;
+
+    /** SSL HTTP client with custom cipher. */
+    private static HttpClient sslClientWithCustomCipher;
 
     private static RestNode httpNode;
 
@@ -89,6 +93,8 @@ public class ItRestSslTest extends IgniteIntegrationTest {
     private static RestNode dualProtocolNode;
 
     private static RestNode httpsWithClientAuthNode;
+
+    private static RestNode httpsWithCustomCipherNode;
 
     @BeforeAll
     static void beforeAll(TestInfo testInfo) throws Exception {
@@ -102,6 +108,14 @@ public class ItRestSslTest extends IgniteIntegrationTest {
 
         sslClientWithClientAuth = HttpClient.newBuilder()
                 .sslContext(sslContextWithClientAuth())
+                .build();
+
+        SSLContext sslContext = sslContext();
+        SSLParameters sslParameters = sslContext.getDefaultSSLParameters();
+        sslParameters.setCipherSuites(new String[]{"TLS_DHE_RSA_WITH_AES_128_CBC_SHA"});
+        sslClientWithCustomCipher = HttpClient.newBuilder()
+                .sslContext(sslContext)
+                .sslParameters(sslParameters)
                 .build();
 
         httpNode = RestNode.builder()
@@ -145,12 +159,23 @@ public class ItRestSslTest extends IgniteIntegrationTest {
                 .dualProtocol(false)
                 .build();
 
-        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode).parallel()
+        httpsWithCustomCipherNode = RestNode.builder()
+                .workDir(workDir)
+                .name(testNodeName(testInfo, 3348))
+                .networkPort(3348)
+                .httpPort(10304)
+                .httpsPort(10404)
+                .sslEnabled(true)
+                .dualProtocol(false)
+                .ciphers("TLS_AES_256_GCM_SHA384")
+                .build();
+
+        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode, httpsWithCustomCipherNode).parallel()
                 .forEach(RestNode::start);
     }
 
     @Test
-    void httpsProtocol() throws IOException, InterruptedException {
+    void httpsProtocol() throws Exception {
         // When GET /management/v1/configuration/node
         URI uri = URI.create(httpsNode.httpsAddress() + "/management/v1/configuration/node");
         HttpRequest request = HttpRequest.newBuilder(uri).build();
@@ -161,7 +186,7 @@ public class ItRestSslTest extends IgniteIntegrationTest {
     }
 
     @Test
-    void httpProtocol(TestInfo testInfo) throws IOException, InterruptedException {
+    void httpProtocol(TestInfo testInfo) throws Exception {
         // When GET /management/v1/configuration/node
         URI uri = URI.create(httpNode.httpAddress() + "/management/v1/configuration/node");
         HttpRequest request = HttpRequest.newBuilder(uri).build();
@@ -172,7 +197,7 @@ public class ItRestSslTest extends IgniteIntegrationTest {
     }
 
     @Test
-    void dualProtocol() throws IOException, InterruptedException {
+    void dualProtocol() throws Exception {
         // When GET /management/v1/configuration/node
         URI httpUri = URI.create(dualProtocolNode.httpAddress() + "/management/v1/configuration/node");
         HttpRequest httpRequest = HttpRequest.newBuilder(httpUri).build();
@@ -200,7 +225,7 @@ public class ItRestSslTest extends IgniteIntegrationTest {
     }
 
     @Test
-    void httpProtocolNotSslClient() throws IOException, InterruptedException {
+    void httpProtocolNotSslClient() {
         // When GET /management/v1/configuration/node
         URI uri = URI.create(httpsNode.httpAddress() + "/management/v1/configuration/node");
         HttpRequest request = HttpRequest.newBuilder(uri).build();
@@ -210,7 +235,7 @@ public class ItRestSslTest extends IgniteIntegrationTest {
     }
 
     @Test
-    void httpsWithClientAuthProtocol(TestInfo testInfo) throws IOException, InterruptedException {
+    void httpsWithClientAuthProtocol(TestInfo testInfo) throws Exception {
         // When GET /management/v1/configuration/node
         URI uri = URI.create(httpsWithClientAuthNode.httpsAddress() + "/management/v1/configuration/node");
         HttpRequest request = HttpRequest.newBuilder(uri).build();
@@ -221,7 +246,7 @@ public class ItRestSslTest extends IgniteIntegrationTest {
     }
 
     @Test
-    void httpsWithClientAuthProtocolButClientWithoutAuth(TestInfo testInfo) throws IOException, InterruptedException {
+    void httpsWithClientAuthProtocolButClientWithoutAuth(TestInfo testInfo) {
         // When GET /management/v1/configuration/node
         URI uri = URI.create(httpsWithClientAuthNode.httpsAddress() + "/management/v1/configuration/node");
         HttpRequest request = HttpRequest.newBuilder(uri).build();
@@ -230,9 +255,29 @@ public class ItRestSslTest extends IgniteIntegrationTest {
         assertThrows(IOException.class, () -> sslClient.send(request, BodyHandlers.ofString()));
     }
 
+    void httpsWithCustomCipher(TestInfo testInfo) throws Exception {
+        // When GET /management/v1/configuration/node
+        URI uri = URI.create(httpsWithCustomCipherNode.httpsAddress() + "/management/v1/configuration/node");
+        HttpRequest request = HttpRequest.newBuilder(uri).build();
+
+        // Then response code is 200
+        HttpResponse<String> response = sslClient.send(request, BodyHandlers.ofString());
+        assertEquals(200, response.statusCode());
+    }
+
+    @Test
+    void httpsWithCustomCipherButClientWithIncompatibleCipher(TestInfo testInfo) {
+        // When GET /management/v1/configuration/node
+        URI uri = URI.create(httpsWithCustomCipherNode.httpsAddress() + "/management/v1/configuration/node");
+        HttpRequest request = HttpRequest.newBuilder(uri).build();
+
+        // Expect IOException for SSL client that configures incompatible cipher
+        assertThrows(IOException.class, () -> sslClientWithCustomCipher.send(request, BodyHandlers.ofString()));
+    }
+
     @AfterAll
     static void afterAll() {
-        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode)
+        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode, httpsWithCustomCipherNode)
                 .parallel()
                 .forEach(RestNode::stop);
     }

@@ -18,6 +18,7 @@
 package org.apache.ignite.configuration;
 
 import java.util.List;
+import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,6 +42,15 @@ public interface NamedListView<VIEWT> {
      */
     @Nullable
     VIEWT get(String key);
+
+    /**
+     * Returns value associated with the passed internal id.
+     *
+     * @param internalId Internal id.
+     * @return Requested value or {@code null} if it's not found.
+     */
+    @Nullable
+    VIEWT get(UUID internalId);
 
     /**
      * Returns value located at the specified index.

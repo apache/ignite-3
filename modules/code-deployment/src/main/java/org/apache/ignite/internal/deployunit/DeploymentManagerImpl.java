@@ -22,6 +22,9 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.SYNC;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
+import static org.apache.ignite.internal.deployunit.key.UnitKey.allUnits;
+import static org.apache.ignite.internal.deployunit.key.UnitKey.key;
+import static org.apache.ignite.internal.deployunit.key.UnitKey.withId;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
@@ -30,26 +33,20 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Flow.Subscriber;
-import java.util.concurrent.Flow.Subscription;
-import java.util.stream.Collectors;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.IgniteDeployment;
 import org.apache.ignite.deployment.UnitStatus;
-import org.apache.ignite.deployment.UnitStatus.UnitStatusBuilder;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitAlreadyExistsException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
+import org.apache.ignite.internal.deployunit.key.UnitMetaSerializer;
 import org.apache.ignite.internal.deployunit.message.DeployUnitMessageTypes;
 import org.apache.ignite.internal.deployunit.message.DeployUnitRequest;
 import org.apache.ignite.internal.deployunit.message.DeployUnitRequestBuilder;
@@ -61,11 +58,14 @@ import org.apache.ignite.internal.deployunit.message.UndeployUnitRequest;
 import org.apache.ignite.internal.deployunit.message.UndeployUnitRequestImpl;
 import org.apache.ignite.internal.deployunit.message.UndeployUnitResponse;
 import org.apache.ignite.internal.deployunit.message.UndeployUnitResponseImpl;
+import org.apache.ignite.internal.deployunit.metastore.EntrySubscriber;
+import org.apache.ignite.internal.deployunit.metastore.SortedListAccumulator;
+import org.apache.ignite.internal.deployunit.metastore.UnitStatusAccumulator;
+import org.apache.ignite.internal.deployunit.metastore.UnitsAccumulator;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
@@ -74,7 +74,6 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 
-//TODO: rework metastorage keys IGNITE-18870
 /**
  * Deployment manager implementation.
  */
@@ -83,10 +82,6 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
     private static final IgniteLogger LOG = Loggers.forClass(DeploymentManagerImpl.class);
 
     private static final String TMP_SUFFIX = ".tmp";
-
-    private static final String DEPLOY_UNIT_PREFIX = "deploy-unit.";
-
-    private static final String UNITS_PREFIX = DEPLOY_UNIT_PREFIX + "units.";
 
     /**
      * Meta storage.
@@ -145,8 +140,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
         Objects.requireNonNull(version);
         Objects.requireNonNull(deploymentUnit);
 
-        ByteArray key = new ByteArray(UNITS_PREFIX + id + ":" + version.render());
-
+        ByteArray key = key(id, version.render());
         UnitMeta meta = new UnitMeta(id, version, deploymentUnit.name(), Collections.emptyList());
 
         Operation put = put(key, UnitMetaSerializer.serialize(meta));
@@ -214,7 +208,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
         checkId(id);
         Objects.requireNonNull(version);
 
-        ByteArray key = new ByteArray(UNITS_PREFIX + id + ":" + version);
+        ByteArray key = key(id, version.render());
 
         return metaStorage.invoke(exists(key), Operations.remove(key), Operations.noop())
                 .thenCompose(success -> {
@@ -246,31 +240,8 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
     @Override
     public CompletableFuture<List<UnitStatus>> unitsAsync() {
         CompletableFuture<List<UnitStatus>> result = new CompletableFuture<>();
-        Map<String, UnitStatusBuilder> map = new HashMap<>();
-        metaStorage.prefix(new ByteArray(UNITS_PREFIX))
-                .subscribe(new Subscriber<>() {
-                    @Override
-                    public void onSubscribe(Subscription subscription) {
-                        subscription.request(Long.MAX_VALUE);
-                    }
-
-                    @Override
-                    public void onNext(Entry item) {
-                        UnitMeta meta = UnitMetaSerializer.deserialize(item.value());
-                        map.computeIfAbsent(meta.id(), UnitStatus::builder)
-                                .append(meta.version(), meta.consistentIdLocation());
-                    }
-
-                    @Override
-                    public void onError(Throwable throwable) {
-                        result.completeExceptionally(throwable);
-                    }
-
-                    @Override
-                    public void onComplete() {
-                        result.complete(map.values().stream().map(UnitStatusBuilder::build).collect(Collectors.toList()));
-                    }
-                });
+        metaStorage.prefix(allUnits())
+                .subscribe(new EntrySubscriber<>(result, new UnitsAccumulator()));
         return result;
     }
 
@@ -278,31 +249,13 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
     public CompletableFuture<List<Version>> versionsAsync(String id) {
         checkId(id);
         CompletableFuture<List<Version>> result = new CompletableFuture<>();
-        metaStorage.prefix(new ByteArray(UNITS_PREFIX + id))
-                .subscribe(new Subscriber<>() {
-                    private final List<Version> list = new ArrayList<>();
-
-                    @Override
-                    public void onSubscribe(Subscription subscription) {
-                        subscription.request(Long.MAX_VALUE);
-                    }
-
-                    @Override
-                    public void onNext(Entry item) {
-                        UnitMeta deserialize = UnitMetaSerializer.deserialize(item.value());
-                        list.add(deserialize.version());
-                    }
-
-                    @Override
-                    public void onError(Throwable throwable) {
-                        result.completeExceptionally(throwable);
-                    }
-
-                    @Override
-                    public void onComplete() {
-                        result.complete(list);
-                    }
-                });
+        metaStorage.prefix(withId(id))
+                .subscribe(
+                        new EntrySubscriber<>(
+                                result,
+                                new SortedListAccumulator<>(e -> UnitMetaSerializer.deserialize(e.value()).version())
+                        )
+                );
         return result;
     }
 
@@ -310,39 +263,23 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
     public CompletableFuture<UnitStatus> statusAsync(String id) {
         checkId(id);
         CompletableFuture<UnitStatus> result = new CompletableFuture<>();
-        metaStorage.prefix(new ByteArray(UNITS_PREFIX + id))
-                .subscribe(new Subscriber<>() {
-                    private UnitStatusBuilder builder;
+        metaStorage.prefix(withId(id))
+                .subscribe(new EntrySubscriber<>(result, new UnitStatusAccumulator(id)));
+        return result;
+    }
 
-                    @Override
-                    public void onSubscribe(Subscription subscription) {
-                        subscription.request(Long.MAX_VALUE);
-                    }
+    @Override
+    public CompletableFuture<List<UnitStatus>> findUnitByConsistentIdAsync(String consistentId) {
+        Objects.requireNonNull(consistentId);
 
-                    @Override
-                    public void onNext(Entry item) {
-                        if (builder == null) {
-                            builder = UnitStatus.builder(id);
-                        }
-                        UnitMeta deserialize = UnitMetaSerializer.deserialize(item.value());
-                        builder.append(deserialize.version(), deserialize.consistentIdLocation());
-                    }
-
-                    @Override
-                    public void onError(Throwable throwable) {
-                        result.completeExceptionally(throwable);
-                    }
-
-                    @Override
-                    public void onComplete() {
-                        if (builder != null) {
-                            result.complete(builder.build());
-                        } else {
-                            result.completeExceptionally(
-                                    new DeploymentUnitNotFoundException("Unit with " + id + " doesn't exist."));
-                        }
-                    }
-                });
+        CompletableFuture<List<UnitStatus>> result = new CompletableFuture<>();
+        metaStorage.prefix(allUnits())
+                .subscribe(
+                        new EntrySubscriber<>(
+                                result,
+                                new UnitsAccumulator(meta -> meta.consistentIdLocation().contains(consistentId))
+                        )
+                );
         return result;
     }
 
@@ -408,7 +345,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
             return CompletableFuture.failedFuture(e);
         }
 
-        ByteArray key = new ByteArray(UNITS_PREFIX + id + ":" + version);
+        ByteArray key = key(id, version);
         return metaStorage.get(key)
                 .thenCompose(e -> {
                     UnitMeta prev = UnitMetaSerializer.deserialize(e.value());

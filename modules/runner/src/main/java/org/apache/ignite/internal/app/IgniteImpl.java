@@ -38,10 +38,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.deployment.IgniteDeployment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -60,7 +62,6 @@ import org.apache.ignite.internal.compute.IgniteComputeImpl;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
@@ -83,13 +84,11 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
-import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
@@ -103,6 +102,7 @@ import org.apache.ignite.internal.rest.authentication.AuthProviderFactory;
 import org.apache.ignite.internal.rest.cluster.ClusterManagementRestFactory;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
+import org.apache.ignite.internal.rest.deployment.CodeDeploymentRestFactory;
 import org.apache.ignite.internal.rest.metrics.MetricRestFactory;
 import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -142,6 +142,7 @@ import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.SerializationRegistryServiceLoader;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.security.AuthenticationConfig;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -208,8 +209,9 @@ public class IgniteImpl implements Ignite {
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
 
-    /** Placement driver manager. */
-    private final PlacementDriverManager placementDriverMgr;
+    // TODO: IGNITE-16985 Design table management flow
+    // /** Placement driver manager. */
+    //private final PlacementDriverManager placementDriverMgr;
 
     /** Configuration manager that handles cluster (distributed) configuration. */
     private final ConfigurationManager clusterCfgMgr;
@@ -341,12 +343,16 @@ public class IgniteImpl implements Ignite {
                 )
         );
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19051
+        RaftGroupEventsClientListener raftGroupEventsClientListener = new RaftGroupEventsClientListener();
+
         raftMgr = new Loza(
                 clusterSvc,
                 raftConfiguration,
                 workDir,
                 clock,
-                raftExecutorService
+                raftExecutorService,
+                raftGroupEventsClientListener
         );
 
         LockManager lockMgr = new HeapLockManager();
@@ -388,15 +394,6 @@ public class IgniteImpl implements Ignite {
                 new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH))
         );
 
-        placementDriverMgr = new PlacementDriverManager(
-                MetastorageGroupId.INSTANCE,
-                clusterSvc,
-                raftConfiguration,
-                cmgMgr::metaStorageNodes,
-                logicalTopologyService,
-                raftExecutorService
-        );
-
         this.cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vaultMgr);
 
         clusterCfgMgr = new ConfigurationManager(
@@ -409,12 +406,26 @@ public class IgniteImpl implements Ignite {
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
+        TablesConfiguration tablesConfiguration = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
+
+        // TODO: IGNITE-16985 Design table management flow
+        // placementDriverMgr = new PlacementDriverManager(
+        //         metaStorageMgr,
+        //         vaultMgr,
+        //         MetastorageGroupId.INSTANCE,
+        //         clusterSvc,
+        //         raftConfiguration,
+        //         cmgMgr::metaStorageNodes,
+        //         logicalTopologyService,
+        //         raftExecutorService,
+        //         tablesConfiguration,
+        //         clock
+        // );
+
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));
 
         DistributionZonesConfiguration zonesConfiguration = clusterConfigRegistry
                 .getConfiguration(DistributionZonesConfiguration.KEY);
-
-        restComponent = createRestComponent(name);
 
         restAddressReporter = new RestAddressReporter(workDir);
 
@@ -432,8 +443,6 @@ public class IgniteImpl implements Ignite {
         );
 
         Path storagePath = getPartitionsStorePath(workDir);
-
-        TablesConfiguration tablesConfiguration = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
         dataStorageMgr = new DataStorageManager(
                 tablesConfiguration,
@@ -518,23 +527,28 @@ public class IgniteImpl implements Ignite {
                 workDir,
                 nodeConfigRegistry.getConfiguration(DeploymentConfiguration.KEY),
                 cmgMgr);
+
+        restComponent = createRestComponent(name);
     }
 
     private RestComponent createRestComponent(String name) {
         AuthenticationConfiguration authConfiguration = clusterCfgMgr.configurationRegistry()
                 .getConfiguration(SecurityConfiguration.KEY)
                 .authentication();
-        RestFactory presentationsFactory = new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
-        RestFactory clusterManagementRestFactory = new ClusterManagementRestFactory(clusterSvc, cmgMgr);
-        RestFactory nodeManagementRestFactory = new NodeManagementRestFactory(lifecycleManager, () -> name);
-        RestFactory nodeMetricRestFactory = new MetricRestFactory(metricManager);
-        AuthProviderFactory authProviderFactory = new AuthProviderFactory(authConfiguration);
+
+        Supplier<RestFactory> presentationsFactory = () -> new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
+        Supplier<RestFactory> clusterManagementRestFactory = () -> new ClusterManagementRestFactory(clusterSvc, cmgMgr);
+        Supplier<RestFactory> nodeManagementRestFactory = () -> new NodeManagementRestFactory(lifecycleManager, () -> name);
+        Supplier<RestFactory> nodeMetricRestFactory = () -> new MetricRestFactory(metricManager);
+        Supplier<RestFactory> authProviderFactory = () -> new AuthProviderFactory(authConfiguration);
+        Supplier<RestFactory> deploymentCodeRestFactory = () -> new CodeDeploymentRestFactory(deploymentManager);
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
         return new RestComponent(
                 List.of(presentationsFactory,
                         clusterManagementRestFactory,
                         nodeManagementRestFactory,
                         nodeMetricRestFactory,
+                        deploymentCodeRestFactory,
                         authProviderFactory),
                 restConfiguration
         );
@@ -639,8 +653,9 @@ public class IgniteImpl implements Ignite {
                         try {
                             lifecycleManager.startComponents(
                                     metaStorageMgr,
-                                    placementDriverMgr,
                                     clusterCfgMgr,
+                                    // TODO: IGNITE-16985 Design table management flow
+                                    // placementDriverMgr,
                                     metricManager,
                                     distributionZoneManager,
                                     computeComponent,
@@ -965,5 +980,15 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public void stopDroppingMessages() {
         ((DefaultMessagingService) clusterSvc.messagingService()).stopDroppingMessages();
+    }
+
+    /**
+     * Returns the node's hybrid clock.
+     *
+     * @return Hybrid clock.
+     */
+    @TestOnly
+    public HybridClock clock() {
+        return clock;
     }
 }

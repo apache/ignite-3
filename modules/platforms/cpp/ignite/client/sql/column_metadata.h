@@ -18,7 +18,7 @@
 #pragma once
 
 #include "ignite/client/sql/column_origin.h"
-#include "ignite/client/sql/sql_column_type.h"
+#include "ignite/common/ignite_type.h"
 
 #include <cstdint>
 #include <string>
@@ -43,7 +43,7 @@ public:
      * @param nullable Column nullability.
      * @param origin Column origin.
      */
-    column_metadata(std::string name, column_type type, std::int32_t precision, std::int32_t scale, bool nullable,
+    column_metadata(std::string name, ignite_type type, std::int32_t precision, std::int32_t scale, bool nullable,
         column_origin origin)
         : m_name(std::move(name))
         , m_type(type)
@@ -64,7 +64,7 @@ public:
      *
      * @return Column type.
      */
-    [[nodiscard]] column_type type() const { return m_type; }
+    [[nodiscard]] ignite_type type() const { return m_type; }
 
     /**
      * Gets the column precision, or -1 when not applicable to the current
@@ -107,7 +107,7 @@ private:
     std::string m_name;
 
     /** Column type. */
-    column_type m_type{column_type::UNDEFINED};
+    ignite_type m_type{ignite_type::UNDEFINED};
 
     /** Precision. */
     std::int32_t m_precision{0};
