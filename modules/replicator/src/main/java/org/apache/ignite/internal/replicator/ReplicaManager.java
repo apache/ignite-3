@@ -101,9 +101,6 @@ public class ReplicaManager implements IgniteComponent {
     /** Set of message groups to handler as replica requests. */
     private final Set<Class<?>> messageGroupsToHandle;
 
-    /** Instance of the local node. */
-    private final ClusterNode localNode;
-
     /**
      * Constructor for a replica service.
      *
@@ -118,7 +115,6 @@ public class ReplicaManager implements IgniteComponent {
         this.clusterNetSvc = clusterNetSvc;
         this.clock = clock;
         this.messageGroupsToHandle = messageGroupsToHandle;
-        this.localNode = clusterNetSvc.topologyService().localMember();
         this.handler = this::onReplicaMessageReceived;
         this.placementDriverMessageHandler = this::onPlacementDriverMessageReceived;
     }
@@ -270,6 +266,7 @@ public class ReplicaManager implements IgniteComponent {
             TopologyAwareRaftGroupService raftClient,
             PendingComparableValuesTracker<Long> storageIndexTracker
     ) {
+        ClusterNode localNode = clusterNetSvc.topologyService().localMember();
         Replica newReplica = new Replica(replicaGrpId, listener, storageIndexTracker, raftClient, localNode);
 
         replicas.compute(replicaGrpId, (replicationGroupId, replicaFut) -> {

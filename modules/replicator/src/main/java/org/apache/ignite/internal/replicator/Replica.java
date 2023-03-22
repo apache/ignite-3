@@ -63,12 +63,6 @@ public class Replica {
 
     private AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
 
-    /** Mutex to change {@link #leaseStartTime} and {@link #leaseExpirationTime} consistently. */
-    private final Object leaseAcceptanceMutex = new Object();
-
-    /** Latest lease start time. */
-    private volatile HybridTimestamp leaseStartTime = null;
-
     /** Latest lease expiration time. */
     private volatile HybridTimestamp leaseExpirationTime = null;
 
@@ -156,12 +150,10 @@ public class Replica {
      */
     public CompletableFuture<LeaseGrantedMessageResponse> processLeaseGrantedMessage(LeaseGrantedMessage msg) {
         return leaderFuture().thenCompose(leader -> {
-            synchronized (leaseAcceptanceMutex) {
-                HybridTimestamp leaseExpirationTime = this.leaseExpirationTime;
+            HybridTimestamp leaseExpirationTime = this.leaseExpirationTime;
 
-                if (leaseExpirationTime != null) {
-                    assert msg.leaseExpirationTime().after(leaseExpirationTime) : "Invalid lease expiration time in message, msg=" + msg;
-                }
+            if (leaseExpirationTime != null) {
+                assert msg.leaseExpirationTime().after(leaseExpirationTime) : "Invalid lease expiration time in message, msg=" + msg;
             }
 
             if (msg.force()) {
@@ -171,7 +163,7 @@ public class Replica {
                 return waitForActualState()
                         .thenCompose(v -> {
                             CompletableFuture<LeaseGrantedMessageResponse> respFut =
-                                    acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
+                                    acceptLease(msg.leaseExpirationTime());
 
                             if (leader.equals(localNode)) {
                                 return respFut;
@@ -182,7 +174,7 @@ public class Replica {
                         });
             } else {
                 if (leader.equals(localNode)) {
-                    return waitForActualState().thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
+                    return waitForActualState().thenCompose(v -> acceptLease(msg.leaseExpirationTime()));
                 } else {
                     return proposeLeaseRedirect(leader);
                 }
@@ -191,13 +183,9 @@ public class Replica {
     }
 
     private CompletableFuture<LeaseGrantedMessageResponse> acceptLease(
-            HybridTimestamp leaseStartTime,
             HybridTimestamp leaseExpirationTime
     ) {
-        synchronized (leaseAcceptanceMutex) {
-            this.leaseStartTime = leaseStartTime;
-            this.leaseExpirationTime = leaseExpirationTime;
-        }
+        this.leaseExpirationTime = leaseExpirationTime;
 
         LeaseGrantedMessageResponse resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
                 .accepted(true)
