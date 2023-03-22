@@ -437,6 +437,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 PendingComparableValuesTracker<HybridTimestamp> safeTime =
                         new PendingComparableValuesTracker<>(clocks.get(assignment).now());
+                PendingComparableValuesTracker<Long> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
                 PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(testMpPartStorage);
                 Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes = () -> Map.of(pkStorage.get().id(), pkStorage.get());
@@ -456,7 +457,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                 partitionDataStorage,
                                 storageUpdateHandler,
                                 txStateStorage,
-                                safeTime
+                                safeTime,
+                                storageIndexTracker
                         ),
                         RaftGroupEventsListener.noopLsnr,
                         topologyAwareRaftGroupServiceFactory
@@ -486,7 +488,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 completedFuture(schemaManager)
                                         ),
                                         raftSvc,
-                                        safeTime
+                                        storageIndexTracker
                                 );
                             } catch (NodeStoppingException e) {
                                 fail("Unexpected node stopping", e);

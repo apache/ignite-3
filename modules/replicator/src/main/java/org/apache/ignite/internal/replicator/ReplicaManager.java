@@ -27,7 +27,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -102,8 +101,8 @@ public class ReplicaManager implements IgniteComponent {
     /** Set of message groups to handler as replica requests. */
     private final Set<Class<?>> messageGroupsToHandle;
 
-    /** Supplier that returns a {@link ClusterNode} instance of the local node. */
-    private final Supplier<ClusterNode> localNodeSupplier;
+    /** Instance of the local node. */
+    private final ClusterNode localNode;
 
     /**
      * Constructor for a replica service.
@@ -119,7 +118,7 @@ public class ReplicaManager implements IgniteComponent {
         this.clusterNetSvc = clusterNetSvc;
         this.clock = clock;
         this.messageGroupsToHandle = messageGroupsToHandle;
-        this.localNodeSupplier = () -> clusterNetSvc.topologyService().localMember();
+        this.localNode = clusterNetSvc.topologyService().localMember();
         this.handler = this::onReplicaMessageReceived;
         this.placementDriverMessageHandler = this::onPlacementDriverMessageReceived;
     }
@@ -233,7 +232,7 @@ public class ReplicaManager implements IgniteComponent {
      * @param replicaGrpId Replication group id.
      * @param listener Replica listener.
      * @param raftClient Topology aware Raft client.
-     * @param safeTime Safe time tracker.
+     * @param storageIndexTracker Storage index tracker.
      *
      * @return New replica.
      * @throws NodeStoppingException If node is stopping.
@@ -243,14 +242,14 @@ public class ReplicaManager implements IgniteComponent {
             ReplicationGroupId replicaGrpId,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
-            PendingComparableValuesTracker<HybridTimestamp> safeTime
+            PendingComparableValuesTracker<Long> storageIndexTracker
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            return startReplicaInternal(replicaGrpId, listener, raftClient, safeTime);
+            return startReplicaInternal(replicaGrpId, listener, raftClient, storageIndexTracker);
         } finally {
             busyLock.leaveBusy();
         }
@@ -262,16 +261,16 @@ public class ReplicaManager implements IgniteComponent {
      * @param replicaGrpId   Replication group id.
      * @param listener Replica listener.
      * @param raftClient Topology aware Raft client.
-     * @param safeTime Safe time tracker.
+     * @param storageIndexTracker Storage index tracker.
      * @return New replica.
      */
     private Replica startReplicaInternal(
             ReplicationGroupId replicaGrpId,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
-            PendingComparableValuesTracker<HybridTimestamp> safeTime
+            PendingComparableValuesTracker<Long> storageIndexTracker
     ) {
-        Replica newReplica = new Replica(replicaGrpId, listener, safeTime, raftClient, localNodeSupplier);
+        Replica newReplica = new Replica(replicaGrpId, listener, storageIndexTracker, raftClient, localNode);
 
         replicas.compute(replicaGrpId, (replicationGroupId, replicaFut) -> {
             if (replicaFut == null) {

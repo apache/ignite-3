@@ -423,6 +423,11 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     }
 
     @Override
+    public CompletableFuture<Long> readIndex() {
+        return raftClient.readIndex();
+    }
+
+    @Override
     public ClusterService clusterService() {
         return raftClient.clusterService();
     }

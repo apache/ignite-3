@@ -757,6 +757,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 placementDriver.updateAssignment(replicaGrpId, newConfiguration.peers().stream().map(Peer::consistentId).collect(toList()));
 
                 PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
+                PendingComparableValuesTracker<Long> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
                 CompletableFuture<PartitionStorages> partitionStoragesFut = getOrCreatePartitionStorages(table, partId);
 
@@ -850,7 +851,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             partitionDataStorage,
                                                             storageUpdateHandler,
                                                             txStatePartitionStorage,
-                                                            safeTime
+                                                            safeTime,
+                                                            storageIndexTracker
                                                     ),
                                                     new RebalanceRaftGroupEventsListener(
                                                             metaStorageMgr,
@@ -919,7 +921,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     storageReadyLatch
                                             ),
                                             updatedRaftGroupService,
-                                            safeTime
+                                            storageIndexTracker
                                     );
                                 } catch (NodeStoppingException ex) {
                                     throw new AssertionError("Loza was stopped before Table manager", ex);
@@ -2051,6 +2053,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 .anyMatch(assignment -> !stableAssignments.contains(assignment));
 
         var safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
+        PendingComparableValuesTracker<Long> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
         InternalTable internalTable = tbl.internalTable();
 
@@ -2086,7 +2089,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 partitionDataStorage,
                                 storageUpdateHandler,
                                 txStatePartitionStorage,
-                                safeTime
+                                safeTime,
+                                storageIndexTracker
                         );
 
                         RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(
@@ -2137,7 +2141,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             completedFuture(schemaManager.schemaRegistry(tblId))
                                     ),
                                     (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId),
-                                    safeTime
+                                    storageIndexTracker
                             );
                         } catch (NodeStoppingException ignored) {
                             // no-op

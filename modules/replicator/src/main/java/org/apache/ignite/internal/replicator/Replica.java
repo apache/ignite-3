@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
@@ -49,14 +48,14 @@ public class Replica {
     /** Replica listener. */
     private final ReplicaListener listener;
 
-    /** Safe time tracker. */
-    private final PendingComparableValuesTracker<HybridTimestamp> safeTime;
+    /** Storage index tracker. */
+    private final PendingComparableValuesTracker<Long> storageIndexTracker;
 
     /** Topology aware Raft client. */
     private final TopologyAwareRaftGroupService raftClient;
 
-    /** Supplier that returns a {@link ClusterNode} instance of the local node. */
-    private final Supplier<ClusterNode> localNodeSupplier;
+    /** Instance of the local node. */
+    private final ClusterNode localNode;
 
     // TODO IGNITE-18960 after replica inoperability logic is introduced, this future should be replaced with something like
     //     VersionedValue (so that PlacementDriverMessages would wait for new leader election)
@@ -78,22 +77,22 @@ public class Replica {
      *
      * @param replicaGrpId Replication group id.
      * @param listener Replica listener.
-     * @param safeTime Safe time tracker.
+     * @param storageIndexTracker Storage index tracker.
      * @param raftClient Topology aware Raft client.
-     * @param localNodeSupplier Supplier that returns a {@link ClusterNode} instance of the local node.
+     * @param localNode Instance of the local node.
      */
     public Replica(
             ReplicationGroupId replicaGrpId,
             ReplicaListener listener,
-            PendingComparableValuesTracker<HybridTimestamp> safeTime,
+            PendingComparableValuesTracker<Long> storageIndexTracker,
             TopologyAwareRaftGroupService raftClient,
-            Supplier<ClusterNode> localNodeSupplier
+            ClusterNode localNode
     ) {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
-        this.safeTime = safeTime;
+        this.storageIndexTracker = storageIndexTracker;
         this.raftClient = raftClient;
-        this.localNodeSupplier = localNodeSupplier;
+        this.localNode = localNode;
 
         raftClient.subscribeLeader(this::onLeaderElected);
     }
@@ -166,24 +165,24 @@ public class Replica {
             }
 
             if (msg.force()) {
-                // Replica must wait till safe time reaches the lease start timestamp to make sure that all updates made on the
+                // Replica must wait till storage index reaches the current leader's index to make sure that all updates made on the
                 // group leader are received.
-                return safeTime.waitFor(msg.leaseStartTime())
+
+                return waitForActualState()
                         .thenCompose(v -> {
                             CompletableFuture<LeaseGrantedMessageResponse> respFut =
                                     acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
 
-                            if (leader.equals(localNodeSupplier.get())) {
+                            if (leader.equals(localNode)) {
                                 return respFut;
                             } else {
-                                return raftClient.transferLeadership(new Peer(localNodeSupplier.get().name()))
+                                return raftClient.transferLeadership(new Peer(localNode.name()))
                                         .thenCompose(ignored -> respFut);
                             }
                         });
             } else {
-                if (leader.equals(localNodeSupplier.get())) {
-                    return safeTime.waitFor(msg.leaseStartTime())
-                            .thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
+                if (leader.equals(localNode)) {
+                    return waitForActualState().thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
                 } else {
                     return proposeLeaseRedirect(leader);
                 }
@@ -214,5 +213,9 @@ public class Replica {
                 .build();
 
         return completedFuture(resp);
+    }
+
+    private CompletableFuture<Void> waitForActualState() {
+        return raftClient.readIndex().thenCompose(storageIndexTracker::waitFor);
     }
 }

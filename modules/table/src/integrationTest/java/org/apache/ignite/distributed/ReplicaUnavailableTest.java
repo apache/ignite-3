@@ -29,7 +29,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -133,7 +132,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                                 tablePartitionId,
                                 request0 -> CompletableFuture.completedFuture(null),
                                 mock(TopologyAwareRaftGroupService.class),
-                                new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0))
+                                new PendingComparableValuesTracker<>(0L)
                         );
                     } catch (NodeStoppingException e) {
                         throw new RuntimeException(e);

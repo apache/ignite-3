@@ -27,6 +27,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -58,7 +59,9 @@ public class PlacementDriverReplicaSideTest {
 
     private AtomicReference<BiConsumer<ClusterNode, Long>> callbackHolder = new AtomicReference<>();
 
-    private PendingComparableValuesTracker<HybridTimestamp> safeTime;
+    private PendingComparableValuesTracker<Long> storageIndexTracker;
+
+    private AtomicLong indexOnLeader = new AtomicLong(0);
 
     private Peer currentLeader = null;
 
@@ -79,12 +82,14 @@ public class PlacementDriverReplicaSideTest {
             return completedFuture(null);
         });
 
+        when(raftClient.readIndex()).thenAnswer(invocationOnMock -> completedFuture(indexOnLeader.get()));
+
         Replica replica = new Replica(
                 GRP_ID,
                 mock(ReplicaListener.class),
-                safeTime,
+                storageIndexTracker,
                 raftClient,
-                () -> LOCAL_NODE
+                LOCAL_NODE
         );
 
         return replica;
@@ -92,7 +97,8 @@ public class PlacementDriverReplicaSideTest {
 
     @BeforeEach
     public void beforeEach() {
-        safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
+        storageIndexTracker = new PendingComparableValuesTracker<>(0L);
+        indexOnLeader.set(1L);
         currentLeader = null;
         replica = startReplica();
     }
@@ -134,9 +140,13 @@ public class PlacementDriverReplicaSideTest {
         return new HybridTimestamp(physical, 0);
     }
 
+    private void updateIndex(long index) {
+        storageIndexTracker.update(index);
+    }
+
     @Test
     public void replicationGroupReadinessAwait() {
-        safeTime.update(hts(15));
+        updateIndex(1L);
         CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(10), hts(20), false);
         assertFalse(respFut.isDone());
         leaderElection(LOCAL_NODE);
@@ -154,9 +164,9 @@ public class PlacementDriverReplicaSideTest {
     @Test
     public void testGrantLeaseToLeader() {
         leaderElection(LOCAL_NODE);
-        safeTime.update(hts(15));
         CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(10), hts(20), false);
 
+        updateIndex(1L);
         assertTrue(respFut.isDone());
 
         LeaseGrantedMessageResponse resp = respFut.join();
@@ -179,11 +189,11 @@ public class PlacementDriverReplicaSideTest {
     @Test
     public void testGrantLeaseRepeat() {
         long leaseStartTime = 10;
-        safeTime.update(hts(leaseStartTime + 5));
         leaderElection(ANOTHER_NODE);
         // Sending message with force == true.
         CompletableFuture<LeaseGrantedMessageResponse> respFut0 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), true);
 
+        updateIndex(1L);
         assertTrue(respFut0.isDone());
 
         LeaseGrantedMessageResponse resp0 = respFut0.join();
@@ -204,7 +214,7 @@ public class PlacementDriverReplicaSideTest {
     @Test
     public void testGrantLeaseToNodeWithExpiredLease() {
         long leaseStartTime = 10;
-        safeTime.update(hts(leaseStartTime + 5));
+        updateIndex(1L);
         leaderElection(LOCAL_NODE);
         CompletableFuture<LeaseGrantedMessageResponse> respFut0 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);
 
@@ -214,7 +224,6 @@ public class PlacementDriverReplicaSideTest {
         assertTrue(resp0.accepted());
         assertNull(resp0.redirectProposal());
 
-        safeTime.update(hts(leaseStartTime + 15));
         CompletableFuture<LeaseGrantedMessageResponse> respFut1 =
                 sendLeaseGranted(hts(leaseStartTime + 11), hts(leaseStartTime + 20), false);
         assertTrue(respFut1.isDone());
@@ -227,7 +236,7 @@ public class PlacementDriverReplicaSideTest {
     @Test
     public void testGrantLeaseToNodeWithExpiredLeaseAndAnotherLeaderElected() {
         long leaseStartTime = 10;
-        safeTime.update(hts(leaseStartTime + 5));
+        updateIndex(1L);
         leaderElection(LOCAL_NODE);
         CompletableFuture<LeaseGrantedMessageResponse> respFut0 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);
 
@@ -239,7 +248,6 @@ public class PlacementDriverReplicaSideTest {
 
         leaderElection(ANOTHER_NODE);
 
-        safeTime.update(hts(leaseStartTime + 15));
         CompletableFuture<LeaseGrantedMessageResponse> respFut1 =
                 sendLeaseGranted(hts(leaseStartTime + 11), hts(leaseStartTime + 20), false);
         assertTrue(respFut1.isDone());
@@ -257,7 +265,7 @@ public class PlacementDriverReplicaSideTest {
 
         assertFalse(respFut.isDone());
 
-        safeTime.update(hts(leaseStartTime + 5));
+        updateIndex(1L);
         assertTrue(respFut.isDone());
 
         LeaseGrantedMessageResponse resp = respFut.join();
@@ -271,7 +279,6 @@ public class PlacementDriverReplicaSideTest {
     @Test
     public void testForceToActualLeader() {
         long leaseStartTime = 10;
-        safeTime.update(hts(leaseStartTime + 5));
 
         leaderElection(ANOTHER_NODE);
         CompletableFuture<LeaseGrantedMessageResponse> respFut0 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);
@@ -286,6 +293,7 @@ public class PlacementDriverReplicaSideTest {
         // node as actual leader.
         leaderElection(LOCAL_NODE);
 
+        updateIndex(1L);
         CompletableFuture<LeaseGrantedMessageResponse> respFut1 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), true);
         assertTrue(respFut1.isDone());
 
