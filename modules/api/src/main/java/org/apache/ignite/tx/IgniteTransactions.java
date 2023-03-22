@@ -23,7 +23,7 @@ import java.util.function.Function;
 import org.apache.ignite.table.Table;
 
 /**
- * Ignite Transactions facade that allows to perform distributed transactions when working with tables.
+ * The Ignite Transactions facade that supports distributed transactions when working with tables.
  * This interface provides the ability to perform transactions in both synchronous and asynchronous ways.
  * <pre><code>
  *     // Synchronous transactional API to update the balance.
@@ -59,34 +59,34 @@ import org.apache.ignite.table.Table;
  */
 public interface IgniteTransactions {
     /**
-     * Returns a facade with new default timeout.
+     * Returns a facade with the new default timeout.
      *
-     * @param timeout The timeout in milliseconds.
+     * @param timeout Timeout in milliseconds.
      *
-     * @return A facade using a new timeout.
+     * @return Facade with the new timeout.
      */
     IgniteTransactions withTimeout(long timeout);
 
     /**
      * Begins a transaction.
      *
-     * @return The started transaction.
+     * @return Started transaction.
      */
     Transaction begin();
 
     /**
-     * Begins an async transaction.
+     * Begins an asynchronous transaction.
      *
-     * @return The future holding the started transaction.
+     * @return The future that holds the started transaction.
      */
     CompletableFuture<Transaction> beginAsync();
 
     /**
      * Executes a closure within a transaction.
      *
-     * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed.
+     * <p>If the closure is executed normally (no exceptions), the transaction is automatically committed.
      *
-     * @param clo The closure.
+     * @param clo Closure.
      *
      * @throws TransactionException If a transaction can't be finished successfully.
      */
@@ -100,14 +100,14 @@ public interface IgniteTransactions {
     /**
      * Executes a closure within a transaction and returns a result.
      *
-     * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed.
+     * <p>If the closure is executed normally (no exceptions), the transaction is automatically committed.
      *
-     * <p>This method will automatically enlist all tables into the transaction, but the execution of
-     * the transaction shouldn't leave starting thread or an exception will be thrown.
+     * <p>This method automatically enlists all tables into the transaction. The transaction execution 
+     * shouldn't leave the starting thread. If it does, an exception is thrown.
      *
-     * @param clo The closure.
+     * @param clo Closure.
      * @param <T> Closure result type.
-     * @return The result.
+     * @return Result.
      *
      * @throws TransactionException If a transaction can't be finished successfully.
      */

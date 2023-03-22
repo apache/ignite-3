@@ -196,16 +196,16 @@ public interface Tuple extends Iterable<Object> {
      *                   "myColumn" - returns the value of the column named "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
      * @param defaultValue Default value.
-     * @param <T>          Column default value type.
-     * @return Column value if the tuple contains a column with the specified name. Otherwise, returns {@code defaultValue}.
+     * @param <T>          Default value type.
+     * @return Column value if the tuple contains a column with the specified name. Otherwise, {@code defaultValue}.
      */
     <T> T valueOrDefault(@NotNull String columnName, T defaultValue);
 
     /**
      * Sets a column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - sets the column with name "MYCOLUMN",
+     * @param columnName Column name in SQL-parser style notation; e.g.,
+     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
      * @param value      Value to set.
      * @return {@code this} for chaining.
@@ -213,51 +213,51 @@ public interface Tuple extends Iterable<Object> {
     Tuple set(@NotNull String columnName, Object value);
 
     /**
-     * Gets column value for given column name.
+     * Gets a column value for the given column name.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
+     * * @param columnName Column name in SQL-parser style notation; e.g.,
+     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
      * @param <T>        Value type.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
     <T> T value(@NotNull String columnName) throws IllegalArgumentException;
 
     /**
-     * Gets column value for given column index.
+     * Gets a column value for the given column index.
      *
      * @param columnIndex Column index.
      * @param <T>         Value type.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     <T> T value(int columnIndex);
 
     /**
-     * Gets binary object column.
+     * Gets a binary object column.
      *
      * @param columnName Column name.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
     BinaryObject binaryObjectValue(@NotNull String columnName);
 
     /**
-     * Gets binary object column.
+     * Gets a binary object column.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     BinaryObject binaryObjectValue(int columnIndex);
 
     /**
-     * Gets {@code byte} column value.
+     * Gets a {@code byte} column value.
      *
      * @param columnName Column name.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with given name exists.
      */
     byte byteValue(@NotNull String columnName);
 
@@ -266,247 +266,247 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     byte byteValue(int columnIndex);
 
     /**
-     * Gets {@code short} column value.
+     * Gets a {@code short} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
+     ** @param columnName Column name in SQL-parser style notation; e.g.,
+     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
     short shortValue(@NotNull String columnName);
 
     /**
-     * Gets {@code short} column value.
+     * Gets a {@code short} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     short shortValue(int columnIndex);
 
     /**
-     * Gets {@code int} column value.
+     * Gets a {@code int} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
+     * * @param columnName Column name in SQL-parser style notation; e.g.,
+     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
     int intValue(@NotNull String columnName);
 
     /**
-     * Gets {@code int} column value.
+     * Gets a {@code int} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     int intValue(int columnIndex);
 
     /**
-     * Gets {@code long} column value.
+     * Gets a {@code long} column value.
      *
      * @param columnName Column name with SQL-parser style quotation, e.g.
      *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
     long longValue(@NotNull String columnName);
 
     /**
-     * Gets {@code long} column value.
+     * Gets a {@code long} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     long longValue(int columnIndex);
 
     /**
-     * Gets {@code float} column value.
+     * Gets a {@code float} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
+     * * @param columnName Column name in SQL-parser style notation; e.g.,
+     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
     float floatValue(@NotNull String columnName);
 
     /**
-     * Gets {@code float} column value.
+     * Gets a {@code float} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     float floatValue(int columnIndex);
 
     /**
-     * Gets {@code double} column value.
+     * Gets a {@code double} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
+     * * @param columnName Column name in SQL-parser style notation; e.g.,
+     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
     double doubleValue(@NotNull String columnName);
 
     /**
-     * Gets {@code double} column value.
+     * Gets a {@code double} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     double doubleValue(int columnIndex);
 
     /**
-     * Gets {@code String} column value.
+     * Gets a {@code String} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
+     * * @param columnName Column name in SQL-parser style notation; e.g.,
+     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
     String stringValue(@NotNull String columnName);
 
     /**
-     * Gets {@code String} column value.
+     * Gets a {@code String} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     String stringValue(int columnIndex);
 
     /**
-     * Gets {@code UUID} column value.
+     * Gets a {@code UUID} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
+     * * @param columnName Column name in SQL-parser style notation; e.g.,
+     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
     UUID uuidValue(@NotNull String columnName);
 
     /**
-     * Gets {@code UUID} column value.
+     * Gets a {@code UUID} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     UUID uuidValue(int columnIndex);
 
     /**
-     * Gets {@code BitSet} column value.
+     * Gets a {@code BitSet} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
+     * * @param columnName Column name in SQL-parser style notation; e.g.,
+     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
     BitSet bitmaskValue(@NotNull String columnName);
 
     /**
-     * Gets {@code BitSet} column value.
+     * Gets a {@code BitSet} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     BitSet bitmaskValue(int columnIndex);
 
     /**
-     * Gets {@code LocalDate} column value.
+     * Gets a {@code LocalDate} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
+     * * @param columnName Column name in SQL-parser style notation; e.g.,
+     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
     LocalDate dateValue(String columnName);
 
     /**
-     * Gets {@code LocalDate} column value.
+     * Gets a {@code LocalDate} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     LocalDate dateValue(int columnIndex);
 
     /**
-     * Gets {@code LocalTime} column value.
+     * Gets a {@code LocalTime} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
+     * * @param columnName Column name in SQL-parser style notation; e.g.,
+     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
     LocalTime timeValue(String columnName);
 
     /**
-     * Gets {@code LocalTime} column value.
+     * Gets a {@code LocalTime} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     LocalTime timeValue(int columnIndex);
 
     /**
-     * Gets {@code LocalDateTime} column value.
+     * Gets a {@code LocalDateTime} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
+     * * @param columnName Column name in SQL-parser style notation; e.g.,
+     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
     LocalDateTime datetimeValue(String columnName);
 
     /**
-     * Gets {@code LocalDateTime} column value.
+     * Gets a {@code LocalDateTime} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the iven index exists.
      */
     LocalDateTime datetimeValue(int columnIndex);
 
     /**
-     * Gets {@code Instant} column value.
+     * Gets a {@code Instant} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
+     * * @param columnName Column name in SQL-parser style notation; e.g.,
+     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
     Instant timestampValue(String columnName);
 
     /**
-     * Gets {@code Instant} column value.
+     * Gets a {@code Instant} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     Instant timestampValue(int columnIndex);
 }

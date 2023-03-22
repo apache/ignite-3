@@ -39,7 +39,7 @@ import org.jetbrains.annotations.NotNull;
  * Simple tuple implementation.
  */
 class TupleImpl implements Tuple, Serializable {
-    /** Serial version uid. */
+    /** Serial version UID. */
     private static final long serialVersionUID = 0L;
 
     /**
@@ -56,14 +56,14 @@ class TupleImpl implements Tuple, Serializable {
     private final List<Object> colValues;
 
     /**
-     * Creates tuple.
+     * Creates a tuple.
      */
     TupleImpl() {
         this(new HashMap<>(), new ArrayList<>(), new ArrayList<>());
     }
 
     /**
-     * Creates a tuple with specified initial capacity.
+     * Creates a tuple with the specified initial capacity.
      *
      * @param capacity Initial capacity.
      */
@@ -88,8 +88,8 @@ class TupleImpl implements Tuple, Serializable {
      * A private constructor.
      *
      * @param columnMapping Column name-to-idx mapping.
-     * @param columnNames   List of columns names.
-     * @param columnValues  List of columns values.
+     * @param columnNames   List of column names.
+     * @param columnValues  List of column values.
      */
     private TupleImpl(Map<String, Integer> columnMapping, List<String> columnNames, List<Object> columnValues) {
         this.colMapping = columnMapping;
@@ -378,7 +378,7 @@ class TupleImpl implements Tuple, Serializable {
     }
 
     /**
-     * Deserializes object.
+     * Deserializes an object.
      *
      * @param in Input object stream.
      * @throws IOException            If failed.
