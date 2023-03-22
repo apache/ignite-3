@@ -40,7 +40,7 @@ public class ChannelTypeTest {
 
     @Test
     public void testRegisterAlready() {
-        ChannelType testRegister1 = ChannelType.register(OFFSET, "TestRegister1");
+        ChannelType.register(OFFSET, "TestRegister1");
 
         assertThrows(ChannelTypeAlreadyExist.class, () -> ChannelType.register(OFFSET, "TestRegister2"));
 
@@ -49,10 +49,9 @@ public class ChannelTypeTest {
 
     @Test
     public void testRegisterSame() {
-        ChannelType testRegister1 = ChannelType.register(OFFSET, "TestRegister1");
-        ChannelType testRegister2 = ChannelType.register(OFFSET, "TestRegister1");
+        ChannelType.register(OFFSET, "TestRegister1");
 
-        assertThat(testRegister1, is(testRegister2));
+        assertThrows(ChannelTypeAlreadyExist.class, () -> ChannelType.register(OFFSET, "TestRegister1"));
 
         OFFSET++;
     }

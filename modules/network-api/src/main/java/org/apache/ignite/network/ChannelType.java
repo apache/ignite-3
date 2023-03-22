@@ -95,7 +95,7 @@ public final class ChannelType {
 
     /**
      * Try to register channel with provided identifier. If identifier already used
-     *    by another channel and name is not the same, will throw {@link ChannelTypeAlreadyExist}.
+     *    by another channel will throw {@link ChannelTypeAlreadyExist}.
      *
      * @param id Channel identifier. Must be positive.
      * @param name Channel name.
@@ -108,10 +108,7 @@ public final class ChannelType {
         }
         ChannelType newChannel = new ChannelType(id, name);
         ChannelType channelType = channels.putIfAbsent(id, newChannel);
-        if (channelType != null
-                && (newChannel.id != channelType.id
-                || !newChannel.name.equals(channelType.name))
-        ) {
+        if (channelType != null) {
             throw new ChannelTypeAlreadyExist(id, name);
         }
         return newChannel;
