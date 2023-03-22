@@ -109,7 +109,7 @@ void TableElement(List<SqlNode> list) :
         (
             dflt = Literal()
         |
-            dflt = SimpleIdentifier() <LPAREN> <RPAREN>
+            dflt = SimpleIdentifier()
         )  {
             strategy = ColumnStrategy.DEFAULT;
         }

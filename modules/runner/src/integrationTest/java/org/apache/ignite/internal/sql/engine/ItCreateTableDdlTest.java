@@ -65,7 +65,7 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void pkWithFunctionalDefault() {
-        sql("create table t (id varchar default gen_random_uuid() primary key, val int)");
+        sql("create table t (id varchar default gen_random_uuid primary key, val int)");
         sql("insert into t (val) values (1), (2)");
 
         var result = sql("select * from t");
@@ -151,7 +151,7 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     @Test
     public void doNotAllowFunctionsInNonPkColumns() {
         SqlException t = assertThrows(SqlException.class,
-                () -> sql("create table t (id varchar primary key, val varchar default gen_random_uuid())"));
+                () -> sql("create table t (id varchar primary key, val varchar default gen_random_uuid)"));
 
         assertThat(t.getMessage(), containsString("Functional defaults are not supported for non-primary key columns"));
     }
