@@ -680,6 +680,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * </ol>
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19091")
     public void testQueryCorrectnessAfterNodeRestart() throws InterruptedException {
         IgniteImpl ignite1 = startNode(0);
 
@@ -784,7 +785,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19079")
     @Test
     // Hangs at org.apache.ignite.internal.table.TableImpl.pkId(TableImpl.java:127)
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19089")
     public void testTwoNodesRestartReverse() throws InterruptedException {
         twoNodesRestart(false);
     }
@@ -871,7 +872,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      */
     @Test
     // No sql engine
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19092")
     public void testOneNodeRestartWithGap() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
@@ -900,35 +901,11 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
-     * Checks that the table created in cluster of 2 nodes, is recovered on a node after restart of this node.
-     */
-    @Test
-    // No SQL engine
-    @Disabled
-    public void testRecoveryOnOneNode() throws InterruptedException {
-        IgniteImpl ignite = startNode(0);
-
-        List<IgniteComponent> components = startPartialNode(1, null);
-
-        createTableWithData(List.of(ignite), TABLE_NAME, 2, 1);
-
-        stopPartialNode(components);
-
-        components = startPartialNode(1, null);
-
-        TableManager tableManager = findComponent(components, TableManager.class);
-
-        assertNotNull(tableManager);
-
-        assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
-    }
-
-    /**
      * Checks that a cluster is able to restart when some changes were made in configuration.
      */
     @Test
     // No sql engine
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19092")
     public void testRestartDiffConfig() throws InterruptedException {
         List<IgniteImpl> ignites = startNodes(2);
 
@@ -953,11 +930,35 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
+     * Checks that the table created in cluster of 2 nodes, is recovered on a node after restart of this node.
+     */
+    @Test
+    // No SQL engine
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19092")
+    public void testRecoveryOnOneNode() throws InterruptedException {
+        IgniteImpl ignite = startNode(0);
+
+        List<IgniteComponent> components = startPartialNode(1, null);
+
+        createTableWithData(List.of(ignite), TABLE_NAME, 2, 1);
+
+        stopPartialNode(components);
+
+        components = startPartialNode(1, null);
+
+        TableManager tableManager = findComponent(components, TableManager.class);
+
+        assertNotNull(tableManager);
+
+        assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
+    }
+
+    /**
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
     // No SQL engine
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19092")
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
     public void testCfgGapWithoutData() throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(3);
