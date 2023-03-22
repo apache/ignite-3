@@ -170,7 +170,7 @@ public class RocksDbMetaStorage {
                 .array();
     }
 
-    static byte[] indexMetaKey(int partitionId, UUID indexId) {
+    private static byte[] indexMetaKey(int partitionId, UUID indexId) {
         assert partitionId >= 0 && partitionId <= 0xFFFF : partitionId;
 
         ByteBuffer buffer = ByteBuffer.allocate(INDEX_META_KEY_SIZE).order(KEY_BYTE_ORDER);
@@ -182,7 +182,7 @@ public class RocksDbMetaStorage {
         return buffer.array();
     }
 
-    static byte[] indexLastBuildRowId(@Nullable RowId rowId) {
+    private static byte[] indexLastBuildRowId(@Nullable RowId rowId) {
         if (rowId == null) {
             return BYTE_EMPTY_ARRAY;
         }

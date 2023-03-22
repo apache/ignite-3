@@ -57,7 +57,7 @@ public interface IndexStorage {
     void remove(IndexRow row) throws StorageException;
 
     /**
-     * Returns last row ID for which the index was built, {@code null} means that the index was built.
+     * Returns the last row ID that has been processed by an ongoing index build process or {@code null} if the process has finished.
      *
      * @throws StorageException If failed to get the last row ID.
      */

@@ -28,11 +28,23 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(TableMessageGroup.Commands.BUILD_INDEX)
 public interface BuildIndexCommand extends WriteCommand {
+    /**
+     * Return ID of table partition.
+     */
     TablePartitionIdMessage tablePartitionId();
 
+    /**
+     * Returns index ID.
+     */
     UUID indexId();
 
+    /**
+     * Returns row IDs for which to build indexes.
+     */
     List<UUID> rowIds();
 
+    /**
+     * Returns {@code true} if index building for the partition has completed.
+     */
     boolean finish();
 }
