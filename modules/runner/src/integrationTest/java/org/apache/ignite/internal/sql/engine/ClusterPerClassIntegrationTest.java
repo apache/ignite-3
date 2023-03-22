@@ -458,7 +458,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         );
     }
 
-    protected static void waitForIndex(String indexName) throws InterruptedException {
+    /**
+     * Waits for all nodes in the cluster to have the given index in the configuration.
+     *
+     * @param indexName  An index.
+     */
+    public static void waitForIndex(String indexName) throws InterruptedException {
         // FIXME: Wait for the index to be created on all nodes,
         //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18733 to avoid missed updates to the index.
         assertTrue(waitForCondition(

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.raftsnapshot;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
-import static org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest.getIndexConfiguration;
+import static org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest.waitForIndex;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -330,23 +330,13 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
                 + (DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? "" : " engine " + storageEngine)
                 + " with partitions=1, replicas=3";
 
-        waitForIndex(cluster::nodes, "test_PK");
+        waitForIndex("test_PK");
 
         cluster.doInSession(0, session -> {
             executeUpdate(sql, session);
         });
 
         waitForTableToStart();
-    }
-
-    protected static void waitForIndex(Supplier<List<IgniteImpl>> nodes, String indexName) throws InterruptedException {
-        // FIXME: Wait for the index to be created on all nodes,
-        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18733 to avoid missed updates to the index.
-        assertTrue(waitForCondition(
-                () -> nodes.get().stream().filter(Objects::nonNull)
-                        .map(node -> getIndexConfiguration(node, indexName)).allMatch(Objects::nonNull),
-                10_000)
-        );
     }
 
     private void waitForTableToStart() throws InterruptedException {
