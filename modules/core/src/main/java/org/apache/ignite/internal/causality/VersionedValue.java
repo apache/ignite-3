@@ -18,46 +18,47 @@
 package org.apache.ignite.internal.causality;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Versioned Value flavor that allows to be completed explicitly either via a value, or an exception.
+ * Parametrized type to store several versions of a value.
+ *
+ * <p>The value can be available through the causality token, which is represented by a {@code long}.
+ *
+ * @param <T> Type of real value.
  */
-public class VersionedValue<T> extends AbstractVersionedValue<T> {
+public interface VersionedValue<T> {
     /**
-     * Constructor with a default history size and no default value.
-     */
-    public VersionedValue() {
-        super(null);
-    }
-
-    public VersionedValue(int maxHistorySize) {
-        super(maxHistorySize, null);
-    }
-
-    public VersionedValue(Supplier<T> defaultValueSupplier) {
-        super(defaultValueSupplier);
-    }
-
-    /**
-     * Save the version of the value associated with the given causality token. If someone has got a future to await the value associated
-     * with the given causality token (see {@link #get(long)}, then the future will be completed.
+     * Creates a future for this value and causality token, or returns it if it already exists.
      *
-     * @param causalityToken Causality token.
-     * @param value          Current value.
+     * <p>The returned future is associated with an update having the given causality token and completes when this update is finished.
+     *
+     * @param causalityToken Causality token. Let's assume that the update associated with token N is already applied to this value.
+     *         Then, if token N is given as an argument, a completed future will be returned. If token N - 1 is given, this method returns
+     *         the result in the state that is actual for the given token. If the token is strongly outdated, {@link OutdatedTokenException}
+     *         is thrown. If token N + 1 is given, this method will return a future that will be completed when the update associated with
+     *         token N + 1 will have been applied. Tokens that greater than N by more than 1 should never be passed.
+     * @return The future.
+     * @throws OutdatedTokenException If outdated token is passed as an argument.
      */
-    public void complete(long causalityToken, T value) {
-        complete(causalityToken, CompletableFuture.completedFuture(value));
-    }
+    CompletableFuture<T> get(long causalityToken);
 
     /**
-     * Save the exception associated with the given causality token. If someone has got a future to await the value associated
-     * with the given causality token (see {@link #get(long)}, then the future will be completed.
-     *
-     * @param causalityToken Causality token.
-     * @param throwable An exception.
+     * Gets the latest value of completed future.
      */
-    public void completeExceptionally(long causalityToken, Throwable throwable) {
-        complete(causalityToken, CompletableFuture.failedFuture(throwable));
-    }
+    @Nullable T latest();
+
+    /**
+     * Add listener for completions of this versioned value on every token.
+     *
+     * @param action Action to perform.
+     */
+    void whenComplete(CompletionListener<T> action);
+
+    /**
+     * Removes a completion listener, see {@link #whenComplete}.
+     *
+     * @param action Action to remove.
+     */
+    void removeWhenComplete(CompletionListener<T> action);
 }

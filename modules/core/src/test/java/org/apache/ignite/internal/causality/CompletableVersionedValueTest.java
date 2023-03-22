@@ -44,9 +44,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests of causality token implementation based on versioned value.
- * {@link VersionedValue}
+ * {@link CompletableVersionedValue}
  */
-public class VersionedValueTest {
+public class CompletableVersionedValueTest {
     /** Test value. */
     private static final int TEST_VALUE = 1;
 
@@ -54,13 +54,13 @@ public class VersionedValueTest {
     private static final Exception TEST_EXCEPTION = new Exception("Test exception");
 
     /**
-     * The test gets a value for {@link VersionedValue} before the value is calculated.
+     * The test gets a value for {@link CompletableVersionedValue} before the value is calculated.
      *
      * @throws OutdatedTokenException If failed.
      */
     @Test
     public void testGetValueBeforeReady() throws OutdatedTokenException {
-        VersionedValue<Integer> intVersionedValue = new VersionedValue<>();
+        CompletableVersionedValue<Integer> intVersionedValue = new CompletableVersionedValue<>();
 
         CompletableFuture<Integer> fut = intVersionedValue.get(0);
 
@@ -80,7 +80,7 @@ public class VersionedValueTest {
      */
     @Test
     public void testManualCompleteSeveralTokens() {
-        VersionedValue<Integer> intVersionedValue = new VersionedValue<>();
+        CompletableVersionedValue<Integer> intVersionedValue = new CompletableVersionedValue<>();
 
         IntStream.range(5, 10).forEach(token -> {
             CompletableFuture<Integer> fut = intVersionedValue.get(token);
@@ -102,7 +102,7 @@ public class VersionedValueTest {
      */
     @Test
     public void testManualExceptionallyCompleteSeveralTokens() {
-        VersionedValue<Integer> intVersionedValue = new VersionedValue<>();
+        CompletableVersionedValue<Integer> intVersionedValue = new CompletableVersionedValue<>();
 
         IntStream.range(5, 10).forEach(token -> {
             CompletableFuture<Integer> fut = intVersionedValue.get(token);
@@ -127,7 +127,7 @@ public class VersionedValueTest {
      */
     @Test
     public void testMissValueUpdate() throws OutdatedTokenException {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>();
+        CompletableVersionedValue<Integer> longVersionedValue = new CompletableVersionedValue<>();
 
         longVersionedValue.complete(0, TEST_VALUE);
 
@@ -147,7 +147,7 @@ public class VersionedValueTest {
      */
     @Test
     public void testObsoleteToken() {
-        VersionedValue<Integer> versionedValue = new VersionedValue<>(2);
+        CompletableVersionedValue<Integer> versionedValue = new CompletableVersionedValue<>(2);
 
         versionedValue.complete(0, TEST_VALUE);
         versionedValue.complete(1, TEST_VALUE);
@@ -162,7 +162,7 @@ public class VersionedValueTest {
      */
     @Test
     public void testNewTokensNotGetRemoved() {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(2);
+        CompletableVersionedValue<Integer> longVersionedValue = new CompletableVersionedValue<>(2);
 
         longVersionedValue.complete(0, TEST_VALUE);
         longVersionedValue.complete(1, TEST_VALUE);
@@ -182,7 +182,7 @@ public class VersionedValueTest {
      */
     @Test
     public void testAutocompleteFuture() throws OutdatedTokenException {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>();
+        CompletableVersionedValue<Integer> longVersionedValue = new CompletableVersionedValue<>();
 
         longVersionedValue.complete(0, TEST_VALUE);
 
@@ -198,11 +198,11 @@ public class VersionedValueTest {
     }
 
     /**
-     * Test {@link VersionedValue#whenComplete}.
+     * Test {@link CompletableVersionedValue#whenComplete}.
      */
     @Test
     public void testWhenComplete() {
-        var vv = new VersionedValue<Integer>();
+        var vv = new CompletableVersionedValue<Integer>();
 
         CompletionListener<Integer> listener = mock(CompletionListener.class);
 
@@ -242,7 +242,7 @@ public class VersionedValueTest {
     }
 
     /**
-     * Checks a behavior when {@link VersionedValue} has not initialized yet, but someone already tries to get a value.
+     * Checks a behavior when {@link CompletableVersionedValue} has not initialized yet, but someone already tries to get a value.
      *
      * @throws Exception If failed.
      */
@@ -250,7 +250,7 @@ public class VersionedValueTest {
     public void testDefaultValue() throws Exception {
         int defaultValue = 5;
 
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(() -> defaultValue);
+        CompletableVersionedValue<Integer> longVersionedValue = new CompletableVersionedValue<>(() -> defaultValue);
 
         CompletableFuture<Integer> fut1 = longVersionedValue.get(1);
         CompletableFuture<Integer> fut2 = longVersionedValue.get(2);
@@ -271,7 +271,7 @@ public class VersionedValueTest {
 
     @RepeatedTest(100)
     void testConcurrentGetAndComplete() throws Exception {
-        var versionedValue = new VersionedValue<Integer>();
+        var versionedValue = new CompletableVersionedValue<Integer>();
 
         // Set initial value.
         versionedValue.complete(1, 1);
@@ -297,7 +297,7 @@ public class VersionedValueTest {
 
     @RepeatedTest(100)
     void testConcurrentGetAndCompleteWithHistoryTrimming() throws Exception {
-        var versionedValue = new VersionedValue<Integer>(2);
+        var versionedValue = new CompletableVersionedValue<Integer>(2);
 
         // Set initial value (history size 1).
         versionedValue.complete(2, 2);
@@ -333,7 +333,7 @@ public class VersionedValueTest {
 
     @Test
     void testCompleteMultipleFutures() {
-        var versionedValue = new VersionedValue<Integer>();
+        var versionedValue = new CompletableVersionedValue<Integer>();
 
         // Set initial value.
         versionedValue.complete(1, 1);

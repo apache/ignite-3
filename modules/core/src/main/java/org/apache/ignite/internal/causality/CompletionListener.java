@@ -22,7 +22,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Listener that will be notified of every completion of a Versioned Value.
  *
- * @see AbstractVersionedValue#whenComplete(CompletionListener)
+ * @see BaseVersionedValue#whenComplete(CompletionListener)
  */
 @FunctionalInterface
 public interface CompletionListener<T> {

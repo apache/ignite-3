@@ -42,9 +42,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.causality.CompletableVersionedValue;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.OutdatedTokenException;
-import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.HashIndex;
 import org.apache.ignite.internal.index.Index;
@@ -85,7 +85,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     private final ReplicaService replicaService;
     private final HybridClock clock;
 
-    private final VersionedValue<SchemaPlus> calciteSchemaVv;
+    private final CompletableVersionedValue<SchemaPlus> calciteSchemaVv;
 
     private final Set<SchemaUpdateListener> listeners = new CopyOnWriteArraySet<>();
 
@@ -114,7 +114,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         indicesVv = new IncrementalVersionedValue<>(registry, HashMap::new);
         this.busyLock = busyLock;
 
-        calciteSchemaVv = new VersionedValue<>(() -> {
+        calciteSchemaVv = new CompletableVersionedValue<>(() -> {
             SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
             newCalciteSchema.add(DEFAULT_SCHEMA_NAME, new IgniteSchema(DEFAULT_SCHEMA_NAME));
             return newCalciteSchema;

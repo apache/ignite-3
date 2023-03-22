@@ -33,7 +33,9 @@ import org.jetbrains.annotations.Nullable;
  * Versioned Value flavor that accumulates updates posted by the {@link #update} method and "commits" them when {@link #complete} or
  * {@link #completeExceptionally} are called or a storage revision is updated (see constructors for details).
  */
-public class IncrementalVersionedValue<T> extends AbstractVersionedValue<T> {
+public class IncrementalVersionedValue<T> implements VersionedValue<T> {
+    private final BaseVersionedValue<T> versionedValue;
+
     /** Update mutex. */
     private final Object updateMutex = new Object();
 
@@ -56,7 +58,7 @@ public class IncrementalVersionedValue<T> extends AbstractVersionedValue<T> {
      *
      * <p>Multi-threaded access is guarded by {@link #updateMutex}.
      */
-    private CompletableFuture<T> updaterFuture = completedFuture(getDefault());
+    private CompletableFuture<T> updaterFuture;
 
     /**
      * Constructor.
@@ -74,7 +76,9 @@ public class IncrementalVersionedValue<T> extends AbstractVersionedValue<T> {
             int maxHistorySize,
             @Nullable Supplier<T> defaultValueSupplier
     ) {
-        super(maxHistorySize, defaultValueSupplier);
+        this.versionedValue = new BaseVersionedValue<>(maxHistorySize, defaultValueSupplier);
+
+        this.updaterFuture = completedFuture(versionedValue.getDefault());
 
         if (observableRevisionUpdater != null) {
             observableRevisionUpdater.accept(this::completeInternal);
@@ -93,9 +97,15 @@ public class IncrementalVersionedValue<T> extends AbstractVersionedValue<T> {
      */
     public IncrementalVersionedValue(
             @Nullable Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater,
-            Supplier<T> defaultValueSupplier
+            @Nullable Supplier<T> defaultValueSupplier
     ) {
-        this(observableRevisionUpdater, DEFAULT_MAX_HISTORY_SIZE, defaultValueSupplier);
+        this.versionedValue = new BaseVersionedValue<>(defaultValueSupplier);
+
+        this.updaterFuture = completedFuture(versionedValue.getDefault());
+
+        if (observableRevisionUpdater != null) {
+            observableRevisionUpdater.accept(this::completeInternal);
+        }
     }
 
     /**
@@ -107,7 +117,27 @@ public class IncrementalVersionedValue<T> extends AbstractVersionedValue<T> {
      *         update of storage revision as a listener.
      */
     public IncrementalVersionedValue(Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater) {
-        this(observableRevisionUpdater, DEFAULT_MAX_HISTORY_SIZE, null);
+        this(observableRevisionUpdater, null);
+    }
+
+    @Override
+    public CompletableFuture<T> get(long causalityToken) {
+        return versionedValue.get(causalityToken);
+    }
+
+    @Override
+    public @Nullable T latest() {
+        return versionedValue.latest();
+    }
+
+    @Override
+    public void whenComplete(CompletionListener<T> action) {
+        versionedValue.whenComplete(action);
+    }
+
+    @Override
+    public void removeWhenComplete(CompletionListener<T> action) {
+        versionedValue.removeWhenComplete(action);
     }
 
     /**
@@ -165,7 +195,6 @@ public class IncrementalVersionedValue<T> extends AbstractVersionedValue<T> {
      *
      * @param causalityToken Causality token.
      */
-    @Override
     public void complete(long causalityToken) {
         completeInternal(causalityToken);
     }
@@ -199,7 +228,13 @@ public class IncrementalVersionedValue<T> extends AbstractVersionedValue<T> {
             // Create a local copy while we are under the lock to pass it to the lambda below.
             CompletableFuture<T> localUpdaterFuture = updaterFuture;
 
-            updaterFuture = updaterFuture.whenComplete((v, t) -> complete(causalityToken, localUpdaterFuture));
+            if (updaterFuture.isDone()) {
+                // Since the future has already been completed, there's no need to store a new future object in the history map and we can
+                // save a little bit of memory. This is useful when no "update" calls have been made between two "complete" calls.
+                updaterFuture.whenComplete((v, t) -> versionedValue.complete(causalityToken, localUpdaterFuture));
+            } else {
+                updaterFuture = updaterFuture.whenComplete((v, t) -> versionedValue.complete(causalityToken, localUpdaterFuture));
+            }
 
             return updaterFuture;
         }

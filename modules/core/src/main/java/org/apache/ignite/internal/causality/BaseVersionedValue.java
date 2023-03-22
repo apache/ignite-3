@@ -40,20 +40,16 @@ import org.apache.ignite.internal.util.Lazy;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Parametrized type to store several versions of a value.
- *
- * <p>The value can be available through the causality token, which is represented by a {@code long}.
- *
- * @param <T> Type of real value.
+ * Base implementation of a {@code VersionedValue} intended to be used by other implementations.
  */
-public class AbstractVersionedValue<T> {
-    private final IgniteLogger log = Loggers.forClass(AbstractVersionedValue.class);
+class BaseVersionedValue<T> implements VersionedValue<T> {
+    private final IgniteLogger log = Loggers.forClass(BaseVersionedValue.class);
 
     /** Token until the value is initialized. */
     private static final long NOT_INITIALIZED = -1L;
 
     /** Default history size. */
-    public static final int DEFAULT_MAX_HISTORY_SIZE = 10;
+    private static final int DEFAULT_MAX_HISTORY_SIZE = 10;
 
     /** Size of the history of changes to store, including last applied token. */
     private final int maxHistorySize;
@@ -77,28 +73,16 @@ public class AbstractVersionedValue<T> {
 
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
-    protected AbstractVersionedValue(@Nullable Supplier<T> defaultValueSupplier) {
+    BaseVersionedValue(@Nullable Supplier<T> defaultValueSupplier) {
         this(DEFAULT_MAX_HISTORY_SIZE, defaultValueSupplier);
     }
 
-    protected AbstractVersionedValue(int maxHistorySize, @Nullable Supplier<T> defaultValueSupplier) {
+    BaseVersionedValue(int maxHistorySize, @Nullable Supplier<T> defaultValueSupplier) {
         this.maxHistorySize = maxHistorySize;
         this.defaultValue = defaultValueSupplier == null ? null : new Lazy<>(defaultValueSupplier);
     }
 
-    /**
-     * Creates a future for this value and causality token, or returns it if it already exists.
-     *
-     * <p>The returned future is associated with an update having the given causality token and completes when this update is finished.
-     *
-     * @param causalityToken Causality token. Let's assume that the update associated with token N is already applied to this value.
-     *         Then, if token N is given as an argument, a completed future will be returned. If token N - 1 is given, this method returns
-     *         the result in the state that is actual for the given token. If the token is strongly outdated, {@link OutdatedTokenException}
-     *         is thrown. If token N + 1 is given, this method will return a future that will be completed when the update associated with
-     *         token N + 1 will have been applied. Tokens that greater than N by more than 1 should never be passed.
-     * @return The future.
-     * @throws OutdatedTokenException If outdated token is passed as an argument.
-     */
+    @Override
     public CompletableFuture<T> get(long causalityToken) {
         assert causalityToken > NOT_INITIALIZED;
 
@@ -121,9 +105,7 @@ public class AbstractVersionedValue<T> {
         }
     }
 
-    /**
-     * Gets the latest value of completed future.
-     */
+    @Override
     public @Nullable T latest() {
         for (CompletableFuture<T> fut : history.descendingMap().values()) {
             if (fut.isDone()) {
@@ -137,7 +119,7 @@ public class AbstractVersionedValue<T> {
     /**
      * Returns the default value.
      */
-    protected final @Nullable T getDefault() {
+    @Nullable T getDefault() {
         return defaultValue == null ? null : defaultValue.get();
     }
 
@@ -150,7 +132,7 @@ public class AbstractVersionedValue<T> {
      *
      * @param causalityToken Causality token.
      */
-    public void complete(long causalityToken) {
+    void complete(long causalityToken) {
         CompletableFuture<T> futureForToken;
 
         readWriteLock.writeLock().lock();
@@ -191,7 +173,7 @@ public class AbstractVersionedValue<T> {
      *
      * <p>Calling this method will trigger the {@link #whenComplete} listeners for the given token.
      */
-    protected void complete(long causalityToken, CompletableFuture<T> future) {
+    void complete(long causalityToken, CompletableFuture<T> future) {
         assert future.isDone();
 
         readWriteLock.writeLock().lock();
@@ -327,20 +309,12 @@ public class AbstractVersionedValue<T> {
         });
     }
 
-    /**
-     * Add listener for completions of this versioned value on every token.
-     *
-     * @param action Action to perform.
-     */
+    @Override
     public void whenComplete(CompletionListener<T> action) {
         completionListeners.add(action);
     }
 
-    /**
-     * Removes a completion listener, see {@link #whenComplete}.
-     *
-     * @param action Action to remove.
-     */
+    @Override
     public void removeWhenComplete(CompletionListener<T> action) {
         completionListeners.remove(action);
     }
