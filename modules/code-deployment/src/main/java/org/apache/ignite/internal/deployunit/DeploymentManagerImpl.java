@@ -116,8 +116,6 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
      */
     private Path unitsFolder;
 
-    private ChannelType deploymentChannelType;
-
     /**
      * Constructor.
      *
@@ -136,7 +134,6 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
         this.metaStorage = metaStorage;
         this.configuration = configuration;
         this.cmgManager = cmgManager;
-
         unitsFolder = workDir;
     }
 
