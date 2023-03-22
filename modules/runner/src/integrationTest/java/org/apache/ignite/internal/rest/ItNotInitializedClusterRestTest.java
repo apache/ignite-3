@@ -104,10 +104,10 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         // Expect cluster configuration is not available
         Problem problem = objectMapper.readValue(response.body(), Problem.class);
         assertAll(
-                () -> assertThat(problem.status(), is(404)),
-                () -> assertThat(problem.title(), is("Not Found")),
+                () -> assertThat(problem.status(), is(409)),
+                () -> assertThat(problem.title(), is("Conflict")),
                 () -> assertThat(problem.detail(),
-                        is("Cluster not initialized. Call /management/v1/cluster/init in order to initialize cluster"))
+                        is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster."))
         );
     }
 
@@ -123,10 +123,10 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         // Expect cluster configuration could not be updated
         Problem problem = objectMapper.readValue(response.body(), Problem.class);
         assertAll(
-                () -> assertThat(problem.status(), is(404)),
-                () -> assertThat(problem.title(), is("Not Found")),
+                () -> assertThat(problem.status(), is(409)),
+                () -> assertThat(problem.title(), is("Conflict")),
                 () -> assertThat(problem.detail(),
-                        is("Cluster not initialized. Call /management/v1/cluster/init in order to initialize cluster"))
+                        is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster."))
         );
     }
 
@@ -139,10 +139,10 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         // Then
         Problem problem = objectMapper.readValue(response.body(), Problem.class);
         assertAll(
-                () -> assertThat(problem.status(), is(404)),
-                () -> assertThat(problem.title(), is("Not Found")),
+                () -> assertThat(problem.status(), is(409)),
+                () -> assertThat(problem.title(), is("Conflict")),
                 () -> assertThat(problem.detail(),
-                        is("Cluster not initialized. Call /management/v1/cluster/init in order to initialize cluster"))
+                        is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster."))
         );
     }
 
@@ -188,10 +188,10 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         // Then
         Problem problem = objectMapper.readValue(response.body(), Problem.class);
         assertAll(
-                () -> assertThat(problem.status(), is(404)),
-                () -> assertThat(problem.title(), is("Not Found")),
+                () -> assertThat(problem.status(), is(409)),
+                () -> assertThat(problem.title(), is("Conflict")),
                 () -> assertThat(problem.detail(),
-                        is("Cluster not initialized. Call /management/v1/cluster/init in order to initialize cluster"))
+                        is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster."))
         );
     }
 
