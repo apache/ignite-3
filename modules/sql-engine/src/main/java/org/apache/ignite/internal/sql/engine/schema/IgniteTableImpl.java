@@ -492,6 +492,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
 
             Object value = hnd.get(colDesc.logicalIndex(), row);
 
+            // TODO Remove this check when https://issues.apache.org/jira/browse/IGNITE-18225 is complete
             assert value != RexImpTable.DEFAULT_VALUE_PLACEHOLDER;
 
             if (value == null) {
