@@ -53,7 +53,10 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
      * Class of throwable that should be the cause of fail if the future should fail. If {@code null}, the future should be completed
      * successfully.
      */
-    private final Class<? extends Throwable> causeOfFail;
+    private final @Nullable Class<? extends Throwable> causeOfFail;
+
+    /** Fragment that must be a substring of a error message (if {@code null}, message won't be checked). */
+    private final @Nullable String errorMessageFragment;
 
     /**
      * Constructor.
@@ -61,7 +64,7 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
      * @param matcher Matcher to forward the result of the completable future.
      */
     private CompletableFutureMatcher(Matcher<T> matcher) {
-        this(matcher, DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS, null);
+        this(matcher, DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS, null, null);
     }
 
     /**
@@ -70,22 +73,23 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
      * @param matcher Matcher to forward the result of the completable future.
      * @param timeout Timeout.
      * @param timeoutTimeUnit {@link TimeUnit} for timeout.
-     * @param causeOfFail If {@code null}, the future should be completed successfully, otherwise it specifies the class of cause
-     *                    throwable.
+     * @param causeOfFail If {@code null}, the future should be completed successfully, otherwise it specifies class of cause throwable.
+     * @param errorMessageFragment Fragment that must be a substring of a error message (if {@code null}, message won't be checked).
      */
     private CompletableFutureMatcher(
             Matcher<T> matcher,
             int timeout,
             TimeUnit timeoutTimeUnit,
-            @Nullable Class<? extends Throwable> causeOfFail
+            @Nullable Class<? extends Throwable> causeOfFail,
+            @Nullable String errorMessageFragment
     ) {
         this.matcher = matcher;
         this.timeout = timeout;
         this.timeoutTimeUnit = timeoutTimeUnit;
         this.causeOfFail = causeOfFail;
+        this.errorMessageFragment = errorMessageFragment;
     }
 
-    /** {@inheritDoc} */
     @Override
     protected boolean matchesSafely(CompletableFuture<? extends T> item) {
         try {
@@ -98,7 +102,7 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
             return matcher.matches(res);
         } catch (InterruptedException | ExecutionException | TimeoutException | CancellationException e) {
             if (causeOfFail != null) {
-                assertTrue(hasCause(e, causeOfFail, null));
+                assertTrue(hasCause(e, causeOfFail, errorMessageFragment));
 
                 return true;
             } else {
@@ -107,13 +111,11 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void describeTo(Description description) {
         description.appendText("is ").appendDescriptionOf(matcher);
     }
 
-    /** {@inheritDoc} */
     @Override
     protected void describeMismatchSafely(CompletableFuture<? extends T> item, Description mismatchDescription) {
         Object valueDescription = item.isDone() ? item.join() : item;
@@ -147,7 +149,7 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
      * @return matcher.
      */
     public static CompletableFutureMatcher<Object> willSucceedIn(int time, TimeUnit timeUnit) {
-        return new CompletableFutureMatcher<>(anything(), time, timeUnit, null);
+        return new CompletableFutureMatcher<>(anything(), time, timeUnit, null, null);
     }
 
     /**
@@ -161,6 +163,17 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
     }
 
     /**
+     * Creates a matcher that matches a future that completes exceptionally and decently fast.
+     *
+     * @param cause The class of cause throwable.
+     * @param errorMessageFragment Fragment that must be a substring of a error message (if {@code null}, message won't be checked).
+     * @return matcher.
+     */
+    public static CompletableFutureMatcher<Object> willFailFast(Class<? extends Throwable> cause, String errorMessageFragment) {
+        return willFailIn(1, TimeUnit.SECONDS, cause, errorMessageFragment);
+    }
+
+    /**
      * Creates a matcher that matches a future that completes exceptionally within the given timeout.
      *
      * @param time Timeout.
@@ -171,7 +184,28 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
     public static CompletableFutureMatcher<Object> willFailIn(int time, TimeUnit timeUnit, Class<? extends Throwable> cause) {
         assert cause != null;
 
-        return new CompletableFutureMatcher<>(anything(), time, timeUnit, cause);
+        return new CompletableFutureMatcher<>(anything(), time, timeUnit, cause, null);
+    }
+
+    /**
+     * Creates a matcher that matches a future that completes exceptionally within the given timeout.
+     *
+     * @param time Timeout.
+     * @param timeUnit Time unit for timeout.
+     * @param cause The class of cause throwable.
+     * @param errorMessageFragment Fragment that must be a substring of a error message (if {@code null}, message won't be checked).
+     * @return matcher.
+     */
+    public static CompletableFutureMatcher<Object> willFailIn(
+            int time,
+            TimeUnit timeUnit,
+            Class<? extends Throwable> cause,
+            String errorMessageFragment
+    ) {
+        assert cause != null;
+        assert errorMessageFragment != null;
+
+        return new CompletableFutureMatcher<>(anything(), time, timeUnit, cause, errorMessageFragment);
     }
 
     /**
@@ -191,7 +225,7 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
      * @return matcher.
      */
     public static CompletableFutureMatcher<Object> willTimeoutIn(int time, TimeUnit timeUnit) {
-        return new CompletableFutureMatcher<>(anything(), time, timeUnit, TimeoutException.class);
+        return new CompletableFutureMatcher<>(anything(), time, timeUnit, TimeoutException.class, null);
     }
 
     /**
@@ -211,7 +245,7 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
      * @return matcher.
      */
     public static CompletableFutureMatcher<Object> willBeCancelledIn(int time, TimeUnit timeUnit) {
-        return new CompletableFutureMatcher<>(anything(), time, timeUnit, CancellationException.class);
+        return new CompletableFutureMatcher<>(anything(), time, timeUnit, CancellationException.class, null);
     }
 
     /**

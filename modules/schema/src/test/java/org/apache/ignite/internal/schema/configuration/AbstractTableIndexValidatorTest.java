@@ -34,12 +34,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class AbstractTableIndexValidatorTest {
+    protected static final String TABLE_NAME = "schema.table";
+
     /** Basic table configuration to mutate and then validate. */
     @InjectConfiguration(
             polymorphicExtensions = {
                     HashIndexConfigurationSchema.class,
                     SortedIndexConfigurationSchema.class,
-            }
+            },
+            internalExtensions = ExtendedTableConfigurationSchema.class
     )
     protected TablesConfiguration tablesCfg;
 
