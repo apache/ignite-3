@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raftsnapshot;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest.getIndexConfiguration;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -48,6 +49,7 @@ import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.Cluster.NodeKnockout;
@@ -315,6 +317,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         transferLeadershipOnSolePartitionTo(0);
 
         cluster.knockOutNode(2, knockout);
+        System.out.println("Test::run_dml");
 
         cluster.doInSession(0, session -> {
             executeUpdate("insert into test(key, value) values (1, 'one')", session);
@@ -333,7 +336,20 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             executeUpdate(sql, session);
         });
 
+        waitForIndex(cluster::nodes, "test" + "_PK");
+        System.out.println("Test::indexes_ready");
+
         waitForTableToStart();
+    }
+
+    protected static void waitForIndex(Supplier<List<IgniteImpl>> nodes, String indexName) throws InterruptedException {
+        // FIXME: Wait for the index to be created on all nodes,
+        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18733 to avoid missed updates to the index.
+        assertTrue(waitForCondition(
+                () -> nodes.get().stream().filter(Objects::nonNull)
+                        .map(node -> getIndexConfiguration(node, indexName)).allMatch(Objects::nonNull),
+                10_000)
+        );
     }
 
     private void waitForTableToStart() throws InterruptedException {
@@ -668,8 +684,30 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      */
     @Test
     // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19088")
     void snapshotInstallationRepeatsOnTimeout() throws Exception {
+        prepareClusterForInstallingSnapshotToNode2(DEFAULT_KNOCKOUT, DEFAULT_STORAGE_ENGINE, theCluster -> {
+            theCluster.node(0).dropMessages(dropFirstSnapshotMetaResponse());
+        });
+
+        reanimateNode2AndWaitForSnapshotInstalled(DEFAULT_KNOCKOUT);
+    }
+
+    @Test
+    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19088")
+    void snapshotInstallationRepeatsOnTimeout2() throws Exception {
+        prepareClusterForInstallingSnapshotToNode2(DEFAULT_KNOCKOUT, DEFAULT_STORAGE_ENGINE, theCluster -> {
+            theCluster.node(0).dropMessages(dropFirstSnapshotMetaResponse());
+        });
+
+        reanimateNode2AndWaitForSnapshotInstalled(DEFAULT_KNOCKOUT);
+    }
+
+    @Test
+    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19088")
+    void snapshotInstallationRepeatsOnTimeout3() throws Exception {
         prepareClusterForInstallingSnapshotToNode2(DEFAULT_KNOCKOUT, DEFAULT_STORAGE_ENGINE, theCluster -> {
             theCluster.node(0).dropMessages(dropFirstSnapshotMetaResponse());
         });
@@ -723,7 +761,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      */
     @Test
     // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19088")
     void snapshotInstallTimeoutDoesNotBreakSubsequentInstallsWhenSecondAttemptIsIdenticalToFirst() throws Exception {
         AtomicBoolean snapshotInstallFailedDueToIdenticalRetry = new AtomicBoolean(false);
 
@@ -763,7 +801,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
     @Test
     // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19088")
     void testChangeLeaderOnInstallSnapshotInMiddle() throws Exception {
         CompletableFuture<Void> sentSnapshotMetaResponseFormNode1Future = new CompletableFuture<>();
 
@@ -839,7 +877,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      */
     @Test
     // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19088")
     void testChangeLeaderDuringSnapshotInstallationToLeaderWithEnoughLog() throws Exception {
         CompletableFuture<Void> sentSnapshotMetaResponseFormNode0Future = new CompletableFuture<>();
 
