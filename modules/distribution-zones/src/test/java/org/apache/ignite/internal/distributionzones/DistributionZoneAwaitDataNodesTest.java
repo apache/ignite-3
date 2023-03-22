@@ -192,7 +192,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testSeveralScaleUpAndSeveralScaleDownThenScaleUpAndScaleDown() throws Exception {
-        startZoneManager();
+        startZoneManager(0);
 
         TestSeveralScaleUpAndSeveralScaleDownDataObject testData = testSeveralScaleUpAndSeveralScaleDownGeneral();
 
@@ -266,7 +266,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testSeveralScaleUpAndSeveralScaleDownThenScaleUp() throws Exception {
-        startZoneManager();
+        startZoneManager(0);
 
         TestSeveralScaleUpAndSeveralScaleDownDataObject testData = testSeveralScaleUpAndSeveralScaleDownGeneral();
 
@@ -315,7 +315,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testSeveralScaleUpAndSeveralScaleDownThenScaleDown() throws Exception {
-        startZoneManager();
+        startZoneManager(0);
 
         TestSeveralScaleUpAndSeveralScaleDownDataObject testData = testSeveralScaleUpAndSeveralScaleDownGeneral();
 
@@ -601,7 +601,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testScaleUpAndThenScaleDown() throws Exception {
-        startZoneManager();
+        startZoneManager(0);
 
         CompletableFuture<Set<String>> dataNodesFut = distributionZoneManager.getDataNodes(DEFAULT_ZONE_ID, 5);
 
@@ -708,7 +708,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testAwaitingScaleUpOnly() throws Exception {
-        startZoneManager();
+        startZoneManager(0);
 
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                         .dataNodesAutoAdjustScaleUp(Integer.MAX_VALUE).dataNodesAutoAdjustScaleDown(Integer.MAX_VALUE).build())
@@ -758,7 +758,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testAwaitingScaleDownOnly() throws Exception {
-        startZoneManager();
+        startZoneManager(0);
 
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                         .dataNodesAutoAdjustScaleUp(Integer.MAX_VALUE).dataNodesAutoAdjustScaleDown(Integer.MAX_VALUE).build())
@@ -841,7 +841,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testWithOutAwaiting() throws Exception {
-        startZoneManager();
+        startZoneManager(0);
 
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                         .dataNodesAutoAdjustScaleUp(Integer.MAX_VALUE).dataNodesAutoAdjustScaleDown(Integer.MAX_VALUE).build())
@@ -894,7 +894,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testRemoveZoneWhileAwaitingDataNodes() throws Exception {
-        startZoneManager();
+        startZoneManager(0);
 
         distributionZoneManager.createZone(
                         new DistributionZoneConfigurationParameters.Builder("zone0")
@@ -1029,7 +1029,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testScaleUpScaleDownWhileAwaitingDataNodes() throws Exception {
-        startZoneManager();
+        startZoneManager(0);
 
         Set<String> nodes0 = Set.of("node0", "node1");
 
@@ -1086,9 +1086,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         when(vaultManager.get(zonesLogicalTopologyKey())).thenReturn(completedFuture(vaultEntry));
 
-        when(metaStorageManager.appliedRevision()).thenReturn(5L);
-
-        startZoneManager();
+        startZoneManager(5);
 
         distributionZoneManager.alterZone(
                         DEFAULT_ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
@@ -1098,7 +1096,9 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
         assertEquals(dataNodes, distributionZoneManager.getDataNodes(DEFAULT_ZONE_ID, 1).get(3, TimeUnit.SECONDS));
     }
 
-    private void startZoneManager() throws Exception {
+    private void startZoneManager(long revision) throws Exception {
+        when(metaStorageManager.appliedRevision(any())).thenReturn(completedFuture(revision));
+
         distributionZoneManager.start();
 
         distributionZoneManager.alterZone(
