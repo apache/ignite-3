@@ -202,7 +202,8 @@ public class PlacementDriverReplicaSideTest {
 
         // Sending the same message once again, with force == false (placement driver actor may have changed and the new lease interval
         // intersects with previous one).
-        CompletableFuture<LeaseGrantedMessageResponse> respFut1 = sendLeaseGranted(hts(leaseStartTime + 8), hts(leaseStartTime + 18), false);
+        CompletableFuture<LeaseGrantedMessageResponse> respFut1 =
+                sendLeaseGranted(hts(leaseStartTime + 8), hts(leaseStartTime + 18), false);
 
         assertTrue(respFut1.isDone());
 
