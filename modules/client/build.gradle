@@ -23,7 +23,7 @@ dependencies {
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-binary-tuple')
-    api project(':ignite-client-common')
+    implementation project(':ignite-client-common')
     implementation project(':ignite-marshaller-common')
 
     implementation libs.jetbrains.annotations
