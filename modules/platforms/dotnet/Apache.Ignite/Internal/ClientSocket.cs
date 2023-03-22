@@ -523,6 +523,7 @@ namespace Apache.Ignite.Internal
         private async ValueTask SendRequestAsync(PooledArrayBuffer? request, ClientOp op, long requestId)
         {
             // Reset heartbeat timer - don't sent heartbeats when connection is active anyway.
+            // TODO: ObjectDisposedException is possible here when Dispose is called concurrently.
             _heartbeatTimer.Change(dueTime: _heartbeatInterval, period: TimeSpan.FromMilliseconds(-1));
 
             if (_logger?.IsEnabled(LogLevel.Trace) == true)
