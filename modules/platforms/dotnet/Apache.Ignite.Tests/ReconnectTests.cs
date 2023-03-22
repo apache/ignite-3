@@ -130,9 +130,6 @@ public class ReconnectTests
     [Test]
     public async Task TestReconnectAfterFullClusterRestart()
     {
-        // TODO: Two connections go out to the same node, which is not supported by the FakeServer.
-        // One is from background reconnect, another from regular operation.
-        // We should prevent this in the client.
         var logger = new ConsoleLogger { MinLevel = LogLevel.Trace };
 
         var cfg = new IgniteClientConfiguration
