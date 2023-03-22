@@ -154,6 +154,7 @@ public class DeployMessagingService {
      * @return Future with stop result.
      */
     public CompletableFuture<Void> stopInProgressDeploy(String id, Version version) {
+        LOG.info("Stop in progress deploy for " + id + ":" + version);
         return CompletableFuture.allOf(cmgManager.logicalTopology()
                 .thenApply(topology -> topology.nodes().stream().map(node ->
                                 clusterService.messagingService()
@@ -186,7 +187,7 @@ public class DeployMessagingService {
                                 .build(),
                         Long.MAX_VALUE
                 ).thenAccept(message ->
-                        LOG.debug("Undeploy unit " + id + ":" + version + " from node " + node + " finished"));
+                        LOG.info("Undeploy unit " + id + ":" + version + " from node " + node + " finished"));
     }
 
     private CompletableFuture<Boolean> requestDeploy(ClusterNode clusterNode, DeployUnitRequest request) {
@@ -222,6 +223,8 @@ public class DeployMessagingService {
     }
 
     private void processUndeployRequest(UndeployUnitRequest executeRequest, String senderConsistentId, long correlationId) {
+        LOG.info("Start to undeploy " + executeRequest.id() + " with version " + executeRequest.version() + " from "
+                + clusterService.topologyService().localMember().name());
         deployerService.undeploy(executeRequest.id(), executeRequest.version())
                 .thenRun(() -> clusterService.messagingService()
                         .respond(senderConsistentId, UndeployUnitResponseImpl.builder().build(), correlationId));

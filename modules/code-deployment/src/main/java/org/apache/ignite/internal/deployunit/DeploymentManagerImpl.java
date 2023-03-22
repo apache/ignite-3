@@ -164,11 +164,11 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
         Objects.requireNonNull(version);
 
         return messaging.stopInProgressDeploy(id, version)
-                .thenCompose(v -> metastore.updateMeta(id, version, meta -> meta.updateStatus(OBSOLETE)))
+                .thenCompose(v -> metastore.updateMeta(id, version, true, meta -> meta.updateStatus(OBSOLETE)))
                 .thenCompose(success -> {
                     if (success) {
                         //TODO: Check unit usages here. If unit used in compute task we cannot just remove it.
-                        return metastore.updateMeta(id, version, meta -> meta.updateStatus(REMOVING));
+                        return metastore.updateMeta(id, version, true, meta -> meta.updateStatus(REMOVING));
                     }
                     return CompletableFuture.completedFuture(false);
                 })

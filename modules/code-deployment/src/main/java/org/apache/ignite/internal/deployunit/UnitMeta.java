@@ -155,4 +155,15 @@ public class UnitMeta {
         result = 31 * result + consistentIdLocation.hashCode();
         return result;
     }
+
+    @Override
+    public String toString() {
+        return "UnitMeta{" +
+                "id='" + id + '\'' +
+                ", version=" + version +
+                ", name='" + name + '\'' +
+                ", status=" + status +
+                ", consistentIdLocation=" + String.join(", ", consistentIdLocation) +
+                '}';
+    }
 }

@@ -27,21 +27,26 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Consumer;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.key.UnitMetaSerializer;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
-import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.lang.ByteArray;
 
 /**
  * Service for metastore access of deployment units.
  */
 public class DeployMetastoreService {
+    private static final IgniteLogger LOG = Loggers.forClass(DeployMetastoreService.class);
+
     /**
      * Meta storage.
      */
@@ -49,6 +54,10 @@ public class DeployMetastoreService {
 
     public DeployMetastoreService(MetaStorageManager metaStorage) {
         this.metaStorage = metaStorage;
+    }
+
+    public CompletableFuture<Boolean> updateMeta(String id, Version version, Consumer<UnitMeta> transformer) {
+        return updateMeta(id, version, false, transformer);
     }
 
     /**
@@ -59,10 +68,12 @@ public class DeployMetastoreService {
      * @param transformer Deployment unit meta transformer.
      * @return Future with update result.
      */
-    public CompletableFuture<Boolean> updateMeta(String id, Version version, Consumer<UnitMeta> transformer) {
+    public CompletableFuture<Boolean> updateMeta(String id, Version version, boolean force, Consumer<UnitMeta> transformer) {
+        LOG.info("Update meta for " + id + ":" + version);
         ByteArray key = key(id, version);
         return metaStorage.get(key)
                 .thenCompose(e -> {
+                    LOG.info("Revision " + e.revision() + " for " + id + ":" + version);
                     if (e.value() == null) {
                         return CompletableFuture.completedFuture(false);
                     }
@@ -70,9 +81,8 @@ public class DeployMetastoreService {
 
                     transformer.accept(prev);
 
-                    SimpleCondition eq = revision(key).le(e.revision());
                     return metaStorage.invoke(
-                            eq,
+                            force ? exists(key) : revision(key).le(e.revision()),
                             put(key, UnitMetaSerializer.serialize(prev)),
                             noop());
                 });
