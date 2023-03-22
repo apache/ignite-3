@@ -135,7 +135,7 @@ public class ReconnectTests
         var cfg = new IgniteClientConfiguration
         {
             ReconnectInterval = TimeSpan.FromMilliseconds(100),
-            SocketTimeout = TimeSpan.FromSeconds(3),
+            SocketTimeout = TimeSpan.FromSeconds(2),
             Logger = logger
         };
 
