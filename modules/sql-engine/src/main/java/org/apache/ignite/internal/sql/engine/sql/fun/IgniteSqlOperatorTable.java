@@ -131,6 +131,10 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                 }
             };
 
+    /**
+     * This function is used to generate a value for implicit primary key.
+     */
+    // TODO This function should remove when https://issues.apache.org/jira/browse/IGNITE-19103 is complete.
     public static final SqlFunction GEN_RANDOM_UUID =
             new SqlFunction(
                     "GEN_RANDOM_UUID",
