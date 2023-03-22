@@ -295,7 +295,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         Path unitPath = getNodeUnitFile(ignite, unit.id, unit.version, unit.file);
 
         await().timeout(unit.file.replicaTimeout, SECONDS)
-                .pollDelay(1, SECONDS)
+                .pollDelay(2, SECONDS)
                 .until(() -> !Files.exists(unitPath));
     }
 

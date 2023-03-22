@@ -146,7 +146,12 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
                 .thenApply(completed -> {
                     if (completed) {
                         messaging.startDeployAsyncToCmg(id, version, deploymentUnit.name(), unitContent)
-                                .thenAccept(v -> metastore.updateMeta(id, version, meta1 -> meta1.updateStatus(DEPLOYED)));
+                                .thenAccept(ids -> metastore.updateMeta(id, version, unitMeta -> {
+                                    for (String consistentId : ids) {
+                                        unitMeta.addConsistentId(consistentId);
+                                    }
+                                    unitMeta.updateStatus(DEPLOYED);
+                                }));
                     }
                     return completed;
                 });

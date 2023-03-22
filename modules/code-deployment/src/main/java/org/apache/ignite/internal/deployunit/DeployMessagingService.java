@@ -17,14 +17,19 @@
 
 package org.apache.ignite.internal.deployunit;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.deployunit.message.DeployUnitMessageTypes;
 import org.apache.ignite.internal.deployunit.message.DeployUnitRequest;
 import org.apache.ignite.internal.deployunit.message.DeployUnitRequestImpl;
 import org.apache.ignite.internal.deployunit.message.DeployUnitResponse;
-import org.apache.ignite.internal.deployunit.message.DeployUnitResponseBuilder;
 import org.apache.ignite.internal.deployunit.message.DeployUnitResponseImpl;
 import org.apache.ignite.internal.deployunit.message.StopDeployRequest;
 import org.apache.ignite.internal.deployunit.message.StopDeployRequestImpl;
@@ -116,7 +121,7 @@ public class DeployMessagingService {
      * @param unitContent Deployment unit file content.
      * @return Future with deployment result.
      */
-    public CompletableFuture<Void> startDeployAsyncToCmg(String id, Version version, String unitName, byte[] unitContent) {
+    public CompletableFuture<List<String>> startDeployAsyncToCmg(String id, Version version, String unitName, byte[] unitContent) {
         DeployUnitRequest request = DeployUnitRequestImpl.builder()
                 .unitName(unitName)
                 .id(id)
@@ -124,9 +129,26 @@ public class DeployMessagingService {
                 .unitContent(unitContent)
                 .build();
         return cmgManager.cmgNodes()
-                .thenAccept(nodes -> CompletableFuture.allOf(nodes.stream()
-                        .map(node -> clusterService.topologyService().getByConsistentId(node))
-                        .map(clusterNode -> requestDeploy(clusterNode, request)).toArray(CompletableFuture[]::new)));
+                .thenCompose(nodes -> deploy(nodes, request));
+    }
+
+    private CompletableFuture<List<String>> deploy(Set<String> nodes, DeployUnitRequest request) {
+        CompletableFuture<List<String>> resultFuture = new CompletableFuture<>();
+        Map<String, Boolean> results = new ConcurrentHashMap<>();
+        CompletableFuture<Void> allDeployment = CompletableFuture.allOf(
+                nodes.stream().map(node -> clusterService.topologyService().getByConsistentId(node))
+                        .map(node -> requestDeploy(node, request)
+                                .thenAccept(deployed -> results.put(node.name(), deployed)))
+                        .toArray(CompletableFuture[]::new));
+
+        allDeployment.thenAccept(v -> resultFuture.complete(
+                results.entrySet().stream()
+                        .filter(Entry::getValue)
+                        .map(Entry::getKey)
+                        .collect(Collectors.toList()))
+        );
+
+        return resultFuture;
     }
 
     /**
@@ -172,13 +194,12 @@ public class DeployMessagingService {
         return clusterService.messagingService()
                 .invoke(clusterNode, request, Long.MAX_VALUE)
                 .thenCompose(message -> {
-                    Throwable error = ((DeployUnitResponse) message).error();
-                    if (error != null) {
-                        LOG.debug("Failed to deploy unit " + request.id() + ":" + request.version()
-                                + " to node " + clusterNode, error);
-                        return CompletableFuture.failedFuture(error);
+                    boolean success = ((DeployUnitResponse) message).success();
+                    if (!success) {
+                        LOG.error("Failed to deploy unit " + request.id() + ":" + request.version()
+                                + " to node " + clusterNode);
                     }
-                    return CompletableFuture.completedFuture(true);
+                    return CompletableFuture.completedFuture(success);
                 });
     }
 
@@ -193,20 +214,11 @@ public class DeployMessagingService {
         String id = executeRequest.id();
         String version = executeRequest.version();
         deployerService.deploy(id, version, executeRequest.unitName(), executeRequest.unitContent())
-                .whenComplete((success, throwable) -> {
-                    DeployUnitResponseBuilder builder = DeployUnitResponseImpl.builder();
-                    if (throwable != null) {
-                        builder.error(throwable);
-                    }
-                    clusterService.messagingService().respond(senderConsistentId,
-                            builder.build(), correlationId);
-                }).thenApply(deployed -> {
-                    if (deployed) {
-                        metastoreService.updateMeta(id, Version.parseVersion(version),
-                                meta -> meta.addConsistentId(clusterService.topologyService().localMember().name()));
-                    }
-                    return null;
-                });
+                .thenAccept(success -> clusterService.messagingService().respond(
+                        senderConsistentId,
+                        DeployUnitResponseImpl.builder().success(success).build(),
+                        correlationId)
+                );
     }
 
     private void processUndeployRequest(UndeployUnitRequest executeRequest, String senderConsistentId, long correlationId) {
