@@ -20,8 +20,8 @@ package org.apache.ignite.internal.causality;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -42,8 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
@@ -205,7 +203,8 @@ public class IncrementalVersionedValueTest {
         final String assignmentName = "Assignment";
         final String tableName = "T1_";
 
-        IncrementalVersionedValue<Map<UUID, String>> tablesVv = new IncrementalVersionedValue<>(f -> {}, HashMap::new);
+        IncrementalVersionedValue<Map<UUID, String>> tablesVv = new IncrementalVersionedValue<>(f -> {
+        }, HashMap::new);
         IncrementalVersionedValue<Map<UUID, String>> schemasVv = new IncrementalVersionedValue<>(register, HashMap::new);
         IncrementalVersionedValue<Map<UUID, String>> assignmentsVv = new IncrementalVersionedValue<>(register, HashMap::new);
 
@@ -274,29 +273,20 @@ public class IncrementalVersionedValueTest {
     }
 
     @RepeatedTest(100)
-    void testConcurrentGetAndComplete() throws Exception {
+    void testConcurrentGetAndComplete() {
         var versionedValue = new IncrementalVersionedValue<>(register, () -> 1);
 
         // Set initial value.
         versionedValue.complete(1);
 
-        var barrier = new CyclicBarrier(2);
+        runRace(
+                () -> versionedValue.complete(3),
+                () -> {
+                    CompletableFuture<Integer> readerFuture = versionedValue.get(2);
 
-        CompletableFuture<Void> writerFuture = CompletableFuture.runAsync(() -> {
-            try {
-                barrier.await(1, TimeUnit.SECONDS);
-                versionedValue.complete(3);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
-
-        barrier.await(1, TimeUnit.SECONDS);
-
-        CompletableFuture<Integer> readerFuture = versionedValue.get(2);
-
-        assertThat(writerFuture, willCompleteSuccessfully());
-        assertThat(readerFuture, willBe(1));
+                    assertThat(readerFuture, willBe(1));
+                }
+        );
     }
 
     @RepeatedTest(100)
@@ -308,33 +298,20 @@ public class IncrementalVersionedValueTest {
         // Set history size to 2.
         versionedValue.complete(3);
 
-        var barrier = new CyclicBarrier(2);
+        runRace(
+                () -> {
+                    versionedValue.update(4, (i, t) -> completedFuture(i + 1));
+                    // Trigger history trimming
+                    versionedValue.complete(4);
+                },
+                () -> {
+                    CompletableFuture<Integer> readerFuture = versionedValue.get(2);
 
-        CompletableFuture<Void> writerFuture = CompletableFuture.runAsync(() -> {
-            try {
-                barrier.await(1, TimeUnit.SECONDS);
-
-                versionedValue.update(4, (i, t) -> completedFuture(i + 1));
-                // Trigger history trimming
-                versionedValue.complete(4);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
-
-        barrier.await(1, TimeUnit.SECONDS);
-
-        try {
-            CompletableFuture<Integer> readerFuture = versionedValue.get(2);
-
-            assertThat(readerFuture, willBe(1));
-        } catch (OutdatedTokenException ignored) {
-            // This is considered as a valid outcome.
-        }
+                    assertThat(readerFuture, willBe(1));
+                }
+        );
 
         assertThat(versionedValue.get(4), willBe(2));
-
-        assertThat(writerFuture, willCompleteSuccessfully());
     }
 
     @Test
@@ -429,7 +406,7 @@ public class IncrementalVersionedValueTest {
 
         assertTrue(f.isDone());
 
-        assertEquals(expectedDefault == null ? null : TEST_VALUE + 2, f.join());
+        assertEquals(expectedDefault == null ? null : expectedDefault + 2, f.join());
     }
 
     /**

@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.causality;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -36,8 +36,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
@@ -276,23 +274,14 @@ public class CompletableVersionedValueTest {
         // Set initial value.
         versionedValue.complete(1, 1);
 
-        var barrier = new CyclicBarrier(2);
+        runRace(
+                () -> versionedValue.complete(3, 3),
+                () -> {
+                    CompletableFuture<Integer> readerFuture = versionedValue.get(2);
 
-        CompletableFuture<Void> writerFuture = CompletableFuture.runAsync(() -> {
-            try {
-                barrier.await(1, TimeUnit.SECONDS);
-                versionedValue.complete(3, 3);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
-
-        barrier.await(1, TimeUnit.SECONDS);
-
-        CompletableFuture<Integer> readerFuture = versionedValue.get(2);
-
-        assertThat(writerFuture, willCompleteSuccessfully());
-        assertThat(readerFuture, willBe(1));
+                    assertThat(readerFuture, willBe(1));
+                }
+        );
     }
 
     @RepeatedTest(100)
@@ -304,31 +293,17 @@ public class CompletableVersionedValueTest {
         // Set history size to 2.
         versionedValue.complete(3, 3);
 
-        var barrier = new CyclicBarrier(2);
-
-        CompletableFuture<Void> writerFuture = CompletableFuture.runAsync(() -> {
-            try {
-                barrier.await(1, TimeUnit.SECONDS);
+        runRace(
                 // Trigger history trimming
-                versionedValue.complete(4, 4);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
+                () -> versionedValue.complete(4, 4),
+                () -> {
+                    CompletableFuture<Integer> readerFuture = versionedValue.get(2);
 
-        barrier.await(1, TimeUnit.SECONDS);
-
-        try {
-            CompletableFuture<Integer> readerFuture = versionedValue.get(2);
-
-            assertThat(readerFuture, willBe(2));
-        } catch (OutdatedTokenException ignored) {
-            // This is considered as a valid outcome.
-        }
+                    assertThat(readerFuture, willBe(2));
+                }
+        );
 
         assertThat(versionedValue.get(4), willBe(4));
-
-        assertThat(writerFuture, willCompleteSuccessfully());
     }
 
     @Test
