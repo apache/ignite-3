@@ -290,7 +290,7 @@ public class IncrementalVersionedValueTest {
     }
 
     @RepeatedTest(100)
-    void testConcurrentGetAndCompleteWithHistoryTrimming() throws Exception {
+    void testConcurrentGetAndCompleteWithHistoryTrimming() {
         var versionedValue = new IncrementalVersionedValue<>(register, () -> 1);
 
         // Set initial value (history size 1).
@@ -305,9 +305,13 @@ public class IncrementalVersionedValueTest {
                     versionedValue.complete(4);
                 },
                 () -> {
-                    CompletableFuture<Integer> readerFuture = versionedValue.get(2);
+                    try {
+                        CompletableFuture<Integer> readerFuture = versionedValue.get(2);
 
-                    assertThat(readerFuture, willBe(1));
+                        assertThat(readerFuture, willBe(1));
+                    } catch (OutdatedTokenException ignored) {
+                        // This is considered as a valid outcome.
+                    }
                 }
         );
 

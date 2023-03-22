@@ -285,7 +285,7 @@ public class CompletableVersionedValueTest {
     }
 
     @RepeatedTest(100)
-    void testConcurrentGetAndCompleteWithHistoryTrimming() throws Exception {
+    void testConcurrentGetAndCompleteWithHistoryTrimming() {
         var versionedValue = new CompletableVersionedValue<Integer>(2);
 
         // Set initial value (history size 1).
@@ -297,9 +297,13 @@ public class CompletableVersionedValueTest {
                 // Trigger history trimming
                 () -> versionedValue.complete(4, 4),
                 () -> {
-                    CompletableFuture<Integer> readerFuture = versionedValue.get(2);
+                    try {
+                        CompletableFuture<Integer> readerFuture = versionedValue.get(2);
 
-                    assertThat(readerFuture, willBe(2));
+                        assertThat(readerFuture, willBe(2));
+                    } catch (OutdatedTokenException ignored) {
+                        // This is considered as a valid outcome.
+                    }
                 }
         );
 
