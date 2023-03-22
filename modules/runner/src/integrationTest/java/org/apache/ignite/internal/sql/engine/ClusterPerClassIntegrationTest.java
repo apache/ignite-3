@@ -233,6 +233,20 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
+     * Returns table index configuration of the given index at the given node, or {@code null} if no such index exists.
+     *
+     * @param node  A node.
+     * @param indexName  An index.
+     * @return  An index configuration.
+     */
+    public static @Nullable TableIndexConfiguration getIndexConfiguration(Ignite node, String indexName) {
+        return ((IgniteImpl) node).clusterConfiguration()
+                .getConfiguration(TablesConfiguration.KEY)
+                .indexes()
+                .get(indexName.toUpperCase());
+    }
+
+    /**
      * Executes the query and validates any asserts passed to the builder.
      *
      * @param qry Query to execute.
@@ -451,12 +465,5 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                 () -> CLUSTER_NODES.stream().map(node -> getIndexConfiguration(node, indexName)).allMatch(Objects::nonNull),
                 10_000)
         );
-    }
-
-    public static @Nullable TableIndexConfiguration getIndexConfiguration(Ignite node, String indexName) {
-        return ((IgniteImpl) node).clusterConfiguration()
-                .getConfiguration(TablesConfiguration.KEY)
-                .indexes()
-                .get(indexName.toUpperCase());
     }
 }

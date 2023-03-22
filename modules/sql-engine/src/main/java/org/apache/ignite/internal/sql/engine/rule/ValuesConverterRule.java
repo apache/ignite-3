@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
-import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.broadcast;
 import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 
 import org.apache.calcite.plan.RelOptCluster;
@@ -29,7 +28,6 @@ import org.apache.calcite.rel.logical.LogicalValues;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * ValuesConverterRule.

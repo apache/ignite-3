@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
-import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.broadcast;
 import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -29,7 +28,6 @@ import org.apache.calcite.rel.logical.LogicalTableFunctionScan;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableFunctionScan;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Rule to convert a {@link LogicalTableFunctionScan} to an {@link IgniteTableFunctionScan}.
