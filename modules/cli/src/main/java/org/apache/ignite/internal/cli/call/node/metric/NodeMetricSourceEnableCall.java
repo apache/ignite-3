@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cli.call.node.metric;
 
-import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.core.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.call.Call;
@@ -30,8 +29,11 @@ import org.apache.ignite.rest.client.invoker.ApiException;
 /** Enables or disables metric source. */
 @Singleton
 public class NodeMetricSourceEnableCall implements Call<NodeMetricSourceEnableCallInput, String> {
-    @Inject
-    private ApiClientFactory clientFactory;
+    private final ApiClientFactory clientFactory;
+
+    public NodeMetricSourceEnableCall(ApiClientFactory clientFactory) {
+        this.clientFactory = clientFactory;
+    }
 
     /** {@inheritDoc} */
     @Override
