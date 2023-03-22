@@ -571,7 +571,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         // Multiple statements error.
         assertThrowsWithCause(() -> await(ses.executeAsync(null, "SELECT 1; SELECT 2")),
-                SqlException.class, "Multiple statements aren't allowed");
+                SqlException.class, "Multiple statements are not allowed");
 
         // Planning error.
         assertThrowsWithCause(() -> await(ses.executeAsync(null, "CREATE TABLE TEST2 (VAL INT)")),
@@ -650,7 +650,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         assertThrowsWithCause(
                 () -> await(ses.executeBatchAsync(null, "SELECT * FROM TEST", args)),
                 SqlException.class,
-                "Unexpected number of query parameters. Provided 2 but there is only 0 dynamic parameter(s)"
+                "Invalid SQL statement type in the batch"
         );
 
         assertThrowsWithCause(

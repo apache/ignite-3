@@ -16,22 +16,21 @@
  */
 
 #include "ignite/client/table/record_view.h"
+#include "ignite/client/detail/argument_check_utils.h"
 #include "ignite/client/detail/table/table_impl.h"
 
 namespace ignite {
 
 void record_view<ignite_tuple>::get_async(
     transaction *tx, const ignite_tuple &key, ignite_callback<std::optional<value_type>> callback) {
-    if (0 == key.column_count())
-        throw ignite_error("Tuple can not be empty");
+    detail::arg_check::tuple_non_empty(key, "Tuple");
 
     m_impl->get_async(tx, key, std::move(callback));
 }
 
 void record_view<ignite_tuple>::upsert_async(
     transaction *tx, const ignite_tuple &record, ignite_callback<void> callback) {
-    if (0 == record.column_count())
-        throw ignite_error("Tuple can not be empty");
+    detail::arg_check::tuple_non_empty(record, "Tuple");
 
     m_impl->upsert_async(tx, record, std::move(callback));
 }
@@ -58,16 +57,14 @@ void record_view<ignite_tuple>::upsert_all_async(
 
 void record_view<ignite_tuple>::get_and_upsert_async(
     transaction *tx, const ignite_tuple &record, ignite_callback<std::optional<value_type>> callback) {
-    if (0 == record.column_count())
-        throw ignite_error("Tuple can not be empty");
+    detail::arg_check::tuple_non_empty(record, "Tuple");
 
     m_impl->get_and_upsert_async(tx, record, std::move(callback));
 }
 
 void record_view<ignite_tuple>::insert_async(
     transaction *tx, const ignite_tuple &record, ignite_callback<bool> callback) {
-    if (0 == record.column_count())
-        throw ignite_error("Tuple can not be empty");
+    detail::arg_check::tuple_non_empty(record, "Tuple");
 
     m_impl->insert_async(tx, record, std::move(callback));
 }
@@ -84,47 +81,42 @@ void record_view<ignite_tuple>::insert_all_async(
 
 void record_view<ignite_tuple>::replace_async(
     transaction *tx, const ignite_tuple &record, ignite_callback<bool> callback) {
-    if (0 == record.column_count())
-        throw ignite_error("Tuple can not be empty");
+    detail::arg_check::tuple_non_empty(record, "Tuple");
 
     m_impl->replace_async(tx, record, std::move(callback));
 }
 
 void record_view<ignite_tuple>::replace_async(
     transaction *tx, const ignite_tuple &record, const ignite_tuple &new_record, ignite_callback<bool> callback) {
-    if (0 == record.column_count() || 0 == new_record.column_count())
-        throw ignite_error("Tuple can not be empty");
+    detail::arg_check::tuple_non_empty(record, "Tuple");
+    detail::arg_check::tuple_non_empty(new_record, "Tuple");
 
     m_impl->replace_async(tx, record, new_record, std::move(callback));
 }
 
 void record_view<ignite_tuple>::get_and_replace_async(
     transaction *tx, const ignite_tuple &record, ignite_callback<std::optional<value_type>> callback) {
-    if (0 == record.column_count())
-        throw ignite_error("Tuple can not be empty");
+    detail::arg_check::tuple_non_empty(record, "Tuple");
 
     m_impl->get_and_replace_async(tx, record, std::move(callback));
 }
 
 void record_view<ignite_tuple>::remove_async(transaction *tx, const ignite_tuple &key, ignite_callback<bool> callback) {
-    if (0 == key.column_count())
-        throw ignite_error("Tuple can not be empty");
+    detail::arg_check::tuple_non_empty(key, "Tuple");
 
     m_impl->remove_async(tx, key, std::move(callback));
 }
 
 void record_view<ignite_tuple>::remove_exact_async(
     transaction *tx, const ignite_tuple &record, ignite_callback<bool> callback) {
-    if (0 == record.column_count())
-        throw ignite_error("Tuple can not be empty");
+    detail::arg_check::tuple_non_empty(record, "Tuple");
 
     m_impl->remove_exact_async(tx, record, std::move(callback));
 }
 
 void record_view<ignite_tuple>::get_and_remove_async(
     transaction *tx, const ignite_tuple &key, ignite_callback<std::optional<value_type>> callback) {
-    if (0 == key.column_count())
-        throw ignite_error("Tuple can not be empty");
+    detail::arg_check::tuple_non_empty(key, "Tuple");
 
     m_impl->get_and_remove_async(tx, key, std::move(callback));
 }

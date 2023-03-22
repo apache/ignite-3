@@ -56,6 +56,8 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
 
     private static final IgniteLogger LOG = Loggers.forClass(DeploymentManagerImpl.class);
 
+    private static final ChannelType DEPLOYMENT_CHANNEL = ChannelType.register((short) 1, "DeploymentUnits");
+
     /**
      * Node working directory.
      */

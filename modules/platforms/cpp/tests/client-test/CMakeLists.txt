@@ -20,6 +20,7 @@ project(ignite-client-test)
 set(TARGET ${PROJECT_NAME})
 
 set(SOURCES
+    compute_test.cpp
     gtest_logger.h
     ignite_client_test.cpp
     ignite_runner_suite.h

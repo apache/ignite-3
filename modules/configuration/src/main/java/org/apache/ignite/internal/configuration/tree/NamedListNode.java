@@ -29,6 +29,9 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import org.apache.ignite.configuration.ConfigurationNodeAlreadyExistException;
+import org.apache.ignite.configuration.ConfigurationNodeDoesNotExistException;
+import org.apache.ignite.configuration.ConfigurationNodeRemovedException;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
@@ -121,6 +124,11 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     @Override
     public N get(String key) {
         return specificNode(map.get(key));
+    }
+
+    @Override
+    public @Nullable N get(UUID internalId) {
+        return get(keyByInternalId(internalId));
     }
 
     /** {@inheritDoc} */

@@ -28,6 +28,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
@@ -53,11 +54,10 @@ import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryValidator;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnType;
@@ -67,6 +67,13 @@ import org.apache.ignite.sql.ResultSetMetadata;
  * Jdbc query event handler implementation.
  */
 public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
+
+    /** {@link SqlQueryType}s allowed in JDBC select statements. **/
+    private static final Set<SqlQueryType> SELECT_STATEMENT_QUERIES = Set.of(SqlQueryType.QUERY, SqlQueryType.EXPLAIN);
+
+    /** {@link SqlQueryType}s allowed in JDBC update statements. **/
+    private static final Set<SqlQueryType> UPDATE_STATEMENT_QUERIES = Set.of(SqlQueryType.DML, SqlQueryType.DDL);
+
     /** Sql query processor. */
     private final QueryProcessor processor;
 
@@ -142,24 +149,16 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     }
 
     private QueryContext createQueryContext(JdbcStatementType stmtType) {
-        if (stmtType == JdbcStatementType.ANY_STATEMENT_TYPE) {
-            return QueryContext.of();
+        switch (stmtType) {
+            case ANY_STATEMENT_TYPE:
+                return QueryContext.create(SqlQueryType.ALL);
+            case SELECT_STATEMENT_TYPE:
+                return QueryContext.create(SELECT_STATEMENT_QUERIES);
+            case UPDATE_STATEMENT_TYPE:
+                return QueryContext.create(UPDATE_STATEMENT_QUERIES);
+            default:
+                throw new AssertionError("Unexpected jdbc statement type: " + stmtType);
         }
-
-        QueryValidator validator = (QueryPlan plan) -> {
-            if (plan.type() == Type.QUERY || plan.type() == Type.EXPLAIN) {
-                if (stmtType == JdbcStatementType.SELECT_STATEMENT_TYPE) {
-                    return;
-                }
-                throw new QueryValidationException("Given statement type does not match that declared by JDBC driver.");
-            }
-            if (stmtType == JdbcStatementType.UPDATE_STATEMENT_TYPE) {
-                return;
-            }
-            throw new QueryValidationException("Given statement type does not match that declared by JDBC driver.");
-        };
-
-        return QueryContext.of(validator);
     }
 
     /** {@inheritDoc} */
@@ -272,12 +271,19 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      * @return StringWriter filled with exception.
      */
     private StringWriter getWriterWithStackTrace(Throwable t) {
-        String message = ExceptionUtils.unwrapCause(t).getMessage();
+        Throwable cause = ExceptionUtils.unwrapCause(t);
         StringWriter sw = new StringWriter();
-        PrintWriter pw = new PrintWriter(sw);
 
-        pw.print(message);
-        return sw;
+        try (PrintWriter pw = new PrintWriter(sw)) {
+            // We need to remap QueryValidationException into a jdbc error.
+            if (cause instanceof IgniteException && cause.getCause() instanceof QueryValidationException) {
+                pw.print("Given statement type does not match that declared by JDBC driver.");
+            } else {
+                pw.print(cause.getMessage());
+            }
+
+            return sw;
+        }
     }
 
     /**

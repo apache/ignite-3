@@ -686,11 +686,11 @@ components:
           type: array
           description: A list of authentication providers.
           items:
-            $ref: '#/components/schemas/AuthenticationProviderConfigDto'
+            $ref: '#/components/schemas/AuthenticationProviderConfig'
       description: REST representation of AuthenticationConfig.
-    AuthenticationProviderConfigDto:
+    AuthenticationProviderConfig:
       type: object
-      description: REST representation of AuthenticationProviderConfig.
+      description: Authentication provider configuration
       discriminator:
         propertyName: type
         mapping:

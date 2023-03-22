@@ -181,7 +181,7 @@ namespace Apache.Ignite.Internal
                 Stream stream = new NetworkStream(socket, ownsSocket: true);
 
                 if (configuration.SslStreamFactory is { } sslStreamFactory &&
-                    sslStreamFactory.Create(stream, endPoint.Host) is { } sslStream)
+                    await sslStreamFactory.CreateAsync(stream, endPoint.Host).ConfigureAwait(false) is { } sslStream)
                 {
                     stream = sslStream;
 
