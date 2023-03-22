@@ -330,11 +330,11 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
                 + (DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? "" : " engine " + storageEngine)
                 + " with partitions=1, replicas=3";
 
+        waitForIndex(cluster::nodes, "test_PK");
+
         cluster.doInSession(0, session -> {
             executeUpdate(sql, session);
         });
-
-        waitForIndex(cluster::nodes, "test_PK");
 
         waitForTableToStart();
     }
@@ -683,28 +683,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19088")
     void snapshotInstallationRepeatsOnTimeout() throws Exception {
-        prepareClusterForInstallingSnapshotToNode2(DEFAULT_KNOCKOUT, DEFAULT_STORAGE_ENGINE, theCluster -> {
-            theCluster.node(0).dropMessages(dropFirstSnapshotMetaResponse());
-        });
-
-        reanimateNode2AndWaitForSnapshotInstalled(DEFAULT_KNOCKOUT);
-    }
-
-    @Test
-    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19088")
-    void snapshotInstallationRepeatsOnTimeout2() throws Exception {
-        prepareClusterForInstallingSnapshotToNode2(DEFAULT_KNOCKOUT, DEFAULT_STORAGE_ENGINE, theCluster -> {
-            theCluster.node(0).dropMessages(dropFirstSnapshotMetaResponse());
-        });
-
-        reanimateNode2AndWaitForSnapshotInstalled(DEFAULT_KNOCKOUT);
-    }
-
-    @Test
-    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19088")
-    void snapshotInstallationRepeatsOnTimeout3() throws Exception {
         prepareClusterForInstallingSnapshotToNode2(DEFAULT_KNOCKOUT, DEFAULT_STORAGE_ENGINE, theCluster -> {
             theCluster.node(0).dropMessages(dropFirstSnapshotMetaResponse());
         });
