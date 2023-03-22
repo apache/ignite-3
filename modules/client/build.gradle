@@ -25,6 +25,7 @@ dependencies {
     implementation project(':ignite-binary-tuple')
     implementation project(':ignite-client-common')
     implementation project(':ignite-marshaller-common')
+    implementation project(':ignite-metrics')
 
     implementation libs.jetbrains.annotations
     implementation libs.msgpack.core
