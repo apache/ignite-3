@@ -22,7 +22,7 @@ import java.util.UUID;
 /**
  * Factory producing {@link RecoveryClientHandshakeManager} instances.
  */
-public interface RecoveryClientHandhakeManagerFactory {
+public interface RecoveryClientHandshakeManagerFactory {
     /**
      * Produces a {@link RecoveryClientHandshakeManager} instance.
      *
