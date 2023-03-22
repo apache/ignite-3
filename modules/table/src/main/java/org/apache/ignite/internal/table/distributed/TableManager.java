@@ -84,6 +84,7 @@ import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneMismatchException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -1358,21 +1359,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     } else {
                         cmgMgr.logicalTopology()
                                 .thenCompose(cmgTopology -> {
-                                    int zoneId = 0;
-
-                                    Exception e = null;
-
                                     try {
-                                        zoneId = distributionZoneManager.getZoneId(zoneName);
-                                    } catch (DistributionZoneNotFoundException e0) {
-                                        e = e0;
-                                    }
+                                        int zoneId = distributionZoneManager.getZoneId(zoneName);
 
-                                    if (e != null) {
-                                        tblFut.completeExceptionally(e);
-                                    } else {
                                         distributionZoneManager.getDataNodes(zoneId, cmgTopology.version())
-                                                .thenCompose(dataNodes0 -> {
+                                                .thenCompose(ignored -> {
 
                                                     tablesCfg.change(tablesChange -> tablesChange.changeTables(tablesListChange -> {
                                                         if (tablesListChange.get(name) != null) {
@@ -1399,6 +1390,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             tableCreateFuts.put(extConfCh.id(), tblFut);
 
                                                             int zoneId0 = distributionZoneManager.getZoneId(zoneName);
+
+                                                            if (zoneId != zoneId0) {
+                                                                new DistributionZoneMismatchException(zoneName, zoneId, zoneId0);
+                                                            }
 
                                                             CompletableFuture<Set<String>> dataNodesFut =
                                                                     distributionZoneManager.getDataNodes(zoneId0, cmgTopology.version());
@@ -1430,6 +1425,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                                     return null;
                                                 });
+                                    } catch (DistributionZoneNotFoundException e) {
+                                        tblFut.completeExceptionally(e);
                                     }
 
                                     return null;
