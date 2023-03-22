@@ -240,7 +240,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      */
     @Test
     // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19088")
     void leaderFeedsFollowerWithSnapshotWithKnockoutPartitionNetwork() throws Exception {
         testLeaderFeedsFollowerWithSnapshot(Cluster.NodeKnockout.PARTITION_NETWORK, DEFAULT_STORAGE_ENGINE);
     }
@@ -582,7 +582,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             VolatilePageMemoryStorageEngine.ENGINE_NAME
     })
     // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19088")
     void leaderFeedsFollowerWithSnapshot(String storageEngine) throws Exception {
         testLeaderFeedsFollowerWithSnapshot(DEFAULT_KNOCKOUT, storageEngine);
     }
