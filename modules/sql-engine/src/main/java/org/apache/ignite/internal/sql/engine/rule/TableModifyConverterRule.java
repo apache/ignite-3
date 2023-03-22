@@ -66,25 +66,6 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
     /** {@inheritDoc} */
     @Override
     protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalTableModify rel) {
-        if (Commons.modifyPushDownEnabled()) {
-            return convertWithPushDown(planner, mq, rel);
-        } else {
-            return convert(rel);
-        }
-    }
-
-    private static IgniteTableModify convert(LogicalTableModify rel) {
-        RelOptCluster cluster = rel.getCluster();
-        RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
-                .replace(IgniteDistributions.single())
-                .replace(RelCollations.EMPTY);
-        RelNode input = convert(rel.getInput(), traits);
-
-        return new IgniteTableModify(cluster, traits, rel.getTable(), input,
-                rel.getOperation(), rel.getUpdateColumnList(), rel.getSourceExpressionList(), rel.isFlattened());
-    }
-
-    private PhysicalNode convertWithPushDown(RelOptPlanner planner, RelMetadataQuery mq, LogicalTableModify rel) {
         RelOptCluster cluster = rel.getCluster();
         RelOptTable relTable = rel.getTable();
         IgniteTable igniteTable = relTable.unwrap(IgniteTable.class);

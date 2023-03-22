@@ -49,7 +49,7 @@ public class TableFunctionScanConverterRule extends AbstractIgniteConverterRule<
 
         RelTraitSet traitSet = rel.getTraitSet()
                 .replace(IgniteConvention.INSTANCE)
-                .replace(Commons.modifyPushDownEnabled() ? single() : broadcast());
+                .replace(single());
 
         return new IgniteTableFunctionScan(rel.getCluster(), traitSet, rel.getCall(), rel.getRowType());
     }

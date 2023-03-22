@@ -743,13 +743,6 @@ public final class Commons {
     }
 
     /**
-     * Should be removed with the commit that introduces push down of table modify operations.
-     */
-    public static boolean modifyPushDownEnabled() {
-        return true;
-    }
-
-    /**
      * Returns a short version of a rule description.
      *
      * <p>Short description is used to match the rule to disable in DISABLE_RULE hint processor.

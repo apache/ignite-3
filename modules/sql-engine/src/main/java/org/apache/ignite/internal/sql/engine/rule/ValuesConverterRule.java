@@ -50,7 +50,7 @@ public class ValuesConverterRule extends AbstractIgniteConverterRule<LogicalValu
     protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalValues rel) {
         RelOptCluster cluster = rel.getCluster();
         RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
-                .replace(Commons.modifyPushDownEnabled() ? single() : broadcast());
+                .replace(single());
 
         return new IgniteValues(cluster, rel.getRowType(), rel.getTuples(), traits);
     }

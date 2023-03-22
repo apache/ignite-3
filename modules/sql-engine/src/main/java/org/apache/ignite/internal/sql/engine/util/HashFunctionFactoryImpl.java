@@ -116,15 +116,11 @@ public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
                 NativeTypeSpec nativeTypeSpec = fieldTypes[i].spec();
                 Class<?> storageType = NativeTypeSpec.toClass(nativeTypeSpec, true);
 
-                if (Commons.modifyPushDownEnabled()) {
-                    if (value == RexImpTable.DEFAULT_VALUE_PLACEHOLDER) {
-                        var error = format("Placeholder should have been replaced. field: {} nativeTypeSpec: {} row: {} ",
-                                fields[i], nativeTypeSpec, rowHandler.toString(row));
+                if (value == RexImpTable.DEFAULT_VALUE_PLACEHOLDER) {
+                    var error = format("Placeholder should have been replaced. field: {} nativeTypeSpec: {} row: {} ",
+                            fields[i], nativeTypeSpec, rowHandler.toString(row));
 
-                        throw new IllegalArgumentException(error);
-                    } else {
-                        value = TypeUtils.fromInternal(value, storageType);
-                    }
+                    throw new IllegalArgumentException(error);
                 } else {
                     value = TypeUtils.fromInternal(value, storageType);
                 }

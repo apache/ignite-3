@@ -238,13 +238,11 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
                 .map(CollectionUtils::first)
                 .collect(Collectors.toList());
 
-        if (Commons.modifyPushDownEnabled()) {
-            FragmentMapping tableMapping = FragmentMapping.create(-1, tableColocationGroup);
-            try {
-                mapping = tableMapping.colocate(mapping);
-            } catch (ColocationMappingException e) {
-                throw new NodeMappingException("Failed to calculate physical distribution", input, e);
-            }
+        FragmentMapping tableMapping = FragmentMapping.create(-1, tableColocationGroup);
+        try {
+            mapping = tableMapping.colocate(mapping);
+        } catch (ColocationMappingException e) {
+            throw new NodeMappingException("Failed to calculate physical distribution", input, e);
         }
 
         mapping = mapping.updatingTableAssignments(assignments);
