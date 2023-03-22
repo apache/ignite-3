@@ -39,6 +39,7 @@ import org.apache.ignite.internal.deployunit.message.UndeployUnitRequestImpl;
 import org.apache.ignite.internal.deployunit.message.UndeployUnitResponseImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 
@@ -47,6 +48,8 @@ import org.apache.ignite.network.ClusterService;
  */
 public class DeployMessagingService {
     private static final IgniteLogger LOG = Loggers.forClass(DeployMessagingService.class);
+
+    private static final ChannelType DEPLOYMENT_CHANNEL = ChannelType.register((short) 1, "DeploymentUnits");
 
     /**
      * Cluster service.
@@ -69,31 +72,23 @@ public class DeployMessagingService {
     private final DeployTracker tracker;
 
     /**
-     * Deploy metastore service.
-     */
-    private final DeployMetastoreService metastoreService;
-
-    /**
      * Constructor.
      *
      * @param clusterService Cluster service.
      * @param cmgManager CMG manager.
      * @param deployerService File deploying service.
      * @param tracker Deploy action tracker.
-     * @param metastoreService Deploy metastore service.
      */
     public DeployMessagingService(
             ClusterService clusterService,
             ClusterManagementGroupManager cmgManager,
             FileDeployerService deployerService,
-            DeployTracker tracker,
-            DeployMetastoreService metastoreService
+            DeployTracker tracker
     ) {
         this.clusterService = clusterService;
         this.cmgManager = cmgManager;
         this.deployerService = deployerService;
         this.tracker = tracker;
-        this.metastoreService = metastoreService;
     }
 
     /**
@@ -162,13 +157,15 @@ public class DeployMessagingService {
         return CompletableFuture.allOf(cmgManager.logicalTopology()
                 .thenApply(topology -> topology.nodes().stream().map(node ->
                                 clusterService.messagingService()
-                                        .invoke(node, StopDeployRequestImpl
+                                        .invoke(node,
+                                                DEPLOYMENT_CHANNEL,
+                                                StopDeployRequestImpl
                                                         .builder()
                                                         .id(id)
                                                         .version(version.render())
                                                         .build(),
-                                                Long.MAX_VALUE))
-                        .toArray(CompletableFuture[]::new)));
+                                                Long.MAX_VALUE)
+                        ).toArray(CompletableFuture[]::new)));
     }
 
     /**
@@ -181,18 +178,20 @@ public class DeployMessagingService {
      */
     public CompletableFuture<Void> undeploy(ClusterNode node, String id, Version version) {
         return clusterService.messagingService()
-                .invoke(node, UndeployUnitRequestImpl.builder()
+                .invoke(node,
+                        DEPLOYMENT_CHANNEL,
+                        UndeployUnitRequestImpl.builder()
                                 .id(id)
                                 .version(version.render())
                                 .build(),
-                        Long.MAX_VALUE)
-                .thenAccept(message ->
+                        Long.MAX_VALUE
+                ).thenAccept(message ->
                         LOG.debug("Undeploy unit " + id + ":" + version + " from node " + node + " finished"));
     }
 
     private CompletableFuture<Boolean> requestDeploy(ClusterNode clusterNode, DeployUnitRequest request) {
         return clusterService.messagingService()
-                .invoke(clusterNode, request, Long.MAX_VALUE)
+                .invoke(clusterNode, DEPLOYMENT_CHANNEL, request, Long.MAX_VALUE)
                 .thenCompose(message -> {
                     boolean success = ((DeployUnitResponse) message).success();
                     if (!success) {
@@ -216,6 +215,7 @@ public class DeployMessagingService {
         deployerService.deploy(id, version, executeRequest.unitName(), executeRequest.unitContent())
                 .thenAccept(success -> clusterService.messagingService().respond(
                         senderConsistentId,
+                        DEPLOYMENT_CHANNEL,
                         DeployUnitResponseImpl.builder().success(success).build(),
                         correlationId)
                 );

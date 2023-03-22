@@ -56,8 +56,6 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
 
     private static final IgniteLogger LOG = Loggers.forClass(DeploymentManagerImpl.class);
 
-    private static final ChannelType DEPLOYMENT_CHANNEL = ChannelType.register((short) 1, "DeploymentUnits");
-
     /**
      * Node working directory.
      */
@@ -109,7 +107,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
         this.tracker = new DeployTracker();
         metastore = new DeployMetastoreService(metaStorage);
         deployer = new FileDeployerService();
-        messaging = new DeployMessagingService(clusterService, cmgManager, deployer, tracker, metastore);
+        messaging = new DeployMessagingService(clusterService, cmgManager, deployer, tracker);
     }
 
     @Override
