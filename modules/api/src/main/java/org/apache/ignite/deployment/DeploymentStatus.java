@@ -28,9 +28,8 @@ public enum DeploymentStatus {
     DEPLOYED,
 
     /** Remove command was initiated for the unit and it will be removed soon. */
-
     OBSOLETE,
 
     /** Unit removal from the cluster is in progress. */
-    REMOVING;
+    REMOVING
 }

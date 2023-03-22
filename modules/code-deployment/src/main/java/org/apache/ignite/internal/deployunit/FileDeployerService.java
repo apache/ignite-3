@@ -42,12 +42,16 @@ public class FileDeployerService {
 
     private static final String TMP_SUFFIX = ".tmp";
 
+    private static final int DEPLOYMENT_EXECUTOR_SIZE = 4;
+
     /**
      * Folder for units.
      */
     private Path unitsFolder;
 
-    private final ExecutorService executor = Executors.newFixedThreadPool(4, new NamedThreadFactory("deployment", LOG));
+
+    private final ExecutorService executor = Executors.newFixedThreadPool(
+            DEPLOYMENT_EXECUTOR_SIZE, new NamedThreadFactory("deployment", LOG));
 
     public void initUnitsFolder(Path unitsFolder) {
         this.unitsFolder = unitsFolder;

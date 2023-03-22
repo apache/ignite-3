@@ -129,7 +129,7 @@ public class UnitStatus {
     public static class UnitStatusBuilder {
 
         private final String id;
-        private final Map<Version, DeploymentInfo> versionToInfoBuilders = new HashMap<>();
+        private final Map<Version, DeploymentInfo> versionToInfo = new HashMap<>();
 
         /**
          * Constructor.
@@ -148,7 +148,7 @@ public class UnitStatus {
          * @return {@code this} builder for use in a chained invocation.
          */
         public UnitStatusBuilder append(Version version, DeploymentInfo deploymentInfo) {
-            versionToInfoBuilders.put(version, deploymentInfo);
+            versionToInfo.put(version, deploymentInfo);
             return this;
         }
 
@@ -158,7 +158,7 @@ public class UnitStatus {
          * @return {@link UnitStatus} instance.
          */
         public UnitStatus build() {
-            return new UnitStatus(id, versionToInfoBuilders);
+            return new UnitStatus(id, versionToInfo);
         }
     }
 }

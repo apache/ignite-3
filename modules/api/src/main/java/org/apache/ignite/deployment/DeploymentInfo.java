@@ -18,8 +18,10 @@
 package org.apache.ignite.deployment;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Data class with deployment unit information.
@@ -29,7 +31,7 @@ public class DeploymentInfo {
 
     private final List<String> consistentIds;
 
-    public DeploymentInfo(DeploymentStatus status, List<String> consistentIds) {
+    private DeploymentInfo(DeploymentStatus status, List<String> consistentIds) {
         this.status = status;
         this.consistentIds = Collections.unmodifiableList(consistentIds);
     }
@@ -93,7 +95,14 @@ public class DeploymentInfo {
             return this;
         }
 
+        public DeploymentInfoBuilder addConsistentIds(Collection<String> consistentIds) {
+            this.consistentIds.addAll(consistentIds);
+            return this;
+        }
+
         public DeploymentInfo build() {
+            Objects.requireNonNull(status);
+
             return new DeploymentInfo(status, consistentIds);
         }
 

@@ -50,7 +50,11 @@ public class UnitsAccumulator implements Accumulator<List<UnitStatus>> {
         UnitMeta meta = UnitMetaSerializer.deserialize(item.value());
         if (filter.test(meta)) {
             map.computeIfAbsent(meta.id(), UnitStatus::builder)
-                    .append(meta.version(), new DeploymentInfo(meta.status(), meta.consistentIdLocation()));
+                    .append(meta.version(),
+                            DeploymentInfo.builder()
+                                    .status(meta.status())
+                                    .addConsistentIds(meta.consistentIdLocation()).build()
+                    );
         }
     }
 

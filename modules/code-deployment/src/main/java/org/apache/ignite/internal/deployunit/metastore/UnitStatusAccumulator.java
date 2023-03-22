@@ -48,7 +48,11 @@ public class UnitStatusAccumulator implements Accumulator<UnitStatus> {
             builder = UnitStatus.builder(id);
         }
         UnitMeta meta = UnitMetaSerializer.deserialize(item.value());
-        builder.append(meta.version(), new DeploymentInfo(meta.status(), meta.consistentIdLocation()));
+        builder.append(meta.version(),
+                DeploymentInfo.builder()
+                        .status(meta.status())
+                        .addConsistentIds(meta.consistentIdLocation()).build()
+        );
     }
 
     @Override
