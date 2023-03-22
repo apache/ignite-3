@@ -57,6 +57,12 @@ import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricListCommand
 import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricListReplCommand;
 import org.apache.ignite.internal.cli.commands.node.status.NodeStatusCommand;
 import org.apache.ignite.internal.cli.commands.node.status.NodeStatusReplCommand;
+import org.apache.ignite.internal.cli.commands.unit.UnitListCommand;
+import org.apache.ignite.internal.cli.commands.unit.UnitListReplCommand;
+import org.apache.ignite.internal.cli.commands.unit.UnitStatusCommand;
+import org.apache.ignite.internal.cli.commands.unit.UnitStatusReplCommand;
+import org.apache.ignite.internal.cli.commands.unit.UnitUndeployCommand;
+import org.apache.ignite.internal.cli.commands.unit.UnitUndeployReplCommand;
 import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
@@ -128,6 +134,11 @@ public class UrlOptionsNegativeTest {
                 arguments(NodeMetricListCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(LogicalTopologyCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(PhysicalTopologyCommand.class, CLUSTER_URL_OPTION, List.of()),
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19090
+                // arguments(UnitDeployCommand.class, CLUSTER_URL_OPTION, List.of("--path=" + TEMP_FILE_PATH, "id")),
+                arguments(UnitUndeployCommand.class, CLUSTER_URL_OPTION, List.of("id")),
+                arguments(UnitStatusCommand.class, CLUSTER_URL_OPTION, List.of("id")),
+                arguments(UnitListCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(ClusterInitCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test"))
         // TODO https://issues.apache.org/jira/browse/IGNITE-17102
         //                Arguments.arguments(ClusterShowCommand.class, CLUSTER_URL_OPTION, List.of()),
@@ -147,6 +158,11 @@ public class UrlOptionsNegativeTest {
                 arguments(NodeMetricListReplCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(LogicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(PhysicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19090
+                // arguments(UnitDeployReplCommand.class, CLUSTER_URL_OPTION, List.of("--path=" + TEMP_FILE_PATH, "id")),
+                arguments(UnitUndeployReplCommand.class, CLUSTER_URL_OPTION, List.of("id")),
+                arguments(UnitStatusReplCommand.class, CLUSTER_URL_OPTION, List.of("id")),
+                arguments(UnitListReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(ClusterInitReplCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test")),
                 arguments(ConnectReplCommand.class, "", List.of())
         // TODO https://issues.apache.org/jira/browse/IGNITE-17102
