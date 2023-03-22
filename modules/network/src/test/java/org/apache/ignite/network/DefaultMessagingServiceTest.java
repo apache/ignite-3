@@ -73,6 +73,8 @@ class DefaultMessagingServiceTest {
     private static final int SENDER_PORT = 2001;
     private static final int RECEIVER_PORT = 2002;
 
+    private static final ChannelType TEST_CHANNEL = ChannelType.register(Short.MAX_VALUE, "Test");
+
     @Mock
     private TopologyService topologyService;
 
@@ -97,8 +99,6 @@ class DefaultMessagingServiceTest {
             "receiver",
             new NetworkAddress("localhost", RECEIVER_PORT)
     );
-
-    private final ChannelType testChannelType = ChannelType.register(Short.MAX_VALUE, "Test");
 
     @BeforeEach
     void setUp() throws InterruptedException, ExecutionException {
@@ -196,7 +196,7 @@ class DefaultMessagingServiceTest {
             );
 
             services.messagingService.send(receiverNode, TestMessageImpl.builder().build());
-            services.messagingService.send(receiverNode, testChannelType, AllTypesMessageImpl.builder().build());
+            services.messagingService.send(receiverNode, TEST_CHANNEL, AllTypesMessageImpl.builder().build());
 
             await().timeout(1, TimeUnit.SECONDS)
                     .until(() -> latch.getCount() == 1);
