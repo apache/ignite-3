@@ -32,7 +32,6 @@ import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
  * <p>TBD: events
  */
 public interface CatalogService {
-    String PUBLIC = "PUBLIC";
 
     //TODO: IGNITE-19082 Drop this stuff when all versioned schema stuff will be moved to Catalog.
     @Deprecated(forRemoval = true)

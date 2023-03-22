@@ -23,44 +23,81 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
+import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.sql.ColumnType;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Catalog service self test.
  */
+@ExtendWith(SystemPropertiesExtension.class)
+@WithSystemProperty(key = CatalogService.IGNITE_USE_CATALOG_PROPERTY, value = "true")
 public class CatalogServiceSelfTest {
     private static final String TABLE_NAME = "myTable";
+    private MetaStorageManager metaStorageManager;
+    private CatalogServiceImpl catalogService;
+    private VaultManager vaultManager;
+
+    @BeforeEach
+    public void initCatalogService() {
+        vaultManager = new VaultManager(new InMemoryVaultService());
+        metaStorageManager = StandaloneMetaStorageManager.create(vaultManager);
+        catalogService = new CatalogServiceImpl(metaStorageManager);
+
+        vaultManager.start();
+        metaStorageManager.start();
+        catalogService.start();
+
+        try {
+            metaStorageManager.deployWatches();
+        } catch (NodeStoppingException e) {
+            fail(e);
+        }
+    }
+
+    @AfterEach
+    public void cleanupResources() throws Exception {
+        catalogService.stop();
+        metaStorageManager.stop();
+        vaultManager.stop();
+    }
 
     @Test
     public void testEmptyCatalog() {
-        CatalogServiceImpl service = new CatalogServiceImpl(Mockito.mock(MetaStorageManager.class));
-        service.start();
+        assertNotNull(catalogService.activeSchema(System.currentTimeMillis()));
+        assertNotNull(catalogService.schema(0));
 
-        assertNotNull(service.activeSchema(System.currentTimeMillis()));
-        assertNotNull(service.schema(0));
+        assertNull(catalogService.schema(1));
+        assertThrows(IllegalStateException.class, () -> catalogService.activeSchema(-1L));
 
-        assertNull(service.schema(1));
-        assertThrows(IllegalStateException.class, () -> service.activeSchema(-1L));
+        assertNull(catalogService.table(0, System.currentTimeMillis()));
+        assertNull(catalogService.index(0, System.currentTimeMillis()));
 
-        assertNull(service.table(0, System.currentTimeMillis()));
-        assertNull(service.index(0, System.currentTimeMillis()));
-
-        SchemaDescriptor schema = service.schema(0);
-        assertEquals(CatalogService.PUBLIC, schema.name());
+        SchemaDescriptor schema = catalogService.schema(0);
+        assertEquals(CatalogUtils.DEFAULT_SCHEMA, schema.name());
 
         assertEquals(0, schema.version());
         assertEquals(0, schema.tables().length);
@@ -69,9 +106,6 @@ public class CatalogServiceSelfTest {
 
     @Test
     public void testCreateTable() {
-        CatalogServiceImpl service = new CatalogServiceImpl(Mockito.mock(MetaStorageManager.class));
-        service.start();
-
         CreateTableParams params = CreateTableParams.builder()
                 .schemaName("PUBLIC")
                 .tableName(TABLE_NAME)
@@ -90,33 +124,33 @@ public class CatalogServiceSelfTest {
                 .dataStorageOptions(Map.of("optKey", "optVal"))
                 .build();
 
-        CompletableFuture<?> fut = service.createTable(params);
+        CompletableFuture<?> fut = catalogService.createTable(params);
 
         assertThat(fut, CompletableFutureMatcher.willBe(true));
 
         // Validate catalog version from the past.
-        SchemaDescriptor schema = service.schema(0);
+        SchemaDescriptor schema = catalogService.schema(0);
 
         assertNotNull(schema);
         assertEquals(0, schema.id());
-        assertEquals(CatalogService.PUBLIC, schema.name());
-        assertSame(schema, service.activeSchema(0L));
-        assertSame(schema, service.activeSchema(123L));
+        assertEquals(CatalogUtils.DEFAULT_SCHEMA, schema.name());
+        assertSame(schema, catalogService.activeSchema(0L));
+        assertSame(schema, catalogService.activeSchema(123L));
 
         assertNull(schema.table(TABLE_NAME));
-        assertNull(service.table(TABLE_NAME, 123L));
-        assertNull(service.table(1, 123L));
+        assertNull(catalogService.table(TABLE_NAME, 123L));
+        assertNull(catalogService.table(1, 123L));
 
         // Validate actual catalog
-        schema = service.schema(1);
+        schema = catalogService.schema(1);
 
         assertNotNull(schema);
         assertEquals(0, schema.id());
-        assertEquals(CatalogService.PUBLIC, schema.name());
-        assertSame(schema, service.activeSchema(System.currentTimeMillis()));
+        assertEquals(CatalogUtils.DEFAULT_SCHEMA, schema.name());
+        assertSame(schema, catalogService.activeSchema(System.currentTimeMillis()));
 
-        assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, System.currentTimeMillis()));
-        assertSame(schema.table(TABLE_NAME), service.table(1, System.currentTimeMillis()));
+        assertSame(schema.table(TABLE_NAME), catalogService.table(TABLE_NAME, System.currentTimeMillis()));
+        assertSame(schema.table(TABLE_NAME), catalogService.table(1, System.currentTimeMillis()));
 
         // Validate newly created table
         TableDescriptor table = schema.table(TABLE_NAME);
@@ -129,9 +163,6 @@ public class CatalogServiceSelfTest {
 
     @Test
     public void testCreateTableIfExistsFlag() {
-        CatalogServiceImpl service = new CatalogServiceImpl(Mockito.mock(MetaStorageManager.class));
-        service.start();
-
         CreateTableParams params = CreateTableParams.builder()
                 .tableName("table1")
                 .columns(List.of(
@@ -142,10 +173,10 @@ public class CatalogServiceSelfTest {
                 .ifTableExists(true)
                 .build();
 
-        assertThat(service.createTable(params), CompletableFutureMatcher.willBe(true));
-        assertThat(service.createTable(params), CompletableFutureMatcher.willBe(false));
+        assertThat(catalogService.createTable(params), CompletableFutureMatcher.willBe(true));
+        assertThat(catalogService.createTable(params), CompletableFutureMatcher.willBe(false));
 
-        CompletableFuture<?> fut = service.createTable(
+        CompletableFuture<?> fut = catalogService.createTable(
                 CreateTableParams.builder()
                         .tableName("table1")
                         .columns(List.of(
@@ -156,6 +187,6 @@ public class CatalogServiceSelfTest {
                         .ifTableExists(false)
                         .build());
 
-        assertThat(fut, CompletableFutureMatcher.willFailFast(TableAlreadyExistsException.class));
+        assertThat(fut, CompletableFutureExceptionMatcher.willThrowFast(TableAlreadyExistsException.class));
     }
 }

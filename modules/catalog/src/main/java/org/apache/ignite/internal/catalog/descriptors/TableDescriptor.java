@@ -38,7 +38,7 @@ public class TableDescriptor extends ObjectDescriptor {
 
     private final int zoneId = 0;
     private final int engineId = 0;
-
+    private final String schemaName;
     private final TableColumnDescriptor[] columns;
     private final String[] primaryKeyColumns;
     private final String[] colocationColumns;
@@ -50,20 +50,23 @@ public class TableDescriptor extends ObjectDescriptor {
      * Constructor.
      *
      * @param id Table id.
-     * @param name Table name.
+     * @param schemaName Schema name.
+     * @param tableName Table name.
      * @param columns Table column descriptors.
      * @param pkCols Primary key column names.
      * @param colocationCols Colocation column names.
      */
     public TableDescriptor(
             int id,
-            String name,
+            String schemaName,
+            String tableName,
             List<TableColumnDescriptor> columns,
             List<String> pkCols,
             @Nullable List<String> colocationCols
     ) {
-        super(id, Type.TABLE, name);
+        super(id, Type.TABLE, tableName);
 
+        this.schemaName = Objects.requireNonNull(schemaName);
         this.columns = Objects.requireNonNull(columns, "No columns defined.").toArray(TableColumnDescriptor[]::new);
         primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.").toArray(String[]::new);
         colocationColumns = colocationCols == null ? primaryKeyColumns : colocationCols.toArray(String[]::new);
@@ -78,6 +81,10 @@ public class TableDescriptor extends ObjectDescriptor {
         assert Arrays.stream(primaryKeyColumns).noneMatch(c -> Objects.requireNonNull(columnsMap.get(c), c).nullable());
         //noinspection ArrayEquality
         assert primaryKeyColumns == colocationColumns || Set.of(primaryKeyColumns).containsAll(List.of(colocationColumns));
+    }
+
+    public String schemaName(){
+        return schemaName;
     }
 
     public int zoneId() {

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
@@ -25,6 +26,8 @@ import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
  * Catalog utils.
  */
 public class CatalogUtils {
+    public static final String DEFAULT_SCHEMA = "PUBLIC";
+
     /**
      * Converts CreateTable command params to descriptor.
      *
@@ -34,6 +37,7 @@ public class CatalogUtils {
      */
     public static TableDescriptor fromParams(int id, CreateTableParams params) {
         return new TableDescriptor(id,
+                Objects.requireNonNullElse(params.schemaName(), DEFAULT_SCHEMA),
                 params.tableName(),
                 params.columns().stream().map(CatalogUtils::fromParams).collect(Collectors.toList()),
                 params.primaryKeyColumns(),

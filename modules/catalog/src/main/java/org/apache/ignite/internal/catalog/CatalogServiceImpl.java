@@ -21,12 +21,15 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.util.Collection;
-import java.util.Map.Entry;
+import java.util.Map;
 import java.util.NavigableMap;
-import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
@@ -38,10 +41,16 @@ import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.dsl.Conditions;
+import org.apache.ignite.internal.metastorage.dsl.Operations;
+import org.apache.ignite.internal.metastorage.dsl.Statements;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.jetbrains.annotations.Nullable;
@@ -51,10 +60,9 @@ import org.jetbrains.annotations.Nullable;
  * TODO: IGNITE-19081 Introduce catalog events and make CatalogServiceImpl extends Producer.
  */
 public class CatalogServiceImpl implements CatalogService, CatalogManager {
-    private static final AtomicInteger TABLE_ID_GEN = new AtomicInteger();
-
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(CatalogServiceImpl.class);
+    public static final String CATALOG_VER_PREFIX = "catalog.ver.";
 
     /** Versioned catalog descriptors. */
     private final NavigableMap<Integer, CatalogDescriptor> catalogByVer = new ConcurrentSkipListMap<>();
@@ -65,6 +73,10 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
     private final MetaStorageManager metaStorageMgr;
 
     private final WatchListener catalogVersionsListener;
+
+    private final ExecutorService executorService = ForkJoinPool.commonPool();
+
+    private final ConcurrentMap<Integer, CompletableFuture<Boolean>> futMap = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -78,7 +90,7 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
     @Override
     public void start() {
         if (CatalogService.useCatalogService()) {
-            metaStorageMgr.registerPrefixWatch(ByteArray.fromString("catalog-"), catalogVersionsListener);
+            metaStorageMgr.registerPrefixWatch(ByteArray.fromString(CATALOG_VER_PREFIX), catalogVersionsListener);
         }
 
         //TODO: IGNITE-19080 restore state.
@@ -95,7 +107,7 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
     /** {@inheritDoc} */
     @Override
     public TableDescriptor table(String tableName, long timestamp) {
-        return catalogAt(timestamp).schema(CatalogService.PUBLIC).table(tableName);
+        return catalogAt(timestamp).schema(CatalogUtils.DEFAULT_SCHEMA).table(tableName);
     }
 
     /** {@inheritDoc} */
@@ -125,13 +137,13 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
             return null;
         }
 
-        return catalog.schema(CatalogService.PUBLIC);
+        return catalog.schema(CatalogUtils.DEFAULT_SCHEMA);
     }
 
     /** {@inheritDoc} */
     @Override
     public @Nullable SchemaDescriptor activeSchema(long timestamp) {
-        return catalogAt(timestamp).schema(CatalogService.PUBLIC);
+        return catalogAt(timestamp).schema(CatalogUtils.DEFAULT_SCHEMA);
     }
 
     private CatalogDescriptor catalog(int version) {
@@ -139,7 +151,7 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
     }
 
     private CatalogDescriptor catalogAt(long timestamp) {
-        Entry<Long, CatalogDescriptor> entry = catalogByTs.floorEntry(timestamp);
+        Map.Entry<Long, CatalogDescriptor> entry = catalogByTs.floorEntry(timestamp);
 
         if (entry == null) {
             throw new IllegalStateException("No valid schema found for given timestamp: " + timestamp);
@@ -151,7 +163,7 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
     /**
      * MetaStorage event listener for catalog metadata updates.
      */
-    private static class CatalogEventListener implements WatchListener {
+    private class CatalogEventListener implements WatchListener {
         /** {@inheritDoc} */
         @Override
         public String id() {
@@ -161,6 +173,44 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<Void> onUpdate(WatchEvent event) {
+            assert event.single();
+
+            EntryEvent entryEvent = event.entryEvent();
+
+            if (entryEvent.newEntry() != null) {
+                Object obj = ByteUtils.fromBytes(entryEvent.newEntry().value());
+
+                assert obj instanceof TableDescriptor;
+
+                TableDescriptor tableDesc = (TableDescriptor) obj;
+
+                // TODO: Add catalog version to event.
+                int ver = catalogByVer.lastKey() + 1;
+
+                CatalogDescriptor catalog = catalogByVer.get(ver - 1);
+
+                SchemaDescriptor schema = catalog.schema(tableDesc.schemaName());
+
+                CatalogDescriptor newCatalog = new CatalogDescriptor(
+                        ver,
+                        System.currentTimeMillis(),
+                        new SchemaDescriptor(
+                                schema.id(),
+                                schema.name(),
+                                ver,
+                                ArrayUtils.concat(schema.tables(), tableDesc),
+                                schema.indexes()
+                        )
+                );
+
+                registerCatalog(newCatalog);
+
+                CompletableFuture<Boolean> rmv = futMap.remove(ver);
+                if (rmv != null) {
+                    rmv.complete(true);
+                }
+            }
+
             return completedFuture(null);
         }
 
@@ -173,53 +223,69 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> createTable(CreateTableParams params) {
-        // Creates TableDescriptor and saves it to MetaStorage.
+    public CompletableFuture<Boolean> createTable(CreateTableParams params) {
+        // Creates diff from params, then save to metastorage.
         // Atomically:
-        //        int id = metaStorage.get("lastId") + 1;
-        //        TableDescriptor table = new TableDescriptor(tableId, params)
+        //        int newVer = metaStorage.get("lastVer") + 1;
         //
-        //        Catalog newCatalog = catalogByVer.get(id -1).copy()
-        //        newCatalog.setId(id).addTable(table);
+        //        validate(params);
+        //        Object diff = createDiff(catalog, params);
         //
-        //        metaStorage.put("catalog-"+id, newCatalog);
-        //        metaStorage.put("lastId", id);
+        //        metaStorage.put("catalog.ver." + newVer, diff);
+        //        metaStorage.put("lastVer", newVer);
 
-        // Dummy implementation.
-        synchronized (this) {
-            CatalogDescriptor catalog = catalogByVer.lastEntry().getValue();
+        ByteArray LAST_VER_KEY = ByteArray.fromString("catalog.lastVer");
+        ByteArray TABLE_ID_KEY = ByteArray.fromString("catalog.tableId");
 
-            //TODO: IGNITE-19081 Add validation.
-            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+        return metaStorageMgr.getAll(Set.of(LAST_VER_KEY, TABLE_ID_KEY))
+                .thenCompose(entries -> {
+                    Entry lastVerEntry = entries.get(LAST_VER_KEY);
+                    Entry tableIdEntry = entries.get(TABLE_ID_KEY);
 
-            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+                    int lastVer = lastVerEntry.empty() ? 0 : ByteUtils.bytesToInt(lastVerEntry.value());
+                    int tableId = tableIdEntry.empty() ? 0 : ByteUtils.bytesToInt(tableIdEntry.value());
 
-            if (schema.table(params.tableName()) != null) {
-                return params.ifTableExists()
-                        ? completedFuture(false)
-                        : failedFuture(new TableAlreadyExistsException(schemaName, params.tableName()));
-            }
+                    int newVer = lastVer + 1;
+                    int newTableId = tableId + 1;
 
-            int newVersion = catalogByVer.lastKey() + 1;
+                    CatalogDescriptor catalog = catalogByVer.get(lastVer);
 
-            TableDescriptor table = CatalogUtils.fromParams(TABLE_ID_GEN.incrementAndGet(), params);
+                    assert catalog.table(newTableId) == null;
 
-            CatalogDescriptor newCatalog = new CatalogDescriptor(
-                    newVersion,
-                    System.currentTimeMillis(),
-                    new SchemaDescriptor(
-                            schema.id(),
-                            schemaName,
-                            newVersion,
-                            ArrayUtils.concat(schema.tables(), table),
-                            schema.indexes()
-                    )
-            );
+                    TableDescriptor tableDesc = CatalogUtils.fromParams(newTableId, params);
 
-            registerCatalog(newCatalog);
-        }
+                    // params.validate(catalog); ???
+                    // validate(catalog, table);
 
-        return completedFuture(true);
+                    SchemaDescriptor schema = catalog.schema(tableDesc.schemaName());
+
+                    if (schema.table(tableDesc.name()) != null) {
+                        return params.ifTableExists()
+                                ? completedFuture(false)
+                                : failedFuture(new TableAlreadyExistsException(tableDesc.schemaName(), tableDesc.name()));
+                    }
+
+                    CompletableFuture<Boolean> opFut = new CompletableFuture<>();
+
+                    if (futMap.putIfAbsent(newVer, opFut) != null) {
+                        return completedFuture(null).thenComposeAsync(ignore -> createTable(params), executorService);
+                    }
+
+                    return metaStorageMgr.invoke(
+                            Statements.iif(
+                                    Conditions.value(LAST_VER_KEY).eq(lastVerEntry.value()),
+                                    Operations.ops(
+                                            Operations.put(LAST_VER_KEY, ByteUtils.intToBytes(newVer)),
+                                            Operations.put(TABLE_ID_KEY, ByteUtils.intToBytes(newTableId)),
+                                            Operations.put(ByteArray.fromString(CATALOG_VER_PREFIX + newVer), ByteUtils.toBytes(tableDesc))
+                                    ).yield(true),
+                                    Operations.ops().yield(false)
+                            )
+                    ).thenComposeAsync(
+                            res -> res.getAsBoolean() ? opFut.thenApply(ignore -> true) : createTable(params),
+                            executorService
+                    );
+                });
     }
 
     /** {@inheritDoc} */
