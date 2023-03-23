@@ -17,8 +17,35 @@
 
 package org.apache.ignite.client;
 
+import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
+import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterView;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+
 /**
  * Tests client-side metrics (see also server-side metrics tests in {@link ServerMetricsTest}).
  */
 public class ClientMetricsTest {
+    private TestServer server;
+    private IgniteClient client;
+
+    @Test
+    public void testMetrics() throws Exception {
+        server = AbstractClientTest.startServer(10800, 10, 1000, new FakeIgnite());
+        client = IgniteClient.builder()
+                .addresses("127.0.0.1:" + server.port())
+                .metricsEnabled(true)
+                // TODO: Provide predefined metrics exporters? This config is not good.
+                .metricsExporters(new ExporterView[]{(JmxExporterView) () -> "jmx"})
+                .build();
+
+        client.tables().tables();
+    }
+
+    @AfterEach
+    public void afterAll() throws Exception {
+        client.close();
+        server.close();
+    }
 }
