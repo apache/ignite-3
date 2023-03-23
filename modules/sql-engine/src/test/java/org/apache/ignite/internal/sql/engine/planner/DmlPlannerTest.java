@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine.planner;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -42,7 +44,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInsertIntoSingleDistributedTable() throws Exception {
-        IgniteTable test1 = createTable("TEST1", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class);
+        IgniteTable test1 = newTestTable("TEST1", IgniteDistributions.single());
         IgniteSchema schema = createSchema(test1);
 
         // There should be no exchanges and other operations.
@@ -56,7 +58,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("nonSingleDistributions")
     public void testInsert(IgniteDistribution distribution) throws Exception {
-        IgniteTable test1 = createTable("TEST1", distribution, "C1", Integer.class, "C2", Integer.class);
+        IgniteTable test1 = newTestTable("TEST1", distribution);
 
         IgniteSchema schema = createSchema(test1);
 
@@ -80,8 +82,8 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     public void testInsertSelectFrom(IgniteDistribution distribution) throws Exception {
         IgniteDistribution anotherDistribution = IgniteDistributions.affinity(1, new UUID(1, 0), "0");
 
-        IgniteTable test1 = createTable("TEST1", distribution, "C1", Integer.class, "C2", Integer.class);
-        IgniteTable test2 = createTable("TEST2", anotherDistribution,  "C1", Integer.class, "C2", Integer.class);
+        IgniteTable test1 = newTestTable("TEST1", distribution);
+        IgniteTable test2 = newTestTable("TEST2", anotherDistribution);
 
         IgniteSchema schema = createSchema(test1, test2);
 
@@ -99,8 +101,8 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("distributions")
     public void testInsertSelectFromSameDistribution(IgniteDistribution distribution) throws Exception {
-        IgniteTable test1 = createTable("TEST1", distribution, "C1", Integer.class, "C2", Integer.class);
-        IgniteTable test2 = createTable("TEST2", distribution, "C1", Integer.class, "C2", Integer.class);
+        IgniteTable test1 = newTestTable("TEST1", distribution);
+        IgniteTable test2 = newTestTable("TEST2", distribution);
 
         IgniteSchema schema = createSchema(test1, test2);
 
@@ -111,11 +113,54 @@ public class DmlPlannerTest extends AbstractPlannerTest {
         );
     }
 
+    /**
+     * Test for UPDATE when table has a single distribution.
+     */
+    @Test
+    public void testUpdateOfSingleDistributedTable() throws Exception {
+        IgniteTable test1 = newTestTable("TEST1", IgniteDistributions.single());
+        IgniteSchema schema = createSchema(test1);
+
+        // There should be no exchanges and other operations.
+        assertPlan("UPDATE TEST1 SET C2 = C2 + 1", schema,
+                isInstanceOf(IgniteTableModify.class).and(input(isInstanceOf(IgniteTableScan.class))));
+    }
+
+    /**
+     * Test for UPDATE when table has non single distribution.
+     */
+    @ParameterizedTest
+    @MethodSource("nonSingleDistributions")
+    public void testUpdate(IgniteDistribution distribution) throws Exception {
+        IgniteTable test1 = newTestTable("TEST1", distribution);
+
+        IgniteSchema schema = createSchema(test1);
+
+        assertPlan("UPDATE TEST1 SET C2 = C2 + 1", schema,
+                nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
+                        .and(e -> e.distribution().equals(IgniteDistributions.single())))
+                        .and(nodeOrAnyChild(isInstanceOf(IgniteTableModify.class))
+                                .and(hasChildThat(isInstanceOf(IgniteTableScan.class))))
+        );
+    }
+
     private static Stream<IgniteDistribution> distributions() {
         return Stream.of(
                 IgniteDistributions.single(),
                 IgniteDistributions.hash(List.of(0, 1)),
                 IgniteDistributions.affinity(0, new UUID(1, 1), "0")
         );
+    }
+
+    // Class name is fully-qualified because AbstractPlannerTest defines a class with the same name.
+    private static org.apache.ignite.internal.sql.engine.framework.TestTable newTestTable(
+            String tableName, IgniteDistribution distribution) {
+
+        return TestBuilders.table()
+                .name(tableName)
+                .addColumn("C1", NativeTypes.INT32)
+                .addColumn("C2", NativeTypes.INT32)
+                .distribution(distribution)
+                .build();
     }
 }
