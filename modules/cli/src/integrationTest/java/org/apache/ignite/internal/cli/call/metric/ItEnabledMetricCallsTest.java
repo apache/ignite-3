@@ -68,7 +68,8 @@ class ItEnabledMetricCallsTest extends CallInitializedIntegrationTestBase {
         assertThat(output.hasError()).isFalse();
 
         MetricSource[] expectedMetricSources = {
-                new MetricSource().name("jvm").enabled(true)
+                new MetricSource().name("jvm").enabled(true),
+                new MetricSource().name("client.handler").enabled(false)
         };
 
         // And
