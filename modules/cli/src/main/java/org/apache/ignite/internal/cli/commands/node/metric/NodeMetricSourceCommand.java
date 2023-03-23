@@ -15,35 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.event;
+package org.apache.ignite.internal.cli.commands.node.metric;
 
-import java.util.UUID;
-import org.apache.ignite.internal.manager.EventParameters;
+import org.apache.ignite.internal.cli.commands.BaseCommand;
+import picocli.CommandLine.Command;
 
-/**
- * Table event parameters. There are properties which associate with a concrete table.
- */
-public class TableEventParameters extends EventParameters {
-    /** Table identifier. */
-    private final UUID tableId;
-
-    /**
-     * Constructor.
-     *
-     * @param causalityToken Causality token.
-     * @param tableId   Table identifier.
-     */
-    public TableEventParameters(long causalityToken, UUID tableId) {
-        super(causalityToken);
-        this.tableId = tableId;
-    }
-
-    /**
-     * Get the table identifier.
-     *
-     * @return Table id.
-     */
-    public UUID tableId() {
-        return tableId;
-    }
+/** Node metric sources command. */
+@Command(name = "source",
+        subcommands = {
+                NodeMetricSourceEnableCommand.class,
+                NodeMetricSourceDisableCommand.class,
+                NodeMetricSourceListCommand.class,
+        },
+        description = "Node metric sources operations")
+public class NodeMetricSourceCommand extends BaseCommand {
 }

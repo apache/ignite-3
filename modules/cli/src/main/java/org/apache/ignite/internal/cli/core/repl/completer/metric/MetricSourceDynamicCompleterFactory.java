@@ -15,35 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.event;
+package org.apache.ignite.internal.cli.core.repl.completer.metric;
 
-import java.util.UUID;
-import org.apache.ignite.internal.manager.EventParameters;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
+import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFactory;
+import org.apache.ignite.internal.cli.core.repl.completer.StringDynamicCompleter;
+import org.apache.ignite.internal.cli.core.repl.registry.MetricRegistry;
 
-/**
- * Table event parameters. There are properties which associate with a concrete table.
- */
-public class TableEventParameters extends EventParameters {
-    /** Table identifier. */
-    private final UUID tableId;
+/** Factory for metric source parameter completer. */
+@Singleton
+public class MetricSourceDynamicCompleterFactory implements DynamicCompleterFactory {
 
-    /**
-     * Constructor.
-     *
-     * @param causalityToken Causality token.
-     * @param tableId   Table identifier.
-     */
-    public TableEventParameters(long causalityToken, UUID tableId) {
-        super(causalityToken);
-        this.tableId = tableId;
-    }
+    @Inject
+    private MetricRegistry registry;
 
-    /**
-     * Get the table identifier.
-     *
-     * @return Table id.
-     */
-    public UUID tableId() {
-        return tableId;
+    @Override
+    public DynamicCompleter getDynamicCompleter(String[] words) {
+        return new StringDynamicCompleter(registry.metricSources());
     }
 }

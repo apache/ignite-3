@@ -17,26 +17,38 @@
 
 package org.apache.ignite.internal.cli.decorators;
 
+import com.jakewharton.fliptables.FlipTable;
 import java.util.List;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.util.PlainTableRenderer;
-import org.apache.ignite.rest.client.model.ClusterNode;
+import org.apache.ignite.rest.client.model.MetricSource;
 
-/**
- * Implementation of {@link Decorator} for the list of {@link ClusterNode}.
- */
-public class PlainTopologyDecorator extends TopologyDecorator {
-    /**
-     * Transform list of {@link ClusterNode} to {@link TerminalOutput}.
-     *
-     * @param topology incoming list of {@link ClusterNode}.
-     * @return Plain interpretation of list of {@link ClusterNode} in {@link TerminalOutput}.
-     */
+/** Decorator for printing list of {@link MetricSource}. */
+public class MetricSourceListDecorator implements Decorator<List<MetricSource>, TerminalOutput> {
+    private static final String[] HEADERS = {"Set name", "Enabled"};
+
+    private final boolean plain;
+
+    public MetricSourceListDecorator(boolean plain) {
+        this.plain = plain;
+    }
 
     @Override
-    public TerminalOutput decorate(List<ClusterNode> topology) {
-        String[][] content = topologyToContent(topology);
-        return () -> new PlainTableRenderer().render(HEADERS, content);
+    public TerminalOutput decorate(List<MetricSource> data) {
+        if (plain) {
+            return () -> PlainTableRenderer.render(HEADERS, metricSourcesToContent(data));
+        } else {
+            return () -> FlipTable.of(HEADERS, metricSourcesToContent(data));
+        }
+    }
+
+    private static String[][] metricSourcesToContent(List<MetricSource> data) {
+        return data.stream()
+                .map(metricSource -> new String[]{
+                        metricSource.getName(),
+                        metricSource.getEnabled() ? "enabled" : "disabled"
+                })
+                .toArray(String[][]::new);
     }
 }

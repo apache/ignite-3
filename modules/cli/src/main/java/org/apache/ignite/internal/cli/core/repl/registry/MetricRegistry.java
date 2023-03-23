@@ -15,35 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.event;
+package org.apache.ignite.internal.cli.core.repl.registry;
 
-import java.util.UUID;
-import org.apache.ignite.internal.manager.EventParameters;
+import java.util.Set;
 
-/**
- * Table event parameters. There are properties which associate with a concrete table.
- */
-public class TableEventParameters extends EventParameters {
-    /** Table identifier. */
-    private final UUID tableId;
+/** Metric registry. */
+public interface MetricRegistry {
 
-    /**
-     * Constructor.
-     *
-     * @param causalityToken Causality token.
-     * @param tableId   Table identifier.
-     */
-    public TableEventParameters(long causalityToken, UUID tableId) {
-        super(causalityToken);
-        this.tableId = tableId;
-    }
-
-    /**
-     * Get the table identifier.
-     *
-     * @return Table id.
-     */
-    public UUID tableId() {
-        return tableId;
-    }
+    /** Metric sources. */
+    Set<String> metricSources();
 }

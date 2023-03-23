@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.cli.commands.node.metric;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.node.metric.NodeMetricEnableCall;
+import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.metric.MetricSourceMixin;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
@@ -30,7 +30,7 @@ import picocli.CommandLine.Mixin;
 
 /** Command that enables node metric source in REPL mode. */
 @Command(name = "enable", description = "Enables node metric source")
-public class NodeMetricEnableReplCommand extends BaseCommand implements Runnable {
+public class NodeMetricSourceEnableReplCommand extends BaseCommand implements Runnable {
     /** Node URL option. */
     @Mixin
     private NodeUrlMixin nodeUrl;
@@ -39,7 +39,7 @@ public class NodeMetricEnableReplCommand extends BaseCommand implements Runnable
     private MetricSourceMixin metricSource;
 
     @Inject
-    private NodeMetricEnableCall call;
+    private NodeMetricSourceEnableCall call;
 
     @Inject
     private ConnectToClusterQuestion question;

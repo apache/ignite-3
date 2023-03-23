@@ -601,7 +601,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             return schemaHolder.onTableCreated(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     DEFAULT_SCHEMA_NAME,
-                    parameters.table(),
+                    parameters.tableId(),
                     parameters.causalityToken()
             )
                     .thenApply(v -> false);
@@ -619,7 +619,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             return schemaHolder.onTableUpdated(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     DEFAULT_SCHEMA_NAME,
-                    parameters.table(),
+                    parameters.tableId(),
                     parameters.causalityToken()
             )
                     .thenApply(v -> false);
@@ -637,7 +637,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             return schemaHolder.onTableDropped(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     DEFAULT_SCHEMA_NAME,
-                    parameters.tableName(),
+                    parameters.tableId(),
                     parameters.causalityToken()
             )
                     .thenApply(v -> false);
@@ -655,6 +655,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             return schemaHolder.onIndexDropped(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     DEFAULT_SCHEMA_NAME,
+                    parameters.tableId(),
                     parameters.indexId(),
                     parameters.causalityToken()
             )
@@ -671,7 +672,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onIndexCreated(
-                    parameters.index(),
+                    parameters.tableId(),
+                    parameters.indexId(),
+                    parameters.indexDescriptor(),
                     parameters.causalityToken()
             )
                     .thenApply(v -> false);
