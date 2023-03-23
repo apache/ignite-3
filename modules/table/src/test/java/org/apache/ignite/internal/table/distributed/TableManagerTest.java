@@ -680,7 +680,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         CountDownLatch createTblLatch = new CountDownLatch(1);
 
         tableManager.listen(TableEvent.CREATE, (parameters, exception) -> {
-            parameters.table().pkId(UUID.randomUUID());
             createTblLatch.countDown();
 
             return completedFuture(true);

@@ -31,6 +31,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
@@ -158,24 +159,28 @@ public class ConfigurationTest extends AbstractClientTest {
 
     @Test
     public void testCustomAsyncContinuationExecutor() throws Exception {
-        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Function<Integer, Integer> responseDelay = x -> 50;
 
-        var builderThreadName = new AtomicReference<String>();
+        try (var testServer = new TestServer(10900, 10, 0, server, x -> false, responseDelay, "n2", clusterId)) {
+            ExecutorService executor = Executors.newSingleThreadExecutor();
 
-        CompletableFuture<IgniteClient> builder = IgniteClient.builder()
-                .addresses("127.0.0.1:" + serverPort)
-                .asyncContinuationExecutor(executor)
-                .buildAsync()
-                .whenComplete((res, err) -> builderThreadName.set(Thread.currentThread().getName()));
+            var builderThreadName = new AtomicReference<String>();
 
-        try (IgniteClient ignite = builder.join()) {
-            String threadName = ignite.tables().tablesAsync().thenApply(unused -> Thread.currentThread().getName()).join();
+            CompletableFuture<IgniteClient> builder = IgniteClient.builder()
+                    .addresses("127.0.0.1:" + testServer.port())
+                    .asyncContinuationExecutor(executor)
+                    .buildAsync()
+                    .whenComplete((res, err) -> builderThreadName.set(Thread.currentThread().getName()));
 
-            assertEquals(executor, ignite.configuration().asyncContinuationExecutor());
-            assertThat(threadName, startsWith("pool-"));
-            assertThat(builderThreadName.get(), startsWith("pool-"));
+            try (IgniteClient ignite = builder.join()) {
+                String threadName = ignite.tables().tablesAsync().thenApply(unused -> Thread.currentThread().getName()).join();
+
+                assertEquals(executor, ignite.configuration().asyncContinuationExecutor());
+                assertThat(threadName, startsWith("pool-"));
+                assertThat(builderThreadName.get(), startsWith("pool-"));
+            }
+
+            executor.shutdown();
         }
-
-        executor.shutdown();
     }
 }

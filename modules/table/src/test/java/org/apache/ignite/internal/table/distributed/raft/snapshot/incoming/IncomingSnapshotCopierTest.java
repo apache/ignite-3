@@ -20,8 +20,8 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
@@ -585,7 +585,7 @@ public class IncomingSnapshotCopierTest {
         );
 
         // Let's wait for an error on rebalancing.
-        assertThat(runAsync(snapshotCopier::join), willFailFast(IllegalStateException.class));
+        assertThat(runAsync(snapshotCopier::join), willThrowFast(IllegalStateException.class));
 
         verify(partitionSnapshotStorage.partition()).abortRebalance();
 

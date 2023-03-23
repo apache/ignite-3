@@ -181,7 +181,7 @@ namespace Apache.Ignite.Internal
                 Stream stream = new NetworkStream(socket, ownsSocket: true);
 
                 if (configuration.SslStreamFactory is { } sslStreamFactory &&
-                    sslStreamFactory.Create(stream, endPoint.Host) is { } sslStream)
+                    await sslStreamFactory.CreateAsync(stream, endPoint.Host).ConfigureAwait(false) is { } sslStream)
                 {
                     stream = sslStream;
 
@@ -256,7 +256,7 @@ namespace Apache.Ignite.Internal
                     {
                         var completionSource = (TaskCompletionSource<PooledBuffer>)state!;
 
-                        if (task.IsCanceled || task.Exception?.GetBaseException() is TaskCanceledException)
+                        if (task.IsCanceled || task.Exception?.GetBaseException() is TaskCanceledException or ObjectDisposedException)
                         {
                             // Canceled task means Dispose was called.
                             completionSource.TrySetException(
