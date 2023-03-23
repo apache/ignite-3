@@ -327,7 +327,7 @@ paths:
       parameters: []
       responses:
         "200":
-          description: All statutes returned successfully.
+          description: All statutes returned successful.
           content:
             application/json:
               schema:
@@ -402,7 +402,7 @@ paths:
           type: string
       responses:
         "200":
-          description: All statutes returned successfully.
+          description: All statutes returned successful.
           content:
             application/json:
               schema:
@@ -464,7 +464,7 @@ paths:
           type: string
       responses:
         "200":
-          description: Status returned successfully.
+          description: Status returned successful.
           content:
             application/json:
               schema:
@@ -497,7 +497,7 @@ paths:
           type: string
       responses:
         "200":
-          description: Versions returned successfully.
+          description: Versions returned successful.
           content:
             application/json:
               schema:

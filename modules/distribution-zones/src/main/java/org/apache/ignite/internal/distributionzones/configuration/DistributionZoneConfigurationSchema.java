@@ -43,8 +43,8 @@ public class DistributionZoneConfigurationSchema {
     @Value(hasDefault = true)
     public int zoneId = DEFAULT_ZONE_ID;
 
-    /** Zone partitions. */
-    @Range(min = 0, max = 65_000)
+    /** Count of zone partitions. */
+    @Range(min = 1, max = 65_000)
     @Value(hasDefault = true)
     public int partitions = DEFAULT_PARTITION_COUNT;
 
