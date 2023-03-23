@@ -21,9 +21,9 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.raft.TestWriteCommand.testWriteCommand;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -581,7 +581,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<Long> fut = service.readIndex();
 
-        assertThat(fut, willFailFast(TimeoutException.class));
+        assertThat(fut, willThrowFast(TimeoutException.class));
     }
 
     private RaftGroupService startRaftGroupService(List<Peer> peers, boolean getLeader) {
