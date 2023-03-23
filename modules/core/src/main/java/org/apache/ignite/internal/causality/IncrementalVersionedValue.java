@@ -141,15 +141,15 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
     }
 
     /**
-     * Updates the value using the given updater. The updater receives the value on previous token, or default value (see constructor) if
-     * the value isn't initialized, or current intermediate value, if this method has been already called for the same token; and returns a
-     * new value.<br> The updater will be called after updaters that had been passed to previous calls of this method complete. If an
-     * exception ({@link CancellationException} or {@link CompletionException}) was thrown when calculating the value for previous token,
-     * then updater is used to process the exception and calculate a new value.<br> This method can be called multiple times for the same
-     * token, and doesn't complete the future created for this token. The future is supposed to be completed by storage revision update or a
-     * call of {@link #complete(long)} in this case. If this method has been called at least once on the given token, the updater will
-     * receive a value that was evaluated by updater on previous call, as intermediate result.<br> As the order of multiple calls of this
-     * method on the same token is unknown, operations done by the updater must be commutative. For example:
+     * Updates the value using the given updater. The updater receives the value associated with a previous token, or default value (see
+     * constructor) if the value isn't initialized, or current intermediate value, if this method has been already called for the same
+     * token; and returns a new value.<br> The updater will be called after updaters that had been passed to previous calls of this method
+     * complete. If an exception ({@link CancellationException} or {@link CompletionException}) was thrown when calculating the value for
+     * previous token, then updater is used to process the exception and calculate a new value.<br> This method can be called multiple times
+     * for the same token, and doesn't complete the future created for this token. The future is supposed to be completed by storage
+     * revision update or a call of {@link #complete(long)} in this case. If this method has been called at least once on the given token,
+     * the updater will receive a value that was evaluated by updater on previous call, as intermediate result.<br> As the order of multiple
+     * calls of this method on the same token is unknown, operations done by the updater must be commutative. For example:
      * <ul>
      *     <li>this method was called for token N-1 and updater evaluated the value V1;</li>
      *     <li>a storage revision update happened;</li>
@@ -200,9 +200,9 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
     }
 
     /**
-     * Interrupts the current chain of updates and completes it with the given exception. This method will look for the
-     * previous complete token and complete all registered futures in the {@code (prevToken, causalityToken)} range. If no {@code complete}
-     * methods have been called before, all these futures will be complete with the configured default value.
+     * Interrupts the current chain of updates and completes it with the given exception. This method will look for the previous complete
+     * token and complete all registered futures in the {@code (prevToken, causalityToken)} range. If no {@code complete} methods have been
+     * called before, all these futures will be complete with the configured default value.
      *
      * <p>Calling this method will trigger the {@link #whenComplete} listeners for the given token.
      *

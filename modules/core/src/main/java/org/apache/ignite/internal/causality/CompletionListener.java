@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 @FunctionalInterface
 public interface CompletionListener<T> {
     /**
-     * Method that will be called of every completion of a Versioned Value.
+     * Method that will be called on every completion of a Versioned Value.
      *
      * @param token Token for which a value has been completed.
      * @param value Value that the Versioned Value was completed with.
