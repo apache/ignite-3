@@ -24,7 +24,4 @@ public interface MetricRegistry {
 
     /** Metric sources. */
     Set<String> metricSources();
-
-    /** Refresh the state. */
-    void refresh();
 }

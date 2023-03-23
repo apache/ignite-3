@@ -25,7 +25,6 @@ import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
-import org.apache.ignite.internal.cli.core.repl.registry.MetricRegistry;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -45,15 +44,11 @@ public class NodeMetricSourceDisableReplCommand extends BaseCommand implements R
     @Inject
     private ConnectToClusterQuestion question;
 
-    @Inject
-    private MetricRegistry registry;
-
     @Override
     public void run() {
         question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(metricSource::buildDisableCallInput)
                 .then(Flows.fromCall(call))
-                .onSuccess(() -> registry.refresh())
                 .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot disable metrics", "cluster init"))
                 .verbose(verbose)
                 .print()
