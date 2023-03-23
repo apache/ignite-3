@@ -245,7 +245,7 @@ public enum Options {
         /** Unit path option description. */
         public static final String UNIT_PATH_OPTION_DESC = "Path to deployment unit file or directory";
 
-        public static final String AUTHENTICATION_ENABLED_OPTION = "--authentication-enabled";
+        public static final String AUTHENTICATION_ENABLED_OPTION = "--auth-enabled";
 
         public static final String AUTHENTICATION_ENABLED_OPTION_SHORT = "-ae";
 

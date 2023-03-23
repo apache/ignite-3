@@ -69,14 +69,15 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
             } else if (apiCause != null) {
                 errorComponentBuilder.header(apiCause.getMessage());
             } else {
-                if (e.getMessage().contains("Unauthorized")) {
+                Problem problem = extractProblem(cause);
+                if (problem.getStatus() == 401) {
                     errorComponentBuilder
                             .header("Authentication error")
                             .details("Could not connect to node with URL %s. "
                                     + "Check authentication configuration", UiElements.url(e.getUrl()))
                             .verbose(e.getMessage());
                 } else {
-                    tryToExtractProblem(errorComponentBuilder, cause);
+                    renderProblem(errorComponentBuilder, problem);
                 }
             }
         } else {
@@ -92,20 +93,23 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
         return 1;
     }
 
-    private static void tryToExtractProblem(ErrorComponentBuilder errorComponentBuilder, ApiException cause) {
+    private static Problem extractProblem(ApiException cause) {
         try {
-            Problem problem = objectMapper.readValue(cause.getResponseBody(), Problem.class);
-            List<InvalidParam> invalidParams = problem.getInvalidParams();
-            if (invalidParams != null && !invalidParams.isEmpty()) {
-                errorComponentBuilder.details(extractInvalidParams(invalidParams));
-            }
-            errorComponentBuilder
-                    .header(problem.getDetail() != null ? problem.getDetail() : problem.getTitle())
-                    .errorCode(problem.getCode())
-                    .traceId(problem.getTraceId());
+            return objectMapper.readValue(cause.getResponseBody(), Problem.class);
         } catch (JsonProcessingException ex) {
             throw new RuntimeException(ex);
         }
+    }
+
+    private static void renderProblem(ErrorComponentBuilder errorComponentBuilder, Problem problem) {
+        List<InvalidParam> invalidParams = problem.getInvalidParams();
+        if (invalidParams != null && !invalidParams.isEmpty()) {
+            errorComponentBuilder.details(extractInvalidParams(invalidParams));
+        }
+        errorComponentBuilder
+                .header(problem.getDetail() != null ? problem.getDetail() : problem.getTitle())
+                .errorCode(problem.getCode())
+                .traceId(problem.getTraceId());
     }
 
     @NotNull

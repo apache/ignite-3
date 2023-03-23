@@ -20,9 +20,6 @@ package org.apache.ignite.internal.cli.call.cluster;
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.commands.cluster.init.AuthenticationOptions;
 import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitOptions;
 import org.apache.ignite.internal.cli.core.call.CallInput;
@@ -113,10 +110,10 @@ public class ClusterInitCallInput implements CallInput {
 
         private String clusterName;
 
-        private AuthenticationConfig authenticationSettings;
+        private AuthenticationConfig authenticationConfig;
 
         public ClusterInitCallInputBuilder authenticationSettings(AuthenticationConfig authenticationConfig) {
-            this.authenticationSettings = authenticationConfig;
+            this.authenticationConfig = authenticationConfig;
             return this;
         }
 
@@ -135,12 +132,12 @@ public class ClusterInitCallInput implements CallInput {
             this.metaStorageNodes = clusterInitOptions.metaStorageNodes();
             this.cmgNodes = clusterInitOptions.cmgNodes();
             this.clusterName = clusterInitOptions.clusterName();
-            this.authenticationSettings = toAuthenticationConfig(clusterInitOptions.authenticationOptions());
+            this.authenticationConfig = toAuthenticationConfig(clusterInitOptions.authenticationOptions());
             return this;
         }
 
         public ClusterInitCallInput build() {
-            return new ClusterInitCallInput(clusterUrl, metaStorageNodes, cmgNodes, clusterName, authenticationSettings);
+            return new ClusterInitCallInput(clusterUrl, metaStorageNodes, cmgNodes, clusterName, authenticationConfig);
         }
 
         private AuthenticationConfig toAuthenticationConfig(AuthenticationOptions options) {
@@ -151,17 +148,11 @@ public class ClusterInitCallInput implements CallInput {
             return new AuthenticationConfig(options.enabled(), extractAuthenticationProviders(options));
         }
 
-        private List<AuthenticationProviderConfig> extractAuthenticationProviders(AuthenticationOptions options) {
-            return Stream.of(extractBasicAuthenticationProviderConfig(options))
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
-        }
-
-        private BasicAuthenticationProviderConfig extractBasicAuthenticationProviderConfig(AuthenticationOptions options) {
+        private static List<AuthenticationProviderConfig> extractAuthenticationProviders(AuthenticationOptions options) {
             if (!nullOrBlank(options.basicLogin()) && !nullOrBlank(options.basicPassword())) {
-                return new BasicAuthenticationProviderConfig("basic", options.basicLogin(), options.basicPassword());
+                return List.of(new BasicAuthenticationProviderConfig("basic", options.basicLogin(), options.basicPassword()));
             } else {
-                return null;
+                return List.of();
             }
         }
     }

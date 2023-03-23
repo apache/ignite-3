@@ -72,9 +72,9 @@ public enum CliConfigKeys {
 
         public static final String JDBC_URL = "ignite.jdbc-url";
 
-        public static final String BASIC_AUTHENTICATION_LOGIN = "ignite.authentication.basic.login";
+        public static final String BASIC_AUTHENTICATION_LOGIN = "ignite.auth.basic.login";
 
-        public static final String BASIC_AUTHENTICATION_PASSWORD = "ignite.authentication.basic.password";
+        public static final String BASIC_AUTHENTICATION_PASSWORD = "ignite.auth.basic.password";
 
         /** Environment variable which points to the base directory for configuration files according to XDG spec. */
         private static final String XDG_CONFIG_HOME = "XDG_CONFIG_HOME";

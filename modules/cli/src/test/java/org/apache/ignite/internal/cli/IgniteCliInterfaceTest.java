@@ -255,7 +255,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         @Test
         @DisplayName("init --cluster-endpoint-url http://localhost:10300 --meta-storage-node node1ConsistentId --meta-storage-node node2ConsistentId "
                 + "--cmg-node node2ConsistentId --cmg-node node3ConsistentId --cluster-name cluster "
-                + "--authentication-enabled --basic-auth-providers login=password")
+                + "--auth-enabled --basic-auth-login admin --basic-auth-password password")
         void initWithAuthenticationSuccess() {
             var expectedSentContent = "{\n"
                     + "  \"metaStorageNodes\": [\n"
@@ -298,7 +298,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     "--cmg-node", "node2ConsistentId",
                     "--cmg-node", "node3ConsistentId",
                     "--cluster-name", "cluster",
-                    "--authentication-enabled",
+                    "--auth-enabled",
                     "--basic-auth-login", "admin",
                     "--basic-auth-password", "password"
             );
