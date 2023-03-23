@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -150,7 +150,7 @@ public class IndexManagerTest {
     public void createIndexWithEmptyName() {
         assertThat(
                 indexManager.createIndexAsync("sName", "", "tName", true, indexChange -> {/* doesn't matter */}),
-                willFailFast(IgniteInternalException.class, "Index name should be at least 1 character long")
+                willThrowFast(IgniteInternalException.class, "Index name should be at least 1 character long")
         );
     }
 
@@ -158,7 +158,7 @@ public class IndexManagerTest {
     public void dropNonExistingIndex() {
         assertThat(
                 indexManager.dropIndexAsync("sName", "nonExisting", true),
-                willFailFast(IndexNotFoundException.class, "Index does not exist [name=\"sName\".\"nonExisting\"]")
+                willThrowFast(IndexNotFoundException.class, "Index does not exist [name=\"sName\".\"nonExisting\"]")
         );
     }
 

@@ -25,15 +25,29 @@ import static org.mockito.Mockito.when;
 
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * TableValidatorImplTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class TableValidatorImplTest extends AbstractTableIndexValidatorTest {
+@ExtendWith(ConfigurationExtension.class)
+public class TableValidatorImplTest {
+    @InjectConfiguration(
+            "mock.tables.table {"
+                    + "columns.id {type.type: INT32}, "
+                    + "columns.affId {type.type: INT32}, "
+                    + "columns.id2 {type.type: STRING}, "
+                    + "primaryKey {columns: [affId, id], colocationColumns: [affId]}"
+                    + "}"
+    )
+    private TablesConfiguration tablesCfg;
+
     /** Tests that validator finds no issues in a simple valid configuration. */
     @Test
     public void testNoIssues() {
@@ -44,7 +58,7 @@ public class TableValidatorImplTest extends AbstractTableIndexValidatorTest {
     void testCreateTableWithSameIndexName() {
         assertThat(
                 tablesCfg.indexes().change(indexesChange ->
-                        indexesChange.create(TABLE_NAME, indexChange -> indexChange.convert(HashIndexChange.class))
+                        indexesChange.create("table", indexChange -> indexChange.convert(HashIndexChange.class))
                 ),
                 willCompleteSuccessfully()
         );

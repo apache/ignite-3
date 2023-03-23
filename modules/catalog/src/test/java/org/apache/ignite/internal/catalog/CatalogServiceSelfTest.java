@@ -33,6 +33,7 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.sql.ColumnType;
@@ -156,6 +157,6 @@ public class CatalogServiceSelfTest {
                         .ifTableExists(false)
                         .build());
 
-        assertThat(fut, CompletableFutureMatcher.willFailFast(TableAlreadyExistsException.class));
+        assertThat(fut, CompletableFutureExceptionMatcher.willThrowFast(TableAlreadyExistsException.class));
     }
 }
