@@ -19,6 +19,8 @@ package org.apache.ignite.internal.rest.api.cluster.authentication;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import io.swagger.v3.oas.annotations.media.DiscriminatorMapping;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.apache.ignite.security.AuthenticationProviderConfig;
 import org.apache.ignite.security.AuthenticationType;
 
@@ -29,8 +31,22 @@ import org.apache.ignite.security.AuthenticationType;
         include = JsonTypeInfo.As.PROPERTY,
         property = "type")
 @JsonSubTypes({
-        @JsonSubTypes.Type(value = BasicAuthenticationProviderConfigDto.class, name = "basic")
+        @JsonSubTypes.Type(value = BasicAuthenticationProviderConfigDto.class, names = {"basic", "BASIC"})
 })
+@Schema(
+        name = "AuthenticationProviderConfig",
+        description = "Authentication provider configuration",
+        discriminatorProperty = "type",
+        discriminatorMapping = {
+                @DiscriminatorMapping(value = "basic", schema = BasicAuthenticationProviderConfigDto.class)
+        },
+        oneOf = {
+                BasicAuthenticationProviderConfigDto.class
+        },
+        subTypes = {
+                BasicAuthenticationProviderConfigDto.class
+        }
+)
 public interface AuthenticationProviderConfigDto {
 
     /** Authentication type. */

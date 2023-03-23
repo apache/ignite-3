@@ -404,7 +404,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                         LOG.info("No REST auth configuration found in the Raft storage");
                         return completedFuture(null);
                     } else {
-                        //TODO https://issues.apache.org/jira/browse/IGNITE-18943
+                        //TODO https://issues.apache.org/jira/browse/IGNITE-19077
                         LOG.info("REST auth configuration found in the Raft storage, going to apply it");
                         Authentication restAuthToApply = state.restAuthToApply();
                         return distributedConfigurationUpdater.updateRestAuthConfiguration(restAuthToApply)

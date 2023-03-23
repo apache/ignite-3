@@ -29,6 +29,7 @@ import org.apache.ignite.internal.cli.call.unit.UndeployUnitCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
@@ -63,6 +64,7 @@ public class UnitUndeployCommand extends BaseCommand implements Callable<Integer
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot undeploy unit", "cluster init"))
                 .build().runPipeline();
     }
 }

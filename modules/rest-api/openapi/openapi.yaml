@@ -327,7 +327,7 @@ paths:
       parameters: []
       responses:
         "200":
-          description: All statutes returned successful.
+          description: All statutes returned successfully.
           content:
             application/json:
               schema:
@@ -402,7 +402,7 @@ paths:
           type: string
       responses:
         "200":
-          description: All statutes returned successful.
+          description: All statutes returned successfully.
           content:
             application/json:
               schema:
@@ -464,7 +464,7 @@ paths:
           type: string
       responses:
         "200":
-          description: Status returned successful.
+          description: Status returned successfully.
           content:
             application/json:
               schema:
@@ -497,7 +497,7 @@ paths:
           type: string
       responses:
         "200":
-          description: Versions returned successful.
+          description: Versions returned successfully.
           content:
             application/json:
               schema:
@@ -686,11 +686,11 @@ components:
           type: array
           description: A list of authentication providers.
           items:
-            $ref: '#/components/schemas/AuthenticationProviderConfigDto'
+            $ref: '#/components/schemas/AuthenticationProviderConfig'
       description: REST representation of AuthenticationConfig.
-    AuthenticationProviderConfigDto:
+    AuthenticationProviderConfig:
       type: object
-      description: REST representation of AuthenticationProviderConfig.
+      description: Authentication provider configuration
       discriminator:
         propertyName: type
         mapping:
