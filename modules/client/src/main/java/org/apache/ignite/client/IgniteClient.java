@@ -34,7 +34,6 @@ import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
-import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -109,7 +108,7 @@ public interface IgniteClient extends Ignite {
         private boolean metricsEnabled;
 
         /** Metrics exporters. */
-        private @Nullable ExporterView[] metricsExporters;
+        private @Nullable String[] metricExporterNames;
 
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
@@ -324,13 +323,13 @@ public interface IgniteClient extends Ignite {
         /**
          * Sets the metrics exporters.
          *
-         * @param metricsExporters Metrics exporters.
+         * @param metricExporterNames Metric exporter names.
          * @return This instance.
          */
-        public Builder metricsExporters(ExporterView[] metricsExporters) {
-            Objects.requireNonNull(metricsExporters);
+        public Builder metricExporterNames(String[] metricExporterNames) {
+            Objects.requireNonNull(metricExporterNames);
 
-            this.metricsExporters = metricsExporters.clone();
+            this.metricExporterNames = metricExporterNames.clone();
 
             return this;
         }
@@ -364,7 +363,7 @@ public interface IgniteClient extends Ignite {
                     loggerFactory,
                     sslConfiguration,
                     metricsEnabled,
-                    metricsExporters);
+                    metricExporterNames);
 
             return TcpIgniteClient.startAsync(cfg);
         }

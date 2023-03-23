@@ -22,7 +22,6 @@ import org.apache.ignite.client.IgniteClientAddressFinder;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.client.SslConfiguration;
-import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 import org.apache.ignite.lang.LoggerFactory;
 import org.jetbrains.annotations.Nullable;
 
@@ -66,7 +65,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     private final boolean metricsEnabled;
 
-    private final @Nullable ExporterView[] metricsExporters;
+    private final @Nullable String[] metricExporterNames;
 
     /**
      * Constructor.
@@ -83,7 +82,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
      * @param retryPolicy Retry policy.
      * @param loggerFactory Logger factory which will be used to create a logger instance for this this particular client when needed.
      * @param metricsEnabled Whether metrics are enabled.
-     * @param metricsExporters Metrics exporters.
+     * @param metricExporterNames Metrics exporters.
      */
     public IgniteClientConfigurationImpl(
             IgniteClientAddressFinder addressFinder,
@@ -99,7 +98,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             @Nullable LoggerFactory loggerFactory,
             @Nullable SslConfiguration sslConfiguration,
             boolean metricsEnabled,
-            @Nullable ExporterView[] metricsExporters) {
+            @Nullable String[] metricExporterNames) {
         this.addressFinder = addressFinder;
 
         //noinspection AssignmentOrReturnOfFieldWithMutableType (cloned in Builder).
@@ -116,7 +115,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.loggerFactory = loggerFactory;
         this.sslConfiguration = sslConfiguration;
         this.metricsEnabled = metricsEnabled;
-        this.metricsExporters = metricsExporters;
+        this.metricExporterNames = metricExporterNames;
     }
 
     /** {@inheritDoc} */
@@ -199,7 +198,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable ExporterView[] metricsExporters() {
-        return metricsExporters == null ? null : metricsExporters.clone();
+    public @Nullable String[] metricExporterNames() {
+        return metricExporterNames == null ? null : metricExporterNames.clone();
     }
 }
