@@ -180,9 +180,9 @@ public interface IgniteClientConfiguration {
     boolean metricsEnabled();
 
     /**
-     * Gets metric exporter configurations.
+     * Gets metric exporter names.
      *
-     * @return Metric exporter configurations.
+     * @return Metric exporter names.
      */
-    @Nullable ExporterView[] metricsExporters();
+    @Nullable String[] metricExporterNames();
 }

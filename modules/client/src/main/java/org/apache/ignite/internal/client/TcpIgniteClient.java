@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
@@ -35,6 +36,14 @@ import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.tx.ClientTransactions;
 import org.apache.ignite.internal.jdbc.proto.ClientMessage;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
+import org.apache.ignite.internal.metrics.configuration.MetricConfigurationModule;
+import org.apache.ignite.internal.metrics.exporters.MetricExporter;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterChange;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfiguration;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
+import org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
@@ -62,6 +71,9 @@ public class TcpIgniteClient implements IgniteClient {
 
     /** Compute. */
     private final ClientSql sql;
+
+    /** Metric manager. */
+    private final MetricManager metricManager;
 
     /**
      * Constructor.
@@ -92,6 +104,14 @@ public class TcpIgniteClient implements IgniteClient {
         transactions = new ClientTransactions(ch);
         compute = new ClientCompute(ch, tables);
         sql = new ClientSql(ch);
+
+        metricManager = new MetricManager();
+
+        // TODO load all available exporters
+        HashMap<String, MetricExporter> exporters = new HashMap<>();
+        exporters.put("jmx", cfg.metricsExporters());
+
+        metricManager.start(exporters);
     }
 
     /**
@@ -177,6 +197,7 @@ public class TcpIgniteClient implements IgniteClient {
     @Override
     public void close() throws Exception {
         ch.close();
+        metricManager.stop();
     }
 
     /** {@inheritDoc} */

@@ -89,7 +89,6 @@ public class MetricManager implements IgniteComponent {
      *
      * @param availableExporters Map of (name, exporter) with available exporters.
      */
-    @VisibleForTesting
     public void start(Map<String, MetricExporter> availableExporters) {
         this.availableExporters = availableExporters;
 
