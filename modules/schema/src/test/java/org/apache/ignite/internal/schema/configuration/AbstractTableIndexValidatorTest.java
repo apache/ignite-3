@@ -19,8 +19,6 @@ package org.apache.ignite.internal.schema.configuration;
 
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.index.SortedIndexConfigurationSchema;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.builder.TableDefinitionBuilder;
@@ -37,13 +35,7 @@ public class AbstractTableIndexValidatorTest {
     protected static final String TABLE_NAME = "schema.table";
 
     /** Basic table configuration to mutate and then validate. */
-    @InjectConfiguration(
-            polymorphicExtensions = {
-                    HashIndexConfigurationSchema.class,
-                    SortedIndexConfigurationSchema.class,
-            },
-            internalExtensions = ExtendedTableConfigurationSchema.class
-    )
+    @InjectConfiguration
     protected TablesConfiguration tablesCfg;
 
     @BeforeEach

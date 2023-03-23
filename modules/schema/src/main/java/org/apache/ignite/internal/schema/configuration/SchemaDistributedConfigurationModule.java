@@ -39,7 +39,6 @@ import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorag
  */
 @AutoService(ConfigurationModule.class)
 public class SchemaDistributedConfigurationModule implements ConfigurationModule {
-    /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
         return ConfigurationType.DISTRIBUTED;
@@ -50,7 +49,6 @@ public class SchemaDistributedConfigurationModule implements ConfigurationModule
         return List.of(TablesConfiguration.KEY);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Set<Validator<?, ?>> validators() {
         return Set.of(
@@ -61,7 +59,6 @@ public class SchemaDistributedConfigurationModule implements ConfigurationModule
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(
@@ -72,5 +69,10 @@ public class SchemaDistributedConfigurationModule implements ConfigurationModule
                 HashIndexConfigurationSchema.class,
                 SortedIndexConfigurationSchema.class
         );
+    }
+
+    @Override
+    public Collection<Class<?>> internalSchemaExtensions() {
+        return List.of(ExtendedTableConfigurationSchema.class);
     }
 }
