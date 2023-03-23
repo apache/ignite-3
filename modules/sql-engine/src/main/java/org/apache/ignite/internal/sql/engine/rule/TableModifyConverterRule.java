@@ -97,8 +97,9 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
 
         // 1) add a SUM0 aggregate on top of TableModify to compute the total number of modified rows.
         RelDataType rowType = tableModify.getRowType();
+        RelDataTypeField modifiedRowsField = rowType.getFieldList().get(0);
         RelDataTypeFactory typeFactory = cluster.getTypeFactory();
-        RelDataType rowCountType = rowType.getFieldList().get(0).getType();
+        RelDataType rowCountType = modifiedRowsField.getType();
         RelDataType sumType = IgniteTypeSystem.INSTANCE.deriveSumType(typeFactory, rowCountType);
 
         AggregateCall sum = AggregateCall.create(SqlStdOperatorTable.SUM0, false, false,
@@ -116,9 +117,8 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
 
         // 2) add a projection on top of the SUM0 aggregate that converts the result of SUM aggregate back to BIGINT
         // (because the modified number of rows returned by DML operations is BIGINT)
-        RelDataType typeOfSum = typeFactory.createSqlType(SqlTypeName.BIGINT);
-        RelDataTypeField rowField = rowType.getFieldList().get(0);
-        RelDataType convertedRowType = typeFactory.createStructType(List.of(Map.entry(rowField.getName(), typeOfSum)));
+        RelDataType typeOfSum = modifiedRowsField.getType();
+        RelDataType convertedRowType = typeFactory.createStructType(List.of(Map.entry(modifiedRowsField.getName(), typeOfSum)));
 
         RexBuilder rexBuilder = Commons.rexBuilder();
         RexInputRef sumRef = rexBuilder.makeInputRef(sumAgg, 0);
