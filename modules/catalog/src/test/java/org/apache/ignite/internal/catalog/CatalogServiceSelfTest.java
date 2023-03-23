@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -156,6 +157,6 @@ public class CatalogServiceSelfTest {
                         .ifTableExists(false)
                         .build());
 
-        assertThat(fut, CompletableFutureMatcher.willFailFast(TableAlreadyExistsException.class));
+        assertThat(fut, willThrowFast(TableAlreadyExistsException.class));
     }
 }
