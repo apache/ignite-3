@@ -120,6 +120,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         );
 
         // Mock logical topology for distribution zone.
+        //TODO https://issues.apache.org/jira/browse/IGNITE-19104 Uncomment next line and remove keyValueStorage puts.
         // vaultMgr.put(zonesLogicalTopologyKey(), toBytes(nodes));
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), longToBytes(1));
         keyValueStorage.put(zonesLogicalTopologyKey().bytes(), toBytes(nodes));
