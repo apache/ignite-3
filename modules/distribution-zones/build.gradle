@@ -49,6 +49,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation(testFixtures(project(':ignite-cluster-management')))
+    testImplementation(testFixtures(project(':ignite-vault')))
 }
 
 description = 'ignite-distribution-zones'
