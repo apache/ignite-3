@@ -852,7 +852,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             placementDriver,
                                                             storageUpdateHandler,
                                                             this::isLocalPeer,
-                                                            schemaManager.schemaRegistry(causalityToken, tblId),
+                                                            schemaManager.schemaRegistry(causalityToken, tblId)
                                                     ),
                                                     updatedRaftGroupService,
                                                     storageIndexTracker
