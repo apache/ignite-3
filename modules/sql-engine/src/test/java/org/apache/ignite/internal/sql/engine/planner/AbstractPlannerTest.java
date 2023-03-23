@@ -529,7 +529,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         checkSplitAndSerialization(plan, schemas);
 
         try {
-            System.out.println(RelOptUtil.dumpPlan("DUMP PLAN", plan, SqlExplainFormat.TEXT, SqlExplainLevel.NON_COST_ATTRIBUTES));
             if (predicate.test((T) plan)) {
                 return;
             }
