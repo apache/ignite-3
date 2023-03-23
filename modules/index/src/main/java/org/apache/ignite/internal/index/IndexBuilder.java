@@ -133,12 +133,13 @@ class IndexBuilder {
 
                 if (!isLocalNodeLeader(raftGroupService)) {
                     // TODO: IGNITE-19053 Must handle the change of leader
+                    // TODO: IGNITE-19053 Add a test to change the leader even at the start of the task
                     return;
                 }
 
-                RowId lastBuildRowId = internalTable.storage().getOrCreateIndex(partitionId, tableIndexView.id()).getLastBuildRowId();
+                RowId lastBuiltRowId = internalTable.storage().getOrCreateIndex(partitionId, tableIndexView.id()).getLastBuiltRowId();
 
-                if (lastBuildRowId == null) {
+                if (lastBuiltRowId == null) {
                     // Index has already been built.
                     return;
                 }
@@ -147,7 +148,7 @@ class IndexBuilder {
                     LOG.info("Start building the index: [{}]", createCommonTableIndexInfo());
                 }
 
-                List<RowId> batchRowIds = createBatchRowIds(lastBuildRowId, BUILD_INDEX_ROW_ID_BATCH_SIZE);
+                List<RowId> batchRowIds = createBatchRowIds(lastBuiltRowId, BUILD_INDEX_ROW_ID_BATCH_SIZE);
 
                 boolean finish = batchRowIds.size() < BUILD_INDEX_ROW_ID_BATCH_SIZE;
 
@@ -172,23 +173,23 @@ class IndexBuilder {
             return localNodeConsistentId().equals(leader.consistentId());
         }
 
-        private List<RowId> createBatchRowIds(RowId lastBuildRowId, int batchSize) {
+        private List<RowId> createBatchRowIds(RowId lastBuiltRowId, int batchSize) {
             MvPartitionStorage mvPartition = table.internalTable().storage().getMvPartition(partitionId);
 
             assert mvPartition != null : createCommonTableIndexInfo();
 
             List<RowId> batch = new ArrayList<>(batchSize);
 
-            for (int i = 0; i < batchSize && lastBuildRowId != null; i++) {
-                lastBuildRowId = mvPartition.closestRowId(lastBuildRowId);
+            for (int i = 0; i < batchSize && lastBuiltRowId != null; i++) {
+                lastBuiltRowId = mvPartition.closestRowId(lastBuiltRowId);
 
-                if (lastBuildRowId == null) {
+                if (lastBuiltRowId == null) {
                     break;
                 }
 
-                batch.add(lastBuildRowId);
+                batch.add(lastBuiltRowId);
 
-                lastBuildRowId = lastBuildRowId.increment();
+                lastBuiltRowId = lastBuiltRowId.increment();
             }
 
             return batch;

@@ -59,9 +59,11 @@ public interface IndexStorage {
     /**
      * Returns the last row ID that has been processed by an ongoing index build process or {@code null} if the process has finished.
      *
+     * <p>If index building has not started yet, it will return {@link RowId#lowestRowId(int)}.
+     *
      * @throws StorageException If failed to get the last row ID.
      */
-    @Nullable RowId getLastBuildRowId();
+    @Nullable RowId getLastBuiltRowId();
 
     /**
      * Sets last row ID for which the index was built, {@code null} means index building is finished.
@@ -72,5 +74,5 @@ public interface IndexStorage {
      * @param rowId Row ID.
      * @throws StorageException If failed to set the last row ID.
      */
-    void setLastBuildRowId(@Nullable RowId rowId);
+    void setLastBuiltRowId(@Nullable RowId rowId);
 }

@@ -111,7 +111,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             TableManager tableManager,
             ClusterService clusterService
     ) {
-        this.tablesConfig = Objects.requireNonNull(tablesConfig, "tablesCfg");
+        this.tablesConfig = Objects.requireNonNull(tablesConfig, "tablesConfig");
         this.schemaManager = Objects.requireNonNull(schemaManager, "schemaManager");
         this.tableManager = tableManager;
         this.indexBuilder = new IndexBuilder(nodeName, busyLock, clusterService);

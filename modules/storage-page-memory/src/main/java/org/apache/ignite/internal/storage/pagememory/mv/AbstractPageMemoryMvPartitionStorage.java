@@ -259,7 +259,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             );
 
             if (initNew) {
-                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.indexId(), metaPageId, indexMeta.lastBuildRowIdUuid()));
+                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.indexId(), metaPageId, indexMeta.lastBuiltRowIdUuid()));
 
                 assert !replaced;
             }
@@ -304,7 +304,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             );
 
             if (initNew) {
-                boolean replaced = indexMetaTree.putx(new IndexMeta(indexDescriptor.id(), metaPageId, indexMeta.lastBuildRowIdUuid()));
+                boolean replaced = indexMetaTree.putx(new IndexMeta(indexDescriptor.id(), metaPageId, indexMeta.lastBuiltRowIdUuid()));
 
                 assert !replaced;
             }

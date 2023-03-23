@@ -342,12 +342,12 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
     }
 
     @Override
-    public @Nullable RowId getLastBuildRowId() {
+    public @Nullable RowId getLastBuiltRowId() {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             try {
-                UUID lastBuildRowIdUuid = indexMetaTree.findOne(new IndexMetaKey(indexDescriptor().id())).lastBuildRowIdUuid();
+                UUID lastBuildRowIdUuid = indexMetaTree.findOne(new IndexMetaKey(indexDescriptor().id())).lastBuiltRowIdUuid();
 
                 return lastBuildRowIdUuid == null ? null : new RowId(partitionId, lastBuildRowIdUuid);
             } catch (IgniteInternalCheckedException e) {
@@ -357,7 +357,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
     }
 
     @Override
-    public void setLastBuildRowId(@Nullable RowId rowId) {
+    public void setLastBuiltRowId(@Nullable RowId rowId) {
         busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 

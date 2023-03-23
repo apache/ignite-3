@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -27,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
@@ -92,7 +90,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
     }
 
     private static int[] replicas() {
-        // FIXME: IGNITE-19086 Fix NullPointerException on insertALl
+        // FIXME: IGNITE-19086 Fix NullPointerException on insertAll
         //        return new int[]{1, 2, 3};
         return new int[]{1};
     }
@@ -126,18 +124,15 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
             for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
                 RaftGroupService raftGroupService = internalTable.partitionRaftGroupService(partitionId);
 
-                Set<String> allPeers = Stream.concat(
-                        Stream.of(raftGroupService.leader()),
-                        raftGroupService.peers().stream()
-                ).map(Peer::consistentId).collect(toSet());
+                Stream<Peer> allPeers = Stream.concat(Stream.of(raftGroupService.leader()), raftGroupService.peers().stream());
 
-                if (!allPeers.contains(clusterNode.name())) {
+                if (allPeers.map(Peer::consistentId).noneMatch(clusterNode.name()::equals)) {
                     continue;
                 }
 
                 IndexStorage index = internalTable.storage().getOrCreateIndex(partitionId, indexId);
 
-                assertTrue(waitForCondition(() -> index.getLastBuildRowId() == null, 10, 10_000));
+                assertTrue(waitForCondition(() -> index.getLastBuiltRowId() == null, 10, 10_000));
             }
         }
     }

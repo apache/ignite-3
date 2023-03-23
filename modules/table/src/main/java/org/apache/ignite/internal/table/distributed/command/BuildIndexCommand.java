@@ -44,7 +44,7 @@ public interface BuildIndexCommand extends WriteCommand {
     List<UUID> rowIds();
 
     /**
-     * Returns {@code true} if index building for the partition has completed.
+     * Returns {@code true} if this batch is the last one.
      */
     boolean finish();
 }

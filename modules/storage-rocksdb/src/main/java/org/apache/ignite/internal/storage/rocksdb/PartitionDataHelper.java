@@ -73,7 +73,7 @@ class PartitionDataHelper implements ManuallyCloseable {
     static final int VALUE_OFFSET = VALUE_HEADER_SIZE;
 
     /** {@link UUID} size in bytes. */
-    static final int UUID_SIZE = 2 * Long.BYTES;
+    static final int ROW_ID_UUID_SIZE = 2 * Long.BYTES;
 
     static final ByteOrder TABLE_ROW_BYTE_ORDER = ByteBufferRow.ORDER;
 
@@ -142,24 +142,24 @@ class PartitionDataHelper implements ManuallyCloseable {
         assert rowId.partitionId() == partitionId : rowId;
         assert keyBuffer.order() == KEY_BYTE_ORDER;
 
-        putUuid(keyBuffer, rowId.uuid());
+        putRowIdUuid(keyBuffer, rowId.uuid());
     }
 
-    static void putUuid(ByteBuffer buffer, UUID uuid) {
+    static void putRowIdUuid(ByteBuffer buffer, UUID uuid) {
         assert buffer.order() == KEY_BYTE_ORDER;
 
         buffer.putLong(normalize(uuid.getMostSignificantBits()));
         buffer.putLong(normalize(uuid.getLeastSignificantBits()));
     }
 
-    static UUID readUuid(ByteBuffer buffer, int offset) {
+    static UUID readRowIdUuid(ByteBuffer buffer, int offset) {
         return new UUID(normalize(buffer.getLong(offset)), normalize(buffer.getLong(offset + Long.BYTES)));
     }
 
     RowId getRowId(ByteBuffer keyBuffer, int offset) {
         assert partitionId == (keyBuffer.getShort(0) & 0xFFFF);
 
-        return new RowId(partitionId, readUuid(keyBuffer, offset));
+        return new RowId(partitionId, readRowIdUuid(keyBuffer, offset));
     }
 
     /**

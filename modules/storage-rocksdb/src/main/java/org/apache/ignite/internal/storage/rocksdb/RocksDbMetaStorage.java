@@ -20,9 +20,9 @@ package org.apache.ignite.internal.storage.rocksdb;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.KEY_BYTE_ORDER;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.PARTITION_ID_SIZE;
-import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.UUID_SIZE;
-import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.putUuid;
-import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.readUuid;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.ROW_ID_UUID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.putRowIdUuid;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.readRowIdUuid;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 
 import java.nio.ByteBuffer;
@@ -33,6 +33,7 @@ import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.jetbrains.annotations.Nullable;
+import org.rocksdb.AbstractWriteBatch;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
@@ -53,7 +54,7 @@ public class RocksDbMetaStorage {
     private static final byte[] INDEX_META_KEY_PREFIX = "index-meta".getBytes(UTF_8);
 
     /** Index meta key size in bytes. */
-    private static final int INDEX_META_KEY_SIZE = INDEX_META_KEY_PREFIX.length + PARTITION_ID_SIZE + UUID_SIZE;
+    private static final int INDEX_META_KEY_SIZE = INDEX_META_KEY_PREFIX.length + PARTITION_ID_SIZE + ROW_ID_UUID_SIZE;
 
     private final ColumnFamily metaColumnFamily;
 
@@ -115,13 +116,14 @@ public class RocksDbMetaStorage {
     /**
      * Puts last row ID for which the index was built, {@code null} means index building is finished.
      *
+     * @param writeBatch Write batch.
      * @param partitionId Partition ID.
      * @param indexId Index ID.
      * @param rowId Row ID.
      */
-    public void putIndexLastBuildRowId(int partitionId, UUID indexId, @Nullable RowId rowId) {
+    public void putIndexLastBuildRowId(AbstractWriteBatch writeBatch, int partitionId, UUID indexId, @Nullable RowId rowId) {
         try {
-            metaColumnFamily.put(indexMetaKey(partitionId, indexId), indexLastBuildRowId(rowId));
+            writeBatch.put(metaColumnFamily.handle(), indexMetaKey(partitionId, indexId), indexLastBuildRowId(rowId));
         } catch (RocksDBException e) {
             throw new StorageException(
                     "Failed to save last row ID for which the index was built: [partitionId={}, indexId={}, rowId={}]",
@@ -140,17 +142,17 @@ public class RocksDbMetaStorage {
      */
     public @Nullable RowId readIndexLastBuildRowId(int partitionId, UUID indexId, RowId ifAbsent) {
         try {
-            byte[] lastBuildRowIdBytes = metaColumnFamily.get(indexMetaKey(partitionId, indexId));
+            byte[] lastBuiltRowIdBytes = metaColumnFamily.get(indexMetaKey(partitionId, indexId));
 
-            if (lastBuildRowIdBytes == null) {
+            if (lastBuiltRowIdBytes == null) {
                 return ifAbsent;
             }
 
-            if (lastBuildRowIdBytes.length == 0) {
+            if (lastBuiltRowIdBytes.length == 0) {
                 return null;
             }
 
-            return new RowId(partitionId, readUuid(ByteBuffer.wrap(lastBuildRowIdBytes), 0));
+            return new RowId(partitionId, readRowIdUuid(ByteBuffer.wrap(lastBuiltRowIdBytes), 0));
         } catch (RocksDBException e) {
             throw new StorageException(
                     "Failed to read last row ID for which the index was built: [partitionId={}, indexId={}]",
@@ -177,7 +179,7 @@ public class RocksDbMetaStorage {
 
         buffer.put(INDEX_META_KEY_PREFIX).putShort((short) partitionId);
 
-        putUuid(buffer, indexId);
+        putRowIdUuid(buffer, indexId);
 
         return buffer.array();
     }
@@ -187,9 +189,9 @@ public class RocksDbMetaStorage {
             return BYTE_EMPTY_ARRAY;
         }
 
-        ByteBuffer buffer = ByteBuffer.allocate(UUID_SIZE).order(KEY_BYTE_ORDER);
+        ByteBuffer buffer = ByteBuffer.allocate(ROW_ID_UUID_SIZE).order(KEY_BYTE_ORDER);
 
-        putUuid(buffer, rowId.uuid());
+        putRowIdUuid(buffer, rowId.uuid());
 
         return buffer.array();
     }

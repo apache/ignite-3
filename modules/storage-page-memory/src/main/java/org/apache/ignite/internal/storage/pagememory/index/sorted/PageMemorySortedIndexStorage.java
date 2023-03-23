@@ -513,14 +513,14 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     }
 
     @Override
-    public @Nullable RowId getLastBuildRowId() {
+    public @Nullable RowId getLastBuiltRowId() {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             try {
-                UUID lastBuildRowIdUuid = indexMetaTree.findOne(new IndexMetaKey(indexDescriptor().id())).lastBuildRowIdUuid();
+                UUID lastBuiltRowIdUuid = indexMetaTree.findOne(new IndexMetaKey(indexDescriptor().id())).lastBuiltRowIdUuid();
 
-                return lastBuildRowIdUuid == null ? null : new RowId(partitionId, lastBuildRowIdUuid);
+                return lastBuiltRowIdUuid == null ? null : new RowId(partitionId, lastBuiltRowIdUuid);
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException("Error getting last build row ID: [{}]", e, createStorageInfo());
             }
@@ -528,7 +528,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     }
 
     @Override
-    public void setLastBuildRowId(@Nullable RowId rowId) {
+    public void setLastBuiltRowId(@Nullable RowId rowId) {
         busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 

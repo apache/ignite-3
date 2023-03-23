@@ -47,10 +47,10 @@ public interface IndexMetaIo {
     int INDEX_TREE_META_PAGE_ID_OFFSET = INDEX_ID_LSB_OFFSET + Long.BYTES;
 
     /** Offset of the {@link UUID#getMostSignificantBits() most significant bits} of last row ID for which index was built (8 bytes). */
-    int LAST_BUILD_ROW_ID_UUID_MSB_OFFSET = INDEX_TREE_META_PAGE_ID_OFFSET + Long.BYTES;
+    int LAST_BUILT_ROW_ID_UUID_MSB_OFFSET = INDEX_TREE_META_PAGE_ID_OFFSET + Long.BYTES;
 
     /** Offset of the {@link UUID#getLeastSignificantBits() least significant bits} of last row ID for which index was built (8 bytes). */
-    int LAST_BUILD_ROW_ID_UUID_LSB_OFFSET = LAST_BUILD_ROW_ID_UUID_MSB_OFFSET + Long.BYTES;
+    int LAST_BUILT_ROW_ID_UUID_LSB_OFFSET = LAST_BUILT_ROW_ID_UUID_MSB_OFFSET + Long.BYTES;
 
     /** Payload size in bytes. */
     int SIZE_IN_BYTES = 2 * Long.BYTES /* Index ID - {@link UUID} (16 bytes) */
@@ -98,13 +98,13 @@ public interface IndexMetaIo {
 
         long indexTreeMetaPageId = getLong(pageAddr, elementOffset + INDEX_TREE_META_PAGE_ID_OFFSET);
 
-        long lastBuildRowIdUuidMsb = getLong(pageAddr, elementOffset + LAST_BUILD_ROW_ID_UUID_MSB_OFFSET);
-        long lastBuildRowIdUuidLsb = getLong(pageAddr, elementOffset + LAST_BUILD_ROW_ID_UUID_LSB_OFFSET);
+        long lastBuiltRowIdUuidMsb = getLong(pageAddr, elementOffset + LAST_BUILT_ROW_ID_UUID_MSB_OFFSET);
+        long lastBuiltRowIdUuidLsb = getLong(pageAddr, elementOffset + LAST_BUILT_ROW_ID_UUID_LSB_OFFSET);
 
-        UUID lastBuildRowIdUuid = lastBuildRowIdUuidMsb == 0L && lastBuildRowIdUuidLsb == 0L ? null
-                : new UUID(lastBuildRowIdUuidMsb, lastBuildRowIdUuidLsb);
+        UUID lastBuiltRowIdUuid = lastBuiltRowIdUuidMsb == 0L && lastBuiltRowIdUuidLsb == 0L ? null
+                : new UUID(lastBuiltRowIdUuidMsb, lastBuiltRowIdUuidLsb);
 
-        return new IndexMeta(new UUID(indexIdMsb, indexIdLsb), indexTreeMetaPageId, lastBuildRowIdUuid);
+        return new IndexMeta(new UUID(indexIdMsb, indexIdLsb), indexTreeMetaPageId, lastBuiltRowIdUuid);
     }
 
     /**
@@ -134,14 +134,14 @@ public interface IndexMetaIo {
 
         putLong(pageAddr, off + INDEX_TREE_META_PAGE_ID_OFFSET, row.metaPageId());
 
-        UUID lastBuildRowIdUuid = row.lastBuildRowIdUuid();
+        UUID lastBuiltRowIdUuid = row.lastBuiltRowIdUuid();
 
-        if (lastBuildRowIdUuid == null) {
-            putLong(pageAddr, off + LAST_BUILD_ROW_ID_UUID_MSB_OFFSET, 0L);
-            putLong(pageAddr, off + LAST_BUILD_ROW_ID_UUID_LSB_OFFSET, 0L);
+        if (lastBuiltRowIdUuid == null) {
+            putLong(pageAddr, off + LAST_BUILT_ROW_ID_UUID_MSB_OFFSET, 0L);
+            putLong(pageAddr, off + LAST_BUILT_ROW_ID_UUID_LSB_OFFSET, 0L);
         } else {
-            putLong(pageAddr, off + LAST_BUILD_ROW_ID_UUID_MSB_OFFSET, lastBuildRowIdUuid.getMostSignificantBits());
-            putLong(pageAddr, off + LAST_BUILD_ROW_ID_UUID_LSB_OFFSET, lastBuildRowIdUuid.getLeastSignificantBits());
+            putLong(pageAddr, off + LAST_BUILT_ROW_ID_UUID_MSB_OFFSET, lastBuiltRowIdUuid.getMostSignificantBits());
+            putLong(pageAddr, off + LAST_BUILT_ROW_ID_UUID_LSB_OFFSET, lastBuiltRowIdUuid.getLeastSignificantBits());
         }
     }
 }

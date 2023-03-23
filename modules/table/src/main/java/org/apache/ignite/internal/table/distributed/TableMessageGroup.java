@@ -153,10 +153,10 @@ public interface TableMessageGroup {
         /** Message type for {@link UpdateCommand}. */
         short UPDATE = 43;
 
+        /** Message type for {@link BuildIndexCommand}. */
+        short BUILD_INDEX = 44;
+
         /** Message type for {@link TablePartitionIdMessage}. */
         short TABLE_PARTITION_ID = 61;
-
-        /** Message type for {@link BuildIndexCommand}. */
-        short BUILD_INDEX = 62;
     }
 }

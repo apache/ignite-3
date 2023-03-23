@@ -736,33 +736,33 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         IndexStorage sortedIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id());
         IndexStorage hashIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx.id());
 
-        assertEquals(sortedIndexStorage.getLastBuildRowId(), RowId.lowestRowId(PARTITION_ID));
-        assertEquals(hashIndexStorage.getLastBuildRowId(), RowId.lowestRowId(PARTITION_ID));
+        assertEquals(sortedIndexStorage.getLastBuiltRowId(), RowId.lowestRowId(PARTITION_ID));
+        assertEquals(hashIndexStorage.getLastBuiltRowId(), RowId.lowestRowId(PARTITION_ID));
 
-        // Let's check the update of the lastBuildRowId.
+        // Let's check the update of the lastBuiltRowId.
         RowId newRowId0 = new RowId(PARTITION_ID, 1, 1);
         RowId newRowId1 = new RowId(PARTITION_ID, 2, 2);
 
         mvPartitionStorage.runConsistently(() -> {
-            sortedIndexStorage.setLastBuildRowId(newRowId0);
-            hashIndexStorage.setLastBuildRowId(newRowId1);
+            sortedIndexStorage.setLastBuiltRowId(newRowId0);
+            hashIndexStorage.setLastBuiltRowId(newRowId1);
 
             return null;
         });
 
-        assertEquals(sortedIndexStorage.getLastBuildRowId(), newRowId0);
-        assertEquals(hashIndexStorage.getLastBuildRowId(), newRowId1);
+        assertEquals(sortedIndexStorage.getLastBuiltRowId(), newRowId0);
+        assertEquals(hashIndexStorage.getLastBuiltRowId(), newRowId1);
 
-        // Let's check null lastBuildRowId.
+        // Let's check null lastBuiltRowId.
         mvPartitionStorage.runConsistently(() -> {
-            sortedIndexStorage.setLastBuildRowId(null);
-            hashIndexStorage.setLastBuildRowId(null);
+            sortedIndexStorage.setLastBuiltRowId(null);
+            hashIndexStorage.setLastBuiltRowId(null);
 
             return null;
         });
 
-        assertNull(sortedIndexStorage.getLastBuildRowId());
-        assertNull(hashIndexStorage.getLastBuildRowId());
+        assertNull(sortedIndexStorage.getLastBuiltRowId());
+        assertNull(hashIndexStorage.getLastBuiltRowId());
     }
 
     @Test
@@ -776,8 +776,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         RowId newRowId1 = new RowId(PARTITION_ID, 2, 2);
 
         mvPartitionStorage.runConsistently(() -> {
-            sortedIndexStorage.setLastBuildRowId(newRowId0);
-            hashIndexStorage.setLastBuildRowId(newRowId1);
+            sortedIndexStorage.setLastBuiltRowId(newRowId0);
+            hashIndexStorage.setLastBuiltRowId(newRowId1);
 
             return null;
         });
@@ -797,11 +797,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         IndexStorage hashIndexStorageRestarted = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx.id());
 
         if (tableStorage.isVolatile()) {
-            assertEquals(sortedIndexStorageRestarted.getLastBuildRowId(), RowId.lowestRowId(PARTITION_ID));
-            assertEquals(hashIndexStorageRestarted.getLastBuildRowId(), RowId.lowestRowId(PARTITION_ID));
+            assertEquals(sortedIndexStorageRestarted.getLastBuiltRowId(), RowId.lowestRowId(PARTITION_ID));
+            assertEquals(hashIndexStorageRestarted.getLastBuiltRowId(), RowId.lowestRowId(PARTITION_ID));
         } else {
-            assertEquals(sortedIndexStorageRestarted.getLastBuildRowId(), newRowId0);
-            assertEquals(hashIndexStorageRestarted.getLastBuildRowId(), newRowId1);
+            assertEquals(sortedIndexStorageRestarted.getLastBuiltRowId(), newRowId0);
+            assertEquals(hashIndexStorageRestarted.getLastBuiltRowId(), newRowId1);
         }
     }
 

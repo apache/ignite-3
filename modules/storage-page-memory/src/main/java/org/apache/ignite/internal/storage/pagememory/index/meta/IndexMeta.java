@@ -30,20 +30,20 @@ public class IndexMeta extends IndexMetaKey {
     @IgniteToStringExclude
     private final long metaPageId;
 
-    private final @Nullable UUID lastBuildRowIdUuid;
+    private final @Nullable UUID lastBuiltRowIdUuid;
 
     /**
      * Constructor.
      *
      * @param indexId Index ID.
      * @param metaPageId Index tree meta page ID.
-     * @param lastBuildRowIdUuid Last row ID for which the index was built, {@code null} means that the index was built.
+     * @param lastBuiltRowIdUuid Last row ID for which the index was built, {@code null} means that the index was built.
      */
-    public IndexMeta(UUID indexId, long metaPageId, @Nullable UUID lastBuildRowIdUuid) {
+    public IndexMeta(UUID indexId, long metaPageId, @Nullable UUID lastBuiltRowIdUuid) {
         super(indexId);
 
         this.metaPageId = metaPageId;
-        this.lastBuildRowIdUuid = lastBuildRowIdUuid;
+        this.lastBuiltRowIdUuid = lastBuiltRowIdUuid;
     }
 
     /**
@@ -56,8 +56,8 @@ public class IndexMeta extends IndexMetaKey {
     /**
      * Returns last row ID for which the index was built, {@code null} means that the index was built.
      */
-    public @Nullable UUID lastBuildRowIdUuid() {
-        return lastBuildRowIdUuid;
+    public @Nullable UUID lastBuiltRowIdUuid() {
+        return lastBuiltRowIdUuid;
     }
 
     @Override

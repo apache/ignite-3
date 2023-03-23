@@ -87,7 +87,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     private final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /** Partition meta storage. */
-    private final RocksDbMetaStorage metaStorage;
+    private final RocksDbMetaStorage indexMetaStorage;
 
     /**
      * Creates a storage.
@@ -95,18 +95,18 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
      * @param descriptor Sorted Index descriptor.
      * @param indexCf Column family that stores the index data.
      * @param partitionStorage Partition storage of the corresponding index.
-     * @param metaStorage Partition meta storage.
+     * @param indexMetaStorage Partition meta storage.
      */
     public RocksDbSortedIndexStorage(
             SortedIndexDescriptor descriptor,
             ColumnFamily indexCf,
             RocksDbMvPartitionStorage partitionStorage,
-            RocksDbMetaStorage metaStorage
+            RocksDbMetaStorage indexMetaStorage
     ) {
         this.descriptor = descriptor;
         this.indexCf = indexCf;
         this.partitionStorage = partitionStorage;
-        this.metaStorage = metaStorage;
+        this.indexMetaStorage = indexMetaStorage;
     }
 
     @Override
@@ -503,22 +503,24 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     }
 
     @Override
-    public @Nullable RowId getLastBuildRowId() {
+    public @Nullable RowId getLastBuiltRowId() {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             int partitionId = partitionStorage.partitionId();
 
-            return metaStorage.readIndexLastBuildRowId(partitionId, indexDescriptor().id(), RowId.lowestRowId(partitionId));
+            return indexMetaStorage.readIndexLastBuildRowId(partitionId, indexDescriptor().id(), RowId.lowestRowId(partitionId));
         });
     }
 
     @Override
-    public void setLastBuildRowId(@Nullable RowId rowId) {
+    public void setLastBuiltRowId(@Nullable RowId rowId) {
         busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            metaStorage.putIndexLastBuildRowId(partitionStorage.partitionId(), indexDescriptor().id(), rowId);
+            WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
+
+            indexMetaStorage.putIndexLastBuildRowId(writeBatch, partitionStorage.partitionId(), indexDescriptor().id(), rowId);
 
             return null;
         });

@@ -48,7 +48,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     private volatile boolean rebalance;
 
-    private volatile @Nullable RowId lastBuildRowId;
+    private volatile @Nullable RowId lastBuiltRowId;
 
     /**
      * Constructor.
@@ -56,7 +56,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
     public TestHashIndexStorage(HashIndexDescriptor descriptor, int partitionId) {
         this.descriptor = descriptor;
 
-        lastBuildRowId = RowId.lowestRowId(partitionId);
+        lastBuiltRowId = RowId.lowestRowId(partitionId);
     }
 
     @Override
@@ -212,16 +212,16 @@ public class TestHashIndexStorage implements HashIndexStorage {
     }
 
     @Override
-    public @Nullable RowId getLastBuildRowId() {
+    public @Nullable RowId getLastBuiltRowId() {
         checkStorageClosedOrInProcessOfRebalance();
 
-        return lastBuildRowId;
+        return lastBuiltRowId;
     }
 
     @Override
-    public void setLastBuildRowId(@Nullable RowId rowId) {
+    public void setLastBuiltRowId(@Nullable RowId rowId) {
         checkStorageClosedOrInProcessOfRebalance();
 
-        lastBuildRowId = rowId;
+        lastBuiltRowId = rowId;
     }
 }
