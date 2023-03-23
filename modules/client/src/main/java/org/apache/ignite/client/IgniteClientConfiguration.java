@@ -20,6 +20,8 @@ package org.apache.ignite.client;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
+import org.apache.ignite.internal.metrics.exporters.MetricExporter;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 import org.apache.ignite.lang.LoggerFactory;
 import org.jetbrains.annotations.Nullable;
 
@@ -170,4 +172,18 @@ public interface IgniteClientConfiguration {
      * @return Client SSL configuration.
      */
     @Nullable SslConfiguration ssl();
+
+    /**
+     * Whether metrics are enabled.
+     *
+     * @return {@code true} if metrics are enabled.
+     */
+    boolean metricsEnabled();
+
+    /**
+     * Gets metric exporter configurations.
+     *
+     * @return Metric exporter configurations.
+     */
+    @Nullable ExporterView[] metricsExporterConfigurations(); // TODO: This is not possible to configure from code?
 }
