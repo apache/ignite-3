@@ -110,7 +110,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
                 .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), toBytes(nodes))));
 
         LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
-        doNothing().when(logicalTopologyService).addEventListener(any());
         when(logicalTopologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(new LogicalTopologySnapshot(1, Set.of())));
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
