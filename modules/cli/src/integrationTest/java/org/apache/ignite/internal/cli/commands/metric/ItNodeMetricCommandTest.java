@@ -36,7 +36,8 @@ class ItNodeMetricCommandTest extends CliCommandTestInitializedIntegrationBase {
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputIs("Set name\tEnabled" + System.lineSeparator()
-                        + "jvm\tdisabled" + System.lineSeparator())
+                        + "jvm\tdisabled" + System.lineSeparator()
+                        + "client.handler\tdisabled" + System.lineSeparator())
         );
     }
 

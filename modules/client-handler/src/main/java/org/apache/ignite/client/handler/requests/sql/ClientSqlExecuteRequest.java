@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -50,20 +51,24 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client SQL execute request.
  */
+@SuppressWarnings({"rawtypes", "unchecked"})
 public class ClientSqlExecuteRequest {
     /**
      * Processes the request.
      *
-     * @param in  Unpacker.
+     * @param in Unpacker.
      * @param out Packer.
      * @param sql SQL API.
+     * @param resources Resources.
+     * @param metrics Metrics.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             IgniteSql sql,
-            ClientResourceRegistry resources) {
+            ClientResourceRegistry resources,
+            ClientHandlerMetricSource metrics) {
         var tx = readTx(in, resources);
         Session session = readSession(in, sql);
         Statement statement = readStatement(in, sql);
@@ -76,23 +81,26 @@ public class ClientSqlExecuteRequest {
 
         return session
                 .executeAsync(tx, statement, arguments)
-                .thenCompose(asyncResultSet -> writeResultSetAsync(out, resources, asyncResultSet, session));
+                .thenCompose(asyncResultSet -> writeResultSetAsync(out, resources, asyncResultSet, session, metrics));
     }
 
     private static CompletionStage<Void> writeResultSetAsync(
             ClientMessagePacker out,
             ClientResourceRegistry resources,
             AsyncResultSet asyncResultSet,
-            Session session) {
+            Session session,
+            ClientHandlerMetricSource metrics) {
         boolean hasResource = asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages();
 
         if (hasResource) {
             try {
-                var clientResultSet = new ClientSqlResultSet(asyncResultSet, session);
+                metrics.cursorsActiveIncrement();
+
+                var clientResultSet = new ClientSqlResultSet(asyncResultSet, session, metrics);
 
                 ClientResource resource = new ClientResource(
                         clientResultSet,
-                        () -> clientResultSet.closeAsync().join());
+                        clientResultSet::closeAsync);
 
                 out.packLong(resources.put(resource));
             } catch (IgniteInternalCheckedException e) {

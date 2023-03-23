@@ -112,7 +112,7 @@ public class IgniteWorkerTest {
 
         assertThat(heartbeat, greaterThanOrEqualTo(coarseCurrentTimeMillis));
 
-        assertTrue(waitForCondition(() -> coarseCurrentTimeMillis() > coarseCurrentTimeMillis, 10, 1_000));
+        assertTrue(waitForCondition(() -> coarseCurrentTimeMillis() > heartbeat, 10, 1_000));
 
         worker.updateHeartbeat();
 
