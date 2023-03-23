@@ -19,10 +19,14 @@ package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
@@ -40,6 +44,9 @@ import org.apache.ignite.network.NetworkMessage;
  * Replica server.
  */
 public class Replica {
+    /** The logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
+
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     /** Replica group identity, this id is the same as the considered partition's id. */
@@ -149,6 +156,8 @@ public class Replica {
      * @return Future that contains a result.
      */
     public CompletableFuture<LeaseGrantedMessageResponse> processLeaseGrantedMessage(LeaseGrantedMessage msg) {
+        LOG.info("Received LeaseGrantedMessage for replica belonging to group=" + groupId() + ", force=" + msg.force());
+
         return leaderFuture().thenCompose(leader -> {
             HybridTimestamp leaseExpirationTime = this.leaseExpirationTime;
 
@@ -163,7 +172,7 @@ public class Replica {
                 return waitForActualState()
                         .thenCompose(v -> {
                             CompletableFuture<LeaseGrantedMessageResponse> respFut =
-                                    acceptLease(msg.leaseExpirationTime());
+                                    acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
 
                             if (leader.equals(localNode)) {
                                 return respFut;
@@ -174,7 +183,7 @@ public class Replica {
                         });
             } else {
                 if (leader.equals(localNode)) {
-                    return waitForActualState().thenCompose(v -> acceptLease(msg.leaseExpirationTime()));
+                    return waitForActualState().thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
                 } else {
                     return proposeLeaseRedirect(leader);
                 }
@@ -183,8 +192,12 @@ public class Replica {
     }
 
     private CompletableFuture<LeaseGrantedMessageResponse> acceptLease(
+            HybridTimestamp leaseStartTime,
             HybridTimestamp leaseExpirationTime
     ) {
+        LOG.info("Lease accepted, group=" + groupId() + ", leaseStartTime=" + leaseStartTime + ", leaseExpirationTime="
+                + leaseExpirationTime);
+
         this.leaseExpirationTime = leaseExpirationTime;
 
         LeaseGrantedMessageResponse resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
@@ -195,6 +208,8 @@ public class Replica {
     }
 
     private CompletableFuture<LeaseGrantedMessageResponse> proposeLeaseRedirect(ClusterNode groupLeader) {
+        LOG.info("Proposing lease redirection, proposed node=" + groupLeader);
+
         LeaseGrantedMessageResponse resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
                 .accepted(false)
                 .redirectProposal(groupLeader.name())
@@ -204,6 +219,9 @@ public class Replica {
     }
 
     private CompletableFuture<Void> waitForActualState() {
-        return raftClient.readIndex().thenCompose(storageIndexTracker::waitFor);
+        LOG.info("Waiting for actual storage state, group=" + groupId());
+
+        return retryOperationUntilSuccess(raftClient::readIndex, TimeoutException.class, Runnable::run)
+                .thenCompose(storageIndexTracker::waitFor);
     }
 }

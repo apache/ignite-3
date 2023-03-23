@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.raft.TestWriteCommand.testWriteCommand;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -564,13 +565,23 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     @Test
     public void testReadIndex() {
         RaftGroupService service = startRaftGroupService(NODES, false);
-        mockReadIndex();
+        mockReadIndex(false);
 
         CompletableFuture<Long> fut = service.readIndex();
 
         assertThat(fut, willSucceedFast());
 
         assertEquals(1L, fut.join());
+    }
+
+    @Test
+    public void testReadIndexWithMessageSendTimeout() {
+        RaftGroupService service = startRaftGroupService(NODES, false);
+        mockReadIndex(true);
+
+        CompletableFuture<Long> fut = service.readIndex();
+
+        assertThat(fut, willFailFast(TimeoutException.class));
     }
 
     private RaftGroupService startRaftGroupService(List<Peer> peers, boolean getLeader) {
@@ -587,9 +598,12 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     /**
      * Mock read index request.
      */
-    private void mockReadIndex() {
+    private void mockReadIndex(boolean timeout) {
         when(messagingService.invoke(any(ClusterNode.class), any(ReadIndexRequest.class), anyLong()))
-                .then(invocation -> completedFuture(FACTORY.readIndexResponse().index(1L).build()));
+                .then(invocation -> timeout
+                        ? failedFuture(new TimeoutException())
+                        : completedFuture(FACTORY.readIndexResponse().index(1L).build())
+                );
     }
 
     /**

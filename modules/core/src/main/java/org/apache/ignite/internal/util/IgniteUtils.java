@@ -48,6 +48,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -1004,5 +1005,51 @@ public class IgniteUtils {
         }
 
         return Optional.empty();
+    }
+
+    /**
+     * Retries operation until it succeeds or fails with exception that is different than the given.
+     *
+     * @param operation Operation.
+     * @param exClass Exception.
+     * @return Future that is completed when operation is successful or failed with other exception than the given.
+     */
+    public static <T> CompletableFuture<T> retryOperationUntilSuccess(
+            Supplier<CompletableFuture<T>> operation,
+            Class<? extends Exception> exClass,
+            Executor executor
+    ) {
+        CompletableFuture<T> fut = new CompletableFuture<>();
+
+        retryOperationUntilSuccess(operation, exClass, fut, executor);
+
+        return fut;
+    }
+
+    /**
+     * Retries operation until it succeeds or fails with exception that is different than the given.
+     *
+     * @param operation Operation.
+     * @param exClass Exception.
+     * @param fut Future that is completed when operation is successful or failed with other exception than the given.
+     */
+    public static <T> void retryOperationUntilSuccess(
+            Supplier<CompletableFuture<T>> operation,
+            Class<? extends Exception> exClass,
+            CompletableFuture<T> fut,
+            Executor executor
+    ) {
+        operation.get()
+                .whenComplete((res, e) -> {
+                    if (e == null) {
+                        fut.complete(res);
+                    } else {
+                        if (exClass.isAssignableFrom(e.getClass())) {
+                            executor.execute(() -> retryOperationUntilSuccess(operation, exClass, fut, executor));
+                        } else {
+                            fut.completeExceptionally(e);
+                        }
+                    }
+                });
     }
 }
