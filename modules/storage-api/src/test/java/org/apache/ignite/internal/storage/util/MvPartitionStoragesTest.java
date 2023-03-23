@@ -163,13 +163,11 @@ public class MvPartitionStoragesTest {
         CompletableFuture<Void> startErrorDestroyMvStorageFuture = new CompletableFuture<>();
         CompletableFuture<Void> finishErrorDestroyMvStorageFuture = new CompletableFuture<>();
 
-        CompletableFuture<?> errorDestroyMvStorageFuture = runAsync(() ->
-                assertThat(mvPartitionStorages.destroy(0, mvStorage1 -> {
-                    startErrorDestroyMvStorageFuture.complete(null);
+        CompletableFuture<?> errorDestroyMvStorageFuture = mvPartitionStorages.destroy(0, mvStorage1 -> {
+            startErrorDestroyMvStorageFuture.complete(null);
 
-                    return finishErrorDestroyMvStorageFuture;
-                }), willCompleteSuccessfully())
-        );
+            return finishErrorDestroyMvStorageFuture;
+        });
 
         assertThat(startErrorDestroyMvStorageFuture, willCompleteSuccessfully());
 
@@ -177,8 +175,8 @@ public class MvPartitionStoragesTest {
 
         finishErrorDestroyMvStorageFuture.completeExceptionally(new RuntimeException("from test"));
 
-        assertThat(errorDestroyMvStorageFuture, willFailFast(RuntimeException.class));
-        assertThat(errorReCreateMvStorageFuture, willFailFast(RuntimeException.class));
+        assertThat(errorDestroyMvStorageFuture, willFailFast(RuntimeException.class, "from test"));
+        assertThat(errorReCreateMvStorageFuture, willFailFast(RuntimeException.class, "from test"));
 
         assertNull(getMvStorage(0));
     }

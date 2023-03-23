@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.equalTo;
 
+import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -55,6 +56,9 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
 
     /** Fragment that must be a substring of an error message (if {@code null}, message won't be checked). */
     private final @Nullable String errorMessageFragment;
+
+    /** Error while getting value from future. */
+    private @Nullable Throwable errorFromFuture;
 
     /**
      * Constructor.
@@ -96,6 +100,8 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
 
             return causeOfFail == null && matcher.matches(res);
         } catch (InterruptedException | ExecutionException | TimeoutException | CancellationException e) {
+            errorFromFuture = e;
+
             return causeOfFail != null && hasCause(e, causeOfFail, errorMessageFragment);
         }
     }
@@ -118,7 +124,11 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
         Object valueDescription;
 
         try {
-            valueDescription = item.isDone() ? item.join() : item;
+            if (item.isDone()) {
+                valueDescription = item.join();
+            } else {
+                valueDescription = Objects.requireNonNullElse(errorFromFuture, item);
+            }
         } catch (Throwable t) {
             valueDescription = t;
         }
