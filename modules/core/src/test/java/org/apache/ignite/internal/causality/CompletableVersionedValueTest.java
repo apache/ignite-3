@@ -307,6 +307,9 @@ public class CompletableVersionedValueTest {
                 }
         );
 
+        // Check that history has indeed been trimmed.
+        assertThrows(OutdatedTokenException.class, () -> versionedValue.get(2));
+
         assertThat(versionedValue.get(4), willBe(4));
     }
 

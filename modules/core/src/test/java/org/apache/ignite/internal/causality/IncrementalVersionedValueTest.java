@@ -291,7 +291,7 @@ public class IncrementalVersionedValueTest {
 
     @RepeatedTest(100)
     void testConcurrentGetAndCompleteWithHistoryTrimming() {
-        var versionedValue = new IncrementalVersionedValue<>(register, () -> 1);
+        var versionedValue = new IncrementalVersionedValue<>(register, 2, () -> 1);
 
         // Set initial value (history size 1).
         versionedValue.complete(2);
@@ -314,6 +314,9 @@ public class IncrementalVersionedValueTest {
                     }
                 }
         );
+
+        // Check that history has indeed been trimmed.
+        assertThrows(OutdatedTokenException.class, () -> versionedValue.get(2));
 
         assertThat(versionedValue.get(4), willBe(2));
     }
