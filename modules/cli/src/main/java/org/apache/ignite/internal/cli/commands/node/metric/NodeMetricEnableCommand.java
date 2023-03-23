@@ -49,7 +49,7 @@ public class NodeMetricEnableCommand extends BaseCommand implements Callable<Int
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot enable metrics", "cluster init"))
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot enable metrics", "ignite cluster init"))
                 .build()
                 .runPipeline();
     }

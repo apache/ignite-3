@@ -24,6 +24,7 @@ import org.apache.ignite.internal.cli.call.unit.UnitStatusCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.decorators.UnitStatusDecorator;
 import picocli.CommandLine.Command;
@@ -55,6 +56,7 @@ public class UnitStatusReplCommand extends BaseCommand implements Runnable {
                         .clusterUrl(clusterUrl)
                         .build())
                 .then(Flows.fromCall(call))
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot get unit status", "cluster init"))
                 .verbose(verbose)
                 .print(new UnitStatusDecorator())
                 .start();

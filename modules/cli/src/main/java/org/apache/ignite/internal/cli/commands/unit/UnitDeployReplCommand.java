@@ -34,6 +34,7 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -88,6 +89,7 @@ public class UnitDeployReplCommand extends BaseCommand implements Runnable {
                             .output(spec.commandLine().getOut())
                             .errOutput(spec.commandLine().getErr())
                             .verbose(verbose)
+                            .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot deploy unit", "cluster init"))
                             .build().runPipeline()
                 ))
                 .start();

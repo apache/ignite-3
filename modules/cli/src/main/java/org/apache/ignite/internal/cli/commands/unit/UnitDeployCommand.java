@@ -82,7 +82,7 @@ public class UnitDeployCommand extends BaseCommand implements Callable<Integer> 
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot deploy unit", "cluster init"))
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot deploy unit", "ignite cluster init"))
                 .build().runPipeline();
     }
 }

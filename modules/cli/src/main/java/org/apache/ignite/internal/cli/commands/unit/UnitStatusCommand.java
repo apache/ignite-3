@@ -57,7 +57,7 @@ public class UnitStatusCommand extends BaseCommand implements Callable<Integer> 
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)
                 .decorator(new UnitStatusDecorator())
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot get unit status", "cluster init"))
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot get unit status", "ignite cluster init"))
                 .build().runPipeline();
     }
 }

@@ -49,7 +49,7 @@ public class NodeMetricDisableCommand extends BaseCommand implements Callable<In
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot disable metrics", "cluster init"))
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot disable metrics", "ignite cluster init"))
                 .build()
                 .runPipeline();
     }
