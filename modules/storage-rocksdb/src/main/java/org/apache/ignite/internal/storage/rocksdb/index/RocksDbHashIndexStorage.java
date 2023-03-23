@@ -91,6 +91,9 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
     /** Partition meta storage. */
     private final RocksDbMetaStorage indexMetaStorage;
 
+    /** Last row ID that has been processed by an ongoing index build process, {@code null} if the process has finished */
+    private volatile @Nullable RowId lastBuiltIndexRow;
+
     /**
      * Creates a new Hash Index storage.
      *
@@ -112,12 +115,16 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
 
         UUID indexId = descriptor.id();
 
+        int partitionId = partitionStorage.partitionId();
+
         this.constantPrefix = ByteBuffer.allocate(2 * Long.BYTES + Short.BYTES)
                 .order(ByteOrder.BIG_ENDIAN)
                 .putLong(indexId.getMostSignificantBits())
                 .putLong(indexId.getLeastSignificantBits())
-                .putShort((short) partitionStorage.partitionId())
+                .putShort((short) partitionId)
                 .array();
+
+        lastBuiltIndexRow = indexMetaStorage.readIndexLastBuildRowId(partitionId, indexId, RowId.lowestRowId(partitionId));
     }
 
     @Override
@@ -379,9 +386,7 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            int partitionId = partitionStorage.partitionId();
-
-            return indexMetaStorage.readIndexLastBuildRowId(partitionId, indexDescriptor().id(), RowId.lowestRowId(partitionId));
+            return lastBuiltIndexRow;
         });
     }
 
@@ -393,6 +398,8 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
             WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
 
             indexMetaStorage.putIndexLastBuildRowId(writeBatch, partitionStorage.partitionId(), indexDescriptor().id(), rowId);
+
+            lastBuiltIndexRow = rowId;
 
             return null;
         });

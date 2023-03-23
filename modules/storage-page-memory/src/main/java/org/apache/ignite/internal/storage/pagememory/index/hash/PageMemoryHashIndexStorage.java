@@ -81,6 +81,9 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
     /** Index meta tree instance. */
     private final IndexMetaTree indexMetaTree;
 
+    /** Last row ID that has been processed by an ongoing index build process, {@code null} if the process has finished */
+    private volatile @Nullable RowId lastBuiltIndexRow;
+
     /**
      * Constructor.
      *
@@ -105,6 +108,8 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
         lowestRowId = RowId.lowestRowId(partitionId);
 
         highestRowId = RowId.highestRowId(partitionId);
+
+        lastBuiltIndexRow = readLastBuiltRowId();
     }
 
     @Override
@@ -346,13 +351,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            try {
-                UUID lastBuildRowIdUuid = indexMetaTree.findOne(new IndexMetaKey(indexDescriptor().id())).lastBuiltRowIdUuid();
-
-                return lastBuildRowIdUuid == null ? null : new RowId(partitionId, lastBuildRowIdUuid);
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Error getting last build row ID: [{}]", e, createStorageInfo());
-            }
+            return lastBuiltIndexRow;
         });
     }
 
@@ -363,11 +362,27 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
 
             try {
                 indexMetaTree.invoke(new IndexMetaKey(indexDescriptor().id()), null, new UpdateLastBuildRowIdInvokeClosure(rowId));
+
+                lastBuiltIndexRow = rowId;
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException("Error setting last build row ID: [{}, rowId={}]", e, createStorageInfo(), rowId);
             }
 
             return null;
+        });
+    }
+
+    private @Nullable RowId readLastBuiltRowId() {
+        return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            try {
+                UUID lastBuildRowIdUuid = indexMetaTree.findOne(new IndexMetaKey(indexDescriptor().id())).lastBuiltRowIdUuid();
+
+                return lastBuildRowIdUuid == null ? null : new RowId(partitionId, lastBuildRowIdUuid);
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Error getting last build row ID: [{}]", e, createStorageInfo());
+            }
         });
     }
 }

@@ -89,6 +89,9 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     /** Partition meta storage. */
     private final RocksDbMetaStorage indexMetaStorage;
 
+    /** Last row ID that has been processed by an ongoing index build process, {@code null} if the process has finished */
+    private volatile @Nullable RowId lastBuiltIndexRow;
+
     /**
      * Creates a storage.
      *
@@ -107,6 +110,10 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
         this.indexCf = indexCf;
         this.partitionStorage = partitionStorage;
         this.indexMetaStorage = indexMetaStorage;
+
+        int partitionId = partitionStorage.partitionId();
+
+        lastBuiltIndexRow = indexMetaStorage.readIndexLastBuildRowId(partitionId, descriptor.id(), RowId.lowestRowId(partitionId));
     }
 
     @Override
@@ -507,9 +514,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            int partitionId = partitionStorage.partitionId();
-
-            return indexMetaStorage.readIndexLastBuildRowId(partitionId, indexDescriptor().id(), RowId.lowestRowId(partitionId));
+            return lastBuiltIndexRow;
         });
     }
 
@@ -521,6 +526,8 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
             WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
 
             indexMetaStorage.putIndexLastBuildRowId(writeBatch, partitionStorage.partitionId(), indexDescriptor().id(), rowId);
+
+            lastBuiltIndexRow = rowId;
 
             return null;
         });
