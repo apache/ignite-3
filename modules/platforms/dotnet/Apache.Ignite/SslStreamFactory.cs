@@ -17,11 +17,9 @@
 
 namespace Apache.Ignite;
 
-using System.ComponentModel;
 using System.IO;
 using System.Net.Security;
-using System.Security.Authentication;
-using System.Security.Cryptography.X509Certificates;
+using System.Threading.Tasks;
 using Internal.Common;
 
 /// <summary>
@@ -30,76 +28,22 @@ using Internal.Common;
 public sealed class SslStreamFactory : ISslStreamFactory
 {
     /// <summary>
-    /// Default SSL protocols.
+    /// Gets or sets client authentication options.
     /// </summary>
-    public const SslProtocols DefaultSslProtocols = SslProtocols.None;
-
-    /// <summary>
-    /// Gets or sets the certificate file path (see <see cref="X509Certificate2"/>).
-    /// </summary>
-    public string? CertificatePath { get; set; }
-
-    /// <summary>
-    /// Gets or sets the certificate file password (see <see cref="X509Certificate2"/>).
-    /// </summary>
-    public string? CertificatePassword { get; set; }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether to ignore invalid remote (server) certificates.
-    /// This may be useful for testing with self-signed certificates.
-    /// </summary>
-    public bool SkipServerCertificateValidation { get; set; }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether the certificate revocation list is checked during authentication.
-    /// </summary>
-    public bool CheckCertificateRevocation { get; set; }
-
-    /// <summary>
-    /// Gets or sets the SSL protocols.
-    /// </summary>
-    [DefaultValue(DefaultSslProtocols)]
-    public SslProtocols SslProtocols { get; set; } = DefaultSslProtocols;
+    public SslClientAuthenticationOptions? SslClientAuthenticationOptions { get; set; }
 
     /// <inheritdoc />
-    public SslStream Create(Stream stream, string targetHost)
+    public async Task<SslStream?> CreateAsync(Stream stream, string targetHost)
     {
         IgniteArgumentCheck.NotNull(stream, "stream");
 
-        var sslStream = new SslStream(stream, false, ValidateServerCertificate, null);
+        var sslStream = new SslStream(stream, false, null, null);
 
-        var cert = string.IsNullOrEmpty(CertificatePath)
-            ? null
-            : new X509Certificate2(CertificatePath, CertificatePassword);
+        var options = SslClientAuthenticationOptions ?? new SslClientAuthenticationOptions();
+        options.TargetHost ??= targetHost;
 
-        var certs = cert == null
-            ? null
-            : new X509CertificateCollection(new X509Certificate[] { cert });
-
-        sslStream.AuthenticateAsClient(targetHost, certs, SslProtocols, CheckCertificateRevocation);
+        await sslStream.AuthenticateAsClientAsync(options).ConfigureAwait(false);
 
         return sslStream;
-    }
-
-    /// <summary>
-    /// Validates the server certificate.
-    /// </summary>
-    private bool ValidateServerCertificate(
-        object sender,
-        X509Certificate? certificate,
-        X509Chain? chain,
-        SslPolicyErrors sslPolicyErrors)
-    {
-        if (SkipServerCertificateValidation)
-        {
-            return true;
-        }
-
-        if (sslPolicyErrors == SslPolicyErrors.None)
-        {
-            return true;
-        }
-
-        return false;
     }
 }

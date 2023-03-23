@@ -77,7 +77,7 @@ public:
      *
      * @return Number of elements.
      */
-    IntT num_elements() const noexcept { return static_cast<IntT>(elements.size()); }
+    number_t num_elements() const noexcept { return static_cast<number_t>(elements.size()); }
 
     /**
      * @brief Gets element info.
@@ -85,14 +85,14 @@ public:
      * @param index Element number.
      * @return Element info.
      */
-    const column_info &get_element(IntT index) const { return elements[index]; }
+    const column_info &get_element(number_t index) const { return elements[index]; }
 
     /**
      * @brief Gets the nullmap size.
      *
      * @return Nullmap size in bytes.
      */
-    static constexpr SizeT get_nullmap_size(IntT num_elements) noexcept { return (num_elements + 7) / 8; }
+    static constexpr data_size_t get_nullmap_size(number_t num_elements) noexcept { return (num_elements + 7) / 8; }
 
     /**
      * @brief Gets offset of the byte that contains null-bit of a given tuple element.
@@ -100,7 +100,9 @@ public:
      * @param index Tuple element index.
      * @return Offset of the required byte relative to the tuple start.
      */
-    static constexpr SizeT get_null_offset(IntT index) noexcept { return binary_tuple_header::SIZE + index / 8; }
+    static constexpr data_size_t get_null_offset(number_t index) noexcept {
+        return binary_tuple_header::SIZE + index / 8;
+    }
 
     /**
      * @brief Gets a null-bit mask corresponding to a given tuple element.
@@ -108,7 +110,7 @@ public:
      * @param index Tuple element index.
      * @return Mask to extract the required null-bit.
      */
-    static constexpr std::byte get_null_mask(IntT index) noexcept { return std::byte{1} << (index % 8); }
+    static constexpr std::byte get_null_mask(number_t index) noexcept { return std::byte{1} << (index % 8); }
 
     /**
      * @brief Checks if a null-bit is set for a given tuple element.
@@ -121,7 +123,7 @@ public:
      * @return true If the required null-bit is set.
      * @return false If the required null-bit is clear.
      */
-    static bool has_null(const bytes_view &tuple, IntT index) noexcept {
+    static bool has_null(const bytes_view &tuple, number_t index) noexcept {
         return (tuple[get_null_offset(index)] & get_null_mask(index)) != std::byte{0};
     }
 };

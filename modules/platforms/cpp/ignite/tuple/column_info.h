@@ -15,27 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.recovery;
+#pragma once
 
-import java.util.UUID;
+#include <ignite/common/ignite_type.h>
+
+namespace ignite {
 
 /**
- * Factory producing {@link RecoveryClientHandshakeManager} instances.
+ * @brief Basic column info.
  */
-public interface RecoveryClientHandhakeManagerFactory {
-    /**
-     * Produces a {@link RecoveryClientHandshakeManager} instance.
-     *
-     * @param launchId                   ID of the launch.
-     * @param consistentId               Consistent ID of the node.
-     * @param connectionId               ID of the connection.
-     * @param recoveryDescriptorProvider Provider of recovery descriptors to be used.
-     * @return Created manager.
-     */
-    RecoveryClientHandshakeManager create(
-            UUID launchId,
-            String consistentId,
-            short connectionId,
-            RecoveryDescriptorProvider recoveryDescriptorProvider
-    );
-}
+struct column_info {
+    /** Data type of the values in this column. */
+    ignite_type type;
+
+    /** True if the column values may be NULL, false otherwise. */
+    bool nullable;
+
+    bool operator==(const column_info &other) const noexcept {
+        return type == other.type && nullable == other.nullable;
+    }
+
+    bool operator!=(const column_info &other) const noexcept { return !(operator==(other)); }
+};
+
+} // namespace ignite

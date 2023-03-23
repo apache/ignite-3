@@ -25,22 +25,23 @@
 
 namespace ignite {
 
-/** C++ version of java int. Used as column number, etc. */
-using IntT = int32_t;
+/** C++ version of Java int. Used as a column number, etc. */
+using number_t = int32_t;
 
 /** Data size for columns and entire rows too. */
-using SizeT = uint32_t;
+using data_size_t = uint32_t;
 
 /** Non-existent column/element number. */
-static constexpr IntT NO_NUM = -1;
+static constexpr number_t NOT_NUM = -1;
 
 /** Binary value for a potentially nullable column. */
-using element_view = std::optional<bytes_view>;
+using value_view = std::optional<bytes_view>;
 
 /** A set of binary values for a whole or partial row. */
-using tuple_view = std::vector<element_view>;
+using tuple_view = std::vector<value_view>;
 
-/** A set of binary values for the key part of a row. */
+/** A set of binary values for the key part of a row. Key columns must be all non-null so
+    there is no need to wrap the bytes view into ats::optional. */
 using key_tuple_view = std::vector<bytes_view>;
 
 } // namespace ignite

@@ -17,34 +17,55 @@
 
 #pragma once
 
-#include <cstdint>
-#include <string>
+#include "ignite/common/end_point.h"
 
-namespace ignite::network {
+#include <cstdint>
+#include <type_traits>
+#include <variant>
+#include <vector>
+
+namespace ignite {
 
 /**
- * Connection end point structure.
+ * Ignite cluster node.
  */
-struct end_point {
+class cluster_node {
+public:
     // Default
-    end_point() = default;
+    cluster_node() = default;
 
     /**
      * Constructor.
      *
-     * @param host Host.
-     * @param port Port.
+     * @param id Local ID.
+     * @param name Name.
+     * @param address Address.
      */
-    end_point(std::string host, uint16_t port)
-        : host(std::move(host))
-        , port(port) {}
+    cluster_node(std::string id, std::string name, network::end_point address)
+        : m_id(std::move(id))
+        , m_name(std::move(name))
+        , m_address(std::move(address)) {}
 
     /**
-     * Convert to string.
+     * Gets the local node id. Changes after node restart.
      *
-     * @return String form.
+     * @return Local node id.
      */
-    [[nodiscard]] std::string to_string() const { return host + ":" + std::to_string(port); }
+    [[nodiscard]] const std::string &get_id() const { return m_id; }
+
+    /**
+     * Gets the unique name of the cluster member. Does not change after node restart.
+     *
+     * @return Unique name of the cluster member.
+     */
+    [[nodiscard]] const std::string &get_name() const { return m_name; }
+
+    /**
+     * Gets the node address.
+     *
+     * @return Node address.
+     */
+    [[nodiscard]] const network::end_point &get_address() const { return m_address; }
 
     /**
      * Compare to another instance.
@@ -53,21 +74,27 @@ struct end_point {
      * @return Negative value if less, positive if larger and zero, if equals
      *   another instance.
      */
-    [[nodiscard]] int compare(const end_point &other) const {
-        if (port < other.port)
-            return -1;
+    [[nodiscard]] int compare(const cluster_node &other) const {
+        auto name_comp = m_name.compare(other.m_name);
+        if (name_comp)
+            return name_comp;
 
-        if (port > other.port)
-            return 1;
+        auto id_comp = m_id.compare(other.m_id);
+        if (id_comp)
+            return id_comp;
 
-        return host.compare(other.host);
+        return m_address.compare(other.m_address);
     }
 
-    /** Remote host. */
-    std::string host;
+private:
+    /** Local ID. */
+    std::string m_id{};
 
-    /** TCP port. */
-    uint16_t port = 0;
+    /** Name. */
+    std::string m_name{};
+
+    /** Address. */
+    network::end_point m_address{};
 };
 
 /**
@@ -77,8 +104,8 @@ struct end_point {
  * @param val2 Second value.
  * @return True if equal.
  */
-inline bool operator==(const end_point &val1, const end_point &val2) {
-    return val1.port == val2.port && val1.host == val2.host;
+inline bool operator==(const cluster_node &val1, const cluster_node &val2) {
+    return val1.compare(val2) == 0;
 }
 
 /**
@@ -88,7 +115,7 @@ inline bool operator==(const end_point &val1, const end_point &val2) {
  * @param val2 Second value.
  * @return True if not equal.
  */
-inline bool operator!=(const end_point &val1, const end_point &val2) {
+inline bool operator!=(const cluster_node &val1, const cluster_node &val2) {
     return !(val1 == val2);
 }
 
@@ -99,7 +126,7 @@ inline bool operator!=(const end_point &val1, const end_point &val2) {
  * @param val2 Second value.
  * @return True if less.
  */
-inline bool operator<(const end_point &val1, const end_point &val2) {
+inline bool operator<(const cluster_node &val1, const cluster_node &val2) {
     return val1.compare(val2) < 0;
 }
 
@@ -110,7 +137,7 @@ inline bool operator<(const end_point &val1, const end_point &val2) {
  * @param val2 Second value.
  * @return True if less or equal.
  */
-inline bool operator<=(const end_point &val1, const end_point &val2) {
+inline bool operator<=(const cluster_node &val1, const cluster_node &val2) {
     return val1.compare(val2) <= 0;
 }
 
@@ -121,7 +148,7 @@ inline bool operator<=(const end_point &val1, const end_point &val2) {
  * @param val2 Second value.
  * @return True if greater.
  */
-inline bool operator>(const end_point &val1, const end_point &val2) {
+inline bool operator>(const cluster_node &val1, const cluster_node &val2) {
     return val1.compare(val2) > 0;
 }
 
@@ -132,8 +159,8 @@ inline bool operator>(const end_point &val1, const end_point &val2) {
  * @param val2 Second value.
  * @return True if greater or equal.
  */
-inline bool operator>=(const end_point &val1, const end_point &val2) {
+inline bool operator>=(const cluster_node &val1, const cluster_node &val2) {
     return val1.compare(val2) >= 0;
 }
 
-} // namespace ignite::network
+} // namespace ignite

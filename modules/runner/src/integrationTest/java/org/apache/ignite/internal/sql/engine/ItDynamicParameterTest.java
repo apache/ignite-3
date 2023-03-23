@@ -36,6 +36,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -243,7 +244,7 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
     }
 
     private static void assertUnexpectedNumberOfParameters(String query, Object... params) {
-        CalciteContextException err = assertThrows(CalciteContextException.class, () -> {
+        SqlException err = assertThrows(SqlException.class, () -> {
             assertQuery(query).withParams(params).check();
         }, "query: " + query);
 
