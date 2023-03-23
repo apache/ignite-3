@@ -354,7 +354,8 @@ public class ItGeneratedRestClientTest {
     @Test
     void nodeMetricList() throws ApiException {
         List<MetricSource> metricSources = List.of(
-                new MetricSource().name("jvm").enabled(false)
+                new MetricSource().name("jvm").enabled(false),
+                new MetricSource().name("client.handler").enabled(false)
         );
 
         assertThat(nodeMetricApi.listNodeMetrics(), containsInAnyOrder(metricSources.toArray()));

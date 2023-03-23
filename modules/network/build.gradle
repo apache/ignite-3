@@ -62,6 +62,7 @@ dependencies {
     testImplementation libs.slf4j.jdk14
     testImplementation libs.bytebuddy
     testImplementation libs.compileTesting
+    testImplementation libs.awaitility
 
     testFixturesAnnotationProcessor project(":ignite-network-annotation-processor")
     testFixturesImplementation project(':ignite-configuration')
