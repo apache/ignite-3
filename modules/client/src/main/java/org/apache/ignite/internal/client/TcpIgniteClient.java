@@ -49,6 +49,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link IgniteClient} over TCP protocol.
@@ -73,7 +74,7 @@ public class TcpIgniteClient implements IgniteClient {
     private final ClientSql sql;
 
     /** Metric manager. */
-    private final MetricManager metricManager;
+    private final @Nullable MetricManager metricManager;
 
     /**
      * Constructor.
@@ -105,13 +106,20 @@ public class TcpIgniteClient implements IgniteClient {
         compute = new ClientCompute(ch, tables);
         sql = new ClientSql(ch);
 
-        metricManager = new MetricManager();
+        if (cfg.metricsEnabled() && cfg.metricExporterNames() != null && cfg.metricExporterNames().length > 0) {
+            metricManager = new MetricManager();
 
-        // TODO load all available exporters
-        HashMap<String, MetricExporter> exporters = new HashMap<>();
-        exporters.put("jmx", cfg.metricsExporters());
+//            HashMap<String, MetricExporter> exporters = new HashMap<>();
+//
+//            for (String exporterName : cfg.metricExporterNames()) {
+//                if (exporterName.equals("jmx")) {
+//                    JmxExporter jmxExporter = new JmxExporter();
+//                    exporters.put(exporterName, jmxExporter);
+//                }
+//            }
 
-        metricManager.start(exporters);
+            metricManager.start();
+        }
     }
 
     /**
