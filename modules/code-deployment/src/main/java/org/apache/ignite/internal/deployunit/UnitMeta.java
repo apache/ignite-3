@@ -158,12 +158,12 @@ public class UnitMeta {
 
     @Override
     public String toString() {
-        return "UnitMeta{" +
-                "id='" + id + '\'' +
-                ", version=" + version +
-                ", name='" + name + '\'' +
-                ", status=" + status +
-                ", consistentIdLocation=" + String.join(", ", consistentIdLocation) +
-                '}';
+        return "UnitMeta{"
+                + "id='" + id + '\''
+                + ", version=" + version
+                + ", name='" + name + '\''
+                + ", status=" + status
+                + ", consistentIdLocation=" + String.join(", ", consistentIdLocation)
+                + '}';
     }
 }
