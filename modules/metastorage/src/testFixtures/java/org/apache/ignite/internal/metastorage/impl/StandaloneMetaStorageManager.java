@@ -49,6 +49,10 @@ import org.mockito.ArgumentCaptor;
 
 /**
  * MetaStorageManager dummy implementation.
+ *
+ * <p>The manager sends Raft commands to the MetaStorageListener directly bypassing the Raft service.
+ * The manager is also responsible for starting key-value storage as the parent MetaStorageManagerImpl class do.
+ * Note: {@link #deployWatches()} should be called manually after all dependent components are started.
  */
 @TestOnly
 public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
@@ -57,21 +61,25 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     /**
      * Creates standalone MetaStorage manager for provided VaultManager.
      */
-    public static StandaloneMetaStorageManager create(VaultManager vaultMgr) {
-        return create(vaultMgr, new SimpleInMemoryKeyValueStorage(TEST_NODE_NAME));
+    public static StandaloneMetaStorageManager create(VaultManager vaultManager) {
+        return create(vaultManager, new SimpleInMemoryKeyValueStorage(TEST_NODE_NAME));
     }
 
     /**
-     * Creates standalone MetaStorage manager for provided VaultManager.
+     * Creates standalone MetaStorage manager for provided VaultManager and key-value storage.
+     * The manager is responsible for starting/stopping provided key-value storage.
+     *
+     * @param vaultManager Vault manager.
+     * @param keyValueStorage Key-value storage.
      */
-    public static StandaloneMetaStorageManager create(VaultManager vaultMgr, KeyValueStorage storage) {
+    public static StandaloneMetaStorageManager create(VaultManager vaultManager, KeyValueStorage keyValueStorage) {
         return new StandaloneMetaStorageManager(
-                vaultMgr,
+                vaultManager,
                 mockClusterService(),
                 mockClusterGroupManager(),
                 mock(LogicalTopologyService.class),
                 mockRaftManager(),
-                storage
+                keyValueStorage
         );
     }
 
@@ -91,10 +99,9 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     }
 
     private static ClusterService mockClusterService() {
-        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
-
         ClusterNode localNode = new ClusterNode(TEST_NODE_NAME, TEST_NODE_NAME, mock(NetworkAddress.class));
 
+        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.topologyService().localMember()).thenReturn(localNode);
 
         return clusterService;
@@ -102,7 +109,6 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
 
     private static ClusterManagementGroupManager mockClusterGroupManager() {
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
-
         when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of(TEST_NODE_NAME)));
 
         return cmgManager;
@@ -147,11 +153,13 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 }
             }
         };
+
         if (command instanceof ReadCommand) {
             listener.onRead(singleton((CommandClosure<ReadCommand>) closure).iterator());
         } else {
             listener.onWrite(singleton((CommandClosure<WriteCommand>) closure).iterator());
         }
+
         return future;
     }
 }
