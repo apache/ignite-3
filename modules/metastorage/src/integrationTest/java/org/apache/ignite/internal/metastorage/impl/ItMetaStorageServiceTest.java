@@ -30,9 +30,9 @@ import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.metastorage.impl.ItMetaStorageServiceTest.ServerConditionMatcher.cond;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToValue;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -670,7 +670,7 @@ public class ItMetaStorageServiceTest {
         CompletableFuture<List<Entry>> future =
                 subscribeToList(node.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null));
 
-        assertThat(future, willFailFast(NoSuchElementException.class));
+        assertThat(future, willThrowFast(NoSuchElementException.class));
     }
 
     /**
@@ -929,8 +929,8 @@ public class ItMetaStorageServiceTest {
 
         closeCursorLatch.countDown();
 
-        assertThat(node0Subscriber0.result, willFailFast(NoSuchElementException.class));
-        assertThat(node0Subscriber1.result, willFailFast(NoSuchElementException.class));
+        assertThat(node0Subscriber0.result, willThrowFast(NoSuchElementException.class));
+        assertThat(node0Subscriber1.result, willThrowFast(NoSuchElementException.class));
         assertThat(node1Subscriber0.result, willBe(EXPECTED_RESULT_ENTRY));
     }
 

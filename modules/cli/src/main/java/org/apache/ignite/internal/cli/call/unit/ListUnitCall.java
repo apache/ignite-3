@@ -53,7 +53,7 @@ public class ListUnitCall implements Call<UrlCallInput, List<UnitStatusRecord>> 
                             .collect(Collectors.toList())
             );
         } catch (ApiException e) {
-            throw new IgniteCliApiException(e, input.getUrl());
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getUrl()));
         }
     }
 

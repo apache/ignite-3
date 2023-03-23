@@ -41,11 +41,14 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.deployment.IgniteDeployment;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogServiceImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
@@ -277,6 +280,7 @@ public class IgniteImpl implements Ignite {
     private final ScheduledExecutorService raftExecutorService;
 
     private final DistributedConfigurationUpdater distributedConfigurationUpdater;
+    private final CatalogManager catalogManager;
 
     /**
      * The Constructor.
@@ -496,6 +500,8 @@ public class IgniteImpl implements Ignite {
 
         indexManager = new IndexManager(tablesConfiguration, schemaManager, distributedTblMgr);
 
+        catalogManager = new CatalogServiceImpl(metaStorageMgr);
+
         qryEngine = new SqlQueryProcessor(
                 registry,
                 clusterSvc,
@@ -507,7 +513,8 @@ public class IgniteImpl implements Ignite {
                 distributionZoneManager,
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
                 replicaSvc,
-                clock
+                clock,
+                catalogManager
         );
 
         sql = new IgniteSqlImpl(qryEngine);
@@ -523,7 +530,9 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 nettyBootstrapFactory,
                 sql,
-                () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag().clusterId())
+                () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag().clusterId()),
+                metricManager,
+                new ClientHandlerMetricSource()
         );
 
         deploymentManager = new DeploymentManagerImpl(clusterSvc,
@@ -671,6 +680,7 @@ public class IgniteImpl implements Ignite {
                                     volatileLogStorageFactoryCreator,
                                     outgoingSnapshotsManager,
                                     distributedTblMgr,
+                                    catalogManager,
                                     indexManager,
                                     qryEngine,
                                     clientHandlerModule,

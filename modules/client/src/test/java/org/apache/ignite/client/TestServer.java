@@ -19,7 +19,6 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 
@@ -32,13 +31,16 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.network.ClusterNode;
@@ -59,6 +61,8 @@ public class TestServer implements AutoCloseable {
     private final NettyBootstrapFactory bootstrapFactory;
 
     private final String nodeName;
+
+    private final ClientHandlerMetricSource metrics;
 
     /**
      * Constructor.
@@ -126,10 +130,10 @@ public class TestServer implements AutoCloseable {
         Mockito.when(clusterService.topologyService().getByConsistentId(anyString())).thenAnswer(
                 i -> getClusterNode(i.getArgument(0, String.class)));
 
-        IgniteCompute compute = mock(IgniteCompute.class);
-        Mockito.when(compute.execute(any(), anyString(), any())).thenReturn(CompletableFuture.completedFuture(nodeName));
-        Mockito.when(
-                compute.executeColocated(anyString(), any(), anyString(), any())).thenReturn(CompletableFuture.completedFuture(nodeName));
+        IgniteCompute compute = new FakeCompute(nodeName);
+
+        metrics = new ClientHandlerMetricSource();
+        metrics.enable();
 
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
@@ -140,7 +144,8 @@ public class TestServer implements AutoCloseable {
                         responseDelay,
                         clusterService,
                         compute,
-                        clusterId)
+                        clusterId,
+                        metrics)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
@@ -150,8 +155,9 @@ public class TestServer implements AutoCloseable {
                         clusterService,
                         bootstrapFactory,
                         ignite.sql(),
-                        () -> CompletableFuture.completedFuture(clusterId)
-                );
+                        () -> CompletableFuture.completedFuture(clusterId),
+                        mock(MetricManager.class),
+                        metrics);
 
         module.start();
     }
@@ -185,6 +191,15 @@ public class TestServer implements AutoCloseable {
      */
     public String nodeId() {
         return getNodeId(nodeName);
+    }
+
+    /**
+     * Gets metrics.
+     *
+     * @return Metrics.
+     */
+    public ClientHandlerMetricSource metrics() {
+        return metrics;
     }
 
     /** {@inheritDoc} */

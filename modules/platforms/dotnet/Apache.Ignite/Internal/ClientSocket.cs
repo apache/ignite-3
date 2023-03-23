@@ -256,7 +256,7 @@ namespace Apache.Ignite.Internal
                     {
                         var completionSource = (TaskCompletionSource<PooledBuffer>)state!;
 
-                        if (task.IsCanceled || task.Exception?.GetBaseException() is TaskCanceledException)
+                        if (task.IsCanceled || task.Exception?.GetBaseException() is TaskCanceledException or ObjectDisposedException)
                         {
                             // Canceled task means Dispose was called.
                             completionSource.TrySetException(

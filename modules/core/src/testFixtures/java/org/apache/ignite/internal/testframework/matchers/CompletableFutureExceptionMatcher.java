@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
@@ -67,8 +68,8 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
             item.get(timeout, timeUnit);
 
             return false;
-        } catch (Exception e) {
-            Throwable unwrapped = unwrapException(e);
+        } catch (Throwable e) {
+            Throwable unwrapped = unwrapThrowable(e);
 
             return inspectCause ? matchesWithCause(unwrapped) : matcher.matches(unwrapped);
         }
@@ -85,7 +86,7 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
             try {
                 item.join();
             } catch (Exception e) {
-                mismatchDescription.appendText("was completed exceptionally with ").appendValue(unwrapException(e));
+                mismatchDescription.appendText("was completed exceptionally with ").appendValue(unwrapThrowable(e));
             }
         } else if (item.isDone()) {
             mismatchDescription.appendText("was completed successfully");
@@ -94,12 +95,12 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
         }
     }
 
-    private static Throwable unwrapException(Exception e) {
-        if (e instanceof ExecutionException || e instanceof CompletionException) {
-            return e.getCause();
-        } else {
-            return e;
+    private static Throwable unwrapThrowable(Throwable e) {
+        while (e instanceof ExecutionException || e instanceof CompletionException) {
+            e = e.getCause();
         }
+
+        return e;
     }
 
     private boolean matchesWithCause(Throwable e) {
@@ -145,9 +146,39 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
     }
 
     /**
+     * Creates a matcher that matches a future that completes exceptionally and decently fast.
+     *
+     * @param cls The class of cause throwable.
+     * @return matcher.
+     */
+    public static CompletableFutureExceptionMatcher willThrowFast(Class<? extends Exception> cls) {
+        return willThrow(cls, 1, TimeUnit.SECONDS);
+    }
+
+    /**
      * Creates a matcher that matches a future that completes with an exception that has a given {@code cause} in the exception stacktrace.
      */
     public static CompletableFutureExceptionMatcher willThrowWithCauseOrSuppressed(Class<? extends Exception> cause) {
         return new CompletableFutureExceptionMatcher(is(instanceOf(cause)), true, TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Creates a matcher that matches a future that never completes within a predefined time period.
+     *
+     * @return matcher.
+     */
+    public static CompletableFutureExceptionMatcher willTimeoutFast() {
+        return willTimeoutIn(250, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * Creates a matcher that matches a future that never completes within the given time period.
+     *
+     * @param time Timeout.
+     * @param timeUnit Time unit for timeout.
+     * @return matcher.
+     */
+    public static CompletableFutureExceptionMatcher willTimeoutIn(int time, TimeUnit timeUnit) {
+        return willThrow(TimeoutException.class, time, timeUnit);
     }
 }
