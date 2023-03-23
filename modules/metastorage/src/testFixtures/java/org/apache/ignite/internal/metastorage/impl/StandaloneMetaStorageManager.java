@@ -19,38 +19,40 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.Collections.singleton;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
-import org.mockito.ArgumentMatchers;
-import org.mockito.Mockito;
+import org.mockito.ArgumentCaptor;
 
 /**
  * MetaStorageManager dummy implementation.
  */
 @TestOnly
 public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
-    private static final String TEST_NODE_NAME = "test";
+    private static final String TEST_NODE_NAME = "standalone-ms-node";
 
     /**
      * Creates standalone MetaStorage manager for provided VaultManager.
@@ -65,15 +67,13 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     public static StandaloneMetaStorageManager create(VaultManager vaultMgr, KeyValueStorage storage) {
         return new StandaloneMetaStorageManager(
                 vaultMgr,
-                Mockito.mock(ClusterService.class),
-                Mockito.mock(ClusterManagementGroupManager.class),
-                Mockito.mock(LogicalTopologyService.class),
-                Mockito.mock(RaftManager.class),
+                mockClusterService(),
+                mockClusterGroupManager(),
+                mock(LogicalTopologyService.class),
+                mockRaftManager(),
                 storage
         );
     }
-
-    private final KeyValueStorage keyValueStorage;
 
     /**
      * The constructor.
@@ -85,32 +85,52 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
      * @param raftMgr Raft manager.
      * @param storage Storage. This component owns this resource and will manage its lifecycle.
      */
-    public StandaloneMetaStorageManager(VaultManager vaultMgr, ClusterService clusterService, ClusterManagementGroupManager cmgMgr,
+    private StandaloneMetaStorageManager(VaultManager vaultMgr, ClusterService clusterService, ClusterManagementGroupManager cmgMgr,
             LogicalTopologyService logicalTopologyService, RaftManager raftMgr, KeyValueStorage storage) {
         super(vaultMgr, clusterService, cmgMgr, logicalTopologyService, raftMgr, storage);
-
-        keyValueStorage = storage;
     }
 
-    @Override
-    public void start() {
-        keyValueStorage.start();
+    private static ClusterService mockClusterService() {
+        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
 
-        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage);
+        ClusterNode localNode = new ClusterNode(TEST_NODE_NAME, TEST_NODE_NAME, mock(NetworkAddress.class));
 
-        RaftGroupService raftGroupService = Mockito.mock(RaftGroupService.class);
-        Mockito.when(raftGroupService.run(ArgumentMatchers.any()))
-                .thenAnswer(invocation -> runCommand(invocation.getArgument(0), metaStorageListener));
+        when(clusterService.topologyService().localMember()).thenReturn(localNode);
 
-        var localNode = new ClusterNode(TEST_NODE_NAME, TEST_NODE_NAME, new NetworkAddress("localhost", 10000));
-
-        MetaStorageServiceImpl service = new MetaStorageServiceImpl(raftGroupService, new IgniteSpinBusyLock(), localNode);
-
-        metaStorageServiceFuture().complete(service);
+        return clusterService;
     }
 
-    private static CompletableFuture<Serializable> runCommand(Command command, MetaStorageListener listener) {
-        AtomicReference<CompletableFuture<Serializable>> resRef = new AtomicReference<>();
+    private static ClusterManagementGroupManager mockClusterGroupManager() {
+        ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
+
+        when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of(TEST_NODE_NAME)));
+
+        return cmgManager;
+    }
+
+    private static RaftManager mockRaftManager() {
+        ArgumentCaptor<RaftGroupListener> listenerCaptor = ArgumentCaptor.forClass(RaftGroupListener.class);
+        RaftManager raftManager = mock(RaftManager.class);
+        RaftGroupService raftGroupService = mock(RaftGroupService.class);
+
+        try {
+            when(raftManager.startRaftGroupNode(any(), any(), listenerCaptor.capture(), any())).thenReturn(
+                    completedFuture(raftGroupService));
+        } catch (NodeStoppingException e) {
+            throw new RuntimeException(e);
+        }
+
+        when(raftGroupService.run(any())).thenAnswer(invocation -> {
+            Command command = invocation.getArgument(0);
+            RaftGroupListener listener = listenerCaptor.getValue();
+            return runCommand(command, listener);
+        });
+
+        return raftManager;
+    }
+
+    private static CompletableFuture<Serializable> runCommand(Command command, RaftGroupListener listener) {
+        CompletableFuture<Serializable> future = new CompletableFuture<>();
 
         CommandClosure<? extends Command> closure = new CommandClosure<>() {
             @Override
@@ -120,16 +140,18 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
 
             @Override
             public void result(@Nullable Serializable res) {
-                resRef.set(res instanceof Throwable ? failedFuture((Throwable) res) : completedFuture(res));
+                if (res instanceof Throwable) {
+                    future.completeExceptionally((Throwable) res);
+                } else {
+                    future.complete(res);
+                }
             }
         };
-
         if (command instanceof ReadCommand) {
             listener.onRead(singleton((CommandClosure<ReadCommand>) closure).iterator());
         } else {
             listener.onWrite(singleton((CommandClosure<WriteCommand>) closure).iterator());
         }
-
-        return resRef.get();
+        return future;
     }
 }
