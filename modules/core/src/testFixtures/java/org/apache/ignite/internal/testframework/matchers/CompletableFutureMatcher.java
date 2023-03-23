@@ -20,8 +20,6 @@ package org.apache.ignite.internal.testframework.matchers;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.equalTo;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -55,7 +53,7 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
      */
     private final @Nullable Class<? extends Throwable> causeOfFail;
 
-    /** Fragment that must be a substring of a error message (if {@code null}, message won't be checked). */
+    /** Fragment that must be a substring of an error message (if {@code null}, message won't be checked). */
     private final @Nullable String errorMessageFragment;
 
     /**
@@ -73,8 +71,9 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
      * @param matcher Matcher to forward the result of the completable future.
      * @param timeout Timeout.
      * @param timeoutTimeUnit {@link TimeUnit} for timeout.
-     * @param causeOfFail If {@code null}, the future should be completed successfully, otherwise it specifies class of cause throwable.
-     * @param errorMessageFragment Fragment that must be a substring of a error message (if {@code null}, message won't be checked).
+     * @param causeOfFail If {@code null}, the future should be completed successfully, otherwise it specifies the class of cause
+     *      throwable.
+     * @param errorMessageFragment Fragment that must be an substring of a error message (if {@code null}, message won't be checked).
      */
     private CompletableFutureMatcher(
             Matcher<T> matcher,
@@ -95,30 +94,34 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
         try {
             T res = item.get(timeout, timeoutTimeUnit);
 
-            if (causeOfFail != null) {
-                fail("The future was supposed to fail, but it completed successfully.");
-            }
-
-            return matcher.matches(res);
+            return causeOfFail == null && matcher.matches(res);
         } catch (InterruptedException | ExecutionException | TimeoutException | CancellationException e) {
-            if (causeOfFail != null) {
-                assertTrue(hasCause(e, causeOfFail, errorMessageFragment));
-
-                return true;
-            } else {
-                throw new AssertionError(e);
-            }
+            return causeOfFail != null && hasCause(e, causeOfFail, errorMessageFragment);
         }
     }
 
     @Override
     public void describeTo(Description description) {
-        description.appendText("is ").appendDescriptionOf(matcher);
+        if (causeOfFail != null) {
+            description.appendText("will fall with ").appendValue(causeOfFail.getName());
+
+            if (errorMessageFragment != null) {
+                description.appendText(" with error message fragment ").appendValue(errorMessageFragment);
+            }
+        } else {
+            description.appendText("is ").appendDescriptionOf(matcher);
+        }
     }
 
     @Override
     protected void describeMismatchSafely(CompletableFuture<? extends T> item, Description mismatchDescription) {
-        Object valueDescription = item.isDone() ? item.join() : item;
+        Object valueDescription;
+
+        try {
+            valueDescription = item.isDone() ? item.join() : item;
+        } catch (Throwable t) {
+            valueDescription = t;
+        }
 
         mismatchDescription.appendText("was ").appendValue(valueDescription);
     }

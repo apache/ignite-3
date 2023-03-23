@@ -54,6 +54,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexNotFoundException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -99,6 +100,13 @@ public class IndexManagerTest {
                         .change(tableChange -> ((ExtendedTableChange) tableChange).changeSchemaId(1).changeAssignments((byte) 1)),
                 willCompleteSuccessfully()
         );
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (indexManager != null) {
+            indexManager.stop();
+        }
     }
 
     @Test
