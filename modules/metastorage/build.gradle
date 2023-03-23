@@ -57,9 +57,13 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-metastorage'))
     integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
 
+    testFixturesImplementation project(':ignite-cluster-management')
     testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation project(':ignite-rocksdb-common')
+    testFixturesImplementation project(':ignite-vault')
     testFixturesImplementation libs.jetbrains.annotations
+    testFixturesImplementation libs.mockito.core
 }
 
 description = 'ignite-metastorage'

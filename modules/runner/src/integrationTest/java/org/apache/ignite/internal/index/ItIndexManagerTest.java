@@ -59,13 +59,12 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
         TableImpl table = (TableImpl) ignite.tables().table("tname");
 
         {
-            Index<?> index = await(pkCreatedFuture).index();
+            IndexEventParameters parameters = await(pkCreatedFuture);
 
-            assertThat(index, notNullValue());
-            assertThat(index.tableId(), equalTo(table.tableId()));
-            assertThat(index.descriptor().columns(), hasItems("C1"));
-            assertThat(index.name(), equalTo("TNAME_PK"));
-            assertThat(index.name(), equalTo(index.descriptor().name()));
+            assertThat(parameters, notNullValue());
+            assertThat(parameters.tableId(), equalTo(table.tableId()));
+            assertThat(parameters.indexDescriptor().columns(), hasItems("C1"));
+            assertThat(parameters.indexDescriptor().name(), equalTo("TNAME_PK"));
         }
 
         CompletableFuture<IndexEventParameters> indexCreatedFuture = registerListener(indexManager, IndexEvent.CREATE);
@@ -80,14 +79,14 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
         UUID createdIndexId;
         {
-            Index<?> index = await(indexCreatedFuture).index();
-            createdIndexId = index.id();
+            IndexEventParameters parameters = await(indexCreatedFuture);
 
-            assertThat(index, notNullValue());
-            assertThat(index.tableId(), equalTo(table.tableId()));
-            assertThat(index.descriptor().columns(), hasItems("C3", "C2"));
-            assertThat(index.name(), equalTo("INAME"));
-            assertThat(index.name(), equalTo(index.descriptor().name()));
+            assertThat(parameters, notNullValue());
+            assertThat(parameters.tableId(), equalTo(table.tableId()));
+            assertThat(parameters.indexDescriptor().columns(), hasItems("C3", "C2"));
+            assertThat(parameters.indexDescriptor().name(), equalTo("INAME"));
+
+            createdIndexId = parameters.indexId();
         }
 
         CompletableFuture<IndexEventParameters> indexDroppedFuture = registerListener(indexManager, IndexEvent.DROP);

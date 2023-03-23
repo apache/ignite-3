@@ -17,11 +17,9 @@
 
 package org.apache.ignite.internal.testframework.matchers;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.equalTo;
 
-import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -30,7 +28,6 @@ import java.util.concurrent.TimeoutException;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link Matcher} that awaits for the given future to complete and then forwards the result to the nested {@code matcher}.
@@ -49,24 +46,12 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
     private final TimeUnit timeoutTimeUnit;
 
     /**
-     * Class of throwable that should be the cause of fail if the future should fail. If {@code null}, the future should be completed
-     * successfully.
-     */
-    private final @Nullable Class<? extends Throwable> causeOfFail;
-
-    /** Fragment that must be a substring of an error message (if {@code null}, message won't be checked). */
-    private final @Nullable String errorMessageFragment;
-
-    /** Error while getting value from future. */
-    private @Nullable Throwable errorFromFuture;
-
-    /**
      * Constructor.
      *
      * @param matcher Matcher to forward the result of the completable future.
      */
     private CompletableFutureMatcher(Matcher<T> matcher) {
-        this(matcher, DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS, null, null);
+        this(matcher, DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
     /**
@@ -75,63 +60,35 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
      * @param matcher Matcher to forward the result of the completable future.
      * @param timeout Timeout.
      * @param timeoutTimeUnit {@link TimeUnit} for timeout.
-     * @param causeOfFail If {@code null}, the future should be completed successfully, otherwise it specifies the class of cause
-     *      throwable.
-     * @param errorMessageFragment Fragment that must be an substring of a error message (if {@code null}, message won't be checked).
      */
-    private CompletableFutureMatcher(
-            Matcher<T> matcher,
-            int timeout,
-            TimeUnit timeoutTimeUnit,
-            @Nullable Class<? extends Throwable> causeOfFail,
-            @Nullable String errorMessageFragment
-    ) {
+    private CompletableFutureMatcher(Matcher<T> matcher, int timeout, TimeUnit timeoutTimeUnit) {
         this.matcher = matcher;
         this.timeout = timeout;
         this.timeoutTimeUnit = timeoutTimeUnit;
-        this.causeOfFail = causeOfFail;
-        this.errorMessageFragment = errorMessageFragment;
     }
 
+    /** {@inheritDoc} */
     @Override
     protected boolean matchesSafely(CompletableFuture<? extends T> item) {
         try {
             T res = item.get(timeout, timeoutTimeUnit);
 
-            return causeOfFail == null && matcher.matches(res);
+            return matcher.matches(res);
         } catch (InterruptedException | ExecutionException | TimeoutException | CancellationException e) {
-            errorFromFuture = e;
-
-            return causeOfFail != null && hasCause(e, causeOfFail, errorMessageFragment);
+            throw new AssertionError(e);
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void describeTo(Description description) {
-        if (causeOfFail != null) {
-            description.appendText("will fall with ").appendValue(causeOfFail.getName());
-
-            if (errorMessageFragment != null) {
-                description.appendText(" with error message fragment ").appendValue(errorMessageFragment);
-            }
-        } else {
-            description.appendText("is ").appendDescriptionOf(matcher);
-        }
+        description.appendText("is ").appendDescriptionOf(matcher);
     }
 
+    /** {@inheritDoc} */
     @Override
     protected void describeMismatchSafely(CompletableFuture<? extends T> item, Description mismatchDescription) {
-        Object valueDescription;
-
-        try {
-            if (item.isDone()) {
-                valueDescription = item.join();
-            } else {
-                valueDescription = Objects.requireNonNullElse(errorFromFuture, item);
-            }
-        } catch (Throwable t) {
-            valueDescription = t;
-        }
+        Object valueDescription = item.isDone() ? item.join() : item;
 
         mismatchDescription.appendText("was ").appendValue(valueDescription);
     }
@@ -162,103 +119,7 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
      * @return matcher.
      */
     public static CompletableFutureMatcher<Object> willSucceedIn(int time, TimeUnit timeUnit) {
-        return new CompletableFutureMatcher<>(anything(), time, timeUnit, null, null);
-    }
-
-    /**
-     * Creates a matcher that matches a future that completes exceptionally and decently fast.
-     *
-     * @param cause The class of cause throwable.
-     * @return matcher.
-     */
-    public static CompletableFutureMatcher<Object> willFailFast(Class<? extends Throwable> cause) {
-        return willFailIn(1, TimeUnit.SECONDS, cause);
-    }
-
-    /**
-     * Creates a matcher that matches a future that completes exceptionally and decently fast.
-     *
-     * @param cause The class of cause throwable.
-     * @param errorMessageFragment Fragment that must be a substring of a error message (if {@code null}, message won't be checked).
-     * @return matcher.
-     */
-    public static CompletableFutureMatcher<Object> willFailFast(Class<? extends Throwable> cause, String errorMessageFragment) {
-        return willFailIn(1, TimeUnit.SECONDS, cause, errorMessageFragment);
-    }
-
-    /**
-     * Creates a matcher that matches a future that completes exceptionally within the given timeout.
-     *
-     * @param time Timeout.
-     * @param timeUnit Time unit for timeout.
-     * @param cause The class of cause throwable.
-     * @return matcher.
-     */
-    public static CompletableFutureMatcher<Object> willFailIn(int time, TimeUnit timeUnit, Class<? extends Throwable> cause) {
-        assert cause != null;
-
-        return new CompletableFutureMatcher<>(anything(), time, timeUnit, cause, null);
-    }
-
-    /**
-     * Creates a matcher that matches a future that completes exceptionally within the given timeout.
-     *
-     * @param time Timeout.
-     * @param timeUnit Time unit for timeout.
-     * @param cause The class of cause throwable.
-     * @param errorMessageFragment Fragment that must be a substring of a error message (if {@code null}, message won't be checked).
-     * @return matcher.
-     */
-    public static CompletableFutureMatcher<Object> willFailIn(
-            int time,
-            TimeUnit timeUnit,
-            Class<? extends Throwable> cause,
-            String errorMessageFragment
-    ) {
-        assert cause != null;
-        assert errorMessageFragment != null;
-
-        return new CompletableFutureMatcher<>(anything(), time, timeUnit, cause, errorMessageFragment);
-    }
-
-    /**
-     * Creates a matcher that matches a future that <strong>not</strong> completes decently fast.
-     *
-     * @return matcher.
-     */
-    public static CompletableFutureMatcher<Object> willTimeoutFast() {
-        return willTimeoutIn(250, TimeUnit.MILLISECONDS);
-    }
-
-    /**
-     * Creates a matcher that matches a future that <strong>not</strong> completes within the given timeout.
-     *
-     * @param time Timeout.
-     * @param timeUnit Time unit for timeout.
-     * @return matcher.
-     */
-    public static CompletableFutureMatcher<Object> willTimeoutIn(int time, TimeUnit timeUnit) {
-        return new CompletableFutureMatcher<>(anything(), time, timeUnit, TimeoutException.class, null);
-    }
-
-    /**
-     * Creates a matcher that matches a future that will be cancelled and decently fast.
-     *
-     * @return matcher.
-     */
-    public static CompletableFutureMatcher<Object> willBeCancelledFast() {
-        return willBeCancelledIn(1, TimeUnit.SECONDS);
-    }
-
-    /**
-     * Creates a matcher that matches a future that will be cancelled within the given timeout.
-     *
-     * @param time Timeout.
-     * @param timeUnit Time unit for timeout.
-     * @return matcher.
-     */
-    public static CompletableFutureMatcher<Object> willBeCancelledIn(int time, TimeUnit timeUnit) {
-        return new CompletableFutureMatcher<>(anything(), time, timeUnit, CancellationException.class, null);
+        return new CompletableFutureMatcher<>(anything(), time, timeUnit);
     }
 
     /**

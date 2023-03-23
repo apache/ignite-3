@@ -322,12 +322,12 @@ paths:
     get:
       tags:
       - deployment
-      description: All units statutes.
+      description: All units statuses.
       operationId: units
       parameters: []
       responses:
         "200":
-          description: All statutes returned successfully.
+          description: All statuses returned successfully.
           content:
             application/json:
               schema:
@@ -402,7 +402,7 @@ paths:
           type: string
       responses:
         "200":
-          description: All statutes returned successfully.
+          description: All statuses returned successfully.
           content:
             application/json:
               schema:
@@ -556,28 +556,6 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
-  /management/v1/metric/node:
-    get:
-      tags:
-      - nodeMetric
-      description: Provides a list of all available metric sources.
-      operationId: listNodeMetrics
-      parameters: []
-      responses:
-        "200":
-          description: Returned a list of metric sources.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/MetricSource'
-        "500":
-          description: Internal error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
   /management/v1/metric/node/disable:
     post:
       tags:
@@ -630,6 +608,50 @@ paths:
                 $ref: '#/components/schemas/Problem'
         "404":
           description: Metric source not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/metric/node/set:
+    get:
+      tags:
+      - nodeMetric
+      description: Provides a list of all enabled metric sets.
+      operationId: listNodeMetricSets
+      parameters: []
+      responses:
+        "200":
+          description: Returned a list of metric sets.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MetricSet'
+        "500":
+          description: Internal error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/metric/node/source:
+    get:
+      tags:
+      - nodeMetric
+      description: Provides a list of all available metric sources.
+      operationId: listNodeMetricSources
+      parameters: []
+      responses:
+        "200":
+          description: Returned a list of metric sources.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MetricSource'
+        "500":
+          description: Internal error.
           content:
             application/problem+json:
               schema:
@@ -787,13 +809,52 @@ components:
           type: string
           description: The issue with the parameter.
       description: Information about invalid request parameter.
-    MetricSource:
+    Metric:
+      required:
+      - name
       type: object
       properties:
         name:
           type: string
+          description: Returns the metric name.
+        desc:
+          type: string
+          description: Returns the metric description.
+          nullable: true
+      description: REST representation of Metric.
+    MetricSet:
+      required:
+      - metrics
+      - name
+      type: object
+      properties:
+        name:
+          required:
+          - "true"
+          type: string
+          description: Metric set name.
+        metrics:
+          required:
+          - "true"
+          type: array
+          description: List of metrics.
+          items:
+            $ref: '#/components/schemas/Metric'
+      description: REST representation of MetricSet.
+    MetricSource:
+      required:
+      - enabled
+      - name
+      type: object
+      properties:
+        name:
+          required:
+          - "true"
+          type: string
           description: Metric source name.
         enabled:
+          required:
+          - "true"
           type: boolean
           description: "If True, the metric is tracked. Otherwise, the metric is not\
             \ tracked."

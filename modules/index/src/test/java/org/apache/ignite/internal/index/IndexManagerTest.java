@@ -198,9 +198,9 @@ public class IndexManagerTest {
         UUID indexId = indexIds.get(0);
 
         assertThat(holder.get(), notNullValue());
-        assertThat(holder.get().index().id(), equalTo(indexId));
-        assertThat(holder.get().index().tableId(), equalTo(tableId()));
-        assertThat(holder.get().index().name(), equalTo(indexName));
+        assertThat(holder.get().indexId(), equalTo(indexId));
+        assertThat(holder.get().tableId(), equalTo(tableId()));
+        assertThat(holder.get().indexDescriptor().name(), equalTo(indexName));
 
         assertThat(indexManager.dropIndexAsync("sName", indexName, true), willCompleteSuccessfully());
 
