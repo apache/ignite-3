@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metrics;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
@@ -89,6 +90,7 @@ public class MetricManager implements IgniteComponent {
      *
      * @param availableExporters Map of (name, exporter) with available exporters.
      */
+    @VisibleForTesting
     public void start(Map<String, MetricExporter> availableExporters) {
         this.availableExporters = availableExporters;
 
@@ -99,6 +101,22 @@ public class MetricManager implements IgniteComponent {
         }
 
         metricConfiguration.exporters().listenElements(new ExporterConfigurationListener());
+    }
+
+    /**
+     * Starts component with default configuration.
+     *
+     * @param exporters Exporters.
+     */
+    public void start(Iterable<MetricExporter<?>> exporters) {
+        this.availableExporters = new HashMap<>();
+
+        for (MetricExporter<?> exporter : exporters) {
+            exporter.start(metricsProvider, null);
+
+            availableExporters.put(exporter.name(), exporter);
+            enabledMetricExporters.put(exporter.name(), exporter);
+        }
     }
 
     /** {@inheritDoc} */

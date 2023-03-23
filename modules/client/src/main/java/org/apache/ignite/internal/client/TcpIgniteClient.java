@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import org.apache.ignite.client.IgniteClient;
@@ -108,17 +109,25 @@ public class TcpIgniteClient implements IgniteClient {
 
         if (cfg.metricsEnabled() && cfg.metricExporterNames() != null && cfg.metricExporterNames().length > 0) {
             metricManager = new MetricManager();
+            Map<String, MetricExporter> availableExporters = MetricManager.loadExporters();
 
-//            HashMap<String, MetricExporter> exporters = new HashMap<>();
-//
-//            for (String exporterName : cfg.metricExporterNames()) {
-//                if (exporterName.equals("jmx")) {
-//                    JmxExporter jmxExporter = new JmxExporter();
-//                    exporters.put(exporterName, jmxExporter);
-//                }
-//            }
+            List<MetricExporter<?>> exporters = new ArrayList<>();
 
-            metricManager.start();
+            for (String exporterName : cfg.metricExporterNames()) {
+                MetricExporter<?> exporter = availableExporters.get(exporterName);
+
+                if (exporter == null) {
+                    // TODO: ???
+                    throw new IllegalArgumentException("Exporter with name " + exporterName + " is not found.");
+                }
+
+                exporters.add(exporter);
+            }
+
+            metricManager.start(exporters);
+        } else {
+            // TODO: ???
+            metricManager = null;
         }
     }
 
