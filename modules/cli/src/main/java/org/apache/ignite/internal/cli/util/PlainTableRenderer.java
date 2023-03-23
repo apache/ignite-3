@@ -37,7 +37,7 @@ public class PlainTableRenderer {
      * @param content header of table.
      * @return Plain interpretation.
      */
-    public String render(String[] hdr, Object[][] content) {
+    public static String render(String[] hdr, Object[][] content) {
         StringJoiner sj = new StringJoiner(LINE_SEPARATOR);
         sj.add(tableRowToString(hdr));
         for (Object[] row : content) {
@@ -52,7 +52,7 @@ public class PlainTableRenderer {
      * @param row row of table.
      * @return Plain interpretation of row.
      */
-    private String tableRowToString(Object[] row) {
+    private static String tableRowToString(Object[] row) {
         return Stream.of(row).map(String::valueOf).collect(Collectors.joining(COLUMN_DELIMITER));
     }
 }

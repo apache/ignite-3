@@ -15,47 +15,41 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.cluster.topology;
-
-import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
+package org.apache.ignite.internal.cli.commands.node.metric;
 
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
-import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
+import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.metric.MetricSourceMixin;
+import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.call.UrlCallInput;
-import org.apache.ignite.internal.cli.decorators.TopologyDecorator;
+import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
-import picocli.CommandLine.Option;
 
-/**
- * Command that show physical cluster topology.
- */
-@Command(name = "physical")
-public class PhysicalTopologyCommand extends BaseCommand implements Callable<Integer> {
-    /** Cluster endpoint URL option. */
+/** Command that enables node metric source. */
+@Command(name = "enable", description = "Enables node metric source")
+public class NodeMetricSourceEnableCommand extends BaseCommand implements Callable<Integer> {
+    /** Node URL option. */
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private NodeUrlProfileMixin nodeUrl;
+
+    @Mixin
+    private MetricSourceMixin metricSource;
 
     @Inject
-    private PhysicalTopologyCall call;
-
-    @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
-    private boolean plain;
+    private NodeMetricSourceEnableCall call;
 
     /** {@inheritDoc} */
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new UrlCallInput(clusterUrl.getClusterUrl()))
+                .inputProvider(() -> metricSource.buildEnableCallInput(nodeUrl.getNodeUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
-                .decorator(new TopologyDecorator(plain))
                 .verbose(verbose)
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot enable metrics", "cluster init"))
                 .build()
                 .runPipeline();
     }

@@ -18,39 +18,40 @@
 package org.apache.ignite.internal.cli.commands.node.metric;
 
 import jakarta.inject.Inject;
-import java.util.concurrent.Callable;
-import org.apache.ignite.internal.cli.call.node.metric.NodeMetricEnableCall;
+import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.metric.MetricSourceMixin;
-import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
-import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
+import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
+import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
-/** Command that disables node metric source. */
+/** Command that disables node metric source in REPL mode. */
 @Command(name = "disable", description = "Disables node metric source")
-public class NodeMetricDisableCommand extends BaseCommand implements Callable<Integer> {
+public class NodeMetricSourceDisableReplCommand extends BaseCommand implements Runnable {
     /** Node URL option. */
     @Mixin
-    private NodeUrlProfileMixin nodeUrl;
+    private NodeUrlMixin nodeUrl;
 
     @Mixin
     private MetricSourceMixin metricSource;
 
     @Inject
-    private NodeMetricEnableCall call;
+    private NodeMetricSourceEnableCall call;
 
-    /** {@inheritDoc} */
+    @Inject
+    private ConnectToClusterQuestion question;
+
     @Override
-    public Integer call() {
-        return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> metricSource.buildDisableCallInput(nodeUrl.getNodeUrl()))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .verbose(verbose)
+    public void run() {
+        question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
+                .map(metricSource::buildDisableCallInput)
+                .then(Flows.fromCall(call))
                 .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot disable metrics", "cluster init"))
-                .build()
-                .runPipeline();
+                .verbose(verbose)
+                .print()
+                .start();
     }
 }
