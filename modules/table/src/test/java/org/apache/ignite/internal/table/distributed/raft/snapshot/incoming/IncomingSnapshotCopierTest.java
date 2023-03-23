@@ -176,7 +176,7 @@ public class IncomingSnapshotCopierTest {
         fillTxStatePartitionStorage(outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, txIds);
 
         MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone().partitions().value()));
+                distributionZonesConfiguration.defaultDistributionZone()));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
         assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());
@@ -440,7 +440,7 @@ public class IncomingSnapshotCopierTest {
     @Test
     void cancellationMakesJoinFinishIfHangingOnNetworkCall() throws Exception {
         MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone().partitions().value()));
+                distributionZonesConfiguration.defaultDistributionZone()));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
         assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());
@@ -497,7 +497,7 @@ public class IncomingSnapshotCopierTest {
         fillTxStatePartitionStorage(outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, txIds);
 
         MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone().partitions().value()));
+                distributionZonesConfiguration.defaultDistributionZone()));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
         assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());
@@ -566,7 +566,7 @@ public class IncomingSnapshotCopierTest {
         fillTxStatePartitionStorage(outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, txIds);
 
         MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone().partitions().value()));
+                distributionZonesConfiguration.defaultDistributionZone()));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
         assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());

@@ -72,7 +72,7 @@ public class RocksDbStorageEngineTest {
             DistributionZonesConfiguration distributionZonesConfiguration
     ) {
         MvTableStorage table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone().partitions().value());
+                distributionZonesConfiguration.defaultDistributionZone());
 
         table.start();
 
@@ -104,7 +104,7 @@ public class RocksDbStorageEngineTest {
         assertThat(engineConfigChangeFuture, willCompleteSuccessfully());
 
         MvTableStorage table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone().partitions().value());
+                distributionZonesConfiguration.defaultDistributionZone());
 
         table.start();
 

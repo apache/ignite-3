@@ -31,6 +31,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.IntSupplier;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.tostring.S;
@@ -84,8 +85,8 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     /** Table configuration. */
     private final TableConfiguration tableCfg;
 
-    /** Number of storage partitions. */
-    private final int partitions;
+    /** Distribution zone configuration. */
+    private final DistributionZoneConfiguration distributionZoneCfg;
 
     /** RocksDB flusher instance. */
     private volatile RocksDbFlusher flusher;
@@ -113,14 +114,14 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
      */
     public TxStateRocksDbTableStorage(
             TableConfiguration tableCfg,
-            int partitions,
+            DistributionZoneConfiguration distributionZoneCfg,
             Path dbPath,
             ScheduledExecutorService scheduledExecutor,
             ExecutorService threadPool,
             IntSupplier flushDelaySupplier
     ) {
         this.tableCfg = tableCfg;
-        this.partitions = partitions;
+        this.distributionZoneCfg = distributionZoneCfg;
         this.dbPath = dbPath;
         this.scheduledExecutor = scheduledExecutor;
         this.threadPool = threadPool;
@@ -199,7 +200,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
                 this::refreshPersistedIndexes
             );
 
-            storages = new AtomicReferenceArray<>(partitions);
+            storages = new AtomicReferenceArray<>(distributionZoneCfg.partitions().value());
 
             this.dbOptions = new DBOptions()
                     .setCreateIfMissing(true)

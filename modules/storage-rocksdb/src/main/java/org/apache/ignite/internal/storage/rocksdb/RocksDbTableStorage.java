@@ -43,6 +43,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
@@ -95,11 +96,13 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** Indexes configuration. */
     private final TablesConfiguration tablesCfg;
 
+    /**
+     * Distribution zone configuration.
+     */
+    private final DistributionZoneConfiguration distributionZoneCfg;
+
     /** Data region for the table. */
     private final RocksDbDataRegion dataRegion;
-
-    /** Number of storage partitions. */
-    private final int partitions;
 
     /** RocksDB flusher instance. */
     private volatile RocksDbFlusher flusher;
@@ -151,14 +154,14 @@ public class RocksDbTableStorage implements MvTableStorage {
             RocksDbDataRegion dataRegion,
             TableConfiguration tableCfg,
             TablesConfiguration tablesCfg,
-            int partitions
+            DistributionZoneConfiguration distributionZoneConfiguration
     ) {
         this.engine = engine;
         this.tablePath = tablePath;
         this.tableCfg = tableCfg;
         this.dataRegion = dataRegion;
         this.tablesCfg = tablesCfg;
-        this.partitions = partitions;
+        this.distributionZoneCfg = distributionZoneConfiguration;
     }
 
     /**
@@ -207,8 +210,8 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public int partitions() {
-        return partitions;
+    public DistributionZoneConfiguration distributionZoneConfiguration() {
+        return distributionZoneCfg;
     }
 
     @Override
@@ -292,7 +295,8 @@ public class RocksDbTableStorage implements MvTableStorage {
                 throw new StorageException("Failed to initialize RocksDB instance", e);
             }
 
-            MvPartitionStorages<RocksDbMvPartitionStorage> mvPartitionStorages = new MvPartitionStorages<>(tableCfg.value(), partitions);
+            MvPartitionStorages<RocksDbMvPartitionStorage> mvPartitionStorages =
+                    new MvPartitionStorages<>(tableCfg.value(), distributionZoneConfiguration().value());
 
             for (int partitionId : meta.getPartitionIds()) {
                 // There is no need to wait for futures, since there will be no parallel operations yet.
@@ -319,7 +323,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         }
 
         try {
-            for (int partitionId = 0; partitionId < partitions; partitionId++) {
+            for (int partitionId = 0; partitionId < distributionZoneCfg.partitions().value(); partitionId++) {
                 RocksDbMvPartitionStorage partition = mvPartitionStorages.get(partitionId);
 
                 if (partition != null) {

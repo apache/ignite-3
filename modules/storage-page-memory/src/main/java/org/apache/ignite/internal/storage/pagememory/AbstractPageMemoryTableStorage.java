@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeList;
@@ -55,7 +56,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     protected final TablesConfiguration tablesCfg;
 
-    protected final int partitions;
+    protected  final DistributionZoneConfiguration distributionZoneConfiguration;
 
     protected volatile MvPartitionStorages<AbstractPageMemoryMvPartitionStorage> mvPartitionStorages;
 
@@ -69,11 +70,13 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      *
      * @param tableCfg Table configuration.
      * @param tablesCfg Tables configuration.
+     * @param distributionZoneConfiguration Distribution zone configuration.
      */
-    protected AbstractPageMemoryTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg, int partitions) {
+    protected AbstractPageMemoryTableStorage(
+            TableConfiguration tableCfg, TablesConfiguration tablesCfg, DistributionZoneConfiguration distributionZoneConfiguration) {
         this.tableCfg = tableCfg;
         this.tablesCfg = tablesCfg;
-        this.partitions = partitions;
+        this.distributionZoneConfiguration = distributionZoneConfiguration;
     }
 
     @Override
@@ -82,8 +85,8 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     }
 
     @Override
-    public int partitions() {
-        return partitions;
+    public DistributionZoneConfiguration distributionZoneConfiguration() {
+        return distributionZoneConfiguration;
     }
 
     @Override
@@ -99,7 +102,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     @Override
     public void start() throws StorageException {
         busy(() -> {
-            mvPartitionStorages = new MvPartitionStorages(tableCfg.value(), partitions);
+            mvPartitionStorages = new MvPartitionStorages(tableCfg.value(), distributionZoneConfiguration.value());
 
             return null;
         });

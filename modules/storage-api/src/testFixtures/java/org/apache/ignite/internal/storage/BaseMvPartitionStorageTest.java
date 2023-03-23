@@ -82,7 +82,7 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
 
         tableCfg.dataStorage().change(ds -> ds.convert(engine.name())).join();
 
-        table = engine.createMvTable(tableCfg, tablesCfg, distributionZonesConfiguration.defaultDistributionZone().partitions().value());
+        table = engine.createMvTable(tableCfg, tablesCfg, distributionZonesConfiguration.defaultDistributionZone());
 
         table.start();
 

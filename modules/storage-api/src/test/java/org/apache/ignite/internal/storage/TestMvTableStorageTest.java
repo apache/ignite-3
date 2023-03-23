@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage;
 
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestStorageEngine;
@@ -33,8 +34,10 @@ public class TestMvTableStorageTest extends AbstractMvTableStorageTest {
     @BeforeEach
     void setUp(
             @InjectConfiguration("mock.tables.foo{ dataStorage.name = " + TestStorageEngine.ENGINE_NAME + "}")
-            TablesConfiguration tablesConfig
+            TablesConfiguration tablesConfig,
+            @InjectConfiguration("mock.partitions = 512")
+            DistributionZoneConfiguration distributionZoneConfiguration
     ) {
-        initialize(new TestStorageEngine(), tablesConfig, 512);
+        initialize(new TestStorageEngine(), tablesConfig, distributionZoneConfiguration);
     }
 }

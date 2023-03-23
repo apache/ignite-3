@@ -80,6 +80,7 @@ import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -749,10 +750,10 @@ public class ItRebalanceDistributedTest {
                     new OutgoingSnapshotsManager(clusterService.messagingService())
             ) {
                 @Override
-                protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg, int partitions) {
+                protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg, DistributionZoneConfiguration   distributionZoneCfg) {
                     return testInfo.getTestMethod().get().isAnnotationPresent(UseTestTxStateStorage.class)
                             ? spy(new TestTxStateTableStorage())
-                            : super.createTxStateTableStorage(tableCfg, partitions);
+                            : super.createTxStateTableStorage(tableCfg, distributionZoneCfg);
                 }
 
                 @Override

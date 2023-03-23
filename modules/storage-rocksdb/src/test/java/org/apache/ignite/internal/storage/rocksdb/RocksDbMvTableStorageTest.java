@@ -28,6 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -56,10 +57,11 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
                     "mock.tables.foo{ dataStorage.name = " + RocksDbStorageEngine.ENGINE_NAME + "}"
             )
             TablesConfiguration tablesConfig,
-            @InjectConfiguration
-            DistributionZonesConfiguration distributionZonesConfiguration
+            @InjectConfiguration("mock.partitions = 512")
+            DistributionZoneConfiguration distributionZoneConfiguration
     ) {
-        initialize(new RocksDbStorageEngine(rocksDbEngineConfig, workDir), tablesConfig, 512);
+        initialize(new RocksDbStorageEngine(rocksDbEngineConfig, workDir),
+                tablesConfig, distributionZoneConfiguration);
     }
 
     /**
@@ -112,7 +114,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
 
         tableStorage.stop();
 
-        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration(), tableStorage.partitions());
+        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration(), tableStorage.distributionZoneConfiguration());
 
         tableStorage.start();
 

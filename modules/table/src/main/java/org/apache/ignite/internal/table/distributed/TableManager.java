@@ -1176,16 +1176,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         TableConfiguration tableCfg = tablesCfg.tables().get(name);
 
-        DistributionZoneView distributionZoneConfiguration =
-                getZoneById(distributionZonesConfiguration, tableCfg.value().zoneId()).value();
+        DistributionZoneConfiguration distributionZoneConfiguration =
+                getZoneById(distributionZonesConfiguration, tableCfg.value().zoneId());
 
-        int partitions = distributionZoneConfiguration.partitions();
+        MvTableStorage tableStorage = createTableStorage(tableCfg, tablesCfg, distributionZoneConfiguration);
+        TxStateTableStorage txStateStorage = createTxStateTableStorage(tableCfg, distributionZoneConfiguration);
 
-        MvTableStorage tableStorage = createTableStorage(tableCfg, tablesCfg, partitions);
-        TxStateTableStorage txStateStorage = createTxStateTableStorage(tableCfg, partitions);
-
-        InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
-                partitions, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
+        InternalTableImpl internalTable = new InternalTableImpl(name, tblId,
+                new Int2ObjectOpenHashMap<>(distributionZoneConfiguration.partitions().value()),
+                distributionZoneConfiguration.partitions().value(), clusterNodeResolver, txManager, tableStorage,
+                txStateStorage, replicaSvc, clock);
 
         // TODO: IGNITE-16288 directIndexIds should use async configuration API
         var table = new TableImpl(internalTable, lockMgr, () -> CompletableFuture.supplyAsync(() -> directIndexIds()));
@@ -1226,8 +1226,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param tablesCfg Tables configuration.
      * @return Table data storage.
      */
-    protected MvTableStorage createTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg, int partitions) {
-        MvTableStorage tableStorage = dataStorageMgr.engine(tableCfg.dataStorage()).createMvTable(tableCfg, tablesCfg, partitions);
+    protected MvTableStorage createTableStorage(
+            TableConfiguration tableCfg, TablesConfiguration tablesCfg, DistributionZoneConfiguration distributionZoneCfg) {
+        MvTableStorage tableStorage = dataStorageMgr.engine(tableCfg.dataStorage())
+                .createMvTable(tableCfg, tablesCfg, distributionZoneCfg);
 
         tableStorage.start();
 
@@ -1240,7 +1242,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param tableCfg Table configuration.
      * @return Transaction state storage.
      */
-    protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg, int partitions) {
+    protected TxStateTableStorage createTxStateTableStorage(
+            TableConfiguration tableCfg, DistributionZoneConfiguration distributionZoneCfg) {
         Path path = storagePath.resolve(TX_STATE_DIR + tableCfg.value().tableId());
 
         try {
@@ -1251,7 +1254,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         TxStateTableStorage txStateTableStorage = new TxStateRocksDbTableStorage(
                 tableCfg,
-                partitions,
+                distributionZoneCfg,
                 path,
                 txStateStorageScheduledPool,
                 txStateStoragePool,

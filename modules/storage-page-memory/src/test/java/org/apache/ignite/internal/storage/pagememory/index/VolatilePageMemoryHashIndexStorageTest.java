@@ -60,7 +60,7 @@ class VolatilePageMemoryHashIndexStorageTest extends AbstractPageMemoryHashIndex
         engine.start();
 
         table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone().partitions().value());
+                distributionZonesConfiguration.defaultDistributionZone());
 
         table.start();
 

@@ -40,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
@@ -57,18 +58,19 @@ public class MvPartitionStoragesTest {
     @InjectConfiguration
     private TableConfiguration tableConfig;
 
-    private final int partitions = 10;
+    @InjectConfiguration("mock.partitions = 10")
+    private DistributionZoneConfiguration distributionZoneConfiguration;
 
     private MvPartitionStorages<MvPartitionStorage> mvPartitionStorages;
 
     @BeforeEach
     void setUp() {
-        mvPartitionStorages = new MvPartitionStorages(tableConfig.value(), partitions);
+        mvPartitionStorages = new MvPartitionStorages(tableConfig.value(), distributionZoneConfiguration.value());
     }
 
     @Test
     void testGet() {
-        assertThrows(IllegalArgumentException.class, () -> getMvStorage(partitions));
+        assertThrows(IllegalArgumentException.class, () -> getMvStorage(getPartitionIdOutOfConfig()));
 
         assertNull(getMvStorage(0));
 
@@ -107,7 +109,7 @@ public class MvPartitionStoragesTest {
 
     @Test
     void testCreateError() {
-        assertThrows(IllegalArgumentException.class, () -> createMvStorage(partitions));
+        assertThrows(IllegalArgumentException.class, () -> createMvStorage(getPartitionIdOutOfConfig()));
 
         assertThat(createMvStorage(0), willCompleteSuccessfully());
 
@@ -233,7 +235,7 @@ public class MvPartitionStoragesTest {
 
     @Test
     void testDestroyError() {
-        assertThrows(IllegalArgumentException.class, () -> destroyMvStorage(partitions));
+        assertThrows(IllegalArgumentException.class, () -> destroyMvStorage(getPartitionIdOutOfConfig()));
 
         assertThrowsWithMessage(StorageException.class, () -> destroyMvStorage(0), "Storage does not exist");
 
@@ -291,7 +293,7 @@ public class MvPartitionStoragesTest {
 
     @Test
     void testClearError() {
-        assertThrows(IllegalArgumentException.class, () -> clearMvStorage(partitions));
+        assertThrows(IllegalArgumentException.class, () -> clearMvStorage(getPartitionIdOutOfConfig()));
 
         assertThrowsWithMessage(StorageException.class, () -> clearMvStorage(0), "Storage does not exist");
 
@@ -348,7 +350,7 @@ public class MvPartitionStoragesTest {
 
     @Test
     void testStartRebalanceError() {
-        assertThrows(IllegalArgumentException.class, () -> startRebalanceMvStorage(partitions));
+        assertThrows(IllegalArgumentException.class, () -> startRebalanceMvStorage(getPartitionIdOutOfConfig()));
 
         assertThrowsWithMessage(StorageRebalanceException.class, () -> startRebalanceMvStorage(0), "Storage does not exist");
 
@@ -439,7 +441,7 @@ public class MvPartitionStoragesTest {
 
     @Test
     void testAbortRebalanceError() {
-        assertThrows(IllegalArgumentException.class, () -> abortRebalanceMvStorage(partitions));
+        assertThrows(IllegalArgumentException.class, () -> abortRebalanceMvStorage(getPartitionIdOutOfConfig()));
 
         assertThrowsWithMessage(StorageRebalanceException.class, () -> abortRebalanceMvStorage(0), "Storage does not exist");
 
@@ -493,7 +495,7 @@ public class MvPartitionStoragesTest {
 
     @Test
     void testFinishRebalanceError() {
-        assertThrows(IllegalArgumentException.class, () -> finishRebalanceMvStorage(partitions));
+        assertThrows(IllegalArgumentException.class, () -> finishRebalanceMvStorage(getPartitionIdOutOfConfig()));
 
         assertThrowsWithMessage(StorageRebalanceException.class, () -> finishRebalanceMvStorage(0), "Storage does not exist");
 
@@ -677,6 +679,10 @@ public class MvPartitionStoragesTest {
 
     private CompletableFuture<Void> finishRebalanceMvStorage(int partitionId) {
         return mvPartitionStorages.finishRebalance(partitionId, mvStorage -> completedFuture(null));
+    }
+
+    private int getPartitionIdOutOfConfig() {
+        return distributionZoneConfiguration.partitions().value();
     }
 
     private static <T extends Throwable> void assertThrowsWithMessage(

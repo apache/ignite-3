@@ -60,7 +60,7 @@ public class RocksDbHashIndexStorageTest extends AbstractHashIndexStorageTest {
         engine.start();
 
         tableStorage = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone().partitions().value());
+                distributionZonesConfiguration.defaultDistributionZone());
 
         tableStorage.start();
 

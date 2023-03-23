@@ -62,6 +62,7 @@ import org.apache.ignite.internal.configuration.notifications.ConfigurationStora
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -751,13 +752,14 @@ public class TableManagerTest extends IgniteAbstractTest {
         ) {
 
             @Override
-            protected MvTableStorage createTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg, int partitions) {
-                return Mockito.spy(super.createTableStorage(tableCfg, tablesCfg, partitions));
+            protected MvTableStorage createTableStorage(
+                    TableConfiguration tableCfg, TablesConfiguration tablesCfg, DistributionZoneConfiguration distributionZonesCfg) {
+                return Mockito.spy(super.createTableStorage(tableCfg, tablesCfg, distributionZonesCfg));
             }
 
             @Override
-            protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg, int partitions) {
-                return Mockito.spy(super.createTxStateTableStorage(tableCfg, partitions));
+            protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg, DistributionZoneConfiguration distributionZoneCfg) {
+                return Mockito.spy(super.createTxStateTableStorage(tableCfg, distributionZoneCfg));
             }
         };
 

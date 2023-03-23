@@ -61,7 +61,7 @@ public class PartitionAccessImplTest {
     @Test
     void testMinMaxLastAppliedIndex() {
         TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone().partitions().value());
+                distributionZonesConfiguration.defaultDistributionZone());
         TestTxStateTableStorage txStateTableStorage = new TestTxStateTableStorage();
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
@@ -103,7 +103,7 @@ public class PartitionAccessImplTest {
     @Test
     void testMinMaxLastAppliedTerm() {
         TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone().partitions().value());
+                distributionZonesConfiguration.defaultDistributionZone());
         TestTxStateTableStorage txStateTableStorage = new TestTxStateTableStorage();
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
@@ -145,7 +145,7 @@ public class PartitionAccessImplTest {
     @Test
     void testAddWrite() {
         TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone().partitions().value());
+                distributionZonesConfiguration.defaultDistributionZone());
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
 
@@ -185,7 +185,7 @@ public class PartitionAccessImplTest {
     @Test
     void testAddWriteCommitted() {
         TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone().partitions().value());
+                distributionZonesConfiguration.defaultDistributionZone());
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
 

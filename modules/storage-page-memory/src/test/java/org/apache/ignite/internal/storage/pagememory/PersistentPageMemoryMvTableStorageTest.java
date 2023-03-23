@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
@@ -48,8 +49,8 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
                     "mock.tables.foo{dataStorage.name = " + PersistentPageMemoryStorageEngine.ENGINE_NAME + "}"
             )
             TablesConfiguration tablesConfig,
-            @InjectConfiguration
-            DistributionZonesConfiguration distributionZonesConfiguration
+            @InjectConfiguration("mock.partitions = 512")
+            DistributionZoneConfiguration distributionZoneConfiguration
 
     ) {
         var ioRegistry = new PageIoRegistry();
@@ -57,7 +58,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         ioRegistry.loadFromServiceLoader();
 
         initialize(new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry,
-                workDir, null), tablesConfig, 512);
+                workDir, null), tablesConfig, distributionZoneConfiguration);
     }
 
     @Test

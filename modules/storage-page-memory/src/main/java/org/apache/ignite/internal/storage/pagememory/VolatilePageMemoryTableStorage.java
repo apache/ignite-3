@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
@@ -53,11 +54,11 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     public VolatilePageMemoryTableStorage(
             TableConfiguration tableCfg,
             TablesConfiguration tablesCfg,
-            int partitions,
+            DistributionZoneConfiguration distributionZoneConfiguration,
             VolatilePageMemoryDataRegion dataRegion,
             GradualTaskExecutor destructionExecutor
     ) {
-        super(tableCfg, tablesCfg, partitions);
+        super(tableCfg, tablesCfg, distributionZoneConfiguration);
 
         this.dataRegion = dataRegion;
         this.destructionExecutor = destructionExecutor;
