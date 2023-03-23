@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.call.metric;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
 import jakarta.inject.Inject;
 import java.util.List;
@@ -27,13 +28,18 @@ import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCal
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCallInput;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceListCall;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
+import org.apache.ignite.rest.client.model.Metric;
 import org.apache.ignite.rest.client.model.MetricSet;
 import org.apache.ignite.rest.client.model.MetricSource;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/** Tests for metrics calls. */
-class ItMetricCallsTest extends CallInitializedIntegrationTestBase {
+/** Tests for metrics calls with enabled "jvm" metrics source. */
+class ItEnabledMetricCallsTest extends CallInitializedIntegrationTestBase {
+
+    @Inject
+    NodeMetricSourceEnableCall nodeMetricSourceEnableCall;
 
     @Inject
     NodeMetricSourceListCall nodeMetricSourceListCall;
@@ -41,11 +47,19 @@ class ItMetricCallsTest extends CallInitializedIntegrationTestBase {
     @Inject
     NodeMetricSetListCall nodeMetricSetListCall;
 
-    @Inject
-    NodeMetricSourceEnableCall nodeMetricSourceEnableCall;
+    @BeforeAll
+    void beforeAll() {
+        var inputEnable = NodeMetricSourceEnableCallInput.builder()
+                .endpointUrl(NODE_URL)
+                .srcName("jvm")
+                .enable(true)
+                .build();
+
+        nodeMetricSourceEnableCall.execute(inputEnable);
+    }
 
     @Test
-    @DisplayName("Should display disabled jvm node metric source when cluster is up and running")
+    @DisplayName("Should display enabled jvm node metric source when cluster is up and running")
     void nodeMetricSourcesList() {
         // When
         CallOutput<List<MetricSource>> output = nodeMetricSourceListCall.execute(urlInput);
@@ -54,7 +68,7 @@ class ItMetricCallsTest extends CallInitializedIntegrationTestBase {
         assertThat(output.hasError()).isFalse();
 
         MetricSource[] expectedMetricSources = {
-                new MetricSource().name("jvm").enabled(false),
+                new MetricSource().name("jvm").enabled(true),
                 new MetricSource().name("client.handler").enabled(false)
         };
 
@@ -63,8 +77,8 @@ class ItMetricCallsTest extends CallInitializedIntegrationTestBase {
     }
 
     @Test
-    @DisplayName("Should display empty node metric sets list when cluster is up and running")
-    void nodeMetricSetsListEmpty() {
+    @DisplayName("Should display node metric sets list when cluster is up and running")
+    void nodeMetricSetsListEnabled() {
         // When
         CallOutput<List<MetricSet>> output = nodeMetricSetListCall.execute(urlInput);
 
@@ -72,40 +86,21 @@ class ItMetricCallsTest extends CallInitializedIntegrationTestBase {
         assertThat(output.hasError()).isFalse();
 
         // And
-        assertThat(output.body()).isEmpty();
-    }
+        Metric[] expectedMetrics = {
+                new Metric().name("memory.heap.init").desc("Initial amount of heap memory"),
+                new Metric().name("memory.heap.used").desc("Current used amount of heap memory"),
+                new Metric().name("memory.heap.committed").desc("Committed amount of heap memory"),
+                new Metric().name("memory.heap.max").desc("Maximum amount of heap memory"),
+                new Metric().name("memory.non-heap.init").desc("Initial amount of non-heap memory"),
+                new Metric().name("memory.non-heap.used").desc("Used amount of non-heap memory"),
+                new Metric().name("memory.non-heap.committed").desc("Committed amount of non-heap memory"),
+                new Metric().name("memory.non-heap.max").desc("Maximum amount of non-heap memory")
+        };
 
-    @Test
-    @DisplayName("Should display error message when enabling nonexistent metric source and is cluster up and running")
-    void nodeMetricEnable() {
-        // Given
-        var input = NodeMetricSourceEnableCallInput.builder()
-                .endpointUrl(NODE_URL)
-                .srcName("no.such.metric")
-                .enable(true)
-                .build();
-
-        // When
-        CallOutput<String> output = nodeMetricSourceEnableCall.execute(input);
-
-        // Then
-        assertThat(output.hasError()).isTrue();
-    }
-
-    @Test
-    @DisplayName("Should display error message when disabling nonexistent metric source and is cluster up and running")
-    void nodeMetricDisable() {
-        // Given
-        var input = NodeMetricSourceEnableCallInput.builder()
-                .endpointUrl(NODE_URL)
-                .srcName("no.such.metric")
-                .enable(false)
-                .build();
-
-        // When
-        CallOutput<String> output = nodeMetricSourceEnableCall.execute(input);
-
-        // Then
-        assertThat(output.hasError()).isTrue();
+        assertAll(
+                () -> assertThat(output.body()).hasSize(1),
+                () -> assertThat(output.body().get(0).getName()).isEqualTo("jvm"),
+                () -> assertThat(output.body().get(0).getMetrics()).containsExactlyInAnyOrder(expectedMetrics)
+        );
     }
 }

@@ -19,8 +19,8 @@ package org.apache.ignite.internal.cli.call.node.metric;
 
 import org.apache.ignite.internal.cli.core.call.CallInput;
 
-/** Input for {@link NodeMetricEnableCall}. */
-public class NodeMetricEnableCallInput implements CallInput {
+/** Input for {@link NodeMetricSourceEnableCall}. */
+public class NodeMetricSourceEnableCallInput implements CallInput {
     /** Metric source name. */
     private final String srcName;
 
@@ -30,7 +30,7 @@ public class NodeMetricEnableCallInput implements CallInput {
     /** endpoint URL. */
     private final String endpointUrl;
 
-    private NodeMetricEnableCallInput(String srcName, boolean enable, String endpointUrl) {
+    private NodeMetricSourceEnableCallInput(String srcName, boolean enable, String endpointUrl) {
         this.srcName = srcName;
         this.enable = enable;
         this.endpointUrl = endpointUrl;
@@ -39,10 +39,10 @@ public class NodeMetricEnableCallInput implements CallInput {
     /**
      * Builder method.
      *
-     * @return Builder for {@link NodeMetricEnableCallInput}.
+     * @return Builder for {@link NodeMetricSourceEnableCallInput}.
      */
-    public static NodeMetricEnableCallInputBuilder builder() {
-        return new NodeMetricEnableCallInputBuilder();
+    public static NodeMetricSourceEnableCallInputBuilder builder() {
+        return new NodeMetricSourceEnableCallInputBuilder();
     }
 
     /**
@@ -73,9 +73,9 @@ public class NodeMetricEnableCallInput implements CallInput {
     }
 
     /**
-     * Builder for {@link NodeMetricEnableCallInput}.
+     * Builder for {@link NodeMetricSourceEnableCallInput}.
      */
-    public static class NodeMetricEnableCallInputBuilder {
+    public static class NodeMetricSourceEnableCallInputBuilder {
 
         private String srcName;
 
@@ -83,23 +83,23 @@ public class NodeMetricEnableCallInput implements CallInput {
 
         private String endpointUrl;
 
-        public NodeMetricEnableCallInputBuilder srcName(String srcName) {
+        public NodeMetricSourceEnableCallInputBuilder srcName(String srcName) {
             this.srcName = srcName;
             return this;
         }
 
-        public NodeMetricEnableCallInputBuilder enable(boolean enable) {
+        public NodeMetricSourceEnableCallInputBuilder enable(boolean enable) {
             this.enable = enable;
             return this;
         }
 
-        public NodeMetricEnableCallInputBuilder endpointUrl(String endpointUrl) {
+        public NodeMetricSourceEnableCallInputBuilder endpointUrl(String endpointUrl) {
             this.endpointUrl = endpointUrl;
             return this;
         }
 
-        public NodeMetricEnableCallInput build() {
-            return new NodeMetricEnableCallInput(srcName, enable, endpointUrl);
+        public NodeMetricSourceEnableCallInput build() {
+            return new NodeMetricSourceEnableCallInput(srcName, enable, endpointUrl);
         }
     }
 }

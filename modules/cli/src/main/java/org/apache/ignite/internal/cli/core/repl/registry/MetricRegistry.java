@@ -15,26 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.decorators;
+package org.apache.ignite.internal.cli.core.repl.registry;
 
-import org.apache.ignite.internal.cli.core.decorator.Decorator;
-import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.internal.cli.sql.SqlQueryResult;
+import java.util.Set;
 
-/**
- * Composite decorator for {@link SqlQueryResult}.
- */
-public class SqlQueryResultDecorator implements Decorator<SqlQueryResult, TerminalOutput> {
-    private final TableDecorator tableDecorator;
+/** Metric registry. */
+public interface MetricRegistry {
 
-    private final DefaultDecorator<String> messageDecorator = new DefaultDecorator<>();
-
-    public SqlQueryResultDecorator(boolean plain) {
-        this.tableDecorator = new TableDecorator(plain);
-    }
-
-    @Override
-    public TerminalOutput decorate(SqlQueryResult data) {
-        return data.getResult(tableDecorator, messageDecorator);
-    }
+    /** Metric sources. */
+    Set<String> metricSources();
 }

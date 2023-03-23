@@ -15,25 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.decorators;
+package org.apache.ignite.internal.cli.commands.node.metric;
 
-import org.apache.ignite.internal.cli.core.decorator.Decorator;
-import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.internal.cli.sql.table.Table;
-import org.apache.ignite.internal.cli.util.PlainTableRenderer;
+import org.apache.ignite.internal.cli.commands.BaseCommand;
+import picocli.CommandLine.Command;
 
-/**
- * Implementation of {@link Decorator} for {@link Table}.
- */
-public class PlainTableDecorator extends TableDecorator {
-    /**
-     * Transform {@link Table} to {@link TerminalOutput}.
-     *
-     * @param table incoming {@link Table}.
-     * @return Plain interpretation of {@link Table} in {@link TerminalOutput}.
-     */
-    @Override
-    public TerminalOutput decorate(Table table) {
-        return () -> new PlainTableRenderer().render(table.header(), table.content());
-    }
+/** Node metric sources command in REPL. */
+@Command(name = "source",
+        subcommands = {
+                NodeMetricSourceEnableReplCommand.class,
+                NodeMetricSourceDisableReplCommand.class,
+                NodeMetricSourceListReplCommand.class
+        },
+        description = "Node metric sources operations")
+public class NodeMetricSourceReplCommand extends BaseCommand {
 }

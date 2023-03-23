@@ -15,26 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.decorators;
+package org.apache.ignite.internal.cli.core.repl.completer.metric;
 
-import org.apache.ignite.internal.cli.core.decorator.Decorator;
-import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.internal.cli.sql.SqlQueryResult;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
+import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFactory;
+import org.apache.ignite.internal.cli.core.repl.completer.StringDynamicCompleter;
+import org.apache.ignite.internal.cli.core.repl.registry.MetricRegistry;
 
-/**
- * Composite decorator for {@link SqlQueryResult}.
- */
-public class SqlQueryResultDecorator implements Decorator<SqlQueryResult, TerminalOutput> {
-    private final TableDecorator tableDecorator;
+/** Factory for metric source parameter completer. */
+@Singleton
+public class MetricSourceDynamicCompleterFactory implements DynamicCompleterFactory {
 
-    private final DefaultDecorator<String> messageDecorator = new DefaultDecorator<>();
-
-    public SqlQueryResultDecorator(boolean plain) {
-        this.tableDecorator = new TableDecorator(plain);
-    }
+    @Inject
+    private MetricRegistry registry;
 
     @Override
-    public TerminalOutput decorate(SqlQueryResult data) {
-        return data.getResult(tableDecorator, messageDecorator);
+    public DynamicCompleter getDynamicCompleter(String[] words) {
+        return new StringDynamicCompleter(registry.metricSources());
     }
 }

@@ -15,26 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.decorators;
+package org.apache.ignite.internal.cli.commands.node.metric;
 
-import org.apache.ignite.internal.cli.core.decorator.Decorator;
-import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.internal.cli.sql.SqlQueryResult;
+import org.apache.ignite.internal.cli.commands.BaseCommand;
+import picocli.CommandLine.Command;
 
-/**
- * Composite decorator for {@link SqlQueryResult}.
- */
-public class SqlQueryResultDecorator implements Decorator<SqlQueryResult, TerminalOutput> {
-    private final TableDecorator tableDecorator;
-
-    private final DefaultDecorator<String> messageDecorator = new DefaultDecorator<>();
-
-    public SqlQueryResultDecorator(boolean plain) {
-        this.tableDecorator = new TableDecorator(plain);
-    }
-
-    @Override
-    public TerminalOutput decorate(SqlQueryResult data) {
-        return data.getResult(tableDecorator, messageDecorator);
-    }
+/** Node metric sources command. */
+@Command(name = "source",
+        subcommands = {
+                NodeMetricSourceEnableCommand.class,
+                NodeMetricSourceDisableCommand.class,
+                NodeMetricSourceListCommand.class,
+        },
+        description = "Node metric sources operations")
+public class NodeMetricSourceCommand extends BaseCommand {
 }
