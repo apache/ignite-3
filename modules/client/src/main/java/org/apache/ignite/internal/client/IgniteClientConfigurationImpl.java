@@ -22,6 +22,7 @@ import org.apache.ignite.client.IgniteClientAddressFinder;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.client.SslConfiguration;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 import org.apache.ignite.lang.LoggerFactory;
 import org.jetbrains.annotations.Nullable;
 
@@ -63,11 +64,15 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     private final SslConfiguration sslConfiguration;
 
+    private final boolean metricsEnabled;
+
+    private final @Nullable ExporterView[] metricsExporters;
+
     /**
      * Constructor.
      *
      * @param addressFinder Address finder.
-     * @param addresses  Addresses.
+     * @param addresses Addresses.
      * @param connectTimeout Socket connect timeout.
      * @param reconnectThrottlingPeriod Reconnect throttling period, in milliseconds.
      * @param reconnectThrottlingRetries Reconnect throttling retries.
@@ -77,6 +82,8 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
      * @param heartbeatTimeout Heartbeat message timeout.
      * @param retryPolicy Retry policy.
      * @param loggerFactory Logger factory which will be used to create a logger instance for this this particular client when needed.
+     * @param metricsEnabled Whether metrics are enabled.
+     * @param metricsExporters Metrics exporters.
      */
     public IgniteClientConfigurationImpl(
             IgniteClientAddressFinder addressFinder,
@@ -90,8 +97,9 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             long heartbeatTimeout,
             @Nullable RetryPolicy retryPolicy,
             @Nullable LoggerFactory loggerFactory,
-            @Nullable SslConfiguration sslConfiguration
-    ) {
+            @Nullable SslConfiguration sslConfiguration,
+            boolean metricsEnabled,
+            @Nullable ExporterView[] metricsExporters) {
         this.addressFinder = addressFinder;
 
         //noinspection AssignmentOrReturnOfFieldWithMutableType (cloned in Builder).
@@ -107,6 +115,8 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.retryPolicy = retryPolicy;
         this.loggerFactory = loggerFactory;
         this.sslConfiguration = sslConfiguration;
+        this.metricsEnabled = metricsEnabled;
+        this.metricsExporters = metricsExporters;
     }
 
     /** {@inheritDoc} */
@@ -179,5 +189,17 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public @Nullable SslConfiguration ssl() {
         return sslConfiguration;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean metricsEnabled() {
+        return metricsEnabled;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable ExporterView[] metricsExporters() {
+        return metricsExporters == null ? null : metricsExporters.clone();
     }
 }

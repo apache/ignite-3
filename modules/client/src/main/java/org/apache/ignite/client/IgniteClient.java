@@ -34,6 +34,7 @@ import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -103,6 +104,12 @@ public interface IgniteClient extends Ignite {
 
         /** SSL configuration. */
         private @Nullable SslConfiguration sslConfiguration;
+
+        /** Metrics enabled flag. */
+        private boolean metricsEnabled;
+
+        /** Metrics exporters. */
+        private @Nullable ExporterView[] metricsExporters;
 
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
@@ -303,6 +310,32 @@ public interface IgniteClient extends Ignite {
         }
 
         /**
+         * Sets the metrics enabled flag.
+         *
+         * @param metricsEnabled Metrics enabled flag.
+         * @return This instance.
+         */
+        public Builder metricsEnabled(boolean metricsEnabled) {
+            this.metricsEnabled = metricsEnabled;
+
+            return this;
+        }
+
+        /**
+         * Sets the metrics exporters.
+         *
+         * @param metricsExporters Metrics exporters.
+         * @return This instance.
+         */
+        public Builder metricsExporters(ExporterView[] metricsExporters) {
+            Objects.requireNonNull(metricsExporters);
+
+            this.metricsExporters = metricsExporters.clone();
+
+            return this;
+        }
+
+        /**
          * Builds the client.
          *
          * @return Ignite client.
@@ -329,8 +362,9 @@ public interface IgniteClient extends Ignite {
                     heartbeatTimeout,
                     retryPolicy,
                     loggerFactory,
-                    sslConfiguration
-            );
+                    sslConfiguration,
+                    metricsEnabled,
+                    metricsExporters);
 
             return TcpIgniteClient.startAsync(cfg);
         }
