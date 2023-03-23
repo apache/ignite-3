@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.causality;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -113,7 +113,7 @@ public class CompletableVersionedValueTest {
 
             assertThrows(Exception.class, fut::get);
 
-            assertThat(intVersionedValue.get(token), willFailFast(TEST_EXCEPTION.getClass()));
+            assertThat(intVersionedValue.get(token), willThrow(TEST_EXCEPTION.getClass()));
         });
     }
 
