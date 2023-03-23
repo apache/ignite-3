@@ -18,38 +18,39 @@
 package org.apache.ignite.internal.cli.commands.node.metric;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.node.metric.NodeMetricListCall;
+import java.util.concurrent.Callable;
+import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
-import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.internal.cli.core.call.StringCallInput;
+import org.apache.ignite.internal.cli.commands.metric.MetricSourceMixin;
+import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
+import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
-import org.apache.ignite.internal.cli.core.flow.builder.Flows;
-import org.apache.ignite.internal.cli.decorators.MetricListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
-/** Command that lists node metric sources in REPL mode. */
-@Command(name = "list", description = "Lists node metric sources")
-public class NodeMetricListReplCommand extends BaseCommand implements Runnable {
+/** Command that enables node metric source. */
+@Command(name = "enable", description = "Enables node metric source")
+public class NodeMetricSourceEnableCommand extends BaseCommand implements Callable<Integer> {
     /** Node URL option. */
     @Mixin
-    private NodeUrlMixin nodeUrl;
+    private NodeUrlProfileMixin nodeUrl;
+
+    @Mixin
+    private MetricSourceMixin metricSource;
 
     @Inject
-    private NodeMetricListCall call;
-
-    @Inject
-    private ConnectToClusterQuestion question;
+    private NodeMetricSourceEnableCall call;
 
     /** {@inheritDoc} */
     @Override
-    public void run() {
-        question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
-                .map(StringCallInput::new)
-                .then(Flows.fromCall(call))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list metrics", "cluster init"))
-                .print(new MetricListDecorator())
-                .start();
+    public Integer call() {
+        return CallExecutionPipeline.builder(call)
+                .inputProvider(() -> metricSource.buildEnableCallInput(nodeUrl.getNodeUrl()))
+                .output(spec.commandLine().getOut())
+                .errOutput(spec.commandLine().getErr())
+                .verbose(verbose)
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot enable metrics", "ignite cluster init"))
+                .build()
+                .runPipeline();
     }
 }

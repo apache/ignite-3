@@ -71,6 +71,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 
@@ -82,6 +83,8 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
     private static final IgniteLogger LOG = Loggers.forClass(DeploymentManagerImpl.class);
 
     private static final String TMP_SUFFIX = ".tmp";
+
+    private static final ChannelType DEPLOYMENT_CHANNEL = ChannelType.register((short) 1, "DeploymentUnits");
 
     /**
      * Meta storage.
@@ -220,7 +223,8 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
                 }).thenApply(logicalTopologySnapshot -> {
                     for (ClusterNode node : logicalTopologySnapshot.nodes()) {
                         clusterService.messagingService()
-                                .invoke(node, UndeployUnitRequestImpl.builder()
+                                .invoke(node, DEPLOYMENT_CHANNEL,
+                                        UndeployUnitRequestImpl.builder()
                                                 .id(id)
                                                 .version(version.render())
                                                 .build(),
@@ -302,7 +306,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
             if (throwable != null) {
                 builder.error(throwable);
             }
-            clusterService.messagingService().respond(senderConsistentId,
+            clusterService.messagingService().respond(senderConsistentId, DEPLOYMENT_CHANNEL,
                     builder.build(), correlationId);
         });
     }
@@ -317,12 +321,12 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
         } catch (IOException e) {
             LOG.error("Failed to undeploy unit " + executeRequest.id() + ":" + executeRequest.version(), e);
             clusterService.messagingService()
-                    .respond(senderConsistentId, UndeployUnitResponseImpl.builder().error(e).build(), correlationId);
+                    .respond(senderConsistentId, DEPLOYMENT_CHANNEL, UndeployUnitResponseImpl.builder().error(e).build(), correlationId);
             return;
         }
 
         clusterService.messagingService()
-                .respond(senderConsistentId, UndeployUnitResponseImpl.builder().build(), correlationId);
+                .respond(senderConsistentId, DEPLOYMENT_CHANNEL, UndeployUnitResponseImpl.builder().build(), correlationId);
     }
 
     private CompletableFuture<Boolean> doDeploy(DeployUnitRequest executeRequest) {

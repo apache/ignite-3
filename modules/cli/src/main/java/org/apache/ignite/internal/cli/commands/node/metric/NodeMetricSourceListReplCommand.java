@@ -17,41 +17,46 @@
 
 package org.apache.ignite.internal.cli.commands.node.metric;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
+
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.node.metric.NodeMetricEnableCall;
+import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceListCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.metric.MetricSourceMixin;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
+import org.apache.ignite.internal.cli.decorators.MetricSourceListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
-/** Command that enables node metric source in REPL mode. */
-@Command(name = "enable", description = "Enables node metric source")
-public class NodeMetricEnableReplCommand extends BaseCommand implements Runnable {
+/** Command that lists node metric sources in REPL mode. */
+@Command(name = "list", description = "Lists node metric sources")
+public class NodeMetricSourceListReplCommand extends BaseCommand implements Runnable {
     /** Node URL option. */
     @Mixin
     private NodeUrlMixin nodeUrl;
 
-    @Mixin
-    private MetricSourceMixin metricSource;
+    @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
+    private boolean plain;
 
     @Inject
-    private NodeMetricEnableCall call;
+    private NodeMetricSourceListCall call;
 
     @Inject
     private ConnectToClusterQuestion question;
 
+    /** {@inheritDoc} */
     @Override
     public void run() {
         question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
-                .map(metricSource::buildEnableCallInput)
+                .map(UrlCallInput::new)
                 .then(Flows.fromCall(call))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot enable metrics", "cluster init"))
-                .verbose(verbose)
-                .print()
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list metrics", "cluster init"))
+                .print(new MetricSourceListDecorator(plain))
                 .start();
     }
 }

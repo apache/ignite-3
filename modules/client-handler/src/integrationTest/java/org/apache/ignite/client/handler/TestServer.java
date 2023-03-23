@@ -30,6 +30,7 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
@@ -48,6 +49,10 @@ public class TestServer {
 
     private final TestSslConfig testSslConfig;
 
+    private final ClientHandlerMetricSource metrics = new ClientHandlerMetricSource();
+
+    private long idleTimeout = 5000;
+
     TestServer(@Nullable TestSslConfig testSslConfig) {
         this.testSslConfig = testSslConfig;
         this.configurationManager = new ConfigurationManager(
@@ -57,10 +62,16 @@ public class TestServer {
                 List.of(),
                 List.of()
         );
+
+        metrics.enable();
     }
 
     TestServer() {
         this(null);
+    }
+
+    void idleTimeout(long idleTimeout) {
+        this.idleTimeout = idleTimeout;
     }
 
     void tearDown() throws Exception {
@@ -72,7 +83,10 @@ public class TestServer {
         configurationManager.start();
 
         clientConnectorConfig().change(
-                local -> local.changePort(10800).changePortRange(10)
+                local -> local
+                        .changePort(10800)
+                        .changePortRange(10)
+                        .changeIdleTimeout(idleTimeout)
         ).join();
 
         if (testSslConfig != null) {
@@ -92,11 +106,15 @@ public class TestServer {
 
         var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTablesInternal.class), mock(IgniteTransactions.class),
                 registry, mock(IgniteCompute.class), clusterService, bootstrapFactory, mock(IgniteSql.class),
-                () -> CompletableFuture.completedFuture(UUID.randomUUID()));
+                () -> CompletableFuture.completedFuture(UUID.randomUUID()), mock(MetricManager.class), metrics);
 
         module.start();
 
         return module;
+    }
+
+    ClientHandlerMetricSource metrics() {
+        return metrics;
     }
 
     private ClientConnectorConfiguration clientConnectorConfig() {

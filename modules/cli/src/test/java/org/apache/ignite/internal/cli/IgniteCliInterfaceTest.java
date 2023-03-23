@@ -154,7 +154,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         @DisplayName("metric")
         class Metric {
             @Test
-            @DisplayName("metric enable srcName")
+            @DisplayName("metric source enable srcName")
             void enable() {
                 clientAndServer
                         .when(request()
@@ -164,7 +164,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         )
                         .respond(response(null));
 
-                int exitCode = execute("node metric enable --node-url " + mockUrl + " srcName");
+                int exitCode = execute("node metric source enable --node-url " + mockUrl + " srcName");
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
@@ -173,7 +173,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             }
 
             @Test
-            @DisplayName("metric disable srcName")
+            @DisplayName("metric source disable srcName")
             void disable() {
                 clientAndServer
                         .when(request()
@@ -183,7 +183,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         )
                         .respond(response(null));
 
-                int exitCode = execute("node metric disable --node-url " + mockUrl + " srcName");
+                int exitCode = execute("node metric source disable --node-url " + mockUrl + " srcName");
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
@@ -192,21 +192,40 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             }
 
             @Test
-            @DisplayName("metric list")
-            void list() {
+            @DisplayName("metric source list")
+            void listSources() {
                 String responseBody = "[{\"name\":\"enabledMetric\",\"enabled\":true},{\"name\":\"disabledMetric\",\"enabled\":false}]";
                 clientAndServer
                         .when(request()
                                 .withMethod("GET")
-                                .withPath("/management/v1/metric/node")
+                                .withPath("/management/v1/metric/node/source")
                         )
                         .respond(response(responseBody));
 
-                int exitCode = execute("node metric list --node-url " + mockUrl);
+                int exitCode = execute("node metric source list --plain --node-url " + mockUrl);
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
-                assertOutputEqual("Enabled metric sources:\nenabledMetric\nDisabled metric sources:\ndisabledMetric\n");
+                assertOutputEqual("Set name\tEnabled\nenabledMetric\tenabled\ndisabledMetric\tdisabled\n");
+                assertThatStderrIsEmpty();
+            }
+
+            @Test
+            @DisplayName("metric list")
+            void listSets() {
+                String responseBody = "[{\"name\":\"metricSet\",\"metrics\":[{\"name\":\"metric\",\"desc\":\"description\"}]}]";
+                clientAndServer
+                        .when(request()
+                                .withMethod("GET")
+                                .withPath("/management/v1/metric/node/set")
+                        )
+                        .respond(response(responseBody));
+
+                int exitCode = execute("node metric list --plain --node-url " + mockUrl);
+
+                assertThatExitCodeMeansSuccess(exitCode);
+
+                assertOutputEqual("Set name\tMetric name\tDescription\nmetricSet\t\t\n\tmetric\tdescription");
                 assertThatStderrIsEmpty();
             }
         }
