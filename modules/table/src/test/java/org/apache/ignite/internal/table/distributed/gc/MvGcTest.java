@@ -41,6 +41,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
 import org.apache.ignite.lang.ErrorGroups.GarbageCollector;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -227,7 +228,10 @@ public class MvGcTest {
 
         TablePartitionId tablePartitionId = createTablePartitionId();
 
-        gc.addStorage(tablePartitionId, createWithWaitFinishVacuum(startInvokeVacuumMethodFuture, finishInvokeVacuumMethodFuture));
+        gc.addStorage(
+                tablePartitionId,
+                createWithWaitFinishVacuum(startInvokeVacuumMethodFuture, finishInvokeVacuumMethodFuture, willCompleteSuccessfully())
+        );
 
         gc.updateLowWatermark(new HybridTimestamp(1, 1));
 
@@ -249,7 +253,14 @@ public class MvGcTest {
 
         TablePartitionId tablePartitionId = createTablePartitionId();
 
-        gc.addStorage(tablePartitionId, createWithWaitFinishVacuum(startInvokeVacuumMethodFuture, finishInvokeVacuumMethodFuture));
+        gc.addStorage(
+                tablePartitionId,
+                createWithWaitFinishVacuum(
+                        startInvokeVacuumMethodFuture,
+                        finishInvokeVacuumMethodFuture,
+                        willFailFast(RuntimeException.class, "from test")
+                )
+        );
 
         gc.updateLowWatermark(new HybridTimestamp(1, 1));
 
@@ -259,7 +270,7 @@ public class MvGcTest {
 
         assertThat(removeStorageFuture, willTimeoutFast());
 
-        finishInvokeVacuumMethodFuture.completeExceptionally(new RuntimeException("form test"));
+        finishInvokeVacuumMethodFuture.completeExceptionally(new RuntimeException("from test"));
 
         assertThat(removeStorageFuture, willFailFast(RuntimeException.class));
     }
@@ -381,13 +392,19 @@ public class MvGcTest {
         return storageUpdateHandler;
     }
 
-    private StorageUpdateHandler createWithWaitFinishVacuum(CompletableFuture<Void> startFuture, CompletableFuture<Void> finishFuture) {
+    private StorageUpdateHandler createWithWaitFinishVacuum(
+            CompletableFuture<Void> startFuture,
+            CompletableFuture<Void> finishFuture,
+            CompletableFutureMatcher finishFutureMatcher
+    ) {
         StorageUpdateHandler storageUpdateHandler = mock(StorageUpdateHandler.class);
 
         when(storageUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
             startFuture.complete(null);
 
-            assertThat(finishFuture, willCompleteSuccessfully());
+            assertThat(finishFuture, finishFutureMatcher);
+
+            finishFuture.join();
 
             return false;
         });
