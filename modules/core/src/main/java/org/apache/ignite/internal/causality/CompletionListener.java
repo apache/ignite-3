@@ -15,35 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.event;
+package org.apache.ignite.internal.causality;
 
-import java.util.UUID;
-import org.apache.ignite.internal.manager.EventParameters;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Table event parameters. There are properties which associate with a concrete table.
+ * Listener that will be notified of every completion of a Versioned Value.
+ *
+ * @see VersionedValue#whenComplete(CompletionListener)
  */
-public class TableEventParameters extends EventParameters {
-    /** Table identifier. */
-    private final UUID tableId;
-
+@FunctionalInterface
+public interface CompletionListener<T> {
     /**
-     * Constructor.
+     * Method that will be called on every completion of a Versioned Value.
      *
-     * @param causalityToken Causality token.
-     * @param tableId   Table identifier.
+     * @param token Token for which a value has been completed.
+     * @param value Value that the Versioned Value was completed with.
+     * @param ex If not {@code null} - the Versioned Value has benn completed with an exception.
      */
-    public TableEventParameters(long causalityToken, UUID tableId) {
-        super(causalityToken);
-        this.tableId = tableId;
-    }
-
-    /**
-     * Get the table identifier.
-     *
-     * @return Table id.
-     */
-    public UUID tableId() {
-        return tableId;
-    }
+    void whenComplete(long token, @Nullable T value, @Nullable Throwable ex);
 }
