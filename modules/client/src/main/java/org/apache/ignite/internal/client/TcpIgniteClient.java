@@ -126,7 +126,7 @@ public class TcpIgniteClient implements IgniteClient {
 
             metricManager.start(exporters);
         } else {
-            // TODO: ???
+            // TODO: always create metric source to avoid null checks, but not metric manager?
             metricManager = null;
         }
     }
