@@ -60,6 +60,7 @@ public interface PropertiesHolder extends Iterable<Map.Entry<Property<?>, Object
          * @param value Value to set property with.
          * @param <T> A type of the value.
          * @return {@code this} for chaining.
+         * @throws IllegalArgumentException if value type doesn't match the type of property.
          */
         <T> Builder set(Property<T> property, T value);
 

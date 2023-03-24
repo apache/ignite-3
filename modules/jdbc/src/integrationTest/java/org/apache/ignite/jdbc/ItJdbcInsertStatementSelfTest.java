@@ -29,7 +29,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -168,7 +167,6 @@ public class ItJdbcInsertStatementSelfTest extends ItJdbcAbstractStatementSelfTe
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16960")
     public void testExecute() throws Exception {
         assertFalse(stmt.execute(SQL));
 
@@ -181,7 +179,6 @@ public class ItJdbcInsertStatementSelfTest extends ItJdbcAbstractStatementSelfTe
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16960")
     public void testPreparedExecute() throws Exception {
         assertFalse(prepStmt.execute());
 
@@ -194,7 +191,6 @@ public class ItJdbcInsertStatementSelfTest extends ItJdbcAbstractStatementSelfTe
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16960")
     public void testDuplicateKeys() throws Exception {
         String sql = "insert into PUBLIC.PERSON(sid, id, firstName, lastName, age) values('p1', 1, 'John', 'White', 25)";
 

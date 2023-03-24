@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.property;
 
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -32,7 +34,15 @@ class BuilderImpl implements Builder {
     /** {@inheritDoc} */
     @Override
     public <T> Builder set(Property<T> property, T value) {
-        properties.put(property, Objects.requireNonNull(value, "value"));
+        Objects.requireNonNull(value, "value");
+
+        if (!property.cls.isAssignableFrom(value.getClass())) {
+            throw new IllegalArgumentException(
+                    format("Unable to assign value of type \"{}\" to property {}", value.getClass().getName(), property)
+            );
+        }
+
+        properties.put(property, value);
 
         return this;
     }

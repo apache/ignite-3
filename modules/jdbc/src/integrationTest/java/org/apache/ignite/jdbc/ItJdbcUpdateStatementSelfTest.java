@@ -25,7 +25,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.function.Consumer;
 import org.apache.ignite.table.KeyValueView;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -85,7 +84,6 @@ public class ItJdbcUpdateStatementSelfTest extends AbstractJdbcSelfTest {
      * @throws SQLException If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16960")
     public void testExecuteAndExecuteUpdate() throws SQLException {
         testExecute((String updateQuery) -> {
             try {

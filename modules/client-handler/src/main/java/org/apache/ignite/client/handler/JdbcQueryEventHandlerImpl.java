@@ -135,11 +135,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                     "Invalid fetch size [fetchSize=" + req.pageSize() + ']'));
         }
 
-        // TODO: IGNITE-16960 support script execution
-        if (req.getStmtType() == JdbcStatementType.ANY_STATEMENT_TYPE) {
-            return CompletableFuture.completedFuture(new JdbcQueryExecuteResult(Response.STATUS_FAILED, "Scripts are not supported"));
-        }
-
         JdbcConnectionContext connectionContext;
         try {
             connectionContext = resources.get(connectionId).get(JdbcConnectionContext.class);

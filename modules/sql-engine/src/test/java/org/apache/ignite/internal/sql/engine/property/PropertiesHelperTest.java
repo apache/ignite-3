@@ -25,11 +25,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHolder.Builder;
 import org.apache.ignite.internal.util.Pair;
 import org.junit.jupiter.api.Test;
 
@@ -178,5 +180,21 @@ class PropertiesHelperTest {
             assertThat(newHolder.get(TestProps.LONG_PROP), is(2L));
             assertThat(newHolder, iterableWithSize(2));
         }
+    }
+
+    @Test
+    public void valueIsValidatedInBuilder() {
+        class PropertySetter {
+            private Builder setProp(Builder builder, Property<?> property, Object value) {
+                return builder.set((Property<? super Object>) property, value);
+            }
+        }
+
+        PropertySetter setter = new PropertySetter();
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> setter.setProp(PropertiesHelper.newBuilder(), TestProps.LONG_PROP, "42")
+        );
     }
 }

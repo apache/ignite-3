@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.sql.SQLException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -37,7 +36,6 @@ public class ItJdbcDeleteStatementSelfTest extends ItJdbcAbstractStatementSelfTe
      * @throws SQLException If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16960")
     public void testExecute() throws SQLException {
         stmt.execute("delete from PUBLIC.PERSON where substring(SID, 2, 1)::int % 2 = 0");
 
