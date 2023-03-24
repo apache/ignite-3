@@ -146,10 +146,11 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
                         "RequestsCompletedWithRetry",
                         "Total requests completed with retry (response received after one or more retries)");
 
-        private final AtomicLongMetric requestsFailed = new AtomicLongMetric("RequestsFailed","Total requests failed");
+        private final AtomicLongMetric requestsFailed = new AtomicLongMetric("RequestsFailed", "Total requests failed");
 
-        private final AtomicLongMetric bytesSent = new AtomicLongMetric("BytesSent","Total bytes sent");
-        private final AtomicLongMetric bytesReceived = new AtomicLongMetric("BytesReceived","Total bytes received");
+        private final AtomicLongMetric bytesSent = new AtomicLongMetric("BytesSent", "Total bytes sent");
+
+        private final AtomicLongMetric bytesReceived = new AtomicLongMetric("BytesReceived", "Total bytes received");
 
         final List<Metric> metrics = Arrays.asList(
                 connectionsActive,
