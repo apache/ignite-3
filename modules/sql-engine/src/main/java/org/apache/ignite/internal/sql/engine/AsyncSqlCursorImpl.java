@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import java.lang.reflect.Constructor;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteException;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.NotNull;
@@ -77,9 +80,8 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
                 if (implicitTx != null) {
                     implicitTx.rollback();
                 }
-                Throwable cause = unwrapRemoteCause(t);
 
-                throw IgniteException.wrap(cause);
+                throw wrapIfNecessary(t);
             }
 
             if (implicitTx != null && !batch.hasMore()) {
@@ -97,20 +99,44 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
         return dataCursor.closeAsync();
     }
 
+    private static IgniteException wrapIfNecessary(@NotNull Throwable t) {
+        Throwable cause = unwrapRemoteCause(t);
+
+        if (cause instanceof IgniteException) {
+            // Create an exception of the same type with the all properties
+            // set its cause to the original exception
+            IgniteException err = (IgniteException) cause;
+            return preserveExceptionType(err, t);
+        } else {
+            // If the cause is not a subclass of IgniteException return the original error.
+            return IgniteException.wrap(t);
+        }
+    }
+
     private static Throwable unwrapRemoteCause(@NotNull Throwable t) {
         Throwable err = t;
 
         while (err != null) {
-            if (err instanceof RemoteException || err instanceof CompletionException || err instanceof ExecutionException) {
+            err = ExceptionUtils.unwrapCause(err);
+            // Unwrap RemoteExceptions because they are just wrappers.
+            if (err instanceof RemoteException) {
                 err = err.getCause();
-            } else {
-                int errorCode = IgniteException.getIgniteErrorCode(err);
-                IgniteException newError = new IgniteException(errorCode, err.getMessage());
-                newError.addSuppressed(t);
-                return newError;
+                continue;
             }
+
+            return err;
         }
 
         return t;
+    }
+
+    private static IgniteException preserveExceptionType(IgniteException e, Throwable t) {
+        try {
+            Constructor<?> ctor = e.getClass().getDeclaredConstructor(UUID.class, int.class, String.class, Throwable.class);
+
+            return (IgniteException) ctor.newInstance(e.traceId(), e.code(), e.getMessage(), t);
+        } catch (Exception ex) {
+            throw new RuntimeException("IgniteException-derived class does not have required constructor: " + e.getClass().getName());
+        }
     }
 }
