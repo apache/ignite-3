@@ -19,45 +19,46 @@ package org.apache.ignite.internal.cli.commands.unit;
 
 
 import jakarta.inject.Inject;
-import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.unit.UnitStatusCall;
 import org.apache.ignite.internal.cli.call.unit.UnitStatusCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
-import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
+import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
+import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.decorators.UnitStatusDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
 
-/** Command to show status of the unit. */
+/** Command to show status of the unit in REPL mode. */
 @Command(name = "status", description = "Shows status of the unit")
-public class UnitStatusCommand extends BaseCommand implements Callable<Integer> {
+public class UnitStatusReplCommand extends BaseCommand implements Runnable {
 
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private ClusterUrlMixin clusterUrl;
 
     /** Unit id. */
     @Parameters(index = "0")
     private String id;
 
     @Inject
-    private UnitStatusCall statusCall;
+    private UnitStatusCall call;
+
+    @Inject
+    private ConnectToClusterQuestion question;
 
     @Override
-    public Integer call() throws Exception {
-        return CallExecutionPipeline.builder(statusCall)
-                .inputProvider(() ->
-                        UnitStatusCallInput.builder()
-                                .id(id)
-                                .clusterUrl(clusterUrl.getClusterUrl())
-                                .build())
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
+    public void run() {
+        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+                .map(clusterUrl -> UnitStatusCallInput.builder()
+                        .id(id)
+                        .clusterUrl(clusterUrl)
+                        .build())
+                .then(Flows.fromCall(call))
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot get unit status", "cluster init"))
                 .verbose(verbose)
-                .decorator(new UnitStatusDecorator())
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot get unit status", "ignite cluster init"))
-                .build().runPipeline();
+                .print(new UnitStatusDecorator())
+                .start();
     }
 }

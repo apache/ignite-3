@@ -19,36 +19,38 @@ package org.apache.ignite.internal.cli.commands.unit;
 
 
 import jakarta.inject.Inject;
-import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.unit.ListUnitCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
-import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
+import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
+import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.decorators.UnitListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
-/** Command to list deployed units. */
+/** Command to list deployed units in REPL mode. */
 @Command(name = "list", description = "Shows a list of deployed units")
-public class UnitListCommand extends BaseCommand implements Callable<Integer> {
+public class UnitListReplCommand extends BaseCommand implements Runnable {
 
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private ClusterUrlMixin clusterUrl;
 
     @Inject
-    private ListUnitCall listUnitCall;
+    private ListUnitCall call;
+
+    @Inject
+    private ConnectToClusterQuestion question;
 
     @Override
-    public Integer call() throws Exception {
-        return CallExecutionPipeline.builder(listUnitCall)
-                .inputProvider(() -> new UrlCallInput(clusterUrl.getClusterUrl()))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
+    public void run() {
+        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+                .map(UrlCallInput::new)
+                .then(Flows.fromCall(call))
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list units", "cluster init"))
                 .verbose(verbose)
-                .decorator(new UnitListDecorator())
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list units", "ignite cluster init"))
-                .build().runPipeline();
+                .print(new UnitListDecorator())
+                .start();
     }
 }
