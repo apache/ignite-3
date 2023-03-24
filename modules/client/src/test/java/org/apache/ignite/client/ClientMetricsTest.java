@@ -20,6 +20,7 @@ package org.apache.ignite.client;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.TcpIgniteClient;
@@ -65,8 +66,18 @@ public class ClientMetricsTest {
     }
 
     @Test
-    public void testConnectionsLostTimeout() {
-        // TODO: Imitate heartbeat timeout or handshake timeout
+    public void testConnectionsLostTimeout() throws InterruptedException {
+        server = new TestServer(10800, 10, 1000, new FakeIgnite(), idx -> idx == 0, null, null, AbstractClientTest.clusterId);
+        client = IgniteClient.builder()
+                .addresses("127.0.0.1:" + server.port())
+                .metricsEnabled(true)
+                .build();
+
+        ClientMetricSource metrics = ((TcpIgniteClient) client).metrics();
+
+        assertTrue(
+                IgniteTestUtils.waitForCondition(() -> metrics.connectionsLost() == 1, 1000),
+                () -> "connectionsLost: " + metrics.connectionsLost());
     }
 
     @AfterEach
