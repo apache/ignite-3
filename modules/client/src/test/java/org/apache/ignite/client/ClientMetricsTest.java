@@ -18,10 +18,12 @@
 package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -33,18 +35,23 @@ public class ClientMetricsTest {
     private IgniteClient client;
 
     @Test
-    public void testMetrics() {
+    public void testActiveConnections() throws Exception {
         server = AbstractClientTest.startServer(10800, 10, 1000, new FakeIgnite());
         client = IgniteClient.builder()
                 .addresses("127.0.0.1:" + server.port())
                 .metricsEnabled(true)
                 .build();
 
-        client.tables().tables();
-
         ClientMetricSource metrics = ((TcpIgniteClient)client).metrics();
+
         assertEquals(1, metrics.connectionsEstablished());
         assertEquals(1, metrics.connectionsActive());
+
+        server.close();
+
+        assertTrue(
+                IgniteTestUtils.waitForCondition(() -> metrics.connectionsActive() == 0, 1000),
+                () -> "connectionsActive: " + metrics.connectionsActive());
     }
 
     @AfterEach
