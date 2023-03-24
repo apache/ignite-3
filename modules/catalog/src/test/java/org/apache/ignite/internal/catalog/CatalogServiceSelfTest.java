@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -33,7 +34,6 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.sql.ColumnType;
@@ -157,6 +157,6 @@ public class CatalogServiceSelfTest {
                         .ifTableExists(false)
                         .build());
 
-        assertThat(fut, CompletableFutureExceptionMatcher.willThrowFast(TableAlreadyExistsException.class));
+        assertThat(fut, willThrowFast(TableAlreadyExistsException.class));
     }
 }
