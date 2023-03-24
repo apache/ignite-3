@@ -129,8 +129,8 @@ public class TcpIgniteClient implements IgniteClient {
 
         metricManager.start(exporters);
 
-        metricSource.enable();
         metricManager.registerSource(metricSource);
+        metricSource.enable();
 
         return metricManager;
     }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import java.util.Arrays;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterView;
@@ -31,13 +32,12 @@ public class ClientMetricsTest {
     private IgniteClient client;
 
     @Test
-    public void testMetrics() throws Exception {
+    public void testMetrics() {
         server = AbstractClientTest.startServer(10800, 10, 1000, new FakeIgnite());
         client = IgniteClient.builder()
                 .addresses("127.0.0.1:" + server.port())
                 .metricsEnabled(true)
-                // TODO: Provide predefined metrics exporters? This config is not good.
-                .metricsExporters(new ExporterView[]{(JmxExporterView) () -> "jmx"})
+                .metricExporterNames(new String[] {"jmx"})
                 .build();
 
         client.tables().tables();
