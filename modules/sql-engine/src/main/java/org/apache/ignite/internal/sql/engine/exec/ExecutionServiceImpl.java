@@ -381,7 +381,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 .map(mgr -> mgr.close(true))
                 .toArray(CompletableFuture[]::new)
         );
-        // Workaround for TODO https://issues.apache.org/jira/browse/IGNITE-19088
+        // TODO Workaround for https://issues.apache.org/jira/browse/IGNITE-19088
         f.get(1, TimeUnit.MINUTES);
     }
 

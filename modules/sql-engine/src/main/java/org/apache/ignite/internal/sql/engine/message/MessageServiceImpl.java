@@ -96,7 +96,7 @@ public class MessageServiceImpl implements MessageService {
                 }
 
                 try {
-                    // Workaround for TODO https://issues.apache.org/jira/browse/IGNITE-19088
+                    // TODO Workaround for https://issues.apache.org/jira/browse/IGNITE-19088
                     messagingSrvc.send(node, msg).get(1, TimeUnit.SECONDS);
                 } catch (Exception ex) {
                     if (ex instanceof IgniteInternalCheckedException) {
