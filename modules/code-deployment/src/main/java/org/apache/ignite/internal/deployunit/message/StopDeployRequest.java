@@ -21,14 +21,21 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Deploy unit response.
+ * Stop deploy request.
  */
-@Transferable(DeployUnitMessageTypes.DEPLOY_UNIT_RESPONSE)
-public interface DeployUnitResponse extends NetworkMessage {
+@Transferable(DeployUnitMessageTypes.STOP_DEPLOY_REQUEST)
+public interface StopDeployRequest extends NetworkMessage {
     /**
-     * Shows success or not deploy process.
+     * Returns deployment unit identifier.
      *
-     * @return success or not deploy process.
+     * @return deployment unit identifier.
      */
-    boolean success();
+    String id();
+
+    /**
+     * Returns deployment unit version.
+     *
+     * @return deployment unit version.
+     */
+    String version();
 }

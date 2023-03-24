@@ -15,20 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.message;
-
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.deployment;
 
 /**
- * Deploy unit response.
+ * Status of deployment process.
  */
-@Transferable(DeployUnitMessageTypes.DEPLOY_UNIT_RESPONSE)
-public interface DeployUnitResponse extends NetworkMessage {
-    /**
-     * Shows success or not deploy process.
-     *
-     * @return success or not deploy process.
-     */
-    boolean success();
+public enum DeploymentStatus {
+    /** Unit deployment is in progress. */
+    UPLOADING,
+
+    /** Unit is deployed on the cluster. */
+    DEPLOYED,
+
+    /** Remove command was initiated for the unit and it will be removed soon. */
+    OBSOLETE,
+
+    /** Unit removal from the cluster is in progress. */
+    REMOVING
 }

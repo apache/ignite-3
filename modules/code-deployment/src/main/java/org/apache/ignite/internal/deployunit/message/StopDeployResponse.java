@@ -17,18 +17,14 @@
 
 package org.apache.ignite.internal.deployunit.message;
 
+import static org.apache.ignite.internal.deployunit.message.DeployUnitMessageTypes.STOP_DEPLOY_RESPONSE;
+
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Deploy unit response.
+ * Stop deploy request.
  */
-@Transferable(DeployUnitMessageTypes.DEPLOY_UNIT_RESPONSE)
-public interface DeployUnitResponse extends NetworkMessage {
-    /**
-     * Shows success or not deploy process.
-     *
-     * @return success or not deploy process.
-     */
-    boolean success();
+@Transferable(STOP_DEPLOY_RESPONSE)
+public interface StopDeployResponse extends NetworkMessage {
 }
