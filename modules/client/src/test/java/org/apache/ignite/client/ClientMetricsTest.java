@@ -17,10 +17,7 @@
 
 package org.apache.ignite.client;
 
-import java.util.Arrays;
 import org.apache.ignite.client.fakes.FakeIgnite;
-import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
-import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterView;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -37,7 +34,6 @@ public class ClientMetricsTest {
         client = IgniteClient.builder()
                 .addresses("127.0.0.1:" + server.port())
                 .metricsEnabled(true)
-                .metricExporterNames(new String[] {"jmx"})
                 .build();
 
         client.tables().tables();

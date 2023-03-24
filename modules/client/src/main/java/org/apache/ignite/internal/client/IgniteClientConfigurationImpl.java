@@ -65,8 +65,6 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     private final boolean metricsEnabled;
 
-    private final @Nullable String[] metricExporterNames;
-
     /**
      * Constructor.
      *
@@ -82,7 +80,6 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
      * @param retryPolicy Retry policy.
      * @param loggerFactory Logger factory which will be used to create a logger instance for this this particular client when needed.
      * @param metricsEnabled Whether metrics are enabled.
-     * @param metricExporterNames Metrics exporters.
      */
     public IgniteClientConfigurationImpl(
             IgniteClientAddressFinder addressFinder,
@@ -97,8 +94,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             @Nullable RetryPolicy retryPolicy,
             @Nullable LoggerFactory loggerFactory,
             @Nullable SslConfiguration sslConfiguration,
-            boolean metricsEnabled,
-            @Nullable String[] metricExporterNames) {
+            boolean metricsEnabled) {
         this.addressFinder = addressFinder;
 
         //noinspection AssignmentOrReturnOfFieldWithMutableType (cloned in Builder).
@@ -115,7 +111,6 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.loggerFactory = loggerFactory;
         this.sslConfiguration = sslConfiguration;
         this.metricsEnabled = metricsEnabled;
-        this.metricExporterNames = metricExporterNames;
     }
 
     /** {@inheritDoc} */
@@ -194,11 +189,5 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public boolean metricsEnabled() {
         return metricsEnabled;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @Nullable String[] metricExporterNames() {
-        return metricExporterNames == null ? null : metricExporterNames.clone();
     }
 }

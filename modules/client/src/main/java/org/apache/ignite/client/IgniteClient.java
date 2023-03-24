@@ -107,9 +107,6 @@ public interface IgniteClient extends Ignite {
         /** Metrics enabled flag. */
         private boolean metricsEnabled;
 
-        /** Metrics exporters. */
-        private @Nullable String[] metricExporterNames;
-
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
          * If port is not set then Ignite will generate multiple addresses for default port range. See {@link
@@ -309,27 +306,13 @@ public interface IgniteClient extends Ignite {
         }
 
         /**
-         * Sets the metrics enabled flag.
+         * Enables or disables JMX metrics.
          *
          * @param metricsEnabled Metrics enabled flag.
          * @return This instance.
          */
         public Builder metricsEnabled(boolean metricsEnabled) {
             this.metricsEnabled = metricsEnabled;
-
-            return this;
-        }
-
-        /**
-         * Sets the metrics exporters.
-         *
-         * @param metricExporterNames Metric exporter names.
-         * @return This instance.
-         */
-        public Builder metricExporterNames(String[] metricExporterNames) {
-            Objects.requireNonNull(metricExporterNames);
-
-            this.metricExporterNames = metricExporterNames.clone();
 
             return this;
         }
@@ -362,8 +345,7 @@ public interface IgniteClient extends Ignite {
                     retryPolicy,
                     loggerFactory,
                     sslConfiguration,
-                    metricsEnabled,
-                    metricExporterNames);
+                    metricsEnabled);
 
             return TcpIgniteClient.startAsync(cfg);
         }

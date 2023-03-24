@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.client.ClientUtils.sync;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import org.apache.ignite.client.IgniteClient;
@@ -37,7 +36,7 @@ import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.tx.ClientTransactions;
 import org.apache.ignite.internal.jdbc.proto.ClientMessage;
 import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.metrics.exporters.MetricExporter;
+import org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
@@ -107,27 +106,12 @@ public class TcpIgniteClient implements IgniteClient {
 
     @Nullable
     private MetricManager initMetricManager(IgniteClientConfiguration cfg) {
-        if (!cfg.metricsEnabled() || cfg.metricExporterNames() == null || cfg.metricExporterNames().length <= 0) {
+        if (!cfg.metricsEnabled()) {
             return null;
         }
 
         var metricManager = new MetricManager();
-        Map<String, MetricExporter> availableExporters = MetricManager.loadExporters();
-
-        List<MetricExporter<?>> exporters = new ArrayList<>();
-
-        for (String exporterName : cfg.metricExporterNames()) {
-            MetricExporter<?> exporter = availableExporters.get(exporterName);
-
-            if (exporter == null) {
-                // TODO: ???
-                throw new IllegalArgumentException("Exporter with name " + exporterName + " is not found.");
-            }
-
-            exporters.add(exporter);
-        }
-
-        metricManager.start(exporters);
+        metricManager.start(List.of(new JmxExporter()));
 
         metricManager.registerSource(metricSource);
         metricSource.enable();
@@ -218,7 +202,10 @@ public class TcpIgniteClient implements IgniteClient {
     @Override
     public void close() throws Exception {
         ch.close();
-        metricManager.stop();
+
+        if (metricManager != null) {
+            metricManager.stop();
+        }
     }
 
     /** {@inheritDoc} */
