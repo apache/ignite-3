@@ -25,7 +25,7 @@ import static org.apache.ignite.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.deployment.DeploymentStatus.REMOVING;
 import static org.apache.ignite.deployment.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -179,7 +179,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         waitUnitClean(cmg, unit);
 
         assertThat(node(2).deployment().statusAsync(id)
-                .thenApply(status1 -> status1.status(version)), willFailFast(DeploymentUnitNotFoundException.class));
+                .thenApply(status1 -> status1.status(version)), willThrowFast(DeploymentUnitNotFoundException.class));
     }
 
     @Test
