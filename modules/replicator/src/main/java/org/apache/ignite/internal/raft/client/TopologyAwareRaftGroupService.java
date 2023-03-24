@@ -337,7 +337,9 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
     @Override
     public @Nullable Peer leader() {
-        return serverEventHandler.leader();
+        Peer leader = serverEventHandler.leader();
+
+        return leader == null ? raftClient.leader() : leader;
     }
 
     @Override
