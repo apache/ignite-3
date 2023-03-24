@@ -89,7 +89,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     /** Partition meta storage. */
     private final RocksDbMetaStorage indexMetaStorage;
 
-    /** Last row ID that has been processed by an ongoing index build process, {@code null} if the process has finished */
+    /** Last row ID that has been processed by an ongoing index build process, {@code null} if the process has finished. */
     private volatile @Nullable RowId lastBuiltIndexRow;
 
     /**

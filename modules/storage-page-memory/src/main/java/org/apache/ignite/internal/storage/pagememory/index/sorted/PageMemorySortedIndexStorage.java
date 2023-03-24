@@ -89,7 +89,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     /** Index meta tree instance. */
     private final IndexMetaTree indexMetaTree;
 
-    /** Last row ID that has been processed by an ongoing index build process, {@code null} if the process has finished */
+    /** Last row ID that has been processed by an ongoing index build process, {@code null} if the process has finished. */
     private volatile @Nullable RowId lastBuiltIndexRow;
 
     /**
