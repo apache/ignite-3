@@ -539,15 +539,18 @@ public class DistributionZoneManager implements IgniteComponent {
 
     /**
      * The method for obtaining data nodes of the specified zone.
-     * If the {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleUp}
-     * or {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleDown}
-     * equals to 0 then returned completable future will be completed when data nodes will be saved to the meta storage.
+     * The flow for the future completion:
+     * Waiting for DistributionZoneManager observe passed topology version in topologyWatchListener.
+     * If the {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleUp} equals to 0 than wait for writing started nodes
+     * corresponding to the topology version to data nodes into the meta storage .
+     * If the {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleDown} equals to 0 than wait for writing stopped nodes
+     * corresponding to the topology version to data nodes into the meta storage .
      *
      * @param zoneId Zone id.
      * @param topVer Topology version.
      * @return The data nodes future.
      */
-    public CompletableFuture<Set<String>> getDataNodes(int zoneId, long topVer) {
+    public CompletableFuture<Set<String>> topologyVersionDataNodes(int zoneId, long topVer) {
         CompletableFuture<Set<String>> dataNodesFut = new CompletableFuture<>();
 
         CompletableFuture<Void> topVerFut;
@@ -794,12 +797,10 @@ public class DistributionZoneManager implements IgniteComponent {
 
             if (newScaleUp > 0) {
                 synchronized (dataNodesMutex) {
-                    if (zoneState != null) {
-                        zoneState.revisionScaleUpFutures().values()
-                                .forEach(fut0 -> fut0.complete(null));
+                    zoneState.revisionScaleUpFutures().values()
+                            .forEach(fut0 -> fut0.complete(null));
 
-                        zoneState.revisionScaleUpFutures().clear();
-                    }
+                    zoneState.revisionScaleUpFutures().clear();
                 }
             }
 
@@ -843,12 +844,10 @@ public class DistributionZoneManager implements IgniteComponent {
 
             if (newScaleDown > 0) {
                 synchronized (dataNodesMutex) {
-                    if (zoneState != null) {
-                        zoneState.revisionScaleDownFutures().values()
-                                .forEach(fut0 -> fut0.complete(null));
+                    zoneState.revisionScaleDownFutures().values()
+                            .forEach(fut0 -> fut0.complete(null));
 
-                        zoneState.revisionScaleDownFutures().clear();
-                    }
+                    zoneState.revisionScaleDownFutures().clear();
                 }
             }
 
@@ -1705,10 +1704,10 @@ public class DistributionZoneManager implements IgniteComponent {
         /** Data nodes. */
         private Set<String> nodes;
 
-        /** Scale up metastorage revision of current nodes value. */
+        /** Scale up meta storage revision of current nodes value. */
         private long scaleUpRevision;
 
-        /** Scale down metastorage revision of current nodes value. */
+        /** Scale down meta storage revision of current nodes value. */
         private long scaleDownRevision;
 
         /**
@@ -1888,34 +1887,76 @@ public class DistributionZoneManager implements IgniteComponent {
                     .map(Map.Entry::getKey);
         }
 
+        /**
+         * Get data nodes.
+         *
+         * @return Data nodes.
+         */
         private Set<String> nodes() {
             return nodes;
         }
 
+        /**
+         * Set data nodes.
+         *
+         * @param nodes Data nodes.
+         */
         private void nodes(Set<String> nodes) {
             this.nodes = nodes;
         }
 
+        /**
+         * Get scale up meta storage revision of current nodes value.
+         *
+         * @return Scale up meta storage revision.
+         */
         private long scaleUpRevision() {
             return scaleUpRevision;
         }
 
+        /**
+         * Set scale up meta storage revision of current nodes value.
+         *
+         * @param scaleUpRevision Scale up meta storage revision.
+         */
         private void scaleUpRevision(long scaleUpRevision) {
             this.scaleUpRevision = scaleUpRevision;
         }
 
+        /**
+         * Get scale down meta storage revision of current nodes value.
+         *
+         * @return Scale down meta storage revision.
+         */
         private long scaleDownRevision() {
             return scaleDownRevision;
         }
 
+        /**
+         * Set scale down meta storage revision of current nodes value.
+         *
+         * @param scaleDownRevision Scale up meta storage revision.
+         */
         private void scaleDownRevision(long scaleDownRevision) {
             this.scaleDownRevision = scaleDownRevision;
         }
 
+        /**
+         * The map contains futures which are completed when zone manager observe data nodes bound to appropriate scale up revision.
+         * Map (revision -> future).
+         *
+         * @return The map of futures.
+         */
         NavigableMap<Long, CompletableFuture<Void>> revisionScaleUpFutures() {
             return revisionScaleUpFutures;
         }
 
+        /**
+         * The map contains futures which are completed when zone manager observe data nodes bound to appropriate scale down revision.
+         * Map (revision -> future).
+         *
+         * @return The map of futures.
+         */
         NavigableMap<Long, CompletableFuture<Void>> revisionScaleDownFutures() {
             return revisionScaleDownFutures;
         }
