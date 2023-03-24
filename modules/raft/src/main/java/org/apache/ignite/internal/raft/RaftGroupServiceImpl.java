@@ -467,7 +467,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .groupId(groupId)
                 .build();
 
-        return this.<ReadIndexResponse>sendWithRetry(randomNode(), requestFactory)
+        Peer leader = leader();
+        Peer node = leader == null ? randomNode() : leader;
+        return this.<ReadIndexResponse>sendWithRetry(node, requestFactory)
                 .thenApply(ReadIndexResponse::index);
     }
 

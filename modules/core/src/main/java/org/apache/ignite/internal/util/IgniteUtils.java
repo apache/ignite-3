@@ -53,6 +53,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -1011,17 +1012,18 @@ public class IgniteUtils {
      * Retries operation until it succeeds or fails with exception that is different than the given.
      *
      * @param operation Operation.
-     * @param exClass Exception.
+     * @param stopRetryCondition Condition that accepts the exception if one has been thrown, and defines whether retries should be stopped.
+     * @param executor Executor to make retry in.
      * @return Future that is completed when operation is successful or failed with other exception than the given.
      */
     public static <T> CompletableFuture<T> retryOperationUntilSuccess(
             Supplier<CompletableFuture<T>> operation,
-            Class<? extends Exception> exClass,
+            Function<Throwable, Boolean> stopRetryCondition,
             Executor executor
     ) {
         CompletableFuture<T> fut = new CompletableFuture<>();
 
-        retryOperationUntilSuccess(operation, exClass, fut, executor);
+        retryOperationUntilSuccess(operation, stopRetryCondition, fut, executor);
 
         return fut;
     }
@@ -1030,12 +1032,13 @@ public class IgniteUtils {
      * Retries operation until it succeeds or fails with exception that is different than the given.
      *
      * @param operation Operation.
-     * @param exClass Exception.
+     * @param stopRetryCondition Condition that accepts the exception if one has been thrown, and defines whether retries should be stopped.
+     * @param executor Executor to make retry in.
      * @param fut Future that is completed when operation is successful or failed with other exception than the given.
      */
     public static <T> void retryOperationUntilSuccess(
             Supplier<CompletableFuture<T>> operation,
-            Class<? extends Exception> exClass,
+            Function<Throwable, Boolean> stopRetryCondition,
             CompletableFuture<T> fut,
             Executor executor
     ) {
@@ -1044,10 +1047,10 @@ public class IgniteUtils {
                     if (e == null) {
                         fut.complete(res);
                     } else {
-                        if (exClass.isAssignableFrom(e.getClass())) {
-                            executor.execute(() -> retryOperationUntilSuccess(operation, exClass, fut, executor));
-                        } else {
+                        if (stopRetryCondition.apply(e)) {
                             fut.completeExceptionally(e);
+                        } else {
+                            executor.execute(() -> retryOperationUntilSuccess(operation, stopRetryCondition, fut, executor));
                         }
                     }
                 });

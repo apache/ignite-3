@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.replicator;
 
+import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -152,7 +153,7 @@ public class PlacementDriverReplicaSideTest {
     }
 
     private HybridTimestamp hts(long physical) {
-        return new HybridTimestamp(physical, 0);
+        return new HybridTimestamp(currentTimeMillis() + physical * 1000, 0);
     }
 
     private void updateIndex(long index) {

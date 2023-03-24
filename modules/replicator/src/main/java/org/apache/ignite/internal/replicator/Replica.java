@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.replicator;
 
+import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -169,7 +171,7 @@ public class Replica {
                 // Replica must wait till storage index reaches the current leader's index to make sure that all updates made on the
                 // group leader are received.
 
-                return waitForActualState()
+                return waitForActualState(msg.leaseExpirationTime().getPhysical())
                         .thenCompose(v -> {
                             CompletableFuture<LeaseGrantedMessageResponse> respFut =
                                     acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
@@ -183,7 +185,8 @@ public class Replica {
                         });
             } else {
                 if (leader.equals(localNode)) {
-                    return waitForActualState().thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
+                    return waitForActualState(msg.leaseExpirationTime().getPhysical())
+                            .thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
                 } else {
                     return proposeLeaseRedirect(leader);
                 }
@@ -218,10 +221,24 @@ public class Replica {
         return completedFuture(resp);
     }
 
-    private CompletableFuture<Void> waitForActualState() {
+    /**
+     * Tries to read index from group leader and wait for this index to appear in local storage. Can possible return failed future with
+     * timeout exception, and in this case, replica would not answer to placement driver, because the response is useless. Placement driver
+     * should handle this.
+     *
+     * @param expirationTime Lease expiration time.
+     * @return Future that is completed when local storage catches up the index that is actual for leader on the moment of request.
+     */
+    private CompletableFuture<Void> waitForActualState(long expirationTime) {
         LOG.info("Waiting for actual storage state, group=" + groupId());
 
-        return retryOperationUntilSuccess(raftClient::readIndex, TimeoutException.class, Runnable::run)
+        long timeout = expirationTime - currentTimeMillis();
+        if (timeout <= 0) {
+            return failedFuture(new TimeoutException());
+        }
+
+        return retryOperationUntilSuccess(raftClient::readIndex, e -> currentTimeMillis() > expirationTime, Runnable::run)
+                .orTimeout(timeout, TimeUnit.MILLISECONDS)
                 .thenCompose(storageIndexTracker::waitFor);
     }
 }
