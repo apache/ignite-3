@@ -1864,7 +1864,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return new WatchListener() {
             @Override
             public String id() {
-                return "dst-zones-data-nodes-watch";
+                return "dst-zones-data-nodes-table-manager-watch";
             }
 
             @Override
