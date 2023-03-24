@@ -20,8 +20,6 @@ package org.apache.ignite.internal.sql.engine;
 import java.lang.reflect.Constructor;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
