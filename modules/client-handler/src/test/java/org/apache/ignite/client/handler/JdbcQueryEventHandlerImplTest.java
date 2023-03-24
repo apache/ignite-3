@@ -43,7 +43,6 @@ import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
-import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -161,20 +160,6 @@ class JdbcQueryEventHandlerImplTest {
         assertThat(result.status(), is(STATUS_FAILED));
         assertThat(result.hasResults(), is(false));
         assertThat(result.err(), containsString("Unable to connect"));
-    }
-
-    @Test
-    void scriptsAreNotSupported() {
-        long connectionId = acquireConnectionId();
-
-        Response response = await(eventHandler.queryAsync(connectionId, new JdbcQueryExecuteRequest(
-                JdbcStatementType.ANY_STATEMENT_TYPE, "my_schema", 1024, 1024, "SELECT 1", ArrayUtils.OBJECT_EMPTY_ARRAY
-        )));
-
-        assertThat(response, notNullValue());
-        assertThat(response.status(), is(STATUS_FAILED));
-        assertThat(response.hasResults(), is(false));
-        assertThat(response.err(), containsString("Scripts are not supported"));
     }
 
     @Test
