@@ -17,7 +17,11 @@
 
 package org.apache.ignite.client;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.internal.client.ClientMetricSource;
+import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -37,6 +41,10 @@ public class ClientMetricsTest {
                 .build();
 
         client.tables().tables();
+
+        ClientMetricSource metrics = ((TcpIgniteClient)client).metrics();
+        assertEquals(1, metrics.connectionsEstablished());
+        assertEquals(1, metrics.connectionsActive());
     }
 
     @AfterEach

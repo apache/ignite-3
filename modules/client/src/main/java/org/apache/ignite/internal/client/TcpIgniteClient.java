@@ -43,6 +43,7 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of {@link IgniteClient} over TCP protocol.
@@ -69,7 +70,8 @@ public class TcpIgniteClient implements IgniteClient {
     /** Metric manager. */
     private final @Nullable MetricManager metricManager;
 
-    private final ClientMetricSource metricSource;
+    /** Metrics. */
+    private final ClientMetricSource metrics;
 
     /**
      * Constructor.
@@ -95,8 +97,8 @@ public class TcpIgniteClient implements IgniteClient {
 
         this.cfg = cfg;
 
-        metricSource = new ClientMetricSource();
-        ch = new ReliableChannel(chFactory, cfg, metricSource);
+        metrics = new ClientMetricSource();
+        ch = new ReliableChannel(chFactory, cfg, metrics);
         tables = new ClientTables(ch);
         transactions = new ClientTransactions(ch);
         compute = new ClientCompute(ch, tables);
@@ -113,8 +115,8 @@ public class TcpIgniteClient implements IgniteClient {
         var metricManager = new MetricManager();
         metricManager.start(List.of(new JmxExporter()));
 
-        metricManager.registerSource(metricSource);
-        metricSource.enable();
+        metricManager.registerSource(metrics);
+        metrics.enable();
 
         return metricManager;
     }
@@ -224,6 +226,11 @@ public class TcpIgniteClient implements IgniteClient {
     @Override
     public List<ClusterNode> connections() {
         return ch.connections();
+    }
+
+    @TestOnly
+    public ClientMetricSource metrics() {
+        return metrics;
     }
 
     /**
