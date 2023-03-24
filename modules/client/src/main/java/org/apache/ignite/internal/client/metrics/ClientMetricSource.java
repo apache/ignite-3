@@ -35,6 +35,52 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         super("client");
     }
 
+    /**
+     * Gets active connections.
+     *
+     * @return Active connections.
+     */
+    public long connectionsActive() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.connectionsActive.value();
+    }
+
+    void connectionsActiveIncrement() {
+        Holder h = holder();
+
+        if (h != null) {
+            h.connectionsActive.increment();
+        }
+    }
+
+    void connectionsActiveDecrement() {
+        Holder h = holder();
+
+        if (h != null) {
+            h.connectionsActive.decrement();
+        }
+    }
+
+    /**
+     * Gets total initiated connections.
+     *
+     * @return Total initiated connections.
+     */
+    public long connectionsEstablished() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.connectionsEstablished.value();
+    }
+
+    void connectionsEstablishedIncrement() {
+        Holder h = holder();
+
+        if (h != null) {
+            h.connectionsEstablished.increment();
+        }
+    }
+
     @Override
     protected Holder createHolder() {
         return new Holder();
