@@ -232,7 +232,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         HashIndexTree hashIndexTree = createHashIndexTree(indexDescriptor, indexMeta);
 
-        return new PageMemoryHashIndexStorage(indexDescriptor, indexFreeList, hashIndexTree, indexMetaTree);
+        return new PageMemoryHashIndexStorage(
+                indexDescriptor,
+                indexFreeList,
+                hashIndexTree,
+                indexMetaTree,
+                indexMeta.lastBuiltRowIdUuid()
+        );
     }
 
     HashIndexTree createHashIndexTree(HashIndexDescriptor indexDescriptor, IndexMeta indexMeta) {
@@ -277,7 +283,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         SortedIndexTree sortedIndexTree = createSortedIndexTree(indexDescriptor, indexMeta);
 
-        return new PageMemorySortedIndexStorage(indexDescriptor, indexFreeList, sortedIndexTree, indexMetaTree);
+        return new PageMemorySortedIndexStorage(
+                indexDescriptor,
+                indexFreeList,
+                sortedIndexTree,
+                indexMetaTree,
+                indexMeta.lastBuiltRowIdUuid()
+        );
     }
 
     SortedIndexTree createSortedIndexTree(SortedIndexDescriptor indexDescriptor, IndexMeta indexMeta) {

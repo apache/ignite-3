@@ -91,12 +91,15 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
      * @param freeList Free list to store index columns.
      * @param hashIndexTree Hash index tree instance.
      * @param indexMetaTree Index meta tree instance.
+     * @param lastBuiltIndexRowUuid Last row ID uuid that has been processed by an ongoing index build process, {@code null} if the process
+     *      has finished.
      */
     public PageMemoryHashIndexStorage(
             HashIndexDescriptor descriptor,
             IndexColumnsFreeList freeList,
             HashIndexTree hashIndexTree,
-            IndexMetaTree indexMetaTree
+            IndexMetaTree indexMetaTree,
+            @Nullable UUID lastBuiltIndexRowUuid
     ) {
         this.descriptor = descriptor;
         this.freeList = freeList;
@@ -109,7 +112,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
 
         highestRowId = RowId.highestRowId(partitionId);
 
-        lastBuiltIndexRow = readLastBuiltRowId();
+        lastBuiltIndexRow = lastBuiltIndexRowUuid == null ? null : new RowId(partitionId, lastBuiltIndexRowUuid);
     }
 
     @Override
@@ -369,20 +372,6 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
             }
 
             return null;
-        });
-    }
-
-    private @Nullable RowId readLastBuiltRowId() {
-        return busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
-
-            try {
-                UUID lastBuildRowIdUuid = indexMetaTree.findOne(new IndexMetaKey(indexDescriptor().id())).lastBuiltRowIdUuid();
-
-                return lastBuildRowIdUuid == null ? null : new RowId(partitionId, lastBuildRowIdUuid);
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Error getting last build row ID: [{}]", e, createStorageInfo());
-            }
         });
     }
 }
