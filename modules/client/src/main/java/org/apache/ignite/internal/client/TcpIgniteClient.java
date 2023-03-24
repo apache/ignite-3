@@ -23,13 +23,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiFunction;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.deployment.IgniteDeployment;
 import org.apache.ignite.internal.client.compute.ClientCompute;
-import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.ClientTables;
@@ -88,10 +86,7 @@ public class TcpIgniteClient implements IgniteClient {
      * @param chFactory Channel factory.
      * @param cfg Config.
      */
-    private TcpIgniteClient(
-            BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, CompletableFuture<ClientChannel>> chFactory,
-            IgniteClientConfiguration cfg
-    ) {
+    private TcpIgniteClient(ClientChannelFactory chFactory, IgniteClientConfiguration cfg) {
         assert chFactory != null;
         assert cfg != null;
 
