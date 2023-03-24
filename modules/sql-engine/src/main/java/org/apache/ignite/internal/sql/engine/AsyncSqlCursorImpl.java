@@ -103,8 +103,9 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
         Throwable cause = unwrapRemoteCause(t);
 
         if (cause instanceof IgniteException) {
-            // Create an exception of the same type with the all properties
-            // set its cause to the original exception
+            // If the cause is IgniteException then create
+            // an exception of the same type with the all properties
+            // and set its cause to the original exception
             IgniteException err = (IgniteException) cause;
             return preserveExceptionType(err, t);
         } else {
