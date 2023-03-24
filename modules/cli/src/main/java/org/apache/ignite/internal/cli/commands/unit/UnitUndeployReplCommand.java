@@ -23,24 +23,24 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VER
 import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_OPTION;
 
 import jakarta.inject.Inject;
-import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.unit.UndeployUnitCall;
 import org.apache.ignite.internal.cli.call.unit.UndeployUnitCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
-import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
+import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
+import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
-/** Command to undeploy a unit. */
+/** Command to undeploy a unit in REPL mode. */
 @Command(name = "undeploy", description = "Undeploys a unit")
-public class UnitUndeployCommand extends BaseCommand implements Callable<Integer> {
+public class UnitUndeployReplCommand extends BaseCommand implements Runnable {
 
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private ClusterUrlMixin clusterUrl;
 
     /** Unit id. */
     @Parameters(index = "0", description = "Unit id")
@@ -51,20 +51,23 @@ public class UnitUndeployCommand extends BaseCommand implements Callable<Integer
     private String version;
 
     @Inject
-    private UndeployUnitCall undeployUnitCall;
+    private UndeployUnitCall call;
+
+    @Inject
+    private ConnectToClusterQuestion question;
 
     @Override
-    public Integer call() throws Exception {
-        return CallExecutionPipeline.builder(undeployUnitCall)
-                .inputProvider(() -> UndeployUnitCallInput.builder()
+    public void run() {
+        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+                .map(clusterUrl -> UndeployUnitCallInput.builder()
                         .id(id)
                         .version(version)
-                        .clusterUrl(clusterUrl.getClusterUrl())
+                        .clusterUrl(clusterUrl)
                         .build())
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
+                .then(Flows.fromCall(call))
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot undeploy unit", "cluster init"))
                 .verbose(verbose)
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot undeploy unit", "ignite cluster init"))
-                .build().runPipeline();
+                .print()
+                .start();
     }
 }
