@@ -21,17 +21,16 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 
 /**
  * Client jdbc request handler.
  */
-public class ClientJdbcExecuteRequest {
+public class ClientJdbcConnectRequest {
     /**
      * Processes remote {@code JdbcQueryExecuteRequest}.
      *
-     * @param in      Client message unpacker.
-     * @param out     Client message packer.
+     * @param in Client message unpacker.
+     * @param out Client message packer.
      * @param handler Query event handler.
      * @return Operation future.
      */
@@ -40,12 +39,6 @@ public class ClientJdbcExecuteRequest {
             ClientMessagePacker out,
             JdbcQueryEventHandler handler
     ) {
-        var req = new JdbcQueryExecuteRequest();
-
-        long connectionId = in.unpackLong();
-
-        req.readBinary(in);
-
-        return handler.queryAsync(connectionId, req).thenAccept(res -> res.writeBinary(out));
+        return handler.connect().thenAccept(res -> res.writeBinary(out));
     }
 }
