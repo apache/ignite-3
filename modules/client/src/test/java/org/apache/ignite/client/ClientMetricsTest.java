@@ -45,7 +45,7 @@ public class ClientMetricsTest {
                 .metricsEnabled(true)
                 .build();
 
-        ClientMetricSource metrics = ((TcpIgniteClient)client).metrics();
+        ClientMetricSource metrics = ((TcpIgniteClient) client).metrics();
 
         assertEquals(1, metrics.connectionsEstablished());
         assertEquals(1, metrics.connectionsActive());
