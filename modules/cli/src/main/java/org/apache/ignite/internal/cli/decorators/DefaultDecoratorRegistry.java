@@ -38,8 +38,8 @@ public class DefaultDecoratorRegistry extends DecoratorRegistry {
         add(JsonString.class, new JsonDecorator());
         add(Profile.class, new ProfileDecorator());
         add(ProfileList.class, new ProfileListDecorator());
-        add(Table.class, new TableDecorator());
-        add(SqlQueryResult.class, new SqlQueryResultDecorator(new TableDecorator()));
+        add(Table.class, new TableDecorator(false));
+        add(SqlQueryResult.class, new SqlQueryResultDecorator(false));
         add(ClusterStatus.class, new ClusterStatusDecorator());
         add(NodeStatus.class, new NodeStatusDecorator());
     }

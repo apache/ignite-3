@@ -21,6 +21,7 @@ import com.jakewharton.fliptables.FlipTable;
 import java.util.List;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
+import org.apache.ignite.internal.cli.util.PlainTableRenderer;
 import org.apache.ignite.rest.client.model.ClusterNode;
 
 /**
@@ -28,7 +29,13 @@ import org.apache.ignite.rest.client.model.ClusterNode;
  */
 public class TopologyDecorator implements Decorator<List<ClusterNode>, TerminalOutput> {
     /** List of headers to decorate topology. */
-    protected static final String[] HEADERS = {"name", "host", "port", "consistent id", "id"};
+    private static final String[] HEADERS = {"name", "host", "port", "consistent id", "id"};
+
+    private final boolean plain;
+
+    public TopologyDecorator(boolean plain) {
+        this.plain = plain;
+    }
 
     /**
      * Transform list of {@link ClusterNode} to {@link TerminalOutput}.
@@ -38,10 +45,14 @@ public class TopologyDecorator implements Decorator<List<ClusterNode>, TerminalO
      */
     @Override
     public TerminalOutput decorate(List<ClusterNode> topology) {
-        return () -> FlipTable.of(HEADERS, topologyToContent(topology));
+        if (plain) {
+            return () -> PlainTableRenderer.render(HEADERS, topologyToContent(topology));
+        } else {
+            return () -> FlipTable.of(HEADERS, topologyToContent(topology));
+        }
     }
 
-    protected String[][] topologyToContent(List<ClusterNode> topology) {
+    private static String[][] topologyToContent(List<ClusterNode> topology) {
         return topology.stream().map(
             node -> new String[]{
                 node.getName(),

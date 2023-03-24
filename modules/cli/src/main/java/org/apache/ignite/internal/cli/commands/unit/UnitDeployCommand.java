@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VER
 import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_OPTION;
 
 import jakarta.inject.Inject;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.unit.DeployUnitCallFactory;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializ
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.ParameterException;
 import picocli.CommandLine.Parameters;
 
 /** Command to deploy a unit. */
@@ -55,8 +57,15 @@ public class UnitDeployCommand extends BaseCommand implements Callable<Integer> 
     private String version;
 
     /** Unit path. */
-    @Option(names = {UNIT_PATH_OPTION, UNIT_PATH_OPTION_SHORT}, description = UNIT_PATH_OPTION_DESC, required = true)
     private Path path;
+
+    @Option(names = {UNIT_PATH_OPTION, UNIT_PATH_OPTION_SHORT}, description = UNIT_PATH_OPTION_DESC, required = true)
+    private void setPath(Path value) {
+        if (Files.notExists(value)) {
+            throw new ParameterException(spec.commandLine(), "No such file or directory: " + value);
+        }
+        path = value;
+    }
 
     @Inject
     private DeployUnitCallFactory callFactory;
@@ -73,7 +82,7 @@ public class UnitDeployCommand extends BaseCommand implements Callable<Integer> 
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot deploy unit", "cluster init"))
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot deploy unit", "ignite cluster init"))
                 .build().runPipeline();
     }
 }

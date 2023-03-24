@@ -108,6 +108,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      *
      * @param vaultMgr Vault manager.
      * @param clusterService Cluster network service.
+     * @param cmgMgr Cluster management service Manager.
+     * @param logicalTopologyService Logical topology service.
      * @param raftMgr Raft manager.
      * @param storage Storage. This component owns this resource and will manage its lifecycle.
      */

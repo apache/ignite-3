@@ -19,8 +19,8 @@ package org.apache.ignite.internal.configuration.storage;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -508,7 +508,7 @@ public class ItRebalanceDistributedTest {
 
         TablePartitionId tablePartitionId = evictedNode.getTablePartitionId(TABLE_1_NAME, 0);
 
-        assertThat(evictedNode.finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId), willFailFast(Exception.class));
+        assertThat(evictedNode.finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId), willThrowFast(Exception.class));
 
         // Restart evicted node.
         int evictedNodeIndex = findNodeIndexByConsistentId(evictedAssignment.consistentId());

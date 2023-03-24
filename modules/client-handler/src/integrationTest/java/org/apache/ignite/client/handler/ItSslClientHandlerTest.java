@@ -17,22 +17,13 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.client.handler.ItClientHandlerTestUtils.generateKeystore;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import io.netty.handler.ssl.util.SelfSignedCertificate;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.net.Socket;
 import java.net.SocketException;
 import java.nio.file.Path;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteException;
@@ -42,15 +33,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.msgpack.core.MessagePack;
 
 /** SSL client integration test. */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItSslClientHandlerTest {
-
-    /** Magic bytes. */
-    private static final byte[] MAGIC = {0x49, 0x47, 0x4E, 0x49};
-
     private ClientHandlerModule serverModule;
 
     private TestServer testServer;
@@ -62,18 +48,7 @@ public class ItSslClientHandlerTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        keyStorePkcs12Path = workDir.resolve("keystore.p12").toAbsolutePath().toString();
-        generateKeystore(new SelfSignedCertificate("localhost"));
-    }
-
-    private void generateKeystore(SelfSignedCertificate cert)
-            throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
-        KeyStore ks = KeyStore.getInstance("PKCS12");
-        ks.load(null, null);
-        ks.setKeyEntry("key", cert.key(), "changeit".toCharArray(), new Certificate[]{cert.cert()});
-        try (FileOutputStream fos = new FileOutputStream(keyStorePkcs12Path)) {
-            ks.store(fos, "changeit".toCharArray());
-        }
+        keyStorePkcs12Path = generateKeystore(workDir);
     }
 
     @AfterEach
@@ -125,38 +100,6 @@ public class ItSslClientHandlerTest {
     }
 
     private void performAndCheckMagic() throws IOException {
-        int serverPort = serverModule.localAddress().getPort();
-
-        try (var sock = new Socket("127.0.0.1", serverPort)) {
-            OutputStream out = sock.getOutputStream();
-
-            // Magic: IGNI
-            out.write(MAGIC);
-
-            // Handshake.
-            var packer = MessagePack.newDefaultBufferPacker();
-            packer.packInt(0);
-            packer.packInt(0);
-            packer.packInt(0);
-            packer.packInt(7); // Size.
-
-            packer.packInt(3); // Major.
-            packer.packInt(0); // Minor.
-            packer.packInt(0); // Patch.
-
-            packer.packInt(2); // Client type: general purpose.
-
-            packer.packBinaryHeader(0); // Features.
-            packer.packMapHeader(0); // Extensions.
-
-            out.write(packer.toByteArray());
-            out.flush();
-
-            // Read response.
-            var unpacker = MessagePack.newDefaultUnpacker(sock.getInputStream());
-            var magic = unpacker.readPayload(4);
-
-            assertArrayEquals(MAGIC, magic);
-        }
+        ItClientHandlerTestUtils.connectAndHandshake(serverModule);
     }
 }
