@@ -458,6 +458,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         handshakeReqAsync(ver).addListener(f -> {
             if (!f.isSuccess()) {
+                metrics.handshakesFailedIncrement();
+
                 fut.completeExceptionally(
                         new IgniteClientConnectionException(CONNECTION_ERR, "Failed to send handshake request", f.cause()));
             }
@@ -524,6 +526,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             return CompletableFuture.completedFuture(null);
         } catch (Exception e) {
+            metrics.handshakesFailedIncrement();
+
             log.warn("Failed to handle handshake response [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
 
             return CompletableFuture.failedFuture(e);
