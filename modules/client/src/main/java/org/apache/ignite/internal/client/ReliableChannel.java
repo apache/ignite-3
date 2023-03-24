@@ -117,13 +117,15 @@ public final class ReliableChannel implements AutoCloseable {
      * @param chFactory Channel factory.
      * @param clientCfg Client config.
      */
-    ReliableChannel(BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, CompletableFuture<ClientChannel>> chFactory,
-            IgniteClientConfiguration clientCfg) {
+    ReliableChannel(
+            BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, CompletableFuture<ClientChannel>> chFactory,
+            IgniteClientConfiguration clientCfg,
+            ClientMetricSource metrics) {
         this.clientCfg = Objects.requireNonNull(clientCfg, "clientCfg");
         this.chFactory = Objects.requireNonNull(chFactory, "chFactory");
         this.log = ClientUtils.logger(clientCfg, ReliableChannel.class);
 
-        connMgr = new NettyClientConnectionMultiplexer();
+        connMgr = new NettyClientConnectionMultiplexer(metrics);
         connMgr.start(clientCfg);
     }
 

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.metrics;
+package org.apache.ignite.internal.client;
 
 import java.util.Arrays;
 import java.util.List;
@@ -73,7 +73,7 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         return h == null ? 0 : h.connectionsEstablished.value();
     }
 
-    void connectionsEstablishedIncrement() {
+    public void connectionsEstablishedIncrement() {
         Holder h = holder();
 
         if (h != null) {

@@ -50,6 +50,7 @@ import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
 import org.apache.ignite.internal.client.io.ClientMessageHandler;
+import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
@@ -62,12 +63,15 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
 
     private final Bootstrap bootstrap;
 
+    private final ClientMetricSource metrics;
+
     /**
      * Constructor.
      */
-    public NettyClientConnectionMultiplexer() {
+    public NettyClientConnectionMultiplexer(ClientMetricSource metrics) {
         workerGroup = new NioEventLoopGroup();
         bootstrap = new Bootstrap();
+        this.metrics = metrics;
     }
 
     /** {@inheritDoc} */
@@ -116,7 +120,6 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
         } catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | IOException | UnrecoverableKeyException e) {
             throw new IgniteException(CLIENT_SSL_CONFIGURATION_ERR, "Client SSL configuration error: " + e.getMessage(), e);
         }
-
     }
 
     private static KeyManagerFactory loadKeyManagerFactory(SslConfiguration ssl)
@@ -183,6 +186,8 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
 
         connectFut.addListener(f -> {
             if (f.isSuccess()) {
+                metrics.connectionsEstablishedIncrement();
+
                 NettyClientConnection conn = new NettyClientConnection(((ChannelFuture) f).channel(), msgHnd, stateHnd);
 
                 fut.complete(conn);
