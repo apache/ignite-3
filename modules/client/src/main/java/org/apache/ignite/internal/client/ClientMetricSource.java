@@ -200,6 +200,39 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         }
     }
 
+    /**
+     * Gets currently active (in-flight) requests.
+     *
+     * @return Currently active (in-flight) requests.
+     */
+    public long requestsActive() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.requestsActive.value();
+    }
+
+    /**
+     * Increments currently active (in-flight) requests.
+     */
+    public void requestsActiveIncrement() {
+        Holder h = holder();
+
+        if (h != null) {
+            h.requestsActive.increment();
+        }
+    }
+
+    /**
+     * Decrements currently active (in-flight) requests.
+     */
+    public void requestsActiveDecrement() {
+        Holder h = holder();
+
+        if (h != null) {
+            h.requestsActive.decrement();
+        }
+    }
+
     @Override
     protected Holder createHolder() {
         return new Holder();
@@ -236,7 +269,7 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
                 new AtomicLongMetric("HandshakesFailedTimeout", "Total failed handshakes due to a timeout");
 
         private final AtomicLongMetric requestsActive =
-                new AtomicLongMetric("RequestsActive", "Total failed handshakes due to a timeout");
+                new AtomicLongMetric("RequestsActive", "Currently active requests");
 
         private final AtomicLongMetric requestsSent =
                 new AtomicLongMetric("RequestsSent", "Total requests sent");
