@@ -25,108 +25,107 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 
 /**
- * Provides access to the Compute functionality: the ability to execute compute jobs.
+ * Provides access to the Compute functionality - the ability to execute Compute jobs.
  *
  * @see ComputeJob
  * @see ComputeJob#execute(JobExecutionContext, Object...)
  */
 public interface IgniteCompute {
     /**
-     * Executes a {@link ComputeJob} represented by the given class on one node from the nodes set.
+     * Executes a {@link ComputeJob} represented by a given class on one node from a set of nodes.
      *
-     * @param nodes    nodes on which to execute the job
-     * @param jobClass class of the job to execute
-     * @param args     arguments of the job
-     * @param <R>      job result type
-     * @return future job result
+     * @param nodes    Nodes on which to execute the job.
+     * @param jobClass Class of the job to execute.
+     * @param args     Arguments of the job.
+     * @param <R>      Job result type.
+     * @return future Job result.
      */
     <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass, Object... args);
 
     /**
-     * Executes a {@link ComputeJob} represented by the given class on one node from the nodes set.
+     * Executes a {@link ComputeJob} represented by a given class on one node from a set of nodes.
      *
-     * @param nodes    candidate nodes; the job will be executed on one of them
-     * @param jobClassName name of the job class to execute
-     * @param args     arguments of the job
-     * @param <R>      job result type
-     * @return future job result
+     * @param nodes    Candidate nodes; the job is executed on one of them.
+     * @param jobClass Name Name of the job class to execute.
+     * @param args     Arguments of the job.
+     * @param <R>      Job result type.
+     * @return future Job result.
      */
     <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, String jobClassName, Object... args);
 
     /**
-     * Executes a job represented by the given class on one node where the given key is located. The node is the leader
-     * of the corresponding Raft group.
+     * Executes a job represented by a given class on a node where the given key is located. The node is the leader
+     * of the corresponding RAFT group.
      *
-     * @param tableName name of the table which key is used to determine the node on which the job will be executed
-     * @param key key which will be used to determine the node on which the job will be executed
-     * @param jobClass class of the job to execute
-     * @param args arguments of the job
-     * @param <R> job result type
-     * @return future job result
+     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
+     * @param key Key to be used to determine the node to execute the job on.
+     * @param jobClass Class of the job to execute.
+     * @param args Arguments of the job.
+     * @param <R> Job result type.
+     * @return future Job result.
      */
     <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, Class<? extends ComputeJob<R>> jobClass, Object... args);
 
     /**
-     * Executes a job represented by the given class on one node where the given key is located. The node is the leader
-     * of the corresponding Raft group.
+     * Executes a job represented by a given class on a node where the given key is located. The node is the leader
+     * of the corresponding RAFT group.
      *
-     * @param tableName name of the table which key is used to determine the node on which the job will be executed
-     * @param key key which will be used to determine the node on which the job will be executed
-     * @param keyMapper mapper that will be used to map the key to a binary representation
-     * @param jobClass class of the job to execute
-     * @param args arguments of the job
-     * @param <R> job result type
-     * @return future job result
+     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
+     * @param key Key to be used to determine the node to execute the job on.
+     * @param jobClass Class of the job to execute.
+     * @param args Arguments of the job.
+     * @param <R> Job result type.
+     * @return future Job result.
      */
     <K, R> CompletableFuture<R> executeColocated(String tableName, K key, Mapper<K> keyMapper,
                                                  Class<? extends ComputeJob<R>> jobClass, Object... args);
 
     /**
-     * Executes a job represented by the given class on one node where the given key is located. The node is the leader
-     * of the corresponding Raft group.
+     * Executes a job represented by a given class on a node where a given key is located. The node is the leader
+     * of the corresponding RAFT group.
      *
-     * @param tableName name of the table which key is used to determine the node on which the job will be executed
-     * @param key key which will be used to determine the node on which the job will be executed
-     * @param jobClassName name of the job class to execute
-     * @param args arguments of the job
-     * @param <R> job result type
-     * @return future job result
+     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
+     * @param key Key to be used to determine the node to execute the job on.
+     * @param jobClass Class of the job to execute.
+     * @param args Arguments of the job.
+     * @param <R> Job result type.
+     * @return future Job result.
      */
     <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, String jobClassName, Object... args);
 
     /**
-     * Executes a job represented by the given class on one node where the given key is located. The node is the leader
-     * of the corresponding Raft group.
+     * Executes a job represented by a given class on a node where the given key is located. The node is the leader
+     * of the corresponding RAFT group.
      *
      * @param tableName name of the table which key is used to determine the node on which the job will be executed
-     * @param key key which will be used to determine the node on which the job will be executed
-     * @param keyMapper mapper that will be used to map the key to a binary representation
-     * @param jobClassName name of the job class to execute
-     * @param args arguments of the job
-     * @param <R> job result type
-     * @return future job result
+     * @param key Key to be used to determine the node to execute the job on.
+     * @param keyMapper Mapper to be used to map the key to a binary representation.
+     * @param jobClassName Name of the job class to execute.
+     * @param args Arguments of the job.
+     * @param <R> Job result type.
+     * @return future Job result.
      */
     <K, R> CompletableFuture<R> executeColocated(String tableName, K key, Mapper<K> keyMapper, String jobClassName, Object... args);
 
     /**
-     * Executes a {@link ComputeJob} represented by the given class on all nodes from the given nodes set.
+     * Executes a {@link ComputeJob} represented by a given class on all nodes from the given node set.
      *
-     * @param nodes nodes on each of which the job will be executed
-     * @param jobClass class of the job to execute
-     * @param args     arguments of the job
-     * @param <R>      job result type
-     * @return future job results
+     * @param nodes Nodes to execute the job on.
+     * @param jobClass Class of the job to execute.
+     * @param args     Arguments of the job.
+     * @param <R>      Job result type.
+     * @return future Job results.
      */
     <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass, Object... args);
 
     /**
-     * Executes a {@link ComputeJob} represented by the given class on all nodes from the given nodes set.
+     * Executes a {@link ComputeJob} represented by a given class on all nodes from the given node set.
      *
-     * @param nodes nodes on each of which the job will be executed
-     * @param jobClassName name of the job class to execute
-     * @param args     arguments of the job
-     * @param <R>      job result type
-     * @return future job results
+     * @param nodes Nodes to execute the job on.
+     * @param jobClass Class of the job to execute.
+     * @param args     Arguments of the job.
+     * @param <R>      Job result type.
+     * @return future Job results.
      */
     <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, String jobClassName, Object... args);
 }
