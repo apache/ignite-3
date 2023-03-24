@@ -24,7 +24,6 @@ import org.apache.ignite.internal.sql.engine.metadata.RemoteException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -106,7 +105,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
                 err = err.getCause();
             } else {
                 int errorCode = IgniteException.getIgniteErrorCode(err);
-                IgniteException newError = new IgniteException(errorCode);
+                IgniteException newError = new IgniteException(errorCode, err.getMessage());
                 newError.addSuppressed(t);
                 return newError;
             }
