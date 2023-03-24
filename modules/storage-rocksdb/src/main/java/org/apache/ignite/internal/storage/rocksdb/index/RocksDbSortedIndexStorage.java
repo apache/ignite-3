@@ -18,8 +18,9 @@
 package org.apache.ignite.internal.storage.rocksdb.index;
 
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
-import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
-import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.ORDER;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.PARTITION_ID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.ROW_ID_SIZE;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -27,9 +28,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.NoSuchElementException;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -37,17 +36,13 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStorage;
-import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
@@ -68,22 +63,10 @@ import org.rocksdb.WriteBatchWithIndex;
  *
  * <p>We use an empty array as values, because all required information can be extracted from the key.
  */
-public class RocksDbSortedIndexStorage implements SortedIndexStorage {
-    private static final int ROW_ID_SIZE = Long.BYTES * 2;
-
-    private static final ByteOrder ORDER = ByteOrder.BIG_ENDIAN;
-
+public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage implements SortedIndexStorage {
     private final SortedIndexDescriptor descriptor;
 
     private final ColumnFamily indexCf;
-
-    private final RocksDbMvPartitionStorage partitionStorage;
-
-    /** Busy lock. */
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-    /** Current state of the storage. */
-    private final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /**
      * Creates a storage.
@@ -97,9 +80,10 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
             ColumnFamily indexCf,
             RocksDbMvPartitionStorage partitionStorage
     ) {
+        super(descriptor.id(), partitionStorage);
+
         this.descriptor = descriptor;
         this.indexCf = indexCf;
-        this.partitionStorage = partitionStorage;
     }
 
     @Override
@@ -321,9 +305,9 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
     private static void setEqualityFlag(byte[] prefix) {
         // Flags start after the partition ID.
-        byte flags = prefix[Short.BYTES];
+        byte flags = prefix[PARTITION_ID_SIZE];
 
-        prefix[Short.BYTES] = (byte) (flags | BinaryTupleCommon.EQUALITY_FLAG);
+        prefix[PARTITION_ID_SIZE] = (byte) (flags | BinaryTupleCommon.EQUALITY_FLAG);
     }
 
     private IndexRow decodeRow(ByteBuffer bytes) {
@@ -345,7 +329,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     private byte[] rocksPrefix(BinaryTuplePrefix prefix) {
         ByteBuffer bytes = prefix.byteBuffer();
 
-        return ByteBuffer.allocate(Short.BYTES + bytes.remaining())
+        return ByteBuffer.allocate(PARTITION_ID_SIZE + bytes.remaining())
                 .order(ORDER)
                 .putShort((short) partitionStorage.partitionId())
                 .put(bytes)
@@ -355,7 +339,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     private byte[] rocksKey(IndexRow row) {
         ByteBuffer bytes = row.indexColumns().byteBuffer();
 
-        return ByteBuffer.allocate(Short.BYTES + bytes.remaining() + ROW_ID_SIZE)
+        return ByteBuffer.allocate(PARTITION_ID_SIZE + bytes.remaining() + ROW_ID_SIZE)
                 .order(ORDER)
                 .putShort((short) partitionStorage.partitionId())
                 .put(bytes)
@@ -367,131 +351,24 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     private static ByteBuffer binaryTupleSlice(ByteBuffer key) {
         return key.duplicate()
                 // Discard partition ID.
-                .position(Short.BYTES)
+                .position(PARTITION_ID_SIZE)
                 // Discard row ID.
                 .limit(key.limit() - ROW_ID_SIZE)
                 .slice()
                 .order(ByteOrder.LITTLE_ENDIAN);
     }
 
-    /**
-     * Closes the sorted index storage.
-     */
-    public void close() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
-            StorageState state = this.state.get();
-
-            assert state == StorageState.CLOSED : state;
-
-            return;
-        }
-
-        busyLock.block();
-    }
-
-    /**
-     * Deletes the data associated with the index, using passed write batch for the operation.
-     *
-     * @throws RocksDBException If failed to delete data.
-     */
+    @Override
     public void destroyData(WriteBatch writeBatch) throws RocksDBException {
-        byte[] constantPrefix = ByteBuffer.allocate(2).order(ByteOrder.BIG_ENDIAN).putShort((short) partitionStorage.partitionId()).array();
+        byte[] constantPrefix = ByteBuffer.allocate(PARTITION_ID_SIZE)
+                .order(ORDER)
+                .putShort((short) partitionStorage.partitionId())
+                .array();
 
         byte[] rangeEnd = incrementPrefix(constantPrefix);
 
         assert rangeEnd != null;
 
         writeBatch.deleteRange(indexCf.handle(), constantPrefix, rangeEnd);
-    }
-
-    private <V> V busy(Supplier<V> supplier) {
-        if (!busyLock.enterBusy()) {
-            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
-        }
-
-        try {
-            return supplier.get();
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    private String createStorageInfo() {
-        return IgniteStringFormatter.format("indexId={}, partitionId={}", descriptor.id(), partitionStorage.partitionId());
-    }
-
-    /**
-     * Prepares the storage for rebalancing.
-     *
-     * @throws StorageRebalanceException If there was an error when starting the rebalance.
-     */
-    public void startRebalance(WriteBatch writeBatch) {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.REBALANCE)) {
-            throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
-        }
-
-        // Changed storage states and expect all storage operations to stop soon.
-        busyLock.block();
-
-        try {
-            destroyData(writeBatch);
-        } catch (RocksDBException e) {
-            throw new StorageRebalanceException("Error when trying to start rebalancing storage: " + createStorageInfo(), e);
-        } finally {
-            busyLock.unblock();
-        }
-    }
-
-    /**
-     * Aborts storage rebalancing.
-     *
-     * @throws StorageRebalanceException If there was an error when aborting the rebalance.
-     */
-    public void abortReblance(WriteBatch writeBatch) {
-        if (!state.compareAndSet(StorageState.REBALANCE, StorageState.RUNNABLE)) {
-            throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
-        }
-
-        try {
-            destroyData(writeBatch);
-        } catch (RocksDBException e) {
-            throw new StorageRebalanceException("Error when trying to abort rebalancing storage: " + createStorageInfo(), e);
-        }
-    }
-
-    /**
-     * Completes storage rebalancing.
-     *
-     * @throws StorageRebalanceException If there was an error when finishing the rebalance.
-     */
-    public void finishRebalance() {
-        if (!state.compareAndSet(StorageState.REBALANCE, StorageState.RUNNABLE)) {
-            throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
-        }
-    }
-
-    /**
-     * Prepares the storage  for cleanup.
-     *
-     * <p>After cleanup (successful or not), method {@link #finishCleanup()} must be called.
-     */
-    public void startCleanup(WriteBatch writeBatch) throws RocksDBException {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLEANUP)) {
-            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
-        }
-
-        // Changed storage states and expect all storage operations to stop soon.
-        busyLock.block();
-
-        destroyData(writeBatch);
-    }
-
-    /**
-     * Finishes cleanup up the storage.
-     */
-    public void finishCleanup() {
-        if (state.compareAndSet(StorageState.CLEANUP, StorageState.RUNNABLE)) {
-            busyLock.unblock();
-        }
     }
 }

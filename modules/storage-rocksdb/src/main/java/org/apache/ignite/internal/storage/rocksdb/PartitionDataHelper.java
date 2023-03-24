@@ -20,6 +20,8 @@ package org.apache.ignite.internal.storage.rocksdb;
 import static java.lang.ThreadLocal.withInitial;
 import static java.nio.ByteBuffer.allocateDirect;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.PARTITION_ID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.ROW_ID_SIZE;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -35,12 +37,6 @@ import org.rocksdb.Slice;
 
 /** Helper for the partition data. */
 class PartitionDataHelper implements ManuallyCloseable {
-    /** Commit partition id size. */
-    static final int PARTITION_ID_SIZE = Short.BYTES;
-
-    /** UUID size in bytes. */
-    static final int ROW_ID_SIZE = 2 * Long.BYTES;
-
     /** Position of row id inside the key. */
     static final int ROW_ID_OFFSET = Short.BYTES;
 
