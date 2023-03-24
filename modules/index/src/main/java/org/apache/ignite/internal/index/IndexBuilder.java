@@ -40,6 +40,7 @@ import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterService;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Class for managing the index building process.
@@ -90,7 +91,7 @@ class IndexBuilder {
      */
     void startIndexBuild(TableIndexView tableIndexView, TableImpl table) {
         for (int partitionId = 0; partitionId < table.internalTable().partitions(); partitionId++) {
-            buildIndexExecutor.submit(new BuildIndexTask(table, tableIndexView, partitionId, true));
+            buildIndexExecutor.submit(new BuildIndexTask(table, tableIndexView, partitionId, null));
         }
     }
 
@@ -111,13 +112,13 @@ class IndexBuilder {
 
         private final int partitionId;
 
-        private final boolean firstBatch;
+        private final @Nullable RowId nextFirstRowId;
 
-        private BuildIndexTask(TableImpl table, TableIndexView tableIndexView, int partitionId, boolean firstBatch) {
+        private BuildIndexTask(TableImpl table, TableIndexView tableIndexView, int partitionId, @Nullable RowId nextFirstRowId) {
             this.table = table;
             this.tableIndexView = tableIndexView;
             this.partitionId = partitionId;
-            this.firstBatch = firstBatch;
+            this.nextFirstRowId = nextFirstRowId;
         }
 
         @Override
@@ -137,25 +138,40 @@ class IndexBuilder {
                     return;
                 }
 
-                RowId lastBuiltRowId = internalTable.storage().getOrCreateIndex(partitionId, tableIndexView.id()).getLastBuiltRowId();
+                RowId firstBatchRowId;
 
-                if (lastBuiltRowId == null) {
-                    // Index has already been built.
-                    return;
+                if (nextFirstRowId == null) {
+                    RowId lastBuiltRowId = table.internalTable().storage().getOrCreateIndex(partitionId, tableIndexView.id())
+                            .getLastBuiltRowId();
+
+                    if (lastBuiltRowId == null) {
+                        // Index has already been built.
+                        return;
+                    }
+
+                    firstBatchRowId = lastBuiltRowId.isLowest() ? lastBuiltRowId : lastBuiltRowId.increment();
+
+                    assert firstBatchRowId != null : createCommonTableIndexInfo();
+                } else {
+                    firstBatchRowId = nextFirstRowId;
                 }
 
-                if (firstBatch) {
+                if (nextFirstRowId == null) {
                     LOG.info("Start building the index: [{}]", createCommonTableIndexInfo());
                 }
 
-                List<RowId> batchRowIds = createBatchRowIds(lastBuiltRowId, BUILD_INDEX_ROW_ID_BATCH_SIZE);
+                List<RowId> batchRowIds = createBatchRowIds(firstBatchRowId, BUILD_INDEX_ROW_ID_BATCH_SIZE);
 
-                boolean finish = batchRowIds.size() < BUILD_INDEX_ROW_ID_BATCH_SIZE;
+                RowId nextFirstRowId = getNextFirstRowId(batchRowIds);
+
+                boolean finish = batchRowIds.size() < BUILD_INDEX_ROW_ID_BATCH_SIZE || nextFirstRowId == null;
 
                 raftGroupService.run(createBuildIndexCommand(batchRowIds, finish))
                         .thenRun(() -> {
                             if (!finish) {
-                                buildIndexExecutor.submit(new BuildIndexTask(table, tableIndexView, partitionId, false));
+                                assert nextFirstRowId != null : createCommonTableIndexInfo();
+
+                                buildIndexExecutor.submit(new BuildIndexTask(table, tableIndexView, partitionId, nextFirstRowId));
                             }
                         });
             } catch (Throwable t) {
@@ -216,6 +232,10 @@ class IndexBuilder {
 
         private String localNodeConsistentId() {
             return clusterService.topologyService().localMember().name();
+        }
+
+        private @Nullable RowId getNextFirstRowId(List<RowId> batch) {
+            return batch.isEmpty() ? null : batch.get(batch.size() - 1).increment();
         }
     }
 }
