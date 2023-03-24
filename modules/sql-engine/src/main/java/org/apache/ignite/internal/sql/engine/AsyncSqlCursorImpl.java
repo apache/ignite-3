@@ -107,7 +107,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
             IgniteException err = (IgniteException) cause;
             return preserveExceptionType(err, t);
         } else {
-            // If the cause is not a subclass of IgniteException return the original error.
+            // If the cause is not a subclass of IgniteException, wrap it in IgniteException.
             return IgniteException.wrap(t);
         }
     }
