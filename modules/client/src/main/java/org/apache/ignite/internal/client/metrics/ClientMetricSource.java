@@ -63,9 +63,9 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
     }
 
     /**
-     * Gets total initiated connections.
+     * Gets total established connections.
      *
-     * @return Total initiated connections.
+     * @return Total established connections.
      */
     public long connectionsEstablished() {
         Holder h = holder();

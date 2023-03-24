@@ -110,32 +110,37 @@ public class TcpIgniteClient implements IgniteClient {
         compute = new ClientCompute(ch, tables);
         sql = new ClientSql(ch);
         metricSource = new ClientMetricSource();
+        metricManager = initMetricManager(cfg);
+    }
 
-        // TODO: Extract method.
-        if (cfg.metricsEnabled() && cfg.metricExporterNames() != null && cfg.metricExporterNames().length > 0) {
-            metricManager = new MetricManager();
-            Map<String, MetricExporter> availableExporters = MetricManager.loadExporters();
+    @Nullable
+    private MetricManager initMetricManager(IgniteClientConfiguration cfg) {
+        if (!cfg.metricsEnabled() || cfg.metricExporterNames() == null || cfg.metricExporterNames().length <= 0) {
+            return null;
+        }
 
-            List<MetricExporter<?>> exporters = new ArrayList<>();
+        var metricManager = new MetricManager();
+        Map<String, MetricExporter> availableExporters = MetricManager.loadExporters();
 
-            for (String exporterName : cfg.metricExporterNames()) {
-                MetricExporter<?> exporter = availableExporters.get(exporterName);
+        List<MetricExporter<?>> exporters = new ArrayList<>();
 
-                if (exporter == null) {
-                    // TODO: ???
-                    throw new IllegalArgumentException("Exporter with name " + exporterName + " is not found.");
-                }
+        for (String exporterName : cfg.metricExporterNames()) {
+            MetricExporter<?> exporter = availableExporters.get(exporterName);
 
-                exporters.add(exporter);
+            if (exporter == null) {
+                // TODO: ???
+                throw new IllegalArgumentException("Exporter with name " + exporterName + " is not found.");
             }
 
-            metricManager.start(exporters);
-            metricSource.enable();
-            metricManager.registerSource(metricSource);
-        } else {
-            // TODO: always create metric source to avoid null checks, but not metric manager?
-            metricManager = null;
+            exporters.add(exporter);
         }
+
+        metricManager.start(exporters);
+
+        metricSource.enable();
+        metricManager.registerSource(metricSource);
+
+        return metricManager;
     }
 
     /**
