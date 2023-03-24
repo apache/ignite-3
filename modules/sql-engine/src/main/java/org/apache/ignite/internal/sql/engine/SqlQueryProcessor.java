@@ -44,6 +44,8 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
@@ -65,6 +67,7 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandlerWrapper;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
@@ -171,6 +174,9 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Clock. */
     private final HybridClock clock;
 
+    /** Distributed catalog manager. */
+    private CatalogManager catalogManager;
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<Function<Long, CompletableFuture<?>>> registry,
@@ -183,7 +189,8 @@ public class SqlQueryProcessor implements QueryProcessor {
             DistributionZoneManager distributionZoneManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             ReplicaService replicaService,
-            HybridClock clock
+            HybridClock clock,
+            CatalogManager catalogManager
     ) {
         this.registry = registry;
         this.clusterSrvc = clusterSrvc;
@@ -196,6 +203,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
         this.replicaService = replicaService;
         this.clock = clock;
+        this.catalogManager = catalogManager;
     }
 
     /** {@inheritDoc} */
@@ -240,7 +248,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         this.prepareSvc = prepareSvc;
 
-        var ddlCommandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager);
+        var ddlCommandHandler = CatalogService.useCatalogService()
+                ? new DdlCommandHandlerWrapper(distributionZoneManager, tableManager, indexManager, dataStorageManager, catalogManager)
+                : new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager);
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
@@ -617,7 +627,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             return schemaHolder.onTableCreated(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     DEFAULT_SCHEMA_NAME,
-                    parameters.table(),
+                    parameters.tableId(),
                     parameters.causalityToken()
             )
                     .thenApply(v -> false);
@@ -635,7 +645,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             return schemaHolder.onTableUpdated(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     DEFAULT_SCHEMA_NAME,
-                    parameters.table(),
+                    parameters.tableId(),
                     parameters.causalityToken()
             )
                     .thenApply(v -> false);
@@ -653,7 +663,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             return schemaHolder.onTableDropped(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     DEFAULT_SCHEMA_NAME,
-                    parameters.tableName(),
+                    parameters.tableId(),
                     parameters.causalityToken()
             )
                     .thenApply(v -> false);
@@ -671,6 +681,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             return schemaHolder.onIndexDropped(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     DEFAULT_SCHEMA_NAME,
+                    parameters.tableId(),
                     parameters.indexId(),
                     parameters.causalityToken()
             )
@@ -687,7 +698,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onIndexCreated(
-                    parameters.index(),
+                    parameters.tableId(),
+                    parameters.indexId(),
+                    parameters.indexDescriptor(),
                     parameters.causalityToken()
             )
                     .thenApply(v -> false);

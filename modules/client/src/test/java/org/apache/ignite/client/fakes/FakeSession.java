@@ -199,7 +199,7 @@ public class FakeSession implements Session {
     /** {@inheritDoc} */
     @Override
     public @Nullable Object property(String name) {
-        return null;
+        return properties == null ? null : properties.get(name);
     }
 
     /** {@inheritDoc} */
