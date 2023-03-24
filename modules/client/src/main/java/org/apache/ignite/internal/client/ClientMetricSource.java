@@ -233,6 +233,94 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         }
     }
 
+    /**
+     * Gets sent requests.
+     *
+     * @return Sent requests.
+     */
+    public long requestsSent() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.requestsSent.value();
+    }
+
+    /**
+     * Increments sent requests.
+     */
+    public void requestsSentIncrement() {
+        Holder h = holder();
+
+        if (h != null) {
+            h.requestsSent.increment();
+        }
+    }
+
+    /**
+     * Gets completed requests.
+     *
+     * @return Completed requests.
+     */
+    public long requestsCompleted() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.requestsCompleted.value();
+    }
+
+    /**
+     * Increments completed requests.
+     */
+    public void requestsCompletedIncrement() {
+        Holder h = holder();
+
+        if (h != null) {
+            h.requestsCompleted.increment();
+        }
+    }
+
+    /**
+     * Gets requests completed with retry.
+     *
+     * @return Requests completed with retry.
+     */
+    public long requestsCompletedWithRetry() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.requestsCompletedWithRetry.value();
+    }
+
+    /**
+     * Increments requests completed with retry.
+     */
+    public void requestsCompletedWithRetryIncrement() {
+        Holder h = holder();
+
+        if (h != null) {
+            h.requestsCompletedWithRetry.increment();
+        }
+    }
+
+    /**
+     * Gets failed requests.
+     *
+     * @return Failed requests.
+     */
+    public long requestsFailed() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.requestsFailed.value();
+    }
+
+    /**
+     * Increments failed requests.
+     */
+    public void requestsFailedIncrement() {
+        Holder h = holder();
+
+        if (h != null) {
+            h.requestsFailed.increment();
+        }
+    }
+
     @Override
     protected Holder createHolder() {
         return new Holder();
