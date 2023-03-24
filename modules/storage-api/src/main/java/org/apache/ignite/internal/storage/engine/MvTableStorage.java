@@ -160,6 +160,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      * Returns the distribution zone configuration.
      */
     DistributionZoneConfiguration distributionZoneConfiguration();
+
     /**
      * Starts the storage.
      *

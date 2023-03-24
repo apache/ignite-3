@@ -50,8 +50,9 @@ public interface StorageEngine {
      *
      * @param tableCfg Table configuration.
      * @param tablesCfg Tables configuration.
-     * @param distributionZoneConfiguration
+     * @param distributionZoneCfg Distribution zone configuration.
      * @throws StorageException If an error has occurs while creating the table.
      */
-    MvTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg, DistributionZoneConfiguration distributionZoneConfiguration) throws StorageException;
+    MvTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg,
+            DistributionZoneConfiguration distributionZoneCfg) throws StorageException;
 }

@@ -186,11 +186,13 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     }
 
     @Override
-    public PersistentPageMemoryTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg, DistributionZoneConfiguration distributionZoneConfiguration)
+    public PersistentPageMemoryTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg,
+            DistributionZoneConfiguration distributionZoneCfg)
             throws StorageException {
         PersistentPageMemoryDataStorageView dataStorageView = (PersistentPageMemoryDataStorageView) tableCfg.dataStorage().value();
 
-        return new PersistentPageMemoryTableStorage(tableCfg, tablesCfg, distributionZoneConfiguration, this, regions.get(dataStorageView.dataRegion()));
+        return new PersistentPageMemoryTableStorage(tableCfg, tablesCfg, distributionZoneCfg,
+                this, regions.get(dataStorageView.dataRegion()));
     }
 
     /**

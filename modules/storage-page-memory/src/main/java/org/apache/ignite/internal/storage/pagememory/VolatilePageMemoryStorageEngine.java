@@ -130,11 +130,12 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public VolatilePageMemoryTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg, DistributionZoneConfiguration distributionZoneConfiguration)
+    public VolatilePageMemoryTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg,
+            DistributionZoneConfiguration distributionZoneCfg)
             throws StorageException {
         VolatilePageMemoryDataStorageView dataStorageView = (VolatilePageMemoryDataStorageView) tableCfg.dataStorage().value();
 
-        return new VolatilePageMemoryTableStorage(tableCfg, tablesCfg, distributionZoneConfiguration,
+        return new VolatilePageMemoryTableStorage(tableCfg, tablesCfg, distributionZoneCfg,
                 regions.get(dataStorageView.dataRegion()), destructionExecutor);
     }
 

@@ -750,7 +750,8 @@ public class ItRebalanceDistributedTest {
                     new OutgoingSnapshotsManager(clusterService.messagingService())
             ) {
                 @Override
-                protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg, DistributionZoneConfiguration   distributionZoneCfg) {
+                protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg,
+                        DistributionZoneConfiguration   distributionZoneCfg) {
                     return testInfo.getTestMethod().get().isAnnotationPresent(UseTestTxStateStorage.class)
                             ? spy(new TestTxStateTableStorage())
                             : super.createTxStateTableStorage(tableCfg, distributionZoneCfg);

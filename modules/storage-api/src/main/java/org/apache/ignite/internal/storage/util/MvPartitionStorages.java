@@ -62,7 +62,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
      * Constructor.
      *
      * @param tableView Table configuration.
-     * @param distributionZoneView
+     * @param distributionZoneView Distribution zone configuration.
      */
     public MvPartitionStorages(TableView tableView, DistributionZoneView distributionZoneView) {
         this.tableView = tableView;

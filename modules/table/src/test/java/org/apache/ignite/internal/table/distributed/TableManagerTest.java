@@ -757,7 +757,8 @@ public class TableManagerTest extends IgniteAbstractTest {
             }
 
             @Override
-            protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg, DistributionZoneConfiguration distributionZoneCfg) {
+            protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg,
+                    DistributionZoneConfiguration distributionZoneCfg) {
                 return Mockito.spy(super.createTxStateTableStorage(tableCfg, distributionZoneCfg));
             }
         };
