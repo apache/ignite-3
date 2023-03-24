@@ -64,6 +64,11 @@ public class ClientMetricsTest {
         assertEquals(gracefulDisconnect ? 0 : 1, metrics.connectionsLost());
     }
 
+    @Test
+    public void testConnectionsLostTimeout() {
+        // TODO: Imitate heartbeat timeout or handshake timeout
+    }
+
     @AfterEach
     public void afterAll() throws Exception {
         client.close();
