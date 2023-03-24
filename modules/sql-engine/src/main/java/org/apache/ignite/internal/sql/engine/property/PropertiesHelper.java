@@ -72,13 +72,6 @@ public final class PropertiesHelper {
         Builder builder = new BuilderImpl();
 
         for (Map.Entry<Property<?>, Object> e : holder) {
-            Property<?> property = e.getKey();
-            Object value = e.getValue();
-
-            if (!property.cls.isAssignableFrom(value.getClass())) {
-                throw new IllegalArgumentException();
-            }
-
             builder.set((Property<Object>) e.getKey(), e.getValue());
         }
 
