@@ -45,7 +45,7 @@ class PropertiesHolderImpl implements PropertiesHolder {
         T val = get0(prop);
 
         if (val == null) {
-            throw new RuntimeException(format("Property '{}' is not set", prop.name));
+            throw new PropertyNotFound(prop);
         }
 
         return val;

@@ -30,7 +30,7 @@ public class PropertyNotFound extends RuntimeException {
     private static final long serialVersionUID = 4651104853616619936L;
 
     /** Constructs the exception. */
-    public PropertyNotFound(Property<?> prop) {
+    PropertyNotFound(Property<?> prop) {
         super(format("Property '{}' not found", prop.name));
     }
 }
