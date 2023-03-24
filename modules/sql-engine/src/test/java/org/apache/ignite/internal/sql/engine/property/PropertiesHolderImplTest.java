@@ -42,7 +42,7 @@ class PropertiesHolderImplTest {
                 .build();
 
         assertThat(holder.get(TestProps.PROP), is(42));
-        assertThrows(PropertyNotFound.class, () -> holder.get(TestProps.ANOTHER_PROP));
+        assertThrows(PropertyNotFoundException.class, () -> holder.get(TestProps.ANOTHER_PROP));
         assertThat(holder.getOrDefault(TestProps.ANOTHER_PROP, 52), is(52));
     }
 

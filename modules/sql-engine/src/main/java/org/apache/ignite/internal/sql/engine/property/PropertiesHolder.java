@@ -26,13 +26,13 @@ import java.util.Map;
  */
 public interface PropertiesHolder extends Iterable<Map.Entry<Property<?>, Object>> {
     /**
-     * Returns the value for specified property or throws an {@link PropertyNotFound}
+     * Returns the value for specified property or throws an {@link PropertyNotFoundException}
      * if such property is not specified in the current holder.
      *
      * @param prop Property of interest.
      * @param <T> Value type of the property.
      * @return The value of the property. Never returns null.
-     * @throws PropertyNotFound If a given property is not found in the current holder.
+     * @throws PropertyNotFoundException If a given property is not found in the current holder.
      */
     <T> T get(Property<T> prop);
 

@@ -45,7 +45,7 @@ class PropertiesHolderImpl implements PropertiesHolder {
         T val = get0(prop);
 
         if (val == null) {
-            throw new PropertyNotFound(prop);
+            throw new PropertyNotFoundException(prop);
         }
 
         return val;

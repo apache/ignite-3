@@ -25,12 +25,12 @@ import static org.apache.ignite.lang.IgniteStringFormatter.format;
  *
  * @see PropertiesHolder
  */
-public class PropertyNotFound extends RuntimeException {
+public class PropertyNotFoundException extends RuntimeException {
 
     private static final long serialVersionUID = 4651104853616619936L;
 
     /** Constructs the exception. */
-    PropertyNotFound(Property<?> prop) {
+    PropertyNotFoundException(Property<?> prop) {
         super(format("Property '{}' not found", prop.name));
     }
 }
