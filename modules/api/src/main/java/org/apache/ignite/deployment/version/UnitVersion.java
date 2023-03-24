@@ -20,8 +20,8 @@ package org.apache.ignite.deployment.version;
 import java.util.Objects;
 
 /**
- * Implementation of {@link Version} interface based on the three numbers format,
- * like x.x.x. where x is short number.
+ * Implementation of the {@link Version} interface based on the three-number format,
+ * like x.x.x., where x is a short number.
  */
 public class UnitVersion implements Version {
     private final short major;
@@ -31,9 +31,9 @@ public class UnitVersion implements Version {
     /**
      * Constructor.
      *
-     * @param major Major part of version.
-     * @param minor Minor part of version.
-     * @param patch Patch part of version.
+     * @param major Major part of a version.
+     * @param minor Minor part of a version.
+     * @param patch Patch part of a version.
      */
     public UnitVersion(short major, short minor, short patch) {
         this.major = major;
@@ -47,11 +47,11 @@ public class UnitVersion implements Version {
     }
 
     /**
-     * Parse string representation of version to {@link UnitVersion} if possible.
+     * Parses a string representation of a version to {@link UnitVersion} if possible.
      *
-     * @param rawVersion String representation of version.
+     * @param rawVersion String representation of a version.
      * @return Instance of {@link UnitVersion}.
-     * @throws VersionParseException in case when string is not required {@link UnitVersion} format.
+     * @throws VersionParseException If the string does not require the {@link UnitVersion} format.
      */
     public static UnitVersion parse(String rawVersion) {
         Objects.requireNonNull(rawVersion);

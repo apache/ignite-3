@@ -24,16 +24,16 @@ import java.io.InputStream;
  */
 public interface DeploymentUnit {
     /**
-     * Unit name.
+     * Returns a unit name.
      *
      * @return Name of deployment unit.
      */
     String name();
 
     /**
-     * Input stream with deployment unit content.
+     * Returns an input stream with the deployment unit content.
      *
-     * @return input stream with deployment unit content.
+     * @return Input stream with the deployment unit content.
      */
     InputStream content();
 }

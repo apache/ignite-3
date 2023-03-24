@@ -19,21 +19,22 @@ package org.apache.ignite.deployment.version;
 
 
 /**
- * Unit version interface. Version implementations should be comparable.
+ * Unit version interface. Version implementations must be comparable.
  */
 public interface Version extends Comparable<Version> {
     /**
-     * Render version representation in String format.
+     * Renders a version representation in the String format.
      *
-     * @return version string representation.
+     * @return version String representation.
      */
     String render();
 
     /**
-     * Implementation of {@link Version} interface with special latest logic.
-     * This version have special unique representation. Moreover by convention
-     * this implementation should be oldest version of any another independent of implementation.
+     * Implementation of the {@link Version} interface with the special latest logic.
+     * This version has a special unique representation. Moreover, by convention,
+     * this implementation must be the oldest version of any another independent of implementation.
      */
+    //I don't understand the explanations above.
     Version LATEST = new Version() {
         @Override
         public String render() {
@@ -55,10 +56,10 @@ public interface Version extends Comparable<Version> {
     };
 
     /**
-     * Parse version from String.
+     * Parses a version from a String representation.
      *
-     * @param s string version representation.
-     * @return Version instance of
+     * @param s String version representation.
+     * @return Version instance.
      */
     static Version parseVersion(String s) {
         if ("latest".equals(s)) {
