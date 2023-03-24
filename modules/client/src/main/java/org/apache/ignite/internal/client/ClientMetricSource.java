@@ -81,6 +81,25 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         }
     }
 
+    /**
+     * Gets total lost connections.
+     *
+     * @return Total lost connections.
+     */
+    public long connectionsLost() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.connectionsLost.value();
+    }
+
+    public void connectionsLostIncrement() {
+        Holder h = holder();
+
+        if (h != null) {
+            h.connectionsLost.increment();
+        }
+    }
+
     @Override
     protected Holder createHolder() {
         return new Holder();

@@ -78,6 +78,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Config. */
     private final ClientChannelConfiguration cfg;
 
+    /** Metrics. */
+    private final ClientMetricSource metrics;
+
     /** Protocol context. */
     private volatile ProtocolContext protocolCtx;
 
@@ -117,11 +120,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /**
      * Constructor.
      *
-     * @param cfg     Config.
+     * @param cfg Config.
+     * @param metrics Metrics.
      */
-    private TcpClientChannel(ClientChannelConfiguration cfg) {
+    private TcpClientChannel(ClientChannelConfiguration cfg, ClientMetricSource metrics) {
         validateConfiguration(cfg);
         this.cfg = cfg;
+        this.metrics = metrics;
 
         log = ClientUtils.logger(cfg.clientConfiguration(), TcpClientChannel.class);
 
@@ -164,11 +169,15 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      *
      * @param cfg Configuration.
      * @param connMgr Connection manager.
+     * @param metrics Metrics.
      * @return Channel.
      */
-    static CompletableFuture<ClientChannel> createAsync(ClientChannelConfiguration cfg, ClientConnectionMultiplexer connMgr) {
+    static CompletableFuture<ClientChannel> createAsync(
+            ClientChannelConfiguration cfg,
+            ClientConnectionMultiplexer connMgr,
+            ClientMetricSource metrics) {
         //noinspection resource - returned from method.
-        return new TcpClientChannel(cfg).initAsync(connMgr);
+        return new TcpClientChannel(cfg, metrics).initAsync(connMgr);
     }
 
     /** {@inheritDoc} */
@@ -182,6 +191,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      */
     private void close(@Nullable Exception cause, boolean graceful) {
         if (closed.compareAndSet(false, true)) {
+            if (!graceful) {
+                metrics.connectionsLostIncrement();
+            }
+
             // Disconnect can happen before we initialize the timer.
             var timer = heartbeatTimer;
 
