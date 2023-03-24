@@ -138,8 +138,6 @@ public final class ReliableChannel implements AutoCloseable {
     public synchronized void close() {
         closed = true;
 
-        connMgr.stop();
-
         List<ClientChannelHolder> holders = channels;
 
         if (holders != null) {
@@ -147,6 +145,8 @@ public final class ReliableChannel implements AutoCloseable {
                 hld.close();
             }
         }
+
+        connMgr.stop();
     }
 
     /**
