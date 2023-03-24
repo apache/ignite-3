@@ -24,6 +24,7 @@ import org.apache.ignite.internal.sql.engine.metadata.RemoteException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -97,15 +98,14 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
         return dataCursor.closeAsync();
     }
 
-    private static IgniteException wrapIfNecessary(@NotNull Throwable t) {
+    private static RuntimeException wrapIfNecessary(@NotNull Throwable t) {
         Throwable cause = unwrapRemoteCause(t);
 
+        // If the cause is IgniteException then create
+        // an exception of the same type with the all properties
+        // and set its cause to the original exception
         if (cause instanceof IgniteException) {
-            // If the cause is IgniteException then create
-            // an exception of the same type with the all properties
-            // and set its cause to the original exception
-            IgniteException err = (IgniteException) cause;
-            return preserveExceptionType(err, t);
+            return preserveExceptionType((IgniteException) cause, t);
         } else {
             // If the cause is not a subclass of IgniteException, wrap it in IgniteException.
             return IgniteException.wrap(t);
@@ -130,6 +130,11 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     }
 
     private static IgniteException preserveExceptionType(IgniteException e, Throwable t) {
+        // Return IgniteException as is
+        if (e.getClass() == IgniteException.class) {
+            return e;
+        }
+
         try {
             Constructor<?> ctor = e.getClass().getDeclaredConstructor(UUID.class, int.class, String.class, Throwable.class);
 
