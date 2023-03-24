@@ -321,6 +321,34 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         }
     }
 
+    public long bytesSent() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.bytesSent.value();
+    }
+
+    public void bytesSentIncrement(long bytes) {
+        Holder h = holder();
+
+        if (h != null) {
+            h.bytesSent.add(bytes);
+        }
+    }
+
+    public long bytesReceived() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.bytesReceived.value();
+    }
+
+    public void bytesReceivedIncrement(long bytes) {
+        Holder h = holder();
+
+        if (h != null) {
+            h.bytesReceived.add(bytes);
+        }
+    }
+
     @Override
     protected Holder createHolder() {
         return new Holder();
