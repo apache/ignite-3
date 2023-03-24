@@ -32,6 +32,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.deployment.IgniteDeployment;
 import org.apache.ignite.internal.client.compute.ClientCompute;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
+import org.apache.ignite.internal.client.metrics.ClientMetricSource;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.ClientTables;
@@ -77,6 +78,8 @@ public class TcpIgniteClient implements IgniteClient {
     /** Metric manager. */
     private final @Nullable MetricManager metricManager;
 
+    private final ClientMetricSource metricSource;
+
     /**
      * Constructor.
      *
@@ -106,7 +109,9 @@ public class TcpIgniteClient implements IgniteClient {
         transactions = new ClientTransactions(ch);
         compute = new ClientCompute(ch, tables);
         sql = new ClientSql(ch);
+        metricSource = new ClientMetricSource();
 
+        // TODO: Extract method.
         if (cfg.metricsEnabled() && cfg.metricExporterNames() != null && cfg.metricExporterNames().length > 0) {
             metricManager = new MetricManager();
             Map<String, MetricExporter> availableExporters = MetricManager.loadExporters();
@@ -125,6 +130,8 @@ public class TcpIgniteClient implements IgniteClient {
             }
 
             metricManager.start(exporters);
+            metricSource.enable();
+            metricManager.registerSource(metricSource);
         } else {
             // TODO: always create metric source to avoid null checks, but not metric manager?
             metricManager = null;

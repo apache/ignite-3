@@ -31,7 +31,7 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
     /**
      * Constructor.
      */
-    protected ClientMetricSource() {
+    public ClientMetricSource() {
         super("client");
     }
 
