@@ -339,11 +339,6 @@ public class Cluster {
         return nodes.stream().filter(Objects::nonNull);
     }
 
-    /** Returns all nodes in the cluster. Elements of this list can be {@code null}. **/
-    public List<IgniteImpl> nodes() {
-        return nodes;
-    }
-
     /**
      * Opens a {@link Session} (that can be used to execute SQL queries) through a node with the given index.
      *

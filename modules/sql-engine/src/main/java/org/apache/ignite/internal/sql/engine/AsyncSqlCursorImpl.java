@@ -139,7 +139,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
 
             return (IgniteException) ctor.newInstance(e.traceId(), e.code(), e.getMessage(), t);
         } catch (Exception ex) {
-            throw new RuntimeException("IgniteException-derived class does not have required constructor: " + e.getClass().getName());
+            throw new RuntimeException("IgniteException-derived class does not have required constructor: " + e.getClass().getName(), ex);
         }
     }
 }
