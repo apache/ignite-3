@@ -21,12 +21,12 @@ import java.util.Collection;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Entry point for obtaining information about a cluster's physical topology.
+ * Entry point for obtaining cluster topology information.
  */
 // TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
 public interface TopologyService {
     /**
-     * Returns information of the current node.
+     * Returns information about the current node.
      *
      * @return Information about the local network member.
      */
@@ -35,30 +35,30 @@ public interface TopologyService {
     /**
      * Returns a list of all discovered cluster members, including the local member itself.
      *
-     * @return List of all discovered cluster members.
+     * @return List of the discovered cluster members.
      */
     Collection<ClusterNode> allMembers();
 
     /**
-     * Registers a handler for physical topology change events.
+     * Registers a handler for topology change events.
      *
-     * @param handler Physical topology events handler.
+     * @param handler Topology event handler.
      */
     void addEventHandler(TopologyEventHandler handler);
 
     /**
-     * Returns a cluster node by its network address.
+     * Returns a cluster node specified by its network address in the 'host:port' format.
      *
-     * @param addr The address.
-     * @return The node or {@code null} if the node has not yet been discovered or is offline.
+     * @param addr The network address.
+     * @return The node object; {@code null} if the node has not been discovered or is offline.
      */
     @Nullable ClusterNode getByAddress(NetworkAddress addr);
 
     /**
-     * Returns a cluster node by its consistent id.
+     * Returns a cluster node specified by its consistent ID.
      *
-     * @param consistentId Consistent id.
-     * @return The node or {@code null} if the node has not yet been discovered or is offline.
+     * @param consistentId Consistent ID.
+     * @return The node object; {@code null} if the node has not been discovered or is offline.
      */
     @Nullable ClusterNode getByConsistentId(String consistentId);
 }

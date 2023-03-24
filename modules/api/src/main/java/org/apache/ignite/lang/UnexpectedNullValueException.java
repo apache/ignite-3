@@ -20,8 +20,8 @@ package org.apache.ignite.lang;
 import java.util.UUID;
 
 /**
- * This exception is thrown instead of returning a null value from a method which doesn't respect {@code null}-value to avoid ambiguity
- * whether the value is absent or value is {@code null}.
+ *  This exception is thrown instead of returning a null value from a method that does not respect {@code null}-value to avoid ambiguity
+ *  (whether the value is absent or is {@code null}).
  */
 public class UnexpectedNullValueException extends IgniteException {
     /**

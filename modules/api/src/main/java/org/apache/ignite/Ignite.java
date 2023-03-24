@@ -32,14 +32,14 @@ import org.apache.ignite.tx.IgniteTransactions;
  */
 public interface Ignite extends AutoCloseable {
     /**
-     * Returns ignite node name.
+     * Returns the Ignite node name.
      *
      * @return Ignite node name.
      */
     String name();
 
     /**
-     * Gets an object for manipulate Ignite tables.
+     * Returns an object for manipulating the Ignite tables.
      *
      * @return Ignite tables.
      */
@@ -53,14 +53,14 @@ public interface Ignite extends AutoCloseable {
     IgniteTransactions transactions();
 
     /**
-     * Returns a facade for SQL query engine.
+     * Returns a facade for the SQL query engine.
      *
      * @return Ignite SQL facade.
      */
     IgniteSql sql();
 
     /**
-     * Returns {@link IgniteCompute} which can be used to execute compute jobs.
+     * Returns {@link IgniteCompute}, which can be used to execute compute jobs.
      *
      * @return compute management object
      * @see IgniteCompute
@@ -76,16 +76,16 @@ public interface Ignite extends AutoCloseable {
     IgniteDeployment deployment();
 
     /**
-     * Gets the cluster nodes.
-     * NOTE: Temporary API to enable Compute until we have proper Cluster API.
+     * Returns cluster nodes.
+     * NOTE: A temporary API to enable Compute until the permanent Cluster API becomes available.
      *
      * @return Collection of cluster nodes.
      */
     Collection<ClusterNode> clusterNodes();
 
     /**
-     * Gets the cluster nodes.
-     * NOTE: Temporary API to enable Compute until we have proper Cluster API.
+     * Returns cluster nodes.
+     * NOTE: A temporary API to enable Compute until the permanent Cluster API becomes available.
      *
      * @return Collection of cluster nodes.
      */

@@ -23,7 +23,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * A representation of a network address including a host name and a port.
+ * Representation of a network address that includes a host name and a port.
  */
 public class NetworkAddress implements Serializable {
     /** Regexp for parsing strings in the "host:port" format. */

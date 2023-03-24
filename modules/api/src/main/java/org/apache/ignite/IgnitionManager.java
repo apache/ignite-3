@@ -28,7 +28,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Service loader based implementation of an entry point for handling grid lifecycle.
+ * Service loader-based implementation of an entry point for handling the grid lifecycle.
  */
 public class IgnitionManager {
     /**
@@ -40,34 +40,32 @@ public class IgnitionManager {
     private static Ignition ignition;
 
     /**
-     * Starts an Ignite node with an optional bootstrap configuration from an input stream with HOCON configs.
+     * Starts an Ignite node with an optional bootstrap configuration from an input stream with a HOCON configuration file.
      *
-     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
+     * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
      * @param nodeName Name of the node. Must not be {@code null}.
-     * @param configStr Optional node configuration.
-     *      Following rules are used for applying the configuration properties:
+     * @param config Optional node configuration based on
+     *      {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}.
+     *      The following rules are used for applying the configuration properties:
      *      <ol>
-     *        <li>Specified property overrides existing one or just applies itself if it wasn't
-     *            previously specified.</li>
-     *        <li>All non-specified properties either use previous value or use default one from
-     *            corresponding configuration schema.</li>
+     *        <li>Specified property overrides the existing one, if any.</li>
+     *        <li>All non-specified properties use either the previous value or use default one from
+     *            the corresponding configuration schema.</li>
      *      </ol>
-     *      So that, in case of initial node start (first start ever) specified configuration, supplemented
-     *      with defaults, is used. If no configuration was provided defaults are used for all
-     *      configuration properties. In case of node restart, specified properties override existing
-     *      ones, non specified properties that also weren't specified previously use default values.
-     *      Please pay attention that previously specified properties are searched in the
-     *      {@code workDir} specified by the user.
+     *      Therefore, for the initial node start (first start ever), the specified configuration augmented
+     *      with defaults, is used. If no configuration is provided, defaults are used for all
+     *      configuration properties. For a node restart, the specified properties override existing
+     *      ones, and the non-specified properties that hadn't been specified previously use the default values.
+     *      The previously specified property values are retrieved from the user-specified {@code workDir}.
      *
-     * @param workDir Work directory for the started node. Must not be {@code null}.
-     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     * @param workDir Work directory for the node. Must not be {@code null}.
+     * @return CompletableFuture that resolves to an Ignite node after all components are started and the cluster initialization is
      *         complete.
-     * @throws IgniteException If error occurs while reading node configuration.
+     * @throws IgniteException If an error occurs while reading the node configuration.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
-    //TODO: Move IGNITE-18778
     public static CompletableFuture<Ignite> start(String nodeName, @Nullable String configStr, Path workDir) {
         Ignition ignition = loadIgnitionService(Thread.currentThread().getContextClassLoader());
 
@@ -85,15 +83,15 @@ public class IgnitionManager {
     /**
      * Starts an Ignite node with an optional bootstrap configuration from a HOCON file.
      *
-     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
+     * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
      * @param nodeName Name of the node. Must not be {@code null}.
-     * @param cfgPath  Path to the node configuration in the HOCON format. Can be {@code null}.
-     * @param workDir  Work directory for the started node. Must not be {@code null}.
-     * @param clsLdr   The class loader to be used to load provider-configuration files and provider classes, or {@code null} if the system
-     *                 class loader (or, failing that, the bootstrap class loader) is to be used
-     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     * @param cfgPath  Path to the node configuration HOCON file. Can be {@code null}.
+     * @param workDir  Work directory for the node. Must not be {@code null}.
+     * @param clsLdr   Class loader to be used to load provider-configuration files and provider classes; {@code null} if the system
+     *                 class loader (or, failing that, the bootstrap class loader) is to be used.
+     * @return CompletableFuture that resolves to an Ignite node after all components are started and the cluster initialization is
      *         complete.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
@@ -104,22 +102,22 @@ public class IgnitionManager {
     }
 
     /**
-     * Stops the node with given {@code nodeName}. It's possible to stop both already started node or node that is currently starting.
-     * Has no effect if node with specified name doesn't exist.
+     * Stops the node identified by {@code nodeName}. It is possible to stop both running nodes and the node that are currently starting.
+     * No action is taken if the specified node doesn't exist.
      *
-     * @param nodeName Node name to stop.
+     * @param nodeName Name of the node to stop.
      */
     public static void stop(String nodeName) {
         stop(nodeName, Thread.currentThread().getContextClassLoader());
     }
 
     /**
-     * Stops the node with given {@code nodeName}. It's possible to stop both already started node or node that is currently starting.
-     * Has no effect if node with specified name doesn't exist.
+     * Stops the node identified by {@code nodeName}. It is possible to stop both running nodes and the node that are currently starting.
+     * No action is taken if the specified node doesn't exist.
      *
-     * @param nodeName Node name to stop.
-     * @param clsLdr The class loader to be used to load provider-configuration files and provider classes, or {@code null} if the system
-     *               class loader (or, failing that, the bootstrap class loader) is to be used
+     * @param nodeName Name of the node to stop.
+     * @param clsLdr Class loader to be used to load provider-configuration files and provider classes; {@code null} if the system
+     *               class loader (or, failing that, the bootstrap class loader) is to be used.
      */
     public static void stop(String nodeName, @Nullable ClassLoader clsLdr) {
         Ignition ignition = loadIgnitionService(clsLdr);
@@ -128,7 +126,7 @@ public class IgnitionManager {
     }
 
     /**
-     * Initializes the cluster that this node is present in.
+     * Initializes the cluster the specified node belongs to.
      *
      * @param parameters initialization parameters.
      * @throws IgniteException If the given node has not been started or has been stopped.

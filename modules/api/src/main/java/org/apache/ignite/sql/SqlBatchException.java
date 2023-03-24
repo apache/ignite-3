@@ -21,18 +21,18 @@ import java.util.UUID;
 import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
- * The subclass of {@link SqlException} thrown when an error occurs during a batch update operation. In addition to the
- * information provided by {@link SqlException}, a <code>SqlBatchException</code> provides the update
+ * Subclass of {@link SqlException} is thrown when an error occurs during a batch update operation. In addition to the
+ * information provided by {@link SqlException}, <code>SqlBatchException</code> provides the update
  * counts for all commands that were executed successfully during the batch update, that is,
- * all commands that were executed before the error occurred. The order of elements in an array of update counts
- * corresponds to the order in which commands were added to the batch.
+ * all commands that were executed before the error occurred. The order of elements in the array of update counts
+ * corresponds to the order in which these commands were added to the batch.
  *
  */
 public class SqlBatchException extends SqlException {
     private final long[] updCntrs;
 
     /**
-     * Creates a new grid exception with the given throwable as a cause and source of error message.
+     * Creates a grid exception with the given throwable as a cause and source of error message.
      *
      * @param updCntrs Array that describes the outcome of a batch execution.
      * @param cause Non-null throwable cause.
@@ -44,11 +44,11 @@ public class SqlBatchException extends SqlException {
     }
 
     /**
-     * Creates a new exception with the given trace id, error code, detail message and cause.
+     * Creates an exception with the given trace ID, error code, detailed message, and cause.
      *
-     * @param traceId Unique identifier of this exception.
+     * @param traceId Unique identifier of the exception.
      * @param code Full error code.
-     * @param message Detail message.
+     * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
     public SqlBatchException(UUID traceId, int code, String message, Throwable cause) {
@@ -58,7 +58,7 @@ public class SqlBatchException extends SqlException {
     }
 
     /**
-     * Returns the array that describes the outcome of a batch execution.
+     * Returns an array that describes the outcome of a batch execution.
      *
      * @return Array that describes the outcome of a batch execution.
      */

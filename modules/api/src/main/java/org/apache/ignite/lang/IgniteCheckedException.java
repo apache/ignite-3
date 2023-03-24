@@ -27,18 +27,18 @@ import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
 import java.util.UUID;
 
 /**
- * General Ignite exception. This exception is used to indicate any error condition within the node.
+ * General Ignite exception. Used to indicate any error condition within a node.
  */
 public class IgniteCheckedException extends Exception {
-    /** Serial version uid. */
+    /** Serial version UID. */
     private static final long serialVersionUID = 0L;
 
     /** Name of the error group. */
     private final String groupName;
 
     /**
-     * Error code which contains information about error group and code, where code is unique within the group.
-     * The structure of a code is shown in the following diagram:
+     * Error code that contains information about the error group and code, where the code is unique within the group.
+     * The code structure is as follows:
      * +------------+--------------+
      * |  16 bits   |    16 bits   |
      * +------------+--------------+
@@ -47,11 +47,11 @@ public class IgniteCheckedException extends Exception {
      */
     private final int code;
 
-    /** Unique identifier of this exception that should help locating the error message in a log file. */
+    /** Unique identifier of the exception that helps locating the error message in a log file. */
     private final UUID traceId;
 
     /**
-     * Creates a new exception with the given error code.
+     * Creates an exception with the given error code.
      *
      * @param code Full error code.
      */
@@ -60,9 +60,9 @@ public class IgniteCheckedException extends Exception {
     }
 
     /**
-     * Creates a new exception with the given trace id and error code.
+     * Creates an exception with the given trace ID and error code.
      *
-     * @param traceId Unique identifier of this exception.
+     * @param traceId Unique identifier of the exception.
      * @param code Full error code.
      */
     public IgniteCheckedException(UUID traceId, int code) {
@@ -74,21 +74,21 @@ public class IgniteCheckedException extends Exception {
     }
 
     /**
-     * Creates a new exception with the given error code and detail message.
+     * Creates am exception with the given error code and detailed message.
      *
      * @param code Full error code.
-     * @param message Detail message.
+     * @param message Detailed message.
      */
     public IgniteCheckedException(int code, String message) {
         this(UUID.randomUUID(), code, message);
     }
 
     /**
-     * Creates a new exception with the given trace id, error code and detail message.
+     * Creates an exception with the given trace ID, error code, and detailed message.
      *
-     * @param traceId Unique identifier of this exception.
+     * @param traceId Unique identifier of the exception.
      * @param code Full error code.
-     * @param message Detail message.
+     * @param message Detailed message.
      */
     public IgniteCheckedException(UUID traceId, int code, String message) {
         super(errorMessage(traceId, code, message));
@@ -99,7 +99,7 @@ public class IgniteCheckedException extends Exception {
     }
 
     /**
-     * Creates a new exception with the given error code and cause.
+     * Creates an exception with the given error code and cause.
      *
      * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
@@ -109,9 +109,9 @@ public class IgniteCheckedException extends Exception {
     }
 
     /**
-     * Creates a new exception with the given trace id, error code and cause.
+     * Creates an exception with the given trace ID, error code, and cause.
      *
-     * @param traceId Unique identifier of this exception.
+     * @param traceId Unique identifier of the exception.
      * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
      */
@@ -124,10 +124,10 @@ public class IgniteCheckedException extends Exception {
     }
 
     /**
-     * Creates a new exception with the given error code, detail message and cause.
+     * Creates an exception with the given error code, detailed message, and cause.
      *
      * @param code Full error code.
-     * @param message Detail message.
+     * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteCheckedException(int code, String message, Throwable cause) {
@@ -135,11 +135,11 @@ public class IgniteCheckedException extends Exception {
     }
 
     /**
-     * Creates a new exception with the given trace id, error code, detail message and cause.
+     * Creates an exception with the given trace ID, error code, detailed message, and cause.
      *
-     * @param traceId Unique identifier of this exception.
+     * @param traceId Unique identifier of the exception.
      * @param code Full error code.
-     * @param message Detail message.
+     * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteCheckedException(UUID traceId, int code, String message, Throwable cause) {
@@ -151,7 +151,7 @@ public class IgniteCheckedException extends Exception {
     }
 
     /**
-     * Returns a group name of this error.
+     * Returns a group name of the error.
      *
      * @see #groupCode()
      * @see #code()
@@ -162,8 +162,8 @@ public class IgniteCheckedException extends Exception {
     }
 
     /**
-     * Returns a full error code which includes a group of the error and code which is uniquely identifies a problem within the group.
-     * This is a combination of two most-significant bytes that represent the error group and
+     * Returns a full error code that includes the error's group and code, which uniquely identifies the problem within the group.
+     * This is a combination of two most-significant bytes for the error group and
      * two least-significant bytes for the error code.
      *
      * @return Full error code.
@@ -173,8 +173,8 @@ public class IgniteCheckedException extends Exception {
     }
 
     /**
-     * Returns a human-readable string represents a full error code.
-     * Returned string has the following format: IGN-XXX-nnn, where XXX is a group name and nnn is an unique error code within a group.
+     * Returns a human-readable string that represents a full error code.
+     * The string format is 'IGN-XXX-nnn', where 'XXX' is the group name and 'nnn' is the unique error code within the group.
      *
      * @return Full error code in a human-readable format.
      */
@@ -183,7 +183,7 @@ public class IgniteCheckedException extends Exception {
     }
 
     /**
-     * Returns error group.
+     * Returns an error group.
      *
      * @see #code()
      * @return Error group.
@@ -193,7 +193,7 @@ public class IgniteCheckedException extends Exception {
     }
 
     /**
-     * Returns error code that uniquely identifies a problem within a group.
+     * Returns an error code that uniquely identifies a problem within a group.
      *
      * @see #code()
      * @see #groupCode()
@@ -204,9 +204,9 @@ public class IgniteCheckedException extends Exception {
     }
 
     /**
-     * Returns an unique identifier of this exception.
+     * Returns a unique identifier of the exception.
      *
-     * @return Unique identifier of this exception.
+     * @return Unique identifier of the exception.
      */
     public UUID traceId() {
         return traceId;
