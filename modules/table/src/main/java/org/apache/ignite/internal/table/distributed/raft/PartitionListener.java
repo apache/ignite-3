@@ -161,7 +161,8 @@ public class PartitionListener implements RaftGroupListener {
                 } else if (command instanceof SafeTimeSyncCommand) {
                     handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof BuildIndexCommand) {
-                    handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm);
+                    // TODO: IGNITE-19085 Fix waiting for indexes
+                    //handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
