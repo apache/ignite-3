@@ -207,17 +207,17 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         assertTrue(waitForCondition(() -> {
             synchronized (distributionZoneManager.dataNodesMutex()) {
-                return distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().size() == 1;
+                return distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().size() == 1;
             }
         }, 3_000));
 
-        assertTrue(waitForCondition(() -> distributionZoneManager.dataNodes()
+        assertTrue(waitForCondition(() -> distributionZoneManager.zonesState()
                 .get(DEFAULT_ZONE_ID).revisionScaleDownFutures().size() == 1, 3_000));
 
         CompletableFuture<Void> revisionUpFut;
 
         synchronized (distributionZoneManager.dataNodesMutex()) {
-            revisionUpFut = distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID)
+            revisionUpFut = distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID)
                     .revisionScaleUpFutures().get((long) testData.dataNodesRevision2);
         }
 
@@ -230,14 +230,14 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         assertTrue(waitForCondition(() -> {
             synchronized (distributionZoneManager.dataNodesMutex()) {
-                return distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().size() == 1;
+                return distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().size() == 1;
             }
         }, 3_000));
 
         CompletableFuture<Void> revisionDownFut;
 
         synchronized (distributionZoneManager.dataNodesMutex()) {
-            revisionDownFut = distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleDownFutures()
+            revisionDownFut = distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleDownFutures()
                     .get((long) testData.dataNodesRevision2);
         }
 
@@ -256,8 +256,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         synchronized (distributionZoneManager.dataNodesMutex()) {
             assertTrue(distributionZoneManager.topVerFutures().isEmpty());
-            assertTrue(distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().isEmpty());
-            assertTrue(distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().isEmpty());
         }
     }
 
@@ -281,16 +281,16 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         assertTrue(waitForCondition(() -> {
             synchronized (distributionZoneManager.dataNodesMutex()) {
-                return distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().size() == 1;
+                return distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().size() == 1;
             }
         }, 3_000));
 
         CompletableFuture<Void> revisionUpFut;
 
         synchronized (distributionZoneManager.dataNodesMutex()) {
-            assertTrue(distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().isEmpty());
 
-            revisionUpFut = distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID)
+            revisionUpFut = distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID)
                     .revisionScaleUpFutures().get((long) testData.dataNodesRevision2);
         }
 
@@ -305,8 +305,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         synchronized (distributionZoneManager.dataNodesMutex()) {
             assertTrue(distributionZoneManager.topVerFutures().isEmpty());
-            assertTrue(distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().isEmpty());
-            assertTrue(distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().isEmpty());
         }
     }
 
@@ -330,7 +330,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         assertTrue(waitForCondition(() -> {
             synchronized (distributionZoneManager.dataNodesMutex()) {
-                return distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().size() == 1;
+                return distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().size() == 1;
             }
         },
                 3_000));
@@ -338,9 +338,9 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
         CompletableFuture<Void> revisionDownFut;
 
         synchronized (distributionZoneManager.dataNodesMutex()) {
-            assertTrue(distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().isEmpty());
 
-            revisionDownFut = distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleDownFutures()
+            revisionDownFut = distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleDownFutures()
                     .get((long) testData.dataNodesRevision2);
         }
 
@@ -355,8 +355,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         synchronized (distributionZoneManager.dataNodesMutex()) {
             assertTrue(distributionZoneManager.topVerFutures().isEmpty());
-            assertTrue(distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().isEmpty());
-            assertTrue(distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().isEmpty());
         }
     }
 
@@ -462,7 +462,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         assertTrue(waitForCondition(() -> {
             synchronized (distributionZoneManager.dataNodesMutex()) {
-                DistributionZoneManager.DataNodes dataNodesMeta0 = distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID);
+                DistributionZoneManager.ZoneState dataNodesMeta0 = distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID);
 
                 if (dataNodesMeta0 == null) {
                     return false;
@@ -473,11 +473,11 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
         },
                 3_000));
 
-        DistributionZoneManager.DataNodes dataNodesMeta;
+        DistributionZoneManager.ZoneState dataNodesMeta;
         CompletableFuture<Void> revision2Fut;
 
         synchronized (distributionZoneManager.dataNodesMutex()) {
-            dataNodesMeta = distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID);
+            dataNodesMeta = distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID);
             revision2Fut = dataNodesMeta.revisionScaleUpFutures().get((long) dataNodesRevision0);
         }
 
@@ -501,8 +501,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         synchronized (distributionZoneManager.dataNodesMutex()) {
             assertEquals(1, distributionZoneManager.topVerFutures().size());
-            assertTrue(distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().isEmpty());
-            assertTrue(distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().isEmpty());
         }
 
 
@@ -578,8 +578,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         synchronized (distributionZoneManager.dataNodesMutex()) {
             assertEquals(2, distributionZoneManager.topVerFutures().size());
-            assertTrue(distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().isEmpty());
-            assertTrue(distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().isEmpty());
         }
 
         int topVer2 = 20;
@@ -627,7 +627,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         assertTrue(waitForCondition(() -> {
             synchronized (distributionZoneManager.dataNodesMutex()) {
-                DistributionZoneManager.DataNodes dataNodes = distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID);
+                DistributionZoneManager.ZoneState dataNodes = distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID);
 
                 if (dataNodes == null) {
                     return false;
@@ -651,8 +651,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         synchronized (distributionZoneManager.dataNodesMutex()) {
             assertTrue(distributionZoneManager.topVerFutures().isEmpty());
-            assertTrue(distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().isEmpty());
-            assertTrue(distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().isEmpty());
         }
 
         dataNodesFut = distributionZoneManager.getDataNodes(DEFAULT_ZONE_ID, 106);
@@ -679,7 +679,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         assertTrue(waitForCondition(() -> {
             synchronized (distributionZoneManager.dataNodesMutex()) {
-                revisionFut.set(distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().get(12L));
+                revisionFut.set(distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().get(12L));
 
                 return revisionFut.get() != null;
             }
@@ -697,8 +697,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         synchronized (distributionZoneManager.dataNodesMutex()) {
             assertTrue(distributionZoneManager.topVerFutures().isEmpty());
-            assertTrue(distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().isEmpty());
-            assertTrue(distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().isEmpty());
         }
     }
 
@@ -814,13 +814,15 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
         CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.getDataNodes(zoneId1, 2);
         CompletableFuture<Set<String>> dataNodesFut1Zone2 = distributionZoneManager.getDataNodes(zoneId2, 2);
 
-        assertTrue(waitForCondition(() -> dataNodesFut1Zone0.isDone(), 3000));
-        assertTrue(waitForCondition(() -> dataNodesFut1Zone2.isDone(), 3000));
+
         assertFalse(dataNodesFut1.isDone());
 
         Set<String> nodes1 = Set.of("node0");
 
         topologyWatchListenerOnUpdate(nodes1, 2, 3);
+
+        assertTrue(waitForCondition(() -> dataNodesFut1Zone0.isDone(), 3000));
+        assertTrue(waitForCondition(() -> dataNodesFut1Zone2.isDone(), 3000));
 
         dataNodesWatchListenerOnUpdate(zoneId1, nodes1, false, 3, 4);
 
@@ -867,25 +869,27 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         assertNotNull(topVerUpFut);
 
-        assertTrue(dataNodesFut.isDone());
-
-        assertEquals(emptySet(), dataNodesFut.get(3, TimeUnit.SECONDS));
+        assertFalse(dataNodesFut.isDone());
 
         Set<String> nodes0 = Set.of("node0", "node1");
 
         topologyWatchListenerOnUpdate(nodes0, 1, 1);
 
-        assertTrue(waitForCondition(() -> topVerUpFut.isDone(), 3000));
-
-        dataNodesFut = distributionZoneManager.getDataNodes(zoneId, 1);
+        assertTrue(waitForCondition(() -> dataNodesFut.isDone(), 3000));
 
         assertEquals(emptySet(), dataNodesFut.get(3, TimeUnit.SECONDS));
 
+        assertTrue(waitForCondition(() -> topVerUpFut.isDone(), 3000));
+
+        CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.getDataNodes(zoneId, 1);
+
+        assertEquals(emptySet(), dataNodesFut1.get(3, TimeUnit.SECONDS));
+
         dataNodesWatchListenerOnUpdate(zoneId, nodes0, true, 1, 2);
 
-        dataNodesFut = distributionZoneManager.getDataNodes(zoneId, 1);
+        CompletableFuture<Set<String>> dataNodesFut2 = distributionZoneManager.getDataNodes(zoneId, 1);
 
-        assertEquals(nodes0, dataNodesFut.get(3, TimeUnit.SECONDS));
+        assertEquals(nodes0, dataNodesFut2.get(3, TimeUnit.SECONDS));
     }
 
     /**
@@ -928,9 +932,9 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         AtomicReference<CompletableFuture<Void>> revisionDownFut = new AtomicReference<>();
 
-        assertTrue(waitForCondition(() -> distributionZoneManager.dataNodes().get(zoneId) != null, 3_000));
+        assertTrue(waitForCondition(() -> distributionZoneManager.zonesState().get(zoneId) != null, 3_000));
 
-        DistributionZoneManager.DataNodes dataNodes = distributionZoneManager.dataNodes().get(zoneId);
+        DistributionZoneManager.ZoneState dataNodes = distributionZoneManager.zonesState().get(zoneId);
 
         assertTrue(waitForCondition(() -> {
             synchronized (distributionZoneManager.dataNodesMutex()) {
@@ -952,8 +956,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         synchronized (distributionZoneManager.dataNodesMutex()) {
             assertTrue(distributionZoneManager.topVerFutures().isEmpty());
-            assertTrue(distributionZoneManager.dataNodes().get(zoneId).revisionScaleUpFutures().isEmpty());
-            assertTrue(distributionZoneManager.dataNodes().get(zoneId).revisionScaleDownFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(zoneId).revisionScaleUpFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(zoneId).revisionScaleDownFutures().isEmpty());
         }
 
         dataNodesFut = distributionZoneManager.getDataNodes(zoneId, 106);
@@ -1002,7 +1006,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
         assertFalse(revisionUpFut.get().isDone());
 
         synchronized (distributionZoneManager.dataNodesMutex()) {
-            assertNotNull(distributionZoneManager.dataNodes().get(zoneId));
+            assertNotNull(distributionZoneManager.zonesState().get(zoneId));
         }
 
         distributionZoneManager.dropZone("zone0").get();
@@ -1019,7 +1023,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         synchronized (distributionZoneManager.dataNodesMutex()) {
             assertTrue(distributionZoneManager.topVerFutures().isEmpty());
-            assertNull(distributionZoneManager.dataNodes().get(zoneId));
+            assertNull(distributionZoneManager.zonesState().get(zoneId));
         }
     }
 
@@ -1049,8 +1053,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         synchronized (distributionZoneManager.dataNodesMutex()) {
             assertTrue(distributionZoneManager.topVerFutures().isEmpty());
-            assertEquals(1, distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().size());
-            assertEquals(1, distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().size());
+            assertEquals(1, distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().size());
+            assertEquals(1, distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().size());
         }
 
         //need to create new zone to fix assert invariant which is broken in this test environment.
@@ -1059,8 +1063,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
                 .get(3, TimeUnit.SECONDS);
 
         synchronized (distributionZoneManager.dataNodesMutex()) {
-            assertEquals(1, distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().size());
-            assertEquals(1, distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().size());
+            assertEquals(1, distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().size());
+            assertEquals(1, distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().size());
         }
 
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
@@ -1068,8 +1072,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
                 .get(3, TimeUnit.SECONDS);
 
         synchronized (distributionZoneManager.dataNodesMutex()) {
-            assertTrue(distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().isEmpty());
-            assertTrue(distributionZoneManager.dataNodes().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleUpFutures().isEmpty());
+            assertTrue(distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).revisionScaleDownFutures().isEmpty());
         }
 
         assertEquals(nodes0, dataNodesFut.get());
@@ -1093,7 +1097,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
                                 .dataNodesAutoAdjustScaleUp(1).dataNodesAutoAdjustScaleDown(1).build())
                 .get(3, TimeUnit.SECONDS);
 
-        assertEquals(dataNodes, distributionZoneManager.getDataNodes(DEFAULT_ZONE_ID, 1).get(3, TimeUnit.SECONDS));
+        assertEquals(dataNodes, distributionZoneManager.getDataNodes(DEFAULT_ZONE_ID, 0).get(3, TimeUnit.SECONDS));
     }
 
     private void startZoneManager(long revision) throws Exception {
