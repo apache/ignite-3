@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -33,8 +35,6 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
-import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
@@ -93,7 +93,7 @@ public class CatalogServiceSelfTest {
 
         CompletableFuture<?> fut = service.createTable(params);
 
-        assertThat(fut, CompletableFutureMatcher.willBe(true));
+        assertThat(fut, willBe(true));
 
         // Validate catalog version from the past.
         SchemaDescriptor schema = service.schema(0);
@@ -143,8 +143,8 @@ public class CatalogServiceSelfTest {
                 .ifTableExists(true)
                 .build();
 
-        assertThat(service.createTable(params), CompletableFutureMatcher.willBe(true));
-        assertThat(service.createTable(params), CompletableFutureMatcher.willBe(false));
+        assertThat(service.createTable(params), willBe(true));
+        assertThat(service.createTable(params), willBe(false));
 
         CompletableFuture<?> fut = service.createTable(
                 CreateTableParams.builder()
@@ -157,6 +157,6 @@ public class CatalogServiceSelfTest {
                         .ifTableExists(false)
                         .build());
 
-        assertThat(fut, CompletableFutureExceptionMatcher.willThrowFast(TableAlreadyExistsException.class));
+        assertThat(fut, willThrowFast(TableAlreadyExistsException.class));
     }
 }
