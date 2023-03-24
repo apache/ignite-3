@@ -31,7 +31,7 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
     /**
      * Constructor.
      */
-    public ClientMetricSource() {
+    ClientMetricSource() {
         super("client");
     }
 
@@ -46,6 +46,9 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         return h == null ? 0 : h.connectionsActive.value();
     }
 
+    /**
+     * Increments active connections.
+     */
     public void connectionsActiveIncrement() {
         Holder h = holder();
 
@@ -54,6 +57,9 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         }
     }
 
+    /**
+     * Decrements active connections.
+     */
     public void connectionsActiveDecrement() {
         Holder h = holder();
 
@@ -73,6 +79,9 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         return h == null ? 0 : h.connectionsEstablished.value();
     }
 
+    /**
+     * Increments established connections.
+     */
     public void connectionsEstablishedIncrement() {
         Holder h = holder();
 
@@ -92,6 +101,9 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         return h == null ? 0 : h.connectionsLost.value();
     }
 
+    /**
+     * Increments lost connections.
+     */
     public void connectionsLostIncrement() {
         Holder h = holder();
 
@@ -110,6 +122,9 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         holder.register(bldr);
     }
 
+    /**
+     * Metrics holder.
+     */
     protected static class Holder implements AbstractMetricSource.Holder<Holder> {
         private final AtomicLongMetric connectionsActive =
                 new AtomicLongMetric("ConnectionsActive", "Currently active connections");
