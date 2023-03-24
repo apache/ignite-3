@@ -310,6 +310,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      */
     public CompletableFuture<Void> unsubscribeLeader() {
         serverEventHandler.setOnLeaderElectedCallback(null);
+        serverEventHandler.resetLeader();
 
         var peers = peers();
         var futs = new CompletableFuture[peers.size()];
@@ -487,6 +488,10 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
         Peer leader() {
             return leaderPeer;
+        }
+
+        void resetLeader() {
+            leaderPeer = null;
         }
     }
 }
