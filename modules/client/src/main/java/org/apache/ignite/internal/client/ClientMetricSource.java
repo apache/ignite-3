@@ -111,6 +111,27 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
             h.connectionsLost.increment();
         }
     }
+    /**
+     * Gets total lost connections due to a timeout.
+     *
+     * @return Total lost connections due to a timeout.
+     */
+    public long connectionsLostTimeout() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.connectionsLostTimeout.value();
+    }
+
+    /**
+     * Increments lost connections due to a timeout.
+     */
+    public void connectionsLostTimeoutIncrement() {
+        Holder h = holder();
+
+        if (h != null) {
+            h.connectionsLostTimeout.increment();
+        }
+    }
 
     @Override
     protected Holder createHolder() {

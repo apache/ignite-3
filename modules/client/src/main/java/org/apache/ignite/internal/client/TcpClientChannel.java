@@ -191,7 +191,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      */
     private void close(@Nullable Exception cause, boolean graceful) {
         if (closed.compareAndSet(false, true)) {
-            if (!graceful) {
+            if (cause instanceof TimeoutException) {
+                metrics.connectionsLostTimeoutIncrement();
+            } else if (!graceful) {
                 metrics.connectionsLostIncrement();
             }
 

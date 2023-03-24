@@ -68,25 +68,32 @@ public class ClientMetricsTest {
 
     @Test
     public void testConnectionsLostTimeout() throws InterruptedException {
-        Function<Integer, Boolean> shouldDropConnection = requestIdx -> requestIdx == 2;
-        server = new TestServer(10800, 10, 1000, new FakeIgnite(), shouldDropConnection, null, null, AbstractClientTest.clusterId);
+        Function<Integer, Boolean> shouldDropConnection = requestIdx -> requestIdx == 0;
+        Function<Integer, Integer> responseDelay = idx -> idx > 1 ? 500 : 0;
+        server = new TestServer(10800, 10, 1000, new FakeIgnite(), shouldDropConnection, responseDelay, null, AbstractClientTest.clusterId);
         client = IgniteClient.builder()
                 .addresses("127.0.0.1:" + server.port())
                 .metricsEnabled(true)
+                .connectTimeout(100)
+                .heartbeatTimeout(100)
+                .heartbeatInterval(100)
                 .build();
-
-        client.tables().tables();
 
         ClientMetricSource metrics = ((TcpIgniteClient) client).metrics();
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> metrics.connectionsLost() == 1, 1000),
-                () -> "connectionsLost: " + metrics.connectionsLost());
+                IgniteTestUtils.waitForCondition(() -> metrics.connectionsLostTimeout() == 1, 1000),
+                () -> "connectionsLostTimeout: " + metrics.connectionsLostTimeout());
     }
 
     @AfterEach
     public void afterAll() throws Exception {
-        client.close();
-        server.close();
+        if (client != null) {
+            client.close();
+        }
+
+        if (server != null) {
+            server.close();
+        }
     }
 }
