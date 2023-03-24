@@ -66,6 +66,9 @@ public final class ReliableChannel implements AutoCloseable {
     /** Channel factory. */
     private final ClientChannelFactory chFactory;
 
+    /** Metrics. */
+    private final ClientMetricSource metrics;
+
     /** Client channel holders for each configured address. */
     private volatile List<ClientChannelHolder> channels;
 
@@ -124,6 +127,7 @@ public final class ReliableChannel implements AutoCloseable {
         this.clientCfg = Objects.requireNonNull(clientCfg, "clientCfg");
         this.chFactory = Objects.requireNonNull(chFactory, "chFactory");
         this.log = ClientUtils.logger(clientCfg, ReliableChannel.class);
+        this.metrics = metrics;
 
         connMgr = new NettyClientConnectionMultiplexer(metrics);
         connMgr.start(clientCfg);
@@ -775,7 +779,7 @@ public final class ReliableChannel implements AutoCloseable {
                             new IgniteClientConnectionException(CONNECTION_ERR, "Reconnect is not allowed due to applied throttling"));
                 }
 
-                chFut0 = chFactory.create(chCfg, connMgr).thenApply(ch -> {
+                chFut0 = chFactory.create(chCfg, connMgr, metrics).thenApply(ch -> {
                     var oldClusterId = clusterId.compareAndExchange(null, ch.protocolContext().clusterId());
 
                     if (oldClusterId != null && !oldClusterId.equals(ch.protocolContext().clusterId())) {

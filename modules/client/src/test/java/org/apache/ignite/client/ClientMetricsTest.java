@@ -47,11 +47,14 @@ public class ClientMetricsTest {
         assertEquals(1, metrics.connectionsEstablished());
         assertEquals(1, metrics.connectionsActive());
 
-        server.close();
+        client.close();
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> metrics.connectionsActive() == 0, 1000),
                 () -> "connectionsActive: " + metrics.connectionsActive());
+
+        assertEquals(1, metrics.connectionsEstablished());
+        assertEquals(0, metrics.connectionsLost());
     }
 
     @AfterEach
