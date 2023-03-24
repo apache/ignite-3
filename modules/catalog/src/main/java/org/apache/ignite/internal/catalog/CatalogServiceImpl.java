@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.events.CreateTableEvent;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -76,7 +78,7 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
 
     private final ExecutorService executorService = ForkJoinPool.commonPool();
 
-    private final ConcurrentMap<Integer, CompletableFuture<Boolean>> futMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<UUID, CompletableFuture<Boolean>> futMap = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -107,7 +109,7 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
     /** {@inheritDoc} */
     @Override
     public TableDescriptor table(String tableName, long timestamp) {
-        return catalogAt(timestamp).schema(CatalogUtils.DEFAULT_SCHEMA).table(tableName);
+        return catalogAt(timestamp).table(CatalogUtils.DEFAULT_SCHEMA, tableName);
     }
 
     /** {@inheritDoc} */
@@ -172,32 +174,31 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<Void> onUpdate(WatchEvent event) {
-            assert event.single();
+        public CompletableFuture<Void> onUpdate(WatchEvent watchEvent) {
+            assert watchEvent.single();
 
-            EntryEvent entryEvent = event.entryEvent();
+            EntryEvent entryEvent = watchEvent.entryEvent();
 
-            if (entryEvent.newEntry() != null) {
-                Object obj = ByteUtils.fromBytes(entryEvent.newEntry().value());
+            if (entryEvent.newEntry().value() != null) {
+                assert entryEvent.oldEntry().empty();
 
-                assert obj instanceof TableDescriptor;
+                CreateTableEvent event = ByteUtils.fromBytes(entryEvent.newEntry().value());
 
-                TableDescriptor tableDesc = (TableDescriptor) obj;
+                TableDescriptor tableDesc = event.tableDescriptor();
 
-                // TODO: Add catalog version to event.
-                int ver = catalogByVer.lastKey() + 1;
+                int catalogId = event.catalogId();
 
-                CatalogDescriptor catalog = catalogByVer.get(ver - 1);
+                CatalogDescriptor catalog = catalogByVer.get(catalogId - 1);
 
                 SchemaDescriptor schema = catalog.schema(tableDesc.schemaName());
 
                 CatalogDescriptor newCatalog = new CatalogDescriptor(
-                        ver,
+                        catalogId,
                         System.currentTimeMillis(),
                         new SchemaDescriptor(
                                 schema.id(),
                                 schema.name(),
-                                ver,
+                                catalogId,
                                 ArrayUtils.concat(schema.tables(), tableDesc),
                                 schema.indexes()
                         )
@@ -205,9 +206,12 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
 
                 registerCatalog(newCatalog);
 
-                CompletableFuture<Boolean> rmv = futMap.remove(ver);
+                // Notify listeners.
+
+                CompletableFuture<Boolean> rmv = futMap.remove(event.opUid());
+
                 if (rmv != null) {
-                    rmv.complete(true);
+                    rmv.completeAsync(() -> true, executorService);
                 }
             }
 
@@ -224,21 +228,51 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> createTable(CreateTableParams params) {
-        // Creates diff from params, then save to metastorage.
-        // Atomically:
-        //        int newVer = metaStorage.get("lastVer") + 1;
-        //
-        //        validate(params);
-        //        Object diff = createDiff(catalog, params);
-        //
-        //        metaStorage.put("catalog.ver." + newVer, diff);
-        //        metaStorage.put("lastVer", newVer);
+        CompletableFuture<Boolean> opFut = new CompletableFuture<>();
 
+        UUID uuid = UUID.randomUUID();
+
+        futMap.put(uuid, opFut);
+
+        createTableInternal(uuid, params)
+                .whenCompleteAsync((res, err) -> {
+                    if (err == null && res) {
+                        return;
+                    }
+
+                    futMap.remove(uuid, opFut);
+
+                    if (err != null) {
+                        opFut.completeExceptionally(err);
+                    } else if (params.ifTableExists()) {
+                        opFut.complete(false);
+                    } else {
+                        opFut.completeExceptionally(new TableAlreadyExistsException(params.schemaName(), params.tableName()));
+                    }
+                });
+
+        return opFut;
+    }
+
+    /**
+     * Creates then save operation meta information to the MetaStorage.
+     *
+     * <pre>Atomically:
+     *     int newVer = metaStorage.get("lastVer") + 1;
+     *
+     *     validate(params);
+     *     Object diff = createDiff(catalog, params);
+     *
+     *     metaStorage.put("catalog.ver." + newVer, diff);
+     *     metaStorage.put("lastVer", newVer);
+     * </pre>
+     */
+    private CompletableFuture<Boolean> createTableInternal(UUID opUid, CreateTableParams params) {
         ByteArray LAST_VER_KEY = ByteArray.fromString("catalog.lastVer");
         ByteArray TABLE_ID_KEY = ByteArray.fromString("catalog.tableId");
 
         return metaStorageMgr.getAll(Set.of(LAST_VER_KEY, TABLE_ID_KEY))
-                .thenCompose(entries -> {
+                .thenComposeAsync(entries -> {
                     Entry lastVerEntry = entries.get(LAST_VER_KEY);
                     Entry tableIdEntry = entries.get(TABLE_ID_KEY);
 
@@ -253,23 +287,14 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
                     assert catalog.table(newTableId) == null;
 
                     TableDescriptor tableDesc = CatalogUtils.fromParams(newTableId, params);
-
                     // params.validate(catalog); ???
                     // validate(catalog, table);
 
-                    SchemaDescriptor schema = catalog.schema(tableDesc.schemaName());
-
-                    if (schema.table(tableDesc.name()) != null) {
-                        return params.ifTableExists()
-                                ? completedFuture(false)
-                                : failedFuture(new TableAlreadyExistsException(tableDesc.schemaName(), tableDesc.name()));
+                    if (catalog.table(tableDesc.schemaName(), tableDesc.name()) != null) {
+                        return completedFuture(false);
                     }
 
-                    CompletableFuture<Boolean> opFut = new CompletableFuture<>();
-
-                    if (futMap.putIfAbsent(newVer, opFut) != null) {
-                        return completedFuture(null).thenComposeAsync(ignore -> createTable(params), executorService);
-                    }
+                    CreateTableEvent createTableEvent = new CreateTableEvent(opUid, newVer, tableDesc);
 
                     return metaStorageMgr.invoke(
                             Statements.iif(
@@ -277,15 +302,16 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
                                     Operations.ops(
                                             Operations.put(LAST_VER_KEY, ByteUtils.intToBytes(newVer)),
                                             Operations.put(TABLE_ID_KEY, ByteUtils.intToBytes(newTableId)),
-                                            Operations.put(ByteArray.fromString(CATALOG_VER_PREFIX + newVer), ByteUtils.toBytes(tableDesc))
+                                            Operations.put(ByteArray.fromString(CATALOG_VER_PREFIX + newVer),
+                                                    ByteUtils.toBytes(createTableEvent))
                                     ).yield(true),
                                     Operations.ops().yield(false)
                             )
                     ).thenComposeAsync(
-                            res -> res.getAsBoolean() ? opFut.thenApply(ignore -> true) : createTable(params),
+                            res -> res.getAsBoolean() ? completedFuture(true) : createTableInternal(opUid, params),
                             executorService
                     );
-                });
+                }, executorService);
     }
 
     /** {@inheritDoc} */

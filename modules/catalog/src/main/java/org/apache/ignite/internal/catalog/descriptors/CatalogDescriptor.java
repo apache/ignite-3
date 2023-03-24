@@ -28,6 +28,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Catalog descriptor represents database schema snapshot.
@@ -75,6 +76,12 @@ public class CatalogDescriptor implements Serializable {
 
     public SchemaDescriptor schema(String name) {
         return schemas.get(name);
+    }
+
+    public @Nullable TableDescriptor table(String schemaName, String tableName) {
+        SchemaDescriptor schema = schemas.get(schemaName);
+
+        return (schema == null) ? null : schema.table(tableName);
     }
 
     public TableDescriptor table(int tableId) {
