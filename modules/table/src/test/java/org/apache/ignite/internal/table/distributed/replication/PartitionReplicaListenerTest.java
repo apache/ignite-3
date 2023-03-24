@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.distributed.replication;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -1036,7 +1036,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         // Check that one more write after cleanup is discarded.
         CompletableFuture<?> writeAfterCleanupFuture = partitionReplicaListener.invoke(updatingRequestSupplier.get());
-        assertThat(writeAfterCleanupFuture, willFailFast(TransactionException.class));
+        assertThat(writeAfterCleanupFuture, willThrowFast(TransactionException.class));
     }
 
     @Test

@@ -20,8 +20,8 @@ package org.apache.ignite.internal.storage;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -548,7 +548,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         mvPartitionStorage.close();
 
-        assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willFailFast(StorageRebalanceException.class));
+        assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willThrowFast(StorageRebalanceException.class));
     }
 
     @Test
@@ -704,8 +704,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(tableStorage.startRebalancePartition(PARTITION_ID + 1), willCompleteSuccessfully());
 
         try {
-            assertThat(tableStorage.clearPartition(PARTITION_ID), willFailFast(StorageClosedException.class));
-            assertThat(tableStorage.clearPartition(PARTITION_ID + 1), willFailFast(StorageRebalanceException.class));
+            assertThat(tableStorage.clearPartition(PARTITION_ID), willThrowFast(StorageClosedException.class));
+            assertThat(tableStorage.clearPartition(PARTITION_ID + 1), willThrowFast(StorageRebalanceException.class));
         } finally {
             assertThat(tableStorage.abortRebalancePartition(PARTITION_ID + 1), willCompleteSuccessfully());
         }
