@@ -174,13 +174,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** {@inheritDoc} */
     @Override
     public void close() {
-        close(null);
+        close(null, true);
     }
 
     /**
      * Close the channel with cause.
      */
-    private void close(@Nullable Exception cause) {
+    private void close(@Nullable Exception cause, boolean graceful) {
         if (closed.compareAndSet(false, true)) {
             // Disconnect can happen before we initialize the timer.
             var timer = heartbeatTimer;
@@ -215,7 +215,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             log.debug("Connection closed [remoteAddress=" + cfg.getAddress() + ']');
         }
 
-        close(e);
+        close(e, false);
     }
 
     /** {@inheritDoc} */
@@ -593,7 +593,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                                     if (e instanceof TimeoutException) {
                                         log.warn("Heartbeat timeout, closing the channel [remoteAddress=" + cfg.getAddress() + ']');
 
-                                        close((TimeoutException) e);
+                                        close((TimeoutException) e, false);
                                     }
 
                                     return null;
