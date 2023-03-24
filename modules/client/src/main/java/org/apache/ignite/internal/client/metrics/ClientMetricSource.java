@@ -46,11 +46,61 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
     }
 
     protected static class Holder implements AbstractMetricSource.Holder<Holder> {
-        private final AtomicLongMetric connectionsInitiated =
-                new AtomicLongMetric("ConnectionsInitiated", "Total initiated connections");
+        private final AtomicLongMetric connectionsActive =
+                new AtomicLongMetric("ConnectionsActive", "Currently active connections");
+
+        private final AtomicLongMetric connectionsEstablished =
+                new AtomicLongMetric("ConnectionsEstablished", "Total established connections");
+
+        private final AtomicLongMetric connectionsLost =
+                new AtomicLongMetric("ConnectionsLost", "Total lost connections");
+
+        private final AtomicLongMetric connectionsLostTimeout =
+                new AtomicLongMetric("ConnectionsLostTimeout", "Total lost connections due to a timeout");
+
+        private final AtomicLongMetric handshakesFailed =
+                new AtomicLongMetric("HandshakesFailed", "Total failed handshakes");
+
+        private final AtomicLongMetric handshakesFailedTls =
+                new AtomicLongMetric("HandshakesFailedTls", "Total failed handshakes due to a TLS error");
+
+        private final AtomicLongMetric handshakesFailedTimeout =
+                new AtomicLongMetric("HandshakesFailedTimeout", "Total failed handshakes due to a timeout");
+
+        private final AtomicLongMetric requestsActive =
+                new AtomicLongMetric("RequestsActive", "Total failed handshakes due to a timeout");
+
+        private final AtomicLongMetric requestsSent =
+                new AtomicLongMetric("RequestsSent", "Total requests sent");
+
+        private final AtomicLongMetric requestsCompleted =
+                new AtomicLongMetric("RequestsCompleted", "Total requests completed (response received)");
+
+        private final AtomicLongMetric requestsCompletedWithRetry =
+                new AtomicLongMetric(
+                        "RequestsCompletedWithRetry",
+                        "Total requests completed with retry (response received after one or more retries)");
+
+        private final AtomicLongMetric requestsFailed = new AtomicLongMetric("RequestsFailed","Total requests failed");
+
+        private final AtomicLongMetric bytesSent = new AtomicLongMetric("BytesSent","Total bytes sent");
+        private final AtomicLongMetric bytesReceived = new AtomicLongMetric("BytesReceived","Total bytes received");
 
         final List<Metric> metrics = Arrays.asList(
-                connectionsInitiated
+                connectionsActive,
+                connectionsEstablished,
+                connectionsLost,
+                connectionsLostTimeout,
+                handshakesFailed,
+                handshakesFailedTls,
+                handshakesFailedTimeout,
+                requestsActive,
+                requestsSent,
+                requestsCompleted,
+                requestsCompletedWithRetry,
+                requestsFailed,
+                bytesSent,
+                bytesReceived
         );
 
         void register(MetricSetBuilder bldr) {
