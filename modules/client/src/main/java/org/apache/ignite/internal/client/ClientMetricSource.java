@@ -111,6 +111,7 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
             h.connectionsLost.increment();
         }
     }
+
     /**
      * Gets total lost connections due to a timeout.
      *
@@ -130,6 +131,72 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
 
         if (h != null) {
             h.connectionsLostTimeout.increment();
+        }
+    }
+
+    /**
+     * Gets total failed handshakes.
+     *
+     * @return Total failed handshakes.
+     */
+    public long handshakesFailed() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.handshakesFailed.value();
+    }
+
+    /**
+     * Increments failed handshakes.
+     */
+    public void handshakesFailedIncrement() {
+        Holder h = holder();
+
+        if (h != null) {
+            h.handshakesFailed.increment();
+        }
+    }
+
+    /**
+     * Gets total failed handshakes due to a TLS error.
+     *
+     * @return Total failed handshakes due to a TLS error.
+     */
+    public long handshakesFailedTls() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.handshakesFailedTls.value();
+    }
+
+    /**
+     * Increments failed handshakes due to a TLS error.
+     */
+    public void handshakesFailedTlsIncrement() {
+        Holder h = holder();
+
+        if (h != null) {
+            h.handshakesFailedTls.increment();
+        }
+    }
+
+    /**
+     * Gets total failed handshakes due to a timeout.
+     *
+     * @return Total failed handshakes due to a timeout.
+     */
+    public long handshakesFailedTimeout() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.handshakesFailedTimeout.value();
+    }
+
+    /**
+     * Increments failed handshakes due to a timeout.
+     */
+    public void handshakesFailedTimeoutIncrement() {
+        Holder h = holder();
+
+        if (h != null) {
+            h.handshakesFailedTimeout.increment();
         }
     }
 
