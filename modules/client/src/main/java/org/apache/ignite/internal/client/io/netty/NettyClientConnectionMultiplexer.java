@@ -187,8 +187,12 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
         connectFut.addListener(f -> {
             if (f.isSuccess()) {
                 metrics.connectionsEstablishedIncrement();
+                metrics.connectionsActiveIncrement();
 
-                NettyClientConnection conn = new NettyClientConnection(((ChannelFuture) f).channel(), msgHnd, stateHnd);
+                ChannelFuture chFut = (ChannelFuture) f;
+                chFut.channel().closeFuture().addListener(unused -> metrics.connectionsActiveDecrement());
+
+                NettyClientConnection conn = new NettyClientConnection(chFut.channel(), msgHnd, stateHnd);
 
                 fut.complete(conn);
             } else {

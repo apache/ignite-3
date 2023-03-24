@@ -46,7 +46,7 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         return h == null ? 0 : h.connectionsActive.value();
     }
 
-    void connectionsActiveIncrement() {
+    public void connectionsActiveIncrement() {
         Holder h = holder();
 
         if (h != null) {
@@ -54,7 +54,7 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         }
     }
 
-    void connectionsActiveDecrement() {
+    public void connectionsActiveDecrement() {
         Holder h = holder();
 
         if (h != null) {
