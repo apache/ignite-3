@@ -29,11 +29,15 @@ import org.jetbrains.annotations.Nullable;
  * Ignite schema.
  */
 public class IgniteSchema extends AbstractSchema {
+    public static final long INITIAL_VERSION = -1;
+
     private final String schemaName;
 
     private final Map<String, Table> tblMap;
 
     private final Map<UUID, IgniteIndex> idxMap;
+
+    private final long schemaVersion;
 
     /**
      * Creates a Schema with given tables and indexes.
@@ -45,11 +49,13 @@ public class IgniteSchema extends AbstractSchema {
     public IgniteSchema(
             String schemaName,
             @Nullable Map<String, Table> tableMap,
-            @Nullable Map<UUID, IgniteIndex> indexMap
+            @Nullable Map<UUID, IgniteIndex> indexMap,
+            long schemaVersion
     ) {
         this.schemaName = schemaName;
         this.tblMap = tableMap == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(tableMap);
         this.idxMap = indexMap == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(indexMap);
+        this.schemaVersion = schemaVersion;
     }
 
     /**
@@ -58,11 +64,20 @@ public class IgniteSchema extends AbstractSchema {
      * @param schemaName A name of the schema to create.
      */
     public IgniteSchema(String schemaName) {
-        this(schemaName, null, null);
+        this(schemaName, null, null, INITIAL_VERSION);
     }
 
-    public static IgniteSchema copy(IgniteSchema old) {
-        return new IgniteSchema(old.schemaName, old.tblMap, old.idxMap);
+    /**
+     * Creates an empty Schema.
+     *
+     * @param schemaName A name of the schema to create.
+     */
+    public IgniteSchema(String schemaName, long schemaVersion) {
+        this(schemaName, null, null, schemaVersion);
+    }
+
+    public static IgniteSchema copy(IgniteSchema old, long schemaVersion) {
+        return new IgniteSchema(old.schemaName, old.tblMap, old.idxMap, schemaVersion);
     }
 
     /**
@@ -85,7 +100,7 @@ public class IgniteSchema extends AbstractSchema {
      *
      * @param tbl Table.
      */
-    public void addTable(InternalIgniteTable tbl) {
+    public void addTable(IgniteTable tbl) {
         tblMap.put(tbl.name(), tbl);
     }
 
@@ -126,5 +141,12 @@ public class IgniteSchema extends AbstractSchema {
      */
     public IgniteIndex index(UUID indexId) {
         return idxMap.get(indexId);
+    }
+
+    /**
+     * Return actual schema version.
+     */
+    public long schemaVersion() {
+        return schemaVersion;
     }
 }

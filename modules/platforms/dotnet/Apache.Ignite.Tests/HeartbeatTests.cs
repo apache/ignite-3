@@ -48,7 +48,7 @@ namespace Apache.Ignite.Tests
             var log = await ConnectAndGetLog(IgniteClientConfiguration.DefaultHeartbeatInterval);
 
             StringAssert.Contains(
-                "ClientSocket [Warn] Server-side IdleTimeout is 00:00:03, " +
+                "[Warn] Server-side IdleTimeout is 00:00:03, " +
                 "configured IgniteClientConfiguration.HeartbeatInterval is 00:00:30, which is longer than recommended IdleTimeout / 3. " +
                 "Overriding heartbeat interval with max(IdleTimeout / 3, 500ms): 00:00:01",
                 log);
@@ -60,7 +60,7 @@ namespace Apache.Ignite.Tests
             var log = await ConnectAndGetLog(TimeSpan.FromMilliseconds(50));
 
             StringAssert.Contains(
-                "ClientSocket [Info] Server-side IdleTimeout is 00:00:03, " +
+                "[Info] Server-side IdleTimeout is 00:00:03, " +
                 "using configured IgniteClientConfiguration.HeartbeatInterval: 00:00:00.0500000",
                 log);
         }
@@ -71,7 +71,7 @@ namespace Apache.Ignite.Tests
             var log = await ConnectAndGetLog(TimeSpan.FromSeconds(4));
 
             StringAssert.Contains(
-                "ClientSocket [Warn] Server-side IdleTimeout is 00:00:03, " +
+                "[Warn] Server-side IdleTimeout is 00:00:03, " +
                 "configured IgniteClientConfiguration.HeartbeatInterval is 00:00:04, which is longer than recommended IdleTimeout / 3. " +
                 "Overriding heartbeat interval with max(IdleTimeout / 3, 500ms): 00:00:01",
                 log);
@@ -80,8 +80,8 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestZeroOrNegativeHeartbeatIntervalThrows()
         {
-            Assert.ThrowsAsync<IgniteClientException>(async () => await ConnectAndGetLog(TimeSpan.Zero));
-            Assert.ThrowsAsync<IgniteClientException>(async () => await ConnectAndGetLog(TimeSpan.FromSeconds(-1)));
+            Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await ConnectAndGetLog(TimeSpan.Zero));
+            Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await ConnectAndGetLog(TimeSpan.FromSeconds(-1)));
         }
 
         private static async Task<string> ConnectAndGetLog(TimeSpan heartbeatInterval)

@@ -137,7 +137,7 @@ public class JdbcStatement implements Statement {
 
         Response res;
         try {
-            res = conn.handler().queryAsync(req).join();
+            res = conn.handler().queryAsync(conn.connectionId(), req).join();
         } catch (CompletionException e) {
             throw toSqlException(e);
         } catch (CancellationException e) {

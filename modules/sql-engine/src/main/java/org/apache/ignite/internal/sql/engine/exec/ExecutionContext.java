@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 
+import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -42,7 +43,6 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.AbstractQueryContext;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -86,6 +86,8 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      */
     private final long startTs;
 
+    private final TxAttributes txAttributes;
+
     private SharedState sharedState = new SharedState();
 
     /**
@@ -107,7 +109,8 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
             String originatingNodeName,
             FragmentDescription fragmentDesc,
             RowHandler<RowT> handler,
-            Map<String, Object> params
+            Map<String, Object> params,
+            TxAttributes txAttributes
     ) {
         super(qctx);
 
@@ -119,6 +122,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         this.params = params;
         this.localNode = localNode;
         this.originatingNodeName = originatingNodeName;
+        this.txAttributes = txAttributes;
 
         expressionFactory = new ExpressionFactoryImpl<>(
                 this,
@@ -244,10 +248,17 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         }
 
         if (name.startsWith("?")) {
-            return TypeUtils.toInternal(this, params.get(name));
+            return TypeUtils.toInternal(params.get(name));
         }
 
         return params.get(name);
+    }
+
+    /** Gets dynamic parameters by name. */
+    public Object getParameter(String name, Type storageType) {
+        assert name.startsWith("?") : name;
+
+        return TypeUtils.toInternal(params.get(name), storageType);
     }
 
     /**
@@ -341,8 +352,8 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     }
 
     /** Transaction for current context. */
-    public InternalTransaction transaction() {
-        return qctx.transaction();
+    public TxAttributes txAttributes() {
+        return txAttributes;
     }
 
     /**

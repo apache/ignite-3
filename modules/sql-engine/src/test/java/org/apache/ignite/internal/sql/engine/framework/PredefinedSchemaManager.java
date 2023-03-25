@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
@@ -45,12 +46,12 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
     private final Map<UUID, IgniteTable> tableById;
 
     /** Constructs schema manager from a single schema. */
-    public PredefinedSchemaManager(IgniteSchema schema) {
+    PredefinedSchemaManager(IgniteSchema schema) {
         this(List.of(schema));
     }
 
     /** Constructs schema manager from a collection of schemas. */
-    public PredefinedSchemaManager(Collection<IgniteSchema> schemas) {
+    PredefinedSchemaManager(Collection<IgniteSchema> schemas) {
         this.root = Frameworks.createRootSchema(false);
         this.tableById = new HashMap<>();
 
@@ -72,9 +73,14 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
         return schema == null ? root : root.getSubSchema(schema);
     }
 
+    @Override
+    public CompletableFuture<?> actualSchemaAsync(long ver) {
+        return CompletableFuture.completedFuture(null);
+    }
+
     /** {@inheritDoc} */
     @Override
-    public IgniteTable tableById(UUID id, int ver) {
+    public IgniteTable tableById(UUID id) {
         return tableById.get(id);
     }
 }

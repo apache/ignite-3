@@ -22,13 +22,16 @@ namespace Apache.Ignite.Internal
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
+    using System.IO;
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
+    using Ignite.Network;
     using Log;
+    using Network;
     using Proto;
     using Transactions;
 
@@ -113,11 +116,10 @@ namespace Apache.Ignite.Internal
         {
             var socket = new ClientFailoverSocket(configuration);
 
-            await socket.GetSocketAsync().ConfigureAwait(false);
+            await socket.GetNextSocketAsync().ConfigureAwait(false);
 
             // Because this call is not awaited, execution of the current method continues before the call is completed.
             // Secondary connections are established in the background.
-            // TODO IGNITE-18808 Do this periodically.
             _ = socket.ConnectAllSockets();
 
             return socket;
@@ -226,11 +228,20 @@ namespace Apache.Ignite.Internal
         /// Gets active connections.
         /// </summary>
         /// <returns>Active connections.</returns>
-        public IEnumerable<ConnectionContext> GetConnections() =>
-            _endpoints
-                .Select(e => e.Socket?.ConnectionContext)
-                .Where(ctx => ctx != null)
-                .ToList()!;
+        public IList<IConnectionInfo> GetConnections()
+        {
+            var res = new List<IConnectionInfo>(_endpoints.Count);
+
+            foreach (var endpoint in _endpoints)
+            {
+                if (endpoint.Socket is { IsDisposed: false, ConnectionContext: { } ctx })
+                {
+                    res.Add(new ConnectionInfo(ctx.ClusterNode, ctx.SslInfo));
+                }
+            }
+
+            return res;
+        }
 
         /// <summary>
         /// Gets a socket. Reconnects if necessary.
@@ -259,7 +270,7 @@ namespace Apache.Ignite.Internal
                     }
                     catch (Exception e)
                     {
-                        _logger?.Warn(e, $"Failed to connect to preferred node {preferredNode}: {e.Message}");
+                        _logger?.Warn(e, $"Failed to connect to preferred node [{preferredNode}]: {e.Message}");
                     }
                 }
             }
@@ -280,32 +291,42 @@ namespace Apache.Ignite.Internal
             Justification = "Secondary connection errors can be ignored.")]
         private async Task ConnectAllSockets()
         {
-            if (_endpoints.Count == 1)
+            var tasks = new List<Task>(_endpoints.Count);
+
+            while (!_disposed)
             {
-                return;
-            }
-
-            try
-            {
-                var tasks = new List<Task>(_endpoints.Count);
-
-                _logger?.Debug("Establishing secondary connections...");
-
-                foreach (var endpoint in _endpoints)
+                try
                 {
-                    if (endpoint.Socket?.IsDisposed == false)
+                    tasks.Clear();
+
+                    foreach (var endpoint in _endpoints)
                     {
-                        continue;
+                        if (endpoint.Socket?.IsDisposed == false)
+                        {
+                            continue;
+                        }
+
+                        tasks.Add(ConnectAsync(endpoint).AsTask());
                     }
 
-                    tasks.Add(ConnectAsync(endpoint).AsTask());
+                    _logger?.Debug("Trying to establish secondary connections - awaiting {0} tasks...", tasks.Count);
+
+                    await Task.WhenAll(tasks).ConfigureAwait(false);
+
+                    _logger?.Debug("All secondary connections established.");
+                }
+                catch (Exception e)
+                {
+                    _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
                 }
 
-                await Task.WhenAll(tasks).ConfigureAwait(false);
-            }
-            catch (Exception e)
-            {
-                _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
+                if (Configuration.ReconnectInterval <= TimeSpan.Zero)
+                {
+                    // Interval is zero - periodic reconnect is disabled.
+                    return;
+                }
+
+                await Task.Delay(Configuration.ReconnectInterval).ConfigureAwait(false);
             }
         }
 
@@ -327,11 +348,11 @@ namespace Apache.Ignite.Internal
         private async ValueTask<ClientSocket> GetNextSocketAsync()
         {
             List<Exception>? errors = null;
-            var startIdx = (int) Interlocked.Increment(ref _endPointIndex);
+            var startIdx = unchecked((int) Interlocked.Increment(ref _endPointIndex));
 
             for (var i = 0; i < _endpoints.Count; i++)
             {
-                var idx = (startIdx + i) % _endpoints.Count;
+                var idx = Math.Abs(startIdx + i) % _endpoints.Count;
                 var endPoint = _endpoints[idx];
 
                 if (endPoint.Socket is { IsDisposed: false })
@@ -343,7 +364,7 @@ namespace Apache.Ignite.Internal
                 {
                     return await ConnectAsync(endPoint).ConfigureAwait(false);
                 }
-                catch (SocketException e)
+                catch (IgniteClientConnectionException e) when (e.GetBaseException() is SocketException or IOException)
                 {
                     errors ??= new List<Exception>();
 
@@ -360,11 +381,11 @@ namespace Apache.Ignite.Internal
         /// </summary>
         private ClientSocket? GetNextSocketWithoutReconnect()
         {
-            var startIdx = (int) Interlocked.Increment(ref _endPointIndex);
+            var startIdx = unchecked((int) Interlocked.Increment(ref _endPointIndex));
 
             for (var i = 0; i < _endpoints.Count; i++)
             {
-                var idx = (startIdx + i) % _endpoints.Count;
+                var idx = Math.Abs(startIdx + i) % _endpoints.Count;
                 var endPoint = _endpoints[idx];
 
                 if (endPoint.Socket is { IsDisposed: false })
@@ -388,9 +409,14 @@ namespace Apache.Ignite.Internal
 
             await _socketLock.WaitAsync().ConfigureAwait(false);
 
+            if (endpoint.Socket?.IsDisposed == false)
+            {
+                return endpoint.Socket;
+            }
+
             try
             {
-                var socket = await ClientSocket.ConnectAsync(endpoint.EndPoint, Configuration, OnAssignmentChanged).ConfigureAwait(false);
+                var socket = await ClientSocket.ConnectAsync(endpoint, Configuration, OnAssignmentChanged).ConfigureAwait(false);
 
                 if (_clusterId == null)
                 {
@@ -538,6 +564,11 @@ namespace Apache.Ignite.Internal
         {
             if (!ShouldRetry(exception, op, attempt))
             {
+                if (_logger?.IsEnabled(LogLevel.Debug) == true)
+                {
+                    _logger.Debug($"Not retrying operation [opCode={(int)op}, opType={op}, attempt={attempt}, lastError={exception}]");
+                }
+
                 if (errors == null)
                 {
                     return false;
@@ -550,6 +581,11 @@ namespace Apache.Ignite.Internal
                     ErrorGroups.Client.Connection,
                     $"Operation {op} failed after {attempt} retries, examine InnerException for details.",
                     inner);
+            }
+
+            if (_logger?.IsEnabled(LogLevel.Debug) == true)
+            {
+                _logger.Debug($"Retrying operation [opCode={(int)op}, opType={op}, attempt={attempt}, lastError={exception}]");
             }
 
             if (errors == null)

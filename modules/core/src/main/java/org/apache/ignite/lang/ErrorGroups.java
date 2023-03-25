@@ -99,6 +99,9 @@ public class ErrorGroups {
 
         /** Client SSL configuration error. */
         public static final int CLIENT_SSL_CONFIGURATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(9);
+
+        /** Client handshake header error. */
+        public static final int HANDSHAKE_HEADER_ERR = CLIENT_ERR_GROUP.registerErrorCode(10);
     }
 
     /** SQL error group. */
@@ -156,9 +159,6 @@ public class ErrorGroups {
 
         /** Object already exists in schema. */
         public static final int OBJECT_ALREADY_EXISTS_ERR = SQL_ERR_GROUP.registerErrorCode(17);
-
-        /** Table version not found. */
-        public static final int TABLE_VER_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(18);
 
         /** Query mapping error. */
         public static final int QUERY_MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode(19);
@@ -389,5 +389,41 @@ public class ErrorGroups {
          * Config write error.
          */
         public static final int CONFIG_WRITE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(3);
+    }
+
+    /**
+     * Code deployment error group.
+     */
+    public static class CodeDeployment {
+        /**
+         * Code deployment error group.
+         */
+        public static final ErrorGroup CODE_DEPLOYMENT_ERR_GROUP = ErrorGroup.newGroup("CODEDEPLOY", 13);
+
+        /**
+         * Access to non-existing deployment unit.
+         */
+        public static final int UNIT_NOT_FOUND_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(1);
+
+        /**
+         * Unit duplicate error.
+         */
+        public static final int UNIT_ALREADY_EXISTS_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(2);
+
+        /**
+         * Deployment unit content read error.
+         */
+        public static final int UNIT_CONTENT_READ_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(3);
+    }
+
+    /**
+     * Garbage collector error group.
+     */
+    public static class GarbageCollector {
+        /** Garbage collector error group. */
+        public static final ErrorGroup GC_ERR_GROUP = ErrorGroup.newGroup("GC", 14);
+
+        /** Garbage collector closed error. */
+        public static final int CLOSED_ERR = GC_ERR_GROUP.registerErrorCode(1);
     }
 }

@@ -25,17 +25,41 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTa
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUnion;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.index.Index;
+import org.apache.ignite.internal.index.SortedIndex;
+import org.apache.ignite.internal.index.SortedIndexDescriptor;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTableImpl;
+import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
+import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.utils.PrimaryReplica;
+import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Basic index tests.
  */
-public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
+public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
     private static final String PK_SORTED_IDX = "PK_SORTED_IDX";
 
     private static final String DEPID_IDX = "DEPID_IDX";
@@ -59,7 +83,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
         sql("CREATE TABLE birthday (id INT PRIMARY KEY, name VARCHAR, birthday DATE)");
         sql("CREATE INDEX " + NAME_DATE_IDX + " ON birthday (name, birthday)");
 
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
         waitForIndex(DEPID_IDX);
         waitForIndex(NAME_CITY_IDX);
         waitForIndex(NAME_DEPID_CITY_IDX);
@@ -105,7 +129,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
         sql("CREATE TABLE unwrap_pk(f1 VARCHAR, f2 BIGINT, f3 BIGINT, f4 BIGINT, primary key(f2, f1))");
         sql("CREATE INDEX " + PK_SORTED_IDX + " ON unwrap_pk(f2, f1)");
 
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
         waitForIndex(PK_SORTED_IDX);
 
         insertData("UNWRAP_PK", List.of("F1", "F2", "F3", "F4"), new Object[][]{
@@ -121,7 +145,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
         sql("CREATE TABLE t1 (id INT PRIMARY KEY, val INT)");
         sql("CREATE INDEX t1_idx on t1(val DESC)");
 
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
         waitForIndex("t1_idx");
 
         insertData("T1", List.of("ID", "VAL"), new Object[][]{
@@ -853,10 +877,39 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(5, 5)
                 .returns(6, 6)
                 .check();
+
+        // Not nullable column, filter is always - false.
+        assertQuery("SELECT * FROM T1 WHERE id IS NULL")
+                .matches(QueryChecker.matches(".*filters=\\[false\\].*"))
+                .check();
+    }
+
+    /**
+     * Test index search bounds on complex index expression.
+     */
+    @Test
+    public void testComplexIndexExpression() {
+        assertQuery("SELECT id FROM Developer WHERE depId BETWEEN ? - 1 AND ? + 1")
+                .withParams(20, 20)
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
+                .returns(20)
+                .returns(21)
+                .returns(22)
+                .check();
+
+        assertQuery("SELECT id FROM Birthday WHERE name = SUBSTRING(?::VARCHAR, 1, 4)")
+                .withParams("BachBach")
+                .matches(containsIndexScan("PUBLIC", "BIRTHDAY", NAME_DATE_IDX))
+                .returns(3)
+                .check();
+
+        assertQuery("SELECT id FROM Birthday WHERE name = SUBSTRING(name, 1, 4)")
+                .matches(containsTableScan("PUBLIC", "BIRTHDAY"))
+                .returns(3)
+                .check();
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18468")
     public void testNullCondition1() {
         assertQuery("SELECT * FROM T1 WHERE val is null")
                 .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
@@ -868,7 +921,6 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18468")
     public void testNullCondition2() {
         assertQuery("SELECT * FROM T1 WHERE (val <= 5) or (val is null)")
                 .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
@@ -883,7 +935,6 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18468")
     public void testNullCondition3() {
         assertQuery("SELECT * FROM T1 WHERE (val >= 5) or (val is null)")
                 .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
@@ -894,5 +945,236 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(6, 6)
                 .returns(7, null)
                 .check();
+    }
+
+    @Test
+    public void testNullsInCorrNestedLoopJoinSearchRow() throws InterruptedException {
+        try {
+            sql("CREATE TABLE t(i0 INTEGER PRIMARY KEY, i1 INTEGER, i2 INTEGER)");
+            sql("CREATE INDEX t_idx ON t(i1)");
+            // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
+            waitForIndex("t_idx");
+            sql("INSERT INTO t VALUES (1, 0, null), (2, 1, null), (3, 2, 2), (4, 3, null), (5, 4, null), (6, null, 5)");
+
+            List<RowCountingIndex> idxs = injectRowCountingIndex("T", "T_IDX");
+
+            String sql = "SELECT t1.i1, t2.i1 FROM t t1 LEFT JOIN t t2 ON t1.i2 = t2.i1";
+
+            assertQuery(sql)
+                    .disableRules("NestedLoopJoinConverter", "MergeJoinConverter")
+                    .matches(containsSubPlan("IgniteCorrelatedNestedLoopJoin"))
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .returns(0, null)
+                    .returns(1, null)
+                    .returns(2, 2)
+                    .returns(3, null)
+                    .returns(4, null)
+                    .returns(null, null)
+                    .check();
+
+            // There shouldn't be full index scan in case of null values in search row, only one value must be found by
+            // range scan and passed to predicate.
+            assertEquals(1, idxs.stream().mapToInt(RowCountingIndex::touchCount).sum());
+        } finally {
+            sql("DROP TABLE IF EXISTS t");
+        }
+    }
+
+    @Test
+    public void testNullsInSearchRow() throws InterruptedException {
+        try {
+            sql("CREATE TABLE t(i0 INTEGER PRIMARY KEY, i1 INTEGER, i2 INTEGER)");
+            sql("CREATE INDEX t_idx ON t(i1, i2)");
+            // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
+            waitForIndex("t_idx");
+            sql("INSERT INTO t VALUES (1, null, 0), (2, 1, null), (3, 2, 2), (4, 3, null)");
+
+            List<RowCountingIndex> idxs = injectRowCountingIndex("T", "T_IDX");
+
+            assertQuery("SELECT * FROM t WHERE i1 = ?")
+                    .withParams(null)
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .check();
+
+            assertEquals(0, idxs.stream().mapToInt(RowCountingIndex::touchCount).sum());
+
+            assertQuery("SELECT * FROM t WHERE i1 = 1 AND i2 = ?")
+                    .withParams(new Object[] { null })
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .check();
+
+            // Multi ranges.
+            assertQuery("SELECT * FROM t WHERE i1 IN (1, 2, 3) AND i2 = ?")
+                    .withParams(new Object[] { null })
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .check();
+
+            assertEquals(0, idxs.stream().mapToInt(RowCountingIndex::touchCount).sum());
+
+            assertQuery("SELECT i1, i2 FROM t WHERE i1 IN (1, 2) AND i2 IS NULL")
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .returns(1, null)
+                    .check();
+
+            assertEquals(1, idxs.stream().mapToInt(RowCountingIndex::touchCount).sum());
+        } finally {
+            sql("DROP TABLE IF EXISTS t");
+        }
+    }
+
+    private List<RowCountingIndex> injectRowCountingIndex(String tableName, String idxName) {
+        List<RowCountingIndex> countingIdxs = new ArrayList<>();
+
+        for (Ignite ign : CLUSTER_NODES) {
+            IgniteImpl ignEx = (IgniteImpl) ign;
+
+            SqlQueryProcessor qp = (SqlQueryProcessor) ignEx.queryEngine();
+
+            SqlSchemaManagerImpl sqlSchemaManager = (SqlSchemaManagerImpl) IgniteTestUtils.getFieldValue(qp,
+                    SqlQueryProcessor.class, "sqlSchemaManager");
+
+            IgniteTableImpl tbl = (IgniteTableImpl) sqlSchemaManager.schema("PUBLIC").getTable(tableName);
+
+            IgniteIndex idx = tbl.getIndex(idxName);
+
+            Index<?> internalIdx = idx.index();
+
+            RowCountingIndex countingIdx = new RowCountingIndex((SortedIndex) internalIdx);
+
+            IgniteTestUtils.setFieldValue(idx, "index", countingIdx);
+
+            countingIdxs.add(countingIdx);
+        }
+
+        return countingIdxs;
+    }
+
+    private static class RowCountingIndex implements SortedIndex {
+        private SortedIndex delegate;
+
+        private WrappedPublisher wrpPublisher;
+
+        RowCountingIndex(SortedIndex delegate) {
+            this.delegate = delegate;
+        }
+
+        List<WrappedPublisher> wrpPublishers = new ArrayList<>();
+
+        int touchCount() {
+            return wrpPublishers.stream().mapToInt(WrappedPublisher::touchCount).sum();
+        }
+
+        @Override
+        public UUID id() {
+            return delegate.id();
+        }
+
+        @Override
+        public String name() {
+            return delegate.name();
+        }
+
+        @Override
+        public UUID tableId() {
+            return delegate.tableId();
+        }
+
+        @Override
+        public SortedIndexDescriptor descriptor() {
+            return delegate.descriptor();
+        }
+
+        @Override
+        public Publisher<BinaryRow> lookup(int partId, UUID txId, PrimaryReplica recipient, BinaryTuple key, @Nullable BitSet columns) {
+            return delegate.lookup(partId, txId, recipient, key, columns);
+        }
+
+        @Override
+        public Publisher<BinaryRow> lookup(int partId, HybridTimestamp readTimestamp, ClusterNode recipientNode, BinaryTuple key,
+                @Nullable BitSet columns) {
+            return delegate.lookup(partId, readTimestamp, recipientNode, key, columns);
+        }
+
+        @Override
+        public Publisher<BinaryRow> scan(int partId, UUID txId, PrimaryReplica recipient, @Nullable BinaryTuplePrefix leftBound,
+                @Nullable BinaryTuplePrefix rightBound, int flags, @Nullable BitSet columnsToInclude) {
+            Publisher<BinaryRow> pub =  delegate.scan(partId, txId, recipient, leftBound, rightBound, flags, columnsToInclude);
+
+            return wrap(pub);
+        }
+
+        @Override
+        public Publisher<BinaryRow> scan(int partId, HybridTimestamp readTimestamp, ClusterNode recipientNode,
+                @Nullable BinaryTuplePrefix leftBound, @Nullable BinaryTuplePrefix rightBound, int flags,
+                @Nullable BitSet columnsToInclude) {
+            Publisher<BinaryRow> pub = delegate.scan(partId, readTimestamp, recipientNode, leftBound, rightBound, flags, columnsToInclude);
+
+            return wrap(pub);
+        }
+
+        private WrappedPublisher wrap(Publisher<BinaryRow> pub) {
+            wrpPublisher = new WrappedPublisher(pub);
+
+            wrpPublishers.add(wrpPublisher);
+
+            return wrpPublisher;
+        }
+    }
+
+    private static class WrappedPublisher implements Publisher<BinaryRow> {
+        Publisher<BinaryRow> pub;
+
+        WrappedSubscriber subs;
+
+        WrappedPublisher(Publisher<BinaryRow> pub) {
+            this.pub = pub;
+        }
+
+        @Override
+        public void subscribe(Subscriber subscriber) {
+            subs = new WrappedSubscriber(subscriber);
+
+            pub.subscribe(subs);
+        }
+
+        int touchCount() {
+            return subs.touchCount();
+        }
+    }
+
+    private static class WrappedSubscriber implements Subscriber {
+        private Subscriber subs;
+
+        private AtomicInteger touched = new AtomicInteger();
+
+        WrappedSubscriber(Subscriber subs) {
+            this.subs = subs;
+        }
+
+        @Override
+        public void onSubscribe(Subscription subscription) {
+            subs.onSubscribe(subscription);
+        }
+
+        @Override
+        public void onNext(Object item) {
+            touched.incrementAndGet();
+
+            subs.onNext(item);
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+            subs.onError(throwable);
+        }
+
+        @Override
+        public void onComplete() {
+            subs.onComplete();
+        }
+
+        int touchCount() {
+            return touched.get();
+        }
     }
 }

@@ -36,6 +36,7 @@ import java.util.function.IntFunction;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
@@ -117,7 +118,13 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
         CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
 
         if (CLUSTER_NODES.isEmpty()) {
-            IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
+            InitParameters initParameters = InitParameters.builder()
+                    .destinationNodeName(nodeName)
+                    .metaStorageNodeNames(List.of(nodeName))
+                    .clusterName("cluster")
+                    .build();
+
+            IgnitionManager.init(initParameters);
         }
 
         assertThat(future, willCompleteSuccessfully());
@@ -178,6 +185,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
     /**
      * Restarts an in-memory node that is not a leader of the table's partition.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19044")
     @Test
     public void inMemoryNodeRestartNotLeader(TestInfo testInfo) throws Exception {
         // Start three nodes, the first one is going to be CMG and MetaStorage leader.

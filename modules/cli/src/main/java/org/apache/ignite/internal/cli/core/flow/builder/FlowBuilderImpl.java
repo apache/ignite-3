@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.cli.core.flow.builder;
 
 import java.io.PrintWriter;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
@@ -47,6 +50,8 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
     private final Flow<I, O> flow;
     private final ExceptionHandlers exceptionHandlers;
     private final DecoratorRegistry decoratorRegistry;
+    private final Set<Consumer<O>> successHandlers = new HashSet<>();
+    private final Set<Consumer<Throwable>> failureHandlers = new HashSet<>();
     private boolean verbose;
 
     FlowBuilderImpl(Flow<I, O> flow) {
@@ -70,7 +75,18 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
 
     @Override
     public <OT> FlowBuilder<I, OT> then(Flow<O, OT> flow) {
-        return new FlowBuilderImpl<>(this.flow.composite(flow), exceptionHandlers, decoratorRegistry, verbose);
+        Flow<I, OT> composite = input -> {
+            Flowable<O> outputFlowable = this.flow.start(input);
+            if (outputFlowable.hasResult()) {
+                O result = outputFlowable.value();
+                successHandlers.forEach(handler -> handler.accept(result));
+            } else if (outputFlowable.hasError()) {
+                Throwable error = outputFlowable.errorCause();
+                failureHandlers.forEach(handler -> handler.accept(error));
+            }
+            return flow.start(outputFlowable);
+        };
+        return new FlowBuilderImpl<>(composite, exceptionHandlers, decoratorRegistry, verbose);
     }
 
     @Override
@@ -103,6 +119,18 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
     @Override
     public FlowBuilder<I, O> exceptionHandler(ExceptionHandler<?> exceptionHandler) {
         exceptionHandlers.addExceptionHandler(exceptionHandler);
+        return this;
+    }
+
+    @Override
+    public FlowBuilder<I, O> onSuccess(Consumer<O> handler) {
+        successHandlers.add(handler);
+        return this;
+    }
+
+    @Override
+    public FlowBuilder<I, O> onFailure(Consumer<Throwable> handler) {
+        failureHandlers.add(handler);
         return this;
     }
 
@@ -164,7 +192,7 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
      */
     private Flowable<O> printResult(Flowable<O> input, Function<Class<O>, Decorator<O, TerminalOutput>> decoratorProvider) {
         if (input.hasResult()) {
-            // Workaround for the https://issues.apache.org/jira/browse/IGNITE-17346
+            // Workaround for the scroll truncation issue in windows terminal
             // This will turn the tailtips off before printing
             CommandLineContextProvider.print(() -> {
                 String out = decoratorProvider.apply(input.type()).decorate(input.value()).toTerminalString();

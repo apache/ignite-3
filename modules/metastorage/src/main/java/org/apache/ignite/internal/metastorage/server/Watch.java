@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -59,11 +60,24 @@ public class Watch {
 
     /**
      * Notifies the event listener about a Meta Storage event.
+     *
+     * @see WatchListener#onUpdate
      */
-    public void onUpdate(WatchEvent event) {
-        listener.onUpdate(event);
-
+    public CompletableFuture<Void> onUpdate(WatchEvent event) {
         targetRevision = event.revision() + 1;
+
+        return listener.onUpdate(event);
+    }
+
+    /**
+     * Notifies the event listener about a Meta Storage revision update.
+     *
+     * @see WatchListener#onRevisionUpdated
+     */
+    public CompletableFuture<Void> onRevisionUpdated(long revision) {
+        targetRevision = revision + 1;
+
+        return listener.onRevisionUpdated(revision);
     }
 
     /**
@@ -71,6 +85,13 @@ public class Watch {
      */
     public void onError(Throwable e) {
         listener.onError(e);
+    }
+
+    /**
+     * Returns the ID of the Watch.
+     */
+    public String id() {
+        return listener.id();
     }
 
     /**
@@ -85,5 +106,24 @@ public class Watch {
      */
     public long targetRevision() {
         return targetRevision;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Watch watch = (Watch) o;
+
+        return id().equals(watch.id());
+    }
+
+    @Override
+    public int hashCode() {
+        return id().hashCode();
     }
 }

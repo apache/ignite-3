@@ -19,8 +19,8 @@ package org.apache.ignite.internal.configuration.storage;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -66,12 +66,14 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
+import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -176,6 +178,9 @@ public class ItRebalanceDistributedTest {
 
     @InjectConfiguration
     private static ClusterManagementConfiguration clusterManagementConfiguration;
+
+    @InjectConfiguration
+    private static SecurityConfiguration securityConfiguration;
 
     @Target(ElementType.METHOD)
     @Retention(RetentionPolicy.RUNTIME)
@@ -503,7 +508,7 @@ public class ItRebalanceDistributedTest {
 
         TablePartitionId tablePartitionId = evictedNode.getTablePartitionId(TABLE_1_NAME, 0);
 
-        assertThat(evictedNode.finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId), willFailFast(Exception.class));
+        assertThat(evictedNode.finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId), willThrowFast(Exception.class));
 
         // Restart evicted node.
         int evictedNodeIndex = findNodeIndexByConsistentId(evictedAssignment.consistentId());
@@ -586,6 +591,8 @@ public class ItRebalanceDistributedTest {
 
         private final SchemaManager schemaManager;
 
+        private final DistributedConfigurationUpdater distributedConfigurationUpdater;
+
         private List<IgniteComponent> nodeComponents;
 
         private final Map<TablePartitionId, CompletableFuture<Void>> finishHandleChangeStableAssignmentEventFutures
@@ -645,14 +652,17 @@ public class ItRebalanceDistributedTest {
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
+            distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
-                    clusterManagementConfiguration
-            );
+                    clusterManagementConfiguration,
+                    distributedConfigurationUpdater);
 
             String nodeName = clusterService.localConfiguration().getName();
 
@@ -747,22 +757,27 @@ public class ItRebalanceDistributedTest {
                 }
 
                 @Override
-                protected void handleChangeStableAssignmentEvent(WatchEvent evt) {
+                protected CompletableFuture<Void> handleChangeStableAssignmentEvent(WatchEvent evt) {
                     TablePartitionId tablePartitionId = getTablePartitionId(evt);
 
-                    try {
-                        super.handleChangeStableAssignmentEvent(evt);
+                    return super.handleChangeStableAssignmentEvent(evt)
+                            .whenComplete((v, e) -> {
+                                if (tablePartitionId == null) {
+                                    return;
+                                }
 
-                        if (tablePartitionId != null) {
-                            finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId).complete(null);
-                        }
-                    } catch (Throwable t) {
-                        if (tablePartitionId != null) {
-                            finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId).completeExceptionally(t);
-                        }
+                                CompletableFuture<Void> finishFuture = finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId);
 
-                        throw t;
-                    }
+                                if (finishFuture == null) {
+                                    return;
+                                }
+
+                                if (e == null) {
+                                    finishFuture.complete(null);
+                                } else {
+                                    finishFuture.completeExceptionally(e);
+                                }
+                            });
                 }
             };
         }
@@ -784,7 +799,8 @@ public class ItRebalanceDistributedTest {
                     baselineMgr,
                     dataStorageMgr,
                     schemaManager,
-                    tableManager
+                    tableManager,
+                    distributedConfigurationUpdater
             );
 
             nodeComponents.forEach(IgniteComponent::start);

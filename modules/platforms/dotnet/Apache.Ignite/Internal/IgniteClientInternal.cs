@@ -18,7 +18,7 @@
 namespace Apache.Ignite.Internal
 {
     using System.Collections.Generic;
-    using System.Linq;
+    using System.Diagnostics;
     using System.Net;
     using System.Threading.Tasks;
     using Ignite.Compute;
@@ -86,6 +86,9 @@ namespace Apache.Ignite.Internal
 
                 for (var i = 0; i < count; i++)
                 {
+                    var fieldCount = r.ReadArrayHeader();
+                    Debug.Assert(fieldCount == 4, "fieldCount == 4");
+
                     res.Add(new ClusterNode(
                         Id: r.ReadString(),
                         Name: r.ReadString(),
@@ -97,8 +100,7 @@ namespace Apache.Ignite.Internal
         }
 
         /// <inheritdoc/>
-        public IList<IClusterNode> GetConnections() =>
-            _socket.GetConnections().Select(ctx => ctx.ClusterNode).ToList();
+        public IList<IConnectionInfo> GetConnections() => _socket.GetConnections();
 
         /// <inheritdoc/>
         public void Dispose()

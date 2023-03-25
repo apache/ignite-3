@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import java.util.Collection;
-import org.apache.ignite.internal.metastorage.Entry;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.metastorage.WatchEvent;
 
 /**
  * Interface for declaring callbacks that get called after all Meta Storage watches have been notified of a particular revision.
@@ -26,10 +26,11 @@ import org.apache.ignite.internal.metastorage.Entry;
 @FunctionalInterface
 public interface OnRevisionAppliedCallback {
     /**
-     * Notifies of completion of processing of Meta Storage watches for a particular revision.
+     * Notifies of completion of processing of Meta Storage watches for a particular Watch and revision.
      *
-     * @param revision Revision.
-     * @param updatedEntries Entries that have been modified under this revision and processed by at least one watch.
+     * @param watchId ID of the Watch that has finished processing the revision.
+     * @param watchEvent Event with modified Meta Storage entries processed by the Watch.
+     * @return Future that represents the state of the execution of the callback.
      */
-    void onRevisionApplied(long revision, Collection<Entry> updatedEntries);
+    CompletableFuture<Void> onRevisionApplied(String watchId, WatchEvent watchEvent);
 }

@@ -47,6 +47,7 @@ dependencies {
     testImplementation project(':ignite-raft-api')
     testImplementation project(':ignite-transactions')
     testImplementation project(':ignite-storage-api')
+    testImplementation project(':ignite-metrics')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation libs.hamcrest.core
@@ -55,5 +56,18 @@ dependencies {
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
 }
+
+def archTestDir = "$buildDir/archtest"
+
+task copyMainClassPathToArchTestDir(type: Copy) {
+    from sourceSets.main.runtimeClasspath
+    into archTestDir
+}
+
+test {
+    systemProperty "archtest.dir", archTestDir
+}
+
+test.dependsOn copyMainClassPathToArchTestDir
 
 description = 'ignite-client'

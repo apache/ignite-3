@@ -50,7 +50,6 @@ public:
 
     // Default
     record_view() = default;
-    ~record_view() = default;
     record_view(record_view &&) noexcept = default;
     record_view &operator=(record_view &&) noexcept = default;
 };
@@ -71,7 +70,6 @@ public:
 
     // Default
     record_view() = default;
-    ~record_view() = default;
     record_view(record_view &&) noexcept = default;
     record_view &operator=(record_view &&) noexcept = default;
 
@@ -106,7 +104,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param keys Keys.
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   resulting records with all columns filled from the table. The order of
      *   elements is guaranteed to be the same as the order of keys. If a record
      *   does not exist, the resulting element of the corresponding order is
@@ -161,7 +159,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param records Records to upsert.
-     * @param callback Callback that called on operation completion.
+     * @param callback Callback that is called on operation completion.
      */
     IGNITE_API void upsert_all_async(transaction *tx, std::vector<value_type> records, ignite_callback<void> callback);
 
@@ -231,7 +229,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param records Records to insert.
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   skipped records.
      */
     IGNITE_API void insert_all_async(
@@ -340,7 +338,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param key A record with key columns set..
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   a value indicating whether a record with the specified key was deleted.
      */
     IGNITE_API void remove_async(transaction *tx, const value_type &key, ignite_callback<bool> callback);
@@ -364,7 +362,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param record A record with all columns set.
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   a value indicating whether a record with the specified key was deleted.
      */
     IGNITE_API void remove_exact_async(transaction *tx, const value_type &record, ignite_callback<bool> callback);
@@ -389,7 +387,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param key A record with key columns set.
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   a deleted record or @c std::nullopt if it did not exist.
      */
     IGNITE_API void get_and_remove_async(
@@ -415,7 +413,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param keys Record keys to delete.
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   records from @c keys that did not exist.
      */
     IGNITE_API void remove_all_async(
@@ -443,7 +441,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param records Records to delete.
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   records from @c records that did not exist.
      */
     IGNITE_API void remove_all_exact_async(

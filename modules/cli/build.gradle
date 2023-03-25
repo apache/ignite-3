@@ -60,6 +60,7 @@ dependencies {
     implementation libs.okhttp.logging
     implementation libs.threetenbp
     implementation libs.swagger.legacy.annotations
+    implementation libs.progressBar
 
     testAnnotationProcessor libs.picocli.annotation.processor
     testAnnotationProcessor libs.micronaut.inject.annotation.processor
@@ -78,6 +79,7 @@ dependencies {
     testImplementation libs.assertj.core
     testImplementation libs.mock.server.netty
     testImplementation libs.mock.server.junit
+    testImplementation libs.awaitility
 
     testFixturesAnnotationProcessor libs.picocli.annotation.processor
     testFixturesAnnotationProcessor libs.micronaut.inject.annotation.processor
@@ -94,8 +96,9 @@ dependencies {
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-sql-engine')
-    integrationTestImplementation(testFixtures(project(":ignite-core")))
-    integrationTestImplementation(testFixtures(project(":ignite-schema")))
+    integrationTestImplementation testFixtures(project(":ignite-core"))
+    integrationTestImplementation testFixtures(project(":ignite-schema"))
+    integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.micronaut.picocli
     integrationTestImplementation libs.mock.server.netty
@@ -105,12 +108,14 @@ dependencies {
     integrationTestImplementation libs.assertj.core
     integrationTestImplementation libs.jline.console
     integrationTestImplementation libs.awaitility
+    integrationTestImplementation libs.hamcrest.core
+    integrationTestImplementation libs.hamcrest.optional
 }
 
 ext.generatedClientDir = layout.buildDirectory.dir("swagger/client")
 
 task copyOpenapiDefinition(type: Copy) {
-    from("$rootDir/modules/rest/openapi")
+    from("$rootDir/modules/rest-api/openapi")
     into("$buildDir/customOpenapiDefinition/")
 }
 

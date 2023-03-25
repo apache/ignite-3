@@ -35,10 +35,10 @@ import org.apache.ignite.raft.jraft.error.RaftError;
  */
 class RaftGroupEventsListenerAdapter implements JraftGroupEventsListener {
     /**
-     * RAFT service event listener.
+     * RAFT service event interceptor.
      * The listener the only for all RAFT nodes that start with this service.
      */
-    private final RaftServiceEventListener serviceEventListener;
+    private final RaftServiceEventInterceptor serviceEventInterceptor;
     private final RaftGroupEventsListener delegate;
 
     /** RAFT group id. */
@@ -48,22 +48,22 @@ class RaftGroupEventsListenerAdapter implements JraftGroupEventsListener {
      * The constructor.
      *
      * @param grpId RAFT group id.
-     * @param serviceEventListener Service event listener.
+     * @param serviceEventInterceptor Service event interceptor.
      * @param delegate Node event listener.
      */
     RaftGroupEventsListenerAdapter(
             ReplicationGroupId grpId,
-            RaftServiceEventListener serviceEventListener,
+            RaftServiceEventInterceptor serviceEventInterceptor,
             RaftGroupEventsListener delegate
     ) {
         this.grpId = grpId;
-        this.serviceEventListener = serviceEventListener;
+        this.serviceEventInterceptor = serviceEventInterceptor;
         this.delegate = delegate;
     }
 
     @Override
     public void onLeaderElected(long term) {
-        serviceEventListener.onLeaderElected(grpId, term);
+        serviceEventInterceptor.onLeaderElected(grpId, term);
 
         delegate.onLeaderElected(term);
     }

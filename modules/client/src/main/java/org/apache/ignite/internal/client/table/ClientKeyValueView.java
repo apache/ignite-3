@@ -97,7 +97,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
                 (s, r) -> valSer.readRec(s, r, TuplePart.VAL),
                 null,
-                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -144,7 +144,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 (s, w) -> keySer.writeRecs(tx, keys, s, w, TuplePart.KEY),
                 this::readGetAllResponse,
                 Collections.emptyMap(),
-                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), keys.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), keys.iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -162,7 +162,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 ClientOp.TUPLE_CONTAINS_KEY,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -180,7 +180,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 ClientOp.TUPLE_UPSERT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 r -> null,
-                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -209,7 +209,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                     }
                 },
                 r -> null,
-                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), pairs.keySet().iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), pairs.keySet().iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -229,7 +229,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 (s, r) -> valSer.readRec(s, r, TuplePart.VAL),
                 null,
-                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -259,7 +259,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 ClientOp.TUPLE_INSERT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -283,7 +283,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 ClientOp.TUPLE_DELETE,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -295,7 +295,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -318,7 +318,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 (s, w) -> keySer.writeRecs(tx, keys, s, w, TuplePart.KEY),
                 (s, r) -> keySer.readRecs(s, r, false, TuplePart.KEY),
                 Collections.emptyList(),
-                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), keys.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), keys.iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -337,7 +337,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
                 (s, r) -> valSer.readRec(s, r, TuplePart.VAL),
                 null,
-                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -375,7 +375,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -391,7 +391,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                     writeKeyValueRaw(s, w, key, newVal);
                 },
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -411,7 +411,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 (s, r) -> valSer.readRec(s, r, TuplePart.VAL),
                 null,
-                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */

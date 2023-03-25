@@ -101,20 +101,18 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     long persistedIndex();
 
     /**
-     * Committed RAFT group configuration corresponding to the write command with the highest index applied to the storage.
+     * Byte representation of the committed replication protocol group configuration corresponding to the write command with the highest
+     * index applied to the storage.
      * {@code null} if it was never saved.
      */
-    @Nullable
-    // TODO: IGNITE-18408 - store bytes in the storage, not a configuration object
-    RaftGroupConfiguration committedGroupConfiguration();
+    byte @Nullable [] committedGroupConfiguration();
 
     /**
      * Updates RAFT group configuration.
      *
-     * @param config Configuration to save.
+     * @param config Byte representation of the configuration to save.
      */
-    // TODO: IGNITE-18408 - store bytes in the storage, not a configuration object
-    void committedGroupConfiguration(RaftGroupConfiguration config);
+    void committedGroupConfiguration(byte[] config);
 
     /**
      * Reads the value from the storage as it was at the given timestamp.
@@ -222,7 +220,8 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     /**
      * Polls the oldest row in the partition, removing it at the same time.
      *
-     * @param lowWatermark A time threshold for the row. Rows younger then the watermark value will not be removed.
+     * @param lowWatermark A time threshold for the row. Only rows that have versions with timestamp higher or equal to the watermark
+     *      can be removed.
      * @return A pair of table row and row id, where a timestamp of the row is less than or equal to {@code lowWatermark}.
      *      {@code null} if there's no such value.
      * @throws StorageException If failed to poll element for vacuum.

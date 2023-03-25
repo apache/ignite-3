@@ -150,7 +150,8 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         this.type = type;
         this.inputRowType = inputRowType;
 
-        prototypes = Commons.transform(aggCalls, WrapperPrototype::new);
+        var accumulators = new Accumulators(ctx.getTypeFactory());
+        prototypes = Commons.transform(aggCalls, call -> new WrapperPrototype(accumulators, call));
     }
 
     /** {@inheritDoc} */
@@ -162,13 +163,16 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
     private final class WrapperPrototype implements Supplier<AccumulatorWrapper<RowT>> {
         private Supplier<Accumulator> accFactory;
 
+        private final Accumulators accumulators;
+
         private final AggregateCall call;
 
         private Function<Object[], Object[]> inAdapter;
 
         private Function<Object, Object> outAdapter;
 
-        private WrapperPrototype(AggregateCall call) {
+        private WrapperPrototype(Accumulators accumulators, AggregateCall call) {
+            this.accumulators = accumulators;
             this.call = call;
         }
 
@@ -187,7 +191,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             }
 
             // init factory and adapters
-            accFactory = Accumulators.accumulatorFactory(call);
+            accFactory = accumulators.accumulatorFactory(call);
             Accumulator accumulator = accFactory.get();
 
             inAdapter = createInAdapter(accumulator);

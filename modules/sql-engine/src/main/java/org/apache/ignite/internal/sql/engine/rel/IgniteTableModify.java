@@ -28,8 +28,7 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rex.RexNode;
-import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
@@ -77,7 +76,7 @@ public class IgniteTableModify extends TableModify implements IgniteRel {
         this(
                 input.getCluster(),
                 input.getTraitSet().replace(IgniteConvention.INSTANCE),
-                ((RelInputEx) input).getTableById(),
+                input.getTable("table"),
                 input.getInput(),
                 input.getEnum("operation", Operation.class),
                 input.getStringList("updateColumnList"),
@@ -115,10 +114,9 @@ public class IgniteTableModify extends TableModify implements IgniteRel {
 
     @Override
     public RelWriter explainTerms(RelWriter pw) {
+        // for correct rel obtaining from ExecutionServiceImpl#physNodesCache.
         return super.explainTerms(pw)
-                .itemIf("tableId", getTable().unwrap(InternalIgniteTable.class).id().toString(),
-                        pw.getDetailLevel() == ALL_ATTRIBUTES)
-                .itemIf("tableVer", getTable().unwrap(InternalIgniteTable.class).version(),
-                        pw.getDetailLevel() == ALL_ATTRIBUTES);
+                .itemIf("tableId", getTable().unwrap(IgniteTable.class).id().toString(),
+                pw.getDetailLevel() == ALL_ATTRIBUTES);
     }
 }

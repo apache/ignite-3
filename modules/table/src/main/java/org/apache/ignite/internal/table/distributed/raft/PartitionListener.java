@@ -45,7 +45,6 @@ import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
@@ -151,14 +150,6 @@ public class PartitionListener implements RaftGroupListener {
 
             storage.acquirePartitionSnapshotsReadLock();
 
-            if (command instanceof SafeTimePropagatingCommand) {
-                SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) command;
-
-                assert safeTimePropagatingCommand.safeTime() != null;
-
-                safeTime.update(safeTimePropagatingCommand.safeTime().asHybridTimestamp());
-            }
-
             try {
                 if (command instanceof UpdateCommand) {
                     handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm);
@@ -179,6 +170,14 @@ public class PartitionListener implements RaftGroupListener {
                 clo.result(e);
             } finally {
                 storage.releasePartitionSnapshotsReadLock();
+            }
+
+            if (command instanceof SafeTimePropagatingCommand) {
+                SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) command;
+
+                assert safeTimePropagatingCommand.safeTime() != null;
+
+                safeTime.update(safeTimePropagatingCommand.safeTime().asHybridTimestamp());
             }
         });
     }
@@ -428,6 +427,7 @@ public class PartitionListener implements RaftGroupListener {
 
     @Override
     public void onShutdown() {
+        storage.close();
     }
 
     /**

@@ -55,6 +55,9 @@ dependencies {
     implementation project(':ignite-replicator')
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-placement-driver')
+    implementation project(':ignite-code-deployment')
+    implementation project(':ignite-security')
+    implementation project(':ignite-catalog')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
@@ -92,6 +95,7 @@ dependencies {
     testImplementation libs.auto.service.annotations
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
+    integrationTestAnnotationProcessor libs.auto.service
     integrationTestImplementation project(':ignite-affinity')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-raft-api')
@@ -114,7 +118,10 @@ dependencies {
     integrationTestImplementation project(':ignite-metastorage')
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation project(':ignite-transactions')
+    integrationTestImplementation project(':ignite-code-deployment')
     integrationTestImplementation project(':ignite-jdbc')
+    integrationTestImplementation project(':ignite-security')
+    integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
     integrationTestImplementation(testFixtures(project(':ignite-schema')))
@@ -126,6 +133,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-storage-api')))
     integrationTestImplementation(testFixtures(project(':ignite-transactions')))
     integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.rocksdb.jni
     integrationTestImplementation libs.disruptor
     integrationTestImplementation libs.jackson.databind
@@ -135,7 +143,7 @@ dependencies {
         exclude group: 'org.ow2.asm', module: 'asm'
     }
     integrationTestImplementation libs.typesafe.config
-
+    integrationTestImplementation libs.auto.service.annotations
 }
 
 tasks.register("runnerPlatformTest", JavaExec) {

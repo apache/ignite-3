@@ -23,6 +23,8 @@ import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Post;
 import io.micronaut.http.annotation.Produces;
+import io.micronaut.security.annotation.Secured;
+import io.micronaut.security.rules.SecurityRule;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -34,6 +36,7 @@ import org.apache.ignite.internal.rest.constants.MediaType;
 
 /** Node metric endpoint. */
 @Controller("/management/v1/metric/node")
+@Secured(SecurityRule.IS_AUTHENTICATED)
 @Tag(name = "nodeMetric")
 public interface NodeMetricApi {
 
@@ -62,11 +65,19 @@ public interface NodeMetricApi {
     void disable(@Body String srcName);
 
     /** List metric sources. */
-    @Operation(operationId = "listNodeMetrics", description = "Provides a list of all available metric sources.")
+    @Operation(operationId = "listNodeMetricSources", description = "Provides a list of all available metric sources.")
     @ApiResponse(responseCode = "200", description = "Returned a list of metric sources.")
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces(MediaType.APPLICATION_JSON)
-    @Get()
-    Collection<MetricSourceDto> list();
+    @Get("source")
+    Collection<MetricSourceDto> listMetricSources();
+
+    /** List metric sets. */
+    @Operation(operationId = "listNodeMetricSets", description = "Provides a list of all enabled metric sets.")
+    @ApiResponse(responseCode = "200", description = "Returned a list of metric sets.")
+    @ApiResponse(responseCode = "500", description = "Internal error",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @Get("set")
+    Collection<MetricSetDto> listMetricSets();
 }

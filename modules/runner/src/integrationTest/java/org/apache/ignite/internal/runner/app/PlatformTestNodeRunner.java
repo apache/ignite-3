@@ -19,6 +19,8 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,6 +31,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -62,6 +65,12 @@ public class PlatformTestNodeRunner {
     /** Test node name 2. */
     private static final String NODE_NAME2 = PlatformTestNodeRunner.class.getCanonicalName() + "_2";
 
+    /** Test node name 3. */
+    private static final String NODE_NAME3 = PlatformTestNodeRunner.class.getCanonicalName() + "_3";
+
+    /** Test node name 4. */
+    private static final String NODE_NAME4 = PlatformTestNodeRunner.class.getCanonicalName() + "_4";
+
     private static final String SCHEMA_NAME = "PUBLIC";
 
     private static final String TABLE_NAME = "TBL1";
@@ -79,23 +88,72 @@ public class PlatformTestNodeRunner {
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = Map.of(
             NODE_NAME, "{\n"
-                    + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10,\"idleTimeout\":3000,\""
+                    + "  \"clientConnector\":{\"port\": 10942,\"portRange\":1,\"idleTimeout\":3000,\""
                     + "sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
                     + "    \"port\":3344,\n"
                     + "    \"nodeFinder\": {\n"
-                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
                     + "    }\n"
                     + "  }\n"
                     + "}",
 
             NODE_NAME2, "{\n"
-                    + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10,\"idleTimeout\":3000,"
+                    + "  \"clientConnector\":{\"port\": 10943,\"portRange\":1,\"idleTimeout\":3000,"
                     + "\"sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
                     + "    \"port\":3345,\n"
                     + "    \"nodeFinder\": {\n"
-                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
+                    + "    }\n"
+                    + "  }\n"
+                    + "}",
+
+            NODE_NAME3, "{\n"
+                    + "  \"clientConnector\":{"
+                    + "    \"port\": 10944,"
+                    + "    \"portRange\":1,"
+                    + "    \"idleTimeout\":3000,"
+                    + "    \"sendServerExceptionStackTraceToClient\":true, "
+                    + "    \"ssl\": {\n"
+                    + "      enabled: true,\n"
+                    + "      keyStore: {\n"
+                    + "        path: \"KEYSTORE_PATH\",\n"
+                    + "        password: \"SSL_STORE_PASS\"\n"
+                    + "      }\n"
+                    + "    }\n"
+                    + "  },\n"
+                    + "  \"network\": {\n"
+                    + "    \"port\":3346,\n"
+                    + "    \"nodeFinder\": {\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
+                    + "    }\n"
+                    + "  }\n"
+                    + "}",
+
+            NODE_NAME4, "{\n"
+                    + "  \"clientConnector\":{"
+                    + "    \"port\": 10945,"
+                    + "    \"portRange\":1,"
+                    + "    \"idleTimeout\":3000,"
+                    + "    \"sendServerExceptionStackTraceToClient\":true, "
+                    + "    \"ssl\": {\n"
+                    + "      enabled: true,\n"
+                    + "      clientAuth: \"require\",\n"
+                    + "      keyStore: {\n"
+                    + "        path: \"KEYSTORE_PATH\",\n"
+                    + "        password: \"SSL_STORE_PASS\"\n"
+                    + "      },\n"
+                    + "      trustStore: {\n"
+                    + "        path: \"TRUSTSTORE_PATH\",\n"
+                    + "        password: \"SSL_STORE_PASS\"\n"
+                    + "      }\n"
+                    + "    }\n"
+                    + "  },\n"
+                    + "  \"network\": {\n"
+                    + "    \"port\":3347,\n"
+                    + "    \"nodeFinder\": {\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
                     + "    }\n"
                     + "  }\n"
                     + "}"
@@ -124,10 +182,17 @@ public class PlatformTestNodeRunner {
         IgniteUtils.deleteIfExists(BASE_PATH);
         Files.createDirectories(BASE_PATH);
 
+        var sslPassword = "123456";
+        var trustStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/trust.jks"));
+        var keyStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/server.jks"));
+
         List<CompletableFuture<Ignite>> igniteFutures = nodesBootstrapCfg.entrySet().stream()
                 .map(e -> {
                     String nodeName = e.getKey();
-                    String config = e.getValue();
+                    String config = e.getValue()
+                            .replace("KEYSTORE_PATH", keyStorePath)
+                            .replace("TRUSTSTORE_PATH", trustStorePath)
+                            .replace("SSL_STORE_PASS", sslPassword);
 
                     return IgnitionManager.start(nodeName, config, BASE_PATH.resolve(nodeName));
                 })
@@ -135,7 +200,12 @@ public class PlatformTestNodeRunner {
 
         String metaStorageNodeName = nodesBootstrapCfg.keySet().iterator().next();
 
-        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(metaStorageNodeName)
+                .metaStorageNodeNames(List.of(metaStorageNodeName))
+                .clusterName("cluster")
+                .build();
+        IgnitionManager.init(initParameters);
 
         System.out.println("Initialization complete");
 

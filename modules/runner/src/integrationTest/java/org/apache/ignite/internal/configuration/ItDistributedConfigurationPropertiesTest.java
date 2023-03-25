@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.configuration;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -38,11 +37,13 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorageListener;
+import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -88,6 +89,9 @@ public class ItDistributedConfigurationPropertiesTest {
     @InjectConfiguration
     private static ClusterManagementConfiguration clusterManagementConfiguration;
 
+    @InjectConfiguration
+    private static SecurityConfiguration securityConfiguration;
+
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
      */
@@ -103,6 +107,8 @@ public class ItDistributedConfigurationPropertiesTest {
         private final MetaStorageManager metaStorageManager;
 
         private final ConfigurationManager distributedCfgManager;
+
+        private final DistributedConfigurationUpdater distributedConfigurationUpdater;
 
         /** Flag that disables storage updates. */
         private volatile boolean receivesUpdates = true;
@@ -130,14 +136,17 @@ public class ItDistributedConfigurationPropertiesTest {
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
+            distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
-                    clusterManagementConfiguration
-            );
+                    clusterManagementConfiguration,
+                    distributedConfigurationUpdater);
 
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
@@ -153,11 +162,23 @@ public class ItDistributedConfigurationPropertiesTest {
                 /** {@inheritDoc} */
                 @Override
                 public synchronized void registerConfigurationListener(ConfigurationStorageListener listener) {
-                    super.registerConfigurationListener(changedEntries -> {
-                        if (receivesUpdates) {
-                            return listener.onEntriesChanged(changedEntries);
-                        } else {
-                            return CompletableFuture.completedFuture(null);
+                    super.registerConfigurationListener(new ConfigurationStorageListener() {
+                        @Override
+                        public CompletableFuture<Void> onEntriesChanged(Data changedEntries) {
+                            if (receivesUpdates) {
+                                return listener.onEntriesChanged(changedEntries);
+                            } else {
+                                return CompletableFuture.completedFuture(null);
+                            }
+                        }
+
+                        @Override
+                        public CompletableFuture<Void> onRevisionUpdated(long newRevision) {
+                            if (receivesUpdates) {
+                                return listener.onRevisionUpdated(newRevision);
+                            } else {
+                                return CompletableFuture.completedFuture(null);
+                            }
                         }
                     });
                 }
@@ -178,7 +199,7 @@ public class ItDistributedConfigurationPropertiesTest {
         void start() {
             vaultManager.start();
 
-            Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
+            Stream.of(clusterService, raftManager, cmgManager, metaStorageManager, distributedConfigurationUpdater)
                     .forEach(IgniteComponent::start);
 
             // deploy watches to propagate data from the metastore into the vault
@@ -196,7 +217,13 @@ public class ItDistributedConfigurationPropertiesTest {
          */
         void stop() throws Exception {
             var components = List.of(
-                    distributedCfgManager, cmgManager, metaStorageManager, raftManager, clusterService, vaultManager
+                    distributedCfgManager,
+                    cmgManager,
+                    metaStorageManager,
+                    raftManager,
+                    clusterService,
+                    vaultManager,
+                    distributedConfigurationUpdater
             );
 
             for (IgniteComponent igniteComponent : components) {
@@ -285,7 +312,7 @@ public class ItDistributedConfigurationPropertiesTest {
 
         // check initial values
         assertThat(firstValue.value(), is("foo"));
-        assertThat(directProxy(secondValue).value(), is("foo"));
+        assertThat(((ConfigurationValue<String>) secondValue.directProxy()).value(), is("foo"));
         assertThat(secondValue.value(), is("foo"));
 
         // update the property to a new value and check that the change is propagated to the second node
@@ -294,7 +321,7 @@ public class ItDistributedConfigurationPropertiesTest {
         assertThat(changeFuture, willBe(nullValue(Void.class)));
 
         assertThat(firstValue.value(), is("bar"));
-        assertThat(directProxy(secondValue).value(), is("bar"));
+        assertThat(((ConfigurationValue<String>) secondValue.directProxy()).value(), is("bar"));
         assertTrue(waitForCondition(() -> "bar".equals(secondValue.value()), 1000));
 
         // disable storage updates on the second node. This way the new values will never be propagated into the
@@ -308,7 +335,7 @@ public class ItDistributedConfigurationPropertiesTest {
         assertThat(changeFuture, willBe(nullValue(Void.class)));
 
         assertThat(firstValue.value(), is("baz"));
-        assertThat(directProxy(secondValue).value(), is("baz"));
+        assertThat(((ConfigurationValue<String>) secondValue.directProxy()).value(), is("baz"));
         assertFalse(waitForCondition(() -> "baz".equals(secondValue.value()), 100));
     }
 }

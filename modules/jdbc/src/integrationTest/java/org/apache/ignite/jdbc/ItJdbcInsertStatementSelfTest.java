@@ -65,7 +65,7 @@ public class ItJdbcInsertStatementSelfTest extends ItJdbcAbstractStatementSelfTe
     @BeforeEach
     @Override
     public void refillTable() throws Exception {
-        stmt.execute(DROP_SQL);
+        stmt.executeUpdate(DROP_SQL);
 
         prepStmt = conn.prepareStatement(SQL_PREPARED);
 
@@ -95,9 +95,7 @@ public class ItJdbcInsertStatementSelfTest extends ItJdbcAbstractStatementSelfTe
     }
 
     private void doCheck() throws Exception {
-        assertTrue(stmt.execute(SQL_SELECT));
-
-        ResultSet rs = stmt.getResultSet();
+        ResultSet rs = stmt.executeQuery(SQL_SELECT);
 
         assertNotNull(rs);
 

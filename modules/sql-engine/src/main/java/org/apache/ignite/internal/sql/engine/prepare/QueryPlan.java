@@ -17,22 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * QueryPlan interface.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public interface QueryPlan {
-    /** Query type. */
-    enum Type {
-        QUERY, FRAGMENT, DML, DDL, EXPLAIN
-    }
-
     /**
-     * Get query type.
+     * Get query type, or {@code null} if this is a fragment.
      */
-    Type type();
+    @Nullable SqlQueryType type();
 
     /**
      * Get fields metadata.

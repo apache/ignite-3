@@ -25,6 +25,7 @@ description = 'ignite-sql-engine'
 dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-api')
+    implementation project(':ignite-configuration-api')
     implementation project(':ignite-network')
     implementation project(':ignite-index')
     implementation project(':ignite-table')
@@ -33,6 +34,7 @@ dependencies {
     implementation project(':ignite-transactions')
     implementation project(':ignite-replicator')
     implementation project(':ignite-distribution-zones')
+    implementation project(':ignite-catalog')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine
@@ -79,4 +81,6 @@ dependencies {
     testImplementation libs.mockito.inline
     testImplementation libs.hamcrest.core
     testImplementation libs.slf4j.jdk14
+    testImplementation libs.archunit.core
+    testImplementation libs.archunit.junit5
 }

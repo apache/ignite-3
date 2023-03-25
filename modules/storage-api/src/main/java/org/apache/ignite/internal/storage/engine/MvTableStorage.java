@@ -23,14 +23,12 @@ import static org.apache.ignite.internal.schema.configuration.index.TableIndexCo
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
@@ -47,14 +45,18 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface MvTableStorage extends ManuallyCloseable {
     /**
-     * Retrieves or creates a partition for the current table. Not expected to be called concurrently with the same Partition ID.
+     * Creates a partition for the current table.
+     *
+     * <p>If the partition has already been created or is in the process of being created, a {@link StorageException} will be thrown.
+     *
+     * <p>If the partition is in the process of being destroyed, it will be re-created after the destruction is completed.
      *
      * @param partitionId Partition ID.
-     * @return Partition storage.
+     * @return Future that will be completed when the partition creation completes.
      * @throws IllegalArgumentException If Partition ID is out of configured bounds.
      * @throws StorageException If an error has occurred during the partition creation.
      */
-    MvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException;
+    CompletableFuture<MvPartitionStorage> createMvPartition(int partitionId);
 
     /**
      * Returns the partition storage or {@code null} if the requested storage doesn't exist.
@@ -85,7 +87,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      * @throws StorageException If the given partition does not exist, or if the given index does not exist.
      */
     default IndexStorage getOrCreateIndex(int partitionId, UUID indexId) {
-        TableIndexConfiguration indexConfig = ConfigurationUtil.getByInternalId(tablesConfiguration().indexes(), indexId);
+        TableIndexConfiguration indexConfig = tablesConfiguration().indexes().get(indexId);
 
         if (indexConfig == null) {
             throw new StorageException(String.format("Index configuration for \"%s\" could not be found", indexId));
@@ -202,7 +204,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      * to one of the methods:
      * <ul>
      *     <li>{@link #abortRebalancePartition(int)} ()} - in case of errors or cancellation of rebalance;</li>
-     *     <li>{@link #finishRebalancePartition(int, long, long, RaftGroupConfiguration)} - in case of successful completion of rebalance.
+     *     <li>{@link #finishRebalancePartition(int, long, long, byte[])} - in case of successful completion of rebalance.
      *     </li>
      * </ul>
      *
@@ -247,7 +249,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      *
      * @param lastAppliedIndex Last applied index.
      * @param lastAppliedTerm Last applied term.
-     * @param raftGroupConfig RAFT group configuration.
+     * @param groupConfig Replication protocol group configuration (byte representation).
      * @return Future of the finish rebalance for a multi-version partition storage and its indexes.
      * @throws IllegalArgumentException If Partition ID is out of bounds.
      * @throws StorageRebalanceException If there is an error when completing rebalance.
@@ -256,7 +258,7 @@ public interface MvTableStorage extends ManuallyCloseable {
             int partitionId,
             long lastAppliedIndex,
             long lastAppliedTerm,
-            RaftGroupConfiguration raftGroupConfig
+            byte[] groupConfig
     );
 
     /**

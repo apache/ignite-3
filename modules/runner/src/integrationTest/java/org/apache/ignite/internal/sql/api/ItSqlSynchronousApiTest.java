@@ -33,7 +33,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -64,7 +64,7 @@ import org.junit.jupiter.api.TestInfo;
  * Tests for synchronous SQL API.
  */
 @SuppressWarnings("ThrowableNotThrown")
-public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
+public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     private static final int ROW_COUNT = 16;
 
     /**
@@ -246,7 +246,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         assertThrowsWithCause(
                 () -> ses.execute(null, "SELECT 1; SELECT 2"),
                 SqlException.class,
-                "Multiple statements aren't allowed"
+                "Multiple statements are not allowed"
         );
 
         // Planning error.
@@ -309,7 +309,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         assertThrowsWithCause(
                 () -> ses.executeBatch(null, "SELECT * FROM TEST", args),
                 SqlException.class,
-                "Unexpected number of query parameters. Provided 2 but there is only 0 dynamic parameter(s)"
+                "Invalid SQL statement type in the batch"
         );
 
         assertThrowsWithCause(

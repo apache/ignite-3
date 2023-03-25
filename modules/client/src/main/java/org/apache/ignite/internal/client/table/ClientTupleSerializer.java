@@ -33,7 +33,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -41,6 +40,7 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
@@ -237,6 +237,7 @@ public class ClientTupleSerializer {
     }
 
     static Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
+        // TODO IGNITE-18899 wrap BinaryTuple similar to MutableRowTupleAdapter
         var tuple = new ClientTuple(schema);
 
         var colCnt = keyOnly ? schema.keyColumnCount() : schema.columns().length;
@@ -251,35 +252,17 @@ public class ClientTupleSerializer {
         return tuple;
     }
 
-    static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in, Tuple keyTuple) {
-        var tuple = new ClientTuple(schema);
-        var binTuple = new BinaryTupleReader(schema.columns().length - schema.keyColumnCount(), in.readBinaryUnsafe());
-
-        for (var i = 0; i < schema.columns().length; i++) {
-            ClientColumn col = schema.columns()[i];
-
-            if (i < schema.keyColumnCount()) {
-                tuple.setInternal(i, keyTuple.value(col.name()));
-            } else {
-                ClientBinaryTupleUtils.readAndSetColumnValue(
-                        binTuple, i - schema.keyColumnCount(), tuple, col.name(), col.type(), col.scale());
-            }
-        }
-
-        return tuple;
-    }
-
     static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in) {
         var keyColCnt = schema.keyColumnCount();
         var colCnt = schema.columns().length;
 
         var valTuple = new ClientTuple(schema, keyColCnt, schema.columns().length - 1);
-        var binTupleReader = new BinaryTupleReader(colCnt - keyColCnt, in.readBinaryUnsafe());
+        var binTupleReader = new BinaryTupleReader(colCnt, in.readBinaryUnsafe());
 
         for (var i = keyColCnt; i < colCnt; i++) {
             ClientColumn col = schema.columns()[i];
             ClientBinaryTupleUtils.readAndSetColumnValue(
-                    binTupleReader, i - keyColCnt, valTuple, col.name(), col.type(), col.scale());
+                    binTupleReader, i, valTuple, col.name(), col.type(), col.scale());
         }
 
         return valTuple;
@@ -444,16 +427,35 @@ public class ClientTupleSerializer {
         }
     }
 
-    @Nullable
-    public static Function<ClientSchema, Integer> getHashFunction(@Nullable Transaction tx, @NotNull Tuple rec) {
-        // Disable partition awareness when transaction is used: tx belongs to a default connection.
-        return tx != null ? null : schema -> getColocationHash(schema, rec);
+    /**
+     * Gets partition awareness provider for the specified tuple.
+     *
+     * @param tx Transaction.
+     * @param rec Tuple.
+     * @return Partition awareness provider.
+     */
+    public static PartitionAwarenessProvider getPartitionAwarenessProvider(@Nullable Transaction tx, @NotNull Tuple rec) {
+        if (tx != null) {
+            return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel());
+        }
+
+        return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, rec));
     }
 
-    @Nullable
-    public static Function<ClientSchema, Integer> getHashFunction(@Nullable Transaction tx, Mapper<?> mapper, @NotNull Object rec) {
-        // Disable partition awareness when transaction is used: tx belongs to a default connection.
-        return tx != null ? null : schema -> getColocationHash(schema, mapper, rec);
+    /**
+     * Gets partition awareness provider for the specified object.
+     *
+     * @param tx Transaction.
+     * @param rec Object.
+     * @return Partition awareness provider.
+     */
+    public static PartitionAwarenessProvider getPartitionAwarenessProvider(
+            @Nullable Transaction tx, Mapper<?> mapper, @NotNull Object rec) {
+        if (tx != null) {
+            return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel());
+        }
+
+        return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, mapper, rec));
     }
 
     /**

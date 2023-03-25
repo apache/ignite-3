@@ -41,13 +41,13 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToUuid;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.putUuidToBytes;
 import static org.rocksdb.ReadTier.PERSISTED_TIER;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
@@ -62,7 +62,6 @@ import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
@@ -70,7 +69,6 @@ import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -170,15 +168,13 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     private volatile long lastAppliedTerm;
 
     /** On-heap-cached last committed group configuration. */
-    @Nullable
-    private volatile RaftGroupConfiguration lastGroupConfig;
+    private volatile byte @Nullable [] lastGroupConfig;
 
     private volatile long pendingAppliedIndex;
 
     private volatile long pendingAppliedTerm;
 
-    @Nullable
-    private volatile RaftGroupConfiguration pendingGroupConfig;
+    private volatile byte @Nullable [] pendingGroupConfig;
 
     /** The value of {@link #lastAppliedIndex} persisted to the device at this moment. */
     private volatile long persistedIndex;
@@ -227,21 +223,23 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     pendingAppliedTerm = lastAppliedTerm;
                     pendingGroupConfig = lastGroupConfig;
 
-                    V res = closure.execute();
-
                     try {
+                        V res = closure.execute();
+
                         if (writeBatch.count() > 0) {
                             db.write(writeOpts, writeBatch);
                         }
+
+                        lastAppliedIndex = pendingAppliedIndex;
+                        lastAppliedTerm = pendingAppliedTerm;
+                        lastGroupConfig = pendingGroupConfig;
+
+                        return res;
                     } catch (RocksDBException e) {
                         throw new StorageException("Unable to apply a write batch to RocksDB instance.", e);
+                    } finally {
+                        helper.lockByRowId.releaseAllLockByCurrentThread();
                     }
-
-                    lastAppliedIndex = pendingAppliedIndex;
-                    lastAppliedTerm = pendingAppliedTerm;
-                    lastGroupConfig = pendingGroupConfig;
-
-                    return res;
                 } finally {
                     threadLocalWriteBatch.set(null);
                 }
@@ -312,18 +310,19 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    @Nullable
-    public RaftGroupConfiguration committedGroupConfiguration() {
-        return busy(() -> threadLocalWriteBatch.get() == null ? lastGroupConfig : pendingGroupConfig);
+    public byte @Nullable [] committedGroupConfiguration() {
+        byte[] array = busy(() -> threadLocalWriteBatch.get() == null ? lastGroupConfig : pendingGroupConfig);
+
+        return array == null ? null : copy(array);
     }
 
     @Override
-    public void committedGroupConfiguration(RaftGroupConfiguration config) {
+    public void committedGroupConfiguration(byte[] config) {
         busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             try {
-                saveRaftGroupConfiguration(requireWriteBatch(), config);
+                saveGroupConfiguration(requireWriteBatch(), config);
 
                 return null;
             } catch (RocksDBException e) {
@@ -332,10 +331,14 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         });
     }
 
-    private void saveRaftGroupConfiguration(AbstractWriteBatch writeBatch, RaftGroupConfiguration config) throws RocksDBException {
-        writeBatch.put(meta, lastGroupConfigKey, ByteUtils.toBytes(config));
+    private void saveGroupConfiguration(AbstractWriteBatch writeBatch, byte[] config) throws RocksDBException {
+        writeBatch.put(meta, lastGroupConfigKey, config);
 
-        pendingGroupConfig = config;
+        pendingGroupConfig = copy(config);
+    }
+
+    private static byte[] copy(byte[] array) {
+        return Arrays.copyOf(array, array.length);
     }
 
     /**
@@ -395,16 +398,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * @param readOptions Read options to be used for reading.
      * @return Group configuration.
      */
-    private @Nullable RaftGroupConfiguration readLastGroupConfig(ReadOptions readOptions) {
-        byte[] bytes;
-
+    private byte @Nullable [] readLastGroupConfig(ReadOptions readOptions) {
         try {
-            bytes = db.get(meta, readOptions, lastGroupConfigKey);
+            return db.get(meta, readOptions, lastGroupConfigKey);
         } catch (RocksDBException e) {
             throw new StorageException(e);
         }
-
-        return bytes == null ? null : fromBytes(bytes);
     }
 
     @Override
@@ -1018,11 +1017,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void close() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
-            StorageState state = this.state.get();
+        StorageState previous = state.getAndSet(StorageState.CLOSED);
 
-            assert state == StorageState.CLOSED : state;
-
+        if (previous == StorageState.CLOSED) {
             return;
         }
 
@@ -1480,7 +1477,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      *
      * @throws StorageRebalanceException If there was an error when finishing the rebalance.
      */
-    void finishRebalance(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig) {
+    void finishRebalance(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm, byte[] groupConfig) {
         if (!state.compareAndSet(StorageState.REBALANCE, StorageState.RUNNABLE)) {
             throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
         }
@@ -1488,7 +1485,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         try {
             saveLastApplied(writeBatch, lastAppliedIndex, lastAppliedTerm);
 
-            saveRaftGroupConfigurationOnRebalance(writeBatch, raftGroupConfig);
+            saveGroupConfigurationOnRebalance(writeBatch, groupConfig);
         } catch (RocksDBException e) {
             throw new StorageRebalanceException("Error when trying to abort rebalancing storage: " + createStorageInfo(), e);
         }
@@ -1516,10 +1513,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         persistedIndex = lastAppliedIndex;
     }
 
-    private void saveRaftGroupConfigurationOnRebalance(WriteBatch writeBatch, RaftGroupConfiguration config) throws RocksDBException {
-        saveRaftGroupConfiguration(writeBatch, config);
+    private void saveGroupConfigurationOnRebalance(WriteBatch writeBatch, byte[] config) throws RocksDBException {
+        saveGroupConfiguration(writeBatch, config);
 
-        this.lastGroupConfig = config;
+        this.lastGroupConfig = copy(config);
     }
 
     /**

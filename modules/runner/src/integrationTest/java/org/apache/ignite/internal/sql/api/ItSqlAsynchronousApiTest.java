@@ -46,7 +46,7 @@ import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
-import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
@@ -87,7 +87,7 @@ import org.junit.jupiter.api.TestInfo;
  * Tests for asynchronous SQL API.
  */
 @SuppressWarnings("ThrowableNotThrown")
-public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
+public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
     private static final int ROW_COUNT = 16;
 
     /**
@@ -362,7 +362,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         sql("CREATE INDEX TEST_IDX ON TEST(VAL0)");
 
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
         waitForIndex("TEST_IDX");
 
         Matcher<String> planMatcher = containsIndexScan("PUBLIC", "TEST", "TEST_IDX");
@@ -571,7 +571,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         // Multiple statements error.
         assertThrowsWithCause(() -> await(ses.executeAsync(null, "SELECT 1; SELECT 2")),
-                SqlException.class, "Multiple statements aren't allowed");
+                SqlException.class, "Multiple statements are not allowed");
 
         // Planning error.
         assertThrowsWithCause(() -> await(ses.executeAsync(null, "CREATE TABLE TEST2 (VAL INT)")),
@@ -650,7 +650,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertThrowsWithCause(
                 () -> await(ses.executeBatchAsync(null, "SELECT * FROM TEST", args)),
                 SqlException.class,
-                "Unexpected number of query parameters. Provided 2 but there is only 0 dynamic parameter(s)"
+                "Invalid SQL statement type in the batch"
         );
 
         assertThrowsWithCause(

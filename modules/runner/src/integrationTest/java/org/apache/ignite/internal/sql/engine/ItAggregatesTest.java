@@ -36,7 +36,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Group of tests to verify aggregation functions.
  */
-public class ItAggregatesTest extends AbstractBasicIntegrationTest {
+public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
     private static String[] disabledRules = {"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
             "ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"};
 
@@ -55,7 +55,7 @@ public class ItAggregatesTest extends AbstractBasicIntegrationTest {
         sql("CREATE INDEX test_idx ON test(grp0, grp1)");
         sql("CREATE INDEX test_one_col_idx_idx ON test_one_col_idx(col0)");
 
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
         waitForIndex("test_idx");
         waitForIndex("test_one_col_idx_idx");
 
@@ -328,6 +328,23 @@ public class ItAggregatesTest extends AbstractBasicIntegrationTest {
             sql("DROP TABLE IF EXISTS t1");
             sql("DROP TABLE IF EXISTS t2");
         }
+    }
+
+    @Test
+    public void testEverySomeAggregate() throws Exception {
+        sql("CREATE TABLE t(c0 INT PRIMARY KEY, c1 INT, c2 INT)");
+        sql("INSERT INTO t VALUES (1, null, 0)");
+        sql("INSERT INTO t VALUES (2, 0, null)");
+        sql("INSERT INTO t VALUES (3, null, null)");
+        sql("INSERT INTO t VALUES (4, 0, 1)");
+        sql("INSERT INTO t VALUES (5, 1, 1)");
+        sql("INSERT INTO t VALUES (6, 1, 2)");
+        sql("INSERT INTO t VALUES (7, 2, 2)");
+
+        assertQuery("SELECT EVERY(c1 < c2) FROM t").returns(false).check();
+        assertQuery("SELECT SOME(c1 < c2) FROM t").returns(true).check();
+        assertQuery("SELECT EVERY(c1 <= c2) FROM t").returns(true).check();
+        assertQuery("SELECT SOME(c1 > c2) FROM t").returns(false).check();
     }
 
     @Test

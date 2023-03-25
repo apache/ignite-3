@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.cli.call.cluster;
 
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.core.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.ClusterManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.invoker.Configuration;
+import org.apache.ignite.rest.client.model.AuthenticationConfig;
 import org.apache.ignite.rest.client.model.InitCommand;
 
 /**
@@ -31,6 +32,12 @@ import org.apache.ignite.rest.client.model.InitCommand;
  */
 @Singleton
 public class ClusterInitCall implements Call<ClusterInitCallInput, String> {
+    private final ApiClientFactory clientFactory;
+
+    public ClusterInitCall(ApiClientFactory clientFactory) {
+        this.clientFactory = clientFactory;
+    }
+
     /** {@inheritDoc} */
     @Override
     public DefaultCallOutput<String> execute(ClusterInitCallInput input) {
@@ -41,6 +48,8 @@ public class ClusterInitCall implements Call<ClusterInitCallInput, String> {
                     .metaStorageNodes(input.getMetaStorageNodes())
                     .cmgNodes(input.getCmgNodes())
                     .clusterName(input.getClusterName())
+                    //TODO support authentication in the CLI https://issues.apache.org/jira/browse/IGNITE-18607
+                    .authenticationConfig(new AuthenticationConfig().enabled(false))
             );
             return DefaultCallOutput.success("Cluster was initialized successfully");
         } catch (ApiException | IllegalArgumentException e) {
@@ -49,6 +58,6 @@ public class ClusterInitCall implements Call<ClusterInitCallInput, String> {
     }
 
     private ClusterManagementApi createApiClient(ClusterInitCallInput input) {
-        return new ClusterManagementApi(Configuration.getDefaultApiClient().setBasePath(input.getClusterUrl()));
+        return new ClusterManagementApi(clientFactory.getClient(input.getClusterUrl()));
     }
 }

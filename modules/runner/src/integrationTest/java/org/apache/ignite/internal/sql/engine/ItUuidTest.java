@@ -22,7 +22,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.calcite.runtime.CalciteContextException;
@@ -31,14 +32,16 @@ import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests for {@link org.apache.ignite.internal.sql.engine.type.UuidType} data type.
  */
-public class ItUuidTest extends AbstractBasicIntegrationTest {
+public class ItUuidTest extends ClusterPerClassIntegrationTest {
 
     // UUID1 > UUID2
     private static final UUID UUID_1 = UUID.fromString("fd10556e-fc27-4a99-b5e4-89b8344cb3ce");
@@ -55,7 +58,7 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
 
     @BeforeAll
     public void createTables() {
-        sql("CREATE TABLE t(id INTEGER PRIMARY KEY, uuid_key UUID)");
+        sql("CREATE TABLE t(id INTEGER PRIMARY KEY, uuid_key UUID, uuid_key2 UUID)");
     }
 
     @BeforeEach
@@ -94,14 +97,14 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testUuidInUpdates() {
-        sql("INSERT INTO t VALUES (1, ?)", UUID_1);
+        sql("INSERT INTO t (id, uuid_key) VALUES (1, ?)", UUID_1);
 
         // Update column UUID with an UUID value
         assertQuery("UPDATE t SET uuid_key = ? WHERE id=1").withParams(UUID_2).returns(1L).check();
         assertQuery("SELECT uuid_key FROM t WHERE id=1").columnTypes(UUID.class).returns(UUID_2).check();
 
         // Insert column UUID with a string value are possible to allow CASTs from STRING to UUID.
-        sql("INSERT INTO t VALUES (3, ?)", UUID_1.toString());
+        sql("INSERT INTO t (id, uuid_key) VALUES (3, ?)", UUID_1.toString());
 
         // Update column UUID with a string value are possible to allow CASTs from STRING to UUID.
         assertQuery("UPDATE t SET uuid_key = ? WHERE id=1").withParams(UUID_1.toString()).returns(1L).check();
@@ -111,16 +114,16 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
     @Test
     public void testUuidInQueries() {
         // cast from string
-        sql(format("INSERT INTO t VALUES (1, CAST('{}' as UUID))", UUID_1));
+        sql(format("INSERT INTO t (id, uuid_key) VALUES (1, CAST('{}' as UUID))", UUID_1));
 
         assertQuery("SELECT uuid_key FROM t WHERE id=1").columnTypes(UUID.class).returns(UUID_1).check();
 
         // parameter in a query
-        sql("INSERT INTO t VALUES (2, ?)", UUID_2);
+        sql("INSERT INTO t (id, uuid_key) VALUES (2, ?)", UUID_2);
         assertQuery("SELECT uuid_key FROM t WHERE id=2").columnTypes(UUID.class).returns(UUID_2).check();
 
         // null value
-        sql("INSERT INTO t VALUES (3, NULL)");
+        sql("INSERT INTO t (id, uuid_key) VALUES (3, NULL)");
         assertQuery("SELECT uuid_key FROM t WHERE id=3").columnTypes(UUID.class).returns(null).check();
 
         // uuid in predicate
@@ -141,20 +144,25 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
                 .returns(1, UUID_1)
                 .returns(2, UUID_2)
                 .check();
+    }
 
-        // UUID can be used by several aggregate functions
-        for (var func : Arrays.asList("COUNT", "ANY_VALUE")) {
-            sql(format("SELECT {}(uuid_key) FROM t", func));
-        }
+    @Test
+    public void testBasicAggregates() {
+        sql(format("INSERT INTO t (id, uuid_key) VALUES (1, CAST('{}' as UUID))", UUID_1));
+        sql(format("INSERT INTO t (id, uuid_key) VALUES (2, CAST('{}' as UUID))", UUID_2));
+
+        assertQuery("SELECT COUNT(uuid_key) FROM t").returns(2L).check();
+        assertQuery("SELECT ANY_VALUE(uuid_key) FROM t").check();
+
+        assertQuery("SELECT MIN(uuid_key) FROM t").returns(UUID_2).check();
+        assertQuery("SELECT MAX(uuid_key) FROM t").returns(UUID_1).check();
     }
 
     @Test
     public void testUuidCaseExpression() {
         UUID other = UUID.randomUUID();
 
-        sql("INSERT INTO t VALUES (1, ?)", UUID_1);
-        sql("INSERT INTO t VALUES (2, ?)", UUID_2);
-        sql("INSERT INTO t VALUES (3, NULL)");
+        sql("INSERT INTO t (id, uuid_key) VALUES (1, ?), (2, ?), (3, NULL)", UUID_1, UUID_2);
 
         // CASE WHEN <condition> THEN .. WHEN <condition2> THEN ... END
         assertQuery("SELECT id, CASE WHEN uuid_key = ? THEN uuid_key ELSE ? END FROM t ORDER BY id ASC ")
@@ -167,7 +175,7 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
         // CASE <boolean> WHEN ... END
 
         var query = "SELECT id, CASE uuid_key WHEN uuid_key = ? THEN uuid_key ELSE ? END FROM t;";
-        var t = assertThrows(CalciteContextException.class, () -> sql(query, UUID_1));
+        var t = assertThrows(CalciteContextException.class, () -> sql(query, UUID_1, UUID_1));
         assertThat(t.getMessage(), containsString("Invalid types for comparison: UUID = BOOLEAN"));
     }
 
@@ -233,7 +241,7 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testTypeCoercionInDml() {
-        sql("INSERT INTO t VALUES (1, ?)",  UUID_1.toString());
+        sql("INSERT INTO t (id, uuid_key) VALUES (1, ?)",  UUID_1.toString());
 
         sql("UPDATE t SET uuid_key=? WHERE id=1", UUID_2.toString());
 
@@ -258,5 +266,50 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT ? >= ?").withParams(uuid1, uuid2).returns(true).check();
         assertQuery("SELECT ? < ?").withParams(uuid1, uuid2).returns(false).check();
         assertQuery("SELECT ? <= ?").withParams(uuid1, uuid2).returns(false).check();
+    }
+
+    @Test
+    public void testRandomUuid() {
+        assertQuery("INSERT INTO t SELECT x, RAND_UUID(), RAND_UUID() FROM TABLE(SYSTEM_RANGE(0, 99))").returns(100L).check();
+        assertQuery("SELECT uuid_key FROM t").columnTypes(UUID.class).check();
+        assertQuery("SELECT COUNT(DISTINCT uuid_key) FROM t").returns(100L).check();
+        assertQuery("SELECT COUNT(DISTINCT uuid_key2) FROM t").returns(100L).check();
+        assertQuery("SELECT COUNT(*) FROM t WHERE uuid_key = uuid_key2").returns(0L).check();
+        assertQuery("SELECT COUNT(*) FROM t WHERE uuid_key = RAND_UUID()").returns(0L).check();
+        assertQuery("SELECT COUNT(*) FROM t WHERE uuid_key != uuid_key2").returns(100L).check();
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18931")
+    public void testRandomUuidComparison() {
+        assertQuery("SELECT RAND_UUID() = RAND_UUID()").returns(false).check();
+        assertQuery("SELECT RAND_UUID() != RAND_UUID()").returns(true).check();
+    }
+
+    @Test
+    public void testDisallowMismatchTypesOnInsert() {
+        var query = format("INSERT INTO t (id, uuid_key) VALUES (10, null), (20, '{}')", UUID_1);
+        var t = assertThrows(CalciteContextException.class, () -> sql(query));
+        assertThat(t.getMessage(), containsString("Values passed to VALUES operator must have compatible types"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("getOps")
+    public void testDisallowMismatchTypesSetOp(String setOp) {
+        sql("INSERT INTO t (id, uuid_key) VALUES (1, ?)", UUID_1);
+        sql("INSERT INTO t (id, uuid_key) VALUES (2, ?)", UUID_2);
+
+        var query = format("SELECT uuid_key FROM t {} SELECT CAST(uuid_key AS VARCHAR) FROM t", setOp);
+        var t = assertThrows(CalciteContextException.class, () ->  sql(query));
+        assertThat(t.getMessage(), containsString(format("Type mismatch in column 1 of {}", setOp)));
+    }
+
+    private static Stream<Arguments> getOps() {
+        List<Arguments> result = new ArrayList<>();
+
+        SqlKind.SET_QUERY.stream().map(SqlKind::name).forEach(e -> result.add(Arguments.of(e)));
+        SqlKind.SET_QUERY.stream().map(op -> op.name() + " ALL").forEach(e -> result.add(Arguments.of(e)));
+
+        return result.stream();
     }
 }

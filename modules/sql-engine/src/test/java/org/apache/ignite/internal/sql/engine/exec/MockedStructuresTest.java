@@ -45,6 +45,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -60,6 +61,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -135,6 +137,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     @Mock
     HybridClock clock;
+
+    @Mock
+    CatalogManager catalogManager;
 
     /**
      * Revision listener holder. It uses for the test configurations:
@@ -258,7 +263,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                                 TestDataStorageConfigurationSchema.class
                         )
                 ),
-                clock
+                mock(ReplicaService.class),
+                clock,
+                catalogManager
         );
 
         queryProc.start();

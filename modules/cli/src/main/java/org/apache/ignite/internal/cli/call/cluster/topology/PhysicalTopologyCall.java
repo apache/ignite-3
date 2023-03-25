@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.call.cluster.topology;
 
 import jakarta.inject.Singleton;
 import java.util.List;
+import org.apache.ignite.internal.cli.core.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
@@ -26,7 +27,6 @@ import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.TopologyApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.invoker.Configuration;
 import org.apache.ignite.rest.client.model.ClusterNode;
 
 /**
@@ -34,6 +34,12 @@ import org.apache.ignite.rest.client.model.ClusterNode;
  */
 @Singleton
 public class PhysicalTopologyCall implements Call<UrlCallInput, List<ClusterNode>> {
+
+    private final ApiClientFactory clientFactory;
+
+    public PhysicalTopologyCall(ApiClientFactory clientFactory) {
+        this.clientFactory = clientFactory;
+    }
 
     /** {@inheritDoc} */
     @Override
@@ -47,6 +53,6 @@ public class PhysicalTopologyCall implements Call<UrlCallInput, List<ClusterNode
     }
 
     private List<ClusterNode> fetchPhysicalTopology(String url) throws ApiException {
-        return new TopologyApi(Configuration.getDefaultApiClient().setBasePath(url)).physical();
+        return new TopologyApi(clientFactory.getClient(url)).physical();
     }
 }

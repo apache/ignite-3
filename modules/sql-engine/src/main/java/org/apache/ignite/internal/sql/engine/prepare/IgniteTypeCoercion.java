@@ -47,7 +47,8 @@ import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.implicit.TypeCoercionImpl;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** Implicit type cast implementation. */
@@ -56,8 +57,11 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     // We are using thread local here b/c TypeCoercion is expected to be stateless.
     private static final ThreadLocal<ContextStack> contextStack = ThreadLocal.withInitial(ContextStack::new);
 
+    private final IgniteCustomTypeCoercionRules typeCoercionRules;
+
     public IgniteTypeCoercion(RelDataTypeFactory typeFactory, SqlValidator validator) {
         super(typeFactory, validator);
+        this.typeCoercionRules = ((IgniteTypeFactory) typeFactory).getCustomTypeCoercionRules();
     }
 
     /** {@inheritDoc} **/
@@ -157,14 +161,12 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             }
         } else if (toType.getSqlTypeName() == SqlTypeName.ANY) {
             RelDataType fromType = validator.deriveType(scope, node);
+
             // IgniteCustomType: whether we need implicit cast from one type to another.
-            if (fromType instanceof IgniteCustomType && toType instanceof IgniteCustomType) {
-                IgniteCustomType from = (IgniteCustomType) fromType;
+            // We can get toType = ANY in e1, at least in case where e1 is part of CASE <e1> WHERE ... END expression.
+            if (toType instanceof IgniteCustomType) {
                 IgniteCustomType to = (IgniteCustomType) toType;
-                return !Objects.equals(from.getCustomTypeName(), to.getCustomTypeName());
-            } else if (SqlTypeUtil.isCharacter(fromType) && toType instanceof UuidType) {
-                // IgniteCustomType: implicit casts from character types to UUID
-                return true;
+                return typeCoercionRules.needToCast(fromType, to);
             }
         }
 
@@ -287,6 +289,36 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             }
         }
         return syncedType;
+    }
+
+    /** {@inheritDoc} **/
+    @Override
+    public @Nullable RelDataType commonTypeForBinaryComparison(@Nullable RelDataType type1, @Nullable RelDataType type2) {
+        if (type1 == null || type2 == null) {
+            return null;
+        }
+
+        // IgniteCustomType: If one of the arguments is a custom data type,
+        // check whether it is possible to convert another type to it.
+        // Returns not null to indicate that a CAST operation can be added
+        // to convert another type to this custom data type.
+        if (type1 instanceof IgniteCustomType) {
+            IgniteCustomType to = (IgniteCustomType) type1;
+            return tryCustomTypeCoercionRules(type2, to);
+        } else if (type2 instanceof IgniteCustomType) {
+            IgniteCustomType to = (IgniteCustomType) type2;
+            return tryCustomTypeCoercionRules(type1, to);
+        } else {
+            return super.commonTypeForBinaryComparison(type1, type2);
+        }
+    }
+
+    private @Nullable RelDataType tryCustomTypeCoercionRules(RelDataType from, IgniteCustomType to) {
+        if (typeCoercionRules.needToCast(from, to)) {
+            return to;
+        } else {
+            return null;
+        }
     }
 
     private static SqlNode castTo(SqlNode node, RelDataType type) {
