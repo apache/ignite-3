@@ -115,12 +115,14 @@ public class OffheapReadWriteLock {
         for (int i = 0; i < SPIN_CNT; i++) {
             state = GridUnsafe.getLong(null, lock);
 
-            if (!checkTag(state, tag)) {
-                return false;
-            }
 
             if (canReadLock(state)) {
                 if (GridUnsafe.compareAndSwapLong(null, lock, state, updateState(state, 1, 0, 0))) {
+                    if (!checkTag(state, tag)) {
+                        readUnlock(lock);
+
+                        return false;
+                    }
                     return true;
                 } else {
                     // Retry CAS, do not count as spin cycle.
@@ -211,12 +213,12 @@ public class OffheapReadWriteLock {
 
             assert state != 0;
 
-            if (!checkTag(state, tag)) {
-                return false;
-            }
-
             if (canWriteLock(state)) {
                 if (GridUnsafe.compareAndSwapLong(null, lock, state, updateState(state, -1, 0, 0))) {
+                    if (!checkTag(state, tag)) {
+                        writeUnlock(lock, tag(state));
+                        return false;
+                    }
                     return true;
                 } else {
                     // Retry CAS, do not count as spin cycle.
