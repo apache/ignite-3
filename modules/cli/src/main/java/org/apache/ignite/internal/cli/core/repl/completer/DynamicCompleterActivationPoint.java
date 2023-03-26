@@ -26,6 +26,7 @@ import org.apache.ignite.internal.cli.core.repl.completer.filter.ExclusionsCompl
 import org.apache.ignite.internal.cli.core.repl.completer.hocon.ClusterConfigDynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.hocon.NodeConfigDynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.jdbc.JdbcUrlDynamicCompleterFactory;
+import org.apache.ignite.internal.cli.core.repl.completer.metric.MetricSourceDynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.node.NodeNameDynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.path.FilePathCompleter;
 import org.apache.ignite.internal.cli.core.repl.completer.unit.UnitIdDynamicCompleterFactory;
@@ -58,6 +59,9 @@ public class DynamicCompleterActivationPoint {
 
     @Inject
     private CliConfigDynamicCompleterFactory cliConfigDynamicCompleterFactory;
+
+    @Inject
+    private MetricSourceDynamicCompleterFactory metricSourceDynamicCompleterFactory;
 
 
     /**
@@ -163,6 +167,15 @@ public class DynamicCompleterActivationPoint {
                         .enableOptions(Options.UNIT_VERSION)
                         .exclusiveEnableOptions().build(),
                 unitVersionsDynamicCompleterFactory
+        );
+
+        registry.register(
+                CompleterConf.builder()
+                        .command("node", "metric", "source", "enable")
+                        .command("node", "metric", "source", "disable")
+                        .singlePositionalParameter()
+                        .build(),
+                metricSourceDynamicCompleterFactory
         );
     }
 }

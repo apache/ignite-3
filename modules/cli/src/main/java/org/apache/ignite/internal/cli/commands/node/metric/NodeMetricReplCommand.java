@@ -23,9 +23,8 @@ import picocli.CommandLine.Command;
 /** Node metric command in REPL. */
 @Command(name = "metric",
         subcommands = {
-                NodeMetricEnableReplCommand.class,
-                NodeMetricDisableReplCommand.class,
-                NodeMetricListReplCommand.class
+                NodeMetricSetListReplCommand.class,
+                NodeMetricSourceReplCommand.class
         },
         description = "Node metric operations")
 public class NodeMetricReplCommand extends BaseCommand {

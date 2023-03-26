@@ -48,7 +48,7 @@ public class UnitStatusCall implements Call<UnitStatusCallInput, UnitStatusRecor
                 return DefaultCallOutput.failure(new UnitNotFoundException(input.id()));
             }
 
-            throw new IgniteCliApiException(e, input.clusterUrl());
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.clusterUrl()));
         }
     }
 

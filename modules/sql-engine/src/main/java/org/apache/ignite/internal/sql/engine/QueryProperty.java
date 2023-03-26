@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Enumerates the properties which might be used during query execution.
  */
-public class QueryProperty {
+public final class QueryProperty {
     public static final Property<Long> QUERY_TIMEOUT = new Property<>("query_timeout", Long.class);
     public static final Property<String> DEFAULT_SCHEMA = new Property<>("default_schema", String.class);
 

@@ -899,35 +899,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
-     * Checks that a cluster is able to restart when some changes were made in configuration.
-     */
-    @Test
-    // No sql engine
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19092")
-    public void testRestartDiffConfig() throws InterruptedException {
-        List<IgniteImpl> ignites = startNodes(2);
-
-        createTableWithData(ignites, TABLE_NAME, 2);
-        createTableWithData(ignites, TABLE_NAME_2, 2);
-
-        stopNode(0);
-        stopNode(1);
-
-        startNode(0);
-
-        @Language("HOCON") String cfgString = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG,
-                DEFAULT_NODE_PORT + 11,
-                "[\"localhost:" + DEFAULT_NODE_PORT + "\"]"
-        );
-
-        List<IgniteComponent> components = startPartialNode(1, cfgString);
-
-        TableManager tableManager = findComponent(components, TableManager.class);
-
-        assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
-    }
-
-    /**
      * Checks that the table created in cluster of 2 nodes, is recovered on a node after restart of this node.
      */
     @Test
@@ -947,6 +918,35 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         TableManager tableManager = findComponent(components, TableManager.class);
 
         assertNotNull(tableManager);
+
+        assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
+    }
+
+    /**
+     * Checks that a cluster is able to restart when some changes were made in configuration.
+     */
+    @Test
+    // No sql engine
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19079")
+    public void testRestartDiffConfig() throws InterruptedException {
+        List<IgniteImpl> ignites = startNodes(2);
+
+        createTableWithData(ignites, TABLE_NAME, 2);
+        createTableWithData(ignites, TABLE_NAME_2, 2);
+
+        stopNode(0);
+        stopNode(1);
+
+        startNode(0);
+
+        @Language("HOCON") String cfgString = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG,
+                DEFAULT_NODE_PORT + 11,
+                "[\"localhost:" + DEFAULT_NODE_PORT + "\"]"
+        );
+
+        List<IgniteComponent> components = startPartialNode(1, cfgString);
+
+        TableManager tableManager = findComponent(components, TableManager.class);
 
         assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
     }

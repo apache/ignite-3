@@ -409,6 +409,11 @@ namespace Apache.Ignite.Internal
 
             await _socketLock.WaitAsync().ConfigureAwait(false);
 
+            if (endpoint.Socket?.IsDisposed == false)
+            {
+                return endpoint.Socket;
+            }
+
             try
             {
                 var socket = await ClientSocket.ConnectAsync(endpoint, Configuration, OnAssignmentChanged).ConfigureAwait(false);

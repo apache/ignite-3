@@ -54,8 +54,10 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.client.HostAndPortRange;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -72,6 +74,8 @@ public class JdbcConnection implements Connection {
 
     /** Handler. */
     private final JdbcQueryEventHandler handler;
+
+    private final long connectionId;
 
     /** Schema name. */
     private String schema;
@@ -115,9 +119,17 @@ public class JdbcConnection implements Connection {
      * @param handler Handler.
      * @param props   Properties.
      */
-    public JdbcConnection(JdbcQueryEventHandler handler, ConnectionProperties props) {
+    public JdbcConnection(JdbcQueryEventHandler handler, ConnectionProperties props) throws SQLException {
         this.connProps = props;
         this.handler = handler;
+
+        JdbcConnectResult result = handler.connect().join();
+
+        if (!result.hasResults()) {
+            throw IgniteQueryErrorCode.createJdbcSqlException(result.err(), result.status());
+        }
+
+        connectionId = result.connectionId();
 
         autoCommit = true;
 
@@ -163,6 +175,14 @@ public class JdbcConnection implements Connection {
         }
 
         this.handler = new JdbcClientQueryEventHandler(client);
+
+        JdbcConnectResult result = handler.connect().join();
+
+        if (!result.hasResults()) {
+            throw IgniteQueryErrorCode.createJdbcSqlException(result.err(), result.status());
+        }
+
+        connectionId = result.connectionId();
 
         txIsolation = Connection.TRANSACTION_NONE;
 
@@ -780,6 +800,11 @@ public class JdbcConnection implements Connection {
      */
     public JdbcQueryEventHandler handler() {
         return handler;
+    }
+
+    /** Returns an identifier of the connection. */
+    long connectionId() {
+        return connectionId;
     }
 
     /** {@inheritDoc} */

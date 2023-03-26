@@ -19,6 +19,7 @@ package org.apache.ignite.internal.deployunit;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.deployment.DeploymentStatus;
 import org.apache.ignite.deployment.version.Version;
 
 /**
@@ -41,6 +42,11 @@ public class UnitMeta {
     private final String name;
 
     /**
+     * Deployment status.
+     */
+    private DeploymentStatus status;
+
+    /**
      * Consistent ids of nodes with.
      */
     private final List<String> consistentIdLocation = new ArrayList<>();
@@ -53,10 +59,11 @@ public class UnitMeta {
      * @param name Unit name.
      * @param consistentIdLocation Consistent ids of nodes where unit deployed.
      */
-    public UnitMeta(String id, Version version, String name, List<String> consistentIdLocation) {
+    public UnitMeta(String id, Version version, String name, DeploymentStatus status, List<String> consistentIdLocation) {
         this.id = id;
         this.version = version;
         this.name = name;
+        this.status = status;
         this.consistentIdLocation.addAll(consistentIdLocation);
     }
 
@@ -105,6 +112,14 @@ public class UnitMeta {
         consistentIdLocation.add(id);
     }
 
+    public DeploymentStatus status() {
+        return status;
+    }
+
+    public void updateStatus(DeploymentStatus status) {
+        this.status = status;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -125,6 +140,9 @@ public class UnitMeta {
         if (name != null ? !name.equals(meta.name) : meta.name != null) {
             return false;
         }
+        if (status != meta.status) {
+            return false;
+        }
         return consistentIdLocation.equals(meta.consistentIdLocation);
     }
 
@@ -133,7 +151,19 @@ public class UnitMeta {
         int result = id != null ? id.hashCode() : 0;
         result = 31 * result + (version != null ? version.hashCode() : 0);
         result = 31 * result + (name != null ? name.hashCode() : 0);
+        result = 31 * result + (status != null ? status.hashCode() : 0);
         result = 31 * result + consistentIdLocation.hashCode();
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return "UnitMeta{"
+                + "id='" + id + '\''
+                + ", version=" + version
+                + ", name='" + name + '\''
+                + ", status=" + status
+                + ", consistentIdLocation=" + String.join(", ", consistentIdLocation)
+                + '}';
     }
 }

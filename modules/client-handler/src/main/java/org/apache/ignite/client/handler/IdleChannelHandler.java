@@ -32,14 +32,18 @@ class IdleChannelHandler extends ChannelDuplexHandler {
 
     private final long idleTimeout;
 
-    IdleChannelHandler(long idleTimeout) {
+    private final ClientHandlerMetricSource metrics;
+
+    IdleChannelHandler(long idleTimeout, ClientHandlerMetricSource metrics) {
         this.idleTimeout = idleTimeout;
+        this.metrics = metrics;
     }
 
     /** {@inheritDoc} */
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
         if (evt instanceof IdleStateEvent && ((IdleStateEvent) evt).state() == IdleState.READER_IDLE) {
+            metrics.sessionsRejectedTimeoutIncrement();
             LOG.warn("Closing idle channel [idleTimeout=" + idleTimeout + ", remoteAddress=" + ctx.channel().remoteAddress() + ']');
 
             ctx.close();
