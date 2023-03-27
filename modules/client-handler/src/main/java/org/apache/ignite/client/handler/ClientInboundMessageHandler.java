@@ -39,6 +39,7 @@ import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteCol
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcCloseRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcColumnMetadataRequest;
+import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcConnectRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcExecuteBatchRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcExecuteRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcFetchRequest;
@@ -492,6 +493,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             case ClientOp.TUPLE_CONTAINS_KEY:
                 return ClientTupleContainsKeyRequest.process(in, out, igniteTables, resources);
+
+            case ClientOp.JDBC_CONNECT:
+                return ClientJdbcConnectRequest.execute(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_EXEC:
                 return ClientJdbcExecuteRequest.execute(in, out, jdbcQueryEventHandler);

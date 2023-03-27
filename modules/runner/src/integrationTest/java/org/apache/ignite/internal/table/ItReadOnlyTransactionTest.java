@@ -41,13 +41,11 @@ import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test reads with specific timestamp.
  */
-@Disabled("IGNITE-19022 ItReadOnlyTransactionTest is flaky in TC due to replica is timed out")
 public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
     /** Table name. */
     public static final String TABLE_NAME = "tbl";

@@ -298,7 +298,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestPartitionDataStorage(mvPartStorage),
                 storageUpdateHandler,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
-                safeTime
+                safeTime,
+                new PendingComparableValuesTracker<>(0L)
         );
 
         safeTimeUpdaterThread = new Thread(new SafeTimeUpdater(safeTime), "safe-time-updater");

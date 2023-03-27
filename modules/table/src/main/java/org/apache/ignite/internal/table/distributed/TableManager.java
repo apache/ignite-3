@@ -58,7 +58,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -101,6 +100,8 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -279,6 +280,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
+    private final TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory;
+
     /** Partitions storage path. */
     private final Path storagePath;
 
@@ -323,6 +326,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param schemaManager Schema manager.
      * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
      *         volatile tables.
+     * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
      */
     public TableManager(
             String nodeName,
@@ -342,7 +346,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             SchemaManager schemaManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             HybridClock clock,
-            OutgoingSnapshotsManager outgoingSnapshotsManager
+            OutgoingSnapshotsManager outgoingSnapshotsManager,
+            TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory
     ) {
         this.tablesCfg = tablesCfg;
         this.clusterService = clusterService;
@@ -359,6 +364,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
         this.clock = clock;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
+        this.raftGroupServiceFactory = raftGroupServiceFactory;
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -691,6 +697,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 placementDriver.updateAssignment(replicaGrpId, newConfiguration.peers().stream().map(Peer::consistentId).collect(toList()));
 
                 PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
+                PendingComparableValuesTracker<Long> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
                 CompletableFuture<PartitionStorages> partitionStoragesFut = getOrCreatePartitionStorages(table, partId);
 
@@ -713,8 +720,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         });
 
                 CompletableFuture<Void> startGroupFut;
-
-                CountDownLatch storageReadyLatch = new CountDownLatch(1);
 
                 // start new nodes, only if it is table creation, other cases will be covered by rebalance logic
                 if (oldPartAssignment.isEmpty() && localMemberAssignment != null) {
@@ -764,8 +769,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                 internalTbl.storage(),
                                                 internalTbl.txStateStorage(),
                                                 partitionKey(internalTbl, partId),
-                                                storageUpdateHandler,
-                                                storageReadyLatch
+                                                storageUpdateHandler
                                         );
 
                                         Peer serverPeer = newConfiguration.peer(localMemberName);
@@ -781,7 +785,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             partitionDataStorage,
                                                             storageUpdateHandler,
                                                             txStatePartitionStorage,
-                                                            safeTime
+                                                            safeTime,
+                                                            storageIndexTracker
                                                     ),
                                                     new RebalanceRaftGroupEventsListener(
                                                             metaStorageMgr,
@@ -808,7 +813,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 startGroupFut
                         .thenComposeAsync(v -> inBusyLock(busyLock, () -> {
                             try {
-                                return raftMgr.startRaftGroupService(replicaGrpId, newConfiguration);
+                                return raftMgr.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory);
                             } catch (NodeStoppingException ex) {
                                 return failedFuture(ex);
                             }
@@ -826,7 +831,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         TxStateStorage txStateStorage = partitionStorages.getTxStateStorage();
 
                                         try {
-                                            replicaMgr.startReplica(replicaGrpId,
+                                            replicaMgr.startReplica(
+                                                    replicaGrpId,
+                                                    allOf(
+                                                            ((Loza) raftMgr).raftNodeReadyFuture(replicaGrpId),
+                                                            table.pkIndexesReadyFuture()
+                                                    ),
                                                     new PartitionReplicaListener(
                                                             partitionStorage,
                                                             updatedRaftGroupService,
@@ -844,9 +854,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             placementDriver,
                                                             storageUpdateHandler,
                                                             this::isLocalPeer,
-                                                            schemaManager.schemaRegistry(causalityToken, tblId),
-                                                            storageReadyLatch
-                                                    )
+                                                            schemaManager.schemaRegistry(causalityToken, tblId)
+                                                    ),
+                                                    updatedRaftGroupService,
+                                                    storageIndexTracker
                                             );
                                         } catch (NodeStoppingException ex) {
                                             throw new AssertionError("Loza was stopped before Table manager", ex);
@@ -916,8 +927,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             MvTableStorage mvTableStorage,
             TxStateTableStorage txStateTableStorage,
             PartitionKey partitionKey,
-            StorageUpdateHandler storageUpdateHandler,
-            CountDownLatch storageReadyLatch
+            StorageUpdateHandler storageUpdateHandler
     ) {
         RaftGroupOptions raftGroupOptions;
 
@@ -942,8 +952,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 ),
                 incomingSnapshotsExecutor
         ));
-
-        raftGroupOptions.setStorageReadyLatch(storageReadyLatch);
 
         return raftGroupOptions;
     }
@@ -1975,6 +1983,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 .anyMatch(assignment -> !stableAssignments.contains(assignment));
 
         var safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
+        PendingComparableValuesTracker<Long> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
         InternalTable internalTable = tbl.internalTable();
 
@@ -2002,15 +2011,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 internalTable.storage(),
                                 internalTable.txStateStorage(),
                                 partitionKey(internalTable, partId),
-                                storageUpdateHandler,
-                                null
+                                storageUpdateHandler
                         );
 
                         RaftGroupListener raftGrpLsnr = new PartitionListener(
                                 partitionDataStorage,
                                 storageUpdateHandler,
                                 txStatePartitionStorage,
-                                safeTime
+                                safeTime,
+                                storageIndexTracker
                         );
 
                         RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(
@@ -2040,7 +2049,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             UUID tblId = tbl.tableId();
 
-                            replicaMgr.startReplica(replicaGrpId,
+                            replicaMgr.startReplica(
+                                    replicaGrpId,
+                                    allOf(
+                                            ((Loza) raftMgr).raftNodeReadyFuture(replicaGrpId),
+                                            tbl.pkIndexesReadyFuture()
+                                    ),
                                     new PartitionReplicaListener(
                                             mvPartitionStorage,
                                             internalTable.partitionRaftGroupService(partId),
@@ -2059,7 +2073,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             storageUpdateHandler,
                                             this::isLocalPeer,
                                             completedFuture(schemaManager.schemaRegistry(tblId))
-                                    )
+                                    ),
+                                    (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId),
+                                    storageIndexTracker
                             );
                         } catch (NodeStoppingException ignored) {
                             // no-op
@@ -2294,7 +2310,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         replicaMgr.stopReplica(tablePartitionId);
                     } catch (NodeStoppingException e) {
-                        // no-op
+                        // No-op.
                     }
 
                     return tablesByIdVv.get(evt.revision())
