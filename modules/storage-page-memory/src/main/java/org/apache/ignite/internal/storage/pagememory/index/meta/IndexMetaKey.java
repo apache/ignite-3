@@ -23,7 +23,7 @@ import java.util.UUID;
  * Index meta key.
  */
 public class IndexMetaKey {
-    protected final UUID indexId;
+    private final UUID indexId;
 
     /**
      * Constructor.

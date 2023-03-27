@@ -63,6 +63,6 @@ public class IndexMeta extends IndexMetaKey {
 
     @Override
     public String toString() {
-        return S.toString(IndexMeta.class, this, "indexId=", indexId, "metaPageId", IgniteUtils.hexLong(metaPageId));
+        return S.toString(IndexMeta.class, this, "indexId=", indexId(), "metaPageId", IgniteUtils.hexLong(metaPageId));
     }
 }
