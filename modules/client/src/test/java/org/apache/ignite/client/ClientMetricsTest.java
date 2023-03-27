@@ -83,7 +83,13 @@ public class ClientMetricsTest {
 
     @Test
     public void testHandshakesFailed() {
-        assert false : "TODO";
+        Function<Integer, Boolean> shouldDropConnection = requestIdx -> true;
+        server = new TestServer(10800, 10, 1000, new FakeIgnite(), shouldDropConnection, null, null, AbstractClientTest.clusterId);
+
+        // TODO: NPE in ReliableChannel - we give out a broken channel from chFactory when handshake fails, why?
+        client = clientBuilder().build();
+
+        assertEquals(1, metrics().handshakesFailed());
     }
 
     @Test
