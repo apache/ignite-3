@@ -17,23 +17,27 @@
 
 package org.apache.ignite.internal.catalog.events;
 
+import java.io.Serializable;
 import java.util.UUID;
-import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 
 /**
- * Create table event.
+ * Catalog event base class.
  */
-public class CreateTableEvent extends CatalogEvent {
-    private static final long serialVersionUID = -4602233544705607704L;
+public abstract class CatalogEvent implements Serializable {
+    private static final long serialVersionUID = -2047210417761718928L;
+    private final UUID opUid;
+    private final int catalogVer;
 
-    private final TableDescriptor tableDescriptor;
-
-    public CreateTableEvent(UUID opUid, int catalogVer, TableDescriptor tableDescriptor) {
-        super(opUid, catalogVer);
-        this.tableDescriptor = tableDescriptor;
+    public CatalogEvent(UUID opUid, int catalogVer) {
+        this.opUid = opUid;
+        this.catalogVer = catalogVer;
     }
 
-    public TableDescriptor tableDescriptor() {
-        return tableDescriptor;
+    public UUID opUid() {
+        return opUid;
+    }
+
+    public int catalogVer() {
+        return catalogVer;
     }
 }

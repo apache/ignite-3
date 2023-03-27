@@ -18,22 +18,22 @@
 package org.apache.ignite.internal.catalog.events;
 
 import java.util.UUID;
-import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 
 /**
- * Create table event.
+ * Drop table event.
  */
-public class CreateTableEvent extends CatalogEvent {
+public class DropTableEvent extends CatalogEvent {
     private static final long serialVersionUID = -4602233544705607704L;
 
-    private final TableDescriptor tableDescriptor;
+    private final int tableId;
 
-    public CreateTableEvent(UUID opUid, int catalogVer, TableDescriptor tableDescriptor) {
+    public DropTableEvent(UUID opUid, int catalogVer, int tableId) {
         super(opUid, catalogVer);
-        this.tableDescriptor = tableDescriptor;
+        this.tableId = tableId;
     }
 
-    public TableDescriptor tableDescriptor() {
-        return tableDescriptor;
+    public int tableId() {
+        return tableId;
     }
 }
+

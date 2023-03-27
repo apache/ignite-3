@@ -32,6 +32,7 @@ import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -163,30 +165,47 @@ public class CatalogServiceSelfTest {
 
     @Test
     public void testCreateTableIfExistsFlag() {
-        CreateTableParams params = CreateTableParams.builder()
+        CreateTableParams params = createTableParams(true);
+
+        assertThat(catalogService.createTable(params), CompletableFutureMatcher.willBe(true));
+        assertThat(catalogService.createTable(params), CompletableFutureMatcher.willBe(false));
+
+        CompletableFuture<?> fut = catalogService.createTable(createTableParams(false));
+
+        assertThat(fut, CompletableFutureExceptionMatcher.willThrowFast(TableAlreadyExistsException.class));
+    }
+
+    @Test
+    public void testDropTable() {
+        CreateTableParams createTableParams = createTableParams(false);
+
+        assertThat(catalogService.createTable(createTableParams), CompletableFutureMatcher.willBe(true));
+
+        DropTableParams dropTableParams = DropTableParams.builder()
+                .tableName("table1")
+                .ifTableExists(true)
+                .build();
+
+        assertThat(catalogService.dropTable(dropTableParams), CompletableFutureMatcher.willBe(true));
+        assertThat(catalogService.dropTable(dropTableParams), CompletableFutureMatcher.willBe(false));
+
+        CompletableFuture<?> fut = catalogService.dropTable(DropTableParams.builder()
+                .tableName("table1")
+                .ifTableExists(false)
+                .build());
+
+        assertThat(fut, CompletableFutureExceptionMatcher.willThrowFast(TableNotFoundException.class));
+    }
+
+    private static CreateTableParams createTableParams(boolean ifTableNotExists) {
+        return CreateTableParams.builder()
                 .tableName("table1")
                 .columns(List.of(
                         new ColumnParams("key", ColumnType.INT32, DefaultValue.constant(null), false),
                         new ColumnParams("val", ColumnType.INT32, DefaultValue.constant(null), false)
                 ))
                 .primaryKeyColumns(List.of("key"))
-                .ifTableExists(true)
+                .ifTableExists(ifTableNotExists)
                 .build();
-
-        assertThat(catalogService.createTable(params), CompletableFutureMatcher.willBe(true));
-        assertThat(catalogService.createTable(params), CompletableFutureMatcher.willBe(false));
-
-        CompletableFuture<?> fut = catalogService.createTable(
-                CreateTableParams.builder()
-                        .tableName("table1")
-                        .columns(List.of(
-                                new ColumnParams("key", ColumnType.INT32, DefaultValue.constant(null), false),
-                                new ColumnParams("val", ColumnType.INT32, DefaultValue.constant(null), false)
-                        ))
-                        .primaryKeyColumns(List.of("key"))
-                        .ifTableExists(false)
-                        .build());
-
-        assertThat(fut, CompletableFutureExceptionMatcher.willThrowFast(TableAlreadyExistsException.class));
     }
 }

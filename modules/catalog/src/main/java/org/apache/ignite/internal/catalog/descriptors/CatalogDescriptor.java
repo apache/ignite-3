@@ -78,6 +78,13 @@ public class CatalogDescriptor implements Serializable {
         return schemas.get(name);
     }
 
+    /**
+     * Returns table descriptor for provided canonical name.
+     *
+     * @param schemaName Schema name.
+     * @param tableName Table name.
+     * @return Table descriptor or {@code null} if schema or table wasn't found.
+     */
     public @Nullable TableDescriptor table(String schemaName, String tableName) {
         SchemaDescriptor schema = schemas.get(schemaName);
 

@@ -83,7 +83,7 @@ public class TableDescriptor extends ObjectDescriptor {
         assert primaryKeyColumns == colocationColumns || Set.of(primaryKeyColumns).containsAll(List.of(colocationColumns));
     }
 
-    public String schemaName(){
+    public String schemaName() {
         return schemaName;
     }
 
