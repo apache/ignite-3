@@ -97,9 +97,9 @@ public class ClientMetricsTest {
     }
 
     @Test
-    public void testRequestsMetrics() {
+    public void testRequestsMetrics() throws InterruptedException {
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> requestIdx == 0;
-        Function<Integer, Integer> responseDelay = idx -> idx > 5 ? 1000 : 0;
+        Function<Integer, Integer> responseDelay = idx -> idx > 3 ? 1000 : 0;
         server = new TestServer(10800, 10, 1000, new FakeIgnite(), shouldDropConnection, responseDelay, null, AbstractClientTest.clusterId);
         client = clientBuilder().build();
 
@@ -123,6 +123,17 @@ public class ClientMetricsTest {
         assertEquals(1, metrics().requestsFailed());
         assertEquals(1, metrics().requestsCompleted());
         assertEquals(2, metrics().requestsSent());
+        assertEquals(0, metrics().requestsCompletedWithRetry());
+
+        client.tables().tablesAsync();
+
+        assertTrue(
+                IgniteTestUtils.waitForCondition(() -> metrics().requestsSent() == 3, 1000),
+                () -> "requestsSent: " + metrics().requestsSent());
+
+        assertEquals(1, metrics().requestsActive());
+        assertEquals(1, metrics().requestsFailed());
+        assertEquals(1, metrics().requestsCompleted());
         assertEquals(0, metrics().requestsCompletedWithRetry());
     }
 
