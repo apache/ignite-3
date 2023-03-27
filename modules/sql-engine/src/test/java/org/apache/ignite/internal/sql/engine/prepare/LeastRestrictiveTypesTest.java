@@ -369,13 +369,13 @@ public class LeastRestrictiveTypesTest {
                 NativeTypes.INT8, ColumnType.INT8, Byte.class,
                 IgniteCustomTypeSpec.getCastFunction(TestCustomType.class, "cast"));
 
-        private TestCustomType(boolean nullable) {
-            super(SPEC, nullable, -1);
-        }
-
         @Override
         public IgniteCustomType createWithNullability(boolean nullable) {
-           return new TestCustomType(nullable);
+            return new TestCustomType(nullable);
+        }
+
+        private TestCustomType(boolean nullable) {
+            super(SPEC, nullable, -1);
         }
 
         @Override
