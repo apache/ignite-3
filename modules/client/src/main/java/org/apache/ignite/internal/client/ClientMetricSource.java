@@ -278,24 +278,24 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
     }
 
     /**
-     * Gets requests completed with retry.
+     * Gets retried requests.
      *
-     * @return Requests completed with retry.
+     * @return Retried requests.
      */
-    public long requestsCompletedWithRetry() {
+    public long requestsRetried() {
         Holder h = holder();
 
-        return h == null ? 0 : h.requestsCompletedWithRetry.value();
+        return h == null ? 0 : h.requestsRetried.value();
     }
 
     /**
      * Increments requests completed with retry.
      */
-    public void requestsCompletedWithRetryIncrement() {
+    public void requestsRetriedIncrement() {
         Holder h = holder();
 
         if (h != null) {
-            h.requestsCompletedWithRetry.increment();
+            h.requestsRetried.increment();
         }
     }
 
@@ -393,10 +393,10 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         private final AtomicLongMetric requestsCompleted =
                 new AtomicLongMetric("RequestsCompleted", "Total requests completed (response received)");
 
-        private final AtomicLongMetric requestsCompletedWithRetry =
+        private final AtomicLongMetric requestsRetried =
                 new AtomicLongMetric(
-                        "RequestsCompletedWithRetry",
-                        "Total requests completed with retry (response received after one or more retries)");
+                        "RequestsRetried",
+                        "Total requests retries (request sent again after a failure)");
 
         private final AtomicLongMetric requestsFailed = new AtomicLongMetric("RequestsFailed", "Total requests failed");
 
@@ -415,7 +415,7 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
                 requestsActive,
                 requestsSent,
                 requestsCompleted,
-                requestsCompletedWithRetry,
+                requestsRetried,
                 requestsFailed,
                 bytesSent,
                 bytesReceived

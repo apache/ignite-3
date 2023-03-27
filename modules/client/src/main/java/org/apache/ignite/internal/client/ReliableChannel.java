@@ -581,6 +581,10 @@ public final class ReliableChannel implements AutoCloseable {
             }
         }
 
+        if (res) {
+            metrics.requestsRetriedIncrement();
+        }
+
         return res;
     }
 
