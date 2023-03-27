@@ -109,11 +109,6 @@ public class ClientMetricsTest {
     }
 
     @Test
-    public void testHandshakesFailedTls() {
-        assert false : "TODO";
-    }
-
-    @Test
     public void testRequestsMetrics() throws InterruptedException {
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> requestIdx == 5;
         Function<Integer, Integer> responseDelay = idx -> idx == 4 ? 1000 : 0;

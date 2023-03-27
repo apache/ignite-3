@@ -157,28 +157,6 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
     }
 
     /**
-     * Gets total failed handshakes due to a TLS error.
-     *
-     * @return Total failed handshakes due to a TLS error.
-     */
-    public long handshakesFailedTls() {
-        Holder h = holder();
-
-        return h == null ? 0 : h.handshakesFailedTls.value();
-    }
-
-    /**
-     * Increments failed handshakes due to a TLS error.
-     */
-    public void handshakesFailedTlsIncrement() {
-        Holder h = holder();
-
-        if (h != null) {
-            h.handshakesFailedTls.increment();
-        }
-    }
-
-    /**
      * Gets total failed handshakes due to a timeout.
      *
      * @return Total failed handshakes due to a timeout.
@@ -378,9 +356,6 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         private final AtomicLongMetric handshakesFailed =
                 new AtomicLongMetric("HandshakesFailed", "Total failed handshakes");
 
-        private final AtomicLongMetric handshakesFailedTls =
-                new AtomicLongMetric("HandshakesFailedTls", "Total failed handshakes due to a TLS error");
-
         private final AtomicLongMetric handshakesFailedTimeout =
                 new AtomicLongMetric("HandshakesFailedTimeout", "Total failed handshakes due to a timeout");
 
@@ -410,7 +385,6 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
                 connectionsLost,
                 connectionsLostTimeout,
                 handshakesFailed,
-                handshakesFailedTls,
                 handshakesFailedTimeout,
                 requestsActive,
                 requestsSent,
