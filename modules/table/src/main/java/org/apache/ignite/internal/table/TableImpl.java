@@ -269,6 +269,19 @@ public class TableImpl implements Table {
     }
 
     /**
+     * The future completes when the primary key index is ready to use.
+     *
+     * @return Future whcih complete when a primary index for the table is .
+     */
+    public CompletableFuture<Void> pkIndexesReadyFuture() {
+        var fut = new CompletableFuture<Void>();
+
+        pkId.whenComplete((uuid, throwable) -> fut.complete(null));
+
+        return fut;
+    }
+
+    /**
      * Register the index with given id in a table.
      *
      * @param indexId An index id os the index to register.
