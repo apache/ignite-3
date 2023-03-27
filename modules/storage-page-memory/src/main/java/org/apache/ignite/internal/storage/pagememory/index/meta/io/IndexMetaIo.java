@@ -147,6 +147,6 @@ public interface IndexMetaIo {
         long nextRowIdUuidToBuildLsb = nextRowIdUuidToBuild == null ? 0L : nextRowIdUuidToBuild.getLeastSignificantBits();
 
         putLong(pageAddr, off + NEXT_ROW_ID_TO_BUILT_MSB_OFFSET, nextRowIdUuidToBuildMsb);
-        putLong(pageAddr, off + NEXT_ROW_ID_TO_BUILT_MSB_OFFSET, nextRowIdUuidToBuildLsb);
+        putLong(pageAddr, off + NEXT_ROW_ID_TO_BUILT_LSB_OFFSET, nextRowIdUuidToBuildLsb);
     }
 }
