@@ -67,6 +67,7 @@ include(':ignite-distribution-zones')
 include(':ignite-placement-driver')
 include(':ignite-code-deployment')
 include(':ignite-security')
+include(':ignite-catalog')
 
 project(":ignite-examples").projectDir = file('examples')
 project(":ignite-page-memory").projectDir = file('modules/page-memory')
@@ -119,6 +120,7 @@ project(":ignite-distribution-zones").projectDir = file('modules/distribution-zo
 project(":ignite-placement-driver").projectDir = file('modules/placement-driver')
 project(":ignite-code-deployment").projectDir = file('modules/code-deployment')
 project(":ignite-security").projectDir = file('modules/security')
+project(":ignite-catalog").projectDir = file('modules/catalog')
 
 ext.isCiServer = System.getenv().containsKey("IGNITE_CI")
 
