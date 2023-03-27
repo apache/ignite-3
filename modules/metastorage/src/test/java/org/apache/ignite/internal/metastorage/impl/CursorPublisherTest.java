@@ -21,10 +21,10 @@ import static java.util.Collections.nCopies;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -154,7 +154,7 @@ public class CursorPublisherTest {
 
         publisher.subscribe(subscriber);
 
-        assertThat(awaitFuture, willFailFast(IllegalStateException.class));
+        assertThat(awaitFuture, willThrowFast(IllegalStateException.class));
     }
 
     @Test
@@ -188,7 +188,7 @@ public class CursorPublisherTest {
 
         publisher.subscribe(subscriber);
 
-        assertThat(awaitFuture, willFailIn(10, TimeUnit.SECONDS, IllegalStateException.class));
+        assertThat(awaitFuture, willThrow(IllegalStateException.class, 10, TimeUnit.SECONDS));
 
         verify(raftService, times(2)).run(any(NextBatchCommand.class));
         verify(subscriber, times(5)).onNext(any());

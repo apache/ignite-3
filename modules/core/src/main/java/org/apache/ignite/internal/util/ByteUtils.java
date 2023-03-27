@@ -92,6 +92,68 @@ public class ByteUtils {
     }
 
     /**
+     * Constructs {@code int} from byte array in Big Endian order.
+     *
+     * @param bytes Array of bytes.
+     * @param off Offset in {@code bytes} array.
+     * @return Integer value.
+     */
+    public static int bytesToInt(byte[] bytes, int off) {
+        assert bytes != null;
+
+        int bytesCnt = Math.min(Integer.BYTES, bytes.length - off);
+
+        int res = 0;
+
+        for (int i = 0; i < bytesCnt; i++) {
+            res = (res << 8) | (0xff & bytes[off + i]);
+        }
+
+        return res;
+    }
+
+    /**
+     * Constructs {@code int} from byte array in Big Endian order with offset equal to 0.
+     *
+     * @param bytes Array of bytes.
+     * @return Integer value.
+     * @see #bytesToInt(byte[], int)
+     */
+    public static int bytesToInt(byte[] bytes) {
+        return bytesToInt(bytes, 0);
+    }
+
+    /**
+     * Converts a primitive {@code int} value to a byte array in Big Endian order.
+     *
+     * @param i Integer value.
+     * @return Array of bytes.
+     */
+    public static byte[] intToBytes(int i) {
+        return putIntToBytes(i, new byte[4], 0);
+    }
+
+    /**
+     * Converts a primitive {@code int} value to a byte array in Big Endian order and stores it in the specified byte array.
+     *
+     * @param i Unsigned int value.
+     * @param bytes Bytes array to write result to.
+     * @param off Offset in the target array to write result to.
+     * @return Number of bytes overwritten in {@code bytes} array.
+     */
+    public static byte[] putIntToBytes(int i, byte[] bytes, int off) {
+        assert bytes != null;
+        assert bytes.length >= off + Integer.BYTES;
+
+        for (int k = Integer.BYTES - 1; k >= 0; k--) {
+            bytes[off + k] = (byte) i;
+            i >>>= 8;
+        }
+
+        return bytes;
+    }
+
+    /**
      * Converts a {@link UUID} value to a byte array in Big Endian order and stores it in the specified byte array.
      *
      * @param uuid UUID.

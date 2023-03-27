@@ -42,8 +42,10 @@ public class ClientJdbcExecuteRequest {
     ) {
         var req = new JdbcQueryExecuteRequest();
 
+        long connectionId = in.unpackLong();
+
         req.readBinary(in);
 
-        return handler.queryAsync(req).thenAccept(res -> res.writeBinary(out));
+        return handler.queryAsync(connectionId, req).thenAccept(res -> res.writeBinary(out));
     }
 }

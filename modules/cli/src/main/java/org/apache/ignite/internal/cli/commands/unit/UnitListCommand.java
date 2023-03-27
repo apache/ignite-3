@@ -48,7 +48,7 @@ public class UnitListCommand extends BaseCommand implements Callable<Integer> {
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)
                 .decorator(new UnitListDecorator())
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list units", "cluster init"))
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list units", "ignite cluster init"))
                 .build().runPipeline();
     }
 }

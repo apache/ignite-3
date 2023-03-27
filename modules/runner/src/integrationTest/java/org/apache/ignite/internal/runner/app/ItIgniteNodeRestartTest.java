@@ -921,6 +921,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Checks that a cluster is able to restart when some changes were made in configuration.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19079")
     public void testRestartDiffConfig() throws InterruptedException {
         List<IgniteImpl> ignites = startNodes(2);
 

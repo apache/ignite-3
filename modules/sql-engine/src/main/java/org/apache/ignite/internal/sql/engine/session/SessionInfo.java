@@ -43,7 +43,7 @@ public class SessionInfo {
      */
     public SessionInfo(Session session) {
         this.sessionId = session.sessionId();
-        this.queryProperties = session.queryProperties();
+        this.queryProperties = session.properties();
         this.idleTimeoutMs = getIdleTimeoutMs();
     }
 
