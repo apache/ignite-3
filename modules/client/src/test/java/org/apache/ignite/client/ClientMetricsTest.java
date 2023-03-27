@@ -94,10 +94,10 @@ public class ClientMetricsTest {
     }
 
     @Test
-    public void testHandshakesFailedTimout() throws InterruptedException {
+    public void testHandshakesFailedTimeout() throws InterruptedException {
         AtomicInteger counter = new AtomicInteger();
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> false;
-        Function<Integer, Integer> responseDelay = idx -> counter.incrementAndGet() == 1 ? 3000 : 0;
+        Function<Integer, Integer> responseDelay = idx -> counter.incrementAndGet() == 1 ? 500 : 0;
         server = new TestServer(10800, 10, 1000, new FakeIgnite(), shouldDropConnection, responseDelay, null, AbstractClientTest.clusterId);
         client = clientBuilder()
                 .connectTimeout(100)
