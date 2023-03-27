@@ -96,7 +96,28 @@ public class ClientMetricsTest {
 
     @Test
     public void testRequestsMetrics() {
-        // TODO: Active, sent, completed, completedWithRetry, failed
+        Function<Integer, Boolean> shouldDropConnection = requestIdx -> requestIdx == 0;
+        Function<Integer, Integer> responseDelay = idx -> idx > 2 ? 1000 : 0;
+        server = new TestServer(10800, 10, 1000, new FakeIgnite(), shouldDropConnection, responseDelay, null, AbstractClientTest.clusterId);
+        client = clientBuilder().build();
+
+        assertEquals(0, metrics().requestsActive());
+        assertEquals(0, metrics().requestsFailed());
+        assertEquals(0, metrics().requestsCompleted());
+        assertEquals(0, metrics().requestsSent());
+        assertEquals(0, metrics().requestsCompletedWithRetry());
+
+        client.tables().tables();
+
+        assertEquals(0, metrics().requestsActive());
+        assertEquals(0, metrics().requestsFailed());
+        assertEquals(1, metrics().requestsCompleted());
+        assertEquals(1, metrics().requestsSent());
+        assertEquals(0, metrics().requestsCompletedWithRetry());
+    }
+
+    @Test
+    public void testRequestsCompletedWithRetry() {
         assert false : "TODO";
     }
 
