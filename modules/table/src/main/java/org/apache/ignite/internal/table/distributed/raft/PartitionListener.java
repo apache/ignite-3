@@ -82,22 +82,28 @@ public class PartitionListener implements RaftGroupListener {
     /** Safe time tracker. */
     private final PendingComparableValuesTracker<HybridTimestamp> safeTime;
 
+    /** Storage index tracker. */
+    private final PendingComparableValuesTracker<Long> storageIndexTracker;
+
     /**
      * The constructor.
      *
      * @param partitionDataStorage The storage.
      * @param safeTime Safe time tracker.
+     * @param storageIndexTracker Storage index tracker.
      */
     public PartitionListener(
             PartitionDataStorage partitionDataStorage,
             StorageUpdateHandler storageUpdateHandler,
             TxStateStorage txStateStorage,
-            PendingComparableValuesTracker<HybridTimestamp> safeTime
+            PendingComparableValuesTracker<HybridTimestamp> safeTime,
+            PendingComparableValuesTracker<Long> storageIndexTracker
     ) {
         this.storage = partitionDataStorage;
         this.storageUpdateHandler = storageUpdateHandler;
         this.txStateStorage = txStateStorage;
         this.safeTime = safeTime;
+        this.storageIndexTracker = storageIndexTracker;
 
         // TODO: IGNITE-18502 Implement a pending update storage
         try (PartitionTimestampCursor cursor = partitionDataStorage.getStorage().scan(HybridTimestamp.MAX_VALUE)) {
@@ -150,14 +156,6 @@ public class PartitionListener implements RaftGroupListener {
 
             storage.acquirePartitionSnapshotsReadLock();
 
-            if (command instanceof SafeTimePropagatingCommand) {
-                SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) command;
-
-                assert safeTimePropagatingCommand.safeTime() != null;
-
-                safeTime.update(safeTimePropagatingCommand.safeTime().asHybridTimestamp());
-            }
-
             try {
                 if (command instanceof UpdateCommand) {
                     handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm);
@@ -179,6 +177,16 @@ public class PartitionListener implements RaftGroupListener {
             } finally {
                 storage.releasePartitionSnapshotsReadLock();
             }
+
+            if (command instanceof SafeTimePropagatingCommand) {
+                SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) command;
+
+                assert safeTimePropagatingCommand.safeTime() != null;
+
+                safeTime.update(safeTimePropagatingCommand.safeTime().asHybridTimestamp());
+            }
+
+            storageIndexTracker.update(commandIndex);
         });
     }
 

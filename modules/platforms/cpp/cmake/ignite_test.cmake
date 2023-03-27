@@ -38,5 +38,5 @@ function(ignite_test TEST_NAME TEST_SOURCE)
         target_link_libraries(${TEST_NAME} ${IGNITE_TEST_LIBS} GTest::GTest GTest::Main)
     endif()
 
-    gtest_discover_tests(${TEST_NAME})
+    gtest_discover_tests(${TEST_NAME} XML_OUTPUT_DIR ${CMAKE_BINARY_DIR}/Testing/Result)
 endfunction()

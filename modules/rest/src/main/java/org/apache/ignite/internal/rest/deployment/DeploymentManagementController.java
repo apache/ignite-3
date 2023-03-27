@@ -46,7 +46,7 @@ public class DeploymentManagementController implements DeploymentCodeApi {
         try {
             DeploymentUnit deploymentUnit = toDeploymentUnit(unitContent);
             if (unitVersion == null || unitVersion.isBlank()) {
-                return deployment.deployAsync(unitId, deploymentUnit);
+                return deployment.deployAsync(unitId, Version.LATEST, deploymentUnit);
             }
             return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit);
         } catch (IOException e) {
@@ -79,6 +79,13 @@ public class DeploymentManagementController implements DeploymentCodeApi {
     @Override
     public CompletableFuture<UnitStatusDto> status(String unitId) {
         return deployment.statusAsync(unitId).thenApply(UnitStatusDto::fromUnitStatus);
+    }
+
+    @Override
+    public CompletableFuture<Collection<UnitStatusDto>> findByConsistentId(String consistentId) {
+        return deployment.findUnitByConsistentIdAsync(consistentId)
+                .thenApply(units -> units.stream().map(UnitStatusDto::fromUnitStatus)
+                        .collect(Collectors.toList()));
     }
 
     private static DeploymentUnit toDeploymentUnit(CompletedFileUpload unitContent) throws IOException {

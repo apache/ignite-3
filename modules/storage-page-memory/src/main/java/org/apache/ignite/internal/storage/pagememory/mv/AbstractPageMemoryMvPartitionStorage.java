@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
@@ -181,7 +180,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 NamedListView<TableIndexView> indexesCfgView = tableStorage.tablesConfiguration().indexes().value();
 
                 for (IndexMeta indexMeta : cursor) {
-                    TableIndexView indexCfgView = getByInternalId(indexesCfgView, indexMeta.id());
+                    TableIndexView indexCfgView = indexesCfgView.get(indexMeta.id());
 
                     if (indexCfgView instanceof HashIndexView) {
                         hashIndexes.put(indexCfgView.id(), createOrRestoreHashIndex(indexMeta));

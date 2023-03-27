@@ -64,7 +64,7 @@ public class AssignmentsTracker {
     private final TablesConfiguration tablesCfg;
 
     /** Map replication group id to assignment nodes. */
-    private Map<ReplicationGroupId, Set<Assignment>> groupAssignments;
+    private final Map<ReplicationGroupId, Set<Assignment>> groupAssignments;
 
     /** Assignment configuration listener. */
     private final AssignmentsCfgListener assignmentsCfgListener;
@@ -184,7 +184,12 @@ public class AssignmentsTracker {
      */
     private class AssignmentsListener implements WatchListener {
         @Override
-        public void onUpdate(WatchEvent event) {
+        public String id() {
+            return STABLE_ASSIGNMENTS_PREFIX + "watch";
+        }
+
+        @Override
+        public CompletableFuture<Void> onUpdate(WatchEvent event) {
             assert !event.entryEvent().newEntry().empty() : "New assignments are empty";
 
             LOG.debug("Assignment update [revision={}, key={}]", event.revision(),
@@ -210,6 +215,8 @@ public class AssignmentsTracker {
             if (leaseRenewalRequired) {
                 triggerToRenewLeases();
             }
+
+            return completedFuture(null);
         }
 
         @Override

@@ -64,7 +64,7 @@ TEST_F(transactions_test, empty_transaction_commit) {
     auto api = m_client.get_transactions();
 
     auto tx = api.begin();
-    tx.rollback();
+    tx.commit();
 }
 
 TEST_F(transactions_test, commit_updates_data) {

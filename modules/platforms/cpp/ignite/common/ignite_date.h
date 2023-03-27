@@ -40,7 +40,7 @@ public:
      * @param month Month-of-year, from 1 (January) to 12 (December).
      * @param day_of_month Day-of-month, from 1 to 31.
      */
-    constexpr ignite_date(int year, int month, int day_of_month)
+    constexpr ignite_date(std::int32_t year, std::int32_t month, std::int32_t day_of_month)
         : m_year(year)
         , m_month(std::int8_t(month))
         , m_day(std::int8_t(day_of_month)) {
@@ -50,17 +50,17 @@ public:
     /**
      * Gets the year field.
      */
-    [[nodiscard]] constexpr int get_year() const noexcept { return m_year; }
+    [[nodiscard]] constexpr std::int32_t get_year() const noexcept { return m_year; }
 
     /**
      * Gets the month-of-year field.
      */
-    [[nodiscard]] constexpr int get_month() const noexcept { return m_month; }
+    [[nodiscard]] constexpr std::int_fast8_t get_month() const noexcept { return m_month; }
 
     /**
      * Gets the day-of-month field.
      */
-    [[nodiscard]] constexpr int get_day_of_month() const noexcept { return m_day; }
+    [[nodiscard]] constexpr std::int_fast8_t get_day_of_month() const noexcept { return m_day; }
 
     /**
      * Compare to another value.
@@ -79,9 +79,9 @@ public:
     }
 
 private:
-    std::int32_t m_year = 0;
-    std::int8_t m_month = 1;
-    std::int8_t m_day = 1;
+    std::int_least32_t m_year = 0;
+    std::int_least8_t m_month = 1;
+    std::int_least8_t m_day = 1;
 };
 
 /**

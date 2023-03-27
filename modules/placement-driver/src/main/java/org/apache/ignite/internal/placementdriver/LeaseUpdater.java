@@ -49,12 +49,6 @@ public class LeaseUpdater {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(LeaseUpdater.class);
 
-    /**
-     * Cluster cLock skew. The constant determines the undefined inclusive interval to compares timestamp from various nodes.
-     * TODO: IGNITE-18978 Method to comparison timestamps with clock skew.
-     */
-    private static final long CLOCK_SKEW = 7L;
-
     /** Update attempts interval in milliseconds. */
     private static final long UPDATE_LEASE_MS = 200L;
 
@@ -153,23 +147,6 @@ public class LeaseUpdater {
     }
 
     /**
-     * Compares two timestamps with the clock skew.
-     * t1, t2 comparable if t1 is not contained on [t2 - CLOCK_SKEW; t2 + CLOCK_SKEW].
-     * TODO: IGNITE-18978 Method to comparison timestamps with clock skew.
-     *
-     * @param ts1 First timestamp.
-     * @param ts2 Second timestamp.
-     * @return Result of comparison can be positive or negative, or {@code 0} if timestamps are not comparable.
-     */
-    private static int compareWithClockSkew(HybridTimestamp ts1, HybridTimestamp ts2) {
-        if (ts1.getPhysical() - CLOCK_SKEW <= ts2.getPhysical() && ts1.getPhysical() + CLOCK_SKEW >= ts2.getPhysical()) {
-            return 0;
-        }
-
-        return ts1.compareTo(ts2);
-    }
-
-    /**
      * Finds a node that can be the leaseholder.
      *
      * @param assignments Replication group assignment.
@@ -194,7 +171,7 @@ public class LeaseUpdater {
     private class Updater implements Runnable {
         @Override
         public void run() {
-            while (!updaterTread.isInterrupted()) {
+            while (updaterTread != null && !updaterTread.isInterrupted()) {
                 for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : assignmentsTracker.assignments().entrySet()) {
                     ReplicationGroupId grpId = entry.getKey();
 
@@ -263,7 +240,7 @@ public class LeaseUpdater {
             HybridTimestamp now = clock.now();
 
             return lease == EMPTY_LEASE
-                    || (!candidate.equals(lease.getLeaseholder()) && compareWithClockSkew(now, lease.getLeaseExpirationTime()) > 0);
+                    || (!candidate.equals(lease.getLeaseholder()) && now.after(lease.getLeaseExpirationTime()));
         }
     }
 }

@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
 
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -123,7 +125,12 @@ public class LeaseTracker {
      */
     private class UpdateListener implements WatchListener {
         @Override
-        public void onUpdate(WatchEvent event) {
+        public String id() {
+            return PLACEMENTDRIVER_PREFIX + "watch";
+        }
+
+        @Override
+        public CompletableFuture<Void> onUpdate(WatchEvent event) {
             for (EntryEvent entry : event.entryEvents()) {
                 Entry msEntry = entry.newEntry();
 
@@ -141,6 +148,8 @@ public class LeaseTracker {
                     leases.put(grpId, lease);
                 }
             }
+
+            return completedFuture(null);
         }
 
         @Override

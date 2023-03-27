@@ -37,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -48,7 +47,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -74,9 +73,6 @@ import org.junit.jupiter.api.TestInstance;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterPerClassIntegrationTest.class);
-
-    /** Timeout should be big enough to prevent premature session expiration. */
-    private static final long SESSION_IDLE_TIMEOUT = TimeUnit.SECONDS.toMillis(60);
 
     /** Test default table name. */
     protected static final String DEFAULT_TABLE_NAME = "person";
@@ -406,12 +402,10 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     protected static List<List<Object>> sql(@Nullable Transaction tx, String sql, Object... args) {
         var queryEngine = ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
 
-        SessionId sessionId = queryEngine.createSession(SESSION_IDLE_TIMEOUT, PropertiesHolder.fromMap(
-                Map.of(QueryProperty.DEFAULT_SCHEMA, "PUBLIC")
-        ));
+        SessionId sessionId = queryEngine.createSession(PropertiesHelper.emptyHolder());
 
         try {
-            var context = tx != null ? QueryContext.of(tx) : QueryContext.of();
+            var context = QueryContext.create(SqlQueryType.ALL, tx);
 
             return getAllFromCursor(
                     await(queryEngine.querySingleAsync(sessionId, context, sql, args))
@@ -446,7 +440,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
     protected static void waitForIndex(String indexName) throws InterruptedException {
         // FIXME: Wait for the index to be created on all nodes,
-        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18203 to avoid missed updates to the index.
+        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18733 to avoid missed updates to the index.
         assertTrue(waitForCondition(
                 () -> CLUSTER_NODES.stream().map(node -> getIndexConfiguration(node, indexName)).allMatch(Objects::nonNull),
                 10_000)

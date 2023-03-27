@@ -270,7 +270,7 @@ namespace Apache.Ignite.Internal
                     }
                     catch (Exception e)
                     {
-                        _logger?.Warn(e, $"Failed to connect to preferred node {preferredNode}: {e.Message}");
+                        _logger?.Warn(e, $"Failed to connect to preferred node [{preferredNode}]: {e.Message}");
                     }
                 }
             }
@@ -408,6 +408,11 @@ namespace Apache.Ignite.Internal
             }
 
             await _socketLock.WaitAsync().ConfigureAwait(false);
+
+            if (endpoint.Socket?.IsDisposed == false)
+            {
+                return endpoint.Socket;
+            }
 
             try
             {
@@ -559,6 +564,11 @@ namespace Apache.Ignite.Internal
         {
             if (!ShouldRetry(exception, op, attempt))
             {
+                if (_logger?.IsEnabled(LogLevel.Debug) == true)
+                {
+                    _logger.Debug($"Not retrying operation [opCode={(int)op}, opType={op}, attempt={attempt}, lastError={exception}]");
+                }
+
                 if (errors == null)
                 {
                     return false;
@@ -571,6 +581,11 @@ namespace Apache.Ignite.Internal
                     ErrorGroups.Client.Connection,
                     $"Operation {op} failed after {attempt} retries, examine InnerException for details.",
                     inner);
+            }
+
+            if (_logger?.IsEnabled(LogLevel.Debug) == true)
+            {
+                _logger.Debug($"Retrying operation [opCode={(int)op}, opType={op}, attempt={attempt}, lastError={exception}]");
             }
 
             if (errors == null)

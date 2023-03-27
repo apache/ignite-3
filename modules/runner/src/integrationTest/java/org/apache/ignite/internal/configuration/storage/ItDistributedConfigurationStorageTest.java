@@ -151,7 +151,17 @@ public class ItDistributedConfigurationStorageTest {
                     .forEach(IgniteComponent::start);
 
             // this is needed to avoid assertion errors
-            cfgStorage.registerConfigurationListener(changedEntries -> completedFuture(null));
+            cfgStorage.registerConfigurationListener(new ConfigurationStorageListener() {
+                @Override
+                public CompletableFuture<Void> onEntriesChanged(Data changedEntries) {
+                    return completedFuture(null);
+                }
+
+                @Override
+                public CompletableFuture<Void> onRevisionUpdated(long newRevision) {
+                    return completedFuture(null);
+                }
+            });
 
             // deploy watches to propagate data from the metastore into the vault
             metaStorageManager.deployWatches();
@@ -198,7 +208,10 @@ public class ItDistributedConfigurationStorageTest {
             assertThat(node.cfgStorage.write(data, 0), willBe(equalTo(true)));
             assertThat(node.cfgStorage.writeConfigurationRevision(0, 1), willCompleteSuccessfully());
 
-            assertTrue(waitForCondition(() -> node.metaStorageManager.appliedRevision() != 0, 3000));
+            assertTrue(waitForCondition(
+                    () -> node.metaStorageManager.appliedRevision(DistributedConfigurationStorage.WATCH_ID).join() != 0,
+                    3000
+            ));
         } finally {
             node.stop();
         }

@@ -26,17 +26,6 @@ import org.apache.ignite.deployment.version.Version;
  */
 public interface IgniteDeployment {
     /**
-     * Deploy provided unit to current node with latest version.
-     *
-     * @param id Unit identifier. Not empty and not null.
-     * @param deploymentUnit Unit content.
-     * @return Future with success or not result.
-     */
-    default CompletableFuture<Boolean> deployAsync(String id, DeploymentUnit deploymentUnit) {
-        return deployAsync(id, Version.LATEST, deploymentUnit);
-    }
-
-    /**
      * Deploy provided unit to current node.
      * After deploy finished, this deployment unit will be place to CMG group asynchronously.
      *
@@ -93,4 +82,12 @@ public interface IgniteDeployment {
      *      Future will be failed if unit with specified identifier not exist.
      */
     CompletableFuture<UnitStatus> statusAsync(String id);
+
+    /**
+     * Returns list with deployed units on node with provided consistent id.
+     *
+     * @param consistentId Node consistent id.
+     * @return List with deployed units on node with provided consistent id.
+     */
+    CompletableFuture<List<UnitStatus>> findUnitByConsistentIdAsync(String consistentId);
 }

@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.rest.authentication;
 
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToValue;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -81,7 +81,7 @@ class DelegatingAuthenticationProviderTest {
 
         // unsuccessful authentication with invalid credentials
         UsernamePasswordCredentials invalidCredentials = new UsernamePasswordCredentials("admin", "wrong-password");
-        assertThat(authenticate(provider, invalidCredentials), willFailFast(AuthenticationException.class));
+        assertThat(authenticate(provider, invalidCredentials), willThrowFast(AuthenticationException.class));
 
     }
 
@@ -245,7 +245,7 @@ class DelegatingAuthenticationProviderTest {
 
         provider.onUpdate(new StubAuthenticationViewEvent(adminPasswordAuthView, adminNewPasswordAuthView)).join();
 
-        assertThat(authenticate(provider, adminPasswordCredentials), willFailFast(AuthenticationException.class));
+        assertThat(authenticate(provider, adminPasswordCredentials), willThrowFast(AuthenticationException.class));
 
         // then
         // successful authentication with the new password

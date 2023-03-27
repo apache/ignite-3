@@ -696,11 +696,12 @@ class RelJson {
         } else if (o instanceof Map) {
             Map<String, Object> map = (Map<String, Object>) o;
             String clazz = (String) map.get("class");
+            boolean nullable = Boolean.TRUE == map.get("nullable");
 
             if (clazz != null) {
                 RelDataType type = typeFactory.createJavaType(classForName(clazz, false));
 
-                if (Boolean.TRUE == map.get("nullable")) {
+                if (nullable) {
                     type = typeFactory.createTypeWithNullability(type, true);
                 }
 
@@ -741,7 +742,7 @@ class RelJson {
                     type = typeFactory.createSqlType(sqlTypeName, precision, scale);
                 }
 
-                if (Boolean.TRUE == map.get("nullable")) {
+                if (nullable) {
                     type = typeFactory.createTypeWithNullability(type, true);
                 }
 

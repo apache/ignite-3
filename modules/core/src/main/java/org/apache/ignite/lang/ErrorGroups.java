@@ -99,6 +99,9 @@ public class ErrorGroups {
 
         /** Client SSL configuration error. */
         public static final int CLIENT_SSL_CONFIGURATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(9);
+
+        /** Client handshake header error. */
+        public static final int HANDSHAKE_HEADER_ERR = CLIENT_ERR_GROUP.registerErrorCode(10);
     }
 
     /** SQL error group. */
@@ -156,9 +159,6 @@ public class ErrorGroups {
 
         /** Object already exists in schema. */
         public static final int OBJECT_ALREADY_EXISTS_ERR = SQL_ERR_GROUP.registerErrorCode(17);
-
-        /** Table version not found. */
-        public static final int TABLE_VER_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(18);
 
         /** Query mapping error. */
         public static final int QUERY_MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode(19);

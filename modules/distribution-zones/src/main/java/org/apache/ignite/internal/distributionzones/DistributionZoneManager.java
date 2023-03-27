@@ -22,6 +22,8 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractChangeTriggerRevision;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyConditionForZonesChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerScaleUpScaleDownKeysCondition;
@@ -65,6 +67,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationChangeException;
+import org.apache.ignite.configuration.ConfigurationNodeAlreadyExistException;
+import org.apache.ignite.configuration.ConfigurationNodeDoesNotExistException;
+import org.apache.ignite.configuration.ConfigurationNodeRemovedException;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
@@ -75,9 +80,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.configuration.tree.ConfigurationNodeAlreadyExistException;
-import org.apache.ignite.internal.configuration.tree.ConfigurationNodeDoesNotExistException;
-import org.apache.ignite.internal.configuration.tree.ConfigurationNodeRemovedException;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneChange;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
@@ -120,6 +122,8 @@ public class DistributionZoneManager implements IgniteComponent {
     public static final String DEFAULT_ZONE_NAME = "Default";
 
     private static final String DISTRIBUTION_ZONE_MANAGER_POOL_NAME = "dst-zones-scheduler";
+
+    private static final String META_STORAGE_WATCH_ID = "dst-zones-watch";
 
     /** Id of the default distribution zone. */
     public static final int DEFAULT_ZONE_ID = 0;
@@ -863,10 +867,8 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            long appliedRevision = metaStorageManager.appliedRevision();
-
             vaultMgr.get(zonesLogicalTopologyKey())
-                    .thenAccept(vaultEntry -> {
+                    .thenAcceptBoth(metaStorageManager.appliedRevision(META_STORAGE_WATCH_ID), (vaultEntry, appliedRevision) -> {
                         if (!busyLock.enterBusy()) {
                             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
                         }
@@ -905,9 +907,14 @@ public class DistributionZoneManager implements IgniteComponent {
     private WatchListener createMetastorageListener() {
         return new WatchListener() {
             @Override
-            public void onUpdate(WatchEvent evt) {
+            public String id() {
+                return META_STORAGE_WATCH_ID;
+            }
+
+            @Override
+            public CompletableFuture<Void> onUpdate(WatchEvent evt) {
                 if (!busyLock.enterBusy()) {
-                    throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+                    return failedFuture(new NodeStoppingException());
                 }
 
                 try {
@@ -943,6 +950,8 @@ public class DistributionZoneManager implements IgniteComponent {
                     DistributionZoneView defaultZoneView = zonesConfiguration.value().defaultDistributionZone();
 
                     scheduleTimers(defaultZoneView, addedNodes, removedNodes, revision);
+
+                    return completedFuture(null);
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -1087,11 +1096,11 @@ public class DistributionZoneManager implements IgniteComponent {
                     return completedFuture(null);
                 }
 
-                Map<String, Integer> dataNodesFromMetaStorage = fromBytes(values.get(zoneDataNodesKey(zoneId)).value());
+                Map<String, Integer> dataNodesFromMetaStorage = extractDataNodes(values.get(zoneDataNodesKey(zoneId)));
 
-                long scaleUpTriggerRevision = bytesToLong(values.get(zoneScaleUpChangeTriggerKey(zoneId)).value());
+                long scaleUpTriggerRevision = extractChangeTriggerRevision(values.get(zoneScaleUpChangeTriggerKey(zoneId)));
 
-                long scaleDownTriggerRevision = bytesToLong(values.get(zoneScaleDownChangeTriggerKey(zoneId)).value());
+                long scaleDownTriggerRevision = extractChangeTriggerRevision(values.get(zoneScaleDownChangeTriggerKey(zoneId)));
 
                 if (revision <= scaleUpTriggerRevision) {
                     return completedFuture(null);
@@ -1174,11 +1183,11 @@ public class DistributionZoneManager implements IgniteComponent {
                     return completedFuture(null);
                 }
 
-                Map<String, Integer> dataNodesFromMetaStorage = fromBytes(values.get(zoneDataNodesKey(zoneId)).value());
+                Map<String, Integer> dataNodesFromMetaStorage = extractDataNodes(values.get(zoneDataNodesKey(zoneId)));
 
-                long scaleUpTriggerRevision = bytesToLong(values.get(zoneScaleUpChangeTriggerKey(zoneId)).value());
+                long scaleUpTriggerRevision = extractChangeTriggerRevision(values.get(zoneScaleUpChangeTriggerKey(zoneId)));
 
-                long scaleDownTriggerRevision = bytesToLong(values.get(zoneScaleDownChangeTriggerKey(zoneId)).value());
+                long scaleDownTriggerRevision = extractChangeTriggerRevision(values.get(zoneScaleDownChangeTriggerKey(zoneId)));
 
                 if (revision <= scaleDownTriggerRevision) {
                     return completedFuture(null);

@@ -187,8 +187,8 @@ public class RetryPolicyTest {
             recView.get(null, Tuple.create().set("id", 1L));
             recView.get(null, Tuple.create().set("id", 1L));
 
-            loggerFactory.assertLogContains("Disconnected from server");
-            loggerFactory.assertLogContains("Going to retry operation because of error [op=TUPLE_GET");
+            loggerFactory.assertLogContains("Connection closed");
+            loggerFactory.assertLogContains("Retrying operation [opCode=12, opType=TUPLE_GET, attempt=0, lastError=java.util");
         }
     }
 
@@ -216,7 +216,7 @@ public class RetryPolicyTest {
             }
         }
 
-        long expectedNullCount = 18;
+        long expectedNullCount = 19;
 
         String msg = nullOpFields.size()
                 + " operation codes do not have public equivalent. When adding new codes, update ClientOperationType too. Missing ops: "
@@ -228,7 +228,7 @@ public class RetryPolicyTest {
     @Test
     public void testRetryReadPolicyAllOperationsSupported() {
         var plc = new RetryReadPolicy();
-        var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, 0, null, 0, 0, null, null, null);
+        var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, 0, 0, null, 0, 0, null, null, null);
 
         for (var op : ClientOperationType.values()) {
             var ctx = new RetryPolicyContextImpl(cfg, op, 0, null);

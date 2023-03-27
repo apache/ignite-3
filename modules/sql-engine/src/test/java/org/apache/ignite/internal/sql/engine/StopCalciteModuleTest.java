@@ -46,9 +46,12 @@ import java.util.concurrent.Flow;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
+import org.apache.ignite.internal.index.event.IndexEvent;
+import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.EventListener;
@@ -64,6 +67,7 @@ import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
+import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestHashIndex;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
@@ -134,11 +138,16 @@ public class StopCalciteModuleTest {
     @Mock
     private HybridClock clock;
 
+    @Mock
+    private CatalogManager catalogManager;
+
     private SchemaRegistry schemaReg;
 
     private final TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
 
     private final ClusterNode localNode = new ClusterNode("mock-node-id", NODE_NAME, null);
+
+    private UUID tblId = UUID.randomUUID();
 
     /**
      * Before.
@@ -168,11 +177,20 @@ public class StopCalciteModuleTest {
         doAnswer(invocation -> {
             EventListener<TableEventParameters> clo = (EventListener<TableEventParameters>) invocation.getArguments()[1];
 
-            clo.notify(new TableEventParameters(0, UUID.randomUUID(), "TEST", new TableImpl(tbl, schemaReg, new HeapLockManager())),
-                    null);
+            clo.notify(new TableEventParameters(0, tblId), null);
 
             return null;
         }).when(tableManager).listen(eq(TableEvent.CREATE), any());
+
+        doAnswer(invocation -> {
+            EventListener<IndexEventParameters> clo = (EventListener<IndexEventParameters>) invocation.getArguments()[1];
+
+            TestHashIndex testHashIndex = TestHashIndex.create(List.of("ID"), "pk_idx", tblId);
+
+            clo.notify(new IndexEventParameters(0, testHashIndex.tableId(), testHashIndex.id(), testHashIndex.descriptor()), null);
+
+            return null;
+        }).when(indexManager).listen(eq(IndexEvent.CREATE), any());
 
         RowAssembler asm = new RowAssembler(schemaReg.schema());
 
@@ -224,10 +242,13 @@ public class StopCalciteModuleTest {
                 distributionZoneManager,
                 Map::of,
                 mock(ReplicaService.class),
-                clock
+                clock,
+                catalogManager
         );
 
-        when(tbl.tableId()).thenReturn(UUID.randomUUID());
+        when(tableManager.tableAsync(anyLong(), eq(tblId)))
+                .thenReturn(completedFuture(new TableImpl(tbl, schemaReg, new HeapLockManager())));
+        when(tbl.tableId()).thenReturn(tblId);
         when(tbl.primaryReplicas()).thenReturn(List.of(new PrimaryReplica(localNode, -1L)));
 
         when(txManager.begin(anyBoolean())).thenReturn(new NoOpTransaction(localNode.name()));
@@ -304,8 +325,8 @@ public class StopCalciteModuleTest {
                 Function<Long, CompletableFuture<?>> old = moveRevision;
 
                 moveRevision = rev -> allOf(
-                    old.apply(rev),
-                    function.apply(rev)
+                        old.apply(rev),
+                        function.apply(rev)
                 );
             }
         }

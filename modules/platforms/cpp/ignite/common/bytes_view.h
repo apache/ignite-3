@@ -17,7 +17,9 @@
 
 #pragma once
 
+#include <array>
 #include <cstddef>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -25,18 +27,32 @@ namespace ignite {
 
 /** A slice of raw bytes. */
 struct bytes_view : std::basic_string_view<std::byte> {
-    using Base = std::basic_string_view<std::byte>;
+    using base_type = std::basic_string_view<std::byte>;
 
     constexpr bytes_view() noexcept = default;
 
     constexpr bytes_view(const std::byte *data, std::size_t size) noexcept
-        : Base(data, size) {}
+        : base_type(data, size) {}
 
-    constexpr bytes_view(const Base &v) noexcept // NOLINT(google-explicit-constructor)
-        : Base(v.data(), v.size()) {}
+    constexpr bytes_view(const base_type &v) noexcept // NOLINT(google-explicit-constructor)
+        : base_type(v.data(), v.size()) {}
+
+    template<std::size_t SIZE>
+    constexpr bytes_view(const char (&v)[SIZE]) noexcept // NOLINT(google-explicit-constructor)
+        : base_type(reinterpret_cast<const std::byte *>(v), SIZE) {}
+
+    template<std::size_t SIZE>
+    constexpr bytes_view(const std::array<std::byte, SIZE> &v) noexcept // NOLINT(google-explicit-constructor)
+        : base_type(v.data(), v.size()) {}
+
+    bytes_view(const std::string &v) noexcept // NOLINT(google-explicit-constructor)
+        : base_type(reinterpret_cast<const std::byte *>(v.data()), v.size()) {}
+
+    bytes_view(const std::string_view &v) noexcept // NOLINT(google-explicit-constructor)
+        : base_type(reinterpret_cast<const std::byte *>(v.data()), v.size()) {}
 
     bytes_view(const std::vector<std::byte> &v) noexcept // NOLINT(google-explicit-constructor)
-        : Base(v.data(), v.size()) {}
+        : base_type(v.data(), v.size()) {}
 
     explicit operator std::vector<std::byte>() const { return {begin(), end()}; }
 };

@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -30,15 +30,16 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
-import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -50,8 +51,6 @@ public class PlacementDriverManager implements IgniteComponent {
     static final String PLACEMENTDRIVER_PREFIX = "placementdriver.lease.";
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-    private final RaftMessagesFactory raftMessagesFactory = new RaftMessagesFactory();
 
     /** Prevents double stopping of the component. */
     private final AtomicBoolean isStopped = new AtomicBoolean();
@@ -65,17 +64,14 @@ public class PlacementDriverManager implements IgniteComponent {
     /** The closure determines nodes where are participants of placement driver. */
     private final Supplier<CompletableFuture<Set<String>>> placementDriverNodesNamesProvider;
 
-    /** Raft client future. Can contain null, if this node is not in placement driver group. */
+    private final RaftManager raftManager;
+
+    private final TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory;
+
+    /**
+     * Raft client future. Can contain null, if this node is not in placement driver group.
+     */
     private final CompletableFuture<TopologyAwareRaftGroupService> raftClientFuture;
-
-    /** Executor sends a raft requests and receives response. */
-    private final ScheduledExecutorService raftClientExecutor;
-
-    /** Logical topology service. */
-    private final LogicalTopologyService logicalTopologyService;
-
-    /** Raft configuration. */
-    private final RaftConfiguration raftConfiguration;
 
     /** Lease tracker. */
     private final LeaseTracker leaseTracker;
@@ -83,7 +79,6 @@ public class PlacementDriverManager implements IgniteComponent {
     /** Lease updater. */
     private final LeaseUpdater leaseUpdater;
 
-    /** The flag is true when the instance of placement driver renews leases, false when the instance only tracks leases. */
     private volatile boolean isActiveActor;
 
     /**
@@ -93,10 +88,10 @@ public class PlacementDriverManager implements IgniteComponent {
      * @param vaultManager Vault manager.
      * @param replicationGroupId Id of placement driver group.
      * @param clusterService Cluster service.
-     * @param raftConfiguration Raft configuration.
      * @param placementDriverNodesNamesProvider Provider of the set of placement driver nodes' names.
      * @param logicalTopologyService Logical topology service.
-     * @param raftClientExecutor Raft client executor.
+     * @param raftManager Raft manager.
+     * @param topologyAwareRaftGroupServiceFactory Raft client factory.
      * @param tablesCfg Table configuration.
      * @param clock Hybrid clock.
      */
@@ -105,19 +100,18 @@ public class PlacementDriverManager implements IgniteComponent {
             VaultManager vaultManager,
             ReplicationGroupId replicationGroupId,
             ClusterService clusterService,
-            RaftConfiguration raftConfiguration,
             Supplier<CompletableFuture<Set<String>>> placementDriverNodesNamesProvider,
             LogicalTopologyService logicalTopologyService,
-            ScheduledExecutorService raftClientExecutor,
+            RaftManager raftManager,
+            TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             TablesConfiguration tablesCfg,
             HybridClock clock
     ) {
         this.replicationGroupId = replicationGroupId;
         this.clusterService = clusterService;
-        this.raftConfiguration = raftConfiguration;
         this.placementDriverNodesNamesProvider = placementDriverNodesNamesProvider;
-        this.logicalTopologyService = logicalTopologyService;
-        this.raftClientExecutor = raftClientExecutor;
+        this.raftManager = raftManager;
+        this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
 
         this.raftClientFuture = new CompletableFuture<>();
         this.leaseTracker = new LeaseTracker(vaultManager, metaStorageMgr);
@@ -139,23 +133,17 @@ public class PlacementDriverManager implements IgniteComponent {
                     String thisNodeName = clusterService.topologyService().localMember().name();
 
                     if (placementDriverNodes.contains(thisNodeName)) {
-                        leaseUpdater.init(thisNodeName);
+                        try {
+                            leaseUpdater.init(thisNodeName);
 
-                        return TopologyAwareRaftGroupService.start(
-                                replicationGroupId,
-                                clusterService,
-                                raftMessagesFactory,
-                                raftConfiguration,
-                                PeersAndLearners.fromConsistentIds(placementDriverNodes),
-                                true,
-                                raftClientExecutor,
-                                logicalTopologyService,
-                                true
-                            ).thenCompose(client -> {
-                                TopologyAwareRaftGroupService topologyAwareClient = (TopologyAwareRaftGroupService) client;
-
-                                return topologyAwareClient.subscribeLeader(this::onLeaderChange).thenApply(v -> topologyAwareClient);
-                            });
+                            return raftManager.startRaftGroupService(
+                                    replicationGroupId,
+                                    PeersAndLearners.fromConsistentIds(placementDriverNodes),
+                                    topologyAwareRaftGroupServiceFactory
+                                ).thenCompose(client -> client.subscribeLeader(this::onLeaderChange).thenApply(v -> client));
+                        } catch (NodeStoppingException e) {
+                            return failedFuture(e);
+                        }
                     } else {
                         return completedFuture(null);
                     }

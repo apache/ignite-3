@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.network.ChannelType.getChannel;
+
 import io.netty.bootstrap.Bootstrap;
 import java.net.InetSocketAddress;
 import java.util.Collection;
@@ -37,12 +39,13 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
-import org.apache.ignite.internal.network.recovery.RecoveryClientHandhakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -66,12 +69,11 @@ public class ConnectionManager {
     /** Server. */
     private final NettyServer server;
 
-    // TODO: IGNITE-16948 Should be a map consistentId -> connectionId -> sender
     /** Channels map from consistentId to {@link NettySender}. */
-    private final Map<String, NettySender> channels = new ConcurrentHashMap<>();
+    private final Map<ConnectorKey<String>, NettySender> channels = new ConcurrentHashMap<>();
 
     /** Clients. */
-    private final Map<InetSocketAddress, NettyClient> clients = new ConcurrentHashMap<>();
+    private final Map<ConnectorKey<InetSocketAddress>, NettyClient> clients = new ConcurrentHashMap<>();
 
     /** Serialization service. */
     private final SerializationService serializationService;
@@ -86,7 +88,7 @@ public class ConnectionManager {
     private final UUID launchId;
 
     /** Factory producing {@link RecoveryClientHandshakeManager} instances. */
-    private final RecoveryClientHandhakeManagerFactory clientHandhakeManagerFactory;
+    private final RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory;
 
     /** Start flag. */
     private final AtomicBoolean started = new AtomicBoolean(false);
@@ -122,7 +124,7 @@ public class ConnectionManager {
                 launchId,
                 consistentId,
                 bootstrapFactory,
-                new DefaultRecoveryClientHandhakeManagerFactory()
+                new DefaultRecoveryClientHandshakeManagerFactory()
         );
     }
 
@@ -134,7 +136,7 @@ public class ConnectionManager {
      * @param launchId                      Launch id of this node.
      * @param consistentId                  Consistent id of this node.
      * @param bootstrapFactory              Bootstrap factory.
-     * @param clientHandhakeManagerFactory  Factory for {@link RecoveryClientHandshakeManager} instances.
+     * @param clientHandshakeManagerFactory Factory for {@link RecoveryClientHandshakeManager} instances.
      */
     public ConnectionManager(
             NetworkView networkConfiguration,
@@ -142,12 +144,12 @@ public class ConnectionManager {
             UUID launchId,
             String consistentId,
             NettyBootstrapFactory bootstrapFactory,
-            RecoveryClientHandhakeManagerFactory clientHandhakeManagerFactory
+            RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory
     ) {
         this.serializationService = serializationService;
         this.launchId = launchId;
         this.consistentId = consistentId;
-        this.clientHandhakeManagerFactory = clientHandhakeManagerFactory;
+        this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
         this.networkConfiguration = networkConfiguration;
 
         this.server = new NettyServer(
@@ -208,13 +210,13 @@ public class ConnectionManager {
      * @param address      Another node's address.
      * @return Sender.
      */
-    public OrderingFuture<NettySender> channel(@Nullable String consistentId, InetSocketAddress address) {
+    public OrderingFuture<NettySender> channel(@Nullable String consistentId, ChannelType type, InetSocketAddress address) {
         if (consistentId != null) {
             // If consistent id is known, try looking up a channel by consistent id. There can be an outbound connection
             // or an inbound connection associated with that consistent id.
             NettySender channel = channels.compute(
-                    consistentId,
-                    (addr, sender) -> (sender == null || !sender.isOpen()) ? null : sender
+                    new ConnectorKey<>(consistentId, type),
+                    (key, sender) -> (sender == null || !sender.isOpen()) ? null : sender
             );
 
             if (channel != null) {
@@ -225,10 +227,9 @@ public class ConnectionManager {
         // Get an existing client or create a new one. NettyClient provides a CompletableFuture that resolves
         // when the client is ready for write operations, so previously started client, that didn't establish connection
         // or didn't perform the handshake operation, can be reused.
-        // TODO: IGNITE-16948 Connection id may be different from 0
         NettyClient client = clients.compute(
-                address,
-                (addr, existingClient) -> isClientConnected(existingClient) ? existingClient : connect(addr, (short) 0)
+                new ConnectorKey<>(address, type),
+                (key, existingClient) -> isClientConnected(existingClient) ? existingClient : connect(key.id(), key.type())
         );
 
         return client.sender();
@@ -253,7 +254,8 @@ public class ConnectionManager {
      * @param channel Channel from client to this {@link #server}.
      */
     private void onNewIncomingChannel(NettySender channel) {
-        NettySender oldChannel = channels.put(channel.consistentId(), channel);
+        ConnectorKey<String> key = new ConnectorKey<>(channel.consistentId(), getChannel(channel.channelId()));
+        NettySender oldChannel = channels.put(key, channel);
 
         if (oldChannel != null) {
             oldChannel.close();
@@ -266,20 +268,21 @@ public class ConnectionManager {
      * @param address Target address.
      * @return New netty client.
      */
-    private NettyClient connect(InetSocketAddress address, short connectionId) {
+    private NettyClient connect(InetSocketAddress address, ChannelType channelType) {
         var client = new NettyClient(
                 address,
                 serializationService,
-                createClientHandshakeManager(connectionId),
+                createClientHandshakeManager(channelType.id()),
                 this::onMessage,
                 this.networkConfiguration.ssl()
         );
 
         client.start(clientBootstrap).whenComplete((sender, throwable) -> {
             if (throwable == null) {
-                channels.put(sender.consistentId(), sender);
+                ConnectorKey<String> key = new ConnectorKey<>(sender.consistentId(), getChannel(sender.channelId()));
+                channels.put(key, sender);
             } else {
-                clients.remove(address);
+                clients.remove(new ConnectorKey<>(address, channelType));
             }
         });
 
@@ -331,7 +334,7 @@ public class ConnectionManager {
     }
 
     private HandshakeManager createClientHandshakeManager(short connectionId) {
-        return clientHandhakeManagerFactory.create(
+        return clientHandshakeManagerFactory.create(
                 launchId,
                 consistentId,
                 connectionId,
@@ -351,6 +354,11 @@ public class ConnectionManager {
     @TestOnly
     public NettyServer server() {
         return server;
+    }
+
+    @TestOnly
+    public SerializationService serializationService() {
+        return serializationService;
     }
 
     /**
@@ -373,22 +381,15 @@ public class ConnectionManager {
     }
 
     /**
-     * Returns map of the channels.
-     *
-     * @return Map of the channels.
-     */
-    @TestOnly
-    public Map<String, NettySender> channels() {
-        return Collections.unmodifiableMap(channels);
-    }
-
-    /**
      * Factory producing vanilla {@link RecoveryClientHandshakeManager} instances.
      */
-    private static class DefaultRecoveryClientHandhakeManagerFactory implements RecoveryClientHandhakeManagerFactory {
+    private static class DefaultRecoveryClientHandshakeManagerFactory implements RecoveryClientHandshakeManagerFactory {
         @Override
-        public RecoveryClientHandshakeManager create(UUID launchId, String consistentId, short connectionId,
-                RecoveryDescriptorProvider recoveryDescriptorProvider) {
+        public RecoveryClientHandshakeManager create(UUID launchId,
+                String consistentId,
+                short connectionId,
+                RecoveryDescriptorProvider recoveryDescriptorProvider
+        ) {
             return new RecoveryClientHandshakeManager(launchId, consistentId, connectionId, recoveryDescriptorProvider);
         }
     }

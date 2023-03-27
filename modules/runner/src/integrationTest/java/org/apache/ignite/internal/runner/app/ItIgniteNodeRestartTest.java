@@ -53,6 +53,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -63,7 +64,6 @@ import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateSto
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
@@ -82,6 +82,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
@@ -114,7 +115,10 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
+import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
@@ -125,6 +129,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -132,6 +137,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
 @ExtendWith(ConfigurationExtension.class)
+@Timeout(value = 120)
 public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /** Default node port. */
     private static final int DEFAULT_NODE_PORT = 3344;
@@ -335,6 +341,13 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         SchemaManager schemaManager = new SchemaManager(registry, tblCfg, metaStorageMgr);
 
+        TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                clusterSvc,
+                new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
+                Loza.FACTORY,
+                new RaftGroupEventsClientListener()
+        );
+
         TableManager tableManager = new TableManager(
                 name,
                 registry,
@@ -353,7 +366,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 schemaManager,
                 view -> new LocalLogStorageFactory(),
                 hybridClock,
-                new OutgoingSnapshotsManager(clusterSvc.messagingService())
+                new OutgoingSnapshotsManager(clusterSvc.messagingService()),
+                topologyAwareRaftGroupServiceFactory
         );
 
         var indexManager = new IndexManager(tblCfg, schemaManager, tableManager);
@@ -670,6 +684,68 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
+     * Check correctness of return results after node restart.
+     * Scenario:
+     * <ol>
+     *     <li>Start two nodes and fill the data.</li>
+     *     <li>Create index.</li>
+     *     <li>Check explain contain index scan.</li>
+     *     <li>Check return results.</li>
+     *     <li>Restart one node.</li>
+     *     <li>Run query and compare results.</li>
+     * </ol>
+     */
+    @Test
+    public void testQueryCorrectnessAfterNodeRestart() throws InterruptedException {
+        IgniteImpl ignite1 = startNode(0);
+
+        createTableWithoutData(ignite1, TABLE_NAME, 2, 1);
+
+        IgniteImpl ignite2 = startNode(1);
+
+        String sql = "SELECT id FROM " + TABLE_NAME + " WHERE id > 0 ORDER BY id";
+
+        int intRes;
+
+        try (Session session1 = ignite1.sql().createSession(); Session session2 = ignite2.sql().createSession()) {
+            session1.execute(null, "CREATE INDEX idx1 ON " + TABLE_NAME + "(id)");
+
+            waitForIndex(List.of(ignite1, ignite2), "idx1");
+
+            createTableWithData(List.of(ignite1), TABLE_NAME, 2, 1);
+
+            ResultSet<SqlRow> plan = session1.execute(null, "EXPLAIN PLAN FOR " + sql);
+
+            String planStr = plan.next().stringValue(0);
+
+            assertTrue(planStr.contains("IndexScan"));
+
+            ResultSet<SqlRow> res1 = session1.execute(null, sql);
+
+            ResultSet<SqlRow> res2 = session2.execute(null, sql);
+
+            intRes = res1.next().intValue(0);
+
+            assertEquals(intRes, res2.next().intValue(0));
+
+            res1.close();
+
+            res2.close();
+        }
+
+        // TODO: Uncomment after IGNITE-18203
+        /*stopNode(0);
+
+        ignite1 = startNode(0);
+
+        try (Session session1 = ignite1.sql().createSession()) {
+            ResultSet<SqlRow> res3 = session1.execute(null, sql);
+
+            assertEquals(intRes, res3.next().intValue(0));
+        }*/
+    }
+
+    /**
      * Restarts a node with changing configuration.
      */
     @Test
@@ -720,8 +796,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Restarts the node which stores some data.
      */
-    @Disabled("IGNITE-18203 The test goes to deadlock in cluster restart, because indexes are required to apply RAFT commands on restart, "
-            + "but the table have not started yet.")
     @Test
     public void nodeWithDataTest() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
@@ -738,8 +812,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in the same order when they started at first.
      */
-    @Disabled("IGNITE-18203 The test goes to deadlock in cluster restart, because indexes are required to apply RAFT commands on restart, "
-            + "but the table have not started yet.")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19079")
     @Test
     public void testTwoNodesRestartDirect() throws InterruptedException {
         twoNodesRestart(true);
@@ -748,8 +821,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in reverse order when they started at first.
      */
-    @Disabled("IGNITE-18203 The test goes to deadlock in cluster restart, because indexes are required to apply RAFT commands on restart, "
-            + "but the table have not started yet.")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19079")
     @Test
     public void testTwoNodesRestartReverse() throws InterruptedException {
         twoNodesRestart(false);
@@ -888,9 +960,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Checks that a cluster is able to restart when some changes were made in configuration.
      */
-    @Disabled("IGNITE-18203 The test goes to deadlock in cluster restart, because indexes are required to apply RAFT commands on restart, "
-            + "but the table have not started yet.")
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19079")
     public void testRestartDiffConfig() throws InterruptedException {
         List<IgniteImpl> ignites = startNodes(2);
 
@@ -1071,7 +1142,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param replicas Replica factor.
      */
     private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas) throws InterruptedException {
-        createTableWithData(nodes, name, replicas, 10);
+        createTableWithData(nodes, name, replicas, 2);
     }
 
     /**
@@ -1085,7 +1156,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas, int partitions)
             throws InterruptedException {
         try (Session session = nodes.get(0).sql().createSession()) {
-            session.execute(null, "CREATE TABLE " + name
+            session.execute(null, "CREATE TABLE IF NOT EXISTS " + name
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH replicas=" + replicas + ", partitions=" + partitions);
 
             waitForIndex(nodes, name + "_PK");
@@ -1099,7 +1170,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
     private void waitForIndex(Collection<IgniteImpl> nodes, String indexName) throws InterruptedException {
         // FIXME: Wait for the index to be created on all nodes,
-        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18203 to avoid missed updates to the PK index.
+        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18733 to avoid missed updates to the PK index.
 
         Stream<TablesConfiguration> partialTablesConfiguration = Stream.empty();
 

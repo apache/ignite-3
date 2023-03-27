@@ -17,19 +17,19 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.index.event.IndexEvent;
@@ -110,23 +110,36 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         LOG.debug("Index manager is about to start");
 
         tablesCfg.indexes().listenElements(new ConfigurationListener());
+
         tableManager.listen(TableEvent.CREATE, (param, ex) -> {
             if (ex != null) {
-                return CompletableFuture.completedFuture(false);
+                return completedFuture(false);
             }
 
-            List<String> pkColumns = Arrays.stream(param.table().schemaView().schema().keyColumns().columns())
-                    .map(Column::name)
-                    .collect(Collectors.toList());
+            // We can't return this future as the listener's result, because a deadlock can happen in the configuration component:
+            // this listener is called inside a configuration notification thread and all notifications are required to finish before
+            // new configuration modifications can occur (i.e. we are creating an index below). Therefore we create the index fully
+            // asynchronously and rely on the underlying components to handle PK index synchronisation.
+            tableManager.tableAsync(param.causalityToken(), param.tableId())
+                    .thenCompose(table -> {
+                        String[] pkColumns = Arrays.stream(table.schemaView().schema().keyColumns().columns())
+                                .map(Column::name)
+                                .toArray(String[]::new);
 
-            String pkName = param.tableName() + "_PK";
+                        String pkName = table.name() + "_PK";
 
-            createIndexAsync("PUBLIC", pkName, param.tableName(), false,
-                    change -> change.changeUniq(true).convert(HashIndexChange.class)
-                            .changeColumnNames(pkColumns.toArray(STRING_EMPTY_ARRAY))
-            );
+                        return createIndexAsync("PUBLIC", pkName, table.name(), false,
+                                change -> change.changeUniq(true).convert(HashIndexChange.class)
+                                        .changeColumnNames(pkColumns)
+                        );
+                    })
+                    .whenComplete((v, e) -> {
+                        if (e != null) {
+                            LOG.error("Error when creating index: " + e);
+                        }
+                    });
 
-            return CompletableFuture.completedFuture(false);
+            return completedFuture(false);
         });
 
         LOG.info("Index manager started");
@@ -233,7 +246,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             return future;
         } catch (Exception ex) {
-            return CompletableFuture.failedFuture(ex);
+            return failedFuture(ex);
         } finally {
             busyLock.leaveBusy();
         }
@@ -253,7 +266,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             boolean failIfNotExists
     ) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         LOG.debug("Going to drop index [schema={}, index={}]", schemaName, indexName);
@@ -318,9 +331,11 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     private CompletableFuture<?> onIndexDrop(ConfigurationNotificationEvent<TableIndexView> evt) {
         UUID idxId = evt.oldValue().id();
 
+        UUID tableId = evt.oldValue().tableId();
+
         if (!busyLock.enterBusy()) {
             fireEvent(IndexEvent.DROP,
-                    new IndexEventParameters(evt.storageRevision(), idxId),
+                    new IndexEventParameters(evt.storageRevision(), tableId, idxId),
                     new NodeStoppingException()
             );
 
@@ -328,13 +343,16 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         try {
-            return tableManager.tableAsync(evt.storageRevision(), evt.oldValue().tableId())
+            CompletableFuture<?> eventFuture = fireEvent(IndexEvent.DROP, new IndexEventParameters(evt.storageRevision(), tableId, idxId));
+
+            CompletableFuture<?> dropTableFuture = tableManager.tableAsync(evt.storageRevision(), tableId)
                     .thenAccept(table -> {
                         if (table != null) { // in case of DROP TABLE the table will be removed first
                             table.unregisterIndex(idxId);
                         }
-                    })
-                    .thenRun(() -> fireEvent(IndexEvent.DROP, new IndexEventParameters(evt.storageRevision(), idxId), null));
+                    });
+
+            return allOf(eventFuture, dropTableFuture);
         } finally {
             busyLock.leaveBusy();
         }
@@ -347,11 +365,13 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @return A future.
      */
     private CompletableFuture<?> onIndexCreate(ConfigurationNotificationEvent<TableIndexView> evt) {
+        UUID tableId = evt.newValue().tableId();
+
         if (!busyLock.enterBusy()) {
             UUID idxId = evt.newValue().id();
 
             fireEvent(IndexEvent.CREATE,
-                    new IndexEventParameters(evt.storageRevision(), idxId),
+                    new IndexEventParameters(evt.storageRevision(), tableId, idxId),
                     new NodeStoppingException()
             );
 
@@ -359,12 +379,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         try {
-            UUID tableId = evt.newValue().tableId();
-
-            return createIndexLocally(
-                    evt.storageRevision(),
-                    tableId,
-                    evt.newValue());
+            return createIndexLocally(evt.storageRevision(), tableId, evt.newValue());
         } finally {
             busyLock.leaveBusy();
         }
@@ -373,47 +388,45 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     private CompletableFuture<?> createIndexLocally(long causalityToken, UUID tableId, TableIndexView tableIndexView) {
         assert tableIndexView != null;
 
+        UUID indexId = tableIndexView.id();
+
         LOG.trace("Creating local index: name={}, id={}, tableId={}, token={}",
-                tableIndexView.name(), tableIndexView.id(), tableId, causalityToken);
+                tableIndexView.name(), indexId, tableId, causalityToken);
 
-        return tableManager.tableAsync(causalityToken, tableId)
-                .thenAccept(table -> {
-                    Index<?> index = newIndex(table, tableIndexView);
+        IndexDescriptor descriptor = newDescriptor(tableIndexView);
 
-                    TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
-                            schemaManager.schemaRegistry(tableId),
-                            index.descriptor().columns().toArray(STRING_EMPTY_ARRAY)
-                    );
+        CompletableFuture<?> fireEventFuture =
+                fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, tableId, indexId, descriptor));
 
-                    if (index instanceof HashIndex) {
-                        table.registerHashIndex(tableIndexView.id(), tableIndexView.uniq(), tableRowConverter::convert);
+        CompletableFuture<TableImpl> tableFuture = tableManager.tableAsync(causalityToken, tableId);
 
-                        if (tableIndexView.uniq()) {
-                            table.pkId(index.id());
-                        }
-                    } else if (index instanceof SortedIndex) {
-                        table.registerSortedIndex(tableIndexView.id(), tableRowConverter::convert);
-                    } else {
-                        throw new AssertionError("Unknown index type [type=" + index.getClass() + ']');
-                    }
+        CompletableFuture<SchemaRegistry> schemaRegistryFuture = schemaManager.schemaRegistry(causalityToken, tableId);
 
-                    fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, index), null);
-                });
+        CompletableFuture<?> createIndexFuture = tableFuture.thenAcceptBoth(schemaRegistryFuture, (table, schemaRegistry) -> {
+            TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
+                    schemaRegistry,
+                    descriptor.columns().toArray(STRING_EMPTY_ARRAY)
+            );
+
+            if (descriptor instanceof SortedIndexDescriptor) {
+                table.registerSortedIndex(indexId, tableRowConverter::convert);
+            } else {
+                table.registerHashIndex(indexId, tableIndexView.uniq(), tableRowConverter::convert);
+
+                if (tableIndexView.uniq()) {
+                    table.pkId(indexId);
+                }
+            }
+        });
+
+        return allOf(createIndexFuture, fireEventFuture);
     }
 
-    private Index<?> newIndex(TableImpl table, TableIndexView indexView) {
+    private IndexDescriptor newDescriptor(TableIndexView indexView) {
         if (indexView instanceof SortedIndexView) {
-            return new SortedIndexImpl(
-                    indexView.id(),
-                    table,
-                    convert((SortedIndexView) indexView)
-            );
+            return convert((SortedIndexView) indexView);
         } else if (indexView instanceof HashIndexView) {
-            return new HashIndex(
-                    indexView.id(),
-                    table,
-                    convert((HashIndexView) indexView)
-            );
+            return convert((HashIndexView) indexView);
         }
 
         throw new AssertionError("Unknown index type [type=" + (indexView != null ? indexView.getClass() : null) + ']');
@@ -547,7 +560,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 String newName,
                 ConfigurationNotificationEvent<TableIndexView> ctx
         ) {
-            return CompletableFuture.failedFuture(new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-16196"));
+            return failedFuture(new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-16196"));
         }
 
         /** {@inheritDoc} */
@@ -559,7 +572,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         /** {@inheritDoc} */
         @Override
         public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
-            return CompletableFuture.failedFuture(new IllegalStateException("Should not be called"));
+            return failedFuture(new IllegalStateException("Should not be called"));
         }
     }
 }

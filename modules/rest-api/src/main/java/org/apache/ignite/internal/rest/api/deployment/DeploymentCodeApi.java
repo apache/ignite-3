@@ -126,9 +126,9 @@ public interface DeploymentCodeApi {
     /**
      * All units status REST method.
      */
-    @Operation(operationId = "units", description = "All units statutes.")
+    @Operation(operationId = "units", description = "All units statuses.")
     @ApiResponse(responseCode = "200",
-            description = "All statutes returned successful.",
+            description = "All statuses returned successfully.",
             content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = UnitStatusDto.class)))
     )
     @ApiResponse(responseCode = "500",
@@ -148,7 +148,7 @@ public interface DeploymentCodeApi {
      */
     @Operation(operationId = "versions", description = "All versions of unit with provided unit identifier.")
     @ApiResponse(responseCode = "200",
-            description = "Versions returned successful.",
+            description = "Versions returned successfully.",
             content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = String.class)))
     )
     @ApiResponse(responseCode = "404",
@@ -171,7 +171,7 @@ public interface DeploymentCodeApi {
      */
     @Operation(operationId = "status", description = "Status of unit with provided identifier.")
     @ApiResponse(responseCode = "200",
-            description = "Status returned successful.",
+            description = "Status returned successfully.",
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = UnitStatusDto.class))
     )
     @ApiResponse(responseCode = "404",
@@ -190,4 +190,25 @@ public interface DeploymentCodeApi {
     @Get("units/{unitId}/status")
     CompletableFuture<UnitStatusDto> status(
             @PathVariable("unitId") @Schema(name = "unitId", required = true) String unitId);
+
+    /**
+     * Find unit by node consistent id.
+     */
+    @Operation(operationId = "byConsistentId", description = "Status of units which deployed on node.")
+    @ApiResponse(responseCode = "200",
+            description = "All statuses returned successfully.",
+            content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = UnitStatusDto.class)))
+    )
+    @ApiResponse(responseCode = "500",
+            description = "Internal error.",
+            content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
+    )
+    @Consumes(APPLICATION_JSON)
+    @Produces({
+            APPLICATION_JSON,
+            PROBLEM_JSON
+    })
+    @Get("units/consistentId/{consistentId}")
+    CompletableFuture<Collection<UnitStatusDto>> findByConsistentId(
+            @PathVariable("consistentId") @Schema(name = "consistentId", required = true) String consistentId);
 }

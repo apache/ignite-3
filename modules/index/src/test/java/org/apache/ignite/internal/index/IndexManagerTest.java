@@ -17,17 +17,14 @@
 
 package org.apache.ignite.internal.index;
 
-import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -38,51 +35,27 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.configuration.NamedConfigurationTree;
-import org.apache.ignite.configuration.validation.ConfigurationValidationException;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.NamedListConfiguration;
-import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.TableChange;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableValidatorImpl;
-import org.apache.ignite.internal.schema.configuration.TableView;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.index.IndexValidatorImpl;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexChange;
-import org.apache.ignite.internal.schema.configuration.index.SortedIndexConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
-import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexNotFoundException;
-import org.apache.ignite.lang.TableNotFoundException;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
@@ -92,91 +65,55 @@ import org.mockito.Mockito;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class IndexManagerTest {
-    /** Configuration registry with one table for each test. */
-    private static ConfigurationRegistry confRegistry;
+    @InjectConfiguration(
+            "mock.tables.tName {"
+                    + "columns.c1 {type.type: STRING}, "
+                    + "columns.c2 {type.type: STRING}, "
+                    + "primaryKey {columns: [c1], colocationColumns: [c1]}"
+                    + "}"
+    )
+    private TablesConfiguration tablesConfig;
 
-    /** Tables configuration. */
-    private static TablesConfiguration tablesConfig;
+    private IndexManager indexManager;
 
-    /** Index manager. */
-    private static IndexManager indexManager;
-
-    /** Per test unique index name. */
-    private static AtomicInteger index = new AtomicInteger();
-
-    /**
-     * Common components initialization.
-     */
-    @BeforeAll
-    public static void setUp() throws Exception {
-        confRegistry = new ConfigurationRegistry(
-                List.of(TablesConfiguration.KEY),
-                Set.of(IndexValidatorImpl.INSTANCE, TableValidatorImpl.INSTANCE),
-                new TestConfigurationStorage(DISTRIBUTED),
-                List.of(ExtendedTableConfigurationSchema.class),
-                List.of(
-                        HashIndexConfigurationSchema.class,
-                        SortedIndexConfigurationSchema.class,
-
-                        UnknownDataStorageConfigurationSchema.class,
-                        ConstantValueDefaultConfigurationSchema.class,
-                        FunctionCallDefaultConfigurationSchema.class,
-                        NullValueDefaultConfigurationSchema.class
-                )
-        );
-
-        confRegistry.start();
-
-        tablesConfig = confRegistry.getConfiguration(TablesConfiguration.KEY);
-
-        TableManager tableManagerMock = Mockito.mock(TableManager.class);
-        Map<UUID, TableImpl> tables = Mockito.mock(Map.class);
+    @BeforeEach
+    public void setUp() {
+        TableManager tableManagerMock = mock(TableManager.class);
 
         when(tableManagerMock.tableAsync(anyLong(), any(UUID.class))).thenAnswer(inv -> {
-            InternalTable tbl = Mockito.mock(InternalTable.class);
+            InternalTable tbl = mock(InternalTable.class);
+
             Mockito.doReturn(inv.getArgument(1)).when(tbl).tableId();
-            return CompletableFuture.completedFuture(
-                    new TableImpl(tbl, new HeapLockManager(), () -> CompletableFuture.completedFuture(List.of())));
+
+            return completedFuture(new TableImpl(tbl, new HeapLockManager(), () -> completedFuture(List.of())));
         });
 
         SchemaManager schManager = mock(SchemaManager.class);
-        when(schManager.schemaRegistry(anyLong(), any())).thenReturn(CompletableFuture.completedFuture(null));
+
+        when(schManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(null));
 
         indexManager = new IndexManager(tablesConfig, schManager, tableManagerMock);
         indexManager.start();
 
-        tablesConfig.tables().change(tableChange -> tableChange.create("tName", chg -> {
-            chg.changeColumns(cols -> cols
-                    .create("c1", col -> col.changeType(t -> t.changeType("STRING")))
-                    .create("c2", col -> col.changeType(t -> t.changeType("STRING"))));
-
-            chg.changePrimaryKey(pk -> pk.changeColumns("c1").changeColocationColumns("c1"));
-
-            ((ExtendedTableChange) chg).changeAssignments((byte) 1).changeSchemaId(1);
-        })).get();
+        assertThat(
+                tablesConfig.tables().get("tName")
+                        .change(tableChange -> ((ExtendedTableChange) tableChange).changeSchemaId(1).changeAssignments((byte) 1)),
+                willCompleteSuccessfully()
+        );
     }
 
-    /**
-     * Sweep all necessary.
-     */
-    @AfterAll
-    public static void tearDown() throws Exception {
-        confRegistry.stop();
+    @AfterEach
+    void tearDown() throws Exception {
+        if (indexManager != null) {
+            indexManager.stop();
+        }
     }
 
     @Test
     void configurationChangedWhenCreateIsInvoked() {
-        String indexName = "idx" + index.incrementAndGet();
+        String indexName = "idx";
 
-        NamedConfigurationTree<TableConfiguration, TableView, TableChange> cfg0 = tablesConfig.tables();
-
-        List<UUID> ids = ((NamedListConfiguration<TableConfiguration, ?, ?>) cfg0).internalIds();
-
-        assertEquals(1, ids.size());
-
-        UUID tableId = ids.get(0);
-
-        indexManager.createIndexAsync("sName", indexName, "tName", true, indexChange -> {
+        assertThat(indexManager.createIndexAsync("sName", indexName, "tName", true, indexChange -> {
             SortedIndexChange sortedIndexChange = indexChange.convert(SortedIndexChange.class);
 
             sortedIndexChange.changeColumns(columns -> {
@@ -184,8 +121,8 @@ public class IndexManagerTest {
                 columns.create("c2", columnChange -> columnChange.changeAsc(false));
             });
 
-            sortedIndexChange.changeTableId(tableId);
-        }).join();
+            sortedIndexChange.changeTableId(tableId());
+        }), willCompleteSuccessfully());
 
         var expected = List.of(
                 Map.of(
@@ -202,7 +139,7 @@ public class IndexManagerTest {
                         "name", indexName,
                         "type", "SORTED",
                         "uniq", false,
-                        "tableId", tableId.toString()
+                        "tableId", tableId().toString()
                 )
         );
 
@@ -210,172 +147,65 @@ public class IndexManagerTest {
     }
 
     @Test
-    public void createIndexForNonExistingTable() {
-        CompletionException completionException = assertThrows(
-                CompletionException.class,
-                () -> indexManager.createIndexAsync("sName", "idx", "tName_notExist", true, indexChange -> {/* doesn't matter */}).join()
-        );
-
-        assertTrue(IgniteTestUtils.hasCause(completionException, TableNotFoundException.class,
-                "The table does not exist [name=\"sName\".\"tName_notExist\"]"));
-    }
-
-    @Test
     public void createIndexWithEmptyName() {
-        CompletionException completionException = assertThrows(
-                CompletionException.class,
-                () -> indexManager.createIndexAsync("sName", "", "tName", true, indexChange -> {/* doesn't matter */}).join()
-        );
-
-        assertThat(completionException.getCause(), instanceOf(IgniteInternalException.class));
         assertThat(
-                ((IgniteInternalException) completionException.getCause()).code(),
-                equalTo(ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR)
+                indexManager.createIndexAsync("sName", "", "tName", true, indexChange -> {/* doesn't matter */}),
+                willThrowFast(IgniteInternalException.class, "Index name should be at least 1 character long")
         );
-    }
-
-    @Test
-    public void createIndexWithEmptyColumnList() {
-        String indexTitle = "idx" + index.incrementAndGet();
-
-        CompletionException completionException = assertThrows(
-                CompletionException.class,
-                () -> indexManager.createIndexAsync("sName", indexTitle, "tName", true,
-                        indexChange -> indexChange.convert(HashIndexChange.class).changeColumnNames()
-                                .changeTableId(UUID.randomUUID())).join()
-        );
-
-        assertTrue(IgniteTestUtils.hasCause(completionException, ConfigurationValidationException.class,
-                "Index must include at least one column"));
-    }
-
-    @Test
-    public void createIndexForNonExistingColumn() {
-        String indexName = "idx" + index.incrementAndGet();
-
-        CompletionException completionException = assertThrows(
-                CompletionException.class,
-                () -> indexManager.createIndexAsync("sName", indexName, "tName", true,
-                        indexChange ->
-                                indexChange.convert(HashIndexChange.class).changeColumnNames("nonExistingColumn")
-                                        .changeTableId(UUID.randomUUID())).join()
-        );
-
-        assertTrue(IgniteTestUtils.hasCause(completionException, ConfigurationValidationException.class,
-                "Columns don't exist"));
     }
 
     @Test
     public void dropNonExistingIndex() {
-        CompletionException completionException = assertThrows(
-                CompletionException.class,
-                () -> indexManager.dropIndexAsync("sName", "nonExisting", true).join()
+        assertThat(
+                indexManager.dropIndexAsync("sName", "nonExisting", true),
+                willThrowFast(IndexNotFoundException.class, "Index does not exist [name=\"sName\".\"nonExisting\"]")
         );
-
-        assertTrue(IgniteTestUtils.hasCause(completionException, IndexNotFoundException.class,
-                "Index does not exist [name=\"sName\".\"nonExisting\"]"));
     }
 
     @Test
     @SuppressWarnings("ConstantConditions")
     public void eventIsFiredWhenIndexCreated() {
-        String indexName = "idx" + index.incrementAndGet();
+        String indexName = "idx";
 
         AtomicReference<IndexEventParameters> holder = new AtomicReference<>();
 
         indexManager.listen(IndexEvent.CREATE, (param, th) -> {
             holder.set(param);
 
-            return CompletableFuture.completedFuture(true);
+            return completedFuture(true);
         });
 
         indexManager.listen(IndexEvent.DROP, (param, th) -> {
             holder.set(param);
 
-            return CompletableFuture.completedFuture(true);
+            return completedFuture(true);
         });
 
-        indexManager.start();
-
-        NamedConfigurationTree<TableConfiguration, TableView, TableChange> cfg0 = tablesConfig.tables();
-
-        List<UUID> ids = ((NamedListConfiguration<TableConfiguration, ?, ?>) cfg0).internalIds();
-
-        assertEquals(1, ids.size());
-
-        UUID tableId = ids.get(0);
-
-        indexManager.createIndexAsync("sName", indexName, "tName", true, indexChange -> {
+        assertThat(indexManager.createIndexAsync("sName", indexName, "tName", true, indexChange -> {
             SortedIndexChange sortedIndexChange = indexChange.convert(SortedIndexChange.class);
 
             sortedIndexChange.changeColumns(columns -> {
                 columns.create("c2", columnChange -> columnChange.changeAsc(true));
             });
 
-            sortedIndexChange.changeTableId(tableId);
-        }).join();
+            sortedIndexChange.changeTableId(tableId());
+        }), willCompleteSuccessfully());
 
-        ids = ((NamedListConfiguration<TableIndexConfiguration, ?, ?>) tablesConfig.indexes()).internalIds();
+        List<UUID> indexIds = tablesConfig.indexes().internalIds();
 
-        assertEquals(1, ids.size());
+        assertThat(indexIds, hasSize(1));
 
-        UUID indexId = ids.get(0);
-
-        assertThat(holder.get(), notNullValue());
-        assertThat(holder.get().index().id(), equalTo(indexId));
-        assertThat(holder.get().index().tableId(), equalTo(tableId));
-        assertThat(holder.get().index().name(), equalTo(indexName));
-
-        indexManager.dropIndexAsync("sName", indexName, true).join();
+        UUID indexId = indexIds.get(0);
 
         assertThat(holder.get(), notNullValue());
         assertThat(holder.get().indexId(), equalTo(indexId));
-    }
+        assertThat(holder.get().tableId(), equalTo(tableId()));
+        assertThat(holder.get().indexDescriptor().name(), equalTo(indexName));
 
-    @SuppressWarnings("ThrowableNotThrown")
-    @Test
-    public void createIndexWithExistingTableName() {
-        CompletableFuture<Boolean> createIdxFut = indexManager.createIndexAsync("sName", "tName", "tName", true, indexChange ->
-                indexChange.convert(SortedIndexChange.class).changeColumns(columns ->
-                        columns.create("c2", columnChange -> columnChange.changeAsc(true))));
+        assertThat(indexManager.dropIndexAsync("sName", indexName, true), willCompleteSuccessfully());
 
-        assertThrowsWithCause(() -> await(createIdxFut), ConfigurationValidationException.class,
-                "Table with the same name already exists.");
-    }
-
-    @SuppressWarnings("ThrowableNotThrown")
-    @Test
-    public void createTableWithExistingIndexName() {
-        String indexName = "idx" + index.incrementAndGet();
-
-        List<UUID> ids = ((NamedListConfiguration<TableConfiguration, ?, ?>) tablesConfig.tables()).internalIds();
-        assertEquals(1, ids.size());
-
-        UUID tableId = ids.get(0);
-
-        boolean created = indexManager.createIndexAsync("sName", indexName, "tName", true, indexChange -> {
-            SortedIndexChange sortedIndexChange = indexChange.convert(SortedIndexChange.class);
-
-            sortedIndexChange.changeColumns(columns -> {
-                columns.create("c2", columnChange -> columnChange.changeAsc(true));
-            });
-
-            sortedIndexChange.changeTableId(tableId);
-        }).join();
-
-        assertTrue(created);
-
-        try {
-            CompletableFuture<Void> createTblFut = tablesConfig.tables().change(tableChange -> tableChange.create(indexName, chg -> {
-                chg.changeColumns(cols -> cols.create("c1", col -> col.changeType(t -> t.changeType("STRING"))))
-                        .changePrimaryKey(pk -> pk.changeColumns("c1").changeColocationColumns("c1"));
-            }));
-
-            assertThrowsWithCause(() -> await(createTblFut), ConfigurationValidationException.class,
-                    "Index with the same name already exists.");
-        } finally {
-            indexManager.dropIndexAsync("sName", indexName, true).join();
-        }
+        assertThat(holder.get(), notNullValue());
+        assertThat(holder.get().indexId(), equalTo(indexId));
     }
 
     private static Object toMap(Object obj) {
@@ -452,10 +282,14 @@ public class IndexManagerTest {
 
         private final List<String> path = new ArrayList<>();
 
-        public ObjectsNotEqualException(Object o1, Object o2) {
+        ObjectsNotEqualException(Object o1, Object o2) {
             super(null, null, false, false);
             this.o1 = o1;
             this.o2 = o2;
         }
+    }
+
+    private UUID tableId() {
+        return ((ExtendedTableConfiguration) tablesConfig.tables().get("tName")).id().value();
     }
 }

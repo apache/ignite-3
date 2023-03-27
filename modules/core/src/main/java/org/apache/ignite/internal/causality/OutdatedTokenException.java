@@ -21,11 +21,11 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
- * This exception is thrown when {@link VersionedValue#get(long)} is called with an outdated token
+ * This exception is thrown when {@link CompletableVersionedValue#get(long)} is called with an outdated token
  * (this means that the history size of VersionedValue is not enough in order to get a value related to the token).
  *
- * <p>{@link VersionedValue} stores a value per the causality token.
- * See {@link VersionedValue#get(long)}.
+ * <p>{@link CompletableVersionedValue} stores a value per the causality token.
+ * See {@link CompletableVersionedValue#get(long)}.
  */
 public class OutdatedTokenException extends IgniteInternalException {
 

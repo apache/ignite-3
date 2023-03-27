@@ -52,6 +52,7 @@ import org.apache.ignite.internal.raft.service.ItAbstractListenerSnapshotTest;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -379,7 +380,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             partitionDataStorage,
                             storageUpdateHandler,
                             new TestTxStateStorage(),
-                            new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0))
+                            new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0)),
+                            new PendingComparableValuesTracker<>(0L)
                     );
 
                     paths.put(listener, path);

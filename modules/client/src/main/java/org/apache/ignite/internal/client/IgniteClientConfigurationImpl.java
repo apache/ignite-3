@@ -44,6 +44,9 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     /** Reconnect throttling retries. */
     private final int reconnectThrottlingRetries;
 
+    /** Reconnect interval, in milliseconds. */
+    private final long reconnectInterval;
+
     /** Async continuation executor. */
     private final Executor asyncContinuationExecutor;
 
@@ -68,6 +71,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
      * @param connectTimeout Socket connect timeout.
      * @param reconnectThrottlingPeriod Reconnect throttling period, in milliseconds.
      * @param reconnectThrottlingRetries Reconnect throttling retries.
+     * @param reconnectInterval Reconnect throttling retries.
      * @param asyncContinuationExecutor Async continuation executor.
      * @param heartbeatInterval Heartbeat message interval.
      * @param heartbeatTimeout Heartbeat message timeout.
@@ -80,6 +84,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             long connectTimeout,
             long reconnectThrottlingPeriod,
             int reconnectThrottlingRetries,
+            long reconnectInterval,
             Executor asyncContinuationExecutor,
             long heartbeatInterval,
             long heartbeatTimeout,
@@ -95,6 +100,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.connectTimeout = connectTimeout;
         this.reconnectThrottlingPeriod = reconnectThrottlingPeriod;
         this.reconnectThrottlingRetries = reconnectThrottlingRetries;
+        this.reconnectInterval = reconnectInterval;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
         this.heartbeatInterval = heartbeatInterval;
         this.heartbeatTimeout = heartbeatTimeout;
@@ -131,6 +137,12 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public int reconnectThrottlingRetries() {
         return reconnectThrottlingRetries;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long reconnectInterval() {
+        return reconnectInterval;
     }
 
     /** {@inheritDoc} */

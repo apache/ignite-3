@@ -22,7 +22,7 @@ import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 /**
  * Default collection of exception handlers.
  */
-public class DefaultExceptionHandlers extends ExceptionHandlers {
+public final class DefaultExceptionHandlers extends ExceptionHandlers {
 
     /**
      * Constructor.
@@ -37,5 +37,8 @@ public class DefaultExceptionHandlers extends ExceptionHandlers {
         addExceptionHandler(new ConfigStoringExceptionHandler());
         addExceptionHandler(new ProfileNotFoundExceptionHandler());
         addExceptionHandler(new SectionAlreadyExistsExceptionHandler());
+        addExceptionHandler(new UnitNotFoundExceptionHandler());
+        addExceptionHandler(new UnitAlreadyExistsExceptionHandler());
+        addExceptionHandler(new FileNotFoundExceptionHandler());
     }
 }

@@ -29,6 +29,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -126,7 +128,12 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class,
                 (message, sender, correlationId) -> {
                     try {
-                        replicaManager.startReplica(tablePartitionId, request0 -> CompletableFuture.completedFuture(null));
+                        replicaManager.startReplica(
+                                tablePartitionId,
+                                request0 -> CompletableFuture.completedFuture(null),
+                                mock(TopologyAwareRaftGroupService.class),
+                                new PendingComparableValuesTracker<>(0L)
+                        );
                     } catch (NodeStoppingException e) {
                         throw new RuntimeException(e);
                     }

@@ -137,6 +137,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         return connMgr
                 .openAsync(cfg.getAddress(), this, this)
                 .thenCompose(s -> {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Connection established [remoteAddress=" + s.remoteAddress() + ']');
+                    }
+
                     sock = s;
 
                     return handshakeAsync(DEFAULT_VERSION);
@@ -207,7 +211,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** {@inheritDoc} */
     @Override
     public void onDisconnected(@Nullable Exception e) {
-        log.debug("Disconnected from server: " + cfg.getAddress());
+        if (log.isDebugEnabled()) {
+            log.debug("Connection closed [remoteAddress=" + cfg.getAddress() + ']');
+        }
+
         close(e);
     }
 
@@ -219,6 +226,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             PayloadReader<T> payloadReader
     ) {
         try {
+            if (log.isTraceEnabled()) {
+                log.trace("Sending request [opCode=" + opCode + ", remoteAddress=" + cfg.getAddress() + ']');
+            }
+
             ClientRequestFuture fut = send(opCode, payloadWriter);
 
             return receiveAsync(fut, payloadReader);
@@ -268,6 +279,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             return fut;
         } catch (Throwable t) {
+            log.warn("Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
+                    + t.getMessage(), t);
+
             // Close buffer manually on fail. Successful write closes the buffer automatically.
             payloadCh.close();
             pendingReqs.remove(id);
@@ -297,6 +311,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             try (var in = new PayloadInputChannel(this, payload)) {
                 return payloadReader.apply(in);
             } catch (Exception e) {
+                log.error("Failed to deserialize server response [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
+
                 throw new IgniteClientConnectionException(PROTOCOL_ERR, "Failed to deserialize server response: " + e.getMessage(), e);
             }
         }, asyncContinuationExecutor);
@@ -317,6 +333,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         var type = unpacker.unpackInt();
 
         if (type != ServerMessageType.RESPONSE) {
+            log.error("Unexpected message type [remoteAddress=" + cfg.getAddress() + "]: " + type);
+
             throw new IgniteClientConnectionException(PROTOCOL_ERR, "Unexpected message type: " + type);
         }
 
@@ -325,12 +343,18 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         ClientRequestFuture pendingReq = pendingReqs.remove(resId);
 
         if (pendingReq == null) {
+            log.error("Unexpected response ID [remoteAddress=" + cfg.getAddress() + "]: " + resId);
+
             throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected response ID [%s]", resId));
         }
 
         int flags = unpacker.unpackInt();
 
         if (ResponseFlags.getPartitionAssignmentChangedFlag(flags)) {
+            if (log.isInfoEnabled()) {
+                log.info("Partition assignment change notification received [remoteAddress=" + cfg.getAddress() + "]");
+            }
+
             for (Consumer<ClientChannel> listener : assignmentChangeListeners) {
                 listener.accept(this);
             }
@@ -484,6 +508,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     srvVer, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNode, clusterId);
 
             return CompletableFuture.completedFuture(null);
+        } catch (Exception e) {
+            log.warn("Failed to handle handshake response [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
+
+            return CompletableFuture.failedFuture(e);
         }
     }
 
@@ -563,7 +591,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                                 .orTimeout(heartbeatTimeout, TimeUnit.MILLISECONDS)
                                 .exceptionally(e -> {
                                     if (e instanceof TimeoutException) {
-                                        log.warn("Heartbeat timeout, closing the channel");
+                                        log.warn("Heartbeat timeout, closing the channel [remoteAddress=" + cfg.getAddress() + ']');
 
                                         close((TimeoutException) e);
                                     }
@@ -572,8 +600,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                                 });
                     }
                 }
-            } catch (Throwable ignored) {
-                // Ignore failed heartbeats.
+            } catch (Throwable e) {
+                log.warn("Failed to send heartbeat [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
             }
         }
     }

@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal
 {
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Net;
     using System.Threading.Tasks;
     using Ignite.Compute;
@@ -85,6 +86,9 @@ namespace Apache.Ignite.Internal
 
                 for (var i = 0; i < count; i++)
                 {
+                    var fieldCount = r.ReadArrayHeader();
+                    Debug.Assert(fieldCount == 4, "fieldCount == 4");
+
                     res.Add(new ClusterNode(
                         Id: r.ReadString(),
                         Name: r.ReadString(),

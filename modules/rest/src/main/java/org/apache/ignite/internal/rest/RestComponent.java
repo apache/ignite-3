@@ -181,7 +181,8 @@ public class RestComponent implements IgniteComponent {
         return micronaut
                 .properties(properties)
                 .banner(false)
-                .mapError(ServerStartupException.class, RestComponent::mapServerStartupException)
+                // -1 forces the micronaut to throw an ApplicationStartupException instead of doing System.exit
+                .mapError(ServerStartupException.class, ex -> -1)
                 .mapError(ApplicationStartupException.class, ex -> -1);
     }
 
@@ -191,54 +192,43 @@ public class RestComponent implements IgniteComponent {
         }
     }
 
-    private static int mapServerStartupException(ServerStartupException exception) {
-        if (exception.getCause() instanceof BindException) {
-            return -1; // -1 forces the micronaut to throw an ApplicationStartupException
-        } else {
-            return 1;
-        }
-    }
-
     private Map<String, Object> serverProperties(int port, int sslPort) {
         RestSslView restSslView = restConfiguration.ssl().value();
         boolean sslEnabled = restSslView.enabled();
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("micronaut.server.port", port);
+        result.put("ignite.endpoints.filter-non-initialized", "true");
 
         if (sslEnabled) {
             KeyStoreView keyStore = restSslView.keyStore();
             boolean dualProtocol = restConfiguration.dualProtocol().value();
 
-            Map<String, Object> micronautSslConfig = Map.of(
-                    "micronaut.server.port", port, // Micronaut is not going to handle requests on that port, but it's required
-                    "micronaut.server.dual-protocol", dualProtocol,
-                    "micronaut.server.ssl.port", sslPort,
-                    "micronaut.server.ssl.enabled", sslEnabled,
-                    "micronaut.server.ssl.key-store.path", "file:" + keyStore.path(),
-                    "micronaut.server.ssl.key-store.password", keyStore.password(),
-                    "micronaut.server.ssl.key-store.type", keyStore.type()
-            );
+            // Micronaut is not going to handle requests on that port, but it's required
+            result.put("micronaut.server.dual-protocol", dualProtocol);
+            result.put("micronaut.server.ssl.port", sslPort);
+            if (!restSslView.ciphers().isBlank()) {
+                result.put("micronaut.server.ssl.ciphers", restSslView.ciphers());
+            }
+            result.put("micronaut.server.ssl.enabled", sslEnabled);
+            result.put("micronaut.server.ssl.key-store.path", "file:" + keyStore.path());
+            result.put("micronaut.server.ssl.key-store.password", keyStore.password());
+            result.put("micronaut.server.ssl.key-store.type", keyStore.type());
 
             ClientAuth clientAuth = ClientAuth.valueOf(restSslView.clientAuth().toUpperCase());
             if (ClientAuth.NONE == clientAuth) {
-                return micronautSslConfig;
+                return result;
             }
 
             KeyStoreView trustStore = restSslView.trustStore();
 
-            Map<String, Object> micronautClientAuthConfig = Map.of(
-                    "micronaut.server.ssl.client-authentication", toMicronautClientAuth(clientAuth),
-                    "micronaut.server.ssl.trust-store.path", "file:" + trustStore.path(),
-                    "micronaut.server.ssl.trust-store.password", trustStore.password(),
-                    "micronaut.server.ssl.trust-store.type", trustStore.type()
-            );
-
-            HashMap<String, Object> result = new HashMap<>();
-            result.putAll(micronautSslConfig);
-            result.putAll(micronautClientAuthConfig);
-
-            return result;
-        } else {
-            return Map.of("micronaut.server.port", port);
+            result.put("micronaut.server.ssl.client-authentication", toMicronautClientAuth(clientAuth));
+            result.put("micronaut.server.ssl.trust-store.path", "file:" + trustStore.path());
+            result.put("micronaut.server.ssl.trust-store.password", trustStore.password());
+            result.put("micronaut.server.ssl.trust-store.type", trustStore.type());
         }
+
+        return result;
     }
 
     private Map<String, Object> authProperties() {

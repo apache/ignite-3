@@ -25,6 +25,7 @@ description = 'ignite-sql-engine'
 dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-api')
+    implementation project(':ignite-configuration-api')
     implementation project(':ignite-network')
     implementation project(':ignite-index')
     implementation project(':ignite-table')
@@ -33,6 +34,7 @@ dependencies {
     implementation project(':ignite-transactions')
     implementation project(':ignite-replicator')
     implementation project(':ignite-distribution-zones')
+    implementation project(':ignite-catalog')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine
@@ -70,6 +72,7 @@ dependencies {
     testImplementation project(':ignite-storage-rocksdb')
     testImplementation project(':ignite-cluster-management')
     testImplementation project(':ignite-vault')
+    testImplementation project(':ignite-placement-driver')
     testImplementation libs.jmh.core
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))

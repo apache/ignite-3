@@ -78,6 +78,26 @@ public class ClientLoggingTest {
         loggerFactory2.logger.entries().forEach(msg -> assertThat(msg, startsWith("client2:")));
     }
 
+    @Test
+    public void testBasicLogging() throws Exception {
+        FakeIgnite ignite = new FakeIgnite();
+        ((FakeIgniteTables) ignite.tables()).createTable("t");
+
+        server = startServer(10950, ignite);
+        server2 = startServer(10955, ignite);
+
+        var loggerFactory = new TestLoggerFactory("c");
+
+        try (var client = createClient(loggerFactory)) {
+            client.tables().tables();
+            client.tables().table("t");
+
+            loggerFactory.waitForLogContains("Connection established", 5000);
+            loggerFactory.waitForLogContains("c:Sending request [opCode=3, remoteAddress=127.0.0.1:1095", 5000);
+            loggerFactory.waitForLogContains("c:Failed to establish connection to 127.0.0.1:1095", 5000);
+        }
+    }
+
     private static TestServer startServer(int port, FakeIgnite ignite) {
         return AbstractClientTest.startServer(
                 port,
