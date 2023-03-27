@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -57,7 +56,6 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.Statements;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -193,13 +191,13 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
 
                 CatalogEvent event = ByteUtils.fromBytes(entryEvent.newEntry().value());
 
-                if (event instanceof CreateTableEvent) {
-                    processCreateTableEvent((CreateTableEvent) event);
-                } else if (event instanceof DropTableEvent) {
-                    processDropTableEvent((DropTableEvent) event);
-                } else {
-                    assert false;
-                }
+                CatalogDescriptor catalog = catalogByVer.get(event.catalogVersion() - 1);
+
+                assert catalog != null;
+
+                CatalogDescriptor newCatalog = event.applyTo(catalog);
+
+                registerCatalog(newCatalog);
 
                 // Notify listeners.
 
@@ -211,61 +209,6 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
             }
 
             return completedFuture(null);
-        }
-
-        private void processCreateTableEvent(CreateTableEvent event) {
-            int version = event.catalogVer();
-
-            TableDescriptor tableDesc = event.tableDescriptor();
-
-            CatalogDescriptor catalog = catalogByVer.get(version - 1);
-
-            assert catalog != null : "Catalog of previous version must exists.";
-            assert catalog.schema(tableDesc.schemaName()) != null : "Schema doesn't exists.";
-            assert catalog.table(tableDesc.id()) == null : "Duplicate table.";
-
-            SchemaDescriptor schema = catalog.schema(tableDesc.schemaName());
-
-            CatalogDescriptor newCatalog = new CatalogDescriptor(
-                    version,
-                    System.currentTimeMillis(),
-                    new SchemaDescriptor(
-                            schema.id(),
-                            schema.name(),
-                            version,
-                            ArrayUtils.concat(schema.tables(), tableDesc),
-                            schema.indexes()
-                    )
-            );
-
-            registerCatalog(newCatalog);
-        }
-
-        private void processDropTableEvent(DropTableEvent event) {
-            int version = event.catalogVer();
-            int tableId = event.tableId();
-
-            CatalogDescriptor catalog = catalogByVer.get(version - 1);
-
-            assert catalog != null : "Catalog of previous version must exists.";
-            assert catalog.table(tableId) != null : "No table found: " + tableId;
-
-            TableDescriptor table = catalog.table(tableId);
-            SchemaDescriptor schema = catalog.schema(table.schemaName());
-
-            CatalogDescriptor newCatalog = new CatalogDescriptor(
-                    version,
-                    System.currentTimeMillis(),
-                    new SchemaDescriptor(
-                            schema.id(),
-                            schema.name(),
-                            version,
-                            Arrays.stream(schema.tables()).filter(t -> t.id() != tableId).toArray(TableDescriptor[]::new),
-                            schema.indexes()
-                    )
-            );
-
-            registerCatalog(newCatalog);
         }
 
         /** {@inheritDoc} */

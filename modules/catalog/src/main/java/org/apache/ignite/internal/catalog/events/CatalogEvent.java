@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.events;
 
 import java.io.Serializable;
 import java.util.UUID;
+import org.apache.ignite.internal.catalog.descriptors.CatalogDescriptor;
 
 /**
  * Catalog event base class.
@@ -37,7 +38,9 @@ public abstract class CatalogEvent implements Serializable {
         return opUid;
     }
 
-    public int catalogVer() {
+    public int catalogVersion() {
         return catalogVer;
     }
+
+    public abstract CatalogDescriptor applyTo(CatalogDescriptor catalog);
 }

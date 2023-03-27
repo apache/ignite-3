@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.catalog.events;
 
 import java.util.UUID;
+import org.apache.ignite.internal.catalog.descriptors.CatalogDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
  * Create table event.
@@ -35,5 +38,26 @@ public class CreateTableEvent extends CatalogEvent {
 
     public TableDescriptor tableDescriptor() {
         return tableDescriptor;
+    }
+
+    @Override
+    public CatalogDescriptor applyTo(CatalogDescriptor catalog) {
+        assert catalog != null : "Catalog of previous version must exists.";
+        assert catalog.schema(tableDescriptor.schemaName()) != null : "Schema doesn't exists.";
+        assert catalog.table(tableDescriptor.id()) == null : "Duplicate table.";
+
+        SchemaDescriptor schema = catalog.schema(tableDescriptor.schemaName());
+
+        return new CatalogDescriptor(
+                catalogVersion(),
+                System.currentTimeMillis(),
+                new SchemaDescriptor(
+                        schema.id(),
+                        schema.name(),
+                        catalogVersion(),
+                        ArrayUtils.concat(schema.tables(), tableDescriptor),
+                        schema.indexes()
+                )
+        );
     }
 }

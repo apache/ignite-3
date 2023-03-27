@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.catalog.events;
 
+import java.util.Arrays;
 import java.util.UUID;
+import org.apache.ignite.internal.catalog.descriptors.CatalogDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 
 /**
  * Drop table event.
@@ -34,6 +38,30 @@ public class DropTableEvent extends CatalogEvent {
 
     public int tableId() {
         return tableId;
+    }
+
+    @Override
+    public CatalogDescriptor applyTo(CatalogDescriptor catalog) {
+        assert catalog != null : "Catalog of previous version must exists.";
+        assert catalog.table(tableId) != null : "No table found: " + tableId;
+
+        TableDescriptor table = catalog.table(tableId);
+        SchemaDescriptor schema = catalog.schema(table.schemaName());
+
+        assert schema != null : "No schema found: " + table.schemaName();
+
+        return new CatalogDescriptor(
+                catalogVersion(),
+                System.currentTimeMillis(),
+                new SchemaDescriptor(
+                        schema.id(),
+                        schema.name(),
+                        catalogVersion(),
+                        Arrays.stream(schema.tables()).filter(t -> t.id() != tableId).toArray(TableDescriptor[]::new),
+                        schema.indexes()
+                )
+        );
+
     }
 }
 
