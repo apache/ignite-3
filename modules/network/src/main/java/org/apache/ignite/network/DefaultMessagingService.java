@@ -184,7 +184,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         // TODO: IGNITE-18493 - remove/move this
         if (shouldDropMessage(recipient, msg)) {
-            return new CompletableFuture<>();
+            return CompletableFuture.completedFuture(null);
         }
 
         InetSocketAddress recipientAddress = new InetSocketAddress(recipient.address().host(), recipient.address().port());
