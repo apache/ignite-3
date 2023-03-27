@@ -299,12 +299,22 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         }
     }
 
+    /**
+     * Gets total sent bytes.
+     *
+     * @return Sent bytes.
+     */
     public long bytesSent() {
         Holder h = holder();
 
         return h == null ? 0 : h.bytesSent.value();
     }
 
+    /**
+     * Adds sent bytes.
+     *
+     * @param bytes Sent bytes.
+     */
     public void bytesSentAdd(long bytes) {
         Holder h = holder();
 
@@ -313,12 +323,22 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         }
     }
 
+    /**
+     * Gets total received bytes.
+     *
+     * @return Received bytes.
+     */
     public long bytesReceived() {
         Holder h = holder();
 
         return h == null ? 0 : h.bytesReceived.value();
     }
 
+    /**
+     * Adds received bytes.
+     *
+     * @param bytes Received bytes.
+     */
     public void bytesReceivedAdd(long bytes) {
         Holder h = holder();
 
