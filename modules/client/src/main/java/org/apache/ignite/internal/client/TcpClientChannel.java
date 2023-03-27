@@ -195,6 +195,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         if (closed.compareAndSet(false, true)) {
             if (cause != null && (cause instanceof TimeoutException || cause.getCause() instanceof TimeoutException)) {
                 metrics.connectionsLostTimeoutIncrement();
+            } else if (!graceful) {
+                metrics.connectionsLostIncrement();
             }
 
             // Disconnect can happen before we initialize the timer.
