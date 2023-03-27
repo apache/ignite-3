@@ -62,9 +62,8 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
     @EnumSource(value = ColumnType.class,
             //    https://issues.apache.org/jira/browse/IGNITE-18789
             //    https://issues.apache.org/jira/browse/IGNITE-18414
-            //    https://issues.apache.org/jira/browse/IGNITE-18415
             //    https://issues.apache.org/jira/browse/IGNITE-18345
-            names = {"DECIMAL", "NUMBER", "UUID", "BITMASK", "DURATION", "DATETIME", "TIMESTAMP", "DATE", "TIME", "PERIOD"},
+            names = {"DECIMAL", "NUMBER", "BITMASK", "DURATION", "DATETIME", "TIMESTAMP", "DATE", "TIME", "PERIOD"},
             mode = Mode.EXCLUDE
     )
     void testMetadataTypesForDynamicParameters(ColumnType type) {
