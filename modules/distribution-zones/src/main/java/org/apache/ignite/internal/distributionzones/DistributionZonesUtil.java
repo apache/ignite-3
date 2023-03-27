@@ -33,6 +33,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -334,8 +335,8 @@ public class DistributionZonesUtil {
             return dstZnsCfg.defaultDistributionZone();
         }
 
-        for (String name : dstZnsCfg.distributionZones().value().namedListKeys()) {
-            DistributionZoneConfiguration distributionZoneConfiguration = dstZnsCfg.distributionZones().get(name);
+        for (UUID id : dstZnsCfg.distributionZones().internalIds()) {
+            DistributionZoneConfiguration distributionZoneConfiguration = dstZnsCfg.distributionZones().get(id);
 
             assert distributionZoneConfiguration != null;
 
