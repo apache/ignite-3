@@ -271,8 +271,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         ClientRequestFuture fut = new ClientRequestFuture();
-
         pendingReqs.put(id, fut);
+
+        metrics.requestsActiveIncrement();
 
         PayloadOutputChannel payloadCh = new PayloadOutputChannel(this, new ClientMessagePacker(sock.getBuffer()));
 
@@ -289,6 +290,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             write(req).addListener(f -> {
                 if (!f.isSuccess()) {
                     fut.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, "Failed to send request", f.cause()));
+                    pendingReqs.remove(id);
+                    metrics.requestsActiveDecrement();
+                } else {
+                    metrics.requestsSentIncrement();
                 }
             });
 
@@ -300,6 +305,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             // Close buffer manually on fail. Successful write closes the buffer automatically.
             payloadCh.close();
             pendingReqs.remove(id);
+
+            metrics.requestsActiveDecrement();
 
             throw IgniteException.wrap(t);
         }
@@ -362,6 +369,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected response ID [%s]", resId));
         }
+
+        metrics.requestsActiveDecrement();
 
         int flags = unpacker.unpackInt();
 
