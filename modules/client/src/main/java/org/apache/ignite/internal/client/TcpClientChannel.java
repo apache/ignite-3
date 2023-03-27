@@ -481,7 +481,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         return fut
                 .thenCompose(res -> handshakeRes(res, ver))
-                .handle((res, err) -> {
+                .whenComplete((res, err) -> {
                     if (err != null) {
                         if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
                             metrics.handshakesFailedTimeoutIncrement();
@@ -489,8 +489,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                             metrics.handshakesFailedIncrement();
                         }
                     }
-
-                    return null;
                 });
     }
 
