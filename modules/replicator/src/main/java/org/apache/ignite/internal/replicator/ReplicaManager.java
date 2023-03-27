@@ -163,8 +163,8 @@ public class ReplicaManager implements IgniteComponent {
 
             HybridTimestamp requestTimestamp = extractTimestamp(request);
 
-                if (replicaFut == null || !replicaFut.isDone() || !replicaFut.join().ready().isDone()) {
-                    sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, request.groupId(), requestTimestamp);
+            if (replicaFut == null || !replicaFut.isDone() || !replicaFut.join().ready().isDone()) {
+                sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, request.groupId(), requestTimestamp);
 
                 return;
             }
