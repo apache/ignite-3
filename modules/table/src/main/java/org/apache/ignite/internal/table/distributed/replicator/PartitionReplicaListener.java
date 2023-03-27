@@ -387,7 +387,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReadOnlyScanRetrieveBatchReplicaRequest) {
             return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request, isPrimary);
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
-            return processReplicaSafeTimeSyncRequest((ReplicaSafeTimeSyncRequest) request);
+            return processReplicaSafeTimeSyncRequest((ReplicaSafeTimeSyncRequest) request, isPrimary);
         } else {
             throw new UnsupportedReplicaRequestException(request.getClass());
         }
@@ -622,9 +622,16 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Handler to process {@link ReplicaSafeTimeSyncRequest}.
      *
      * @param request Request.
+     * @param isPrimary Whether is primary replica.
      * @return Future.
      */
-    private CompletableFuture<Void> processReplicaSafeTimeSyncRequest(ReplicaSafeTimeSyncRequest request) {
+    private CompletableFuture<Void> processReplicaSafeTimeSyncRequest(ReplicaSafeTimeSyncRequest request, Boolean isPrimary) {
+        requireNonNull(isPrimary);
+
+        if (!isPrimary) {
+            return completedFuture(null);
+        }
+
         return raftClient.run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTime(hybridTimestamp(hybridClock.now())).build());
     }
 
@@ -2071,7 +2078,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 }
                             }
                     );
-        } else if (request instanceof ReadOnlyReplicaRequest) {
+        } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
             return raftClient.refreshAndGetLeaderWithTerm().thenApply(replicaAndTerm -> isLocalPeerChecker.apply(replicaAndTerm.leader()));
         } else {
             return completedFuture(null);

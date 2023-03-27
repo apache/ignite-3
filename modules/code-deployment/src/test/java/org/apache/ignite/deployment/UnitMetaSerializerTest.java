@@ -17,6 +17,7 @@
 
 package org.apache.ignite.deployment;
 
+import static org.apache.ignite.deployment.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.deployunit.key.UnitMetaSerializer.deserialize;
 import static org.apache.ignite.internal.deployunit.key.UnitMetaSerializer.serialize;
 import static org.hamcrest.Matchers.is;
@@ -35,7 +36,7 @@ import org.junit.jupiter.api.Test;
 public class UnitMetaSerializerTest {
     @Test
     public void testSerializeDeserializeLatest() {
-        UnitMeta meta = new UnitMeta("id", Version.LATEST, "unitName", Arrays.asList("id1", "id2"));
+        UnitMeta meta = new UnitMeta("id", Version.LATEST, "unitName", UPLOADING, Arrays.asList("id1", "id2"));
 
         byte[] serialize = serialize(meta);
 
@@ -44,7 +45,7 @@ public class UnitMetaSerializerTest {
 
     @Test
     public void testSerializeDeserializeUnit() {
-        UnitMeta meta = new UnitMeta("id", Version.parseVersion("3.0.0"), "unitName", Arrays.asList("id1", "id2"));
+        UnitMeta meta = new UnitMeta("id", Version.parseVersion("3.0.0"), "unitName", UPLOADING, Arrays.asList("id1", "id2"));
 
         byte[] serialize = serialize(meta);
 
@@ -53,7 +54,7 @@ public class UnitMetaSerializerTest {
 
     @Test
     public void testSerializeDeserializeUnitIncompleteVersion() {
-        UnitMeta meta = new UnitMeta("id", Version.parseVersion("3.0"), "unitName", Arrays.asList("id1", "id2"));
+        UnitMeta meta = new UnitMeta("id", Version.parseVersion("3.0"), "unitName", UPLOADING, Arrays.asList("id1", "id2"));
 
         byte[] serialize = serialize(meta);
 
@@ -62,7 +63,7 @@ public class UnitMetaSerializerTest {
 
     @Test
     public void testSerializeDeserializeUnitEmptyConsistentId() {
-        UnitMeta meta = new UnitMeta("id", Version.parseVersion("3.0.0"), "unitName", Collections.emptyList());
+        UnitMeta meta = new UnitMeta("id", Version.parseVersion("3.0.0"), "unitName", UPLOADING, Collections.emptyList());
 
         byte[] serialize = serialize(meta);
 
@@ -72,7 +73,7 @@ public class UnitMetaSerializerTest {
 
     @Test
     public void testSerializeDeserializeWithSeparatorCharInIdName() {
-        UnitMeta meta = new UnitMeta("id;", Version.parseVersion("3.0.0"), "unitName;", Collections.emptyList());
+        UnitMeta meta = new UnitMeta("id;", Version.parseVersion("3.0.0"), "unitName;", UPLOADING, Collections.emptyList());
 
         byte[] serialize = serialize(meta);
 

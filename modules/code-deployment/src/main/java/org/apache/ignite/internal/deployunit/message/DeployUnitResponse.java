@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.deployunit.message;
 
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
@@ -27,10 +26,9 @@ import org.apache.ignite.network.annotations.Transferable;
 @Transferable(DeployUnitMessageTypes.DEPLOY_UNIT_RESPONSE)
 public interface DeployUnitResponse extends NetworkMessage {
     /**
-     * Returns error which happens on deploy process.
+     * Shows success or not deploy process.
      *
-     * @return error which happens on deploy process.
+     * @return success or not deploy process.
      */
-    @Marshallable
-    Throwable error();
+    boolean success();
 }

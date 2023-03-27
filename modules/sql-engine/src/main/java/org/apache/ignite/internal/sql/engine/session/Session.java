@@ -52,7 +52,7 @@ public class Session implements AsyncCloseable {
     private final long idleTimeoutMs;
     private final SessionId sessionId;
     private final AtomicLong lastTouched;
-    private final PropertiesHolder queryProperties;
+    private final PropertiesHolder properties;
     private final CurrentTimeProvider currentTimeProvider;
 
     /**
@@ -62,25 +62,25 @@ public class Session implements AsyncCloseable {
      * @param currentTimeProvider The time provider used to update the timestamp on every touch of this object.
      * @param idleTimeoutMs Duration in milliseconds after which the session will be considered expired if no action have been
      *                      performed on behalf of this session during this period.
-     * @param queryProperties The properties to keep within.
+     * @param properties The properties to keep within.
      */
     public Session(
             SessionId sessionId,
             CurrentTimeProvider currentTimeProvider,
             long idleTimeoutMs,
-            PropertiesHolder queryProperties
+            PropertiesHolder properties
     ) {
         this.sessionId = sessionId;
         this.currentTimeProvider = currentTimeProvider;
         this.idleTimeoutMs = idleTimeoutMs;
-        this.queryProperties = queryProperties;
+        this.properties = properties;
 
         lastTouched = new AtomicLong(currentTimeProvider.now());
     }
 
     /** Returns the properties this session associated with. */
-    public PropertiesHolder queryProperties() {
-        return queryProperties;
+    public PropertiesHolder properties() {
+        return properties;
     }
 
     /** Returns the identifier of this session. */

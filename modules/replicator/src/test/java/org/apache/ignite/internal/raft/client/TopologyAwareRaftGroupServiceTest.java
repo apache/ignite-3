@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.client;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceTest.TestReplicationGroup.GROUP_ID;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -68,7 +69,6 @@ import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.LeaderChangeNotification;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -85,10 +85,10 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
     private static final int PORT_BASE = 1234;
 
     @InjectConfiguration
-    protected RaftConfiguration raftConfiguration;
+    private RaftConfiguration raftConfiguration;
 
     /** RPC executor. */
-    protected ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory("Raft-Group-Client", log));
+    private ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory("Raft-Group-Client", log));
 
     @Test
     public void testOneNodeReplicationGroup(TestInfo testInfo) throws Exception {
@@ -112,8 +112,6 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
         ClusterNode leader = leaderFut.get(10, TimeUnit.SECONDS);
 
         assertNotNull(leader);
-
-        afterInitCheckConditionWithWait(leader.name());
 
         stopCluster(clusterServices, raftServers, List.of(raftClient), nodes);
     }
@@ -173,13 +171,9 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
 
         log.info("Leader: " + leader);
 
-        afterInitCheckConditionWithWait(leader.name());
-
         var raftServiceToStop = raftServers.remove(new NetworkAddress("localhost", leader.address().port()));
         raftServiceToStop.stopRaftNodes(GROUP_ID);
         raftServiceToStop.stop();
-
-        afterNodeStop(leader.name());
 
         clusterServices.remove(new NetworkAddress("localhost", leader.address().port())).stop();
 
@@ -187,8 +181,6 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> !leader.equals(leaderRefNoInitialNotify.get()), 1000));
 
         log.info("New Leader: " + leaderRef.get());
-
-        afterLeaderChangeCheckConditionWithWait(leaderRef.get().name());
 
         raftClientNoInitialNotify.refreshLeader().get();
 
@@ -254,8 +246,6 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
 
         log.info("Leader: " + leader);
 
-        afterInitCheckConditionWithWait(leader.name());
-
         Peer newLeaderPeer = raftClient.peers().stream().filter(peer -> !leader.name().equals(peer.consistentId())).findAny().get();
 
         log.info("Peer to transfer leader: " + newLeaderPeer);
@@ -270,8 +260,6 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
         );
 
         log.info("New Leader: " + leaderRef.get());
-
-        afterLeaderChangeCheckConditionWithWait(leaderRef.get().name());
 
         raftClient.refreshLeader().get();
 
@@ -359,9 +347,11 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
                 var localPeer = peersAndLearners.peers().stream()
                         .filter(peer -> peer.consistentId().equals(cluster.topologyService().localMember().name())).findAny().get();
 
+                var dataPath = workDir.resolve("raft_" + localPeer.consistentId());
+
                 var raftServer = new JraftServerImpl(
                         cluster,
-                        workDir.resolve("raft_" + localPeer.consistentId()),
+                        dataPath,
                         new NodeOptions(),
                         eventsClientListener
                 );
@@ -375,8 +365,6 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
                 );
 
                 raftServers.put(addr, raftServer);
-
-                afterNodeStart(localPeer.consistentId(), cluster, placementDriverNodesNames, eventsClientListener);
             }
 
             if (addr.port() == clientPort) {
@@ -449,77 +437,6 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
         return addresses;
     }
 
-    @AfterEach
-    protected void afterTest() throws Exception {
-        // No-op.
-    }
-
-    /**
-     * The method is called after every node of the cluster starts.
-     *
-     * @param nodeName Node name.
-     * @param clusterService Cluster service.
-     * @param placementDriverNodesNames Names of all nodes in raft group.
-     * @param eventsClientListener Raft events listener for client.
-     */
-    protected void afterNodeStart(
-            String nodeName,
-            ClusterService clusterService,
-            Set<String> placementDriverNodesNames,
-            RaftGroupEventsClientListener eventsClientListener
-    ) {
-        // No-op.
-    }
-
-    /**
-     * The method is called after every node of the cluster stops.
-     *
-     * @param nodeName Node name.
-     */
-    protected void afterNodeStop(String nodeName) {
-        // No-op.
-    }
-
-    /**
-     * Checks the condition after cluster and raft clients initialization, waiting for this condition.
-     *
-     * @param leaderName Current leader name.
-     * @throws InterruptedException If failed.
-     */
-    private void afterInitCheckConditionWithWait(String leaderName) throws InterruptedException {
-        assertTrue(waitForCondition(() -> afterInitCheckCondition(leaderName), 10_000));
-    }
-
-    /**
-     * Checks the condition after cluster and raft clients initialization.
-     *
-     * @param leaderName Current leader name.
-     * @return Condition result.
-     */
-    protected boolean afterInitCheckCondition(String leaderName) {
-        return true;
-    }
-
-    /**
-     * Checks the condition after leader change, waiting for this condition.
-     *
-     * @param leaderName Current leader name.
-     * @throws InterruptedException If failed.
-     */
-    private void afterLeaderChangeCheckConditionWithWait(String leaderName) throws InterruptedException {
-        assertTrue(waitForCondition(() -> afterLeaderChangeCheckCondition(leaderName), 10_000));
-    }
-
-    /**
-     * Checks the condition after leader change.
-     *
-     * @param leaderName Current leader name.
-     * @return Condition result.
-     */
-    protected boolean afterLeaderChangeCheckCondition(String leaderName) {
-        return true;
-    }
-
     /**
      * Replication test group class.
      */
@@ -563,7 +480,7 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
     /**
      * Test implementation of {@link LogicalTopologyService}.
      */
-    protected static class LogicalTopologyServiceTestImpl implements LogicalTopologyService {
+    private static class LogicalTopologyServiceTestImpl implements LogicalTopologyService {
         private final ClusterService clusterService;
 
         public LogicalTopologyServiceTestImpl(ClusterService clusterService) {
@@ -582,12 +499,12 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
 
         @Override
         public CompletableFuture<LogicalTopologySnapshot> logicalTopologyOnLeader() {
-            return CompletableFuture.completedFuture(new LogicalTopologySnapshot(1, clusterService.topologyService().allMembers()));
+            return completedFuture(new LogicalTopologySnapshot(1, clusterService.topologyService().allMembers()));
         }
 
         @Override
         public CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader() {
-            return CompletableFuture.completedFuture(Set.copyOf(clusterService.topologyService().allMembers()));
+            return completedFuture(Set.copyOf(clusterService.topologyService().allMembers()));
         }
     }
 }
