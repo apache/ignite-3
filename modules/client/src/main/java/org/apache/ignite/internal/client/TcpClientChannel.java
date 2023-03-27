@@ -257,7 +257,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /**
-     * Constructor.
+     * Sends request.
      *
      * @param opCode        Operation code.
      * @param payloadWriter Payload writer to stream or {@code null} if request has no payload.

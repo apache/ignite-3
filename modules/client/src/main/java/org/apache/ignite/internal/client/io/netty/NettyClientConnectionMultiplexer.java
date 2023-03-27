@@ -192,7 +192,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
                 ChannelFuture chFut = (ChannelFuture) f;
                 chFut.channel().closeFuture().addListener(unused -> metrics.connectionsActiveDecrement());
 
-                NettyClientConnection conn = new NettyClientConnection(chFut.channel(), msgHnd, stateHnd);
+                NettyClientConnection conn = new NettyClientConnection(chFut.channel(), msgHnd, stateHnd, metrics);
 
                 fut.complete(conn);
             } else {

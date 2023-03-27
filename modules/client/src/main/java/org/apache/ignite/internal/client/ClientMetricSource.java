@@ -327,7 +327,7 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         return h == null ? 0 : h.bytesSent.value();
     }
 
-    public void bytesSentIncrement(long bytes) {
+    public void bytesSentAdd(long bytes) {
         Holder h = holder();
 
         if (h != null) {
@@ -341,7 +341,7 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         return h == null ? 0 : h.bytesReceived.value();
     }
 
-    public void bytesReceivedIncrement(long bytes) {
+    public void bytesReceivedAdd(long bytes) {
         Holder h = holder();
 
         if (h != null) {

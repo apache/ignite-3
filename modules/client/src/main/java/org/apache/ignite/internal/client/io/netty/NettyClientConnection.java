@@ -22,6 +22,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.util.AttributeKey;
 import java.net.InetSocketAddress;
+import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
 import org.apache.ignite.internal.client.io.ClientMessageHandler;
@@ -43,17 +44,26 @@ public class NettyClientConnection implements ClientConnection {
     /** State handler. */
     private final ClientConnectionStateHandler stateHnd;
 
+    /** Metrics. */
+    private final ClientMetricSource metrics;
+
     /**
      * Constructor.
      *
-     * @param channel  Channel.
-     * @param msgHnd   Message handler.
+     * @param channel Channel.
+     * @param msgHnd Message handler.
      * @param stateHnd State handler.
+     * @param metrics Metrics.
      */
-    public NettyClientConnection(Channel channel, ClientMessageHandler msgHnd, ClientConnectionStateHandler stateHnd) {
+    NettyClientConnection(
+            Channel channel,
+            ClientMessageHandler msgHnd,
+            ClientConnectionStateHandler stateHnd,
+            ClientMetricSource metrics) {
         this.channel = channel;
         this.msgHnd = msgHnd;
         this.stateHnd = stateHnd;
+        this.metrics = metrics;
 
         channel.attr(ATTR_CONN).set(this);
     }
@@ -61,8 +71,14 @@ public class NettyClientConnection implements ClientConnection {
     /** {@inheritDoc} */
     @Override
     public ChannelFuture send(ByteBuf msg) throws IgniteException {
+        int bytes = msg.readableBytes();
+
         // writeAndFlush releases pooled buffer.
-        return channel.writeAndFlush(msg);
+        ChannelFuture fut = channel.writeAndFlush(msg);
+
+        metrics.bytesSentAdd(bytes);
+
+        return fut;
     }
 
     /** {@inheritDoc} */
