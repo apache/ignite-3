@@ -403,7 +403,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
 
                 } else if (sqlTypeName == SqlTypeName.ANY) {
                     hasAnyType = true;
-                } else if (sqlTypeName != SqlTypeName.ANY) {
+                } else {
                     hasBuiltInType = true;
                 }
             }
