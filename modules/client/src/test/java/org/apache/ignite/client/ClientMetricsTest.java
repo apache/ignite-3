@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.function.Function;
-import org.apache.ignite.Ignite;
+import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.TcpIgniteClient;
@@ -42,12 +42,9 @@ public class ClientMetricsTest {
     @ValueSource(booleans = {true, false})
     public void testConnectionMetrics(boolean gracefulDisconnect) throws Exception {
         server = AbstractClientTest.startServer(10800, 10, 1000, new FakeIgnite());
-        client = IgniteClient.builder()
-                .addresses("127.0.0.1:" + server.port())
-                .metricsEnabled(true)
-                .build();
+        client = clientBuilder().build();
 
-        ClientMetricSource metrics = ((TcpIgniteClient) client).metrics();
+        ClientMetricSource metrics = metrics();
 
         assertEquals(1, metrics.connectionsEstablished());
         assertEquals(1, metrics.connectionsActive());
@@ -71,19 +68,15 @@ public class ClientMetricsTest {
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> requestIdx == 0;
         Function<Integer, Integer> responseDelay = idx -> idx > 1 ? 500 : 0;
         server = new TestServer(10800, 10, 1000, new FakeIgnite(), shouldDropConnection, responseDelay, null, AbstractClientTest.clusterId);
-        client = IgniteClient.builder()
-                .addresses("127.0.0.1:" + server.port())
-                .metricsEnabled(true)
+        client = clientBuilder()
                 .connectTimeout(100)
                 .heartbeatTimeout(100)
                 .heartbeatInterval(100)
                 .build();
 
-        ClientMetricSource metrics = ((TcpIgniteClient) client).metrics();
-
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> metrics.connectionsLostTimeout() == 1, 1000),
-                () -> "connectionsLostTimeout: " + metrics.connectionsLostTimeout());
+                IgniteTestUtils.waitForCondition(() -> metrics().connectionsLostTimeout() == 1, 1000),
+                () -> "connectionsLostTimeout: " + metrics().connectionsLostTimeout());
     }
 
     @Test
@@ -109,7 +102,16 @@ public class ClientMetricsTest {
 
     @Test
     public void testBytesSentReceived() {
-        assert false : "TODO";
+        server = AbstractClientTest.startServer(10800, 10, 1000, new FakeIgnite());
+        client = clientBuilder().build();
+
+        assertEquals(15, metrics().bytesSent());
+        assertEquals(50, metrics().bytesReceived());
+
+        client.tables().tables();
+
+        assertEquals(21, metrics().bytesSent());
+        assertEquals(55, metrics().bytesReceived());
     }
 
     @AfterEach
@@ -121,5 +123,15 @@ public class ClientMetricsTest {
         if (server != null) {
             server.close();
         }
+    }
+
+    private Builder clientBuilder() {
+        return IgniteClient.builder()
+                .addresses("127.0.0.1:" + server.port())
+                .metricsEnabled(true);
+    }
+
+    private ClientMetricSource metrics() {
+        return ((TcpIgniteClient) client).metrics();
     }
 }
