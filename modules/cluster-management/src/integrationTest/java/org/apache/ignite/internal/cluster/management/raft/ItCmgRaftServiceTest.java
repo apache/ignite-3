@@ -211,7 +211,7 @@ public class ItCmgRaftServiceTest {
         Node node2 = cluster.get(1);
 
         LogicalNode clusterNode1 = new LogicalNode(node1.localMember(), "");
-        LogicalNode clusterNode2 = new LogicalNode(node2.localMember(),"");
+        LogicalNode clusterNode2 = new LogicalNode(node2.localMember(), "");
 
         var clusterState = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(node1.raftService.nodeNames()))

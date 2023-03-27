@@ -251,11 +251,9 @@ public class DistributionZoneManagerScaleUpTest {
 
     @Test
     void testDataNodesPropagationAfterScaleUpTriggeredOnNewCluster() throws Exception {
-        ClusterNode node1 = new ClusterNode("1", "name1", new NetworkAddress("localhost", 123));
+        topology.putNode(NODE_1);
 
-        topology.putNode(node1);
-
-        Set<ClusterNode> clusterNodes = Set.of(node1);
+        Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
         mockCmgLocalNodes();
 
@@ -271,7 +269,7 @@ public class DistributionZoneManagerScaleUpTest {
 
         int zoneId = distributionZoneManager.getZoneId(ZONE_NAME);
 
-        mockVaultZonesLogicalTopologyKey(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
+        mockVaultZonesLogicalTopologyKey(clusterNodes);
 
         watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 3);
 
