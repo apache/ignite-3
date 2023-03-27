@@ -40,7 +40,7 @@ github:
     rebase:  false
   protected_branches:
     main:
-      # squash or rebase must be allowed in the repo for this setting to be set to true.
+      allow_force_pushes: false
       required_linear_history: true
       required_signatures: false
 
