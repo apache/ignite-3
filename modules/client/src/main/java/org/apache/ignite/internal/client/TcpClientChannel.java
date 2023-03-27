@@ -481,14 +481,19 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         return fut
                 .thenCompose(res -> handshakeRes(res, ver))
-                .whenComplete((res, err) -> {
+                .handle((res, err) -> {
                     if (err != null) {
                         if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
                             metrics.handshakesFailedTimeoutIncrement();
+                            throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake timeout", err);
                         } else {
                             metrics.handshakesFailedIncrement();
                         }
+
+                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", err);
                     }
+
+                    return res;
                 });
     }
 
@@ -630,7 +635,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                                     if (e instanceof TimeoutException) {
                                         log.warn("Heartbeat timeout, closing the channel [remoteAddress=" + cfg.getAddress() + ']');
 
-                                        close((TimeoutException) e, false);
+                                        close(new IgniteClientConnectionException(CONNECTION_ERR, "Heartbeat timeout", e), false);
                                     }
 
                                     return null;
