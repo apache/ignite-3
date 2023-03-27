@@ -17,8 +17,12 @@
 
 package org.apache.ignite.internal.rest.configuration;
 
+import java.util.Collections;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.lang.IgniteException;
 
@@ -26,6 +30,11 @@ import org.apache.ignite.lang.IgniteException;
  * Base configuration controller.
  */
 public abstract class AbstractConfigurationController {
+
+    private final Set<String> keysToMask = Set.of("password");
+    private final Pattern sensitiveInfoprmationPattern = sensitiveInfoprmationPattern();
+    private final JsonMasker jsonMasker = new JsonMasker();
+
     /** Presentation of the configuration. */
     private final ConfigurationPresentation<String> cfgPresentation;
 
@@ -39,7 +48,7 @@ public abstract class AbstractConfigurationController {
      * @return the presentation of configuration.
      */
     public String getConfiguration() {
-        return cfgPresentation.represent();
+        return maskSensitiveInformation("", cfgPresentation.represent());
     }
 
     /**
@@ -50,7 +59,7 @@ public abstract class AbstractConfigurationController {
      */
     public String getConfigurationByPath(String path) {
         try {
-            return cfgPresentation.representByPath(path);
+            return maskSensitiveInformation(path, cfgPresentation.representByPath(path));
         } catch (IllegalArgumentException ex) {
             throw new IgniteException(ex);
         }
@@ -73,5 +82,18 @@ public abstract class AbstractConfigurationController {
                     }
                     throw new IgniteException(ex);
                 });
+    }
+
+    private String maskSensitiveInformation(String path, String configuration) {
+        boolean containsOnlySensitiveInformation = sensitiveInfoprmationPattern.matcher(path).find();
+        Set<String> maskedKeys = containsOnlySensitiveInformation ? Collections.emptySet() : keysToMask;
+        return jsonMasker.mask(configuration, maskedKeys).toString();
+    }
+
+    private Pattern sensitiveInfoprmationPattern() {
+        String regexp = keysToMask.stream()
+                .map(it -> "(." + it + "$)")
+                .collect(Collectors.joining("|"));
+        return Pattern.compile(regexp);
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.rest.configuration;
 
+import static java.util.Collections.emptySet;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -34,6 +35,7 @@ import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.runtime.server.EmbeddedServer;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
+import java.util.Set;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.rest.api.InvalidParam;
 import org.apache.ignite.internal.rest.api.Problem;
@@ -47,6 +49,11 @@ import org.junit.jupiter.api.Test;
 @MicronautTest
 @Property(name = "micronaut.security.enabled", value = "false")
 public abstract class ConfigurationControllerBaseTest {
+
+    private final Set<String> secretKeys = Set.of("password");
+
+    private final JsonMasker jsonMasker = new JsonMasker();
+
     @Inject
     private EmbeddedServer server;
 
@@ -65,14 +72,16 @@ public abstract class ConfigurationControllerBaseTest {
     void beforeEach() throws Exception {
         var cfg = configurationRegistry.getConfiguration(TestRootConfiguration.KEY);
         cfg.change(c -> c.changeFoo("foo").changeSubCfg(subCfg -> subCfg.changeBar("bar"))).get(1, SECONDS);
+        cfg.change(c -> c.changeSensitive().changePassword("password")).get(1, SECONDS);
     }
 
     @Test
     void testGetConfig() {
         var response = client().toBlocking().exchange("", String.class);
+        var expectedBody = jsonMasker.mask(cfgPresentation.represent(), secretKeys).toString();
 
         assertEquals(HttpStatus.OK, response.status());
-        assertEquals(cfgPresentation.represent(), response.body());
+        assertEquals(expectedBody, response.body());
     }
 
     @Test
@@ -81,6 +90,15 @@ public abstract class ConfigurationControllerBaseTest {
 
         assertEquals(HttpStatus.OK, response.status());
         assertEquals(cfgPresentation.representByPath("root.subCfg"), response.body());
+    }
+
+    @Test
+    void testGetSensitiveInformationByPath() {
+        var response = client().toBlocking().exchange("/root.sensitive.password", String.class);
+        var expectedBody = jsonMasker.mask(cfgPresentation.representByPath("root.sensitive.password"), emptySet()).toString();
+
+        assertEquals(HttpStatus.OK, response.status());
+        assertEquals(expectedBody, response.body());
     }
 
     @Test
