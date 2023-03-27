@@ -122,6 +122,7 @@ dependencies {
     integrationTestImplementation project(':ignite-jdbc')
     integrationTestImplementation project(':ignite-security')
     integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-placement-driver')
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
     integrationTestImplementation(testFixtures(project(':ignite-schema')))

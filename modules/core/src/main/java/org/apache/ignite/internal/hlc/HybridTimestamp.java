@@ -34,6 +34,12 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     /** A constant holding the maximum value a {@code HybridTimestamp} can have. */
     public static final HybridTimestamp MAX_VALUE = new HybridTimestamp(Long.MAX_VALUE, Integer.MAX_VALUE);
 
+    /**
+     * Cluster cLock skew. The constant determines the undefined inclusive interval to compares timestamp from various nodes.
+     * TODO: IGNITE-18978 Method to comparison timestamps with clock skew.
+     */
+    private static final long CLOCK_SKEW = 7L;
+
     /** Physical clock. */
     private final long physical;
 
@@ -129,6 +135,42 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
         int result = (int) (physical ^ (physical >>> 32));
         result = 31 * result + logical;
         return result;
+    }
+
+    /**
+     * Compares two timestamps with the clock skew.
+     * t1, t2 comparable if t1 is not contained on [t2 - CLOCK_SKEW; t2 + CLOCK_SKEW].
+     * TODO: IGNITE-18978 Method to comparison timestamps with clock skew.
+     *
+     * @param anotherTimestamp Another timestamp.
+     * @return Result of comparison can be positive or negative, or {@code 0} if timestamps are not comparable.
+     */
+    private int compareWithClockSkew(HybridTimestamp anotherTimestamp) {
+        if (getPhysical() - CLOCK_SKEW <= anotherTimestamp.getPhysical() && getPhysical() + CLOCK_SKEW >= anotherTimestamp.getPhysical()) {
+            return 0;
+        }
+
+        return compareTo(anotherTimestamp);
+    }
+
+    /**
+     * Defines whether this timestamp is strictly before the given one, taking the clock skew into account.
+     *
+     * @param anotherTimestamp Another timestamp.
+     * @return Whether this timestamp is before the given one or not.
+     */
+    public boolean before(HybridTimestamp anotherTimestamp) {
+        return compareWithClockSkew(anotherTimestamp) < 0;
+    }
+
+    /**
+     * Defines whether this timestamp is strictly after the given one, taking the clock skew into account.
+     *
+     * @param anotherTimestamp Another timestamp.
+     * @return Whether this timestamp is after the given one or not.
+     */
+    public boolean after(HybridTimestamp anotherTimestamp) {
+        return compareWithClockSkew(anotherTimestamp) > 0;
     }
 
     @Override
