@@ -138,8 +138,22 @@ public class ClientMetricsTest {
     }
 
     @Test
-    public void testRequestsCompletedWithRetry() {
-        assert false : "TODO";
+    public void testRequestsCompletedWithRetry() throws InterruptedException {
+        Function<Integer, Boolean> shouldDropConnection = requestIdx -> requestIdx == 3;
+        server = new TestServer(10800, 10, 1000, new FakeIgnite(), shouldDropConnection, null, null, AbstractClientTest.clusterId);
+        client = clientBuilder().build();
+
+        client.tables().tables();
+        client.tables().tables();
+
+        assertTrue(
+                IgniteTestUtils.waitForCondition(() -> metrics().requestsCompletedWithRetry() == 1, 1000),
+                () -> "requestsCompletedWithRetry: " + metrics().requestsCompletedWithRetry());
+
+        assertEquals(0, metrics().requestsActive());
+        assertEquals(0, metrics().requestsFailed());
+        assertEquals(0, metrics().requestsCompleted());
+        assertEquals(1, metrics().requestsSent());
     }
 
     @Test
