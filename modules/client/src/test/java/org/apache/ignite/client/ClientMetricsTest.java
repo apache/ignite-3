@@ -86,6 +86,32 @@ public class ClientMetricsTest {
                 () -> "connectionsLostTimeout: " + metrics.connectionsLostTimeout());
     }
 
+    @Test
+    public void testHandshakesFailed() {
+        assert false : "TODO";
+    }
+
+    @Test
+    public void testHandshakesFailedTls() {
+        assert false : "TODO";
+    }
+
+    @Test
+    public void testHandshakesFailedTimout() {
+        assert false : "TODO";
+    }
+
+    @Test
+    public void testRequestsMetrics() {
+        // TODO: Active, sent, completed, completedWithRetry, failed
+        assert false : "TODO";
+    }
+
+    @Test
+    public void testBytesSentReceived() {
+        assert false : "TODO";
+    }
+
     @AfterEach
     public void afterAll() throws Exception {
         if (client != null) {
