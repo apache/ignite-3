@@ -94,12 +94,22 @@ public class ClientMetricsTest {
     }
 
     @Test
-    public void testHandshakesFailedTls() {
-        assert false : "TODO";
+    public void testHandshakesFailedTimout() throws InterruptedException {
+        AtomicInteger counter = new AtomicInteger();
+        Function<Integer, Boolean> shouldDropConnection = requestIdx -> false;
+        Function<Integer, Integer> responseDelay = idx -> counter.incrementAndGet() == 1 ? 3000 : 0;
+        server = new TestServer(10800, 10, 1000, new FakeIgnite(), shouldDropConnection, responseDelay, null, AbstractClientTest.clusterId);
+        client = clientBuilder()
+                .connectTimeout(100)
+                .build();
+
+        assertTrue(
+                IgniteTestUtils.waitForCondition(() -> metrics().handshakesFailedTimeout() == 1, 1000),
+                () -> "handshakesFailedTimeout: " + metrics().handshakesFailedTimeout());
     }
 
     @Test
-    public void testHandshakesFailedTimout() {
+    public void testHandshakesFailedTls() {
         assert false : "TODO";
     }
 
