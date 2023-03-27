@@ -375,8 +375,16 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             IgniteCustomType firstCustomType = null;
             boolean hasAnyType = false;
             boolean hasBuiltInType = false;
+            boolean hasNullable = false;
+            IgniteCustomType firstNullable = null;
 
             for (var type : types) {
+                SqlTypeName sqlTypeName = type.getSqlTypeName();
+                // NULL types should be ignored when we are trying to determine the least restrictive type.
+                if (sqlTypeName == SqlTypeName.NULL) {
+                    continue;
+                }
+
                 if (type instanceof IgniteCustomType) {
                     if (firstCustomType == null) {
                         firstCustomType = (IgniteCustomType) type;
@@ -387,9 +395,15 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                             return null;
                         }
                     }
-                } else if (type.getSqlTypeName() == SqlTypeName.ANY) {
+
+                    if (type.isNullable() && firstNullable == null) {
+                        hasNullable = type.isNullable();
+                        firstNullable = (IgniteCustomType) type;
+                    }
+
+                } else if (sqlTypeName == SqlTypeName.ANY) {
                     hasAnyType = true;
-                } else if (type.getSqlTypeName() != SqlTypeName.ANY) {
+                } else if (sqlTypeName != SqlTypeName.ANY) {
                     hasBuiltInType = true;
                 }
             }
@@ -401,6 +415,12 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 // When at least one of arguments have sqlTypeName = ANY,
                 // return it in order to be consistent with default implementation.
                 return resultType;
+            } else if (firstCustomType != null && !hasBuiltInType) {
+                // When there is only one custom data type and no other built-in types,
+                // return the custom data type.
+                // We must return a nullable type, when there are nullable and not-nullable types,
+                // because nullable type is less restrictive than not-nullable.
+                return hasNullable ? firstNullable : firstCustomType;
             } else {
                 return null;
             }
