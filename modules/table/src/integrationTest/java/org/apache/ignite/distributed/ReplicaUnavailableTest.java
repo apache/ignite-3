@@ -130,6 +130,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                     try {
                         replicaManager.startReplica(
                                 tablePartitionId,
+                                CompletableFuture.completedFuture(null),
                                 request0 -> CompletableFuture.completedFuture(null),
                                 mock(TopologyAwareRaftGroupService.class),
                                 new PendingComparableValuesTracker<>(0L)
