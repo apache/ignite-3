@@ -269,7 +269,9 @@ public class StripedDisruptor<T extends NodeIdAware> {
 
         /** {@inheritDoc} */
         @Override public void handleEventException(Throwable ex, long sequence, T event) {
-            BiConsumer<T, Throwable> handler = subscribers.get(event.nodeId());
+            NodeId nodeId = event.nodeId();
+
+            BiConsumer<T, Throwable> handler = nodeId != null ? subscribers.get(nodeId) : null;
 
             LOG.error("Handle disruptor event error [name={}, event={}, hasHandler={}]", ex, name, event, handler != null);
 
