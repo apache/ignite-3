@@ -109,7 +109,7 @@ public class TcpIgniteClient implements IgniteClient {
             return null;
         }
 
-        var metricManager = new MetricManager();
+        var metricManager = new MetricManager(ClientUtils.logger(cfg, MetricManager.class));
         metricManager.start(List.of(new JmxExporter(ClientUtils.logger(cfg, JmxExporter.class))));
 
         metricManager.registerSource(metrics);

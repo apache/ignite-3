@@ -45,7 +45,7 @@ import org.jetbrains.annotations.VisibleForTesting;
  */
 public class MetricManager implements IgniteComponent {
     /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(MetricManager.class);
+    private final IgniteLogger log;
 
     /** Metric registry. */
     private final MetricRegistry registry;
@@ -63,8 +63,18 @@ public class MetricManager implements IgniteComponent {
      * Constructor.
      */
     public MetricManager() {
+        this(Loggers.forClass(MetricManager.class));
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param log Logger.
+     */
+    public MetricManager(IgniteLogger log) {
         registry = new MetricRegistry();
         metricsProvider = new MetricProvider(registry);
+        this.log = log;
     }
 
     /**
@@ -254,7 +264,7 @@ public class MetricManager implements IgniteComponent {
 
             enabledMetricExporters.put(exporter.name(), exporter);
         } else {
-            LOG.warn("Received configuration for unknown metric exporter with the name '" + exporterName + "'");
+            log.warn("Received configuration for unknown metric exporter with the name '" + exporterName + "'");
         }
     }
 
