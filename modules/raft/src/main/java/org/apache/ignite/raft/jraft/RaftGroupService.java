@@ -125,8 +125,8 @@ public class RaftGroupService {
     }
 
     /**
-     * Gets a future to apply committed revisions.
-     * @return Future completes when committed revisions apply to state machine.
+     * Gets a future which complete when all committed update are applied to the node's state machine on start.
+     * @return Future completes when this node committed revision would be equal to the applied one.
      */
     public CompletableFuture<Long> getApplyCommittedFuture() {
         return node.getApplyCommittedFuture();

@@ -131,7 +131,7 @@ public class Replica {
     }
 
     /**
-     * Get a future to wait replica when the become ready.
+     * Get a future to wait when the replica become ready.
      *
      * @return A future to check when the replica is ready.
      */

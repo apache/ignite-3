@@ -318,7 +318,8 @@ public class Loza implements RaftManager {
 
 
     /**
-     * Gets a future that completes when all committed updates are applied to state machine.
+     * Gets a future that completes when all committed updates are applied to state machine after the RAFT node start.
+     * TODO: IGNITE-18273 The method should be defined in RaftManager and takes RaftNodeId instead of its argument.
      *
      * @param groupId Raft group id.
      * @return Future to last applied revision.

@@ -830,10 +830,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         TxStateStorage txStateStorage = partitionStorages.getTxStateStorage();
 
                                         try {
-                                            replicaMgr.startReplica(replicaGrpId,
-                                                    CompletableFuture.allOf(
+                                            replicaMgr.startReplica(
+                                                    replicaGrpId,
+                                                    allOf(
                                                             ((Loza) raftMgr).raftNodeReadyFuture(replicaGrpId),
-                                                            table.indexesReadyFuture()
+                                                            table.pkIndexesReadyFuture()
                                                     ),
                                                     new PartitionReplicaListener(
                                                             partitionStorage,
@@ -2047,10 +2048,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             UUID tblId = tbl.tableId();
 
-                            replicaMgr.startReplica(replicaGrpId,
-                                    CompletableFuture.allOf(
+                            replicaMgr.startReplica(
+                                    replicaGrpId,
+                                    allOf(
                                             ((Loza) raftMgr).raftNodeReadyFuture(replicaGrpId),
-                                            tbl.indexesReadyFuture()
+                                            tbl.pkIndexesReadyFuture()
                                     ),
                                     new PartitionReplicaListener(
                                             mvPartitionStorage,

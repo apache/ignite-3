@@ -269,11 +269,11 @@ public class TableImpl implements Table {
     }
 
     /**
-     * The future completes when indexes are ready.
+     * The future completes when the primary key index is ready to use.
      *
-     * @return Future to complete.
+     * @return Future whcih complete when a primary index for the table is .
      */
-    public CompletableFuture<Void> indexesReadyFuture() {
+    public CompletableFuture<Void> pkIndexesReadyFuture() {
         var fut = new CompletableFuture<Void>();
 
         pkId.whenComplete((uuid, throwable) -> fut.complete(null));
