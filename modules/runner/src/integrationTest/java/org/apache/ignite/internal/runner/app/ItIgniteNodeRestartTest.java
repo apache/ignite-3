@@ -927,7 +927,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      */
     @Test
     // No sql engine
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19079")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19092")
     public void testRestartDiffConfig() throws InterruptedException {
         List<IgniteImpl> ignites = startNodes(2);
 
