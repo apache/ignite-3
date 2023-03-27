@@ -471,8 +471,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 .thenCompose(res -> handshakeRes(res, ver))
                 .handle((res, err) -> {
                     if (err != null) {
-                        // TODO: Check timeout error.
-                        metrics.handshakesFailedIncrement();
+                        if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
+                            metrics.handshakesFailedTimeoutIncrement();
+                        } else {
+                            metrics.handshakesFailedIncrement();
+                        }
                     }
 
                     return null;
