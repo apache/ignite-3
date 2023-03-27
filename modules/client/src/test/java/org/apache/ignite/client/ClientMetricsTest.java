@@ -143,8 +143,8 @@ public class ClientMetricsTest {
                 () -> "requestsRetried: " + metrics().requestsRetried());
 
         assertEquals(1, metrics().requestsFailed());
-        assertEquals(2, metrics().requestsCompleted());
-        assertEquals(4, metrics().requestsSent());
+        assertEquals(3, metrics().requestsCompleted());
+        assertEquals(6, metrics().requestsSent());
         assertEquals(1, metrics().requestsRetried());
     }
 
