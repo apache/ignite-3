@@ -33,6 +33,8 @@ import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.tx.ClientTransactions;
 import org.apache.ignite.internal.jdbc.proto.ClientMessage;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter;
 import org.apache.ignite.network.ClusterNode;
@@ -108,7 +110,7 @@ public class TcpIgniteClient implements IgniteClient {
         }
 
         var metricManager = new MetricManager();
-        metricManager.start(List.of(new JmxExporter()));
+        metricManager.start(List.of(new JmxExporter(ClientUtils.logger(cfg, JmxExporter.class))));
 
         metricManager.registerSource(metrics);
         metrics.enable();
