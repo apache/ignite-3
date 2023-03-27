@@ -64,7 +64,7 @@ public interface IndexStorage {
      *
      * @throws StorageException If failed to get the row ID.
      */
-    @Nullable RowId getNextRowIdToBuild();
+    @Nullable RowId getNextRowIdToBuild() throws StorageException;
 
     /**
      * Sets the row ID for which the index needs to be built, {@code null} means that the index is built.
@@ -75,5 +75,5 @@ public interface IndexStorage {
      * @param rowId Row ID.
      * @throws StorageException If failed to set the row ID.
      */
-    void setNextRowIdToBuild(@Nullable RowId rowId);
+    void setNextRowIdToBuild(@Nullable RowId rowId) throws StorageException;
 }
