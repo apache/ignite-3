@@ -306,7 +306,7 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual(10, columns[1].Precision);
 
             // TODO: Uncomment after https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken
-            //Assert.AreEqual("ID + 1", columns[2].Name);
+            // Assert.AreEqual("ID + 1", columns[2].Name);
             Assert.IsNull(columns[2].Origin);
 
             // Update data.
