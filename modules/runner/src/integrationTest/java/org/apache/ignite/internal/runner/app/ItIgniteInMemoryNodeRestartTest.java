@@ -46,6 +46,7 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.sql.Session;
@@ -115,7 +116,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
 
         CLUSTER_NODES_NAMES.add(idx, nodeName);
 
-        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
+        CompletableFuture<Ignite> future = TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
 
         if (CLUSTER_NODES.isEmpty()) {
             InitParameters initParameters = InitParameters.builder()

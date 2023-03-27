@@ -33,6 +33,7 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cli.AbstractCliTest;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -53,7 +54,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
     void setup(@WorkDirectory Path workDir, TestInfo testInfo) {
         String nodeName = testNodeName(testInfo, 0);
 
-        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, null, workDir);
+        CompletableFuture<Ignite> future = TestIgnitionManager.start(nodeName, null, workDir);
 
         InitParameters initParameters = InitParameters.builder()
                 .destinationNodeName(nodeName)

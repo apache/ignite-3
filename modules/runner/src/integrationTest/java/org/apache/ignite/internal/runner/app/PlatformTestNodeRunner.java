@@ -50,6 +50,7 @@ import org.apache.ignite.internal.schema.testutils.definition.ColumnType.Tempora
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Tuple;
@@ -194,7 +195,7 @@ public class PlatformTestNodeRunner {
                             .replace("TRUSTSTORE_PATH", trustStorePath)
                             .replace("SSL_STORE_PASS", sslPassword);
 
-                    return IgnitionManager.start(nodeName, config, BASE_PATH.resolve(nodeName));
+                    return TestIgnitionManager.start(nodeName, config, BASE_PATH.resolve(nodeName));
                 })
                 .collect(toList());
 

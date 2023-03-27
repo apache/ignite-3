@@ -104,7 +104,7 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
 
                     NODE_CONFIGS.put(nodeName, config);
 
-                    return IgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
+                    return TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
                 })
                 .collect(toList());
     }
@@ -163,7 +163,7 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
     }
 
     protected void startNode(String nodeName) {
-        IgnitionManager.start(nodeName, NODE_CONFIGS.get(nodeName), WORK_DIR.resolve(nodeName));
+        TestIgnitionManager.start(nodeName, NODE_CONFIGS.get(nodeName), WORK_DIR.resolve(nodeName));
         CLUSTER_NODE_NAMES.add(nodeName);
     }
 

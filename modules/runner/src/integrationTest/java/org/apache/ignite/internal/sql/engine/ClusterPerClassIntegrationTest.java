@@ -50,6 +50,7 @@ import org.apache.ignite.internal.schema.configuration.index.TableIndexConfigura
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -129,7 +130,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
             String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr);
 
-            futures.add(IgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName)));
+            futures.add(TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName)));
         }
 
         String metaStorageNodeName = testNodeName(testInfo, 0);

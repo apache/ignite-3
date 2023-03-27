@@ -30,6 +30,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -109,7 +110,7 @@ public class ItClusterInitTest extends IgniteAbstractTest {
 
             String nodeName = testNodeName(testInfo, port);
 
-            IgnitionManager.start(nodeName, config, workDir.resolve(nodeName));
+            TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName));
 
             nodeNames.add(nodeName);
         }

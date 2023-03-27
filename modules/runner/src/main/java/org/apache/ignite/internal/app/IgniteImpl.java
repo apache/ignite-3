@@ -61,7 +61,6 @@ import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
 import org.apache.ignite.internal.configuration.NodeConfigReadException;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
@@ -278,15 +277,12 @@ public class IgniteImpl implements Ignite {
      * The Constructor.
      *
      * @param name Ignite node name.
+     * @param configPath Path to node configuration in the HOCON format.
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @param serviceProviderClassLoader The class loader to be used to load provider-configuration files and provider classes, or
      *         {@code null} if the system class loader (or, failing that the bootstrap class loader) is to be used.
      */
-    IgniteImpl(String name,
-            NodeBootstrapConfiguration configuration,
-            Path workDir,
-            @Nullable ClassLoader serviceProviderClassLoader
-    ) {
+    IgniteImpl(String name, Path configPath, Path workDir, @Nullable ClassLoader serviceProviderClassLoader) {
         this.name = name;
 
         longJvmPauseDetector = new LongJvmPauseDetector(name, Loggers.forClass(LongJvmPauseDetector.class));
@@ -302,7 +298,7 @@ public class IgniteImpl implements Ignite {
         nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
                 modules.local().validators(),
-                new LocalFileConfigurationStorage(configuration),
+                new LocalFileConfigurationStorage(configPath),
                 modules.local().internalSchemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
         );
@@ -589,7 +585,7 @@ public class IgniteImpl implements Ignite {
      * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
-     * @param cfg Optional node configuration based on
+     * @param configPath Node configuration based on
      *         {@link NetworkConfigurationSchema}. Following rules are used for applying the
      *         configuration properties:
      *
@@ -606,7 +602,7 @@ public class IgniteImpl implements Ignite {
      *         previously use default values. Please pay attention that previously specified properties are searched in the
      *         {@code workDir} specified by the user.
      */
-    public CompletableFuture<Ignite> start(NodeBootstrapConfiguration cfg) {
+    public CompletableFuture<Ignite> start(Path configPath) {
         ExecutorService startupExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(name, "start", LOG));
 
         try {
@@ -624,7 +620,7 @@ public class IgniteImpl implements Ignite {
             // Node configuration manager bootstrap.
 
             try {
-                nodeCfgMgr.bootstrap(cfg.configPath());
+                nodeCfgMgr.bootstrap(configPath);
             } catch (Exception e) {
                 throw new NodeConfigReadException("Unable to parse user-specific configuration", e);
             }
