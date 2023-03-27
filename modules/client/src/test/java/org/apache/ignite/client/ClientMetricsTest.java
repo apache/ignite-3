@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.function.Function;
@@ -26,6 +27,7 @@ import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -97,7 +99,7 @@ public class ClientMetricsTest {
     @Test
     public void testRequestsMetrics() {
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> requestIdx == 0;
-        Function<Integer, Integer> responseDelay = idx -> idx > 2 ? 1000 : 0;
+        Function<Integer, Integer> responseDelay = idx -> idx > 5 ? 1000 : 0;
         server = new TestServer(10800, 10, 1000, new FakeIgnite(), shouldDropConnection, responseDelay, null, AbstractClientTest.clusterId);
         client = clientBuilder().build();
 
@@ -113,6 +115,14 @@ public class ClientMetricsTest {
         assertEquals(0, metrics().requestsFailed());
         assertEquals(1, metrics().requestsCompleted());
         assertEquals(1, metrics().requestsSent());
+        assertEquals(0, metrics().requestsCompletedWithRetry());
+
+        assertThrows(IgniteException.class, () -> client.sql().createSession().execute(null, "foo bar"));
+
+        assertEquals(0, metrics().requestsActive());
+        assertEquals(1, metrics().requestsFailed());
+        assertEquals(1, metrics().requestsCompleted());
+        assertEquals(2, metrics().requestsSent());
         assertEquals(0, metrics().requestsCompletedWithRetry());
     }
 
