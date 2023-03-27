@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -83,13 +84,13 @@ public class ClientMetricsTest {
 
     @Test
     public void testHandshakesFailed() {
-        Function<Integer, Boolean> shouldDropConnection = requestIdx -> true;
+        AtomicInteger counter = new AtomicInteger();
+        Function<Integer, Boolean> shouldDropConnection = requestIdx -> counter.incrementAndGet() < 3; // Fail 2 handshakes.
         server = new TestServer(10800, 10, 1000, new FakeIgnite(), shouldDropConnection, null, null, AbstractClientTest.clusterId);
 
-        // TODO: NPE in ReliableChannel - we give out a broken channel from chFactory when handshake fails, why?
         client = clientBuilder().build();
 
-        assertEquals(1, metrics().handshakesFailed());
+        assertEquals(2, metrics().handshakesFailed());
     }
 
     @Test
