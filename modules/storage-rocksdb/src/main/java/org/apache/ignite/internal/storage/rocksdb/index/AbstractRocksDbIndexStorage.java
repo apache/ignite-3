@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.rocksdb.index;
 
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -26,6 +27,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStorage;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -33,35 +35,59 @@ import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.WriteBatch;
+import org.rocksdb.WriteBatchWithIndex;
 
 /**
  * Abstract index storage base on RocksDB.
  */
 abstract class AbstractRocksDbIndexStorage implements IndexStorage {
-    protected final UUID indexId;
+    private final UUID indexId;
 
-    protected final RocksDbMvPartitionStorage partitionStorage;
+    final RocksDbMvPartitionStorage partitionStorage;
+
+    private final RocksDbMetaStorage indexMetaStorage;
 
     /** Busy lock. */
-    protected final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Current state of the storage. */
     protected final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
-    AbstractRocksDbIndexStorage(UUID indexId, RocksDbMvPartitionStorage partitionStorage) {
+    /** Row ID for which the index needs to be built, {@code null} means that the index building has completed. */
+    private volatile @Nullable RowId nextRowIdToBuilt;
+
+    AbstractRocksDbIndexStorage(UUID indexId, RocksDbMvPartitionStorage partitionStorage, RocksDbMetaStorage indexMetaStorage) {
         this.indexId = indexId;
         this.partitionStorage = partitionStorage;
+        this.indexMetaStorage = indexMetaStorage;
+
+        int partitionId = partitionStorage.partitionId();
+
+        nextRowIdToBuilt = indexMetaStorage.getNextRowIdToBuilt(indexId, partitionId, RowId.lowestRowId(partitionId));
     }
 
     @Override
     public @Nullable RowId getNextRowIdToBuild() {
-        // TODO: IGNITE-19119 реализовать
-        return null;
+        return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            return nextRowIdToBuilt;
+        });
     }
 
     @Override
     public void setNextRowIdToBuild(@Nullable RowId rowId) {
-        // TODO: IGNITE-19119 реализовать
+        busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
+
+            indexMetaStorage.putNextRowIdToBuilt(writeBatch, indexId, partitionStorage.partitionId(), rowId);
+
+            nextRowIdToBuilt = rowId;
+
+            return null;
+        });
     }
 
     /**

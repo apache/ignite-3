@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.UUID;
 import org.apache.ignite.internal.storage.RowId;
@@ -25,8 +26,8 @@ import org.apache.ignite.internal.storage.RowId;
  * Helper class for storages based on RocksDB.
  */
 public class RocksDbUtils {
-    /** Byte order. */
-    public static final ByteOrder ORDER = ByteOrder.BIG_ENDIAN;
+    /** Key byte order. */
+    public static final ByteOrder KEY_BYTE_ORDER = ByteOrder.BIG_ENDIAN;
 
     /** {@link RowId} size in bytes. */
     public static final int ROW_ID_SIZE = Long.BYTES * 2;
@@ -34,6 +35,35 @@ public class RocksDbUtils {
     /** Partition ID size in bytes. */
     public static final int PARTITION_ID_SIZE = Short.BYTES;
 
-    /** {@link UUID} size in bytes. */
-    public static final int UUID_SIZE = 2 * Long.BYTES;
+    /** Index ID size in bytes. */
+    public static final int INDEX_ID_SIZE = 2 * Long.BYTES;
+
+    static void putRowIdUuid(ByteBuffer keyBuffer, UUID rowIdUuid) {
+        assert keyBuffer.order() == KEY_BYTE_ORDER;
+
+        keyBuffer.putLong(normalize(rowIdUuid.getMostSignificantBits()));
+        keyBuffer.putLong(normalize(rowIdUuid.getLeastSignificantBits()));
+    }
+
+    static void putIndexId(ByteBuffer keyBuffer, UUID indexId) {
+        assert keyBuffer.order() == KEY_BYTE_ORDER;
+
+        keyBuffer.putLong(normalize(indexId.getMostSignificantBits()));
+        keyBuffer.putLong(normalize(indexId.getLeastSignificantBits()));
+    }
+
+    static UUID getRowIdUuid(ByteBuffer keyBuffer, int offset) {
+        return new UUID(normalize(keyBuffer.getLong(offset)), normalize(keyBuffer.getLong(offset + Long.BYTES)));
+    }
+
+    /**
+     * Converts signed long into a new long value, that when written in Big Endian, will preserve the comparison order if compared
+     * lexicographically as an array of unsigned bytes. For example, values {@code -1} and {@code 0}, when written in BE, will become
+     * {@code 0xFF..F} and {@code 0x00..0}, and lose their ascending order.
+     *
+     * <p>Flipping the sign bit will change the situation: {@code -1 -> 0x7F..F} and {@code 0 -> 0x80..0}.
+     */
+    static long normalize(long value) {
+        return value ^ (1L << 63);
+    }
 }

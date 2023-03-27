@@ -20,8 +20,11 @@ package org.apache.ignite.internal.storage.rocksdb;
 import static java.lang.ThreadLocal.withInitial;
 import static java.nio.ByteBuffer.allocateDirect;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.KEY_BYTE_ORDER;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.PARTITION_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.ROW_ID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.getRowIdUuid;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.putRowIdUuid;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -69,8 +72,6 @@ class PartitionDataHelper implements ManuallyCloseable {
 
     static final ByteOrder TABLE_ROW_BYTE_ORDER = ByteBufferRow.ORDER;
 
-    static final ByteOrder KEY_BYTE_ORDER = ByteOrder.BIG_ENDIAN;
-
     /** Thread-local direct buffer instance to read keys from RocksDB. */
     static final ThreadLocal<ByteBuffer> MV_KEY_BUFFER = withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(KEY_BYTE_ORDER));
 
@@ -115,44 +116,35 @@ class PartitionDataHelper implements ManuallyCloseable {
     }
 
     void putDataKey(ByteBuffer dataKeyBuffer, RowId rowId, HybridTimestamp timestamp) {
+        assert rowId.partitionId() == partitionId : "rowPartitionId=" + rowId.partitionId() + ", storagePartitionId=" + partitionId;
+
         dataKeyBuffer.putShort((short) partitionId);
-        putRowId(dataKeyBuffer, rowId);
+        putRowIdUuid(dataKeyBuffer, rowId.uuid());
         putTimestampDesc(dataKeyBuffer, timestamp);
 
         dataKeyBuffer.flip();
     }
 
     void putGcKey(ByteBuffer gcKeyBuffer, RowId rowId, HybridTimestamp timestamp) {
+        assert rowId.partitionId() == partitionId : "rowPartitionId=" + rowId.partitionId() + ", storagePartitionId=" + partitionId;
+
         gcKeyBuffer.putShort((short) partitionId);
         putTimestampNatural(gcKeyBuffer, timestamp);
-        putRowId(gcKeyBuffer, rowId);
+        putRowIdUuid(gcKeyBuffer, rowId.uuid());
 
         gcKeyBuffer.flip();
     }
 
     void putRowId(ByteBuffer keyBuffer, RowId rowId) {
-        assert rowId.partitionId() == partitionId : rowId;
-        assert keyBuffer.order() == KEY_BYTE_ORDER;
+        assert rowId.partitionId() == partitionId : "rowPartitionId=" + rowId.partitionId() + ", storagePartitionId=" + partitionId;
 
-        keyBuffer.putLong(normalize(rowId.mostSignificantBits()));
-        keyBuffer.putLong(normalize(rowId.leastSignificantBits()));
+        putRowIdUuid(keyBuffer, rowId.uuid());
     }
 
     RowId getRowId(ByteBuffer keyBuffer, int offset) {
         assert partitionId == (keyBuffer.getShort(0) & 0xFFFF);
 
-        return new RowId(partitionId, normalize(keyBuffer.getLong(offset)), normalize(keyBuffer.getLong(offset + Long.BYTES)));
-    }
-
-    /**
-     * Converts signed long into a new long value, that when written in Big Endian, will preserve the comparison order if compared
-     * lexicographically as an array of unsigned bytes. For example, values {@code -1} and {@code 0}, when written in BE, will become
-     * {@code 0xFF..F} and {@code 0x00..0}, and lose their ascending order.
-     *
-     * <p>Flipping the sign bit will change the situation: {@code -1 -> 0x7F..F} and {@code 0 -> 0x80..0}.
-     */
-    static long normalize(long value) {
-        return value ^ (1L << 63);
+        return new RowId(partitionId, getRowIdUuid(keyBuffer, offset));
     }
 
     /**

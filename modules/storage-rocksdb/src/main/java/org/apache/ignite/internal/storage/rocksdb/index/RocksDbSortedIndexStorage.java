@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage.rocksdb.index;
 
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.ORDER;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.KEY_BYTE_ORDER;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.PARTITION_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.ROW_ID_SIZE;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
@@ -41,6 +41,7 @@ import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -74,13 +75,15 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
      * @param descriptor Sorted Index descriptor.
      * @param indexCf Column family that stores the index data.
      * @param partitionStorage Partition storage of the corresponding index.
+     * @param indexMetaStorage Index meta storage.
      */
     public RocksDbSortedIndexStorage(
             SortedIndexDescriptor descriptor,
             ColumnFamily indexCf,
-            RocksDbMvPartitionStorage partitionStorage
+            RocksDbMvPartitionStorage partitionStorage,
+            RocksDbMetaStorage indexMetaStorage
     ) {
-        super(descriptor.id(), partitionStorage);
+        super(descriptor.id(), partitionStorage, indexMetaStorage);
 
         this.descriptor = descriptor;
         this.indexCf = indexCf;
@@ -230,7 +233,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
 
                     this.hasNext = null;
 
-                    return mapper.apply(ByteBuffer.wrap(key).order(ORDER));
+                    return mapper.apply(ByteBuffer.wrap(key).order(KEY_BYTE_ORDER));
                 });
             }
 
@@ -241,7 +244,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
 
                     if (hasNext != null) {
                         if (hasNext) {
-                            return mapper.apply(ByteBuffer.wrap(key).order(ORDER));
+                            return mapper.apply(ByteBuffer.wrap(key).order(KEY_BYTE_ORDER));
                         }
 
                         return null;
@@ -254,7 +257,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
 
                         return null;
                     } else {
-                        return mapper.apply(ByteBuffer.wrap(it.key()).order(ORDER));
+                        return mapper.apply(ByteBuffer.wrap(it.key()).order(KEY_BYTE_ORDER));
                     }
                 });
             }
@@ -330,7 +333,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
         ByteBuffer bytes = prefix.byteBuffer();
 
         return ByteBuffer.allocate(PARTITION_ID_SIZE + bytes.remaining())
-                .order(ORDER)
+                .order(KEY_BYTE_ORDER)
                 .putShort((short) partitionStorage.partitionId())
                 .put(bytes)
                 .array();
@@ -340,7 +343,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
         ByteBuffer bytes = row.indexColumns().byteBuffer();
 
         return ByteBuffer.allocate(PARTITION_ID_SIZE + bytes.remaining() + ROW_ID_SIZE)
-                .order(ORDER)
+                .order(KEY_BYTE_ORDER)
                 .putShort((short) partitionStorage.partitionId())
                 .put(bytes)
                 .putLong(row.rowId().mostSignificantBits())
@@ -361,7 +364,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
     @Override
     public void destroyData(WriteBatch writeBatch) throws RocksDBException {
         byte[] constantPrefix = ByteBuffer.allocate(PARTITION_ID_SIZE)
-                .order(ORDER)
+                .order(KEY_BYTE_ORDER)
                 .putShort((short) partitionStorage.partitionId())
                 .array();
 
