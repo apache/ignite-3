@@ -310,6 +310,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      */
     public CompletableFuture<Void> unsubscribeLeader() {
         serverEventHandler.setOnLeaderElectedCallback(null);
+        serverEventHandler.resetLeader();
 
         var peers = peers();
         var futs = new CompletableFuture[peers.size()];
@@ -337,7 +338,9 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
     @Override
     public @Nullable Peer leader() {
-        return raftClient.leader();
+        Peer leader = serverEventHandler.leader();
+
+        return leader == null ? raftClient.leader() : leader;
     }
 
     @Override
@@ -423,6 +426,11 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     }
 
     @Override
+    public CompletableFuture<Long> readIndex() {
+        return raftClient.readIndex();
+    }
+
+    @Override
     public ClusterService clusterService() {
         return raftClient.clusterService();
     }
@@ -433,6 +441,9 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     private static class ServerEventHandler implements BiConsumer<ClusterNode, Long> {
         /** A term of last elected leader. */
         private long term = 0;
+
+        /** Last elected leader. */
+        private Peer leaderPeer;
 
         /** A leader elected callback. */
         private BiConsumer<ClusterNode, Long> onLeaderElectedCallback;
@@ -446,6 +457,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         private synchronized void onLeaderElected(ClusterNode node, long term) {
             if (onLeaderElectedCallback != null && term > this.term) {
                 this.term = term;
+                this.leaderPeer = new Peer(node.name());
 
                 onLeaderElectedCallback.accept(node, term);
             }
@@ -472,6 +484,14 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         @Override
         public void accept(ClusterNode clusterNode, Long term) {
             onLeaderElected(clusterNode, term);
+        }
+
+        Peer leader() {
+            return leaderPeer;
+        }
+
+        void resetLeader() {
+            leaderPeer = null;
         }
     }
 }
