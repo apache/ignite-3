@@ -202,7 +202,7 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage i
     }
 
     @Override
-    public void close0() {
+    public void closeStructures() {
         hashIndexTree.close();
     }
 

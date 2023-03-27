@@ -20,11 +20,11 @@ package org.apache.ignite.internal.storage.rocksdb;
 import static java.lang.ThreadLocal.withInitial;
 import static java.nio.ByteBuffer.allocateDirect;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.KEY_BYTE_ORDER;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.PARTITION_ID_SIZE;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.ROW_ID_SIZE;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.getRowIdUuid;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.putRowIdUuid;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.PARTITION_ID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ROW_ID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.getRowIdUuid;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.putRowIdUuid;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;

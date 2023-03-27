@@ -26,9 +26,9 @@ import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.ROW
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.TABLE_ROW_BYTE_ORDER;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.readTimestampNatural;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStorage.invalid;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.KEY_BYTE_ORDER;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.PARTITION_ID_SIZE;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbUtils.ROW_ID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.PARTITION_ID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ROW_ID_SIZE;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;

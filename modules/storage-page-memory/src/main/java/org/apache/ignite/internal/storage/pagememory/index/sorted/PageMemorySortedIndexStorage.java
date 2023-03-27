@@ -186,7 +186,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
     }
 
     @Override
-    public void close0() {
+    public void closeStructures() {
         sortedIndexTree.close();
     }
 

@@ -131,7 +131,7 @@ public abstract class AbstractPageMemoryIndexStorage implements IndexStorage {
 
         busyLock.block();
 
-        close0();
+        closeStructures();
     }
 
     /**
@@ -148,7 +148,7 @@ public abstract class AbstractPageMemoryIndexStorage implements IndexStorage {
         busyLock.block();
 
         try {
-            close0();
+            closeStructures();
         } finally {
             busyLock.unblock();
         }
@@ -179,7 +179,7 @@ public abstract class AbstractPageMemoryIndexStorage implements IndexStorage {
         busyLock.block();
 
         try {
-            close0();
+            closeStructures();
         } finally {
             busyLock.unblock();
         }
@@ -211,5 +211,5 @@ public abstract class AbstractPageMemoryIndexStorage implements IndexStorage {
     /**
      * Closes internal structures.
      */
-    protected abstract void close0();
+    protected abstract void closeStructures();
 }

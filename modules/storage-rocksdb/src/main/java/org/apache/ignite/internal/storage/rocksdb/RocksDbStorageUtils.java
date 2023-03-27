@@ -25,7 +25,7 @@ import org.apache.ignite.internal.storage.RowId;
 /**
  * Helper class for storages based on RocksDB.
  */
-public class RocksDbUtils {
+public class RocksDbStorageUtils {
     /** Key byte order. */
     public static final ByteOrder KEY_BYTE_ORDER = ByteOrder.BIG_ENDIAN;
 
