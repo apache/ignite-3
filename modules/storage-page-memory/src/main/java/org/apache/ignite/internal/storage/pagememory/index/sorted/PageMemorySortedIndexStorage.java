@@ -41,6 +41,8 @@ import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.AbstractPageMemoryIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -60,12 +62,20 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
     /**
      * Constructor.
      *
+     * @param indexMeta Index meta.
      * @param descriptor Sorted index descriptor.
      * @param freeList Free list to store index columns.
      * @param sortedIndexTree Sorted index tree instance.
+     * @param indexMetaTree Index meta tree instance.
      */
-    public PageMemorySortedIndexStorage(SortedIndexDescriptor descriptor, IndexColumnsFreeList freeList, SortedIndexTree sortedIndexTree) {
-        super(descriptor.id(), sortedIndexTree.partitionId(), freeList);
+    public PageMemorySortedIndexStorage(
+            IndexMeta indexMeta,
+            SortedIndexDescriptor descriptor,
+            IndexColumnsFreeList freeList,
+            SortedIndexTree sortedIndexTree,
+            IndexMetaTree indexMetaTree
+    ) {
+        super(indexMeta, sortedIndexTree.partitionId(), freeList, indexMetaTree);
 
         this.descriptor = descriptor;
         this.sortedIndexTree = sortedIndexTree;

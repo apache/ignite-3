@@ -33,6 +33,8 @@ import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.pagememory.index.AbstractPageMemoryIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
@@ -51,16 +53,20 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage i
     /**
      * Constructor.
      *
+     * @param indexMeta Index meta.
      * @param descriptor Hash index descriptor.
      * @param freeList Free list to store index columns.
      * @param hashIndexTree Hash index tree instance.
+     * @param indexMetaTree Index meta tree instance.
      */
     public PageMemoryHashIndexStorage(
+            IndexMeta indexMeta,
             HashIndexDescriptor descriptor,
             IndexColumnsFreeList freeList,
-            HashIndexTree hashIndexTree
+            HashIndexTree hashIndexTree,
+            IndexMetaTree indexMetaTree
     ) {
-        super(descriptor.id(), hashIndexTree.partitionId(), freeList);
+        super(indexMeta, hashIndexTree.partitionId(), freeList, indexMetaTree);
 
         this.descriptor = descriptor;
         this.hashIndexTree = hashIndexTree;

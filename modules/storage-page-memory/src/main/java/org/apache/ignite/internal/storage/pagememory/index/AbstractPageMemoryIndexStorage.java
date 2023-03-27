@@ -20,16 +20,23 @@ package org.apache.ignite.internal.storage.pagememory.index;
 
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaKey;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
+import org.apache.ignite.internal.storage.pagememory.index.meta.UpdateLastRowIdUuidToBuiltInvokeClosure;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
@@ -38,7 +45,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public abstract class AbstractPageMemoryIndexStorage implements IndexStorage {
     /** Index ID. */
-    protected final UUID indexId;
+    private final UUID indexId;
 
     /** Partition id. */
     protected final int partitionId;
@@ -58,25 +65,56 @@ public abstract class AbstractPageMemoryIndexStorage implements IndexStorage {
     /** Current state of the storage. */
     protected final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
-    protected AbstractPageMemoryIndexStorage(UUID indexId, int partitionId, IndexColumnsFreeList freeList) {
-        this.indexId = indexId;
+    /** Index meta tree instance. */
+    private final IndexMetaTree indexMetaTree;
+
+    /** Row ID for which the index needs to be built, {@code null} means that the index building has completed. */
+    private volatile @Nullable RowId nextRowIdToBuilt;
+
+    protected AbstractPageMemoryIndexStorage(
+            IndexMeta indexMeta,
+            int partitionId,
+            IndexColumnsFreeList freeList,
+            IndexMetaTree indexMetaTree
+    ) {
+        this.indexId = indexMeta.indexId();
         this.partitionId = partitionId;
         this.freeList = freeList;
+        this.indexMetaTree = indexMetaTree;
 
         lowestRowId = RowId.lowestRowId(partitionId);
 
         highestRowId = RowId.highestRowId(partitionId);
+
+        nextRowIdToBuilt = indexMeta.nextRowIdUuidToBuild() == null ? null : new RowId(partitionId, indexMeta.nextRowIdUuidToBuild());
     }
 
     @Override
     public @Nullable RowId getNextRowIdToBuild() {
-        // TODO: IGNITE-19119 реализовать
-        return null;
+        return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            return nextRowIdToBuilt;
+        });
     }
 
     @Override
     public void setNextRowIdToBuild(@Nullable RowId rowId) {
-        // TODO: IGNITE-19119 реализовать
+        busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            UUID rowIdUuid = rowId == null ? null : rowId.uuid();
+
+            try {
+                indexMetaTree.invoke(new IndexMetaKey(indexId), null, new UpdateLastRowIdUuidToBuiltInvokeClosure(rowIdUuid));
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Error updating last row ID uuid to built: [{}, rowId={}]", e, createStorageInfo(), rowId);
+            }
+
+            nextRowIdToBuilt = rowId;
+
+            return null;
+        });
     }
 
     /**
