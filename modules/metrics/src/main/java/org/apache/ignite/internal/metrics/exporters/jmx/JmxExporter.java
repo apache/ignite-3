@@ -54,7 +54,7 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     /**
      * Logger.
      */
-    private static IgniteLogger LOG = Loggers.forClass(JmxExporter.class);
+    private static final IgniteLogger LOG = Loggers.forClass(JmxExporter.class);
 
     /**
      * Current registered MBeans.

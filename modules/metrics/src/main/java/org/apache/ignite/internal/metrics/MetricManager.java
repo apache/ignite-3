@@ -256,7 +256,6 @@ public class MetricManager implements IgniteComponent {
         } else {
             LOG.warn("Received configuration for unknown metric exporter with the name '" + exporterName + "'");
         }
-
     }
 
     private class ExporterConfigurationListener implements ConfigurationNamedListListener<ExporterView> {
