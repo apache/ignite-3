@@ -24,6 +24,7 @@ import java.util.Base64;
 import java.util.Base64.Decoder;
 import java.util.Base64.Encoder;
 import java.util.List;
+import org.apache.ignite.deployment.DeploymentStatus;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.UnitMeta;
 
@@ -52,6 +53,7 @@ public final class UnitMetaSerializer {
         appendWithEncoding(sb, meta.id());
         appendWithEncoding(sb, meta.version().render());
         appendWithEncoding(sb, meta.name());
+        appendWithEncoding(sb, meta.status().name());
 
         for (String id : meta.consistentIdLocation()) {
             appendWithEncoding(sb, id);
@@ -81,11 +83,13 @@ public final class UnitMetaSerializer {
         String version = new String(decoder.decode(split[1]), UTF_8);
         String unitName = new String(decoder.decode(split[2]), UTF_8);
 
+        DeploymentStatus status = DeploymentStatus.valueOf(new String(decoder.decode(split[3]), UTF_8));
+
         List<String> ids = new ArrayList<>();
-        for (int i = 3; i < split.length; i++) {
+        for (int i = 4; i < split.length; i++) {
             ids.add(new String(decoder.decode(split[i]), UTF_8));
         }
 
-        return new UnitMeta(id, Version.parseVersion(version), unitName, ids);
+        return new UnitMeta(id, Version.parseVersion(version), unitName, status, ids);
     }
 }

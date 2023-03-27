@@ -22,8 +22,6 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
-import static org.apache.ignite.internal.raft.Loza.CLIENT_POOL_NAME;
-import static org.apache.ignite.internal.raft.Loza.CLIENT_POOL_SIZE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -40,8 +38,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -63,12 +59,12 @@ import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -113,8 +109,6 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
     private PlacementDriverManager placementDriverManager;
 
-    private ScheduledExecutorService raftExecutorService;
-
     private TestInfo testInfo;
 
     @BeforeEach
@@ -137,19 +131,22 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         when(cmgManager.metaStorageNodes())
                 .thenReturn(completedFuture(Set.of(clusterService.localConfiguration().getName())));
 
-        raftExecutorService = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterService.localConfiguration().getName(),
-                        CLIENT_POOL_NAME), log
-                ));
-
         RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
+
+        LogicalTopologyService logicalTopologyService = new LogicalTopologyServiceTestImpl(clusterService);
+
+        TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                clusterService,
+                logicalTopologyService,
+                Loza.FACTORY,
+                eventsClientListener
+        );
 
         raftManager = new Loza(
                 clusterService,
                 raftConfiguration,
                 workDir.resolve("loza"),
                 new HybridClockImpl(),
-                raftExecutorService,
                 eventsClientListener
         );
 
@@ -159,7 +156,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
                 vaultManager,
                 clusterService,
                 cmgManager,
-                mock(LogicalTopologyService.class),
+                logicalTopologyService,
                 raftManager,
                 storage
         );
@@ -169,18 +166,17 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
                 vaultManager,
                 MetastorageGroupId.INSTANCE,
                 clusterService,
-                raftConfiguration,
                 () -> completedFuture(peersAndLearners(
                         new HashMap<>(Map.of(new NetworkAddress("localhost", PORT), clusterService)),
                         addr -> true,
                         1)
                         .peers().stream().map(Peer::consistentId).collect(toSet())),
-                new LogicalTopologyServiceTestImpl(clusterService),
-                raftExecutorService,
+                logicalTopologyService,
+                raftManager,
+                topologyAwareRaftGroupServiceFactory,
                 tblsCfg,
                 dstZnsCfg,
-                clock,
-                eventsClientListener
+                clock
         );
 
         vaultManager.start();
@@ -209,7 +205,6 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         raftManager.stop();
         clusterService.stop();
         vaultManager.stop();
-        raftExecutorService.shutdown();
     }
 
     private static PeersAndLearners peersAndLearners(

@@ -98,6 +98,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAl
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
@@ -154,6 +155,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.Nullable;
@@ -532,7 +534,6 @@ public class ItRebalanceDistributedTest {
             byte[] assignments = table.assignments().value();
 
             if (assignments != null) {
-                System.out.println(((List<Set<Assignment>>) ByteUtils.fromBytes(assignments)).get(partNum));
                 return ((List<Set<Assignment>>) ByteUtils.fromBytes(assignments)).get(partNum);
             }
         }
@@ -650,13 +651,11 @@ public class ItRebalanceDistributedTest {
 
             String nodeName = clusterService.localConfiguration().getName();
 
-            LogicalTopologyService logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
-
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
                     clusterService,
                     cmgManager,
-                    logicalTopologyService,
+                    new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
                     raftManager,
                     testInfo.getTestMethod().get().isAnnotationPresent(UseRocksMetaStorage.class)
                             ? new RocksDbKeyValueStorage(nodeName, resolveDir(dir, "metaStorage"))
@@ -719,6 +718,14 @@ public class ItRebalanceDistributedTest {
 
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
 
+            LogicalTopologyService logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
+            TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                    clusterService,
+                    logicalTopologyService,
+                    Loza.FACTORY,
+                    new RaftGroupEventsClientListener()
+            );
+
             distributionZoneManager = new DistributionZoneManager(
                     zonesCfg,
                     tablesCfg,
@@ -747,7 +754,8 @@ public class ItRebalanceDistributedTest {
                     schemaManager,
                     view -> new LocalLogStorageFactory(),
                     new HybridClockImpl(),
-                    new OutgoingSnapshotsManager(clusterService.messagingService())
+                    new OutgoingSnapshotsManager(clusterService.messagingService()),
+                    topologyAwareRaftGroupServiceFactory
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg,

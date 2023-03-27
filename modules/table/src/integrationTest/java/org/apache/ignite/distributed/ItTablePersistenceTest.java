@@ -382,7 +382,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             partitionDataStorage,
                             storageUpdateHandler,
                             new TestTxStateStorage(),
-                            new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0))
+                            new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0)),
+                            new PendingComparableValuesTracker<>(0L)
                     );
 
                     paths.put(listener, path);
