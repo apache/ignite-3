@@ -33,7 +33,7 @@ import org.apache.ignite.lang.IgniteException;
  */
 public class NettyClientConnection implements ClientConnection {
     /** Connection attribute. */
-    public static final AttributeKey<NettyClientConnection> ATTR_CONN = AttributeKey.newInstance("CONN");
+    static final AttributeKey<NettyClientConnection> ATTR_CONN = AttributeKey.newInstance("CONN");
 
     /** Channel. */
     private final Channel channel;
@@ -65,6 +65,7 @@ public class NettyClientConnection implements ClientConnection {
         this.stateHnd = stateHnd;
         this.metrics = metrics;
 
+        //noinspection ThisEscapedInObjectConstruction
         channel.attr(ATTR_CONN).set(this);
     }
 
@@ -105,6 +106,8 @@ public class NettyClientConnection implements ClientConnection {
      * @param buf Message.
      */
     void onMessage(ByteBuf buf) {
+        metrics.bytesReceivedAdd(buf.readableBytes());
+
         msgHnd.onMessage(buf);
     }
 
