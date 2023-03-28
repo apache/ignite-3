@@ -427,6 +427,7 @@ public class StorageUpdateHandler {
      * @param finish Index build completion flag.
      */
     public void buildIndex(UUID indexId, List<UUID> rowUuids, boolean finish) {
+        // TODO: IGNITE-18539 вот тут может и не быть индекса, внезапно?
         TableSchemaAwareIndexStorage index = indexes.get().get(indexId);
 
         assert index != null : "indexId=" + indexId + ", partitionId=" + partitionId;

@@ -68,6 +68,7 @@ import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterService;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
@@ -77,7 +78,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
     /** Common tables and indexes configuration. */
-    private final TablesConfiguration tablesConfig;
+    private final TablesConfiguration tablesCfg;
 
     /** Schema manager. */
     private final SchemaManager schemaManager;
@@ -98,29 +99,30 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * Constructor.
      *
      * @param nodeName Node name.
-     * @param tablesConfig Tables and indexes configuration.
+     * @param tablesCfg Tables and indexes configuration.
      * @param schemaManager Schema manager.
      * @param tableManager Table manager.
      * @param clusterService Cluster service.
      */
     public IndexManager(
             String nodeName,
-            TablesConfiguration tablesConfig,
+            TablesConfiguration tablesCfg,
             SchemaManager schemaManager,
             TableManager tableManager,
             ClusterService clusterService
     ) {
-        this.tablesConfig = Objects.requireNonNull(tablesConfig, "tablesConfig");
+        this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
         this.schemaManager = Objects.requireNonNull(schemaManager, "schemaManager");
         this.tableManager = tableManager;
         this.indexBuilder = new IndexBuilder(nodeName, busyLock, clusterService);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void start() {
         LOG.debug("Index manager is about to start");
 
-        tablesConfig.indexes().listenElements(new ConfigurationListener());
+        tablesCfg.indexes().listenElements(new ConfigurationListener());
 
         tableManager.listen(TableEvent.CREATE, (param, ex) -> {
             if (ex != null) {
@@ -156,6 +158,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         LOG.info("Index manager started");
     }
 
+    /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
         LOG.debug("Index manager is about to stop");
@@ -204,7 +207,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             // Check index existence flag, avoid usage of hasCause + IndexAlreadyExistsException.
             AtomicBoolean idxExist = new AtomicBoolean(false);
 
-            tablesConfig.indexes().change(indexListChange -> {
+            tablesCfg.indexes().change(indexListChange -> {
                 idxExist.set(false);
 
                 if (indexListChange.get(indexName) != null) {
@@ -213,7 +216,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     throw new IndexAlreadyExistsException(schemaName, indexName);
                 }
 
-                TableConfiguration tableCfg = tablesConfig.tables().get(tableName);
+                TableConfiguration tableCfg = tablesCfg.tables().get(tableName);
 
                 if (tableCfg == null) {
                     throw new TableNotFoundException(schemaName, tableName);
@@ -237,7 +240,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                         future.completeExceptionally(th);
                     }
                 } else {
-                    TableIndexConfiguration idxCfg = tablesConfig.indexes().get(indexName);
+                    TableIndexConfiguration idxCfg = tablesCfg.indexes().get(indexName);
 
                     if (idxCfg != null && idxCfg.value() != null) {
                         LOG.info("Index created [schema={}, table={}, index={}, indexId={}]",
@@ -291,7 +294,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             // Check index existence flag, avoid usage of hasCause + IndexAlreadyExistsException.
             AtomicBoolean idxOrTblNotExist = new AtomicBoolean(false);
 
-            tablesConfig.indexes().change(indexListChange -> {
+            tablesCfg.indexes().change(indexListChange -> {
                 idxOrTblNotExist.set(false);
 
                 TableIndexView idxView = indexListChange.get(indexName);
@@ -561,13 +564,15 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     }
 
     private class ConfigurationListener implements ConfigurationNamedListListener<TableIndexView> {
+        /** {@inheritDoc} */
         @Override
-        public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<TableIndexView> ctx) {
+        public @NotNull CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
             return onIndexCreate(ctx);
         }
 
+        /** {@inheritDoc} */
         @Override
-        public CompletableFuture<?> onRename(
+        public @NotNull CompletableFuture<?> onRename(
                 String oldName,
                 String newName,
                 ConfigurationNotificationEvent<TableIndexView> ctx
@@ -575,13 +580,15 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             return failedFuture(new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-16196"));
         }
 
+        /** {@inheritDoc} */
         @Override
-        public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<TableIndexView> ctx) {
+        public @NotNull CompletableFuture<?> onDelete(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
             return onIndexDrop(ctx);
         }
 
+        /** {@inheritDoc} */
         @Override
-        public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<TableIndexView> ctx) {
+        public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
             return failedFuture(new IllegalStateException("Should not be called"));
         }
     }

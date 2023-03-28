@@ -41,7 +41,6 @@ import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -60,7 +59,6 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("replicas")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19085")
     void testBuildIndexOnStableTopology(int replicas) throws Exception {
         sql(IgniteStringFormatter.format(
                 "CREATE TABLE {} (i0 INTEGER PRIMARY KEY, i1 INTEGER) WITH replicas={}, partitions={}",
