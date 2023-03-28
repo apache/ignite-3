@@ -203,7 +203,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     /**
-     * Retries the given UPDATE/INSERT statement until it succeed or receives duplicate key error.
+     * Executes the given UPDATE/INSERT statement until it succeed or receives duplicate key error.
      */
     private void executeDmlWithRetry(int nodeIndex, String statement) {
         // We should retry a DML statement until we either succeed or receive a duplicate key error.
