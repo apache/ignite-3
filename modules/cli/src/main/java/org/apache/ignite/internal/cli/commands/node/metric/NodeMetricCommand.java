@@ -23,9 +23,8 @@ import picocli.CommandLine.Command;
 /** Node metric command. */
 @Command(name = "metric",
         subcommands = {
-                NodeMetricEnableCommand.class,
-                NodeMetricDisableCommand.class,
-                NodeMetricListCommand.class
+                NodeMetricSetListCommand.class,
+                NodeMetricSourceCommand.class
         },
         description = "Node metric operations")
 public class NodeMetricCommand extends BaseCommand {

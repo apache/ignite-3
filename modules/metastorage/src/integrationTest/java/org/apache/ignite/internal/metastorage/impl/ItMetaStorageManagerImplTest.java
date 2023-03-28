@@ -21,9 +21,9 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBeCancelledFast;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -35,6 +35,7 @@ import static org.mockito.Mockito.when;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -261,7 +262,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         CompletableFuture<Entry> fut = svc.get(ByteArray.fromString("ignored"));
 
-        assertThat(fut, willBeCancelledFast());
+        assertThat(fut, willThrowFast(CancellationException.class));
     }
 
     @Test
@@ -290,6 +291,6 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         // stop method.
         cmgFut.complete(msNodes);
 
-        assertThat(metaStorageManager.metaStorageServiceFuture(), willBeCancelledFast());
+        assertThat(metaStorageManager.metaStorageServiceFuture(), willThrowFast(CancellationException.class));
     }
 }

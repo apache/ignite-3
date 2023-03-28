@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table.event;
 
 import java.util.UUID;
 import org.apache.ignite.internal.manager.EventParameters;
-import org.apache.ignite.internal.table.TableImpl;
 
 /**
  * Table event parameters. There are properties which associate with a concrete table.
@@ -28,46 +27,15 @@ public class TableEventParameters extends EventParameters {
     /** Table identifier. */
     private final UUID tableId;
 
-    /** Table name. */
-    private final String tableName;
-
-    /** Table instance. */
-    private final TableImpl table;
-
-    /**
-     * Constructor.
-     *
-     * @param causalityToken Causality token.
-     * @param table Table instance.
-     */
-    public TableEventParameters(long causalityToken, TableImpl table) {
-        this(causalityToken, table.tableId(), table.name(), table);
-    }
-
     /**
      * Constructor.
      *
      * @param causalityToken Causality token.
      * @param tableId   Table identifier.
-     * @param tableName Table name.
      */
-    public TableEventParameters(long causalityToken, UUID tableId, String tableName) {
-        this(causalityToken, tableId, tableName, null);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param causalityToken Causality token.
-     * @param tableId   Table identifier.
-     * @param tableName Table name.
-     * @param table     Table instance.
-     */
-    public TableEventParameters(long causalityToken, UUID tableId, String tableName, TableImpl table) {
+    public TableEventParameters(long causalityToken, UUID tableId) {
         super(causalityToken);
         this.tableId = tableId;
-        this.tableName = tableName;
-        this.table = table;
     }
 
     /**
@@ -77,23 +45,5 @@ public class TableEventParameters extends EventParameters {
      */
     public UUID tableId() {
         return tableId;
-    }
-
-    /**
-     * Gets the table name.
-     *
-     * @return Table name.
-     */
-    public String tableName() {
-        return tableName;
-    }
-
-    /**
-     * Gets a table instance associated with the event.
-     *
-     * @return Table.
-     */
-    public TableImpl table() {
-        return table;
     }
 }

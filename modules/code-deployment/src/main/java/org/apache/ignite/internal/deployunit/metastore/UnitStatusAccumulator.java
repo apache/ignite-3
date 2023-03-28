@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.deployunit.metastore;
 
+import org.apache.ignite.deployment.DeploymentInfo;
 import org.apache.ignite.deployment.UnitStatus;
 import org.apache.ignite.deployment.UnitStatus.UnitStatusBuilder;
 import org.apache.ignite.internal.deployunit.UnitMeta;
@@ -46,8 +47,12 @@ public class UnitStatusAccumulator implements Accumulator<UnitStatus> {
         if (builder == null) {
             builder = UnitStatus.builder(id);
         }
-        UnitMeta deserialize = UnitMetaSerializer.deserialize(item.value());
-        builder.append(deserialize.version(), deserialize.consistentIdLocation());
+        UnitMeta meta = UnitMetaSerializer.deserialize(item.value());
+        builder.append(meta.version(),
+                DeploymentInfo.builder()
+                        .status(meta.status())
+                        .addConsistentIds(meta.consistentIdLocation()).build()
+        );
     }
 
     @Override

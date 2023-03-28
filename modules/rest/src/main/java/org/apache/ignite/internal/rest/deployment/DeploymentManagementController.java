@@ -46,7 +46,7 @@ public class DeploymentManagementController implements DeploymentCodeApi {
         try {
             DeploymentUnit deploymentUnit = toDeploymentUnit(unitContent);
             if (unitVersion == null || unitVersion.isBlank()) {
-                return deployment.deployAsync(unitId, deploymentUnit);
+                return deployment.deployAsync(unitId, Version.LATEST, deploymentUnit);
             }
             return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit);
         } catch (IOException e) {

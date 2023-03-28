@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.app;
 
-import static org.apache.ignite.internal.raft.Loza.CLIENT_POOL_NAME;
-import static org.apache.ignite.internal.raft.Loza.CLIENT_POOL_SIZE;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -32,20 +29,20 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.deployment.IgniteDeployment;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogServiceImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
@@ -90,6 +87,7 @@ import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
@@ -123,7 +121,6 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -274,9 +271,8 @@ public class IgniteImpl implements Ignite {
 
     private final RestAddressReporter restAddressReporter;
 
-    private final ScheduledExecutorService raftExecutorService;
-
     private final DistributedConfigurationUpdater distributedConfigurationUpdater;
+    private final CatalogManager catalogManager;
 
     /**
      * The Constructor.
@@ -337,12 +333,6 @@ public class IgniteImpl implements Ignite {
 
         RaftConfiguration raftConfiguration = nodeConfigRegistry.getConfiguration(RaftConfiguration.KEY);
 
-        raftExecutorService = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterSvc.localConfiguration().getName(),
-                        CLIENT_POOL_NAME), LOG
-                )
-        );
-
         // TODO https://issues.apache.org/jira/browse/IGNITE-19051
         RaftGroupEventsClientListener raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
@@ -351,7 +341,6 @@ public class IgniteImpl implements Ignite {
                 raftConfiguration,
                 workDir,
                 clock,
-                raftExecutorService,
                 raftGroupEventsClientListener
         );
 
@@ -407,6 +396,13 @@ public class IgniteImpl implements Ignite {
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
         TablesConfiguration tablesConfiguration = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
+
+        TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                clusterSvc,
+                logicalTopologyService,
+                Loza.FACTORY,
+                raftGroupEventsClientListener
+        );
 
         // TODO: IGNITE-16985 Design table management flow
         // placementDriverMgr = new PlacementDriverManager(
@@ -487,10 +483,13 @@ public class IgniteImpl implements Ignite {
                 schemaManager,
                 volatileLogStorageFactoryCreator,
                 clock,
-                outgoingSnapshotsManager
+                outgoingSnapshotsManager,
+                topologyAwareRaftGroupServiceFactory
         );
 
         indexManager = new IndexManager(tablesConfiguration, schemaManager, distributedTblMgr);
+
+        catalogManager = new CatalogServiceImpl(metaStorageMgr);
 
         qryEngine = new SqlQueryProcessor(
                 registry,
@@ -503,7 +502,8 @@ public class IgniteImpl implements Ignite {
                 distributionZoneManager,
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
                 replicaSvc,
-                clock
+                clock,
+                catalogManager
         );
 
         sql = new IgniteSqlImpl(qryEngine);
@@ -519,7 +519,9 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 nettyBootstrapFactory,
                 sql,
-                () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag().clusterId())
+                () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag().clusterId()),
+                metricManager,
+                new ClientHandlerMetricSource()
         );
 
         deploymentManager = new DeploymentManagerImpl(clusterSvc,
@@ -667,6 +669,7 @@ public class IgniteImpl implements Ignite {
                                     volatileLogStorageFactoryCreator,
                                     outgoingSnapshotsManager,
                                     distributedTblMgr,
+                                    catalogManager,
                                     indexManager,
                                     qryEngine,
                                     clientHandlerModule,
@@ -751,7 +754,6 @@ public class IgniteImpl implements Ignite {
     public void stop() {
         lifecycleManager.stopNode();
         restAddressReporter.removeReport();
-        IgniteUtils.shutdownAndAwaitTermination(raftExecutorService, 10, TimeUnit.SECONDS);
     }
 
     /** {@inheritDoc} */

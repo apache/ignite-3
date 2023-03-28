@@ -140,7 +140,7 @@ public class PartitionCommandListenerTest {
     /** Primary index. */
     private final TableSchemaAwareIndexStorage pkStorage = new TableSchemaAwareIndexStorage(
             UUID.randomUUID(),
-            new TestHashIndexStorage(null),
+            new TestHashIndexStorage(PARTITION_ID, null),
             BinaryRowConverter.keyExtractor(SCHEMA)
     );
 
@@ -198,7 +198,8 @@ public class PartitionCommandListenerTest {
                 partitionDataStorage,
                 storageUpdateHandler,
                 txStateStorage,
-                safeTimeTracker
+                safeTimeTracker,
+                new PendingComparableValuesTracker<>(0L)
         );
     }
 
@@ -288,7 +289,8 @@ public class PartitionCommandListenerTest {
                 partitionDataStorage,
                 storageUpdateHandler,
                 txStateStorage,
-                new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0))
+                new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0)),
+                new PendingComparableValuesTracker<>(0L)
         );
 
         txStateStorage.lastApplied(3L, 1L);
