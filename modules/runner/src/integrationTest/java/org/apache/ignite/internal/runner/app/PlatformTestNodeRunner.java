@@ -202,8 +202,15 @@ public class PlatformTestNodeRunner {
         }
     }
 
+    /**
+     * Start nodes.
+     *
+     * @param basePath Base path.
+     * @param nodeCfg Node configuration.
+     * @return Started nodes.
+     */
     @NotNull
-    public static List<Ignite> startNodes(Path basePath, Map<String, String> nodeCfg) throws IOException {
+    static List<Ignite> startNodes(Path basePath, Map<String, String> nodeCfg) throws IOException {
         IgniteUtils.deleteIfExists(basePath);
         Files.createDirectories(basePath);
 
