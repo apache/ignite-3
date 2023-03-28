@@ -29,11 +29,15 @@ using System.Threading.Tasks;
 /// </summary>
 public static class ManyConnectionsBenchmark
 {
-    public const int Connections = 10_000;
+    public const int Connections = 30_000;
 
     public static async Task RunAsync()
     {
-        var cfg = new IgniteClientConfiguration("127.0.0.1:10420");
+        var cfg = new IgniteClientConfiguration
+        {
+            RetryPolicy = new RetryNonePolicy()
+        };
+
         var clients = new List<IIgniteClient>();
 
         Console.WriteLine("Establishing connections...");
@@ -41,6 +45,15 @@ public static class ManyConnectionsBenchmark
 
         for (int i = 0; i < Connections; i++)
         {
+            var addr1 = i % 255;
+            var addr2 = (i >> 8) % 255;
+            var addr3 = (i >> 16) % 255;
+
+            var addr = $"127.{addr1}.{addr2}.{addr3}:10420";
+
+            cfg.Endpoints.Clear();
+            cfg.Endpoints.Add(addr);
+
             clients.Add(await IgniteClient.StartAsync(cfg));
         }
 
@@ -55,6 +68,7 @@ public static class ManyConnectionsBenchmark
 
         Console.WriteLine($"{Connections} GetTable calls in {sw.Elapsed}.");
         Console.WriteLine("Press any key to close connections...");
+        Console.ReadKey();
 
         foreach (var client in clients)
         {
