@@ -42,7 +42,6 @@ import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
