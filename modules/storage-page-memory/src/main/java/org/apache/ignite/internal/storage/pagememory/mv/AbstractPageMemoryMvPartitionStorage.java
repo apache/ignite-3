@@ -213,7 +213,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexId Index UUID.
      */
     public PageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
-        return busy(() -> hashIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreHashIndex(createIndexMetaForNewIndex(indexId))));
+        return busy(() -> hashIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreHashIndex(createIndexMetaForNewIndex(uuid))));
     }
 
     /**
@@ -222,7 +222,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexId Index UUID.
      */
     public PageMemorySortedIndexStorage getOrCreateSortedIndex(UUID indexId) {
-        return busy(() -> sortedIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreSortedIndex(createIndexMetaForNewIndex(indexId))));
+        return busy(() -> sortedIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreSortedIndex(createIndexMetaForNewIndex(uuid))));
     }
 
     private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta) {
@@ -232,13 +232,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         HashIndexTree hashIndexTree = createHashIndexTree(indexDescriptor, indexMeta);
 
-        return new PageMemoryHashIndexStorage(
-                indexDescriptor,
-                indexFreeList,
-                hashIndexTree,
-                indexMetaTree,
-                indexMeta.lastBuiltRowIdUuid()
-        );
+        return new PageMemoryHashIndexStorage(indexMeta, indexDescriptor, indexFreeList, hashIndexTree, indexMetaTree);
     }
 
     HashIndexTree createHashIndexTree(HashIndexDescriptor indexDescriptor, IndexMeta indexMeta) {
@@ -265,7 +259,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             );
 
             if (initNew) {
-                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.indexId(), metaPageId, indexMeta.lastBuiltRowIdUuid()));
+                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.indexId(), metaPageId, indexMeta.nextRowIdUuidToBuild()));
 
                 assert !replaced;
             }
@@ -283,13 +277,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         SortedIndexTree sortedIndexTree = createSortedIndexTree(indexDescriptor, indexMeta);
 
-        return new PageMemorySortedIndexStorage(
-                indexDescriptor,
-                indexFreeList,
-                sortedIndexTree,
-                indexMetaTree,
-                indexMeta.lastBuiltRowIdUuid()
-        );
+        return new PageMemorySortedIndexStorage(indexMeta, indexDescriptor, indexFreeList, sortedIndexTree, indexMetaTree);
     }
 
     SortedIndexTree createSortedIndexTree(SortedIndexDescriptor indexDescriptor, IndexMeta indexMeta) {
@@ -316,7 +304,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             );
 
             if (initNew) {
-                boolean replaced = indexMetaTree.putx(new IndexMeta(indexDescriptor.id(), metaPageId, indexMeta.lastBuiltRowIdUuid()));
+                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.indexId(), metaPageId, indexMeta.nextRowIdUuidToBuild()));
 
                 assert !replaced;
             }

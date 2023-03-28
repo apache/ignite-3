@@ -138,7 +138,7 @@ public class PartitionCommandListenerTest {
     /** Primary index. */
     private final TableSchemaAwareIndexStorage pkStorage = new TableSchemaAwareIndexStorage(
             UUID.randomUUID(),
-            new TestHashIndexStorage(null, PARTITION_ID),
+            new TestHashIndexStorage(PARTITION_ID, null),
             BinaryRowConverter.keyExtractor(SCHEMA)
     );
 

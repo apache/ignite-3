@@ -17,14 +17,9 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
-import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
-import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
@@ -32,87 +27,49 @@ import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.pagememory.index.AbstractPageMemoryIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
-import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaKey;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
-import org.apache.ignite.internal.storage.pagememory.index.meta.UpdateLastBuildRowIdInvokeClosure;
-import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteStringFormatter;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of Hash index storage using Page Memory.
  */
-public class PageMemoryHashIndexStorage implements HashIndexStorage {
+public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage implements HashIndexStorage {
     private static final IgniteLogger LOG = Loggers.forClass(PageMemoryHashIndexStorage.class);
 
     /** Index descriptor. */
     private final HashIndexDescriptor descriptor;
 
-    /** Free list to store index columns. */
-    private volatile IndexColumnsFreeList freeList;
-
     /** Hash index tree instance. */
     private volatile HashIndexTree hashIndexTree;
-
-    /** Partition id. */
-    private final int partitionId;
-
-    /** Lowest possible RowId according to signed long ordering. */
-    private final RowId lowestRowId;
-
-    /** Highest possible RowId according to signed long ordering. */
-    private final RowId highestRowId;
-
-    /** Busy lock. */
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-    /** Current state of the storage. */
-    private final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
-
-    /** Index meta tree instance. */
-    private final IndexMetaTree indexMetaTree;
-
-    /** Last row ID that has been processed by an ongoing index build process, {@code null} if the process has finished. */
-    private volatile @Nullable RowId lastBuiltIndexRow;
 
     /**
      * Constructor.
      *
+     * @param indexMeta Index meta.
      * @param descriptor Hash index descriptor.
      * @param freeList Free list to store index columns.
      * @param hashIndexTree Hash index tree instance.
      * @param indexMetaTree Index meta tree instance.
-     * @param lastBuiltIndexRowUuid Last row ID uuid that has been processed by an ongoing index build process, {@code null} if the process
-     *      has finished.
      */
     public PageMemoryHashIndexStorage(
+            IndexMeta indexMeta,
             HashIndexDescriptor descriptor,
             IndexColumnsFreeList freeList,
             HashIndexTree hashIndexTree,
-            IndexMetaTree indexMetaTree,
-            @Nullable UUID lastBuiltIndexRowUuid
+            IndexMetaTree indexMetaTree
     ) {
+        super(indexMeta, hashIndexTree.partitionId(), freeList, indexMetaTree);
+
         this.descriptor = descriptor;
-        this.freeList = freeList;
         this.hashIndexTree = hashIndexTree;
-        this.indexMetaTree = indexMetaTree;
-
-        partitionId = hashIndexTree.partitionId();
-
-        lowestRowId = RowId.lowestRowId(partitionId);
-
-        highestRowId = RowId.highestRowId(partitionId);
-
-        lastBuiltIndexRow = lastBuiltIndexRowUuid == null ? null : new RowId(partitionId, lastBuiltIndexRowUuid);
     }
 
     @Override
@@ -244,64 +201,9 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
         }
     }
 
-    /**
-     * Closes the hash index storage.
-     */
-    public void close() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
-            StorageState state = this.state.get();
-
-            assert state == StorageState.CLOSED : state;
-
-            return;
-        }
-
-        busyLock.block();
-
+    @Override
+    public void closeStructures() {
         hashIndexTree.close();
-    }
-
-    private <V> V busy(Supplier<V> supplier) {
-        if (!busyLock.enterBusy()) {
-            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
-        }
-
-        try {
-            return supplier.get();
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Prepares storage for rebalancing.
-     *
-     * @throws StorageRebalanceException If there was an error when starting the rebalance.
-     */
-    public void startRebalance() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.REBALANCE)) {
-            throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
-        }
-
-        // Changed storage states and expect all storage operations to stop soon.
-        busyLock.block();
-
-        try {
-            this.hashIndexTree.close();
-        } finally {
-            busyLock.unblock();
-        }
-    }
-
-    /**
-     * Completes the rebalancing of the storage.
-     *
-     * @throws StorageRebalanceException If there is an error while completing the storage rebalance.
-     */
-    public void completeRebalance() {
-        if (!state.compareAndSet(StorageState.REBALANCE, StorageState.RUNNABLE)) {
-            throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
-        }
     }
 
     /**
@@ -316,62 +218,5 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
 
         this.freeList = freeList;
         this.hashIndexTree = hashIndexTree;
-    }
-
-    private String createStorageInfo() {
-        return IgniteStringFormatter.format("indexId={}, partitionId={}", descriptor.id(), partitionId);
-    }
-
-    /**
-     * Prepares the storage for cleanup.
-     *
-     * <p>After cleanup (successful or not), method {@link #finishCleanup()} must be called.
-     */
-    public void startCleanup() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLEANUP)) {
-            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
-        }
-
-        // Changed storage states and expect all storage operations to stop soon.
-        busyLock.block();
-
-        try {
-            hashIndexTree.close();
-        } finally {
-            busyLock.unblock();
-        }
-    }
-
-    /**
-     * Finishes cleanup up the storage.
-     */
-    public void finishCleanup() {
-        state.compareAndSet(StorageState.CLEANUP, StorageState.RUNNABLE);
-    }
-
-    @Override
-    public @Nullable RowId getLastBuiltRowId() {
-        return busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
-
-            return lastBuiltIndexRow;
-        });
-    }
-
-    @Override
-    public void setLastBuiltRowId(@Nullable RowId rowId) {
-        busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
-
-            try {
-                indexMetaTree.invoke(new IndexMetaKey(indexDescriptor().id()), null, new UpdateLastBuildRowIdInvokeClosure(rowId));
-
-                lastBuiltIndexRow = rowId;
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Error setting last build row ID: [{}, rowId={}]", e, createStorageInfo(), rowId);
-            }
-
-            return null;
-        });
     }
 }

@@ -265,17 +265,12 @@ public class RocksDbTableStorage implements MvTableStorage {
                             break;
 
                         case SORTED_INDEX:
-                            UUID indexId = sortedIndexId(cf.name());
-
-                            ColumnFamily previous = sortedIndexColumnFamilyByIndexId.put(indexId, cf);
-
-                            assert previous == null;
+                            sortedIndexColumnFamilyByIndexId.put(sortedIndexId(cf.name()), cf);
 
                             break;
 
                         default:
-                            throw new StorageException("Unidentified column family [name=" + cf.name() + ", table="
-                                    + getTableName() + ']');
+                            throw new StorageException("Unidentified column family [name={}, table={}]", cf.name(), getTableName());
                     }
                 }
 

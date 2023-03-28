@@ -33,22 +33,18 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.StorageClosedException;
-import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
-import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Test implementation of MV sorted index storage.
  */
-public class TestSortedIndexStorage implements SortedIndexStorage {
+public class TestSortedIndexStorage extends AbstractTestIndexStorage implements SortedIndexStorage {
     private static final Object NULL = new Object();
 
     /**
@@ -59,20 +55,14 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
     private final SortedIndexDescriptor descriptor;
 
-    private volatile boolean closed;
-
-    private volatile boolean rebalance;
-
-    private volatile @Nullable RowId lastBuiltRowId;
-
     /**
      * Constructor.
      */
-    public TestSortedIndexStorage(SortedIndexDescriptor descriptor, int partitionId) {
+    public TestSortedIndexStorage(int partitionId, SortedIndexDescriptor descriptor) {
+        super(partitionId);
+
         this.descriptor = descriptor;
         this.index = new ConcurrentSkipListMap<>(new BinaryTupleComparator(descriptor));
-
-        lastBuiltRowId = RowId.lowestRowId(partitionId);
     }
 
     @Override
@@ -81,31 +71,8 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
     }
 
     @Override
-    public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        checkStorageClosedOrInProcessOfRebalance();
-
-        Iterator<RowId> iterator = index.getOrDefault(key.byteBuffer(), emptyNavigableMap()).keySet().iterator();
-
-        return new Cursor<>() {
-            @Override
-            public void close() {
-                // No-op.
-            }
-
-            @Override
-            public boolean hasNext() {
-                checkStorageClosedOrInProcessOfRebalance();
-
-                return iterator.hasNext();
-            }
-
-            @Override
-            public RowId next() {
-                checkStorageClosedOrInProcessOfRebalance();
-
-                return iterator.next();
-            }
-        };
+    Iterator<RowId> getRowIdIteratorForGetByBinaryTuple(BinaryTuple key) {
+        return index.getOrDefault(key.byteBuffer(), emptyNavigableMap()).keySet().iterator();
     }
 
     @Override
@@ -178,25 +145,8 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
         buffer.put(0, (byte) (flags | BinaryTupleCommon.EQUALITY_FLAG));
     }
 
-    /**
-     * Destroys the storage and the data in it.
-     */
-    public void destroy() {
-        closed = true;
-
-        clear0();
-    }
-
-    /**
-     * Removes all index data.
-     */
-    public void clear() {
-        checkStorageClosedOrInProcessOfRebalance();
-
-        index.clear();
-    }
-
-    private void clear0() {
+    @Override
+    void clear0() {
         index.clear();
     }
 
@@ -327,75 +277,10 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
         }
     }
 
-    private void checkStorageClosed() {
-        if (closed) {
-            throw new StorageClosedException();
-        }
-    }
-
-    private void checkStorageClosedOrInProcessOfRebalance() {
-        checkStorageClosed();
-
-        if (rebalance) {
-            throw new StorageRebalanceException("Storage in the process of rebalancing");
-        }
-    }
-
-    /**
-     * Starts rebalancing for the storage.
-     */
-    public void startRebalance() {
-        checkStorageClosed();
-
-        rebalance = true;
-
-        clear0();
-    }
-
-    /**
-     * Aborts rebalance of the storage.
-     */
-    public void abortRebalance() {
-        checkStorageClosed();
-
-        if (!rebalance) {
-            return;
-        }
-
-        rebalance = false;
-
-        clear0();
-    }
-
-    /**
-     * Completes rebalance of the storage.
-     */
-    public void finishRebalance() {
-        checkStorageClosed();
-
-        assert rebalance;
-
-        rebalance = false;
-    }
-
     /**
      * Returns all indexed row ids.
      */
     public Set<RowId> allRowsIds() {
         return index.values().stream().flatMap(m -> m.keySet().stream()).collect(Collectors.toSet());
-    }
-
-    @Override
-    public @Nullable RowId getLastBuiltRowId() {
-        checkStorageClosedOrInProcessOfRebalance();
-
-        return lastBuiltRowId;
-    }
-
-    @Override
-    public void setLastBuiltRowId(@Nullable RowId rowId) {
-        checkStorageClosedOrInProcessOfRebalance();
-
-        lastBuiltRowId = rowId;
     }
 }

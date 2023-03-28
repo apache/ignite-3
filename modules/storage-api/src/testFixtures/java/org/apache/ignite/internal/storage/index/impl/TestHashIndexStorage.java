@@ -28,35 +28,25 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.StorageClosedException;
-import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
-import org.apache.ignite.internal.util.Cursor;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Test-only implementation of a {@link HashIndexStorage}.
  */
-public class TestHashIndexStorage implements HashIndexStorage {
+public class TestHashIndexStorage extends AbstractTestIndexStorage implements HashIndexStorage {
     private final ConcurrentMap<ByteBuffer, Set<RowId>> index = new ConcurrentHashMap<>();
 
     private final HashIndexDescriptor descriptor;
 
-    private volatile boolean closed;
-
-    private volatile boolean rebalance;
-
-    private volatile @Nullable RowId lastBuiltRowId;
-
     /**
      * Constructor.
      */
-    public TestHashIndexStorage(HashIndexDescriptor descriptor, int partitionId) {
-        this.descriptor = descriptor;
+    public TestHashIndexStorage(int partitionId, HashIndexDescriptor descriptor) {
+        super(partitionId);
 
-        lastBuiltRowId = RowId.lowestRowId(partitionId);
+        this.descriptor = descriptor;
     }
 
     @Override
@@ -65,31 +55,8 @@ public class TestHashIndexStorage implements HashIndexStorage {
     }
 
     @Override
-    public Cursor<RowId> get(BinaryTuple key) {
-        checkStorageClosedOrInProcessOfRebalance();
-
-        Iterator<RowId> iterator = index.getOrDefault(key.byteBuffer(), Set.of()).iterator();
-
-        return new Cursor<>() {
-            @Override
-            public void close() {
-                // No-op.
-            }
-
-            @Override
-            public boolean hasNext() {
-                checkStorageClosedOrInProcessOfRebalance();
-
-                return iterator.hasNext();
-            }
-
-            @Override
-            public RowId next() {
-                checkStorageClosedOrInProcessOfRebalance();
-
-                return iterator.next();
-            }
-        };
+    Iterator<RowId> getRowIdIteratorForGetByBinaryTuple(BinaryTuple key) {
+        return index.getOrDefault(key.byteBuffer(), Set.of()).iterator();
     }
 
     @Override
@@ -134,74 +101,8 @@ public class TestHashIndexStorage implements HashIndexStorage {
     }
 
     @Override
-    public void destroy() {
-        closed = true;
-
-        clear0();
-    }
-
-    /**
-     * Removes all index data.
-     */
-    public void clear() {
-        checkStorageClosedOrInProcessOfRebalance();
-
-        clear0();
-    }
-
-    private void clear0() {
+    void clear0() {
         index.clear();
-    }
-
-    private void checkStorageClosed() {
-        if (closed) {
-            throw new StorageClosedException();
-        }
-    }
-
-    private void checkStorageClosedOrInProcessOfRebalance() {
-        checkStorageClosed();
-
-        if (rebalance) {
-            throw new StorageRebalanceException("Storage in the process of rebalancing");
-        }
-    }
-
-    /**
-     * Starts rebalancing of the storage.
-     */
-    public void startRebalance() {
-        checkStorageClosed();
-
-        rebalance = true;
-
-        clear0();
-    }
-
-    /**
-     * Aborts rebalance of the storage.
-     */
-    public void abortRebalance() {
-        checkStorageClosed();
-
-        if (!rebalance) {
-            return;
-        }
-
-        rebalance = false;
-
-        clear0();
-    }
-
-    /**
-     * Completes rebalance of the storage.
-     */
-    public void finishRebalance() {
-        checkStorageClosed();
-
-        assert rebalance;
-
-        rebalance = false;
     }
 
     /**
@@ -209,19 +110,5 @@ public class TestHashIndexStorage implements HashIndexStorage {
      */
     public Set<RowId> allRowsIds() {
         return index.values().stream().flatMap(Set::stream).collect(Collectors.toSet());
-    }
-
-    @Override
-    public @Nullable RowId getLastBuiltRowId() {
-        checkStorageClosedOrInProcessOfRebalance();
-
-        return lastBuiltRowId;
-    }
-
-    @Override
-    public void setLastBuiltRowId(@Nullable RowId rowId) {
-        checkStorageClosedOrInProcessOfRebalance();
-
-        lastBuiltRowId = rowId;
     }
 }

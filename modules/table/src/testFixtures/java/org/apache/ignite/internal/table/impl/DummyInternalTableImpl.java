@@ -255,7 +255,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                 indexId,
-                new TestHashIndexStorage(null, PART_ID),
+                new TestHashIndexStorage(PART_ID, null),
                 row2Tuple
         ));
 

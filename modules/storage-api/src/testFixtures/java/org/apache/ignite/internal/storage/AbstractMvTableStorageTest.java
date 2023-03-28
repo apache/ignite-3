@@ -730,54 +730,42 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @Test
-    void testIndexLastBuildRowId() {
+    void testNextRowIdToBuilt() {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
 
-        IndexStorage sortedIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id());
         IndexStorage hashIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx.id());
+        IndexStorage sortedIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id());
 
-        assertEquals(sortedIndexStorage.getLastBuiltRowId(), RowId.lowestRowId(PARTITION_ID));
-        assertEquals(hashIndexStorage.getLastBuiltRowId(), RowId.lowestRowId(PARTITION_ID));
+        assertThat(hashIndexStorage.getNextRowIdToBuild(), equalTo(RowId.lowestRowId(PARTITION_ID)));
+        assertThat(sortedIndexStorage.getNextRowIdToBuild(), equalTo(RowId.lowestRowId(PARTITION_ID)));
 
-        // Let's check the update of the lastBuiltRowId.
-        RowId newRowId0 = new RowId(PARTITION_ID, 1, 1);
-        RowId newRowId1 = new RowId(PARTITION_ID, 2, 2);
+        RowId rowId0 = new RowId(PARTITION_ID);
+        RowId rowId1 = new RowId(PARTITION_ID);
 
         mvPartitionStorage.runConsistently(() -> {
-            sortedIndexStorage.setLastBuiltRowId(newRowId0);
-            hashIndexStorage.setLastBuiltRowId(newRowId1);
+            hashIndexStorage.setNextRowIdToBuild(rowId0);
+            sortedIndexStorage.setNextRowIdToBuild(rowId1);
 
             return null;
         });
 
-        assertEquals(sortedIndexStorage.getLastBuiltRowId(), newRowId0);
-        assertEquals(hashIndexStorage.getLastBuiltRowId(), newRowId1);
-
-        // Let's check null lastBuiltRowId.
-        mvPartitionStorage.runConsistently(() -> {
-            sortedIndexStorage.setLastBuiltRowId(null);
-            hashIndexStorage.setLastBuiltRowId(null);
-
-            return null;
-        });
-
-        assertNull(sortedIndexStorage.getLastBuiltRowId());
-        assertNull(hashIndexStorage.getLastBuiltRowId());
+        assertThat(hashIndexStorage.getNextRowIdToBuild(), equalTo(rowId0));
+        assertThat(sortedIndexStorage.getNextRowIdToBuild(), equalTo(rowId1));
     }
 
     @Test
-    void testIndexLastBuildRowIdAfterRestart() {
+    void testNextRowIdToBuiltAfterRestart() {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
 
-        IndexStorage sortedIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id());
         IndexStorage hashIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx.id());
+        IndexStorage sortedIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id());
 
-        RowId newRowId0 = new RowId(PARTITION_ID, 1, 1);
-        RowId newRowId1 = new RowId(PARTITION_ID, 2, 2);
+        RowId rowId0 = new RowId(PARTITION_ID);
+        RowId rowId1 = new RowId(PARTITION_ID);
 
         mvPartitionStorage.runConsistently(() -> {
-            sortedIndexStorage.setLastBuiltRowId(newRowId0);
-            hashIndexStorage.setLastBuiltRowId(newRowId1);
+            hashIndexStorage.setNextRowIdToBuild(rowId0);
+            sortedIndexStorage.setNextRowIdToBuild(rowId1);
 
             return null;
         });
@@ -793,15 +781,15 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         getOrCreateMvPartition(PARTITION_ID);
 
-        IndexStorage sortedIndexStorageRestarted = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id());
         IndexStorage hashIndexStorageRestarted = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx.id());
+        IndexStorage sortedIndexStorageRestarted = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id());
 
         if (tableStorage.isVolatile()) {
-            assertEquals(sortedIndexStorageRestarted.getLastBuiltRowId(), RowId.lowestRowId(PARTITION_ID));
-            assertEquals(hashIndexStorageRestarted.getLastBuiltRowId(), RowId.lowestRowId(PARTITION_ID));
+            assertThat(hashIndexStorageRestarted.getNextRowIdToBuild(), equalTo(RowId.lowestRowId(PARTITION_ID)));
+            assertThat(sortedIndexStorageRestarted.getNextRowIdToBuild(), equalTo(RowId.lowestRowId(PARTITION_ID)));
         } else {
-            assertEquals(sortedIndexStorageRestarted.getLastBuiltRowId(), newRowId0);
-            assertEquals(hashIndexStorageRestarted.getLastBuiltRowId(), newRowId1);
+            assertThat(hashIndexStorageRestarted.getNextRowIdToBuild(), equalTo(rowId0));
+            assertThat(sortedIndexStorageRestarted.getNextRowIdToBuild(), equalTo(rowId1));
         }
     }
 

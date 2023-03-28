@@ -33,7 +33,7 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaKey;
  * <ul>
  *     <li>Index ID - {@link UUID} (16 bytes);</li>
  *     <li>Index root page ID - long (8 bytes);</li>
- *     <li>Last row ID for which the index was built - {@link UUID} (16 bytes).</li>
+ *     <li>Row ID uuid for which the index needs to be built - {@link UUID} (16 bytes).</li>
  * </ul>
  */
 public interface IndexMetaIo {
@@ -46,16 +46,22 @@ public interface IndexMetaIo {
     /** Index tree meta page id offset - long (8 bytes). */
     int INDEX_TREE_META_PAGE_ID_OFFSET = INDEX_ID_LSB_OFFSET + Long.BYTES;
 
-    /** Offset of the {@link UUID#getMostSignificantBits() most significant bits} of last row ID for which index was built (8 bytes). */
-    int LAST_BUILT_ROW_ID_UUID_MSB_OFFSET = INDEX_TREE_META_PAGE_ID_OFFSET + Long.BYTES;
+    /**
+     * Offset of the {@link UUID#getMostSignificantBits() most significant bits} of Row ID uuid for which the index needs to be built (8
+     * bytes).
+     */
+    int NEXT_ROW_ID_TO_BUILT_MSB_OFFSET = INDEX_TREE_META_PAGE_ID_OFFSET + Long.BYTES;
 
-    /** Offset of the {@link UUID#getLeastSignificantBits() least significant bits} of last row ID for which index was built (8 bytes). */
-    int LAST_BUILT_ROW_ID_UUID_LSB_OFFSET = LAST_BUILT_ROW_ID_UUID_MSB_OFFSET + Long.BYTES;
+    /**
+     * Offset of the {@link UUID#getLeastSignificantBits() least significant bits} of Row ID uuid for which the index needs to be built (8
+     * bytes).
+     */
+    int NEXT_ROW_ID_TO_BUILT_LSB_OFFSET = NEXT_ROW_ID_TO_BUILT_MSB_OFFSET + Long.BYTES;
 
     /** Payload size in bytes. */
     int SIZE_IN_BYTES = 2 * Long.BYTES /* Index ID - {@link UUID} (16 bytes) */
             + Long.BYTES /* Index root page ID - long (8 bytes) */
-            + 2 * Long.BYTES /* Last row ID for which the index was built - {@link UUID} (16 bytes) */;
+            + 2 * Long.BYTES /* Row ID uuid for which the index needs to be built - {@link UUID} (16 bytes) */;
 
     /**
      * Returns an offset of the element inside the page.
@@ -69,19 +75,19 @@ public interface IndexMetaIo {
      *
      * @param pageAddr Page address.
      * @param idx Element's index.
-     * @param indexMetaKey Lookup index meta.
+     * @param indexMeta Lookup index meta.
      * @return Comparison result.
      */
-    default int compare(long pageAddr, int idx, IndexMetaKey indexMetaKey) {
+    default int compare(long pageAddr, int idx, IndexMetaKey indexMeta) {
         int elementOffset = offset(idx);
 
-        int cmp = Long.compare(getLong(pageAddr, elementOffset + INDEX_ID_MSB_OFFSET), indexMetaKey.indexId().getMostSignificantBits());
+        int cmp = Long.compare(getLong(pageAddr, elementOffset + INDEX_ID_MSB_OFFSET), indexMeta.indexId().getMostSignificantBits());
 
         if (cmp != 0) {
             return cmp;
         }
 
-        return Long.compare(getLong(pageAddr, elementOffset + INDEX_ID_LSB_OFFSET), indexMetaKey.indexId().getLeastSignificantBits());
+        return Long.compare(getLong(pageAddr, elementOffset + INDEX_ID_LSB_OFFSET), indexMeta.indexId().getLeastSignificantBits());
     }
 
     /**
@@ -98,13 +104,14 @@ public interface IndexMetaIo {
 
         long indexTreeMetaPageId = getLong(pageAddr, elementOffset + INDEX_TREE_META_PAGE_ID_OFFSET);
 
-        long lastBuiltRowIdUuidMsb = getLong(pageAddr, elementOffset + LAST_BUILT_ROW_ID_UUID_MSB_OFFSET);
-        long lastBuiltRowIdUuidLsb = getLong(pageAddr, elementOffset + LAST_BUILT_ROW_ID_UUID_LSB_OFFSET);
+        long nextRowIdUuidToBuiltMsb = getLong(pageAddr, elementOffset + NEXT_ROW_ID_TO_BUILT_MSB_OFFSET);
+        long nextRowIdUuidToBuiltLsb = getLong(pageAddr, elementOffset + NEXT_ROW_ID_TO_BUILT_LSB_OFFSET);
 
-        UUID lastBuiltRowIdUuid = lastBuiltRowIdUuidMsb == 0L && lastBuiltRowIdUuidLsb == 0L ? null
-                : new UUID(lastBuiltRowIdUuidMsb, lastBuiltRowIdUuidLsb);
+        UUID nextRowIdUuid = nextRowIdUuidToBuiltMsb == 0L && nextRowIdUuidToBuiltLsb == 0L
+                ? null
+                : new UUID(nextRowIdUuidToBuiltMsb, nextRowIdUuidToBuiltLsb);
 
-        return new IndexMeta(new UUID(indexIdMsb, indexIdLsb), indexTreeMetaPageId, lastBuiltRowIdUuid);
+        return new IndexMeta(new UUID(indexIdMsb, indexIdLsb), indexTreeMetaPageId, nextRowIdUuid);
     }
 
     /**
@@ -134,14 +141,12 @@ public interface IndexMetaIo {
 
         putLong(pageAddr, off + INDEX_TREE_META_PAGE_ID_OFFSET, row.metaPageId());
 
-        UUID lastBuiltRowIdUuid = row.lastBuiltRowIdUuid();
+        UUID nextRowIdUuidToBuild = row.nextRowIdUuidToBuild();
 
-        if (lastBuiltRowIdUuid == null) {
-            putLong(pageAddr, off + LAST_BUILT_ROW_ID_UUID_MSB_OFFSET, 0L);
-            putLong(pageAddr, off + LAST_BUILT_ROW_ID_UUID_LSB_OFFSET, 0L);
-        } else {
-            putLong(pageAddr, off + LAST_BUILT_ROW_ID_UUID_MSB_OFFSET, lastBuiltRowIdUuid.getMostSignificantBits());
-            putLong(pageAddr, off + LAST_BUILT_ROW_ID_UUID_LSB_OFFSET, lastBuiltRowIdUuid.getLeastSignificantBits());
-        }
+        long nextRowIdUuidToBuildMsb = nextRowIdUuidToBuild == null ? 0L : nextRowIdUuidToBuild.getMostSignificantBits();
+        long nextRowIdUuidToBuildLsb = nextRowIdUuidToBuild == null ? 0L : nextRowIdUuidToBuild.getLeastSignificantBits();
+
+        putLong(pageAddr, off + NEXT_ROW_ID_TO_BUILT_MSB_OFFSET, nextRowIdUuidToBuildMsb);
+        putLong(pageAddr, off + NEXT_ROW_ID_TO_BUILT_LSB_OFFSET, nextRowIdUuidToBuildLsb);
     }
 }

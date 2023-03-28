@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.index;
 
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.util.Cursor;
@@ -38,7 +39,7 @@ public interface IndexStorage {
      * Adds the given index row to the index.
      *
      * @apiNote This method <b>must</b> always be called inside the corresponding partition's
-     *     {@link org.apache.ignite.internal.storage.MvPartitionStorage#runConsistently} closure.
+     *     {@link MvPartitionStorage#runConsistently} closure.
      *
      * @throws StorageException If failed to put data.
      */
@@ -50,29 +51,29 @@ public interface IndexStorage {
      * <p>Removing a non-existent row is a no-op.
      *
      * @apiNote This method <b>must</b> always be called inside the corresponding partition's
-     *     {@link org.apache.ignite.internal.storage.MvPartitionStorage#runConsistently} closure.
+     *     {@link MvPartitionStorage#runConsistently} closure.
      *
      * @throws StorageException If failed to remove data.
      */
     void remove(IndexRow row) throws StorageException;
 
     /**
-     * Returns the last row ID that has been processed by an ongoing index build process or {@code null} if the process has finished.
+     * Returns the row ID for which the index needs to be built, {@code null} means that the index building has completed.
      *
      * <p>If index building has not started yet, it will return {@link RowId#lowestRowId(int)}.
      *
-     * @throws StorageException If failed to get the last row ID.
+     * @throws StorageException If failed to get the row ID.
      */
-    @Nullable RowId getLastBuiltRowId();
+    @Nullable RowId getNextRowIdToBuild() throws StorageException;
 
     /**
-     * Sets last row ID for which the index was built, {@code null} means index building is finished.
+     * Sets the row ID for which the index needs to be built, {@code null} means that the index is built.
      *
      * @apiNote This method <b>must</b> always be called inside the corresponding partition's
-     *     {@link org.apache.ignite.internal.storage.MvPartitionStorage#runConsistently} closure.
+     *      {@link MvPartitionStorage#runConsistently} closure.
      *
      * @param rowId Row ID.
-     * @throws StorageException If failed to set the last row ID.
+     * @throws StorageException If failed to set the row ID.
      */
-    void setLastBuiltRowId(@Nullable RowId rowId);
+    void setNextRowIdToBuild(@Nullable RowId rowId) throws StorageException;
 }

@@ -18,13 +18,12 @@
 package org.apache.ignite.internal.storage.pagememory.index.meta;
 
 import java.util.UUID;
-import org.apache.ignite.internal.tostring.S;
 
 /**
  * Index meta key.
  */
 public class IndexMetaKey {
-    protected final UUID indexId;
+    private final UUID indexId;
 
     /**
      * Constructor.
@@ -36,14 +35,9 @@ public class IndexMetaKey {
     }
 
     /**
-     * Returns index ID.
+     * Returns the index ID.
      */
     public UUID indexId() {
         return indexId;
-    }
-
-    @Override
-    public String toString() {
-        return S.toString(IndexMetaKey.class, this);
     }
 }

@@ -427,7 +427,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                         indexId,
-                        new TestHashIndexStorage(null, partId),
+                        new TestHashIndexStorage(partId, null),
                         row2Tuple
                 ));
 

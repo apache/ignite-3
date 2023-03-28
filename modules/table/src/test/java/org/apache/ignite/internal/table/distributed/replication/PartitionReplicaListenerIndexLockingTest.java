@@ -131,7 +131,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
                 PK_INDEX_ID,
-                new TestHashIndexStorage(null, PART_ID),
+                new TestHashIndexStorage(PART_ID, null),
                 row2HashKeyConverter
         );
         pkStorage = new Lazy<>(() -> hashIndexStorage);
@@ -146,13 +146,13 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(
                 SORTED_INDEX_ID,
-                new TestSortedIndexStorage(
+                new TestSortedIndexStorage(PART_ID,
                         new SortedIndexDescriptor(
                                 SORTED_INDEX_ID,
                                 List.of(new SortedIndexColumnDescriptor(
                                         "val", NativeTypes.INT32, false, true
                                 ))
-                        ), PART_ID),
+                        )),
                 row2SortKeyConverter
         );
 

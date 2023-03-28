@@ -20,10 +20,14 @@ package org.apache.ignite.internal.storage.rocksdb;
 import static java.lang.ThreadLocal.withInitial;
 import static java.nio.ByteBuffer.allocateDirect;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.PARTITION_ID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ROW_ID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.getRowIdUuid;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.putRowIdUuid;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.UUID;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -36,12 +40,6 @@ import org.rocksdb.Slice;
 
 /** Helper for the partition data. */
 class PartitionDataHelper implements ManuallyCloseable {
-    /** Commit partition id size. */
-    static final int PARTITION_ID_SIZE = Short.BYTES;
-
-    /** UUID size in bytes. */
-    static final int ROW_ID_SIZE = 2 * Long.BYTES;
-
     /** Position of row id inside the key. */
     static final int ROW_ID_OFFSET = Short.BYTES;
 
@@ -72,12 +70,7 @@ class PartitionDataHelper implements ManuallyCloseable {
     /** Value offset (if transaction state is present). */
     static final int VALUE_OFFSET = VALUE_HEADER_SIZE;
 
-    /** {@link UUID} size in bytes. */
-    static final int ROW_ID_UUID_SIZE = 2 * Long.BYTES;
-
     static final ByteOrder TABLE_ROW_BYTE_ORDER = ByteBufferRow.ORDER;
-
-    static final ByteOrder KEY_BYTE_ORDER = ByteOrder.BIG_ENDIAN;
 
     /** Thread-local direct buffer instance to read keys from RocksDB. */
     static final ThreadLocal<ByteBuffer> MV_KEY_BUFFER = withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(KEY_BYTE_ORDER));
@@ -123,54 +116,35 @@ class PartitionDataHelper implements ManuallyCloseable {
     }
 
     void putDataKey(ByteBuffer dataKeyBuffer, RowId rowId, HybridTimestamp timestamp) {
+        assert rowId.partitionId() == partitionId : "rowPartitionId=" + rowId.partitionId() + ", storagePartitionId=" + partitionId;
+
         dataKeyBuffer.putShort((short) partitionId);
-        putRowId(dataKeyBuffer, rowId);
+        putRowIdUuid(dataKeyBuffer, rowId.uuid());
         putTimestampDesc(dataKeyBuffer, timestamp);
 
         dataKeyBuffer.flip();
     }
 
     void putGcKey(ByteBuffer gcKeyBuffer, RowId rowId, HybridTimestamp timestamp) {
+        assert rowId.partitionId() == partitionId : "rowPartitionId=" + rowId.partitionId() + ", storagePartitionId=" + partitionId;
+
         gcKeyBuffer.putShort((short) partitionId);
         putTimestampNatural(gcKeyBuffer, timestamp);
-        putRowId(gcKeyBuffer, rowId);
+        putRowIdUuid(gcKeyBuffer, rowId.uuid());
 
         gcKeyBuffer.flip();
     }
 
     void putRowId(ByteBuffer keyBuffer, RowId rowId) {
-        assert rowId.partitionId() == partitionId : rowId;
-        assert keyBuffer.order() == KEY_BYTE_ORDER;
+        assert rowId.partitionId() == partitionId : "rowPartitionId=" + rowId.partitionId() + ", storagePartitionId=" + partitionId;
 
         putRowIdUuid(keyBuffer, rowId.uuid());
-    }
-
-    static void putRowIdUuid(ByteBuffer buffer, UUID uuid) {
-        assert buffer.order() == KEY_BYTE_ORDER;
-
-        buffer.putLong(normalize(uuid.getMostSignificantBits()));
-        buffer.putLong(normalize(uuid.getLeastSignificantBits()));
-    }
-
-    static UUID readRowIdUuid(ByteBuffer buffer, int offset) {
-        return new UUID(normalize(buffer.getLong(offset)), normalize(buffer.getLong(offset + Long.BYTES)));
     }
 
     RowId getRowId(ByteBuffer keyBuffer, int offset) {
         assert partitionId == (keyBuffer.getShort(0) & 0xFFFF);
 
-        return new RowId(partitionId, readRowIdUuid(keyBuffer, offset));
-    }
-
-    /**
-     * Converts signed long into a new long value, that when written in Big Endian, will preserve the comparison order if compared
-     * lexicographically as an array of unsigned bytes. For example, values {@code -1} and {@code 0}, when written in BE, will become
-     * {@code 0xFF..F} and {@code 0x00..0}, and lose their ascending order.
-     *
-     * <p>Flipping the sign bit will change the situation: {@code -1 -> 0x7F..F} and {@code 0 -> 0x80..0}.
-     */
-    static long normalize(long value) {
-        return value ^ (1L << 63);
+        return new RowId(partitionId, getRowIdUuid(keyBuffer, offset));
     }
 
     /**

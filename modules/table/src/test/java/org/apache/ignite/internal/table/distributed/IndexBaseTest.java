@@ -55,7 +55,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public abstract class IndexBaseTest extends BaseMvStoragesTest {
-    private static final int PARTITION_ID = 1;
+    protected static final int PARTITION_ID = 0;
 
     private static final BinaryTupleSchema TUPLE_SCHEMA = BinaryTupleSchema.createRowSchema(schemaDescriptor);
 
@@ -86,7 +86,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         UUID sortedIndexId = UUID.randomUUID();
         UUID hashIndexId = UUID.randomUUID();
 
-        pkInnerStorage = new TestHashIndexStorage(null, PARTITION_ID);
+        pkInnerStorage = new TestHashIndexStorage(PARTITION_ID, null);
 
         TableSchemaAwareIndexStorage pkStorage = new TableSchemaAwareIndexStorage(
                 pkIndexId,
@@ -94,10 +94,10 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                 PK_INDEX_BINARY_TUPLE_CONVERTER::toTuple
         );
 
-        sortedInnerStorage = new TestSortedIndexStorage(new SortedIndexDescriptor(sortedIndexId, List.of(
+        sortedInnerStorage = new TestSortedIndexStorage(PARTITION_ID, new SortedIndexDescriptor(sortedIndexId, List.of(
                 new SortedIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false, true),
                 new SortedIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false, true)
-        )), PARTITION_ID);
+        )));
 
         TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(
                 sortedIndexId,
@@ -105,10 +105,10 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                 USER_INDEX_BINARY_TUPLE_CONVERTER::toTuple
         );
 
-        hashInnerStorage = new TestHashIndexStorage(new HashIndexDescriptor(hashIndexId, List.of(
+        hashInnerStorage = new TestHashIndexStorage(PARTITION_ID, new HashIndexDescriptor(hashIndexId, List.of(
                 new HashIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false),
                 new HashIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false)
-        )), PARTITION_ID);
+        )));
 
         TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
                 hashIndexId,
@@ -135,7 +135,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
     }
 
     static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row) {
-        TablePartitionId partitionId = new TablePartitionId(UUID.randomUUID(), 1);
+        TablePartitionId partitionId = new TablePartitionId(UUID.randomUUID(), PARTITION_ID);
 
         handler.handleUpdate(
                 TX_ID,
@@ -226,7 +226,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         };
 
         void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row) {
-            TablePartitionId tablePartitionId = new TablePartitionId(UUID.randomUUID(), 1);
+            TablePartitionId tablePartitionId = new TablePartitionId(UUID.randomUUID(), PARTITION_ID);
 
             addWrite(handler, tablePartitionId, rowUuid, row);
         }
