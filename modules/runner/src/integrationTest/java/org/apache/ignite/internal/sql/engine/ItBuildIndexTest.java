@@ -132,7 +132,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
 
                 IndexStorage index = internalTable.storage().getOrCreateIndex(partitionId, indexId);
 
-                assertTrue(waitForCondition(() -> index.getLastBuiltRowId() == null, 10, 10_000));
+                assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, 10_000));
             }
         }
     }

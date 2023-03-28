@@ -449,6 +449,6 @@ public class StorageUpdateHandler {
 
         assert lastRowId != null || finish : "indexId=" + indexId + ", partitionId=" + partitionId;
 
-        index.storage().setLastBuiltRowId(finish ? null : lastRowId);
+        index.storage().setNextRowIdToBuild(finish ? null : lastRowId);
     }
 }

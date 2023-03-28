@@ -163,11 +163,4 @@ public final class RowId implements Serializable, Comparable<RowId> {
     public String toString() {
         return "RowId [partitionId=" + partitionId() + ", uuid=" + uuid + ']';
     }
-
-    /**
-     * Returns {@code true} if the lowest row ID.
-     */
-    public boolean isLowest() {
-        return uuid.getMostSignificantBits() == Long.MIN_VALUE && uuid.getLeastSignificantBits() == Long.MIN_VALUE;
-    }
 }

@@ -81,7 +81,7 @@ public class StorageUpdateHandlerTest {
         verify(indexStorage).put(rowVersions1.get(0), rowId1);
         verify(indexStorage, never()).put(rowVersions1.get(1), rowId1);
 
-        verify(indexStorage.storage()).setLastBuiltRowId(rowId1);
+        verify(indexStorage.storage()).setNextRowIdToBuild(rowId1);
 
         // Let's check one more batch - it will be the finishing one.
         RowId rowId2 = new RowId(PARTITION_ID, UUID.randomUUID());
@@ -94,7 +94,7 @@ public class StorageUpdateHandlerTest {
 
         verify(indexStorage).put(rowVersions2.get(0), rowId2);
 
-        verify(indexStorage.storage()).setLastBuiltRowId(null);
+        verify(indexStorage.storage()).setNextRowIdToBuild(null);
     }
 
     private static TableSchemaAwareIndexStorage createIndexStorage() {
