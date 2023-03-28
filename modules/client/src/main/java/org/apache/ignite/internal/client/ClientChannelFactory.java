@@ -15,33 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.deployment;
+package org.apache.ignite.internal.client;
 
-import io.micronaut.context.annotation.Bean;
-import io.micronaut.context.annotation.Factory;
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.deployunit.IgniteDeployment;
-import org.apache.ignite.internal.rest.RestFactory;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 
 /**
- * Factory of {@link DeploymentManagementController}.
+ * Client channel factory.
  */
-@Factory
-public class CodeDeploymentRestFactory implements RestFactory {
-    private IgniteDeployment igniteDeployment;
-
-    public CodeDeploymentRestFactory(IgniteDeployment igniteDeployment) {
-        this.igniteDeployment = igniteDeployment;
-    }
-
-    @Bean
-    @Singleton
-    public IgniteDeployment deployment() {
-        return igniteDeployment;
-    }
-
-    @Override
-    public void cleanResources() {
-        igniteDeployment = null;
-    }
+@FunctionalInterface
+public interface ClientChannelFactory {
+    /**
+     * Creates a new client channel.
+     *
+     * @param cfg Configuration.
+     * @param multiplexer Multiplexer.
+     * @param metrics Metric source.
+     * @return Channel future.
+     */
+    CompletableFuture<ClientChannel> create(
+            ClientChannelConfiguration cfg,
+            ClientConnectionMultiplexer multiplexer,
+            ClientMetricSource metrics);
 }
