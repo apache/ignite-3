@@ -38,7 +38,8 @@ public static class ManyConnectionsBenchmark
         var cfg = new IgniteClientConfiguration
         {
             RetryPolicy = new RetryNonePolicy(),
-            Logger = new ConsoleLogger { MinLevel = LogLevel.Warn }
+            Logger = new ConsoleLogger { MinLevel = LogLevel.Warn },
+            HeartbeatInterval = TimeSpan.FromMinutes(5)
         };
 
         var clients = new List<IIgniteClient>();
