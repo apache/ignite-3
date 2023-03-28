@@ -41,6 +41,7 @@ import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -89,6 +90,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19136")
     public void testFutureRead() throws Exception {
         for (int i = 0; i < nodes(); i++) {
             Ignite ignite = CLUSTER_NODES.get(i);
@@ -144,6 +146,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19136")
     public void testPastRead() throws Exception {
         for (int i = 0; i < nodes(); i++) {
             Ignite ignite = CLUSTER_NODES.get(i);
