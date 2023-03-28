@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raftsnapshot;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest.waitForIndex;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -237,6 +238,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * to knock-out the follower to make it require a snapshot installation).
      */
     @Test
+    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19121")
     void leaderFeedsFollowerWithSnapshotWithKnockoutPartitionNetwork() throws Exception {
         testLeaderFeedsFollowerWithSnapshot(Cluster.NodeKnockout.PARTITION_NETWORK, DEFAULT_STORAGE_ENGINE);
     }
@@ -327,6 +330,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         String sql = "create table test (key int primary key, value varchar(20))"
                 + (DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? "" : " engine " + storageEngine)
                 + " with primary_zone='TEST_ZONE'";
+
+        waitForIndex("test_PK");
 
         cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);
@@ -565,6 +570,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             PersistentPageMemoryStorageEngine.ENGINE_NAME,
             VolatilePageMemoryStorageEngine.ENGINE_NAME
     })
+    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19121")
     void leaderFeedsFollowerWithSnapshot(String storageEngine) throws Exception {
         testLeaderFeedsFollowerWithSnapshot(DEFAULT_KNOCKOUT, storageEngine);
     }
@@ -665,6 +672,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * Tests that, if a snapshot installation fails for some reason, a subsequent retry due to a timeout happens successfully.
      */
     @Test
+    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19121")
     void snapshotInstallationRepeatsOnTimeout() throws Exception {
         prepareClusterForInstallingSnapshotToNode2(DEFAULT_KNOCKOUT, DEFAULT_STORAGE_ENGINE, theCluster -> {
             theCluster.node(0).dropMessages(dropFirstSnapshotMetaResponse());
@@ -718,6 +727,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * stuck because one 'download' task will remain unfinished forever.
      */
     @Test
+    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19121")
     void snapshotInstallTimeoutDoesNotBreakSubsequentInstallsWhenSecondAttemptIsIdenticalToFirst() throws Exception {
         AtomicBoolean snapshotInstallFailedDueToIdenticalRetry = new AtomicBoolean(false);
 
@@ -756,6 +767,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     @Test
+    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19121")
     void testChangeLeaderOnInstallSnapshotInMiddle() throws Exception {
         CompletableFuture<Void> sentSnapshotMetaResponseFormNode1Future = new CompletableFuture<>();
 
@@ -830,6 +843,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * </ol>
      */
     @Test
+    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19121")
     void testChangeLeaderDuringSnapshotInstallationToLeaderWithEnoughLog() throws Exception {
         CompletableFuture<Void> sentSnapshotMetaResponseFormNode0Future = new CompletableFuture<>();
 

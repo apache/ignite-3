@@ -104,6 +104,9 @@ public interface IgniteClient extends Ignite {
         /** SSL configuration. */
         private @Nullable SslConfiguration sslConfiguration;
 
+        /** Metrics enabled flag. */
+        private boolean metricsEnabled;
+
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
          * If port is not set then Ignite will generate multiple addresses for default port range. See {@link
@@ -303,6 +306,18 @@ public interface IgniteClient extends Ignite {
         }
 
         /**
+         * Enables or disables JMX metrics.
+         *
+         * @param metricsEnabled Metrics enabled flag.
+         * @return This instance.
+         */
+        public Builder metricsEnabled(boolean metricsEnabled) {
+            this.metricsEnabled = metricsEnabled;
+
+            return this;
+        }
+
+        /**
          * Builds the client.
          *
          * @return Ignite client.
@@ -329,8 +344,8 @@ public interface IgniteClient extends Ignite {
                     heartbeatTimeout,
                     retryPolicy,
                     loggerFactory,
-                    sslConfiguration
-            );
+                    sslConfiguration,
+                    metricsEnabled);
 
             return TcpIgniteClient.startAsync(cfg);
         }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
+import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import org.apache.calcite.plan.RelOptPlanner;
@@ -27,7 +28,6 @@ import org.apache.calcite.rel.logical.LogicalTableFunctionScan;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableFunctionScan;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 
 /**
  * Rule to convert a {@link LogicalTableFunctionScan} to an {@link IgniteTableFunctionScan}.
@@ -47,7 +47,7 @@ public class TableFunctionScanConverterRule extends AbstractIgniteConverterRule<
 
         RelTraitSet traitSet = rel.getTraitSet()
                 .replace(IgniteConvention.INSTANCE)
-                .replace(IgniteDistributions.broadcast());
+                .replace(single());
 
         return new IgniteTableFunctionScan(rel.getCluster(), traitSet, rel.getCall(), rel.getRowType());
     }

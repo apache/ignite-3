@@ -329,11 +329,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                 assertEquals(i + 1, updCnts[i], "Invalid update count: " + i);
             }
 
-            if (!e.getMessage().contains("PK unique constraint is violated")) {
-                log.error("Invalid exception: ", e);
-
-                fail();
-            }
+            assertThat(e.toString(), e.getMessage(), containsString("PK unique constraint is violated"));
 
             assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
             assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");

@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.deployunit;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static org.apache.ignite.deployment.DeploymentStatus.DEPLOYED;
-import static org.apache.ignite.deployment.DeploymentStatus.OBSOLETE;
-import static org.apache.ignite.deployment.DeploymentStatus.REMOVING;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -28,11 +28,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.deployment.DeploymentStatus;
-import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.deployment.IgniteDeployment;
-import org.apache.ignite.deployment.UnitStatus;
-import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitAlreadyExistsException;
@@ -43,16 +38,16 @@ import org.apache.ignite.internal.deployunit.metastore.EntrySubscriber;
 import org.apache.ignite.internal.deployunit.metastore.SortedListAccumulator;
 import org.apache.ignite.internal.deployunit.metastore.UnitStatusAccumulator;
 import org.apache.ignite.internal.deployunit.metastore.UnitsAccumulator;
+import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.network.ClusterService;
 
 /**
  * Deployment manager implementation.
  */
-public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent {
+public class DeploymentManagerImpl implements IgniteDeployment {
 
     private static final IgniteLogger LOG = Loggers.forClass(DeploymentManagerImpl.class);
 

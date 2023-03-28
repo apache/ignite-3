@@ -377,7 +377,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                                 + "with primary_zone='%s'", tableName, zoneName)))
         );
 
-        assertInstanceOf(DistributionZoneNotFoundException.class, exception.getCause().getCause());
+        assertInstanceOf(DistributionZoneNotFoundException.class, exception.getCause());
     }
 
     /**
