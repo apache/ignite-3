@@ -239,6 +239,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
     private <T> T queryWithRetry(int nodeIndex, String sql, Function<ResultSet<SqlRow>, T> extractor) {
         Predicate<RuntimeException> retryForever = (e) -> false;
+        // TODO: IGNITE-18423 remove this retry machinery when the networking bug is fixed as replication timeout seems to be caused by it.
         return withRetry(() -> cluster.query(nodeIndex, sql, extractor), retryForever);
     }
 
