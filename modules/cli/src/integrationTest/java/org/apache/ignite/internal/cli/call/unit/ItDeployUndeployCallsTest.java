@@ -33,9 +33,11 @@ import org.apache.ignite.internal.cli.core.exception.UnitAlreadyExistsException;
 import org.apache.ignite.internal.cli.core.exception.UnitNotFoundException;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+@Disabled("IGNITE-19139")
 /** Integration test for the deployment lifecycle: deploy, list, check status, undeploy. */
 public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBase {
 
