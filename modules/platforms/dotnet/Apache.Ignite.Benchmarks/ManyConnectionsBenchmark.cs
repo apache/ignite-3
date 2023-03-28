@@ -45,6 +45,7 @@ public static class ManyConnectionsBenchmark
 
         Console.WriteLine("Establishing connections...");
         var sw = Stopwatch.StartNew();
+        TimeSpan lastElapsed = default;
 
         for (int i = 0; i < Connections; i++)
         {
@@ -60,8 +61,9 @@ public static class ManyConnectionsBenchmark
 
             clients.Add(await IgniteClient.StartAsync(cfg));
 
-            if (i % 1000 == 0)
+            if (sw.Elapsed - lastElapsed > TimeSpan.FromSeconds(2))
             {
+                lastElapsed = sw.Elapsed;
                 Console.WriteLine($"{i} connections established in {sw.Elapsed}.");
             }
         }
