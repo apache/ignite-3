@@ -30,8 +30,12 @@ using Log;
 /// <code>gradlew :ignite-runner:runnerPlatformBenchmark</code>.
 /// <para />
 /// Results on i9-12900H, .NET SDK 6.0.405, Ubuntu 22.04:
+/// HeartbeatInterval 5 minutes:
 /// 250000 connections established in 00:00:41.0241231.
 /// 250000 GetTable calls in 00:00:16.2082830.
+/// HeartbeatInterval 1 second:
+/// 250000 connections established in 00:01:09.8284032.
+/// 250000 GetTable calls in 00:00:51.2001008.
 /// </summary>
 public static class ManyConnectionsBenchmark
 {
