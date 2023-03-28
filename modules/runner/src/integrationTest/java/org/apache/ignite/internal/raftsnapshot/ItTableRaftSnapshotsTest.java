@@ -903,7 +903,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
     /**
      * This exception is thrown to indicate that an operation can not possibly succeed after some error condition.
-     * For example there is no reason retry an operation that inserts a certain key after receiving a duplicate key error.
+     * For example there is no reason to retry an operation that inserts a certain key after receiving a duplicate key error.
      */
     private static final class UnableToRetry extends RuntimeException {
 
