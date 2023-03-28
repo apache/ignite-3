@@ -171,8 +171,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * until {@code shouldStop} returns {@code true}, in that case this method throws {@link UnableToRetry} exception.
      */
     private static <T> T withRetry(Supplier<T> action, Predicate<RuntimeException> shouldStop) {
-        // TODO: IGNITE-18423 remove this retry machinery when the networking bug is fixed as replication timeout seems to be caused by it.
-
         int maxAttempts = 4;
         int sleepMillis = 500;
 
@@ -210,6 +208,14 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     private void executeDmlWithRetry(int nodeIndex, String statement) {
         // We should retry a DML statement until we either succeed or receive a duplicate key error.
         // The number of attempts is bounded because we know that node is going to recover.
+        Predicate<RuntimeException> stopOnDuplicateKeyError = (e) -> {
+            if (e instanceof IgniteException) {
+                IgniteException ie = (IgniteException) e;
+                return ie.code() == Sql.DUPLICATE_KEYS_ERR;
+            } else {
+                return false;
+            }
+        };
 
         try {
             withRetry(() -> {
@@ -217,15 +223,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
                     executeUpdate(statement, session);
                 });
                 return null;
-            }, (e) -> {
-                if (e instanceof IgniteException) {
-                    IgniteException ie = (IgniteException) e;
-                    // if it is duplicate key error we should not retry anymore.
-                    return ie.code() == Sql.DUPLICATE_KEYS_ERR;
-                } else {
-                    return false;
-                }
-            });
+            }, stopOnDuplicateKeyError);
 
         } catch (UnableToRetry ignore) {
             // Duplicate key exception was caught.
