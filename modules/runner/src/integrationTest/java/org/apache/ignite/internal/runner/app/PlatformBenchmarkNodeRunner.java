@@ -59,6 +59,7 @@ public class PlatformBenchmarkNodeRunner {
 
         Object clientHandlerModule = IgniteTestUtils.getFieldValue(startedNodes.get(0), "clientHandlerModule");
         ClientHandlerMetricSource metrics = IgniteTestUtils.getFieldValue(clientHandlerModule, "metrics");
+        metrics.enable();
 
         while (true) {
             Thread.sleep(3000);
