@@ -220,10 +220,9 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             }, (e) -> {
                 if (e instanceof IgniteException) {
                     IgniteException ie = (IgniteException) e;
-                    // if error matches we should not retry any further.
+                    // if it is duplicate key error we should not retry anymore.
                     return ie.code() == Sql.DUPLICATE_KEYS_ERR;
                 } else {
-                    // Do not stop retrying.
                     return false;
                 }
             });
