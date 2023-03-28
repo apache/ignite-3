@@ -155,7 +155,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     @Override
     public void cancel() {
-        // Cancellation from one thread must not block cancellations from other threads. hence this check.
+        // Cancellation from one thread must not block cancellations from other threads, hence this check.
         if (!cancellationGuard.compareAndSet(false, true)) {
             return;
         }
