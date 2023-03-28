@@ -178,6 +178,8 @@ namespace Apache.Ignite.Internal
                     logger.Debug($"Connection established [remoteAddress={socket.RemoteEndPoint}]");
                 }
 
+                Metrics.ConnectionsEstablished.Add(1);
+
                 Stream stream = new NetworkStream(socket, ownsSocket: true);
 
                 if (configuration.SslStreamFactory is { } sslStreamFactory &&
