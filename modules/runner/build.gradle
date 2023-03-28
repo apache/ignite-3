@@ -116,6 +116,7 @@ dependencies {
         exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
     }
     integrationTestImplementation project(':ignite-metastorage')
+    integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation project(':ignite-transactions')
     integrationTestImplementation project(':ignite-code-deployment')

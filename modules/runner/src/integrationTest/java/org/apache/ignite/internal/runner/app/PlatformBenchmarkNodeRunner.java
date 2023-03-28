@@ -21,7 +21,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 
 /**
  * Helper class for non-Java platform benchmarks (.NET, C++, Python, ...).
@@ -56,10 +57,16 @@ public class PlatformBenchmarkNodeRunner {
 
         List<Ignite> startedNodes = PlatformTestNodeRunner.startNodes(BASE_PATH, nodesBootstrapCfg);
 
-        Thread.sleep(Long.MAX_VALUE);
+        Object clientHandlerModule = IgniteTestUtils.getFieldValue(startedNodes.get(0), "clientHandlerModule");
+        ClientHandlerMetricSource metrics = IgniteTestUtils.getFieldValue(clientHandlerModule, "metrics");
 
-        for (Ignite node : startedNodes) {
-            IgnitionManager.stop(node.name());
+        while (true) {
+            Thread.sleep(3000);
+            System.out.println();
+            System.out.println("sessionsActive: " + metrics.sessionsActive());
+            System.out.println("sessionsAccepted: " + metrics.sessionsAccepted());
+            System.out.println("requestsActive: " + metrics.requestsActive());
+            System.out.println("requestsProcessed: " + metrics.requestsProcessed());
         }
     }
 }
