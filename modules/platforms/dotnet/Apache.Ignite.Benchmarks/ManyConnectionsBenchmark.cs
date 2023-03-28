@@ -28,6 +28,10 @@ using Log;
 /// <para />
 /// Requires a running Ignite node started with PlatformBenchmarkNodeRunner:
 /// <code>gradlew :ignite-runner:runnerPlatformBenchmark</code>.
+/// <para />
+/// Results on i9-12900H, .NET SDK 6.0.405, Ubuntu 22.04:
+/// 250000 connections established in 00:00:41.0241231.
+/// 250000 GetTable calls in 00:00:16.2082830.
 /// </summary>
 public static class ManyConnectionsBenchmark
 {
