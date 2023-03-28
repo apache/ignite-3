@@ -44,6 +44,7 @@ import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
@@ -67,7 +68,9 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.jul.NoOpHandler;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NetworkMessage;
@@ -164,9 +167,10 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     /**
-     * Executes the given action, retrying it up to a few times if a transient failure occurs (like node unavailability).
+     * Executes the given action, retrying it up to a few times if a transient failure occurs (like node unavailability) or
+     * until {@code shouldStop} returns {@code true}, in that case this method throws {@link UnableToRetry} exception.
      */
-    private static <T> T withRetry(Supplier<T> action) {
+    private static <T> T withRetry(Supplier<T> action, Predicate<RuntimeException> shouldStop) {
         // TODO: IGNITE-18423 remove this retry machinery when the networking bug is fixed as replication timeout seems to be caused by it.
 
         int maxAttempts = 4;
@@ -176,6 +180,9 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             try {
                 return action.get();
             } catch (RuntimeException e) {
+                if (shouldStop.test(e)) {
+                    throw new UnableToRetry(e);
+                }
                 if (attempt < maxAttempts && isTransientFailure(e)) {
                     LOG.warn("Attempt " + attempt + " failed, going to retry", e);
                 } else {
@@ -197,6 +204,35 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         throw new AssertionError("Should not reach here");
     }
 
+    /**
+     * Retries the given UPDATE/INSERT statement until it succeed or receives duplicate key error.
+     */
+    private void executeDmlWithRetry(int nodeIndex, String statement) {
+        // We should retry a DML statement until we either succeed or receive a duplicate key error.
+        // The number of attempts is bounded because we know that node is going to recover.
+
+        try {
+            withRetry(() -> {
+                cluster.doInSession(nodeIndex, session -> {
+                    executeUpdate(statement, session);
+                });
+                return null;
+            }, (e) -> {
+                if (e instanceof IgniteException) {
+                    IgniteException ie = (IgniteException) e;
+                    // if error matches we should not retry any further.
+                    return ie.code() == Sql.DUPLICATE_KEYS_ERR;
+                } else {
+                    // Do not stop retrying.
+                    return false;
+                }
+            });
+
+        } catch (UnableToRetry ignore) {
+            // Duplicate key exception was caught.
+        }
+    }
+
     private static boolean isTransientFailure(RuntimeException e) {
         return hasCause(e, ReplicationTimeoutException.class, null)
                 || hasCause(e, IgniteInternalException.class, "Failed to send message to node")
@@ -205,7 +241,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     private <T> T queryWithRetry(int nodeIndex, String sql, Function<ResultSet<SqlRow>, T> extractor) {
-        return withRetry(() -> cluster.query(nodeIndex, sql, extractor));
+        Predicate<RuntimeException> retryForever = (e) -> false;
+        return withRetry(() -> cluster.query(nodeIndex, sql, extractor), retryForever);
     }
 
     /**
@@ -238,8 +275,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * to knock-out the follower to make it require a snapshot installation).
      */
     @Test
-    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19121")
     void leaderFeedsFollowerWithSnapshotWithKnockoutPartitionNetwork() throws Exception {
         testLeaderFeedsFollowerWithSnapshot(Cluster.NodeKnockout.PARTITION_NETWORK, DEFAULT_STORAGE_ENGINE);
     }
@@ -317,9 +352,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         cluster.knockOutNode(2, knockout);
 
-        cluster.doInSession(0, session -> {
-            executeUpdate("insert into test(key, value) values (1, 'one')", session);
-        });
+        executeDmlWithRetry(0, "insert into test(key, value) values (1, 'one')");
 
         // Make sure AppendEntries from leader to follower is impossible, making the leader to use InstallSnapshot.
         causeLogTruncationOnSolePartitionLeader();
@@ -568,8 +601,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             PersistentPageMemoryStorageEngine.ENGINE_NAME,
             VolatilePageMemoryStorageEngine.ENGINE_NAME
     })
-    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19121")
     void leaderFeedsFollowerWithSnapshot(String storageEngine) throws Exception {
         testLeaderFeedsFollowerWithSnapshot(DEFAULT_KNOCKOUT, storageEngine);
     }
@@ -582,6 +613,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     void entriesKeepAppendedAfterSnapshotInstallation() throws Exception {
         feedNode2WithSnapshotOfOneRow(DEFAULT_KNOCKOUT);
 
+        // this should be possibly be replaced with executeDmlWithRetry
         cluster.doInSession(0, session -> {
             executeUpdate("insert into test(key, value) values (2, 'two')", session);
         });
@@ -670,8 +702,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * Tests that, if a snapshot installation fails for some reason, a subsequent retry due to a timeout happens successfully.
      */
     @Test
-    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19121")
     void snapshotInstallationRepeatsOnTimeout() throws Exception {
         prepareClusterForInstallingSnapshotToNode2(DEFAULT_KNOCKOUT, DEFAULT_STORAGE_ENGINE, theCluster -> {
             theCluster.node(0).dropMessages(dropFirstSnapshotMetaResponse());
@@ -725,8 +755,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * stuck because one 'download' task will remain unfinished forever.
      */
     @Test
-    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19121")
     void snapshotInstallTimeoutDoesNotBreakSubsequentInstallsWhenSecondAttemptIsIdenticalToFirst() throws Exception {
         AtomicBoolean snapshotInstallFailedDueToIdenticalRetry = new AtomicBoolean(false);
 
@@ -765,8 +793,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     @Test
-    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19121")
     void testChangeLeaderOnInstallSnapshotInMiddle() throws Exception {
         CompletableFuture<Void> sentSnapshotMetaResponseFormNode1Future = new CompletableFuture<>();
 
@@ -841,8 +867,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * </ol>
      */
     @Test
-    // Hangs at org.apache.ignite.internal.sql.engine.message.MessageServiceImpl.send(MessageServiceImpl.java:98)
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19121")
     void testChangeLeaderDuringSnapshotInstallationToLeaderWithEnoughLog() throws Exception {
         CompletableFuture<Void> sentSnapshotMetaResponseFormNode0Future = new CompletableFuture<>();
 
@@ -878,5 +902,18 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         List<IgniteBiTuple<Integer, String>> rows = queryWithRetry(2, "select * from test", ItTableRaftSnapshotsTest::readRows);
 
         assertThat(rows, is(List.of(new IgniteBiTuple<>(1, "one"))));
+    }
+
+    /**
+     * This exception is thrown to indicate that an operation can not possibly succeed some error condition.
+     * For example there is no reason retry an operation that inserts a certain key after receiving a duplicate key error.
+     */
+    private static final class UnableToRetry extends RuntimeException {
+
+        private static final long serialVersionUID = -504618429083573198L;
+
+        private UnableToRetry(Throwable cause) {
+            super(cause);
+        }
     }
 }
