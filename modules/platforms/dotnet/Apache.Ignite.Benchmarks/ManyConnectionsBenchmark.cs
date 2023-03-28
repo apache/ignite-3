@@ -25,11 +25,12 @@ using System.Threading.Tasks;
 /// <summary>
 /// Establishes many connections to the server node to see how it affects server-side performance.
 /// <para />
-/// Requires a running Ignite node started with PlatformBenchmarkNodeRunner.
+/// Requires a running Ignite node started with PlatformBenchmarkNodeRunner:
+/// <code>gradlew :ignite-runner:runnerPlatformBenchmark</code>.
 /// </summary>
 public static class ManyConnectionsBenchmark
 {
-    public const int Connections = 30_000;
+    public const int Connections = 100_000;
 
     public static async Task RunAsync()
     {
