@@ -31,7 +31,7 @@ using Log;
 /// </summary>
 public static class ManyConnectionsBenchmark
 {
-    public const int Connections = 500_000;
+    private const int Connections = 250_000;
 
     public static async Task RunAsync()
     {
@@ -51,11 +51,7 @@ public static class ManyConnectionsBenchmark
         for (int i = 0; i < Connections; i++)
         {
             // Use different loopback addresses to avoid running out of ports.
-            var addr1 = i % 255;
-            var addr2 = (i >> 8) % 255;
-            var addr3 = (i >> 16) % 255;
-
-            var addr = $"127.{addr1}.{addr2}.{addr3}:10420";
+            var addr = $"127.0.0.{i % 255}:10420";
 
             cfg.Endpoints.Clear();
             cfg.Endpoints.Add(addr);
@@ -81,10 +77,5 @@ public static class ManyConnectionsBenchmark
         Console.WriteLine($"{Connections} GetTable calls in {sw.Elapsed}.");
         Console.WriteLine("Press any key to close connections...");
         Console.ReadKey();
-
-        foreach (var client in clients)
-        {
-            client.Dispose();
-        }
     }
 }
