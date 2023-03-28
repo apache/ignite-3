@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using Log;
 
 /// <summary>
 /// Establishes many connections to the server node to see how it affects server-side performance.
@@ -30,13 +31,14 @@ using System.Threading.Tasks;
 /// </summary>
 public static class ManyConnectionsBenchmark
 {
-    public const int Connections = 100_000;
+    public const int Connections = 500_000;
 
     public static async Task RunAsync()
     {
         var cfg = new IgniteClientConfiguration
         {
-            RetryPolicy = new RetryNonePolicy()
+            RetryPolicy = new RetryNonePolicy(),
+            Logger = new ConsoleLogger { MinLevel = LogLevel.Warn }
         };
 
         var clients = new List<IIgniteClient>();
