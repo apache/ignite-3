@@ -613,7 +613,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     void entriesKeepAppendedAfterSnapshotInstallation() throws Exception {
         feedNode2WithSnapshotOfOneRow(DEFAULT_KNOCKOUT);
 
-        // this should be possibly be replaced with executeDmlWithRetry
+        // this should be possibly replaced with executeDmlWithRetry.
         cluster.doInSession(0, session -> {
             executeUpdate("insert into test(key, value) values (2, 'two')", session);
         });
