@@ -23,23 +23,25 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiFunction;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.deployment.IgniteDeployment;
 import org.apache.ignite.internal.client.compute.ClientCompute;
-import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.tx.ClientTransactions;
 import org.apache.ignite.internal.jdbc.proto.ClientMessage;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of {@link IgniteClient} over TCP protocol.
@@ -63,6 +65,12 @@ public class TcpIgniteClient implements IgniteClient {
     /** Compute. */
     private final ClientSql sql;
 
+    /** Metric manager. */
+    private final @Nullable MetricManager metricManager;
+
+    /** Metrics. */
+    private final ClientMetricSource metrics;
+
     /**
      * Constructor.
      *
@@ -78,20 +86,34 @@ public class TcpIgniteClient implements IgniteClient {
      * @param chFactory Channel factory.
      * @param cfg Config.
      */
-    private TcpIgniteClient(
-            BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, CompletableFuture<ClientChannel>> chFactory,
-            IgniteClientConfiguration cfg
-    ) {
+    private TcpIgniteClient(ClientChannelFactory chFactory, IgniteClientConfiguration cfg) {
         assert chFactory != null;
         assert cfg != null;
 
         this.cfg = cfg;
 
-        ch = new ReliableChannel(chFactory, cfg);
+        metrics = new ClientMetricSource();
+        ch = new ReliableChannel(chFactory, cfg, metrics);
         tables = new ClientTables(ch);
         transactions = new ClientTransactions(ch);
         compute = new ClientCompute(ch, tables);
         sql = new ClientSql(ch);
+        metricManager = initMetricManager(cfg);
+    }
+
+    @Nullable
+    private MetricManager initMetricManager(IgniteClientConfiguration cfg) {
+        if (!cfg.metricsEnabled()) {
+            return null;
+        }
+
+        var metricManager = new MetricManager(ClientUtils.logger(cfg, MetricManager.class));
+        metricManager.start(List.of(new JmxExporter(ClientUtils.logger(cfg, JmxExporter.class))));
+
+        metricManager.registerSource(metrics);
+        metrics.enable();
+
+        return metricManager;
     }
 
     /**
@@ -177,6 +199,10 @@ public class TcpIgniteClient implements IgniteClient {
     @Override
     public void close() throws Exception {
         ch.close();
+
+        if (metricManager != null) {
+            metricManager.stop();
+        }
     }
 
     /** {@inheritDoc} */
@@ -195,6 +221,11 @@ public class TcpIgniteClient implements IgniteClient {
     @Override
     public List<ClusterNode> connections() {
         return ch.connections();
+    }
+
+    @TestOnly
+    public ClientMetricSource metrics() {
+        return metrics;
     }
 
     /**
