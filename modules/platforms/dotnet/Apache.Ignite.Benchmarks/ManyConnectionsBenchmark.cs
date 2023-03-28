@@ -46,6 +46,7 @@ public static class ManyConnectionsBenchmark
 
         for (int i = 0; i < Connections; i++)
         {
+            // Use different loopback addresses to avoid running out of ports.
             var addr1 = i % 255;
             var addr2 = (i >> 8) % 255;
             var addr3 = (i >> 16) % 255;
@@ -56,6 +57,11 @@ public static class ManyConnectionsBenchmark
             cfg.Endpoints.Add(addr);
 
             clients.Add(await IgniteClient.StartAsync(cfg));
+
+            if (i % 1000 == 0)
+            {
+                Console.WriteLine($"{i} connections established in {sw.Elapsed}.");
+            }
         }
 
         Console.WriteLine($"{Connections} connections established in {sw.Elapsed}.");
