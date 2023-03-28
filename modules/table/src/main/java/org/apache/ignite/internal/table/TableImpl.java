@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.CompletableFuture.allOf;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,7 +52,6 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -109,7 +109,7 @@ public class TableImpl implements Table {
      *
      * @return Table id as UUID.
      */
-    public @NotNull UUID tableId() {
+    public UUID tableId() {
         return tbl.tableId();
     }
 
@@ -132,8 +132,7 @@ public class TableImpl implements Table {
         return tbl;
     }
 
-    /** {@inheritDoc} */
-    @Override public @NotNull String name() {
+    @Override public String name() {
         return tbl.name();
     }
 
@@ -149,7 +148,7 @@ public class TableImpl implements Table {
     /**
      * Sets a schema view for the table.
      */
-    public void schemaView(@NotNull SchemaRegistry schemaReg) {
+    public void schemaView(SchemaRegistry schemaReg) {
         assert this.schemaReg == null : "Schema registry is already set [tableName=" + name() + ']';
 
         Objects.requireNonNull(schemaReg, "Schema registry must not be null [tableName=" + name() + ']');
@@ -157,25 +156,21 @@ public class TableImpl implements Table {
         this.schemaReg = schemaReg;
     }
 
-    /** {@inheritDoc} */
     @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
         return new RecordViewImpl<>(tbl, schemaReg, recMapper);
     }
 
-    /** {@inheritDoc} */
     @Override
     public RecordView<Tuple> recordView() {
         return new RecordBinaryViewImpl(tbl, schemaReg);
     }
 
-    /** {@inheritDoc} */
     @Override
     public <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper) {
         return new KeyValueViewImpl<>(tbl, schemaReg, keyMapper, valMapper);
     }
 
-    /** {@inheritDoc} */
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
         return new KeyValueBinaryViewImpl(tbl, schemaReg);
@@ -311,11 +306,7 @@ public class TableImpl implements Table {
                 )
         );
 
-        CompletableFuture<?> indexFuture = indexesToWait.remove(indexId);
-
-        if (indexFuture != null) {
-            indexFuture.complete(null);
-        }
+        completeRegisterIndex(indexId);
     }
 
     /**
@@ -346,11 +337,7 @@ public class TableImpl implements Table {
                 )
         );
 
-        CompletableFuture<?> indexFuture = indexesToWait.remove(indexId);
-
-        if (indexFuture != null) {
-            indexFuture.complete(null);
-        }
+        completeRegisterIndex(indexId);
     }
 
     /**
@@ -361,33 +348,21 @@ public class TableImpl implements Table {
     public void unregisterIndex(UUID indexId) {
         indexLockerFactories.remove(indexId);
         indexStorageAdapterFactories.remove(indexId);
+
+        CompletableFuture<?> indexToWaitFuture = indexesToWait.remove(indexId);
+
+        if (indexToWaitFuture != null) {
+            indexToWaitFuture.complete(null);
+        }
     }
 
     private void awaitIndexes() {
         // TODO: replace with actual call to ids supplier
-        List<UUID> indexIds = List.of(pkId()); // activeIndexIds.get();
-
         List<CompletableFuture<?>> toWait = new ArrayList<>();
 
-        for (UUID indexId : indexIds) {
-            if (indexLockerFactories.containsKey(indexId) && indexStorageAdapterFactories.containsKey(indexId)) {
-                continue;
-            }
+        toWait.add(pkId);
 
-            CompletableFuture<?> indexFuture = indexesToWait.computeIfAbsent(indexId, k -> new CompletableFuture<>());
-
-            // there is no synchronization between modification of index*Factories collections
-            // and indexesToWait collection, thus we may run into situation, when index was
-            // registered in the between of index existence check and registering a wait future.
-            // This second check aimed to resolve this race
-            if (indexLockerFactories.containsKey(indexId) && indexStorageAdapterFactories.containsKey(indexId)) {
-                indexesToWait.remove(indexId);
-
-                continue;
-            }
-
-            toWait.add(indexFuture);
-        }
+        toWait.addAll(indexesToWait.values());
 
         allOf(toWait.toArray(CompletableFuture[]::new)).join();
     }
@@ -396,10 +371,14 @@ public class TableImpl implements Table {
      * Prepares this table for being closed.
      */
     public void beforeClose() {
-        pkId.completeExceptionally(new IgniteInternalException(
+        IgniteInternalException closeTableException = new IgniteInternalException(
                 ErrorGroups.Table.TABLE_STOPPING_ERR,
                 "Table is being stopped: tableId=" + tableId()
-        ));
+        );
+
+        pkId.completeExceptionally(closeTableException);
+
+        indexesToWait.values().forEach(future -> future.completeExceptionally(closeTableException));
     }
 
     @FunctionalInterface
@@ -412,5 +391,25 @@ public class TableImpl implements Table {
     private interface IndexStorageAdapterFactory {
         /** Creates the index decorator for given partition. */
         TableSchemaAwareIndexStorage create(int partitionId);
+    }
+
+    /**
+     * Adds indexes to wait before inserting data into the table.
+     *
+     * @param indexIds Indexes Index IDs.
+     */
+    // TODO: IGNITE-19082 Needs to be redone/improved
+    public void addIndexesToWait(Collection<UUID> indexIds) {
+        for (UUID indexId : indexIds) {
+            indexesToWait.computeIfAbsent(indexId, uuid -> new CompletableFuture<>());
+        }
+    }
+
+    private void completeRegisterIndex(UUID indexId) {
+        CompletableFuture<?> indexToWaitFuture = indexesToWait.computeIfAbsent(indexId, uuid -> new CompletableFuture<>());
+
+        if (!indexToWaitFuture.isDone()) {
+            indexToWaitFuture.complete(null);
+        }
     }
 }

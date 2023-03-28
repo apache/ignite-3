@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
@@ -115,6 +116,7 @@ import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
@@ -673,14 +675,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return failedFuture(e);
             }
 
+            TableImpl table = tablesById.get(tblId);
+
+            // TODO: IGNITE-19082 Need another way to wait for indexes
+            table.addIndexesToWait(collectTableIndexes(tablesCfg.value(), tblId));
+
             for (int i = 0; i < partitions; i++) {
                 int partId = i;
 
                 Set<Assignment> oldPartAssignment = oldAssignments == null ? Set.of() : oldAssignments.get(partId);
 
                 Set<Assignment> newPartAssignment = newAssignments.get(partId);
-
-                TableImpl table = tablesById.get(tblId);
 
                 InternalTable internalTbl = table.internalTable();
 
@@ -1106,7 +1111,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 partitions, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
 
         // TODO: IGNITE-16288 directIndexIds should use async configuration API
-        var table = new TableImpl(internalTable, lockMgr, () -> CompletableFuture.supplyAsync(this::directIndexIds));
+        var table = new TableImpl(internalTable, lockMgr, () -> supplyAsync(this::directIndexIds, ioExecutor));
 
         tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
@@ -1528,7 +1533,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private CompletableFuture<List<Table>> tablesAsyncInternal() {
         // TODO: IGNITE-16288 directTableIds should use async configuration API
-        return CompletableFuture.supplyAsync(() -> inBusyLock(busyLock, this::directTableIds))
+        return supplyAsync(() -> inBusyLock(busyLock, this::directTableIds), ioExecutor)
                 .thenCompose(tableIds -> inBusyLock(busyLock, () -> {
                     var tableFuts = new CompletableFuture[tableIds.size()];
 
@@ -1677,7 +1682,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
         try {
             // TODO: IGNITE-16288 directTableId should use async configuration API
-            return CompletableFuture.supplyAsync(() -> inBusyLock(busyLock, () -> directTableId(name)))
+            return supplyAsync(() -> inBusyLock(busyLock, () -> directTableId(name)), ioExecutor)
                     .thenCompose(tableId -> inBusyLock(busyLock, () -> {
                         if (tableId == null) {
                             return completedFuture(null);
@@ -1701,7 +1706,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     public CompletableFuture<TableImpl> tableAsyncInternal(UUID id, boolean checkConfiguration) {
         CompletableFuture<Boolean> tblCfgFut = checkConfiguration
                 // TODO: IGNITE-16288 isTableConfigured should use async configuration API
-                ? CompletableFuture.supplyAsync(() -> inBusyLock(busyLock, () -> isTableConfigured(id)))
+                ? supplyAsync(() -> inBusyLock(busyLock, () -> isTableConfigured(id)), ioExecutor)
                 : completedFuture(true);
 
         return tblCfgFut.thenCompose(isCfg -> inBusyLock(busyLock, () -> {
@@ -2344,5 +2349,21 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         if (t instanceof NodeStoppingException) {
             nodeStoppingEx.set(true);
         }
+    }
+
+    private static Collection<UUID> collectTableIndexes(TablesView tablesConfig, UUID tableId) {
+        List<UUID> indexIds = new ArrayList<>();
+
+        NamedListView<? extends TableIndexView> indexes = tablesConfig.indexes();
+
+        for (int i = 0; i < indexes.size(); i++) {
+            TableIndexView indexConfig = indexes.get(i);
+
+            if (indexConfig.tableId().equals(tableId)) {
+                indexIds.add(indexConfig.id());
+            }
+        }
+
+        return indexIds;
     }
 }
