@@ -779,7 +779,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Restart storages.
         tableStorage.stop();
 
-        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration());
+        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration(), tableStorage.distributionZoneConfiguration());
 
         tableStorage.start();
 
