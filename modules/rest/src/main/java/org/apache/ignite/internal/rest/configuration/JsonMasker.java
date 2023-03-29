@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
  */
 public class JsonMasker {
 
-    private static final String MASKING_DIGIT = "*";
+    private static final String MASKING_STRING = "******";
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -56,7 +56,7 @@ public class JsonMasker {
 
     private JsonNode traverseAndMask(JsonNode target, Set<String> keysToMask) {
         if (target.isTextual() && keysToMask.isEmpty()) {
-            return new TextNode(maskString(target.textValue()));
+            return new TextNode(MASKING_STRING);
         }
 
         if (target.isArray()) {
@@ -80,10 +80,6 @@ public class JsonMasker {
         }
 
         return target;
-    }
-
-    private String maskString(String str) {
-        return MASKING_DIGIT.repeat(str.length());
     }
 
     private JsonNode stringToJsonNode(String str) {

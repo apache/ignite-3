@@ -32,7 +32,7 @@ import org.apache.ignite.lang.IgniteException;
 public abstract class AbstractConfigurationController {
 
     private final Set<String> keysToMask = Set.of("password");
-    private final Pattern sensitiveInfoprmationPattern = sensitiveInfoprmationPattern();
+    private final Pattern sensitiveInformationPattern = sensitiveInformationPattern();
     private final JsonMasker jsonMasker = new JsonMasker();
 
     /** Presentation of the configuration. */
@@ -48,7 +48,7 @@ public abstract class AbstractConfigurationController {
      * @return the presentation of configuration.
      */
     public String getConfiguration() {
-        return maskSensitiveInformation("", cfgPresentation.represent());
+        return maskSensitiveInformation(cfgPresentation.represent());
     }
 
     /**
@@ -84,13 +84,17 @@ public abstract class AbstractConfigurationController {
                 });
     }
 
+    private String maskSensitiveInformation(String configuration) {
+        return maskSensitiveInformation("", configuration);
+    }
+
     private String maskSensitiveInformation(String path, String configuration) {
-        boolean containsOnlySensitiveInformation = sensitiveInfoprmationPattern.matcher(path).find();
+        boolean containsOnlySensitiveInformation = sensitiveInformationPattern.matcher(path).find();
         Set<String> maskedKeys = containsOnlySensitiveInformation ? Collections.emptySet() : keysToMask;
         return jsonMasker.mask(configuration, maskedKeys).toString();
     }
 
-    private Pattern sensitiveInfoprmationPattern() {
+    private Pattern sensitiveInformationPattern() {
         String regexp = keysToMask.stream()
                 .map(it -> "(." + it + "$)")
                 .collect(Collectors.joining("|"));
