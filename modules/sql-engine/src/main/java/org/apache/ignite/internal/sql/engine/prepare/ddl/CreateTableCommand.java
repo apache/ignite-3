@@ -26,12 +26,6 @@ import org.jetbrains.annotations.Nullable;
  * CREATE TABLE statement.
  */
 public class CreateTableCommand extends AbstractTableDdlCommand {
-    /** Replicas number. */
-    private Integer replicas;
-
-    /** Number of partitions for the new table. */
-    private Integer partitions;
-
     /** Primary key columns. */
     private List<String> pkCols;
 
@@ -60,37 +54,6 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
      */
     public void primaryKeyColumns(List<String> pkCols) {
         this.pkCols = pkCols;
-    }
-
-    /**
-     * Get replicas count.
-     */
-    @Nullable
-    public Integer replicas() {
-        return replicas;
-    }
-
-    /**
-     * Set replicas count.
-     */
-    @Nullable
-    public void replicas(int repl) {
-        replicas = repl;
-    }
-
-    /**
-     * Get partitions count.
-     */
-    @Nullable
-    public Integer partitions() {
-        return partitions;
-    }
-
-    /**
-     * Set partitions count.
-     */
-    public void partitions(Integer parts) {
-        partitions = parts;
     }
 
     /**

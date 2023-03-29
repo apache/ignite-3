@@ -35,6 +35,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -78,7 +79,7 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
     public static void beforeAllBase(TestInfo testInfo) throws Exception {
         String nodeName = testNodeName(testInfo, TEST_PORT);
 
-        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, null, WORK_DIR.resolve(nodeName));
+        CompletableFuture<Ignite> future = TestIgnitionManager.start(nodeName, null, WORK_DIR.resolve(nodeName));
 
         InitParameters initParameters = InitParameters.builder()
                 .destinationNodeName(nodeName)

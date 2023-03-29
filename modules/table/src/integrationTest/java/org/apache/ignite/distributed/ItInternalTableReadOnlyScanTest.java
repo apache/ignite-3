@@ -33,7 +33,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class ItInternalTableReadOnlyScanTest extends ItAbstractInternalTableScanTest {
-    /** {@inheritDoc} */
     @Override
     protected Publisher<BinaryRow> scan(int part, InternalTransaction tx) {
         return internalTbl.scan(part, clock.now(), mock(ClusterNode.class));

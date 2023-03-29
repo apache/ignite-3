@@ -202,4 +202,9 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     public MvPartitionStorage getStorage() {
         return partitionStorage;
     }
+
+    @Override
+    public PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException {
+        return partitionStorage.scan(timestamp);
+    }
 }

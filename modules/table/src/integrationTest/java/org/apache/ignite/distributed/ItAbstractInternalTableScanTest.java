@@ -66,7 +66,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
@@ -96,7 +95,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     public void setUp(TestInfo testInfo) {
         when(mockStorage.scan(any(HybridTimestamp.class))).thenReturn(mock(PartitionTimestampCursor.class));
 
-        internalTbl = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class), mockStorage, ROW_SCHEMA);
+        internalTbl = new DummyInternalTableImpl(mock(ReplicaService.class), mockStorage, ROW_SCHEMA);
     }
 
     /**

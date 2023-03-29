@@ -131,4 +131,9 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     @Override
     public void close() {
     }
+
+    @Override
+    public PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException {
+        return partitionStorage.scan(timestamp);
+    }
 }

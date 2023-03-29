@@ -86,7 +86,7 @@ public class IndexManagerTest {
 
             Mockito.doReturn(inv.getArgument(1)).when(tbl).tableId();
 
-            return completedFuture(new TableImpl(tbl, new HeapLockManager(), () -> completedFuture(List.of())));
+            return completedFuture(new TableImpl(tbl, new HeapLockManager()));
         });
 
         SchemaManager schManager = mock(SchemaManager.class);
