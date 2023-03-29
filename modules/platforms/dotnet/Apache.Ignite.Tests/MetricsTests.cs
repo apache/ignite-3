@@ -73,9 +73,7 @@ public class MetricsTests
             _listener.Dispose();
         }
 
-        private void HandleEvent(Instrument instrument, int measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state)
-        {
+        private void HandleEvent(Instrument instrument, int measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state) =>
             _metrics.AddOrUpdate(instrument.Name, measurement, (_, val) => (int)val + measurement);
-        }
     }
 }
