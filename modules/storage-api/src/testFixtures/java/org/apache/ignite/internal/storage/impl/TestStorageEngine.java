@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.impl;
 import static org.mockito.Mockito.spy;
 
 import java.util.concurrent.ConcurrentSkipListMap;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
@@ -52,11 +53,13 @@ public class TestStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public MvTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg) throws StorageException {
+    public MvTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg,
+            DistributionZoneConfiguration distributionZoneCfg)
+            throws StorageException {
         String dataStorageName = tableCfg.dataStorage().name().value();
 
         assert dataStorageName.equals(ENGINE_NAME) : dataStorageName;
 
-        return spy(new TestMvTableStorage(tableCfg, tablesCfg));
+        return spy(new TestMvTableStorage(tableCfg, tablesCfg, distributionZoneCfg));
     }
 }

@@ -101,6 +101,7 @@ public class PlacementDriverReplicaSideTest {
 
         Replica replica = new Replica(
                 GRP_ID,
+                completedFuture(null),
                 mock(ReplicaListener.class),
                 storageIndexTracker,
                 raftClient,

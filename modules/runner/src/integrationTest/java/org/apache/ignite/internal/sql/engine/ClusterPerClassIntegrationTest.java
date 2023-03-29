@@ -230,6 +230,20 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
+     * Returns table index configuration of the given index at the given node, or {@code null} if no such index exists.
+     *
+     * @param node  A node.
+     * @param indexName  An index.
+     * @return  An index configuration.
+     */
+    public static @Nullable TableIndexConfiguration getIndexConfiguration(Ignite node, String indexName) {
+        return ((IgniteImpl) node).clusterConfiguration()
+                .getConfiguration(TablesConfiguration.KEY)
+                .indexes()
+                .get(indexName.toUpperCase());
+    }
+
+    /**
      * Executes the query and validates any asserts passed to the builder.
      *
      * @param qry Query to execute.
@@ -289,8 +303,10 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param partitions Partitions count.
      */
     protected static Table createTable(String name, int replicas, int partitions) {
+        sql(IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={};",
+                "ZONE_" + name.toUpperCase(), replicas, partitions));
         sql(IgniteStringFormatter.format("CREATE TABLE IF NOT EXISTS {} (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE) "
-                + "WITH replicas={}, partitions={}", name, replicas, partitions));
+                + "WITH PRIMARY_ZONE='{}'", name, "ZONE_" + name.toUpperCase()));
 
         return CLUSTER_NODES.get(0).tables().table(name);
     }
@@ -439,19 +455,17 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         );
     }
 
-    protected static void waitForIndex(String indexName) throws InterruptedException {
+    /**
+     * Waits for all nodes in the cluster to have the given index in the configuration.
+     *
+     * @param indexName  An index.
+     */
+    public static void waitForIndex(String indexName) throws InterruptedException {
         // FIXME: Wait for the index to be created on all nodes,
         //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18733 to avoid missed updates to the index.
         assertTrue(waitForCondition(
                 () -> CLUSTER_NODES.stream().map(node -> getIndexConfiguration(node, indexName)).allMatch(Objects::nonNull),
                 10_000)
         );
-    }
-
-    private static @Nullable TableIndexConfiguration getIndexConfiguration(Ignite node, String indexName) {
-        return ((IgniteImpl) node).clusterConfiguration()
-                .getConfiguration(TablesConfiguration.KEY)
-                .indexes()
-                .get(indexName.toUpperCase());
     }
 }

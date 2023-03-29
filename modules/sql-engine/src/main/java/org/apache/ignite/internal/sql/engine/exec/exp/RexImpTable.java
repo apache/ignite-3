@@ -229,6 +229,7 @@ import org.apache.calcite.sql.validate.SqlUserDefinedTableFunction;
 import org.apache.calcite.sql.validate.SqlUserDefinedTableMacro;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 
 /**
@@ -250,16 +251,11 @@ public class RexImpTable {
     private final Map<SqlOperator, RexCallImplementor> map = new HashMap<>();
 
     /** Placeholder for DEFAULT operator value. */
-    public static final Object DEFAULT_VALUE_PLACEHOLDER = new DefaultValuePlaceholder();
+    // TODO Remove this constant when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
+    public static final Object DEFAULT_VALUE_PLACEHOLDER = Placeholder.DEFAULT_VALUE;
 
     /** Placeholder for values, which expressions are not specified. */
-    public static final Object UNSPECIFIED_VALUE_PLACEHOLDER = new Object() {
-        /** {@inheritDoc} */
-        @Override
-        public String toString() {
-            return "<unspecified_value>";
-        }
-    };
+    public static final Object UNSPECIFIED_VALUE_PLACEHOLDER = Placeholder.UNSPECIFIED_VALUE;
 
     /**
      * Constructor.
@@ -513,6 +509,7 @@ public class RexImpTable {
         defineMethod(IS_NOT_DISTINCT_FROM, IgniteMethod.IS_NOT_DISTINCT_FROM.method(), NullPolicy.NONE);
 
         defineMethod(RAND_UUID, IgniteMethod.RAND_UUID.method(), NullPolicy.NONE);
+        defineMethod(IgniteSqlOperatorTable.GEN_RANDOM_UUID, IgniteMethod.GEN_RANDOM_UUID.method(), NullPolicy.NONE);
     }
 
     private void defineMethod(SqlOperator operator, String functionName, NullPolicy nullPolicy) {
@@ -2491,6 +2488,7 @@ public class RexImpTable {
     }
 
     /** Implementor for the {@code DEFAULT} function. */
+    // TODO Remove this class when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
     private static class DefaultImplementor extends AbstractRexCallImplementor {
         DefaultImplementor() {
             super(NullPolicy.NONE, false);
@@ -2579,10 +2577,10 @@ public class RexImpTable {
         };
     }
 
-    private static class DefaultValuePlaceholder {
-        @Override
-        public String toString() {
-            return "DEFAULT";
-        }
+    // We use enums for placeholders because enum serialization/deserialization guarantees to preserve object's identity.
+    private enum Placeholder {
+        // TODO Remove this enum element when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
+        DEFAULT_VALUE,
+        UNSPECIFIED_VALUE
     }
 }

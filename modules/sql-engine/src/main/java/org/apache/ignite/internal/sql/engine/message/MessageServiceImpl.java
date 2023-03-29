@@ -24,6 +24,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -95,7 +96,8 @@ public class MessageServiceImpl implements MessageService {
                 }
 
                 try {
-                    messagingSrvc.send(node, msg).join();
+                    // TODO Workaround for https://issues.apache.org/jira/browse/IGNITE-19088
+                    messagingSrvc.send(node, msg).get(1, TimeUnit.SECONDS);
                 } catch (Exception ex) {
                     if (ex instanceof IgniteInternalCheckedException) {
                         throw (IgniteInternalCheckedException) ex;

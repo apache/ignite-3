@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -54,6 +56,7 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Helper class for non-Java platform tests (.NET, C++, Python, ...). Starts nodes, populates tables and data for tests.
@@ -180,39 +183,7 @@ public class PlatformTestNodeRunner {
             return;
         }
 
-        IgniteUtils.deleteIfExists(BASE_PATH);
-        Files.createDirectories(BASE_PATH);
-
-        var sslPassword = "123456";
-        var trustStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/trust.jks"));
-        var keyStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/server.jks"));
-
-        List<CompletableFuture<Ignite>> igniteFutures = nodesBootstrapCfg.entrySet().stream()
-                .map(e -> {
-                    String nodeName = e.getKey();
-                    String config = e.getValue()
-                            .replace("KEYSTORE_PATH", keyStorePath)
-                            .replace("TRUSTSTORE_PATH", trustStorePath)
-                            .replace("SSL_STORE_PASS", sslPassword);
-
-                    return TestIgnitionManager.start(nodeName, config, BASE_PATH.resolve(nodeName));
-                })
-                .collect(toList());
-
-        String metaStorageNodeName = nodesBootstrapCfg.keySet().iterator().next();
-
-        InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNodeName)
-                .metaStorageNodeNames(List.of(metaStorageNodeName))
-                .clusterName("cluster")
-                .build();
-        IgnitionManager.init(initParameters);
-
-        System.out.println("Initialization complete");
-
-        List<Ignite> startedNodes = igniteFutures.stream().map(CompletableFuture::join).collect(toList());
-
-        System.out.println("Ignite nodes started");
+        List<Ignite> startedNodes = startNodes(BASE_PATH, nodesBootstrapCfg);
 
         createTables(startedNodes.get(0));
 
@@ -233,8 +204,56 @@ public class PlatformTestNodeRunner {
         }
     }
 
+    /**
+     * Start nodes.
+     *
+     * @param basePath Base path.
+     * @param nodeCfg Node configuration.
+     * @return Started nodes.
+     */
+    @NotNull
+    static List<Ignite> startNodes(Path basePath, Map<String, String> nodeCfg) throws IOException {
+        IgniteUtils.deleteIfExists(basePath);
+        Files.createDirectories(basePath);
+
+        var sslPassword = "123456";
+        var trustStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/trust.jks"));
+        var keyStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/server.jks"));
+
+        List<CompletableFuture<Ignite>> igniteFutures = nodeCfg.entrySet().stream()
+                .map(e -> {
+                    String nodeName = e.getKey();
+                    String config = e.getValue()
+                            .replace("KEYSTORE_PATH", keyStorePath)
+                            .replace("TRUSTSTORE_PATH", trustStorePath)
+                            .replace("SSL_STORE_PASS", sslPassword);
+
+                    return TestIgnitionManager.start(nodeName, config, basePath.resolve(nodeName));
+                })
+                .collect(toList());
+
+        String metaStorageNodeName = nodeCfg.keySet().iterator().next();
+
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(metaStorageNodeName)
+                .metaStorageNodeNames(List.of(metaStorageNodeName))
+                .clusterName("cluster")
+                .build();
+        IgnitionManager.init(initParameters);
+
+        System.out.println("Initialization complete");
+
+        List<Ignite> startedNodes = igniteFutures.stream().map(CompletableFuture::join).collect(toList());
+
+        System.out.println("Ignite nodes started");
+
+        return startedNodes;
+    }
+
     private static void createTables(Ignite node) {
         var keyCol = "key";
+
+        int zoneId = await(createZone(((IgniteImpl) node).distributionZoneManager(), "zone1", 10, 1));
 
         TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
                 SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
@@ -243,8 +262,7 @@ public class PlatformTestNodeRunner {
 
         await(((TableManager) node.tables()).createTableAsync(schTbl.name(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
+                        .changeZoneId(zoneId)
         ));
 
         int maxTimePrecision = TemporalColumnType.MAX_TIME_PRECISION;
@@ -273,8 +291,7 @@ public class PlatformTestNodeRunner {
 
         await(((TableManager) node.tables()).createTableAsync(schTblAll.name(), tblCh ->
                 SchemaConfigurationConverter.convert(schTblAll, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
+                        .changeZoneId(zoneId)
         ));
 
         // TODO IGNITE-18431 remove extra table, use TABLE_NAME_ALL_COLUMNS for SQL tests.
@@ -300,28 +317,27 @@ public class PlatformTestNodeRunner {
 
         await(((TableManager) node.tables()).createTableAsync(schTblAllSql.name(), tblCh ->
                 SchemaConfigurationConverter.convert(schTblAllSql, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
+                        .changeZoneId(zoneId)
         ));
 
-        createTwoColumnTable(node, ColumnType.INT8);
-        createTwoColumnTable(node, ColumnType.INT16);
-        createTwoColumnTable(node, ColumnType.INT32);
-        createTwoColumnTable(node, ColumnType.INT64);
-        createTwoColumnTable(node, ColumnType.FLOAT);
-        createTwoColumnTable(node, ColumnType.DOUBLE);
-        createTwoColumnTable(node, ColumnType.decimal());
-        createTwoColumnTable(node, ColumnType.string());
-        createTwoColumnTable(node, ColumnType.DATE);
-        createTwoColumnTable(node, ColumnType.datetime());
-        createTwoColumnTable(node, ColumnType.time());
-        createTwoColumnTable(node, ColumnType.timestamp());
-        createTwoColumnTable(node, ColumnType.number());
-        createTwoColumnTable(node, ColumnType.blob());
-        createTwoColumnTable(node, ColumnType.bitmaskOf(32));
+        createTwoColumnTable(node, ColumnType.INT8, zoneId);
+        createTwoColumnTable(node, ColumnType.INT16, zoneId);
+        createTwoColumnTable(node, ColumnType.INT32, zoneId);
+        createTwoColumnTable(node, ColumnType.INT64, zoneId);
+        createTwoColumnTable(node, ColumnType.FLOAT, zoneId);
+        createTwoColumnTable(node, ColumnType.DOUBLE, zoneId);
+        createTwoColumnTable(node, ColumnType.decimal(), zoneId);
+        createTwoColumnTable(node, ColumnType.string(), zoneId);
+        createTwoColumnTable(node, ColumnType.DATE, zoneId);
+        createTwoColumnTable(node, ColumnType.datetime(), zoneId);
+        createTwoColumnTable(node, ColumnType.time(), zoneId);
+        createTwoColumnTable(node, ColumnType.timestamp(), zoneId);
+        createTwoColumnTable(node, ColumnType.number(), zoneId);
+        createTwoColumnTable(node, ColumnType.blob(), zoneId);
+        createTwoColumnTable(node, ColumnType.bitmaskOf(32), zoneId);
     }
 
-    private static void createTwoColumnTable(Ignite node, ColumnType type) {
+    private static void createTwoColumnTable(Ignite node, ColumnType type, int zoneId) {
         var keyCol = "key";
 
         TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, "tbl_" + type.typeSpec().name()).columns(
@@ -331,8 +347,7 @@ public class PlatformTestNodeRunner {
 
         await(((TableManager) node.tables()).createTableAsync(schTbl.name(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
+                        .changeZoneId(zoneId)
         ));
     }
 

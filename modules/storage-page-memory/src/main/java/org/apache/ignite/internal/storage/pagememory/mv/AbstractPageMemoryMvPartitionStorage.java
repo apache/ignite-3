@@ -180,7 +180,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 NamedListView<TableIndexView> indexesCfgView = tableStorage.tablesConfiguration().indexes().value();
 
                 for (IndexMeta indexMeta : cursor) {
-                    TableIndexView indexCfgView = indexesCfgView.get(indexMeta.id());
+                    TableIndexView indexCfgView = indexesCfgView.get(indexMeta.indexId());
 
                     if (indexCfgView instanceof HashIndexView) {
                         hashIndexes.put(indexCfgView.id(), createOrRestoreHashIndex(indexMeta));
@@ -195,10 +195,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 return null;
             } catch (Exception e) {
-                throw new StorageException(
-                        IgniteStringFormatter.format("Failed to process SQL indexes during partition start: [{}]", createStorageInfo()),
-                        e
-                );
+                throw new StorageException("Failed to process SQL indexes during partition start: [{}]", e, createStorageInfo());
             }
         });
     }
@@ -216,7 +213,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexId Index UUID.
      */
     public PageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
-        return busy(() -> hashIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreHashIndex(new IndexMeta(indexId, 0L))));
+        return busy(() -> hashIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreHashIndex(createIndexMetaForNewIndex(uuid))));
     }
 
     /**
@@ -225,17 +222,17 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexId Index UUID.
      */
     public PageMemorySortedIndexStorage getOrCreateSortedIndex(UUID indexId) {
-        return busy(() -> sortedIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreSortedIndex(new IndexMeta(indexId, 0L))));
+        return busy(() -> sortedIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreSortedIndex(createIndexMetaForNewIndex(uuid))));
     }
 
     private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta) {
         throwExceptionIfStorageNotInRunnableState();
 
-        var indexDescriptor = new HashIndexDescriptor(indexMeta.id(), tableStorage.tablesConfiguration().value());
+        var indexDescriptor = new HashIndexDescriptor(indexMeta.indexId(), tableStorage.tablesConfiguration().value());
 
         HashIndexTree hashIndexTree = createHashIndexTree(indexDescriptor, indexMeta);
 
-        return new PageMemoryHashIndexStorage(indexDescriptor, indexFreeList, hashIndexTree);
+        return new PageMemoryHashIndexStorage(indexMeta, indexDescriptor, indexFreeList, hashIndexTree, indexMetaTree);
     }
 
     HashIndexTree createHashIndexTree(HashIndexDescriptor indexDescriptor, IndexMeta indexMeta) {
@@ -262,32 +259,25 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             );
 
             if (initNew) {
-                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.id(), metaPageId));
+                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.indexId(), metaPageId, indexMeta.nextRowIdUuidToBuild()));
 
                 assert !replaced;
             }
 
             return hashIndexTree;
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(
-                    IgniteStringFormatter.format(
-                            "Error creating hash index tree: [{}, indexId={}]",
-                            createStorageInfo(),
-                            indexMeta.id()
-                    ),
-                    e
-            );
+            throw new StorageException("Error creating hash index tree: [{}, indexId={}]", e, createStorageInfo(), indexMeta.indexId());
         }
     }
 
     private PageMemorySortedIndexStorage createOrRestoreSortedIndex(IndexMeta indexMeta) {
         throwExceptionIfStorageNotInRunnableState();
 
-        var indexDescriptor = new SortedIndexDescriptor(indexMeta.id(), tableStorage.tablesConfiguration().value());
+        var indexDescriptor = new SortedIndexDescriptor(indexMeta.indexId(), tableStorage.tablesConfiguration().value());
 
         SortedIndexTree sortedIndexTree = createSortedIndexTree(indexDescriptor, indexMeta);
 
-        return new PageMemorySortedIndexStorage(indexDescriptor, indexFreeList, sortedIndexTree);
+        return new PageMemorySortedIndexStorage(indexMeta, indexDescriptor, indexFreeList, sortedIndexTree, indexMetaTree);
     }
 
     SortedIndexTree createSortedIndexTree(SortedIndexDescriptor indexDescriptor, IndexMeta indexMeta) {
@@ -314,22 +304,14 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             );
 
             if (initNew) {
-                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.id(), metaPageId));
+                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.indexId(), metaPageId, indexMeta.nextRowIdUuidToBuild()));
 
                 assert !replaced;
             }
 
             return sortedIndexTree;
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(
-                    IgniteStringFormatter.format(
-                            "Error creating sorted index tree: [table={}, partitionId={}, indexId={}]",
-                            tableStorage.getTableName(),
-                            partitionId,
-                            indexMeta.id()
-                    ),
-                    e
-            );
+            throw new StorageException("Error creating sorted index tree: [{}, indexId={}]", e, createStorageInfo(), indexMeta.indexId());
         }
     }
 
@@ -1000,5 +982,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         removeWriteOnGc.afterCompletion();
 
         return removeWriteOnGc.getResult();
+    }
+
+    IndexMeta createIndexMetaForNewIndex(UUID indexId) {
+        return new IndexMeta(indexId, 0L, RowId.lowestRowId(partitionId).uuid());
     }
 }

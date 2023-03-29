@@ -474,7 +474,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         return await(((TableManager) node.tables()).createTableAsync(
                 tableName,
                 tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(
-                        cols).withPrimaryKey("key").build(), tblCh).changeReplicas(2).changePartitions(10)
+                        cols).withPrimaryKey("key").build(), tblCh)
         ));
     }
 
@@ -494,7 +494,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
                                     SchemaBuilders.column("valStr", ColumnType.string())
                                             .withDefaultValue("default").build()
                             )).withPrimaryKey("key").build(),
-                            tblCh).changeReplicas(2).changePartitions(10)
+                            tblCh)
             ));
         } catch (TableAlreadyExistsException ex) {
             return node.tables().table(tableName);

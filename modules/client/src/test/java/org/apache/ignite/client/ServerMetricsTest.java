@@ -38,7 +38,7 @@ import org.junit.jupiter.api.Test;
  * Tests client handler metrics. See also {@code org.apache.ignite.client.handler.ItClientHandlerMetricsTest}.
  */
 @SuppressWarnings({"AssignmentToStaticFieldFromInstanceMethod", "rawtypes", "unchecked"})
-public class MetricsTest extends AbstractClientTest {
+public class ServerMetricsTest extends AbstractClientTest {
     @AfterEach
     public void resetCompute() {
         FakeCompute.future = null;

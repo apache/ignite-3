@@ -96,6 +96,7 @@ dependencies {
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
     integrationTestAnnotationProcessor libs.auto.service
+    integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-affinity')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-raft-api')
@@ -116,6 +117,7 @@ dependencies {
         exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
     }
     integrationTestImplementation project(':ignite-metastorage')
+    integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation project(':ignite-transactions')
     integrationTestImplementation project(':ignite-code-deployment')
@@ -126,6 +128,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
+    integrationTestImplementation(testFixtures(project(':ignite-distribution-zones')))
     integrationTestImplementation testFixtures(project(':ignite-schema'))
     integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
     integrationTestImplementation testFixtures(project(':ignite-metastorage'))
@@ -150,6 +153,14 @@ dependencies {
 
 tasks.register("runnerPlatformTest", JavaExec) {
     mainClass = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner"
+
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = true
+}
+
+tasks.register("runnerPlatformBenchmark", JavaExec) {
+    mainClass = "org.apache.ignite.internal.runner.app.PlatformBenchmarkNodeRunner"
 
     classpath = sourceSets.integrationTest.runtimeClasspath
 

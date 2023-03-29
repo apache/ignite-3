@@ -57,6 +57,9 @@ public class Replica {
     /** Replica listener. */
     private final ReplicaListener listener;
 
+    /** When the future completes the replica become ready to process requests. */
+    private final CompletableFuture<Void> whenReplicaReady;
+
     /** Storage index tracker. */
     private final PendingComparableValuesTracker<Long> storageIndexTracker;
 
@@ -79,6 +82,7 @@ public class Replica {
      * The constructor of a replica server.
      *
      * @param replicaGrpId Replication group id.
+     * @param replicaReady Future is determined when the replica become ready.
      * @param listener Replica listener.
      * @param storageIndexTracker Storage index tracker.
      * @param raftClient Topology aware Raft client.
@@ -86,12 +90,14 @@ public class Replica {
      */
     public Replica(
             ReplicationGroupId replicaGrpId,
+            CompletableFuture<Void> replicaReady,
             ReplicaListener listener,
             PendingComparableValuesTracker<Long> storageIndexTracker,
             TopologyAwareRaftGroupService raftClient,
             ClusterNode localNode
     ) {
         this.replicaGrpId = replicaGrpId;
+        this.whenReplicaReady = replicaReady;
         this.listener = listener;
         this.storageIndexTracker = storageIndexTracker;
         this.raftClient = raftClient;
@@ -122,6 +128,15 @@ public class Replica {
      */
     public ReplicationGroupId groupId() {
         return replicaGrpId;
+    }
+
+    /**
+     * Get a future to wait when the replica become ready.
+     *
+     * @return A future to check when the replica is ready.
+     */
+    public CompletableFuture<Void> ready() {
+        return whenReplicaReady;
     }
 
     private void onLeaderElected(ClusterNode clusterNode, Long term) {

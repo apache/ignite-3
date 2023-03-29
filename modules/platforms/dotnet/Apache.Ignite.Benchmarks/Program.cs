@@ -17,13 +17,12 @@
 
 namespace Apache.Ignite.Benchmarks;
 
-using BenchmarkDotNet.Running;
-using Table;
+using System.Threading.Tasks;
 
 internal static class Program
 {
-    private static void Main()
+    private static async Task Main()
     {
-        BenchmarkRunner.Run<TupleGetBenchmarks>();
+        await ManyConnectionsBenchmark.RunAsync();
     }
 }

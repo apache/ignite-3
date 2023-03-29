@@ -72,6 +72,7 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
@@ -338,6 +339,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         TablesConfiguration tblCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
 
+        DistributionZonesConfiguration distZonesCfg =
+                clusterCfgMgr.configurationRegistry().getConfiguration(DistributionZonesConfiguration.KEY);
+
         SchemaManager schemaManager = new SchemaManager(registry, tblCfg, metaStorageMgr);
 
         TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
@@ -351,6 +355,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 name,
                 registry,
                 tblCfg,
+                distZonesCfg,
                 clusterSvc,
                 raftMgr,
                 replicaMgr,
@@ -695,6 +700,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * </ol>
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19091")
     public void testQueryCorrectnessAfterNodeRestart() throws InterruptedException {
         IgniteImpl ignite1 = startNode(0);
 
@@ -883,6 +889,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * checks that the table created before node stop, is not available when majority if lost.
      */
     @Test
+    // No sql engine
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19092")
     public void testOneNodeRestartWithGap() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
@@ -914,6 +922,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Checks that the table created in cluster of 2 nodes, is recovered on a node after restart of this node.
      */
     @Test
+    // No SQL engine
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19092")
     public void testRecoveryOnOneNode() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
@@ -936,7 +946,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Checks that a cluster is able to restart when some changes were made in configuration.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19079")
+    // No sql engine
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19092")
     public void testRestartDiffConfig() throws InterruptedException {
         List<IgniteImpl> ignites = startNodes(2);
 
@@ -964,6 +975,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
+    // No SQL engine
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19092")
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
     public void testCfgGapWithoutData() throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(3);
@@ -1131,8 +1144,10 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas, int partitions)
             throws InterruptedException {
         try (Session session = nodes.get(0).sql().createSession()) {
+            session.execute(null,
+                    String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d", name, replicas, partitions));
             session.execute(null, "CREATE TABLE IF NOT EXISTS " + name
-                    + "(id INT PRIMARY KEY, name VARCHAR) WITH replicas=" + replicas + ", partitions=" + partitions);
+                    + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
 
             waitForIndex(nodes, name + "_PK");
 
@@ -1184,8 +1199,10 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      */
     private static Table createTableWithoutData(Ignite ignite, String name, int replicas, int partitions) {
         try (Session session = ignite.sql().createSession()) {
+            session.execute(null,
+                    String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d", name, replicas, partitions));
             session.execute(null, "CREATE TABLE " + name
-                    + "(id INT PRIMARY KEY, name VARCHAR) WITH replicas=" + replicas + ", partitions=" + partitions);
+                    + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
         }
 
         return ignite.tables().table(name);
