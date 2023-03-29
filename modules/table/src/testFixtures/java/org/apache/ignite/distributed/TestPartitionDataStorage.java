@@ -114,11 +114,6 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException {
-        return partitionStorage.scan(timestamp);
-    }
-
-    @Override
     public @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
         return partitionStorage.pollForVacuum(lowWatermark);
     }
