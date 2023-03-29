@@ -63,8 +63,6 @@ public class TableImpl implements Table {
 
     private final LockManager lockManager;
 
-    // private final Supplier<List<UUID>> activeIndexIds;
-
     /** Schema registry. Should be set either in constructor or via {@link #schemaView(SchemaRegistry)} before start of using the table. */
     private volatile SchemaRegistry schemaReg;
 
@@ -80,12 +78,10 @@ public class TableImpl implements Table {
      *
      * @param tbl       The table.
      * @param lockManager Lock manager.
-     * @param activeIndexIds Supplier of index ids which considered active on the moment of invocation.
      */
-    public TableImpl(InternalTable tbl, LockManager lockManager, Supplier<CompletableFuture<List<UUID>>> activeIndexIds) {
+    public TableImpl(InternalTable tbl, LockManager lockManager) {
         this.tbl = tbl;
         this.lockManager = lockManager;
-        // this.activeIndexIds = activeIndexIds;
     }
 
     /**
@@ -100,8 +96,6 @@ public class TableImpl implements Table {
         this.tbl = tbl;
         this.schemaReg = schemaReg;
         this.lockManager = lockManager;
-
-        // activeIndexIds = List::of;
     }
 
     /**
@@ -306,7 +300,7 @@ public class TableImpl implements Table {
                 )
         );
 
-        completeRegisterIndex(indexId);
+        completeWaitIndex(indexId);
     }
 
     /**
@@ -337,7 +331,7 @@ public class TableImpl implements Table {
                 )
         );
 
-        completeRegisterIndex(indexId);
+        completeWaitIndex(indexId);
     }
 
     /**
@@ -349,15 +343,12 @@ public class TableImpl implements Table {
         indexLockerFactories.remove(indexId);
         indexStorageAdapterFactories.remove(indexId);
 
-        CompletableFuture<?> indexToWaitFuture = indexesToWait.remove(indexId);
+        completeWaitIndex(indexId);
 
-        if (indexToWaitFuture != null) {
-            indexToWaitFuture.complete(null);
-        }
+        // TODO: IGNITE-19150 Also need to destroy the index storages
     }
 
     private void awaitIndexes() {
-        // TODO: replace with actual call to ids supplier
         List<CompletableFuture<?>> toWait = new ArrayList<>();
 
         toWait.add(pkId);
@@ -405,10 +396,10 @@ public class TableImpl implements Table {
         }
     }
 
-    private void completeRegisterIndex(UUID indexId) {
-        CompletableFuture<?> indexToWaitFuture = indexesToWait.computeIfAbsent(indexId, uuid -> new CompletableFuture<>());
+    private void completeWaitIndex(UUID indexId) {
+        CompletableFuture<?> indexToWaitFuture = indexesToWait.remove(indexId);
 
-        if (!indexToWaitFuture.isDone()) {
+        if (indexToWaitFuture != null) {
             indexToWaitFuture.complete(null);
         }
     }

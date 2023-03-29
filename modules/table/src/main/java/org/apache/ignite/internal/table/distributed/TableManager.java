@@ -116,7 +116,6 @@ import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
@@ -675,17 +674,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return failedFuture(e);
             }
 
-            TableImpl table = tablesById.get(tblId);
-
-            // TODO: IGNITE-19082 Need another way to wait for indexes
-            table.addIndexesToWait(collectTableIndexes(tablesCfg.value(), tblId));
-
             for (int i = 0; i < partitions; i++) {
                 int partId = i;
 
                 Set<Assignment> oldPartAssignment = oldAssignments == null ? Set.of() : oldAssignments.get(partId);
 
                 Set<Assignment> newPartAssignment = newAssignments.get(partId);
+
+                TableImpl table = tablesById.get(tblId);
 
                 InternalTable internalTbl = table.internalTable();
 
@@ -1111,7 +1107,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 partitions, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
 
         // TODO: IGNITE-16288 directIndexIds should use async configuration API
-        var table = new TableImpl(internalTable, lockMgr, () -> supplyAsync(this::directIndexIds, ioExecutor));
+        var table = new TableImpl(internalTable, lockMgr);
+
+        // TODO: IGNITE-19082 Need another way to wait for indexes
+        table.addIndexesToWait(collectTableIndexes(tblId));
 
         tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
@@ -2351,10 +2350,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    private static Collection<UUID> collectTableIndexes(TablesView tablesConfig, UUID tableId) {
-        List<UUID> indexIds = new ArrayList<>();
+    private Collection<UUID> collectTableIndexes(UUID tableId) {
+        NamedListView<? extends TableIndexView> indexes = tablesCfg.value().indexes();
 
-        NamedListView<? extends TableIndexView> indexes = tablesConfig.indexes();
+        List<UUID> indexIds = new ArrayList<>();
 
         for (int i = 0; i < indexes.size(); i++) {
             TableIndexView indexConfig = indexes.get(i);
