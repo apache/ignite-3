@@ -68,13 +68,6 @@ public interface Ignite extends AutoCloseable {
     IgniteCompute compute();
 
     /**
-     * Returns {@link IgniteDeployment} which can be used to deploy units.
-     *
-     * @return Deployment management object.
-     */
-    IgniteDeployment deployment();
-
-    /**
      * Gets the cluster nodes.
      * NOTE: Temporary API to enable Compute until we have proper Cluster API.
      *
