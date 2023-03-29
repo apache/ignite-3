@@ -46,11 +46,6 @@ public class TableConfigurationSchema {
     @Value(hasDefault = true)
     public int zoneId = 0;
 
-    /** Data storage configuration. */
-    @KnownDataStorage
-    @ConfigValue
-    public DataStorageConfigurationSchema dataStorage;
-
     /** Columns configuration. */
     @NamedConfigValue
     public ColumnConfigurationSchema columns;

@@ -133,7 +133,8 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
     public VolatilePageMemoryTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg,
             DistributionZoneConfiguration distributionZoneCfg)
             throws StorageException {
-        VolatilePageMemoryDataStorageView dataStorageView = (VolatilePageMemoryDataStorageView) tableCfg.dataStorage().value();
+        VolatilePageMemoryDataStorageView dataStorageView =
+                (VolatilePageMemoryDataStorageView) distributionZoneCfg.dataStorage().value();
 
         return new VolatilePageMemoryTableStorage(tableCfg, tablesCfg, distributionZoneCfg,
                 regions.get(dataStorageView.dataRegion()), destructionExecutor);

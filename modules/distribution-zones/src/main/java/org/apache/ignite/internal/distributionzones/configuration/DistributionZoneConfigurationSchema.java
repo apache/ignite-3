@@ -23,10 +23,13 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
 
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Range;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.storage.KnownDataStorage;
 
 /**
  * Distribution zone configuration schema class.
@@ -52,6 +55,11 @@ public class DistributionZoneConfigurationSchema {
     @Range(min = 1)
     @Value(hasDefault = true)
     public int replicas = DEFAULT_REPLICA_COUNT;
+
+    /** Data storage configuration. */
+    @KnownDataStorage
+    @ConfigValue
+    public DataStorageConfigurationSchema dataStorage;
 
     /** Timeout in seconds between node added or node left topology event itself and data nodes switch. */
     @Range(min = 0)

@@ -183,6 +183,8 @@ public class DdlCommandHandler {
             zoneCfgBuilder.partitions(cmd.partitions());
         }
 
+        zoneCfgBuilder.dataStorageChangeConsumer(dataStorageManager.zoneDataStorageConsumer(cmd.dataStorage(), cmd.dataStorageOptions()));
+
         return distributionZoneManager.createZone(zoneCfgBuilder.build())
                 .handle(handleModificationResult(cmd.ifNotExists(), DistributionZoneAlreadyExistsException.class));
     }
@@ -246,7 +248,6 @@ public class DdlCommandHandler {
             tableChange.changePrimaryKey(pkChange -> pkChange.changeColumns(cmd.primaryKeyColumns().toArray(String[]::new))
                     .changeColocationColumns(colocationKeys0.toArray(String[]::new)));
 
-            tableChange.changeDataStorage(dataStorageManager.tableDataStorageConsumer(cmd.dataStorage(), cmd.dataStorageOptions()));
 
             if (cmd.zone() != null) {
                 tableChange.changeZoneId(distributionZoneManager.getZoneId(cmd.zone()));

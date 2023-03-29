@@ -667,8 +667,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private CompletableFuture<?> updateAssignmentInternal(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
         ExtendedTableConfiguration tblCfg = assignmentsCtx.config(ExtendedTableConfiguration.class);
-
         UUID tblId = tblCfg.id().value();
+
+        DistributionZoneConfiguration dstCfg = getZoneById(distributionZonesConfiguration, tblCfg.zoneId().value());
 
         long causalityToken = assignmentsCtx.storageRevision();
 
@@ -732,7 +733,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     partId,
                                     storage,
                                     table.indexStorageAdapters(partId),
-                                    tblCfg.dataStorage()
+                                    dstCfg.dataStorage()
                             );
 
                             mvGc.addStorage(replicaGrpId, storageUpdateHandler);
@@ -1172,7 +1173,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     protected MvTableStorage createTableStorage(
             TableConfiguration tableCfg, TablesConfiguration tablesCfg, DistributionZoneConfiguration distributionZoneCfg) {
-        MvTableStorage tableStorage = dataStorageMgr.engine(tableCfg.dataStorage())
+        MvTableStorage tableStorage = dataStorageMgr.engine(distributionZoneCfg.dataStorage())
                 .createMvTable(tableCfg, tablesCfg, distributionZoneCfg);
 
         tableStorage.start();
@@ -1334,10 +1335,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
 
                     tablesListChange.create(name, (tableChange) -> {
-                        tableChange.changeDataStorage(
-                                dataStorageMgr.defaultTableDataStorageConsumer(tablesChange.defaultDataStorage())
-                        );
-
                         tableInitChange.accept(tableChange);
 
                         var extConfCh = ((ExtendedTableChange) tableChange);
@@ -1986,6 +1983,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
 
+        DistributionZoneConfiguration dstZoneCfg = getZoneById(distributionZonesConfiguration, tblCfg.zoneId().value());
+
         int partId = replicaGrpId.partitionId();
 
         byte[] stableAssignmentsBytes = stableAssignmentsEntry.value();
@@ -2031,7 +2030,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 partId,
                                 partitionDataStorage,
                                 tbl.indexStorageAdapters(partId),
-                                tblCfg.dataStorage()
+                                dstZoneCfg.dataStorage()
                         );
 
                         RaftGroupOptions groupOptions = groupOptionsForPartition(

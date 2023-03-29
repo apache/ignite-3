@@ -273,6 +273,12 @@ public class DistributionZoneManager implements IgniteComponent {
                             zoneChange.changePartitions(distributionZoneCfg.partitions());
                         }
 
+                        if (distributionZoneCfg.dataStorageChangeConsumer() == null) {
+                            throw new RuntimeException("Distribution zone data storage change consumer is null");
+                        } else {
+                            zoneChange.changeDataStorage(distributionZoneCfg.dataStorageChangeConsumer());
+                        }
+
                         if (distributionZoneCfg.replicas() == null) {
                             zoneChange.changeReplicas(DEFAULT_REPLICA_COUNT);
                         } else {

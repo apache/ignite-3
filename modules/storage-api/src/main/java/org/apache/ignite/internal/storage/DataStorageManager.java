@@ -128,7 +128,7 @@ public class DataStorageManager implements IgniteComponent {
      * @param dataStorage Data storage, {@link UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} is invalid.
      * @param values {@link Value Values} for the data storage. Mapping: field name -> field value.
      */
-    public Consumer<DataStorageChange> tableDataStorageConsumer(String dataStorage, Map<String, Object> values) {
+    public Consumer<DataStorageChange> zoneDataStorageConsumer(String dataStorage, Map<String, Object> values) {
         assert !dataStorage.equals(UNKNOWN_DATA_STORAGE);
 
         ConfigurationSource configurationSource = new ConfigurationSource() {

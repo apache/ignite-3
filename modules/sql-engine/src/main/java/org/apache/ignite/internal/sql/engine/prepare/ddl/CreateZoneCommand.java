@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
+import java.util.Map;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -47,6 +48,29 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
     /** Data nodes auto adjust scale down timeout. */
     private Integer dataNodesAutoAdjustScaleDown;
 
+    /** Data storage. */
+    private String dataStorage;
+
+    /** Data storage options. */
+    private Map<String, Object> dataStorageOptions;
+
+
+    public String dataStorage() {
+        return dataStorage;
+    }
+
+    public void dataStorage(String dataStorage) {
+        this.dataStorage = dataStorage;
+    }
+
+    public Map<String, Object> dataStorageOptions() {
+        return dataStorageOptions;
+    }
+
+    public void dataStorageOptions(Map<String, Object> dataStorageOptions) {
+        this.dataStorageOptions = dataStorageOptions;
+    }
+
     public boolean ifNotExists() {
         return ifNotExists;
     }
@@ -55,7 +79,8 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         this.ifNotExists = ifNotExists;
     }
 
-    @Nullable public Integer replicas() {
+    @Nullable
+    public Integer replicas() {
         return replicas;
     }
 
@@ -63,7 +88,8 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         this.replicas = replicas;
     }
 
-    @Nullable public Integer partitions() {
+    @Nullable
+    public Integer partitions() {
         return partitions;
     }
 
@@ -71,7 +97,8 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         this.partitions = partitions;
     }
 
-    @Nullable public String affinity() {
+    @Nullable
+    public String affinity() {
         return affinity;
     }
 
@@ -79,7 +106,8 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         this.affinity = affinity;
     }
 
-    @Nullable public String nodeFilter() {
+    @Nullable
+    public String nodeFilter() {
         return nodeFiler;
     }
 
@@ -87,7 +115,8 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         this.nodeFiler = nodeFiler;
     }
 
-    @Nullable public Integer dataNodesAutoAdjust() {
+    @Nullable
+    public Integer dataNodesAutoAdjust() {
         return dataNodesAutoAdjust;
     }
 
@@ -95,7 +124,8 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
     }
 
-    @Nullable public Integer dataNodesAutoAdjustScaleUp() {
+    @Nullable
+    public Integer dataNodesAutoAdjustScaleUp() {
         return dataNodesAutoAdjustScaleUp;
     }
 
@@ -103,11 +133,13 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
     }
 
-    @Nullable public Integer dataNodesAutoAdjustScaleDown() {
+    @Nullable
+    public Integer dataNodesAutoAdjustScaleDown() {
         return dataNodesAutoAdjustScaleDown;
     }
 
     public void dataNodesAutoAdjustScaleDown(Integer dataNodesAutoAdjustScaleDown) {
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
     }
+
 }

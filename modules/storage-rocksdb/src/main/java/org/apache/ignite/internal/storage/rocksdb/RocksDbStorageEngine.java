@@ -157,7 +157,8 @@ public class RocksDbStorageEngine implements StorageEngine {
     public RocksDbTableStorage createMvTable(
             TableConfiguration tableCfg, TablesConfiguration tablesCfg, DistributionZoneConfiguration distributionZoneCfg)
             throws StorageException {
-        RocksDbDataStorageView dataStorageView = (RocksDbDataStorageView) tableCfg.dataStorage().value();
+        RocksDbDataStorageView dataStorageView =
+                (RocksDbDataStorageView) distributionZoneCfg.dataStorage().value();
 
         assert dataStorageView.name().equals(ENGINE_NAME) : dataStorageView.name();
 

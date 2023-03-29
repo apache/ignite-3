@@ -124,7 +124,7 @@ public class DataStorageManagerTest {
         ExecutionException exception = assertThrows(
                 ExecutionException.class,
                 () -> dataStorageConfig
-                        .change(dataStorageManager.tableDataStorageConsumer(UUID.randomUUID().toString(), Map.of()))
+                        .change(dataStorageManager.zoneDataStorageConsumer(UUID.randomUUID().toString(), Map.of()))
                         .get(1, TimeUnit.SECONDS)
         );
 
@@ -134,7 +134,7 @@ public class DataStorageManagerTest {
         exception = assertThrows(
                 ExecutionException.class,
                 () -> dataStorageConfig
-                        .change(dataStorageManager.tableDataStorageConsumer(FIRST, Map.of(UUID.randomUUID().toString(), 1)))
+                        .change(dataStorageManager.zoneDataStorageConsumer(FIRST, Map.of(UUID.randomUUID().toString(), 1)))
                         .get(1, TimeUnit.SECONDS)
         );
 
@@ -144,7 +144,7 @@ public class DataStorageManagerTest {
         exception = assertThrows(
                 ExecutionException.class,
                 () -> dataStorageConfig
-                        .change(dataStorageManager.tableDataStorageConsumer(FIRST, Map.of("strVal", 1)))
+                        .change(dataStorageManager.zoneDataStorageConsumer(FIRST, Map.of("strVal", 1)))
                         .get(1, TimeUnit.SECONDS)
         );
 
@@ -167,7 +167,7 @@ public class DataStorageManagerTest {
 
         // Just change type and check defaults.
         dataStorageConfig
-                .change(dataStorageManager.tableDataStorageConsumer(FIRST, Map.of()))
+                .change(dataStorageManager.zoneDataStorageConsumer(FIRST, Map.of()))
                 .get(1, TimeUnit.SECONDS);
 
         dataStorageView = dataStorageConfig.value();
@@ -179,7 +179,7 @@ public class DataStorageManagerTest {
 
         // Change type and check values.
         dataStorageConfig
-                .change(dataStorageManager.tableDataStorageConsumer(SECOND, Map.of("strVal", "foobar", "longVal", 666L)))
+                .change(dataStorageManager.zoneDataStorageConsumer(SECOND, Map.of("strVal", "foobar", "longVal", 666L)))
                 .get(1, TimeUnit.SECONDS);
 
         dataStorageView = dataStorageConfig.value();

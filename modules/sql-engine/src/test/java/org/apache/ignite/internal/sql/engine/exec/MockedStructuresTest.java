@@ -435,31 +435,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         assertThat(exception.getMessage(), containsString("Unexpected table option"));
     }
 
-    @Test
-    void createTableWithDataStorageOptions() {
-        String method = getCurrentMethodName();
-
-        assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
-                "PUBLIC",
-                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with dataRegion='default'", method + 0)
-        )));
-
-        assertThat(
-                ((RocksDbDataStorageView) tableView(method + 0).dataStorage()).dataRegion(),
-                equalTo(DEFAULT_DATA_REGION_NAME)
-        );
-
-        assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
-                "PUBLIC",
-                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with DATAREGION='test_region'", method + 1)
-        )));
-
-        assertThat(
-                ((RocksDbDataStorageView) tableView(method + 1).dataStorage()).dataRegion(),
-                equalTo("test_region")
-        );
-    }
-
     // todo copy-paste from TableManagerTest will be removed after https://issues.apache.org/jira/browse/IGNITE-16050
 
     /**

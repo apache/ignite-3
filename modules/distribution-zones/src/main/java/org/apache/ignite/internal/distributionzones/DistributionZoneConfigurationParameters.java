@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import java.util.function.Consumer;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,6 +43,8 @@ public class DistributionZoneConfigurationParameters {
     /** Number of zone partitions. */
     private final Integer partitions;
 
+    private final Consumer<DataStorageChange> dataStorageChangeConsumer;
+
     /**
      * The constructor.
      */
@@ -50,7 +54,8 @@ public class DistributionZoneConfigurationParameters {
             Integer partitions,
             Integer dataNodesAutoAdjust,
             Integer dataNodesAutoAdjustScaleUp,
-            Integer dataNodesAutoAdjustScaleDown
+            Integer dataNodesAutoAdjustScaleDown,
+            Consumer<DataStorageChange> dataStorageChangeConsumer
     ) {
         this.name = name;
         this.replicas = replicas;
@@ -58,6 +63,7 @@ public class DistributionZoneConfigurationParameters {
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
+        this.dataStorageChangeConsumer = dataStorageChangeConsumer;
     }
 
     /**
@@ -115,6 +121,10 @@ public class DistributionZoneConfigurationParameters {
         return partitions;
     }
 
+    public Consumer<DataStorageChange> dataStorageChangeConsumer() {
+        return dataStorageChangeConsumer;
+    }
+
     /**
      * Builder for distribution zone configuration.
      */
@@ -136,6 +146,8 @@ public class DistributionZoneConfigurationParameters {
 
         /** Number of zone partitions. */
         private Integer partitions;
+
+        private Consumer<DataStorageChange> dataStorageChangeConsumer;
 
         /**
          * Constructor.
@@ -211,6 +223,12 @@ public class DistributionZoneConfigurationParameters {
             return this;
         }
 
+        public Builder dataStorageChangeConsumer(Consumer<DataStorageChange> dataStorageChangeConsumer) {
+            this.dataStorageChangeConsumer = dataStorageChangeConsumer;
+
+            return this;
+        }
+
 
         /**
          * Builds the distribution zone configuration.
@@ -234,7 +252,8 @@ public class DistributionZoneConfigurationParameters {
                     partitions,
                     dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
-                    dataNodesAutoAdjustScaleDown
+                    dataNodesAutoAdjustScaleDown,
+                    dataStorageChangeConsumer
             );
         }
     }
