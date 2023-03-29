@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Helper class for non-Java platform tests (.NET, C++, Python, ...). Starts nodes, populates tables and data for tests.
@@ -179,39 +181,7 @@ public class PlatformTestNodeRunner {
             return;
         }
 
-        IgniteUtils.deleteIfExists(BASE_PATH);
-        Files.createDirectories(BASE_PATH);
-
-        var sslPassword = "123456";
-        var trustStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/trust.jks"));
-        var keyStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/server.jks"));
-
-        List<CompletableFuture<Ignite>> igniteFutures = nodesBootstrapCfg.entrySet().stream()
-                .map(e -> {
-                    String nodeName = e.getKey();
-                    String config = e.getValue()
-                            .replace("KEYSTORE_PATH", keyStorePath)
-                            .replace("TRUSTSTORE_PATH", trustStorePath)
-                            .replace("SSL_STORE_PASS", sslPassword);
-
-                    return IgnitionManager.start(nodeName, config, BASE_PATH.resolve(nodeName));
-                })
-                .collect(toList());
-
-        String metaStorageNodeName = nodesBootstrapCfg.keySet().iterator().next();
-
-        InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNodeName)
-                .metaStorageNodeNames(List.of(metaStorageNodeName))
-                .clusterName("cluster")
-                .build();
-        IgnitionManager.init(initParameters);
-
-        System.out.println("Initialization complete");
-
-        List<Ignite> startedNodes = igniteFutures.stream().map(CompletableFuture::join).collect(toList());
-
-        System.out.println("Ignite nodes started");
+        List<Ignite> startedNodes = startNodes(BASE_PATH, nodesBootstrapCfg);
 
         createTables(startedNodes.get(0));
 
@@ -230,6 +200,52 @@ public class PlatformTestNodeRunner {
         for (Ignite node : startedNodes) {
             IgnitionManager.stop(node.name());
         }
+    }
+
+    /**
+     * Start nodes.
+     *
+     * @param basePath Base path.
+     * @param nodeCfg Node configuration.
+     * @return Started nodes.
+     */
+    @NotNull
+    static List<Ignite> startNodes(Path basePath, Map<String, String> nodeCfg) throws IOException {
+        IgniteUtils.deleteIfExists(basePath);
+        Files.createDirectories(basePath);
+
+        var sslPassword = "123456";
+        var trustStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/trust.jks"));
+        var keyStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/server.jks"));
+
+        List<CompletableFuture<Ignite>> igniteFutures = nodeCfg.entrySet().stream()
+                .map(e -> {
+                    String nodeName = e.getKey();
+                    String config = e.getValue()
+                            .replace("KEYSTORE_PATH", keyStorePath)
+                            .replace("TRUSTSTORE_PATH", trustStorePath)
+                            .replace("SSL_STORE_PASS", sslPassword);
+
+                    return IgnitionManager.start(nodeName, config, basePath.resolve(nodeName));
+                })
+                .collect(toList());
+
+        String metaStorageNodeName = nodeCfg.keySet().iterator().next();
+
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(metaStorageNodeName)
+                .metaStorageNodeNames(List.of(metaStorageNodeName))
+                .clusterName("cluster")
+                .build();
+        IgnitionManager.init(initParameters);
+
+        System.out.println("Initialization complete");
+
+        List<Ignite> startedNodes = igniteFutures.stream().map(CompletableFuture::join).collect(toList());
+
+        System.out.println("Ignite nodes started");
+
+        return startedNodes;
     }
 
     private static void createTables(Ignite node) {
