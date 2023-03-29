@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.distributionzones.configuration;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
 
@@ -40,6 +42,16 @@ public class DistributionZoneConfigurationSchema {
     @Range(min = DEFAULT_ZONE_ID)
     @Value(hasDefault = true)
     public int zoneId = DEFAULT_ZONE_ID;
+
+    /** Count of zone partitions. */
+    @Range(min = 1, max = 65_000)
+    @Value(hasDefault = true)
+    public int partitions = DEFAULT_PARTITION_COUNT;
+
+    /** Count of zone partition replicas. */
+    @Range(min = 1)
+    @Value(hasDefault = true)
+    public int replicas = DEFAULT_REPLICA_COUNT;
 
     /** Timeout in seconds between node added or node left topology event itself and data nodes switch. */
     @Range(min = 0)

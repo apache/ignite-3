@@ -43,6 +43,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -107,6 +108,9 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
     @InjectConfiguration("mock.tables.foo = {}")
     private TablesConfiguration tablesCfg;
+
+    @InjectConfiguration("mock.partitions = 1")
+    private DistributionZoneConfiguration zoneCfg;
 
     @InjectConfiguration("mock {flushDelayMillis = 0, defaultRegion {size = 16777216, writeBufferSize = 16777216}}")
     private RocksDbStorageEngineConfiguration engineConfig;
@@ -353,8 +357,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 .orElseGet(() -> {
                     TableConfiguration tableCfg = tablesCfg.tables().get("foo");
 
-                    tableCfg.change(t -> t.changePartitions(1)).join();
-
                     RocksDbStorageEngine storageEngine = new RocksDbStorageEngine(engineConfig, path);
                     storageEngine.start();
 
@@ -362,7 +364,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     tableCfg.dataStorage().change(ds -> ds.convert(storageEngine.name())).join();
 
-                    MvTableStorage mvTableStorage = storageEngine.createMvTable(tableCfg, tablesCfg);
+                    MvTableStorage mvTableStorage = storageEngine.createMvTable(tableCfg, tablesCfg, zoneCfg);
                     mvTableStorage.start();
                     mvTableStorages.put(index, mvTableStorage);
                     closeables.add(mvTableStorage::close);

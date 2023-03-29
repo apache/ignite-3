@@ -42,19 +42,9 @@ public class TableConfigurationSchema {
     @Value(hasDefault = true)
     public int tableId = 1;
 
-    /** Table partitions. */
-    @Range(min = 0, max = 65_000)
-    @Value(hasDefault = true)
-    public int partitions = 25;
-
-    /** Count of table partition replicas. */
-    @Range(min = 1)
-    @Value(hasDefault = true)
-    public int replicas = 1;
-
     /** Distribution zone id. */
     @Value(hasDefault = true)
-    public int zoneId = 1;
+    public int zoneId = 0;
 
     /** Data storage configuration. */
     @KnownDataStorage
