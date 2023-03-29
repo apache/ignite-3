@@ -146,6 +146,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** Whether the partition assignment has changed since the last server response. */
     private final AtomicBoolean partitionAssignmentChanged = new AtomicBoolean();
 
+    /** Partition assignment change listener. */
     private final Consumer<IgniteTablesInternal> partitionAssignmentsChangeListener;
 
     /**
@@ -189,11 +190,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         this.sql = sql;
         this.clusterId = clusterId;
         this.metrics = metrics;
-        this.partitionAssignmentsChangeListener = this::onPartitionAssignmentChanged;
 
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources);
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
 
+        this.partitionAssignmentsChangeListener = this::onPartitionAssignmentChanged;
         igniteTables.addAssignmentsChangeListener(partitionAssignmentsChangeListener);
     }
 
