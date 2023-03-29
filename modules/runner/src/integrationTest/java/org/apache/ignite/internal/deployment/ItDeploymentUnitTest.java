@@ -22,7 +22,6 @@ import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
-import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -258,7 +257,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     }
 
     private Unit deployAndVerify(String id, Version version, DeployFile file, int nodeIndex) {
-       return deployAndVerify(id, version, false, file, nodeIndex);
+        return deployAndVerify(id, version, false, file, nodeIndex);
     }
 
     private Unit deployAndVerify(String id, Version version, boolean force, DeployFile file, int nodeIndex) {

@@ -138,7 +138,8 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                                 .thenCompose(deployed -> {
                                     if (deployed) {
                                         return metastore.updateMeta(id, version,
-                                                unitMeta -> unitMeta.addConsistentId(clusterService.topologyService().localMember().name()));
+                                                unitMeta -> unitMeta
+                                                        .addConsistentId(clusterService.topologyService().localMember().name()));
                                     }
                                     return CompletableFuture.completedFuture(false);
                                 })
