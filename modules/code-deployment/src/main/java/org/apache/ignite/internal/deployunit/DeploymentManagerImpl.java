@@ -66,19 +66,29 @@ public class DeploymentManagerImpl implements IgniteDeployment {
      */
     private final ClusterManagementGroupManager cmgManager;
 
-
     /**
      * Cluster service.
      */
     private final ClusterService clusterService;
 
-
+    /**
+     * Deploy messaging service.
+     */
     private final DeployMessagingService messaging;
 
+    /**
+     * File deployer.
+     */
     private final FileDeployerService deployer;
 
+    /**
+     * Deployment units metastore service.
+     */
     private final DeployMetastoreService metastore;
 
+    /**
+     * Deploy tracker.
+     */
     private final DeployTracker tracker;
 
     /**
@@ -106,7 +116,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     }
 
     @Override
-    public CompletableFuture<Boolean> deployAsync(String id, Version version, DeploymentUnit deploymentUnit) {
+    public CompletableFuture<Boolean> deployAsync(String id, Version version, boolean force, DeploymentUnit deploymentUnit) {
         checkId(id);
         Objects.requireNonNull(version);
         Objects.requireNonNull(deploymentUnit);
@@ -121,36 +131,41 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             return CompletableFuture.failedFuture(new DeploymentUnitReadException(e));
         }
 
-        CompletableFuture<Boolean> result = metastore.putIfNotExist(id, version, meta)
+        return metastore.putIfNotExist(id, version, meta)
                 .thenCompose(success -> {
                     if (success) {
-                        return deployer.deploy(id, version.render(), deploymentUnit.name(), unitContent);
-                    }
-                    LOG.error("Failed to deploy meta of unit " + id + ":" + version);
-                    return CompletableFuture.failedFuture(
-                            new DeploymentUnitAlreadyExistsException(id,
-                                    "Unit " + id + ":" + version + " already exists"));
-                })
-                .thenCompose(deployed -> {
-                    if (deployed) {
-                        return metastore.updateMeta(id, version,
-                                meta1 -> meta1.addConsistentId(clusterService.topologyService().localMember().name()));
-                    }
-                    return CompletableFuture.completedFuture(false);
-                })
-                .thenApply(completed -> {
-                    if (completed) {
-                        messaging.startDeployAsyncToCmg(id, version, deploymentUnit.name(), unitContent)
-                                .thenAccept(ids -> metastore.updateMeta(id, version, unitMeta -> {
-                                    for (String consistentId : ids) {
-                                        unitMeta.addConsistentId(consistentId);
+                        return tracker.track(id, version, deployer.deploy(id, version.render(), deploymentUnit.name(), unitContent)
+                                .thenCompose(deployed -> {
+                                    if (deployed) {
+                                        return metastore.updateMeta(id, version,
+                                                unitMeta -> unitMeta.addConsistentId(clusterService.topologyService().localMember().name()));
                                     }
-                                    unitMeta.updateStatus(DEPLOYED);
+                                    return CompletableFuture.completedFuture(false);
+                                })
+                                .thenApply(completed -> {
+                                    if (completed) {
+                                        messaging.startDeployAsyncToCmg(id, version, deploymentUnit.name(), unitContent)
+                                                .thenAccept(ids -> metastore.updateMeta(id, version, unitMeta -> {
+                                                    for (String consistentId : ids) {
+                                                        unitMeta.addConsistentId(consistentId);
+                                                    }
+                                                    unitMeta.updateStatus(DEPLOYED);
+                                                }));
+                                    }
+                                    return completed;
                                 }));
+                    } else {
+                        if (force) {
+                            return undeployAsync(id, version)
+                                    .thenCompose(v -> deployAsync(id, version, deploymentUnit));
+                        }
+                        LOG.error("Failed to deploy meta of unit " + id + ":" + version);
+                        return CompletableFuture.failedFuture(
+                                new DeploymentUnitAlreadyExistsException(id,
+                                        "Unit " + id + ":" + version + " already exists"));
                     }
-                    return completed;
+
                 });
-        return tracker.track(id, version, result);
     }
 
     @Override
@@ -173,13 +188,11 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                     }
                     return CompletableFuture.failedFuture(new DeploymentUnitNotFoundException(
                             "Unit " + id + " with version " + version + " doesn't exist"));
-                }).thenApply(logicalTopologySnapshot -> {
-                    allOf(logicalTopologySnapshot.nodes().stream()
-                            .map(node -> messaging.undeploy(node, id, version))
-                            .toArray(CompletableFuture[]::new))
-                            .thenAccept(unused -> metastore.removeIfExist(id, version));
-                    return null;
-                });
+                }).thenCompose(logicalTopologySnapshot -> allOf(
+                        logicalTopologySnapshot.nodes().stream()
+                                .map(node -> messaging.undeploy(node, id, version))
+                                .toArray(CompletableFuture[]::new))
+                        .thenAccept(unused -> metastore.removeIfExist(id, version)));
     }
 
     @Override

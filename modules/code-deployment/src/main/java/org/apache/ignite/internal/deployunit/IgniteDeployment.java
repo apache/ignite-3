@@ -35,7 +35,20 @@ public interface IgniteDeployment extends IgniteComponent {
      * @param deploymentUnit Unit content.
      * @return Future with success or not result.
      */
-    CompletableFuture<Boolean> deployAsync(String id, Version version, DeploymentUnit deploymentUnit);
+    default CompletableFuture<Boolean> deployAsync(String id, Version version, DeploymentUnit deploymentUnit) {
+        return deployAsync(id, version, false, deploymentUnit);
+    }
+
+    /**
+     * Deploy provided unit to current node.
+     * After deploy finished, this deployment unit will be place to CMG group asynchronously.
+     *
+     * @param id Unit identifier. Not empty and not null.
+     * @param version Unit version.
+     * @param deploymentUnit Unit content.
+     * @return Future with success or not result.
+     */
+    CompletableFuture<Boolean> deployAsync(String id, Version version, boolean force, DeploymentUnit deploymentUnit);
 
     /**
      * Undeploy latest version of unit with corresponding identifier.
