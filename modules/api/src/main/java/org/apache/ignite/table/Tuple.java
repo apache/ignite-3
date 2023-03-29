@@ -123,7 +123,8 @@ public interface Tuple extends Iterable<Object> {
      *
      * <p>This implementation first checks if both tuples is of same size. If not, it returns {@code false}. If yes, 
      * it iterates over columns of the first tuple and checks that the second tuple contains each mapping that the first 
-     * one contains.  If the second tuple fails to contain such a mapping, {@code false} is returned. If the iteration completes, {@code true} is returned.
+     * one contains.  If the second tuple fails to contain such a mapping, {@code false} is returned.
+     * If the iteration completes, {@code true} is returned.
      *
      * @param firstTuple  First tuple to compare.
      * @param secondTuple Second tuple to compare.
@@ -214,9 +215,10 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a column value for the given column name.
      *
-     * * @param columnName Column name in SQL-parser style notation; e.g.,
+     * @param columnName Column name in SQL-parser style notation; e.g.,
      *                   "myColumn" - returns the value of the column named "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
+     *
      * @param <T>        Value type.
      * @return Column value.
      * @throws IllegalArgumentException If no column with the given name exists.
@@ -292,9 +294,10 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code int} column value.
      *
-     * * @param columnName Column name in SQL-parser style notation; e.g.,
+     * @param columnName Column name in SQL-parser style notation; e.g.,
      *                   "myColumn" - returns the value of the column named "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
+     *
      * @return Column value.
      * @throws IllegalArgumentException If no column with the given name exists.
      */

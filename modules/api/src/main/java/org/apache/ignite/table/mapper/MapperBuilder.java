@@ -216,7 +216,8 @@ public final class MapperBuilder<T> {
     /**
      * Sets a converter for a column whose value must be converted before "write to" and after "read from".
      *
-     * @param <ObjectT>  Value type. Must match either the object field type if the field is mapped to a given column, or the object type {@link T}
+     * @param <ObjectT>  Value type. Must match either the object field type if the field is mapped to a given column,
+     *                   or the object type {@link T}
      * @param <ColumnT>  Column type.
      * @param columnName Column name in SQL-parser style notation, e.g.,
      *                   "myColumn" - column named "MYCOLUMN",

@@ -77,8 +77,8 @@ public interface AsyncResultSet<T> {
     boolean hasRowSet();
 
     /**
-     * Returns the number of rows affected by the DML statement execution (such as "INSERT", "UPDATE", etc.), or {@code 0} if the statement returns
-     * nothing (such as "ALTER TABLE", etc), or {@code -1} if inapplicable.
+     * Returns the number of rows affected by the DML statement execution (such as "INSERT", "UPDATE", etc.),
+     * or {@code 0} if the statement returns nothing (such as "ALTER TABLE", etc), or {@code -1} if inapplicable.
      *
      * <p>Note: If the method returns {@code -1}, either {@link #hasRowSet()} or {@link #wasApplied()} returns {@code true}.
      *

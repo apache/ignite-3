@@ -26,7 +26,8 @@ import java.io.Serializable;
  * <p>For non-binary projections, the row is deserialized to user object(s) before the invocation, and is serialized 
  * back if a new value is set via {@linkplain InvocationContext#value(Object)}.
  *
- * <p>The invoke operation arguments, along with the invoke operation result classes, MUST be serializable as they can be transferred over network.
+ * <p>The invoke operation arguments, along with the invoke operation result classes,
+ * MUST be serializable as they can be transferred over network.
  *
  * @param <K> Key object type.
  * @param <V> Value type.

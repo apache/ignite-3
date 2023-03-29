@@ -241,7 +241,7 @@ public interface Session extends AutoCloseable {
      * @param query SQL query template.
      * @param batch List of batch rows, where each row is a list of statement arguments.
      * @return Operation Future completed with the number of rows affected by each query in the batch 
-     * (if the batch succeeds), future completed with the {@link SqlBatchException} (if the batch fails).
+     *         (if the batch succeeds), future completed with the {@link SqlBatchException} (if the batch fails).
      */
     CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch);
 
@@ -252,7 +252,7 @@ public interface Session extends AutoCloseable {
      * @param statement SQL statement to execute.
      * @param batch List of batch rows, where each row is a list of statement arguments.
      * @return Operation Future completed with the number of rows affected by each query in the batch 
-     * (if the batch succeeds), future completed with the {@link SqlBatchException} (if the batch fails).
+     *         (if the batch succeeds), future completed with the {@link SqlBatchException} (if the batch fails).
      */
     CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch);
 
@@ -419,7 +419,8 @@ public interface Session extends AutoCloseable {
         /**
          * Sets a default schema for the queries to be executed within a session.
          *
-         * <p>Default schema is used to resolve schema objects by their simple names or, if the schema is not specified in the query text, by their canonical names.
+         * <p>Default schema is used to resolve schema objects by their simple names or,
+         * if the schema is not specified in the query text, by their canonical names.
          *
          * @param schema Default schema.
          * @return {@code this} for chaining.

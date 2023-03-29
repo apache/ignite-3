@@ -41,7 +41,7 @@ public class ColumnNotFoundException extends IgniteException {
      * Creates an exception with a given column name.
      *
      * @param columnName Column name.
-     * @param fullName Table canonical name.
+     * @param tableName Table name.
      */
     public ColumnNotFoundException(String schemaName, String tableName, String columnName) {
         super(COLUMN_NOT_FOUND_ERR, format("Column does not exist [tableName={}, columnName={}]",

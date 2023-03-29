@@ -101,7 +101,6 @@ public interface IgniteCompute {
      * @param tableName Name of the table whose key is used to determine the node to execute the job on.
      * @param key Key that identifies the node to execute the job on.
      * @param keyMapper Mapper used to map the key to a binary representation.
-     * @param jobClass Class of the job to execute.
      * @param args Arguments of the job.
      * @param <R> Job result type.
      * @return CompletableFuture Job result.
@@ -123,7 +122,6 @@ public interface IgniteCompute {
      * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.
      *
      * @param nodes Nodes to execute the job on.
-     * @param jobClass Class of the job to execute.
      * @param args     Arguments of the job.
      * @param <R>      Job result type.
      * @return CompletableFuture Job result.

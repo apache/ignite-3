@@ -40,7 +40,8 @@ public interface InvocationContext<K, V> {
     /**
      * Returns a user-provided object for the invoke call to run the invoke processor against a specified row.
      *
-     * <p>Depending on the Table view the invoke operation is called on, the returned value is either a value object, a record object, or a tuple with value fields set.
+     * <p>Depending on the Table view the invoke operation is called on, the returned value is either a value object,
+     * a record object, or a tuple with value fields set.
      *
      * @return Object the target row is associated with.
      */

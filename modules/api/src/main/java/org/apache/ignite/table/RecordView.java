@@ -206,7 +206,8 @@ public interface RecordView<R> {
     R getAndReplace(@Nullable Transaction tx, @NotNull R rec);
 
     /**
-     * Asynchronously gets an existing record associated with the same key column values as the given one, then replaces it with the given one.
+     * Asynchronously gets an existing record associated with the same key column values as the given one,
+     * then replaces it with the given one.
      *
      * @param tx  Transaction or {@code null} to auto-commit.
      * @param rec Record to replace with. The record cannot be {@code null}.

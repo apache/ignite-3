@@ -46,7 +46,7 @@ public class IgnitionManager {
      * REST endpoint is functional).
      *
      * @param nodeName Name of the node. Must not be {@code null}.
-     * @param config Optional node configuration based on
+     * @param configStr Optional node configuration based on
      *      {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}.
      *      The following rules are used for applying the configuration properties:
      *      <ol>
@@ -66,6 +66,7 @@ public class IgnitionManager {
      * @throws IgniteException If an error occurs while reading the node configuration.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
+    //TODO: Move IGNITE-18778
     public static CompletableFuture<Ignite> start(String nodeName, @Nullable String configStr, Path workDir) {
         Ignition ignition = loadIgnitionService(Thread.currentThread().getContextClassLoader());
 
@@ -95,7 +96,6 @@ public class IgnitionManager {
      *         complete.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
-    //TODO: Move IGNITE-18778
     public static CompletableFuture<Ignite> start(String nodeName, @Nullable Path cfgPath, Path workDir, @Nullable ClassLoader clsLdr) {
         Ignition ignition = loadIgnitionService(clsLdr);
 

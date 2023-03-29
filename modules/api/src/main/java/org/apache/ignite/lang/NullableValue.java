@@ -25,8 +25,9 @@ import org.jetbrains.annotations.Nullable;
  * it's not clear whether the value is absent or is {@code null}.
  *
  * <p>Unlike {@link java.util.Optional}, this class supports {@code null} values and allows a method with {@code NullableValue}
- * returning type to return a {@code null}, as well as the {@code NullableValue} object. If the method returns {@code null}, this means that no
- * value is present. If the method returns the {@code NullableValue} object, this means that a value is present but this value can be {@code null}.
+ * returning type to return a {@code null}, as well as the {@code NullableValue} object. If the method returns {@code null},
+ * this means that no value is present. If the method returns the {@code NullableValue} object,
+ * this means that a value is present but this value can be {@code null}.
  *
  * @param <T> Value type.
  */

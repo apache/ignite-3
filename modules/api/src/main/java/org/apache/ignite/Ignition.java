@@ -113,13 +113,15 @@ public interface Ignition {
      *
      * @param nodeName Name of the node. Must not be {@code null}.
      * @param workDir Work directory for the node. Must not be {@code null}.
-     * @return CompletableFuture that resolves to an Ignite node after all components are started and the cluster initialization is complete.
+     * @return CompletableFuture that resolves to an Ignite node after all
+     *         components are started and the cluster initialization is complete.
      */
     //TODO: Move IGNITE-18778
     CompletableFuture<Ignite> start(String nodeName, Path workDir);
 
     /**
-     * Stops the node identified by {@code name}. It is possible to stop both running nodes and the node that are currently starting. No action is taken if the specified node doesn't exist.
+     * Stops the node identified by {@code name}. It is possible to stop both running nodes and the node that are currently starting.
+     * No action is taken if the specified node doesn't exist.
      *
      * @param nodeName Name of the node to stop.
      */

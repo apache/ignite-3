@@ -135,7 +135,7 @@ public interface Statement extends AutoCloseable {
         int pageSize();
 
         /**
-         * Sets a page size - the maximum number of result rows that can be fetched at a time
+         * Sets a page size - the maximum number of result rows that can be fetched at a time.
          *
          * @param pageSize Maximum number of rows per page.
          * @return {@code this} for chaining.
@@ -152,7 +152,8 @@ public interface Statement extends AutoCloseable {
         @Nullable Object property(@NotNull String name);
 
         /**
-         * Sets a statement property value that overrides the session property value. If {@code null} is passed, the session property value is used.
+         * Sets a statement property value that overrides the session property value.
+         * If {@code null} is passed, the session property value is used.
          *
          * @param name Property name.
          * @param value Property value or {@code null} to use the value defined for the session.
