@@ -70,7 +70,7 @@ public class TestMvTableStorage implements MvTableStorage {
         }
 
         TestSortedIndexStorage getOrCreateStorage(Integer partitionId) {
-            return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestSortedIndexStorage(descriptor));
+            return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestSortedIndexStorage(id, descriptor));
         }
     }
 
@@ -87,7 +87,7 @@ public class TestMvTableStorage implements MvTableStorage {
         }
 
         TestHashIndexStorage getOrCreateStorage(Integer partitionId) {
-            return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestHashIndexStorage(descriptor));
+            return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestHashIndexStorage(id, descriptor));
         }
     }
 

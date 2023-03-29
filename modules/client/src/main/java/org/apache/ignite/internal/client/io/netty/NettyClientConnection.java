@@ -22,6 +22,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.util.AttributeKey;
 import java.net.InetSocketAddress;
+import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
 import org.apache.ignite.internal.client.io.ClientMessageHandler;
@@ -32,7 +33,7 @@ import org.apache.ignite.lang.IgniteException;
  */
 public class NettyClientConnection implements ClientConnection {
     /** Connection attribute. */
-    public static final AttributeKey<NettyClientConnection> ATTR_CONN = AttributeKey.newInstance("CONN");
+    static final AttributeKey<NettyClientConnection> ATTR_CONN = AttributeKey.newInstance("CONN");
 
     /** Channel. */
     private final Channel channel;
@@ -43,26 +44,42 @@ public class NettyClientConnection implements ClientConnection {
     /** State handler. */
     private final ClientConnectionStateHandler stateHnd;
 
+    /** Metrics. */
+    private final ClientMetricSource metrics;
+
     /**
      * Constructor.
      *
-     * @param channel  Channel.
-     * @param msgHnd   Message handler.
+     * @param channel Channel.
+     * @param msgHnd Message handler.
      * @param stateHnd State handler.
+     * @param metrics Metrics.
      */
-    public NettyClientConnection(Channel channel, ClientMessageHandler msgHnd, ClientConnectionStateHandler stateHnd) {
+    NettyClientConnection(
+            Channel channel,
+            ClientMessageHandler msgHnd,
+            ClientConnectionStateHandler stateHnd,
+            ClientMetricSource metrics) {
         this.channel = channel;
         this.msgHnd = msgHnd;
         this.stateHnd = stateHnd;
+        this.metrics = metrics;
 
+        //noinspection ThisEscapedInObjectConstruction
         channel.attr(ATTR_CONN).set(this);
     }
 
     /** {@inheritDoc} */
     @Override
     public ChannelFuture send(ByteBuf msg) throws IgniteException {
+        int bytes = msg.readableBytes();
+
         // writeAndFlush releases pooled buffer.
-        return channel.writeAndFlush(msg);
+        ChannelFuture fut = channel.writeAndFlush(msg);
+
+        metrics.bytesSentAdd(bytes);
+
+        return fut;
     }
 
     /** {@inheritDoc} */
@@ -89,6 +106,8 @@ public class NettyClientConnection implements ClientConnection {
      * @param buf Message.
      */
     void onMessage(ByteBuf buf) {
+        metrics.bytesReceivedAdd(buf.readableBytes());
+
         msgHnd.onMessage(buf);
     }
 

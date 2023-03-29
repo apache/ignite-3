@@ -255,7 +255,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                 indexId,
-                new TestHashIndexStorage(null),
+                new TestHashIndexStorage(PART_ID, null),
                 row2Tuple
         ));
 
@@ -298,7 +298,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestPartitionDataStorage(mvPartStorage),
                 storageUpdateHandler,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
-                safeTime
+                safeTime,
+                new PendingComparableValuesTracker<>(0L)
         );
 
         safeTimeUpdaterThread = new Thread(new SafeTimeUpdater(safeTime), "safe-time-updater");

@@ -32,6 +32,7 @@ import java.util.BitSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
@@ -39,6 +40,7 @@ import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteCol
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcCloseRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcColumnMetadataRequest;
+import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcConnectRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcExecuteBatchRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcExecuteRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcFetchRequest;
@@ -144,6 +146,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** Whether the partition assignment has changed since the last server response. */
     private final AtomicBoolean partitionAssignmentChanged = new AtomicBoolean();
 
+    /** Partition assignment change listener. */
+    private final Consumer<IgniteTablesInternal> partitionAssignmentsChangeListener;
+
     /**
      * Constructor.
      *
@@ -189,7 +194,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources);
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
 
-        igniteTables.addAssignmentsChangeListener(this::onPartitionAssignmentChanged);
+        this.partitionAssignmentsChangeListener = this::onPartitionAssignmentChanged;
+        igniteTables.addAssignmentsChangeListener(partitionAssignmentsChangeListener);
     }
 
     /** {@inheritDoc} */
@@ -217,7 +223,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         resources.close();
-        igniteTables.removeAssignmentsChangeListener(this::onPartitionAssignmentChanged);
+        igniteTables.removeAssignmentsChangeListener(partitionAssignmentsChangeListener);
 
         super.channelInactive(ctx);
     }
@@ -492,6 +498,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             case ClientOp.TUPLE_CONTAINS_KEY:
                 return ClientTupleContainsKeyRequest.process(in, out, igniteTables, resources);
+
+            case ClientOp.JDBC_CONNECT:
+                return ClientJdbcConnectRequest.execute(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_EXEC:
                 return ClientJdbcExecuteRequest.execute(in, out, jdbcQueryEventHandler);

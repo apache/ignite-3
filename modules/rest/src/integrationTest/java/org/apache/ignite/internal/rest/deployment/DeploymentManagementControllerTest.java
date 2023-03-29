@@ -50,7 +50,7 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatusDto;
 import org.apache.ignite.internal.testframework.IntegrationTestBase;
 import org.junit.jupiter.api.AfterEach;

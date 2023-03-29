@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * {@link BplusTree} implementation for storing {@link IndexMeta}.
  */
-public class IndexMetaTree extends BplusTree<IndexMeta, IndexMeta> {
+public class IndexMetaTree extends BplusTree<IndexMetaKey, IndexMeta> {
     /**
      * Constructor.
      *
@@ -67,14 +67,14 @@ public class IndexMetaTree extends BplusTree<IndexMeta, IndexMeta> {
     }
 
     @Override
-    protected int compare(BplusIo<IndexMeta> io, long pageAddr, int idx, IndexMeta row) {
+    protected int compare(BplusIo<IndexMetaKey> io, long pageAddr, int idx, IndexMetaKey row) {
         IndexMetaIo indexMetaIo = (IndexMetaIo) io;
 
         return indexMetaIo.compare(pageAddr, idx, row);
     }
 
     @Override
-    public IndexMeta getRow(BplusIo<IndexMeta> io, long pageAddr, int idx, Object x) {
+    public IndexMeta getRow(BplusIo<IndexMetaKey> io, long pageAddr, int idx, @Nullable Object x) {
         IndexMetaIo indexMetaIo = (IndexMetaIo) io;
 
         return indexMetaIo.getRow(pageAddr, idx);

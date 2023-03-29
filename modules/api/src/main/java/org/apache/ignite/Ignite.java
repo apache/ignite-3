@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.deployment.IgniteDeployment;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -76,8 +75,8 @@ public interface Ignite extends AutoCloseable {
     IgniteDeployment deployment();
 
     /**
-     * Returns cluster nodes.
-     * NOTE: A temporary API to enable Compute until the permanent Cluster API becomes available.
+     * Gets the cluster nodes.
+     * NOTE: Temporary API to enable Compute until we have proper Cluster API.
      *
      * @return Collection of cluster nodes.
      */

@@ -24,11 +24,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -55,13 +55,13 @@ class SessionManagerTest {
 
     @Test
     void sessionGet() {
-        PropertiesHolder propHldr = PropertiesHolder.fromMap(Map.of());
+        PropertiesHolder propertiesHolder = PropertiesHelper.emptyHolder();
 
-        SessionId sessionId = sessionMgr.createSession(12345, propHldr);
+        SessionId sessionId = sessionMgr.createSession(12345, propertiesHolder);
 
         Session session = sessionMgr.session(sessionId);
         assertNotNull(session);
-        assertSame(propHldr, session.queryProperties());
+        assertSame(propertiesHolder, session.properties());
         assertEquals(12345, session.idleTimeoutMs());
 
         SessionId unknownSessionId = new SessionId(UUID.randomUUID());
