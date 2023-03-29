@@ -36,9 +36,14 @@ public class MetricsTests
         using var listener = new Listener();
 
         Assert.AreEqual(0, listener.GetMetric("connections-established"));
+        Assert.AreEqual(0, listener.GetMetric("connections-active"));
 
-        (await server.ConnectClientAsync()).Dispose();
+        var client = await server.ConnectClientAsync();
         Assert.AreEqual(1, listener.GetMetric("connections-established"));
+        Assert.AreEqual(1, listener.GetMetric("connections-active"));
+
+        client.Dispose();
+        Assert.AreEqual(0, listener.GetMetric("connections-active"));
 
         (await server.ConnectClientAsync()).Dispose();
         Assert.AreEqual(2, listener.GetMetric("connections-established"));
