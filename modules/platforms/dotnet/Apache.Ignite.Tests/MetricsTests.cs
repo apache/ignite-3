@@ -30,7 +30,7 @@ using NUnit.Framework;
 public class MetricsTests
 {
     [Test]
-    public async Task TestConnectionsEstablished()
+    public async Task TestConnectionsMetrics()
     {
         using var server = new FakeServer();
         using var listener = new Listener();
@@ -47,6 +47,7 @@ public class MetricsTests
 
         (await server.ConnectClientAsync()).Dispose();
         Assert.AreEqual(2, listener.GetMetric("connections-established"));
+        Assert.AreEqual(0, listener.GetMetric("connections-active"));
     }
 
     private sealed class Listener : IDisposable
