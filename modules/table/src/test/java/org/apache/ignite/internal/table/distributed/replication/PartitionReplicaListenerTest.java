@@ -295,11 +295,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                 pkIndexId,
-                new TestHashIndexStorage(null),
+                new TestHashIndexStorage(partId, null),
                 row2Tuple
         ));
 
-        SortedIndexStorage indexStorage = new TestSortedIndexStorage(new SortedIndexDescriptor(sortedIndexId, List.of(
+        SortedIndexStorage indexStorage = new TestSortedIndexStorage(partId, new SortedIndexDescriptor(sortedIndexId, List.of(
                 new SortedIndexColumnDescriptor("intVal", NativeTypes.INT32, false, true)
         )));
 
@@ -307,7 +307,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         hashIndexStorage = new TableSchemaAwareIndexStorage(
                 hashIndexId,
-                new TestHashIndexStorage(new HashIndexDescriptor(hashIndexId, List.of(
+                new TestHashIndexStorage(partId, new HashIndexDescriptor(hashIndexId, List.of(
                         new HashIndexColumnDescriptor("intVal", NativeTypes.INT32, false)
                 ))),
                 row -> null

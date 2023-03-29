@@ -41,6 +41,7 @@ import javax.management.ObjectName;
 import javax.management.ReflectionException;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterView;
 import org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter;
@@ -99,7 +100,7 @@ public class JmxExporterTest {
 
         mbeanName = IgniteUtils.makeMbeanName("metrics", SRC_NAME);
 
-        jmxExporter = new JmxExporter();
+        jmxExporter = new JmxExporter(Loggers.forClass(JmxExporter.class));
 
         metricsProvider = mock(MetricProvider.class);
     }

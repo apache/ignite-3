@@ -24,9 +24,9 @@ import java.util.Base64;
 import java.util.Base64.Decoder;
 import java.util.Base64.Encoder;
 import java.util.List;
-import org.apache.ignite.deployment.DeploymentStatus;
-import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.UnitMeta;
+import org.apache.ignite.internal.deployunit.version.Version;
 
 /**
  * Serializer for {@link UnitMeta}.
