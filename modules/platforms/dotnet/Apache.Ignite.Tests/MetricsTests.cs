@@ -18,6 +18,9 @@
 namespace Apache.Ignite.Tests;
 
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
 using System.Threading.Tasks;
 using Internal;
@@ -31,25 +34,48 @@ public class MetricsTests
     [Test]
     public async Task TestConnectionsEstablished()
     {
-        using var meterListener = new MeterListener();
-        meterListener.InstrumentPublished = (instrument, listener) =>
-        {
-            if (instrument.Meter.Name == "Apache.Ignite")
-            {
-                listener.EnableMeasurementEvents(instrument);
-            }
-        };
-
-        meterListener.SetMeasurementEventCallback<int>((instrument, measurement, tags, state) =>
-            Console.WriteLine($"{instrument.Name} recorded measurement {measurement}"));
-
-        meterListener.Start();
-
         using var server = new FakeServer();
+        using var listener = new Listener();
 
         (await server.ConnectClientAsync()).Dispose();
         (await server.ConnectClientAsync()).Dispose();
 
-        Assert.AreEqual(1, Metrics.ConnectionsEstablished);
+        var events = listener.Events.ToArray();
+        Assert.AreEqual(2, events.Length);
+        Assert.AreEqual(new MetricsEvent("connections-established", 1), events[0]);
+        Assert.AreEqual(new MetricsEvent("connections-established", 1), events[1]);
     }
+
+    private sealed class Listener : IDisposable
+    {
+        private readonly MeterListener _listener = new();
+
+        public Listener()
+        {
+            _listener.InstrumentPublished = (instrument, listener) =>
+            {
+                if (instrument.Meter.Name == "Apache.Ignite")
+                {
+                    listener.EnableMeasurementEvents(instrument);
+                }
+            };
+
+            _listener.SetMeasurementEventCallback<int>(HandleEvent);
+
+            _listener.Start();
+        }
+
+        public ConcurrentQueue<MetricsEvent> Events { get; } = new();
+
+        public void Dispose()
+        {
+            _listener.Dispose();
+        }
+
+        private void HandleEvent(Instrument instrument, int measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state) =>
+            Events.Enqueue(new MetricsEvent(instrument.Name, measurement));
+    }
+
+    [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "Record.")]
+    private record MetricsEvent(string InstrumentName, int Measurement);
 }
