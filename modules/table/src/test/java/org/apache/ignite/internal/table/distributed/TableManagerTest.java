@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,9 +32,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -69,8 +72,9 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
@@ -89,6 +93,7 @@ import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -99,6 +104,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Outgo
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -117,7 +123,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -158,7 +163,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     /** Raft manager. */
     @Mock
-    private RaftManager rm;
+    private Loza rm;
 
     /** Replica manager. */
     @Mock
@@ -175,6 +180,10 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Mock cluster service. */
     @Mock
     private ClusterService clusterService;
+
+    private volatile MvTableStorage mvTableStorage;
+
+    private volatile TxStateTableStorage txStateTableStorage;
 
     /**
      * Revision listener holder. It uses for the test configurations:
@@ -263,7 +272,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         mockMetastore();
 
-        TableManager tableManager = createTableManager(tblManagerFut, false);
+        TableManager tableManager = createTableManager(tblManagerFut);
 
         tblManagerFut.complete(tableManager);
 
@@ -344,14 +353,14 @@ public class TableManagerTest extends IgniteAbstractTest {
                 SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
-        TableImpl table = mockManagersAndCreateTable(scmTbl, tblManagerFut);
+        mockManagersAndCreateTable(scmTbl, tblManagerFut);
 
         TableManager tableManager = tblManagerFut.join();
 
         await(tableManager.dropTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME));
 
-        verify(table.internalTable().storage()).destroy();
-        verify(table.internalTable().txStateStorage()).destroy();
+        verify(mvTableStorage).destroy();
+        verify(txStateTableStorage).destroy();
 
         assertNull(tableManager.table(scmTbl.name()));
 
@@ -363,7 +372,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testApiTableManagerOnStop() {
-        createTableManager(tblManagerFut, false);
+        createTableManager(tblManagerFut);
 
         TableManager tableManager = tblManagerFut.join();
 
@@ -379,7 +388,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                         ).withPrimaryKey("key").build(), change)
                         .changeZoneId(1);
 
-        final Function<TableChange, Boolean> addColumnChange = (TableChange change) -> {
+        Function<TableChange, Boolean> addColumnChange = (TableChange change) -> {
             change.changeColumns(cols -> {
                 int colIdx = change.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt() + 1;
 
@@ -413,7 +422,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testInternalApiTableManagerOnStop() {
-        createTableManager(tblManagerFut, false);
+        createTableManager(tblManagerFut);
 
         TableManager tableManager = tblManagerFut.join();
 
@@ -427,8 +436,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Checks that the all RAFT nodes will be stopped when Table manager is stopping and
-     * an exception that was thrown by one of the component will not prevent stopping other components.
+     * Checks that all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the
+     * components will not prevent stopping other components.
      *
      * @throws Exception If failed.
      */
@@ -447,8 +456,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Checks that the all RAFT nodes will be stopped when Table manager is stopping and
-     * an exception that was thrown by one of the component will not prevent stopping other components.
+     * Checks that all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the
+     * components will not prevent stopping other components.
      *
      * @throws Exception If failed.
      */
@@ -467,8 +476,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Checks that the all RAFT nodes will be stopped when Table manager is stopping and
-     * an exception that was thrown by one of the component will not prevent stopping other components.
+     * Checks that all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the
+     * components will not prevent stopping other components.
      *
      * @throws Exception If failed.
      */
@@ -487,8 +496,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Checks that the all RAFT nodes will be stopped when Table manager is stopping and
-     * an exception that was thrown by one of the component will not prevent stopping other components.
+     * Checks that all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the
+     * components will not prevent stopping other components.
      *
      * @throws Exception If failed.
      */
@@ -598,6 +607,85 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertSame(table, tblManagerFut.join().table(scmTbl.name()));
     }
 
+    @Test
+    void testStoragesGetClearedInMiddleOfFailedTxStorageRebalance() throws Exception {
+        testStoragesGetClearedInMiddleOfFailedRebalance(true);
+    }
+
+    @Test
+    void testStoragesGetClearedInMiddleOfFailedPartitionStorageRebalance() throws Exception {
+        testStoragesGetClearedInMiddleOfFailedRebalance(false);
+    }
+
+    /**
+     * Emulates a situation, when either a TX state storage or partition storage were stopped in a middle of a rebalance. We then expect
+     * that these storages get cleared upon startup.
+     *
+     * @param isTxStorageUnderRebalance When {@code true} - TX state storage is emulated as being under rebalance, when {@code false} -
+     *         partition storage is emulated instead.
+     */
+    private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws NodeStoppingException {
+        when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
+
+        mockMetastore();
+
+        TableManager tableManager = createTableManager(tblManagerFut);
+
+        tblManagerFut.complete(tableManager);
+
+        var txStateStorage = mock(TxStateStorage.class);
+        var mvPartitionStorage = mock(MvPartitionStorage.class);
+
+        if (isTxStorageUnderRebalance) {
+            // Emulate a situation when TX state storage was stopped in a middle of rebalance.
+            when(txStateStorage.persistedIndex()).thenReturn(TxStateStorage.REBALANCE_IN_PROGRESS);
+        } else {
+            // Emulate a situation when partition storage was stopped in a middle of rebalance.
+            when(mvPartitionStorage.persistedIndex()).thenReturn(MvPartitionStorage.REBALANCE_IN_PROGRESS);
+        }
+
+        when(txStateStorage.clear()).thenReturn(completedFuture(null));
+
+        // We need to mock storages inside a configuration listener because of how mocks are created in the Table Manager,
+        // see "createTableManager".
+        tblsCfg.tables().any().listen(ctx -> {
+            // For some reason, "when(something).thenReturn" does not work on spies, but this notation works.
+            doReturn(txStateStorage).when(txStateTableStorage).getOrCreateTxStateStorage(anyInt());
+            doReturn(txStateStorage).when(txStateTableStorage).getTxStateStorage(anyInt());
+
+            doReturn(completedFuture(mvPartitionStorage)).when(mvTableStorage).createMvPartition(anyInt());
+            doReturn(mvPartitionStorage).when(mvTableStorage).getMvPartition(anyInt());
+            doReturn(completedFuture(null)).when(mvTableStorage).clearPartition(anyInt());
+
+            return completedFuture(null);
+        });
+
+        TableDefinition scmTbl = SchemaBuilders.tableBuilder("PUBLIC", PRECONFIGURED_TABLE_NAME).columns(
+                SchemaBuilders.column("key", ColumnType.INT64).build(),
+                SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
+        ).withPrimaryKey("key").build();
+
+        CompletableFuture<Void> cfgChangeFuture = tblsCfg.tables()
+                .change(namedListChange -> namedListChange.create(scmTbl.name(),
+                        tableChange -> {
+                            SchemaConfigurationConverter.convert(scmTbl, tableChange);
+
+                            tableChange.changeDataStorage(c -> c.convert(PersistentPageMemoryDataStorageChange.class));
+
+                            // Trigger "onUpdateAssignments"
+                            var assignments = List.of(Set.of(Assignment.forPeer(NODE_NAME)));
+
+                            ((ExtendedTableChange) tableChange)
+                                    .changeAssignments(ByteUtils.toBytes(assignments))
+                                    .changeSchemaId(1);
+                        }));
+
+        assertThat(cfgChangeFuture, willCompleteSuccessfully());
+
+        verify(txStateStorage).clear();
+        verify(mvTableStorage).clearPartition(anyInt());
+    }
+
     /**
      * Instantiates Table manager and creates a table in it.
      *
@@ -672,9 +760,9 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         mockMetastore();
 
-        TableManager tableManager = createTableManager(tblManagerFut, true);
+        TableManager tableManager = createTableManager(tblManagerFut);
 
-        final int tablesBeforeCreation = tableManager.tables().size();
+        int tablesBeforeCreation = tableManager.tables().size();
 
         tblsCfg.tables().listen(ctx -> {
             boolean createTbl = ctx.newValue().get(tableDefinition.name()) != null
@@ -723,12 +811,10 @@ public class TableManagerTest extends IgniteAbstractTest {
     /**
      * Creates Table manager.
      *
-     * @param tblManagerFut    Future to wrap Table manager.
-     * @param waitingSqlSchema If the flag is true, a table will wait of {@link TableManager#onSqlSchemaReady(long)} invocation before
-     *                         create otherwise, the waiting will not be.
+     * @param tblManagerFut Future to wrap Table manager.
      * @return Table manager.
      */
-    private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut, boolean waitingSqlSchema) {
+    private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut) {
         TableManager tableManager = new TableManager(
                 "test",
                 revisionUpdater,
@@ -755,21 +841,21 @@ public class TableManagerTest extends IgniteAbstractTest {
             @Override
             protected MvTableStorage createTableStorage(
                     TableConfiguration tableCfg, TablesConfiguration tablesCfg, DistributionZoneConfiguration distributionZonesCfg) {
-                return Mockito.spy(super.createTableStorage(tableCfg, tablesCfg, distributionZonesCfg));
+                mvTableStorage = spy(super.createTableStorage(tableCfg, tablesCfg, distributionZonesCfg));
+
+                return mvTableStorage;
             }
 
             @Override
-            protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg,
-                    DistributionZoneConfiguration distributionZoneCfg) {
-                return Mockito.spy(super.createTxStateTableStorage(tableCfg, distributionZoneCfg));
+            protected TxStateTableStorage createTxStateTableStorage(
+                    TableConfiguration tableCfg, DistributionZoneConfiguration distributionZonesCfg) {
+                txStateTableStorage = spy(super.createTxStateTableStorage(tableCfg, distributionZonesCfg));
+
+                return txStateTableStorage;
             }
         };
 
         sm.start();
-
-        if (!waitingSqlSchema) {
-            tableManager.listen(TableEvent.CREATE, (parameters, exception) -> completedFuture(false));
-        }
 
         tableManager.start();
 

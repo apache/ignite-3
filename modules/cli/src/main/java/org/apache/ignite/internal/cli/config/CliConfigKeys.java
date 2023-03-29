@@ -42,7 +42,13 @@ public enum CliConfigKeys {
     REST_KEY_STORE_PASSWORD(Constants.REST_KEY_STORE_PASSWORD),
 
     /** Default JDBC URL property name. */
-    JDBC_URL(Constants.JDBC_URL);
+    JDBC_URL(Constants.JDBC_URL),
+
+    /** Basic authentication login. */
+    BASIC_AUTHENTICATION_LOGIN(Constants.BASIC_AUTHENTICATION_LOGIN),
+
+    /** Basic authentication password. */
+    BASIC_AUTHENTICATION_PASSWORD(Constants.BASIC_AUTHENTICATION_PASSWORD);
 
     private final String value;
 
@@ -65,6 +71,10 @@ public enum CliConfigKeys {
         public static final String REST_KEY_STORE_PASSWORD = "ignite.rest.key-store.password";
 
         public static final String JDBC_URL = "ignite.jdbc-url";
+
+        public static final String BASIC_AUTHENTICATION_LOGIN = "ignite.auth.basic.login";
+
+        public static final String BASIC_AUTHENTICATION_PASSWORD = "ignite.auth.basic.password";
 
         /** Environment variable which points to the base directory for configuration files according to XDG spec. */
         private static final String XDG_CONFIG_HOME = "XDG_CONFIG_HOME";

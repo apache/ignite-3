@@ -122,6 +122,10 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
 
         IgnitionManager.init(initParameters);
 
+        awaitClusterInitialized();
+    }
+
+    protected void awaitClusterInitialized() {
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());
 
