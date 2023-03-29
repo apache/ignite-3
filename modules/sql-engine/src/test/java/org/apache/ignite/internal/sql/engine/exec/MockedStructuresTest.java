@@ -45,6 +45,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -58,6 +59,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -136,6 +138,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     @Mock
     HybridClock clock;
+
+    @Mock
+    CatalogManager catalogManager;
 
     /**
      * Revision listener holder. It uses for the test configurations:
@@ -260,7 +265,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                         )
                 ),
                 mock(ReplicaService.class),
-                clock
+                clock,
+                catalogManager
         );
 
         queryProc.start();
@@ -366,7 +372,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                                 + "with partitions=1,replicas=1,primary_zone='%s'", tableName, zoneName)))
         );
 
-        assertInstanceOf(DistributionZoneNotFoundException.class, exception.getCause().getCause());
+        assertInstanceOf(DistributionZoneNotFoundException.class, exception.getCause());
     }
 
     /**
@@ -568,7 +574,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 schemaManager,
                 null,
                 clock,
-                mock(OutgoingSnapshotsManager.class)
+                mock(OutgoingSnapshotsManager.class),
+                mock(TopologyAwareRaftGroupServiceFactory.class)
         );
 
         tableManager.start();

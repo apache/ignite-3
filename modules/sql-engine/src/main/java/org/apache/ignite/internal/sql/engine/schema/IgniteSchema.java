@@ -29,6 +29,8 @@ import org.jetbrains.annotations.Nullable;
  * Ignite schema.
  */
 public class IgniteSchema extends AbstractSchema {
+    public static final long INITIAL_VERSION = -1;
+
     private final String schemaName;
 
     private final Map<String, Table> tblMap;
@@ -62,7 +64,7 @@ public class IgniteSchema extends AbstractSchema {
      * @param schemaName A name of the schema to create.
      */
     public IgniteSchema(String schemaName) {
-        this(schemaName, null, null, -1);
+        this(schemaName, null, null, INITIAL_VERSION);
     }
 
     /**

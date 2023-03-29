@@ -38,6 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -46,6 +47,7 @@ import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.AsyncRootNode;
@@ -256,7 +258,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     public AsyncCursor<List<Object>> executePlan(
             InternalTransaction tx, QueryPlan plan, BaseQueryContext ctx
     ) {
-        switch (plan.type()) {
+        SqlQueryType queryType = plan.type();
+        assert queryType != null : "Root plan can not be a fragment";
+
+        switch (queryType) {
             case DML:
                 // TODO a barrier between previous operation and this one
             case QUERY:
@@ -267,7 +272,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 return executeDdl((DdlPlan) plan);
 
             default:
-                throw new AssertionError("Unexpected plan type: " + plan);
+                throw new AssertionError("Unexpected query type: " + plan);
         }
     }
 
@@ -371,11 +376,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
-        CompletableFuture.allOf(queryManagerMap.values().stream()
+        CompletableFuture<Void> f = CompletableFuture.allOf(queryManagerMap.values().stream()
                 .filter(mgr -> mgr.rootFragmentId != null)
                 .map(mgr -> mgr.close(true))
                 .toArray(CompletableFuture[]::new)
-        ).join();
+        );
+        // TODO Workaround for https://issues.apache.org/jira/browse/IGNITE-19088
+        f.get(1, TimeUnit.MINUTES);
     }
 
     /** {@inheritDoc} */

@@ -54,12 +54,20 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     /**
      * Logger.
      */
-    private static IgniteLogger LOG = Loggers.forClass(JmxExporter.class);
+    private final IgniteLogger log;
 
     /**
      * Current registered MBeans.
      */
     private final List<ObjectName> mbeans = new ArrayList<>();
+
+    public JmxExporter() {
+        log = Loggers.forClass(JmxExporter.class);
+    }
+
+    public JmxExporter(IgniteLogger log) {
+        this.log = log;
+    }
 
     /**
      * {@inheritDoc}
@@ -128,7 +136,7 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
 
             mbeans.add(mbean);
         } catch (JMException e) {
-            LOG.error("MBean for metric set " + metricSet.name() + " can't be created.", e);
+            log.error("MBean for metric set " + metricSet.name() + " can't be created.", e);
         }
     }
 
@@ -146,10 +154,10 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
             if (rmv) {
                 unregBean(mbeanName);
             } else {
-                LOG.warn("Tried to unregister the MBean for non-registered metric set " + metricSetName);
+                log.warn("Tried to unregister the MBean for non-registered metric set " + metricSetName);
             }
         } catch (MalformedObjectNameException e) {
-            LOG.error("MBean for metric set " + metricSetName + " can't be unregistered.", e);
+            log.error("MBean for metric set " + metricSetName + " can't be unregistered.", e);
         }
     }
 
@@ -162,7 +170,7 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
         try {
             ManagementFactory.getPlatformMBeanServer().unregisterMBean(bean);
         } catch (JMException e) {
-            LOG.error("Failed to unregister MBean: " + bean, e);
+            log.error("Failed to unregister MBean: " + bean, e);
         }
     }
 }

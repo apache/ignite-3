@@ -28,6 +28,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.network.AbstractMessagingService;
 import org.apache.ignite.network.AbstractTopologyService;
+import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -171,7 +172,7 @@ public class ClusterServiceFactory {
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg) {
+        public CompletableFuture<Void> send(ClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
             for (var handler : messagingServicesByNode.get(recipient.name()).messageHandlers(msg.groupType())) {
                 handler.onReceived(msg, localNodeName, null);
             }
@@ -181,25 +182,25 @@ public class ClusterServiceFactory {
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<Void> respond(ClusterNode recipient, NetworkMessage msg, long correlationId) {
+        public CompletableFuture<Void> respond(ClusterNode recipient, ChannelType type, NetworkMessage msg, long correlationId) {
             throw new AssertionError("Not implemented yet");
         }
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<Void> respond(String recipientConsistentId, NetworkMessage msg, long correlationId) {
+        public CompletableFuture<Void> respond(String recipientConsistentId, ChannelType type, NetworkMessage msg, long correlationId) {
             throw new AssertionError("Not implemented yet");
         }
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, NetworkMessage msg, long timeout) {
+        public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, ChannelType type, NetworkMessage msg, long timeout) {
             throw new AssertionError("Not implemented yet");
         }
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<NetworkMessage> invoke(String recipientNodeId, NetworkMessage msg, long timeout) {
+        public CompletableFuture<NetworkMessage> invoke(String recipientNodeId, ChannelType type, NetworkMessage msg, long timeout) {
             throw new AssertionError("Not implemented yet");
         }
 

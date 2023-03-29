@@ -17,28 +17,19 @@
 
 #pragma once
 
+#include "ignite/client/detail/client_data_type.h"
+
 #include "ignite/common/ignite_error.h"
+#include "ignite/common/ignite_type.h"
 #include "ignite/protocol/utils.h"
-#include "ignite/schema/ignite_type.h"
 
 #include <msgpack.h>
 
+#include <array>
 #include <memory>
 #include <string>
 
 namespace ignite::detail {
-
-/**
- * Get Ignite type from int value.
- *
- * @param val Value.
- * @return Matching client data type.
- */
-inline ignite_type ignite_type_from_int(std::int32_t val) {
-    if (val < 1 || val >= std::int32_t(ignite_type::LAST))
-        throw ignite_error("Value is out of range for Ignite type: " + std::to_string(val));
-    return ignite_type(val);
-}
 
 /**
  * Column.
@@ -68,7 +59,7 @@ struct column {
 
         column res{};
         res.name = protocol::unpack_object<std::string>(arr.ptr[0]);
-        res.type = ignite_type_from_int(protocol::unpack_object<std::int32_t>(arr.ptr[1]));
+        res.type = client_data_type::to_ignite_type(protocol::unpack_object<std::int32_t>(arr.ptr[1]));
         res.is_key = protocol::unpack_object<bool>(arr.ptr[2]);
         res.nullable = protocol::unpack_object<bool>(arr.ptr[3]);
         res.scale = protocol::unpack_object<std::int32_t>(arr.ptr[5]);

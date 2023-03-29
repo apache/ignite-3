@@ -38,7 +38,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.causality.VersionedValue;
+import org.apache.ignite.internal.causality.CompletionListener;
+import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -58,7 +59,6 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.lang.IgniteTriConsumer;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 
@@ -84,7 +84,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     private final TablesConfiguration tablesCfg;
 
     /** Versioned store for tables by name. */
-    private final VersionedValue<Map<UUID, SchemaRegistryImpl>> registriesVv;
+    private final IncrementalVersionedValue<Map<UUID, SchemaRegistryImpl>> registriesVv;
 
     /** Meta storage manager. */
     private final MetaStorageManager metastorageMgr;
@@ -95,7 +95,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             TablesConfiguration tablesCfg,
             MetaStorageManager metastorageMgr
     ) {
-        this.registriesVv = new VersionedValue<>(registry, HashMap::new);
+        this.registriesVv = new IncrementalVersionedValue<>(registry, HashMap::new);
         this.tablesCfg = tablesCfg;
         this.metastorageMgr = metastorageMgr;
     }
@@ -195,7 +195,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param tableName Table name.
      * @param schema Schema descriptor.
      * @return Future that, when complete, will resolve into an updated map of schema registries
-     *     (to be used in {@link VersionedValue#update}).
+     *     (to be used in {@link IncrementalVersionedValue#update}).
      */
     private CompletableFuture<Map<UUID, SchemaRegistryImpl>> registerSchema(
             Map<UUID, SchemaRegistryImpl> registries,
@@ -259,7 +259,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             return getSchemaDescriptor(schemaVer, tblCfg);
         }
 
-        IgniteTriConsumer<Long, Map<UUID, SchemaRegistryImpl>, Throwable> schemaListener = (token, regs, e) -> {
+        CompletionListener<Map<UUID, SchemaRegistryImpl>> schemaListener = (token, regs, e) -> {
             if (schemaVer <= regs.get(tblId).lastSchemaVersion()) {
                 SchemaRegistry registry0 = registriesVv.latest().get(tblId);
 

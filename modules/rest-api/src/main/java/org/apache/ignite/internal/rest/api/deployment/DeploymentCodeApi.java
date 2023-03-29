@@ -126,9 +126,9 @@ public interface DeploymentCodeApi {
     /**
      * All units status REST method.
      */
-    @Operation(operationId = "units", description = "All units statutes.")
+    @Operation(operationId = "units", description = "All units statuses.")
     @ApiResponse(responseCode = "200",
-            description = "All statutes returned successfully.",
+            description = "All statuses returned successfully.",
             content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = UnitStatusDto.class)))
     )
     @ApiResponse(responseCode = "500",
@@ -196,7 +196,7 @@ public interface DeploymentCodeApi {
      */
     @Operation(operationId = "byConsistentId", description = "Status of units which deployed on node.")
     @ApiResponse(responseCode = "200",
-            description = "All statutes returned successfully.",
+            description = "All statuses returned successfully.",
             content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = UnitStatusDto.class)))
     )
     @ApiResponse(responseCode = "500",
