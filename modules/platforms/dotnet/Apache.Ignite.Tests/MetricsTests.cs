@@ -20,7 +20,6 @@ namespace Apache.Ignite.Tests;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
 using System.Threading.Tasks;
 using Internal;
@@ -37,18 +36,20 @@ public class MetricsTests
         using var server = new FakeServer();
         using var listener = new Listener();
 
-        (await server.ConnectClientAsync()).Dispose();
-        (await server.ConnectClientAsync()).Dispose();
+        Assert.AreEqual(0, listener.GetMetric("connections-established"));
 
-        var events = listener.Events.ToArray();
-        Assert.AreEqual(2, events.Length);
-        Assert.AreEqual(new MetricsEvent("connections-established", 1), events[0]);
-        Assert.AreEqual(new MetricsEvent("connections-established", 1), events[1]);
+        (await server.ConnectClientAsync()).Dispose();
+        Assert.AreEqual(1, listener.GetMetric("connections-established"));
+
+        (await server.ConnectClientAsync()).Dispose();
+        Assert.AreEqual(2, listener.GetMetric("connections-established"));
     }
 
     private sealed class Listener : IDisposable
     {
         private readonly MeterListener _listener = new();
+
+        private readonly ConcurrentDictionary<string, object> _metrics = new();
 
         public Listener()
         {
@@ -65,17 +66,16 @@ public class MetricsTests
             _listener.Start();
         }
 
-        public ConcurrentQueue<MetricsEvent> Events { get; } = new();
+        public int GetMetric(string name) => _metrics.TryGetValue(name, out var val) ? (int)val : 0;
 
         public void Dispose()
         {
             _listener.Dispose();
         }
 
-        private void HandleEvent(Instrument instrument, int measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state) =>
-            Events.Enqueue(new MetricsEvent(instrument.Name, measurement));
+        private void HandleEvent(Instrument instrument, int measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state)
+        {
+            _metrics.AddOrUpdate(instrument.Name, measurement, (_, val) => (int)val + measurement);
+        }
     }
-
-    [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "Record.")]
-    private record MetricsEvent(string InstrumentName, int Measurement);
 }
