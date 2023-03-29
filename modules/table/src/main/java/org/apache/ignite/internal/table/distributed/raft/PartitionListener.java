@@ -155,21 +155,18 @@ public class PartitionListener implements RaftGroupListener {
             storage.acquirePartitionSnapshotsReadLock();
 
             try {
-                // If the command index is less than or equal to, then it has already been executed.
-                if (commandIndex > storage.lastAppliedIndex()) {
-                    if (command instanceof UpdateCommand) {
-                        handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm);
-                    } else if (command instanceof UpdateAllCommand) {
-                        handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm);
-                    } else if (command instanceof FinishTxCommand) {
-                        handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm);
-                    } else if (command instanceof TxCleanupCommand) {
-                        handleTxCleanupCommand((TxCleanupCommand) command, commandIndex, commandTerm);
-                    } else if (command instanceof SafeTimeSyncCommand) {
-                        handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
-                    } else {
-                        assert false : "Command was not found [cmd=" + command + ']';
-                    }
+                if (command instanceof UpdateCommand) {
+                    handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof UpdateAllCommand) {
+                    handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof FinishTxCommand) {
+                    handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof TxCleanupCommand) {
+                    handleTxCleanupCommand((TxCleanupCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof SafeTimeSyncCommand) {
+                    handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
+                } else {
+                    assert false : "Command was not found [cmd=" + command + ']';
                 }
 
                 clo.result(null);
@@ -199,6 +196,11 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandTerm Term of the RAFT command.
      */
     private void handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
         TxMeta txMeta = txStateStorage.get(cmd.txId());
 
         if (txMeta != null && (txMeta.txState() == COMMITED || txMeta.txState() == ABORTED)) {
@@ -228,6 +230,11 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandTerm Term of the RAFT command.
      */
     private void handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex, long commandTerm) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
         TxMeta txMeta = txStateStorage.get(cmd.txId());
 
         if (txMeta != null && (txMeta.txState() == COMMITED || txMeta.txState() == ABORTED)) {
@@ -256,6 +263,11 @@ public class PartitionListener implements RaftGroupListener {
      * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
     private void handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm) throws IgniteInternalException {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= txStateStorage.lastAppliedIndex()) {
+            return;
+        }
+
         UUID txId = cmd.txId();
 
         TxState stateToSet = cmd.commit() ? COMMITED : ABORTED;
@@ -309,6 +321,11 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandTerm Term of the RAFT command.
      */
     private void handleTxCleanupCommand(TxCleanupCommand cmd, long commandIndex, long commandTerm) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
         UUID txId = cmd.txId();
 
         Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, Collections.emptySet());
@@ -341,6 +358,11 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandTerm  RAFT term of the command.
      */
     private void handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd, long commandIndex, long commandTerm) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
         // We MUST bump information about last updated index+term.
         // See a comment in #onWrite() for explanation.
         storage.runConsistently(() -> {
