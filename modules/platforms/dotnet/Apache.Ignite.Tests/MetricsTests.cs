@@ -22,11 +22,10 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 using System.Threading.Tasks;
-using Internal;
 using NUnit.Framework;
 
 /// <summary>
-/// Tests <see cref="Metrics"/>.
+/// Tests client metrics.
 /// </summary>
 public class MetricsTests
 {

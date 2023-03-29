@@ -77,6 +77,9 @@ namespace Apache.Ignite.Internal
             Justification = "WaitHandle is not used in CancellationTokenSource, no need to dispose.")]
         private readonly CancellationTokenSource _disposeTokenSource = new();
 
+        /** Dispose lock. */
+        private readonly object _disposeLock = new();
+
         /** Heartbeat timer. */
         private readonly Timer _heartbeatTimer;
 
@@ -179,6 +182,7 @@ namespace Apache.Ignite.Internal
                 }
 
                 Metrics.ConnectionsEstablished.Add(1);
+                Metrics.ConnectionsActive.Add(1);
 
                 Stream stream = new NetworkStream(socket, ownsSocket: true);
 
@@ -208,6 +212,7 @@ namespace Apache.Ignite.Internal
             catch (Exception e)
             {
                 logger?.Warn($"Connection failed before or during handshake [remoteAddress={socket.RemoteEndPoint}]: {e.Message}.", e);
+                Metrics.ConnectionsActive.Add(-1);
 
                 // ReSharper disable once MethodHasAsyncOverload
                 socket.Dispose();
@@ -679,36 +684,41 @@ namespace Apache.Ignite.Internal
         /// <param name="ex">Exception that caused this socket to close. Null when socket is closed by the user.</param>
         private void Dispose(Exception? ex)
         {
-            if (_disposeTokenSource.IsCancellationRequested)
+            lock (_disposeLock)
             {
-                return;
-            }
-
-            if (ex != null)
-            {
-                _logger?.Warn(ex, $"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]: " + ex.Message);
-            }
-            else if (_logger?.IsEnabled(LogLevel.Debug) == true)
-            {
-                _logger.Debug($"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]");
-            }
-
-            _heartbeatTimer.Dispose();
-            _disposeTokenSource.Cancel();
-            _exception = ex;
-            _stream.Dispose();
-
-            ex ??= new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed.");
-
-            while (!_requests.IsEmpty)
-            {
-                foreach (var reqId in _requests.Keys.ToArray())
+                if (_disposeTokenSource.IsCancellationRequested)
                 {
-                    if (_requests.TryRemove(reqId, out var req))
+                    return;
+                }
+
+                if (ex != null)
+                {
+                    _logger?.Warn(ex, $"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]: " + ex.Message);
+                }
+                else if (_logger?.IsEnabled(LogLevel.Debug) == true)
+                {
+                    _logger.Debug($"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]");
+                }
+
+                _heartbeatTimer.Dispose();
+                _disposeTokenSource.Cancel();
+                _exception = ex;
+                _stream.Dispose();
+
+                ex ??= new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed.");
+
+                while (!_requests.IsEmpty)
+                {
+                    foreach (var reqId in _requests.Keys.ToArray())
                     {
-                        req.TrySetException(ex);
+                        if (_requests.TryRemove(reqId, out var req))
+                        {
+                            req.TrySetException(ex);
+                        }
                     }
                 }
+
+                Metrics.ConnectionsActive.Add(-1);
             }
         }
     }

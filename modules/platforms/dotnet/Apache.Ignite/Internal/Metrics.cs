@@ -29,7 +29,12 @@ using System.Diagnostics.Metrics;
     Justification = "Meter should be private and comes before metrics.")]
 internal static class Metrics
 {
-    private static readonly Meter Meter = new Meter("Apache.Ignite", "3.0.0");
+    private static readonly Meter Meter = new(name: "Apache.Ignite", version: "3.0.0");
+
+    /// <summary>
+    /// Currently active connections.
+    /// </summary>
+    public static readonly Counter<int> ConnectionsActive = Meter.CreateCounter<int>("connections-active");
 
     /// <summary>
     /// Total number of connections established.
