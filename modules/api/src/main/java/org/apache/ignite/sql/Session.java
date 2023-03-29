@@ -375,7 +375,7 @@ public interface Session extends AutoCloseable {
          * @param timeUnit Timeunit to convert timeout to.
          * @return Default query timeout in the given timeunit.
          */
-        long defaultTimeout(TimeUnit timeUnit);
+        long defaultQueryTimeout(TimeUnit timeUnit);
 
         /**
          * Sets a default query timeout.
