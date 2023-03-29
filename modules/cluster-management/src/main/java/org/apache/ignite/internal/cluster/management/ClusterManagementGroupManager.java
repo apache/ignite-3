@@ -26,7 +26,9 @@ import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 import static org.apache.ignite.security.AuthenticationConfig.disabled;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -549,7 +551,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private CompletableFuture<CmgRaftService> completeJoinIfTryingToRejoin(CmgRaftService cmgRaftService) {
         if (attemptedCompleteJoinOnStart) {
-            return cmgRaftService.completeJoinCluster(nodeAttributes.nodeAttributes().value())
+            return cmgRaftService.completeJoinCluster(mapNodeAttributes())
                     .thenApply(unused -> cmgRaftService);
         } else {
             return completedFuture(cmgRaftService);
@@ -557,7 +559,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private CompletableFuture<CmgRaftService> joinCluster(CmgRaftService service, ClusterTag clusterTag) {
-        return service.startJoinCluster(clusterTag, nodeAttributes.nodeAttributes().value())
+        return service.startJoinCluster(clusterTag, mapNodeAttributes())
                 .thenApply(v -> service)
                 .whenComplete((v, e) -> {
                     if (e == null) {
@@ -854,7 +856,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         attemptedCompleteJoinOnStart = true;
 
         try {
-            return raftServiceAfterJoin().thenCompose(svc -> svc.completeJoinCluster(nodeAttributes.nodeAttributes().value()));
+            return raftServiceAfterJoin().thenCompose(svc -> svc.completeJoinCluster(mapNodeAttributes()));
         } finally {
             busyLock.leaveBusy();
         }
@@ -887,6 +889,16 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
                     return serviceFuture;
                 });
+    }
+
+    private Map<String, String> mapNodeAttributes() {
+        Map<String, String> attributes = new HashMap<>();
+
+        nodeAttributes.nodeAttributes().value().namedListKeys().forEach(
+                key -> attributes.put(key, nodeAttributes.nodeAttributes().get(key).attribute().value())
+        );
+
+        return attributes;
     }
 
     @TestOnly

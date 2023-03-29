@@ -174,11 +174,11 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Asasas.
+     * Asserts {@link DistributionZonesUtil#zonesLogicalTopologyKey()} value.
      *
-     * @param clusterNodes asdsa.
-     * @param keyValueStorage asda.
-     * @throws InterruptedException asda.
+     * @param clusterNodes Expected cluster nodes' names.
+     * @param keyValueStorage Key-value storage.
+     * @throws InterruptedException If thread was interrupted.
      */
     public static void assertLogicalTopologyWithNodeNames(
             @Nullable Set<String> clusterNodes,

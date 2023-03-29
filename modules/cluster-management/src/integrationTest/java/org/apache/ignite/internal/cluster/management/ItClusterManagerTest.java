@@ -417,7 +417,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
     private ClusterNode[] currentPhysicalTopology() {
         return cluster.stream()
                 .map(MockNode::localMember)
-                .map(n -> new LogicalNode(n, ""))
+                .map(LogicalNode::new)
                 .toArray(LogicalNode[]::new);
     }
 

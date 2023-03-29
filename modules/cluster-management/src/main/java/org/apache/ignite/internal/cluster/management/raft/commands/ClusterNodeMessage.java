@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cluster.management.raft.commands;
 
 import java.io.Serializable;
+import java.util.Map;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -41,5 +42,5 @@ public interface ClusterNodeMessage extends NetworkMessage, Serializable {
         return new ClusterNode(id(), name(), new NetworkAddress(host(), port()));
     }
 
-    String nodeAttributes();
+    Map<String, String> nodeAttributes();
 }

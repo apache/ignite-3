@@ -104,11 +104,11 @@ import org.mockito.Mock;
 public class DistributionZoneManagerScaleUpTest {
     private static final String ZONE_NAME = "zone1";
 
-    private static final LogicalNode NODE_1 = new LogicalNode("1", "A", new NetworkAddress("localhost", 123), "");
+    private static final LogicalNode NODE_1 = new LogicalNode("1", "A", new NetworkAddress("localhost", 123));
 
-    private static final LogicalNode NODE_2 = new LogicalNode("2", "B", new NetworkAddress("localhost", 123), "");
+    private static final LogicalNode NODE_2 = new LogicalNode("2", "B", new NetworkAddress("localhost", 123));
 
-    private static final LogicalNode NODE_3 = new LogicalNode("3", "C", new NetworkAddress("localhost", 123), "");
+    private static final LogicalNode NODE_3 = new LogicalNode("3", "C", new NetworkAddress("localhost", 123));
 
 
     private DistributionZoneManager distributionZoneManager;
@@ -808,6 +808,8 @@ public class DistributionZoneManagerScaleUpTest {
         topology.putNode(NODE_1);
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
+
+        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
 
         assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
     }

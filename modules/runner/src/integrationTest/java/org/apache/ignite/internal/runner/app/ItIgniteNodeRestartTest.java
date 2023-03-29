@@ -776,7 +776,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     public void changeNodeAttributesConfigurationOnStartTest() {
         IgniteImpl ignite = startNode(0);
 
-        String nodeAttributes = ignite.nodeConfiguration().getConfiguration(NodeAttributesConfiguration.KEY).nodeAttributes().value();
+        String nodeAttributes = ignite.nodeConfiguration().getConfiguration(NodeAttributesConfiguration.KEY).nodeAttributes().value()
+                .toString();
 
         assertEquals("", nodeAttributes);
 
@@ -788,7 +789,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         ignite = startNode(0, updateCfg);
 
-        nodeAttributes = ignite.nodeConfiguration().getConfiguration(NodeAttributesConfiguration.KEY).nodeAttributes().value();
+        nodeAttributes = ignite.nodeConfiguration().getConfiguration(NodeAttributesConfiguration.KEY).nodeAttributes().value().toString();
 
         assertEquals(newNodeAttributes, nodeAttributes);
     }

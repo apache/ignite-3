@@ -17,15 +17,20 @@
 
 package org.apache.ignite.internal.cluster.management.configuration;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Node's attributes configuration schema.
+ * Node's attribute configuration schema.
  */
-@ConfigurationRoot(rootName = "nodeAttributes", type = ConfigurationType.LOCAL)
-public class NodeAttributesConfigurationSchema {
-    @NamedConfigValue
-    public NodeAttributeConfigurationSchema nodeAttributes;
+@Config
+public class NodeAttributeConfigurationSchema {
+    /** Name of the node attribute. */
+    @InjectedName
+    public String name;
+
+    /** Node attribute field. */
+    @Value(hasDefault = true)
+    public String attribute = "";
 }

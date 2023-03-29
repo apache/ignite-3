@@ -105,7 +105,7 @@ public class CmgRaftGroupListenerTest {
 
         listener.onWrite(iterator(msgFactory.joinRequestCommand().node(node).version(state.version()).clusterTag(clusterTag).build()));
 
-        assertThat(listener.storage().getValidatedNodes(), contains(new LogicalNode(node.asClusterNode(), "")));
+        assertThat(listener.storage().getValidatedNodes(), contains(new LogicalNode(node.asClusterNode())));
 
         listener.onWrite(iterator(msgFactory.joinReadyCommand().node(node).build()));
 

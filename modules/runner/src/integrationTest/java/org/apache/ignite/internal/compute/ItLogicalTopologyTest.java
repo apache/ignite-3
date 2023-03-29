@@ -52,7 +52,7 @@ import org.junit.jupiter.api.TestInfo;
 class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     private final BlockingQueue<Event> events = new LinkedBlockingQueue<>();
 
-    private static final String NODE_ATTRIBUTES = "{nodeName:'node1',region:'EU',storage:'SSD',dataRegion:10}";
+    private static final String NODE_ATTRIBUTES = "{region:{attribute:'US'},storage:{attribute:'SSD'}}";
 
     @Language("JSON")
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES = "{\n"
@@ -63,7 +63,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
             + "    }\n"
             + "  },"
             + "  nodeAttributes: {\n"
-            + "    nodeAttributes: \"" + NODE_ATTRIBUTES + "\""
+            + "    nodeAttributes: " + NODE_ATTRIBUTES
             + "  },\n"
             + "  cluster.failoverTimeout: 100\n"
             + "}";

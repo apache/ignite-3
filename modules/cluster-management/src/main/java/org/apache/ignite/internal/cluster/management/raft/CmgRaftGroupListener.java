@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
 import java.io.Serializable;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Optional;
@@ -213,7 +214,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         Set<ClusterNode> nodes = command.nodes().stream().map(ClusterNodeMessage::asClusterNode).collect(Collectors.toSet());
 
         // Nodes will be removed from a topology, so it is safe to set nodeAttributes to the default value
-        Set<LogicalNode> logicalNodes = nodes.stream().map(n -> new LogicalNode(n, "")).collect(Collectors.toSet());
+        Set<LogicalNode> logicalNodes = nodes.stream().map(n -> new LogicalNode(n, Collections.emptyMap())).collect(Collectors.toSet());
 
         logicalTopology.removeNodes(logicalNodes);
         validationManager.removeValidatedNodes(logicalNodes);

@@ -502,7 +502,7 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
         public CompletableFuture<LogicalTopologySnapshot> logicalTopologyOnLeader() {
             return completedFuture(new LogicalTopologySnapshot(
                     1,
-                    clusterService.topologyService().allMembers().stream().map(n -> new LogicalNode(n, "")).collect(toSet()))
+                    clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()))
             );
         }
 

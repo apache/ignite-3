@@ -135,7 +135,8 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                 return CompletableFuture.completedFuture(false);
             }
             checkAndRestoreConfigFile();
-            saveValues(newValues);
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19152
+            //saveValues(newValues);
             latest.putAll(newValues);
             lastRevision++;
             runAsync(() -> lsnrRef.get().onEntriesChanged(new Data(newValues, lastRevision)));
