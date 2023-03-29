@@ -22,6 +22,7 @@ import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -63,7 +64,11 @@ public class StorageUpdateHandlerTest {
 
         UUID indexId = UUID.randomUUID();
 
-        StorageUpdateHandler storageUpdateHandler = createStorageUpdateHandler(partitionStorage, Map.of(indexId, indexStorage));
+        TableIndexStoragesSupplier indexes = mock(TableIndexStoragesSupplier.class);
+
+        when(indexes.get()).thenReturn(Map.of(indexId, indexStorage));
+
+        StorageUpdateHandler storageUpdateHandler = createStorageUpdateHandler(partitionStorage, indexes);
 
         RowId rowId0 = new RowId(PARTITION_ID, UUID.randomUUID());
         RowId rowId1 = new RowId(PARTITION_ID, UUID.randomUUID());
@@ -81,7 +86,8 @@ public class StorageUpdateHandlerTest {
         verify(indexStorage).put(rowVersions1.get(0), rowId1);
         verify(indexStorage, never()).put(rowVersions1.get(1), rowId1);
 
-        verify(indexStorage.storage()).setNextRowIdToBuild(rowId1);
+        verify(indexStorage.storage()).setNextRowIdToBuild(rowId1.increment());
+        verify(indexes).addIndexToWaitIfAbsent(indexId);
 
         // Let's check one more batch - it will be the finishing one.
         RowId rowId2 = new RowId(PARTITION_ID, UUID.randomUUID());
@@ -95,6 +101,7 @@ public class StorageUpdateHandlerTest {
         verify(indexStorage).put(rowVersions2.get(0), rowId2);
 
         verify(indexStorage.storage()).setNextRowIdToBuild(null);
+        verify(indexes, times(2)).addIndexToWaitIfAbsent(indexId);
     }
 
     private static TableSchemaAwareIndexStorage createIndexStorage() {
@@ -107,11 +114,8 @@ public class StorageUpdateHandlerTest {
         return indexStorage;
     }
 
-    private StorageUpdateHandler createStorageUpdateHandler(
-            PartitionDataStorage partitionStorage,
-            Map<UUID, TableSchemaAwareIndexStorage> indexes
-    ) {
-        return new StorageUpdateHandler(PARTITION_ID, partitionStorage, () -> indexes, dataStorageConfig);
+    private StorageUpdateHandler createStorageUpdateHandler(PartitionDataStorage partitionStorage, TableIndexStoragesSupplier indexes) {
+        return new StorageUpdateHandler(PARTITION_ID, partitionStorage, indexes, dataStorageConfig);
     }
 
     private void setRowVersions(PartitionDataStorage partitionStorage, Map<UUID, List<BinaryRow>> rowVersions) {

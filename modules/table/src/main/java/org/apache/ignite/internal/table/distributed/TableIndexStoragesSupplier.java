@@ -15,36 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.command;
+package org.apache.ignite.internal.table.distributed;
 
-import java.util.List;
+import java.util.Map;
 import java.util.UUID;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * State machine command to build a table index.
+ * Supplier table index storages.
  */
-@Transferable(TableMessageGroup.Commands.BUILD_INDEX)
-public interface BuildIndexCommand extends WriteCommand {
+public interface TableIndexStoragesSupplier {
     /**
-     * Returns ID of table partition.
+     * Returns indexes by their ID.
+     *
+     * <p>Waits for the primary key index and all other registered indexes to be created.
      */
-    TablePartitionIdMessage tablePartitionId();
+    Map<UUID, TableSchemaAwareIndexStorage> get();
 
     /**
-     * Returns index ID.
+     * Adds a wait to create an index, if not already created, on a subsequent call to {@link #get()}.
      */
-    UUID indexId();
-
-    /**
-     * Returns row IDs for which to build indexes.
-     */
-    List<UUID> rowIds();
-
-    /**
-     * Returns {@code true} if this batch is the last one.
-     */
-    boolean finish();
+    void addIndexToWaitIfAbsent(UUID indexId);
 }

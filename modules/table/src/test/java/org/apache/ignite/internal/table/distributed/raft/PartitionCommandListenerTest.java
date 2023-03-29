@@ -51,7 +51,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -90,6 +89,7 @@ import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.Timestamp;
@@ -186,9 +186,12 @@ public class PartitionCommandListenerTest {
 
         safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
 
-        Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes = () -> Map.of(pkStorage.id(), pkStorage);
-
-        storageUpdateHandler = spy(new StorageUpdateHandler(PARTITION_ID, partitionDataStorage, indexes, dsCfg));
+        storageUpdateHandler = spy(new StorageUpdateHandler(
+                PARTITION_ID,
+                partitionDataStorage,
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage)),
+                dsCfg
+        ));
 
         commandListener = new PartitionListener(
                 partitionDataStorage,
@@ -277,9 +280,12 @@ public class PartitionCommandListenerTest {
     public void testOnSnapshotSavePropagateLastAppliedIndexAndTerm(@InjectConfiguration DataStorageConfiguration dsCfg) {
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
 
-        Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes = () -> Map.of(pkStorage.id(), pkStorage);
-
-        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(PARTITION_ID, partitionDataStorage, indexes, dsCfg);
+        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
+                PARTITION_ID,
+                partitionDataStorage,
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage)),
+                dsCfg
+        );
 
         PartitionListener testCommandListener = new PartitionListener(
                 partitionDataStorage,
