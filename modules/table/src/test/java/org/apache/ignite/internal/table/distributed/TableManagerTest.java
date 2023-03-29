@@ -418,8 +418,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Checks that the all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the
-     * component will not prevent stopping other components.
+     * Checks that all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the
+     * components will not prevent stopping other components.
      *
      * @throws Exception If failed.
      */
@@ -438,8 +438,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Checks that the all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the
-     * component will not prevent stopping other components.
+     * Checks that all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the
+     * components will not prevent stopping other components.
      *
      * @throws Exception If failed.
      */
@@ -458,8 +458,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Checks that the all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the
-     * component will not prevent stopping other components.
+     * Checks that all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the
+     * components will not prevent stopping other components.
      *
      * @throws Exception If failed.
      */
@@ -478,8 +478,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Checks that the all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the
-     * component will not prevent stopping other components.
+     * Checks that all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the
+     * components will not prevent stopping other components.
      *
      * @throws Exception If failed.
      */
@@ -604,7 +604,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * Emulates a situation, when either a TX state storage or partition storage were stopped in a middle of a rebalance. We then expect
      * that these storages get cleared upon startup.
      *
-     * @param isTxStorageUnderRebalance when {@code true} - TX state storage is emulated as being under rebalance, when {@code false} -
+     * @param isTxStorageUnderRebalance When {@code true} - TX state storage is emulated as being under rebalance, when {@code false} -
      *         partition storage is emulated instead.
      */
     private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws NodeStoppingException {
