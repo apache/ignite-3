@@ -22,7 +22,7 @@ package org.apache.ignite.table.mapper;
  * compatible with the column type, and vice versa.
  *
  * <p>The converter can be used to convert objects (or their fields) whose type is incompatible with the schema.
- * E.g., serialize an arbitrary object to a byte[] for storing is a BLOB column {@link ColumnType#blob()}.
+ * E.g., serialize an arbitrary object to a byte[] for storing is a BLOB column.
  *
  * @param <ObjectT> Object type.
  * @param <ColumnT> Column type.
