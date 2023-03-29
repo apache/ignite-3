@@ -106,7 +106,9 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Answers;
 
 /**
  * For {@link IncomingSnapshotCopier} testing.
@@ -593,6 +595,25 @@ public class IncomingSnapshotCopierTest {
 
         verify(mvGc, times(1)).removeStorage(eq(tablePartitionId));
         verify(mvGc, times(1)).addStorage(eq(tablePartitionId), any(StorageUpdateHandler.class));
+    }
+
+    @Test
+    @Timeout(1)
+    void cancellationsFromMultipleThreadsDoNotBlockEachOther() throws Exception {
+        PartitionSnapshotStorage partitionSnapshotStorage = mock(PartitionSnapshotStorage.class, Answers.RETURNS_DEEP_STUBS);
+
+        when(partitionSnapshotStorage.partition().partitionKey()).thenReturn(new PartitionKey(UUID.randomUUID(), 0));
+
+        IncomingSnapshotCopier copier = new IncomingSnapshotCopier(
+                partitionSnapshotStorage,
+                SnapshotUri.fromStringUri(SnapshotUri.toStringUri(snapshotId, NODE_NAME))
+        );
+
+        Thread anotherThread = new Thread(copier::cancel);
+        anotherThread.start();
+        anotherThread.join();
+
+        copier.cancel();
     }
 
     private TableConfiguration getTableConfig() {
