@@ -1105,8 +1105,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
                 partitions, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
-
-        // TODO: IGNITE-16288 directIndexIds should use async configuration API
+        
         var table = new TableImpl(internalTable, lockMgr);
 
         // TODO: IGNITE-19082 Need another way to wait for indexes
