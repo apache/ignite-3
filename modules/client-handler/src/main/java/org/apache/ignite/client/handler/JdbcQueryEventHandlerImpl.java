@@ -177,14 +177,14 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcBatchExecuteResult> batchAsync(JdbcBatchExecuteRequest req) {
+    public CompletableFuture<JdbcBatchExecuteResult> batchAsync(long connectionId, JdbcBatchExecuteRequest req) {
         List<String> queries = req.queries();
 
         var counters = new IntArrayList(req.queries().size());
         var tail = CompletableFuture.completedFuture(counters);
 
         for (String query : queries) {
-            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(req.schemaName(), query, OBJECT_EMPTY_ARRAY)
+            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionId, query, OBJECT_EMPTY_ARRAY)
                     .thenApply(cnt -> {
                         list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
 
@@ -203,15 +203,14 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcBatchExecuteResult> batchPrepStatementAsync(
-            JdbcBatchPreparedStmntRequest req) {
+    public CompletableFuture<JdbcBatchExecuteResult> batchPrepStatementAsync(long connectionId, JdbcBatchPreparedStmntRequest req) {
         var argList = req.getArgs();
 
         var counters = new IntArrayList(req.getArgs().size());
         var tail = CompletableFuture.completedFuture(counters);
 
         for (Object[] args : argList) {
-            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(req.schemaName(), req.getQuery(), args)
+            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionId, req.getQuery(), args)
                     .thenApply(cnt -> {
                         list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
 
@@ -228,16 +227,25 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         });
     }
 
-    private CompletableFuture<Long> executeAndCollectUpdateCount(String schema, String sql, Object[] arg) {
+    private CompletableFuture<Long> executeAndCollectUpdateCount(long connectionId, String sql, Object[] arg) {
         var context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE);
 
-        var cursors = processor.queryAsync(context, schema, sql, arg);
-
-        if (cursors.size() != 1) {
-            return CompletableFuture.failedFuture(new IgniteInternalException("Multi statement queries are not supported in batching"));
+        JdbcConnectionContext connectionContext;
+        try {
+            connectionContext = resources.get(connectionId).get(JdbcConnectionContext.class);
+        } catch (IgniteInternalCheckedException exception) {
+            return CompletableFuture.failedFuture(new IgniteInternalException("Connection is broken"));
         }
 
-        return cursors.get(0).thenCompose(cursor -> cursor.requestNextAsync(1).thenApply(batch -> (Long) batch.items().get(0).get(0)));
+        CompletableFuture<AsyncSqlCursor<List<Object>>> result = connectionContext.doInSession(sessionId -> processor.querySingleAsync(
+                sessionId,
+                context,
+                sql,
+                arg == null ? OBJECT_EMPTY_ARRAY : arg
+        ));
+
+        return result.thenCompose(cursor -> cursor.requestNextAsync(1))
+                .thenApply(batch -> (Long) batch.items().get(0).get(0));
     }
 
     private JdbcBatchExecuteResult handleBatchException(Throwable e, String query, int[] counters) {
@@ -290,7 +298,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         try (PrintWriter pw = new PrintWriter(sw)) {
             // We need to remap QueryValidationException into a jdbc error.
-            if (cause instanceof IgniteException && cause.getCause() instanceof QueryValidationException) {
+            if (cause instanceof QueryValidationException
+                    || (cause instanceof IgniteException && cause.getCause() instanceof QueryValidationException)) {
                 pw.print("Given statement type does not match that declared by JDBC driver.");
             } else {
                 pw.print(cause.getMessage());
@@ -394,7 +403,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                 potentiallyNotCreatedSessionId = recreateSession(null);
             }
 
-            final SessionId finalSessionId = potentiallyNotCreatedSessionId;
+            SessionId finalSessionId = potentiallyNotCreatedSessionId;
 
             return action.perform(finalSessionId)
                     .handle((BiFunction<T, Throwable, Pair<T, Throwable>>) Pair::new)
@@ -457,13 +466,13 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      * when the session is no longer needed.
      */
     @FunctionalInterface
-    private static interface SessionCleaner {
+    private interface SessionCleaner {
         void clean(SessionId sessionId);
     }
 
     /** Interface describing an action that should be performed within the session. */
     @FunctionalInterface
-    static interface SessionAwareAction<T> {
+    interface SessionAwareAction<T> {
         CompletableFuture<T> perform(SessionId sessionId);
     }
 }
