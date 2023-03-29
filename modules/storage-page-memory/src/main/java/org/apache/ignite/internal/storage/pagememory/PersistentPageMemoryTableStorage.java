@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
@@ -73,10 +74,11 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     public PersistentPageMemoryTableStorage(
             TableConfiguration tableCfg,
             TablesConfiguration tablesCfg,
+            DistributionZoneConfiguration distributionZoneCfg,
             PersistentPageMemoryStorageEngine engine,
             PersistentPageMemoryDataRegion dataRegion
     ) {
-        super(tableCfg, tablesCfg);
+        super(tableCfg, tablesCfg, distributionZoneCfg);
 
         this.engine = engine;
         this.dataRegion = dataRegion;

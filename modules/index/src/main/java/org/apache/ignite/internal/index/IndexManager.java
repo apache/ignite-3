@@ -73,6 +73,7 @@ import org.jetbrains.annotations.NotNull;
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
  * as well as managing indexes' lifecycle.
  */
+// TODO: IGNITE-19082 Delete this class
 public class IndexManager extends Producer<IndexEvent, IndexEventParameters> implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 

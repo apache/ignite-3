@@ -30,6 +30,7 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -63,15 +64,18 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
             @InjectConfiguration
             VolatilePageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration(
-                    "mock.tables.foo{ partitions = 512, dataStorage.name = " + VolatilePageMemoryStorageEngine.ENGINE_NAME + "}"
+                    "mock.tables.foo{ dataStorage.name = " + VolatilePageMemoryStorageEngine.ENGINE_NAME + "}"
             )
-            TablesConfiguration tablesConfig
+            TablesConfiguration tablesConfig,
+            @InjectConfiguration("mock.partitions = 512")
+            DistributionZoneConfiguration distributionZoneConfiguration
     ) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        initialize(new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, pageEvictionTracker), tablesConfig);
+        initialize(new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, pageEvictionTracker),
+                tablesConfig, distributionZoneConfiguration);
     }
 
     @Test

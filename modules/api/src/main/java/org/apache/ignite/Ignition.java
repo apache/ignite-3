@@ -17,8 +17,6 @@
 
 package org.apache.ignite;
 
-import java.io.InputStream;
-import java.net.URL;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.IgniteException;
@@ -29,99 +27,44 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface Ignition {
     /**
-     * Starts an Ignite node with an optional bootstrap configuration from a HOCON file.
+     * Starts an Ignite node with a bootstrap configuration from a HOCON file.
      *
      * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
      * @param nodeName Name of the node. Must not be {@code null}.
-     * @param configPath Path to the node configuration HOCON file. Can be {@code null}.
-     * @param workDir Work directory for the node. Must not be {@code null}.
-     * @return CompletableFuture that resolves to an Ignite node after all components are started and the cluster initialization is
+     * @param configPath Path to the node configuration in the HOCON format. Must not be {@code null}.
+     * @param workDir Work directory for the started node. Must not be {@code null}.
+     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
      *         complete.
      */
-    CompletableFuture<Ignite> start(String nodeName, @Nullable Path configPath, Path workDir);
+    CompletableFuture<Ignite> start(String nodeName, Path configPath, Path workDir);
 
     /**
-     * Starts an Ignite node with an optional bootstrap configuration from a HOCON file, with an optional class loader for further usage by
+     * Starts an Ignite node with a bootstrap configuration from a HOCON file, with an optional class loader for further usage by
      * {@link java.util.ServiceLoader}.
      *
      * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
      * @param nodeName Name of the node. Must not be {@code null}.
-     * @param configPath Path to the node configuration HOCON file. Can be {@code null}.
-     * @param workDir Work directory for the node. Must not be {@code null}.
-     * @param serviceLoaderClassLoader Class loader to be used to load provider-configuration files and provider classes; {@code
+     * @param configPath Path to the node configuration in the HOCON format. Must not be {@code null}.
+     * @param workDir Work directory for the started node. Must not be {@code null}.
+     * @param serviceLoaderClassLoader The class loader to be used to load provider-configuration files and provider classes, or {@code
      * null} if the system class loader (or, failing that, the bootstrap class loader) is to be used
      * @return CompletableFuture that resolves to an Ignite node after all components are started and the cluster initialization is
      *         complete.
      */
     CompletableFuture<Ignite> start(
             String nodeName,
-            @Nullable Path configPath,
+            Path configPath,
             Path workDir,
             @Nullable ClassLoader serviceLoaderClassLoader
     );
 
     /**
-     * Starts an Ignite node with an optional bootstrap configuration from a URL pointing a HOCON configuration file.
-     *
-     * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its
-     * REST endpoint is functional).
-     *
-     * @param nodeName Name of the node. Must not be {@code null}.
-     * @param cfgUrl URL pointing to the node configuration HOCON file. Can be {@code null}.
-     * @param workDir Work directory for started node. Must not be {@code null}.
-     * @return CompletableFuture that resolves to an Ignite node after all components are started and the cluster initialization is
-     *         complete.
-     */
-    CompletableFuture<Ignite> start(String nodeName, @Nullable URL cfgUrl, Path workDir);
-
-    /**
-     * Starts an Ignite node with an optional bootstrap configuration from an input stream with a HOCON configuration file.
-     *
-     * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its
-     * REST endpoint is functional).
-     *
-     * @param nodeName Name of the node. Must not be {@code null}.
-     * @param config Optional node configuration.
-     *      The following rules are used for applying the configuration properties:
-     *      <ol>
-     *        <li>Specified property overrides the existing one, if any.</li>
-     *        <li>All non-specified properties use either the previous value or use default one from
-     *            the corresponding configuration schema.</li>
-     *      </ol>
-     *      Therefore, for the initial node start (first start ever), the specified configuration augmented
-     *      with defaults, is used. If no configuration is provided, defaults are used for all
-     *      configuration properties. For a node restart, the specified properties override existing
-     *      ones, and the non-specified properties that hadn't been specified previously use the default values.
-     *      The previously specified property values are retrieved from the user-specified {@code workDir}.
-     *
-     * @param workDir Work directory for the node. Must not be {@code null}.
-     * @return CompletableFuture that resolves to an Ignite node after all components are started and the cluster initialization is
-     *         complete.
-     */
-    //TODO: Move IGNITE-18778
-    CompletableFuture<Ignite> start(String nodeName, @Nullable InputStream config, Path workDir);
-
-    /**
-     * Starts an Ignite node with the default configuration.
-     *
-     * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its
-     * REST endpoint is functional).
-     *
-     * @param nodeName Name of the node. Must not be {@code null}.
-     * @param workDir Work directory for the node. Must not be {@code null}.
-     * @return CompletableFuture that resolves to an Ignite node after all
-     *         components are started and the cluster initialization is complete.
-     */
-    //TODO: Move IGNITE-18778
-    CompletableFuture<Ignite> start(String nodeName, Path workDir);
-
-    /**
-     * Stops the node identified by {@code name}. It is possible to stop both running nodes and the node that are currently starting.
-     * No action is taken if the specified node doesn't exist.
+     * Stops the node with given {@code name}. It's possible to stop both already started node or node that is currently starting. Has no
+     * effect if node with specified name doesn't exist.
      *
      * @param nodeName Name of the node to stop.
      */

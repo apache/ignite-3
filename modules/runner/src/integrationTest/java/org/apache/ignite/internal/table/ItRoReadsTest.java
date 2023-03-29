@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_REPLICA_COUNT;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.runner.app.ItTablesApiTest.SCHEMA;
 import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -59,6 +61,7 @@ import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -120,7 +123,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT, connectNodeAddr);
 
-        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
+        CompletableFuture<Ignite> future = TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
 
         String metaStorageNodeName = testNodeName(testInfo, nodes() - 1);
 
@@ -528,16 +531,20 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         cols.add(SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build());
         cols.add(SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build());
 
+        String zoneName = "zone_" + tableName;
+        int zoneId = await(createZone(((IgniteImpl) node).distributionZoneManager(), zoneName, 1, DEFAULT_REPLICA_COUNT));
+
         return await(((TableManager) node.tables()).createTableAsync(
                 tableName,
                 tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(
                         cols).withPrimaryKey("key").build(), tblCh)
-                        .changePartitions(1)
+                        .changeZoneId(zoneId)
         ));
     }
 
     private static void stopTable(Ignite node, String tableName) {
         await(((TableManager) node.tables()).dropTableAsync(tableName));
+        await(((IgniteImpl) node).distributionZoneManager().dropZone("zone_" + tableName));
     }
 
     protected static int nodes() {
