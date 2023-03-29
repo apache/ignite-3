@@ -40,11 +40,9 @@ import org.jetbrains.annotations.Nullable;
 public interface MetaStorageManager extends IgniteComponent {
     /**
      * Returns the current <em>applied revision</em> of the Meta Storage, that is, the most recent revision of updates that have been
-     * processed by a particular Watch on this node.
-     *
-     * @param watchId ID of the watch that this revision corresponds to.
+     * processed by all Watches on this node.
      */
-    CompletableFuture<Long> appliedRevision(String watchId);
+    long appliedRevision();
 
     /**
      * Retrieves an entry for the given key.

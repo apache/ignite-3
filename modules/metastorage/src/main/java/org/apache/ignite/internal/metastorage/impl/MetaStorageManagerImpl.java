@@ -53,6 +53,7 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -77,7 +78,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /**
      * Special key for the Vault where the applied revision is stored.
      */
-    private static final String APPLIED_REV_PREFIX = "applied_revision_";
+    private static final ByteArray APPLIED_REV_KEY = new ByteArray("applied_revision");
 
     private final ClusterService clusterService;
 
@@ -102,6 +103,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     /** Prevents double stopping of the component. */
     private final AtomicBoolean isStopped = new AtomicBoolean();
+
+    private volatile long appliedRevision;
 
     /**
      * The constructor.
@@ -176,6 +179,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     public void start() {
         storage.start();
 
+        appliedRevision = readRevisionFromVault();
+
         cmgMgr.metaStorageNodes()
                 .thenCompose(metaStorageNodes -> {
                     if (!busyLock.enterBusy()) {
@@ -197,6 +202,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 });
     }
 
+    private long readRevisionFromVault() {
+        VaultEntry entry = vaultMgr.get(APPLIED_REV_KEY).join();
+
+        return entry == null ? 0L : bytesToLong(entry.value());
+    }
+
     @Override
     public void stop() throws Exception {
         if (!isStopped.compareAndSet(false, true)) {
@@ -214,32 +225,23 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
-    public CompletableFuture<Long> appliedRevision(String watchId) {
-        return vaultMgr.get(appliedRevisionKey(watchId))
-                .thenApply(appliedRevision -> appliedRevision == null ? 0L : bytesToLong(appliedRevision.value()));
-    }
-
-    private long appliedRevision(WatchListener lsnr) {
-        return appliedRevision(lsnr.id()).join();
-    }
-
-    private static ByteArray appliedRevisionKey(String watchId) {
-        return ByteArray.fromString(APPLIED_REV_PREFIX + watchId);
+    public long appliedRevision() {
+        return appliedRevision;
     }
 
     @Override
     public void registerPrefixWatch(ByteArray key, WatchListener listener) {
-        storage.watchPrefix(key.bytes(), appliedRevision(listener) + 1, listener);
+        storage.watchPrefix(key.bytes(), appliedRevision() + 1, listener);
     }
 
     @Override
     public void registerExactWatch(ByteArray key, WatchListener listener) {
-        storage.watchExact(key.bytes(), appliedRevision(listener) + 1, listener);
+        storage.watchExact(key.bytes(), appliedRevision() + 1, listener);
     }
 
     @Override
     public void registerRangeWatch(ByteArray keyFrom, @Nullable ByteArray keyTo, WatchListener listener) {
-        storage.watchRange(keyFrom.bytes(), keyTo == null ? null : keyTo.bytes(), appliedRevision(listener) + 1, listener);
+        storage.watchRange(keyFrom.bytes(), keyTo == null ? null : keyTo.bytes(), appliedRevision() + 1, listener);
     }
 
     @Override
@@ -570,7 +572,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /**
      * Saves processed Meta Storage revision and corresponding entries to the Vault.
      */
-    private CompletableFuture<Void> saveUpdatedEntriesToVault(String watchId, WatchEvent watchEvent) {
+    private CompletableFuture<Void> saveUpdatedEntriesToVault(WatchEvent watchEvent) {
         if (!busyLock.enterBusy()) {
             LOG.info("Skipping applying MetaStorage revision because the node is stopping");
 
@@ -578,17 +580,21 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         try {
+            CompletableFuture<Void> saveToVaultFuture;
+
             if (watchEvent.entryEvents().isEmpty()) {
-                return vaultMgr.put(appliedRevisionKey(watchId), longToBytes(watchEvent.revision()));
+                saveToVaultFuture = vaultMgr.put(APPLIED_REV_KEY, longToBytes(watchEvent.revision()));
             } else {
                 Map<ByteArray, byte[]> batch = IgniteUtils.newHashMap(watchEvent.entryEvents().size() + 1);
 
-                batch.put(appliedRevisionKey(watchId), longToBytes(watchEvent.revision()));
+                batch.put(APPLIED_REV_KEY, longToBytes(watchEvent.revision()));
 
                 watchEvent.entryEvents().forEach(e -> batch.put(new ByteArray(e.newEntry().key()), e.newEntry().value()));
 
-                return vaultMgr.putAll(batch);
+                saveToVaultFuture = vaultMgr.putAll(batch);
             }
+
+            return saveToVaultFuture.thenRun(() -> appliedRevision = watchEvent.revision());
         } finally {
             busyLock.leaveBusy();
         }

@@ -19,9 +19,11 @@ package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -31,7 +33,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
 /**
@@ -53,7 +55,7 @@ public class WatchProcessorTest {
 
     @BeforeEach
     void setUp() {
-        when(revisionCallback.onRevisionApplied(any(), any())).thenReturn(completedFuture(null));
+        when(revisionCallback.onRevisionApplied(any())).thenReturn(completedFuture(null));
 
         watchProcessor.setRevisionCallback(revisionCallback);
     }
@@ -79,14 +81,23 @@ public class WatchProcessorTest {
 
         watchProcessor.notifyWatches(List.of(entry1, entry2));
 
-        verify(listener1, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry1), entry1)));
-        verify(listener2, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry2), entry2)));
+        var entryEvent1 = new EntryEvent(oldEntry(entry1), entry1);
+        var entryEvent2 = new EntryEvent(oldEntry(entry2), entry2);
+
+        verify(listener1, timeout(1_000)).onUpdate(new WatchEvent(entryEvent1));
+        verify(listener2, timeout(1_000)).onUpdate(new WatchEvent(entryEvent2));
 
         verify(listener1, never()).onRevisionUpdated(anyLong());
         verify(listener2, never()).onRevisionUpdated(anyLong());
 
-        // Revision callback should be called for every listener update.
-        verify(revisionCallback, timeout(1_000).times(2)).onRevisionApplied(any(), any());
+        var watchEventCaptor = ArgumentCaptor.forClass(WatchEvent.class);
+
+        verify(revisionCallback, timeout(1_000)).onRevisionApplied(watchEventCaptor.capture());
+
+        WatchEvent event = watchEventCaptor.getValue();
+
+        assertThat(event.entryEvents(), containsInAnyOrder(entryEvent1, entryEvent2));
+        assertThat(event.revision(), is(1L));
     }
 
     /**
@@ -105,20 +116,25 @@ public class WatchProcessorTest {
 
         watchProcessor.notifyWatches(List.of(entry1));
 
-        verify(listener1, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry1), entry1)));
+        var event = new WatchEvent(new EntryEvent(oldEntry(entry1), entry1));
+
+        verify(listener1, timeout(1_000)).onUpdate(event);
         verify(listener2, timeout(1_000)).onRevisionUpdated(1);
+
+        verify(revisionCallback, timeout(1_000)).onRevisionApplied(event);
 
         watchProcessor.notifyWatches(List.of(entry2));
 
-        verify(listener1, timeout(1_000)).onRevisionUpdated(2);
-        verify(listener2, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry2), entry2)));
+        event = new WatchEvent(new EntryEvent(oldEntry(entry2), entry2));
 
-        // Revision callback should be called for every listener update.
-        verify(revisionCallback, timeout(1_000).times(4)).onRevisionApplied(any(), any());
+        verify(listener1, timeout(1_000)).onRevisionUpdated(2);
+        verify(listener2, timeout(1_000)).onUpdate(event);
+
+        verify(revisionCallback, timeout(1_000)).onRevisionApplied(event);
     }
 
     /**
-     * Tests a scenario that, when a watch throws an exception, it gets disabled and other watches continue working.
+     * Tests a scenario that, when a watch throws an exception, watch processing finishes with an error.
      */
     @Test
     void testWatchFailure() {
@@ -126,7 +142,6 @@ public class WatchProcessorTest {
 
         WatchListener listener2 = mock(WatchListener.class);
 
-        when(listener2.id()).thenReturn("error");
         when(listener2.onUpdate(any())).thenThrow(new IllegalStateException());
 
         watchProcessor.addWatch(new Watch(0, listener1, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
@@ -141,19 +156,7 @@ public class WatchProcessorTest {
         verify(listener2, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry2), entry2)));
         verify(listener2, timeout(1_000)).onError(any(IllegalStateException.class));
 
-        var entry3 = new EntryImpl("bar".getBytes(UTF_8), null, 2, 0);
-
-        watchProcessor.notifyWatches(List.of(entry3));
-
-        clearInvocations(listener1, listener2, revisionCallback);
-
-        verify(listener1, timeout(1_000)).onRevisionUpdated(2);
-
-        verify(listener2, never()).onUpdate(any());
-        verify(listener2, never()).onError(any());
-        verify(listener2, never()).onRevisionUpdated(anyLong());
-
-        verify(revisionCallback, timeout(1_000)).onRevisionApplied(any(), any());
+        verify(revisionCallback, never()).onRevisionApplied(any());
     }
 
     /**
@@ -165,8 +168,6 @@ public class WatchProcessorTest {
         WatchListener listener1 = mockListener();
 
         WatchListener listener2 = mock(WatchListener.class);
-
-        when(listener2.id()).thenReturn("blocking");
 
         var blockingFuture = new CompletableFuture<Void>();
 
@@ -191,10 +192,12 @@ public class WatchProcessorTest {
 
         watchProcessor.notifyWatches(List.of(entry3, entry4));
 
-        verify(listener1, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry3), entry3)));
+        verify(listener1, never()).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry3), entry3)));
         verify(listener2, never()).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry4), entry4)));
 
         blockingFuture.complete(null);
+
+        verify(listener1, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry3), entry3)));
 
         InOrder inOrder = inOrder(listener2);
 
@@ -204,10 +207,6 @@ public class WatchProcessorTest {
 
     private static WatchListener mockListener() {
         var listener = mock(WatchListener.class);
-
-        String id = UUID.randomUUID().toString();
-
-        when(listener.id()).thenReturn(id);
 
         when(listener.onUpdate(any())).thenReturn(completedFuture(null));
         when(listener.onRevisionUpdated(anyLong())).thenReturn(completedFuture(null));
