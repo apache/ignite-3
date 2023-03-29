@@ -22,7 +22,7 @@ package org.apache.ignite.compute;
  *
  * @param <R> Job result type.
  */
-//What does "job result type" mean?
+
 public interface ComputeJob<R> {
     /**
      * Executes the job on an Ignite node.

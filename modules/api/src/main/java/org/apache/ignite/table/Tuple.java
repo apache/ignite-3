@@ -163,7 +163,6 @@ public interface Tuple extends Iterable<Object> {
      * @see Object#equals(Object)
      */
     boolean equals(Object obj);
-    //I don't see where the "current" object is specified (i.e., the obj param)
 
     /**
      * Gets a number of columns in the tuple.

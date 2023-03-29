@@ -64,6 +64,7 @@ public class ClusterNode implements Serializable {
         this.id = id;
         this.name = name;
         this.address = address;
+        this.nodeMetadata = null;
     }
 
     /**
