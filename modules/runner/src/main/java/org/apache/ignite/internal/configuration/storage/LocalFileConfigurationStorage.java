@@ -135,7 +135,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                 return CompletableFuture.completedFuture(false);
             }
             checkAndRestoreConfigFile();
-            saveValues(newValues);
+            //saveValues(newValues);
             latest.putAll(newValues);
             lastRevision++;
             runAsync(() -> lsnrRef.get().onEntriesChanged(new Data(newValues, lastRevision)));
