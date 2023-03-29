@@ -95,6 +95,7 @@ public class IgnitionManager {
      *         complete.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
+    //TODO: Move IGNITE-18778
     public static CompletableFuture<Ignite> start(String nodeName, @Nullable Path cfgPath, Path workDir, @Nullable ClassLoader clsLdr) {
         Ignition ignition = loadIgnitionService(clsLdr);
 

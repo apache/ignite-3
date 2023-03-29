@@ -17,6 +17,7 @@
 
 package org.apache.ignite.lang;
 
+import static org.apache.ignite.internal.util.IgniteNameUtils.canonicalName;
 import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_ALREADY_EXISTS_ERR;
 
 import java.util.UUID;
@@ -28,10 +29,11 @@ public class TableAlreadyExistsException extends IgniteException {
     /**
      * Creates an exception with the given table name.
      *
-     * @param name Table name.
+     * @param schemaName Schema name.
+     * @param tableName Table name.
      */
-    public TableAlreadyExistsException(String name) {
-        super(TABLE_ALREADY_EXISTS_ERR, "Table already exists [name=" + name + ']');
+    public TableAlreadyExistsException(String schemaName, String tableName) {
+        super(TABLE_ALREADY_EXISTS_ERR, "Table already exists [name=" + canonicalName(schemaName, tableName) + ']');
     }
 
     /**

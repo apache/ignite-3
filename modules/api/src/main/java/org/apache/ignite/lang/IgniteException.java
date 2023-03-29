@@ -42,8 +42,12 @@ public class IgniteException extends RuntimeException {
     private final String groupName;
 
     /**
-     * Error code that contains information about the error group and code, where the code is unique within the group. The code structure is
-     * as follows: +------------+--------------+ |  16 bits   |    16 bits   | +------------+--------------+ | Group Code |  Error Code  |
+     * Error code that contains information about the error group and code,
+     * where the code is unique within the group. The code structure is as follows:
+     * +------------+--------------+
+     * |  16 bits   |    16 bits   |
+     * +------------+--------------+
+     * | Group Code |  Error Code  |
      * +------------+--------------+
      */
     private final int code;
