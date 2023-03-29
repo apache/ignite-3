@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Tests;
 
+using System;
+using System.Diagnostics.Metrics;
 using System.Threading.Tasks;
 using Internal;
 using NUnit.Framework;
@@ -29,8 +31,24 @@ public class MetricsTests
     [Test]
     public async Task TestConnectionsEstablished()
     {
+        using var meterListener = new MeterListener();
+        meterListener.InstrumentPublished = (instrument, listener) =>
+        {
+            if (instrument.Meter.Name == "Apache.Ignite")
+            {
+                listener.EnableMeasurementEvents(instrument);
+            }
+        };
+
+        meterListener.SetMeasurementEventCallback<int>((instrument, measurement, tags, state) =>
+            Console.WriteLine($"{instrument.Name} recorded measurement {measurement}"));
+
+        meterListener.Start();
+
         using var server = new FakeServer();
-        await server.ConnectClientAsync();
+
+        (await server.ConnectClientAsync()).Dispose();
+        (await server.ConnectClientAsync()).Dispose();
 
         Assert.AreEqual(1, Metrics.ConnectionsEstablished);
     }
