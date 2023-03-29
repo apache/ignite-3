@@ -56,6 +56,8 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogServiceImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
@@ -72,6 +74,8 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
@@ -90,6 +94,7 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
@@ -136,7 +141,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
 @ExtendWith(ConfigurationExtension.class)
-@Timeout(value = 120)
+@Timeout(120)
 public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /** Default node port. */
     private static final int DEFAULT_NODE_PORT = 3344;
@@ -277,6 +282,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var lockManager = new HeapLockManager();
 
+        ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), hybridClock);
+
         var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock);
 
         var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
@@ -331,9 +338,23 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 )
         );
 
-        TablesConfiguration tblCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
+        TablesConfiguration tablesConfiguration = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
 
-        SchemaManager schemaManager = new SchemaManager(registry, tblCfg, metaStorageMgr);
+        DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
+                .getConfiguration(DistributionZonesConfiguration.KEY);
+
+        SchemaManager schemaManager = new SchemaManager(registry, tablesConfiguration, metaStorageMgr);
+
+        LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
+
+        DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
+                zonesConfiguration,
+                tablesConfiguration,
+                metaStorageMgr,
+                logicalTopologyService,
+                vault,
+                name
+        );
 
         TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                 clusterSvc,
@@ -345,7 +366,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         TableManager tableManager = new TableManager(
                 name,
                 registry,
-                tblCfg,
+                tablesConfiguration,
                 clusterSvc,
                 raftMgr,
                 replicaMgr,
@@ -364,7 +385,24 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 topologyAwareRaftGroupServiceFactory
         );
 
-        var indexManager = new IndexManager(tblCfg, schemaManager, tableManager);
+        var indexManager = new IndexManager(tablesConfiguration, schemaManager, tableManager);
+
+        CatalogManager catalogManager = new CatalogServiceImpl(metaStorageMgr);
+
+        SqlQueryProcessor qryEngine = new SqlQueryProcessor(
+                registry,
+                clusterSvc,
+                tableManager,
+                indexManager,
+                schemaManager,
+                dataStorageManager,
+                txManager,
+                distributionZoneManager,
+                () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
+                replicaSvc,
+                hybridClock,
+                catalogManager
+        );
 
         // Preparing the result map.
 
@@ -398,8 +436,11 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 clusterCfgMgr,
                 dataStorageManager,
                 schemaManager,
+                distributionZoneManager,
                 tableManager,
-                indexManager
+                indexManager,
+                catalogManager,
+                qryEngine
         );
 
         for (IgniteComponent component : otherComponents) {
@@ -879,8 +920,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * checks that the table created before node stop, is not available when majority if lost.
      */
     @Test
-    // No sql engine
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19092")
     public void testOneNodeRestartWithGap() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
@@ -912,8 +951,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Checks that the table created in cluster of 2 nodes, is recovered on a node after restart of this node.
      */
     @Test
-    // No SQL engine
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19092")
     public void testRecoveryOnOneNode() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
@@ -936,8 +973,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Checks that a cluster is able to restart when some changes were made in configuration.
      */
     @Test
-    // No sql engine
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19092")
     public void testRestartDiffConfig() throws InterruptedException {
         List<IgniteImpl> ignites = startNodes(2);
 
@@ -965,8 +1000,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
-    // No SQL engine
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19092")
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
     public void testCfgGapWithoutData() throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(3);
