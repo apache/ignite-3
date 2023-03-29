@@ -38,6 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -375,11 +376,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
-        CompletableFuture.allOf(queryManagerMap.values().stream()
+        CompletableFuture<Void> f = CompletableFuture.allOf(queryManagerMap.values().stream()
                 .filter(mgr -> mgr.rootFragmentId != null)
                 .map(mgr -> mgr.close(true))
                 .toArray(CompletableFuture[]::new)
-        ).join();
+        );
+        // TODO Workaround for https://issues.apache.org/jira/browse/IGNITE-19088
+        f.get(1, TimeUnit.MINUTES);
     }
 
     /** {@inheritDoc} */

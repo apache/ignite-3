@@ -427,7 +427,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                         indexId,
-                        new TestHashIndexStorage(null),
+                        new TestHashIndexStorage(partId, null),
                         row2Tuple
                 ));
 
@@ -468,6 +468,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                 DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
                                 replicaManagers.get(assignment).startReplica(
                                         new TablePartitionId(tblId, partId),
+                                        CompletableFuture.completedFuture(null),
                                         new PartitionReplicaListener(
                                                 testMpPartStorage,
                                                 raftSvc,

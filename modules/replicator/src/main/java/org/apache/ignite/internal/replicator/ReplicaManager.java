@@ -139,20 +139,18 @@ public class ReplicaManager implements IgniteComponent {
                     }
 
                     if (!replicaFut.isDone()) {
-                        replicaFut.thenCompose(
-                                ignore -> {
-                                    IgniteUtils.inBusyLock(
-                                            busyLock,
-                                            () -> sendAwaitReplicaResponse(senderConsistentId, correlationId)
-                                    );
-
-                                    return null;
-                                }
+                        replicaFut.thenAccept(createdReplica ->
+                                createdReplica.ready().thenAccept(unused ->
+                                        IgniteUtils.inBusyLock(
+                                                busyLock,
+                                                () -> sendAwaitReplicaResponse(senderConsistentId, correlationId)
+                                        )
+                                )
                         );
 
                         return replicaFut;
                     } else {
-                        IgniteUtils.inBusyLock(busyLock, () -> sendAwaitReplicaResponse(senderConsistentId, correlationId));
+                        sendAwaitReplicaResponse(senderConsistentId, correlationId);
 
                         return replicaFut;
                     }
@@ -165,7 +163,7 @@ public class ReplicaManager implements IgniteComponent {
 
             HybridTimestamp requestTimestamp = extractTimestamp(request);
 
-            if (replicaFut == null || !replicaFut.isDone()) {
+            if (replicaFut == null || !replicaFut.isDone() || !replicaFut.join().ready().isDone()) {
                 sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, request.groupId(), requestTimestamp);
 
                 return;
@@ -226,16 +224,16 @@ public class ReplicaManager implements IgniteComponent {
      * Starts a replica. If a replica with the same partition id already exists, the method throws an exception.
      *
      * @param replicaGrpId Replication group id.
+     * @param whenReplicaReady Future that completes when the replica become ready.
      * @param listener Replica listener.
      * @param raftClient Topology aware Raft client.
      * @param storageIndexTracker Storage index tracker.
-     *
-     * @return New replica.
      * @throws NodeStoppingException If node is stopping.
      * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been started.
      */
-    public Replica startReplica(
+    public void startReplica(
             ReplicationGroupId replicaGrpId,
+            CompletableFuture<Void> whenReplicaReady,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
             PendingComparableValuesTracker<Long> storageIndexTracker
@@ -245,7 +243,7 @@ public class ReplicaManager implements IgniteComponent {
         }
 
         try {
-            return startReplicaInternal(replicaGrpId, listener, raftClient, storageIndexTracker);
+            startReplicaInternal(replicaGrpId, whenReplicaReady, listener, raftClient, storageIndexTracker);
         } finally {
             busyLock.leaveBusy();
         }
@@ -255,19 +253,21 @@ public class ReplicaManager implements IgniteComponent {
      * Internal method for starting a replica.
      *
      * @param replicaGrpId   Replication group id.
+     * @param whenReplicaReady Future that completes when the replica become ready.
      * @param listener Replica listener.
      * @param raftClient Topology aware Raft client.
      * @param storageIndexTracker Storage index tracker.
-     * @return New replica.
      */
-    private Replica startReplicaInternal(
+    private void startReplicaInternal(
             ReplicationGroupId replicaGrpId,
+            CompletableFuture<Void> whenReplicaReady,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
             PendingComparableValuesTracker<Long> storageIndexTracker
     ) {
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
-        Replica newReplica = new Replica(replicaGrpId, listener, storageIndexTracker, raftClient, localNode);
+
+        Replica newReplica = new Replica(replicaGrpId, whenReplicaReady, listener, storageIndexTracker, raftClient, localNode);
 
         replicas.compute(replicaGrpId, (replicationGroupId, replicaFut) -> {
             if (replicaFut == null) {
@@ -282,8 +282,6 @@ public class ReplicaManager implements IgniteComponent {
                 return replicaFut;
             }
         });
-
-        return newReplica;
     }
 
     /**

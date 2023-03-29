@@ -23,12 +23,13 @@ import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaKey;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 
 /**
  * IO routines for {@link IndexMetaTree} inner pages.
  */
-public class IndexMetaInnerIo extends BplusInnerIo<IndexMeta> implements IndexMetaIo {
+public class IndexMetaInnerIo extends BplusInnerIo<IndexMetaKey> implements IndexMetaIo {
     /** I/O versions. */
     public static final IoVersions<IndexMetaInnerIo> VERSIONS = new IoVersions<>(new IndexMetaInnerIo(1));
 
@@ -42,17 +43,17 @@ public class IndexMetaInnerIo extends BplusInnerIo<IndexMeta> implements IndexMe
     }
 
     @Override
-    public void store(long dstPageAddr, int dstIdx, BplusIo<IndexMeta> srcIo, long srcPageAddr, int srcIdx) {
+    public void store(long dstPageAddr, int dstIdx, BplusIo<IndexMetaKey> srcIo, long srcPageAddr, int srcIdx) {
         IndexMetaIo.super.store(dstPageAddr, dstIdx, srcPageAddr, srcIdx);
     }
 
     @Override
-    public void storeByOffset(long pageAddr, int off, IndexMeta row) {
+    public void storeByOffset(long pageAddr, int off, IndexMetaKey row) {
         IndexMetaIo.super.storeByOffset(pageAddr, off, row);
     }
 
     @Override
-    public IndexMeta getLookupRow(BplusTree<IndexMeta, ?> tree, long pageAddr, int idx) {
+    public IndexMeta getLookupRow(BplusTree<IndexMetaKey, ?> tree, long pageAddr, int idx) {
         return getRow(pageAddr, idx);
     }
 }

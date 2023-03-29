@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.deployment;
+package org.apache.ignite.internal.deployunit;
 
 import java.io.InputStream;
 

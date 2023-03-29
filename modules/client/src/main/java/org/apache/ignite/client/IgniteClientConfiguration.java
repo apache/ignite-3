@@ -170,4 +170,11 @@ public interface IgniteClientConfiguration {
      * @return Client SSL configuration.
      */
     @Nullable SslConfiguration ssl();
+
+    /**
+     * Gets a value indicating whether JMX metrics are enabled.
+     *
+     * @return {@code true} if metrics are enabled.
+     */
+    boolean metricsEnabled();
 }

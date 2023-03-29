@@ -39,7 +39,6 @@ import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.deployment.IgniteDeployment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
@@ -69,6 +68,7 @@ import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
+import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -77,7 +77,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -673,7 +672,7 @@ public class IgniteImpl implements Ignite {
                                     indexManager,
                                     qryEngine,
                                     clientHandlerModule,
-                                    (IgniteComponent) deploymentManager
+                                    deploymentManager
                             );
                         } catch (NodeStoppingException e) {
                             throw new CompletionException(e);
@@ -799,11 +798,6 @@ public class IgniteImpl implements Ignite {
     @Override
     public IgniteCompute compute() {
         return compute;
-    }
-
-    @Override
-    public IgniteDeployment deployment() {
-        return deploymentManager;
     }
 
     /** {@inheritDoc} */
@@ -963,6 +957,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public LogicalTopologyService logicalTopologyService() {
         return logicalTopologyService;
+    }
+
+    @TestOnly
+    public IgniteDeployment deployment() {
+        return deploymentManager;
     }
 
     // TODO: IGNITE-18493 - remove/move this
