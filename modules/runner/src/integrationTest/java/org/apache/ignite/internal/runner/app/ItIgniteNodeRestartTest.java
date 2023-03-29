@@ -66,7 +66,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
-import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
+import org.apache.ignite.internal.configuration.NodeConfigWriteException;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
@@ -104,6 +104,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -245,13 +246,17 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         ConfigurationModules modules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
 
-        NodeBootstrapConfiguration configuration =
-                NodeBootstrapConfiguration.string(cfgString == null ? configurationString(idx) : cfgString,
-                        workDir);
+        Path configFile = workDir.resolve(TestIgnitionManager.DEFAULT_CONFIG_NAME);
+        String configString = cfgString == null ? configurationString(idx) : cfgString;
+        try {
+            Files.writeString(configFile, configString);
+        } catch (IOException e) {
+            throw new NodeConfigWriteException("Failed to write config content to file.", e);
+        }
         var nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
                 modules.local().validators(),
-                new LocalFileConfigurationStorage(configuration),
+                new LocalFileConfigurationStorage(configFile),
                 modules.local().internalSchemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
         );
@@ -418,7 +423,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         nodeCfgMgr.start();
 
         try {
-            nodeCfgMgr.bootstrap(configuration.configPath());
+            nodeCfgMgr.bootstrap(configFile);
         } catch (Exception e) {
             throw new IgniteException("Unable to parse user-specific configuration.", e);
         }
@@ -641,7 +646,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             clusterNodesNames.set(idx, nodeName);
         }
 
-        return IgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
+        return TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
     }
 
     /**

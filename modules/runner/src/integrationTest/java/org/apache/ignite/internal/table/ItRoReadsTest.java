@@ -61,6 +61,7 @@ import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -122,7 +123,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT, connectNodeAddr);
 
-        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
+        CompletableFuture<Ignite> future = TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
 
         String metaStorageNodeName = testNodeName(testInfo, nodes() - 1);
 

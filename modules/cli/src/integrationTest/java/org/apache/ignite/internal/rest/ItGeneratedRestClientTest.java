@@ -52,6 +52,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -423,7 +424,7 @@ public class ItGeneratedRestClientTest {
 
         clusterNodeNames.add(nodeName);
 
-        return IgnitionManager.start(nodeName, buildConfig(index), workDir.resolve(nodeName));
+        return TestIgnitionManager.start(nodeName, buildConfig(index), workDir.resolve(nodeName));
     }
 }
 
