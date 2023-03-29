@@ -42,8 +42,6 @@ class DdlToCatalogCommandConverter {
                 .colocationColumns(cmd.colocationColumns())
                 .primaryKeyColumns(cmd.primaryKeyColumns())
 
-                .partitions(cmd.partitions())
-                .replicas(cmd.replicas())
                 .zone(cmd.zone())
 
                 .dataStorage(cmd.dataStorage())

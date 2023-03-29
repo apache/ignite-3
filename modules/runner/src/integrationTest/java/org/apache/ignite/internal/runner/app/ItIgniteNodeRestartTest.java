@@ -72,6 +72,7 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
@@ -333,6 +334,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         TablesConfiguration tblCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
 
+        DistributionZonesConfiguration distZonesCfg =
+                clusterCfgMgr.configurationRegistry().getConfiguration(DistributionZonesConfiguration.KEY);
+
         SchemaManager schemaManager = new SchemaManager(registry, tblCfg, metaStorageMgr);
 
         TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
@@ -346,6 +350,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 name,
                 registry,
                 tblCfg,
+                distZonesCfg,
                 clusterSvc,
                 raftMgr,
                 replicaMgr,
@@ -1134,8 +1139,10 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas, int partitions)
             throws InterruptedException {
         try (Session session = nodes.get(0).sql().createSession()) {
+            session.execute(null,
+                    String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d", name, replicas, partitions));
             session.execute(null, "CREATE TABLE IF NOT EXISTS " + name
-                    + "(id INT PRIMARY KEY, name VARCHAR) WITH replicas=" + replicas + ", partitions=" + partitions);
+                    + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
 
             waitForIndex(nodes, name + "_PK");
 
@@ -1187,8 +1194,10 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      */
     private static Table createTableWithoutData(Ignite ignite, String name, int replicas, int partitions) {
         try (Session session = ignite.sql().createSession()) {
+            session.execute(null,
+                    String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d", name, replicas, partitions));
             session.execute(null, "CREATE TABLE " + name
-                    + "(id INT PRIMARY KEY, name VARCHAR) WITH replicas=" + replicas + ", partitions=" + partitions);
+                    + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
         }
 
         return ignite.tables().table(name);
