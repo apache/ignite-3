@@ -89,10 +89,10 @@ internal static class Metrics
     /// <summary>
     /// Bytes sent.
     /// </summary>
-    public static readonly Counter<int> BytesSent = Meter.CreateCounter<int>("bytes-sent");
+    public static readonly Counter<long> BytesSent = Meter.CreateCounter<long>("bytes-sent");
 
     /// <summary>
     /// Bytes received.
     /// </summary>
-    public static readonly Counter<int> BytesReceived = Meter.CreateCounter<int>("bytes-received");
+    public static readonly Counter<long> BytesReceived = Meter.CreateCounter<long>("bytes-received");
 }

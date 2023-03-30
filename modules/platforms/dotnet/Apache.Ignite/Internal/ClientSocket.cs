@@ -560,6 +560,8 @@ namespace Apache.Ignite.Internal
                     prefixBytes.CopyTo(requestBufWithPrefix);
 
                     await _stream.WriteAsync(requestBufWithPrefix, _disposeTokenSource.Token).ConfigureAwait(false);
+
+                    Metrics.BytesSent.Add(requestBufWithPrefix.Length);
                 }
                 else
                 {
@@ -567,6 +569,8 @@ namespace Apache.Ignite.Internal
                     WriteMessageSize(_prefixBuffer, prefixSize);
                     var prefixBytes = _prefixBuffer.AsMemory()[..(prefixSize + 4)];
                     await _stream.WriteAsync(prefixBytes, _disposeTokenSource.Token).ConfigureAwait(false);
+
+                    Metrics.BytesSent.Add(prefixBytes.Length);
                 }
             }
             finally
