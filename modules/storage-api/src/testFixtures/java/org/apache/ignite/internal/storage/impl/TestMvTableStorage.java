@@ -28,6 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -54,6 +55,8 @@ public class TestMvTableStorage implements MvTableStorage {
     private final Map<UUID, HashIndices> hashIndicesById = new ConcurrentHashMap<>();
 
     private final TableConfiguration tableCfg;
+
+    private final DistributionZoneConfiguration distributionZoneCfg;
 
     private final TablesConfiguration tablesCfg;
 
@@ -92,11 +95,13 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     /** Constructor. */
-    public TestMvTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
+    public TestMvTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg,
+            DistributionZoneConfiguration distributionZoneCfg) {
         this.tableCfg = tableCfg;
         this.tablesCfg = tablesCfg;
+        this.distributionZoneCfg = distributionZoneCfg;
 
-        mvPartitionStorages = new MvPartitionStorages<>(tableCfg.value());
+        mvPartitionStorages = new MvPartitionStorages<>(tableCfg.value(), distributionZoneCfg.value());
     }
 
     @Override
@@ -194,6 +199,11 @@ public class TestMvTableStorage implements MvTableStorage {
     @Override
     public TablesConfiguration tablesConfiguration() {
         return tablesCfg;
+    }
+
+    @Override
+    public DistributionZoneConfiguration distributionZoneConfiguration() {
+        return distributionZoneCfg;
     }
 
     @Override

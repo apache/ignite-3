@@ -127,6 +127,12 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Id of the default distribution zone. */
     public static final int DEFAULT_ZONE_ID = 0;
 
+    /** Default number of zone replicas. */
+    public static final int DEFAULT_REPLICA_COUNT = 1;
+
+    /** Default number of zone partitions. */
+    public static final int DEFAULT_PARTITION_COUNT = 25;
+
     /** Default infinite value for the distribution zones' timers. */
     public static final int INFINITE_TIMER_VALUE = Integer.MAX_VALUE;
 
@@ -263,6 +269,18 @@ public class DistributionZoneManager implements IgniteComponent {
             zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
                 try {
                     zonesListChange.create(distributionZoneCfg.name(), zoneChange -> {
+                        if (distributionZoneCfg.partitions() == null) {
+                            zoneChange.changePartitions(DEFAULT_PARTITION_COUNT);
+                        } else {
+                            zoneChange.changePartitions(distributionZoneCfg.partitions());
+                        }
+
+                        if (distributionZoneCfg.replicas() == null) {
+                            zoneChange.changeReplicas(DEFAULT_REPLICA_COUNT);
+                        } else {
+                            zoneChange.changeReplicas(distributionZoneCfg.replicas());
+                        }
+
                         if (distributionZoneCfg.dataNodesAutoAdjust() == null) {
                             zoneChange.changeDataNodesAutoAdjust(INFINITE_TIMER_VALUE);
                         } else {
@@ -716,6 +734,14 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param distributionZoneCfg Distribution zone configuration.
      */
     private static void updateZoneChange(DistributionZoneChange zoneChange, DistributionZoneConfigurationParameters distributionZoneCfg) {
+        if (distributionZoneCfg.replicas() != null) {
+            zoneChange.changeReplicas(distributionZoneCfg.replicas());
+        }
+
+        if (distributionZoneCfg.partitions() != null) {
+            zoneChange.changePartitions(distributionZoneCfg.partitions());
+        }
+
         if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
             zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
             zoneChange.changeDataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE);

@@ -49,6 +49,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
@@ -114,6 +115,9 @@ public class ActiveActorTest extends IgniteAbstractTest {
     @InjectConfiguration()
     private TablesConfiguration tblsCfg;
 
+    @InjectConfiguration
+    private DistributionZonesConfiguration dstZnsCfg;
+
     @AfterEach
     @Override
     public void tearDown(TestInfo testInfo) throws Exception {
@@ -163,6 +167,7 @@ public class ActiveActorTest extends IgniteAbstractTest {
                 raftManager,
                 raftGroupServiceFactory,
                 tblsCfg,
+                dstZnsCfg,
                 new HybridClockImpl()
         );
 
