@@ -121,17 +121,26 @@ internal static class Metrics
     /// <summary>
     /// Requests failed.
     /// </summary>
-    public static readonly Counter<long> RequestsFailed = Meter.CreateCounter<long>("requests-failed");
+    public static readonly Counter<long> RequestsFailed = Meter.CreateCounter<long>(
+        name: "requests-failed",
+        unit: "requests",
+        description: "Total number of failed requests (failed to send, or completed with error)");
 
     /// <summary>
     /// Bytes sent.
     /// </summary>
-    public static readonly Counter<long> BytesSent = Meter.CreateCounter<long>("bytes-sent");
+    public static readonly Counter<long> BytesSent = Meter.CreateCounter<long>(
+        name: "bytes-sent",
+        unit: "bytes",
+        description: "Total number of bytes sent");
 
     /// <summary>
     /// Bytes received.
     /// </summary>
-    public static readonly Counter<long> BytesReceived = Meter.CreateCounter<long>("bytes-received");
+    public static readonly Counter<long> BytesReceived = Meter.CreateCounter<long>(
+        name: "bytes-received",
+        unit: "bytes",
+        description: "Total number of bytes received");
 
     /// <summary>
     /// Increments active connections.
