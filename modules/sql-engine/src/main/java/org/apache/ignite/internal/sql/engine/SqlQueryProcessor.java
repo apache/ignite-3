@@ -82,7 +82,6 @@ import org.apache.ignite.internal.sql.engine.session.SessionManager;
 import org.apache.ignite.internal.sql.engine.session.SessionProperty;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
 import org.apache.ignite.internal.sql.engine.sql.ParseResult;
-import org.apache.ignite.internal.sql.engine.sql.ScriptParseResult;
 import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -175,7 +174,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private final HybridClock clock;
 
     /** Distributed catalog manager. */
-    private CatalogManager catalogManager;
+    private final CatalogManager catalogManager;
 
     /** Constructor. */
     public SqlQueryProcessor(
@@ -477,104 +476,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         start.completeAsync(() -> null, taskExecutor);
 
         return stage;
-    }
-
-    private List<CompletableFuture<AsyncSqlCursor<List<Object>>>> query0(
-            QueryContext context,
-            String schemaName,
-            String sql,
-            Object... params
-    ) {
-        SchemaPlus schema = sqlSchemaManager.schema(schemaName);
-
-        if (schema == null) {
-            throw new IgniteInternalException(SCHEMA_NOT_FOUND_ERR, format("Schema not found [schemaName={}]", schemaName));
-        }
-
-        CompletableFuture<Void> start = new CompletableFuture<>();
-
-        ScriptParseResult parseResult;
-        List<CompletableFuture<AsyncSqlCursor<List<Object>>>> res;
-
-        try {
-            parseResult = IgniteSqlParser.parse(sql, ScriptParseResult.MODE);
-            res = new ArrayList<>(parseResult.statements().size());
-        } catch (Throwable th) {
-            start.completeExceptionally(th);
-
-            parseResult = new ScriptParseResult(Collections.emptyList(), 0);
-            res = Collections.singletonList(CompletableFuture.completedFuture(failedCursor(th)));
-        }
-
-        for (SqlNode sqlNode : parseResult.statements()) {
-            try {
-                validateParsedStatement(context, parseResult, sqlNode, params);
-            } catch (Exception e) {
-                start.completeExceptionally(e);
-
-                res = Collections.singletonList(CompletableFuture.completedFuture(failedCursor(e)));
-                return res;
-            }
-
-            // Only rw transactions for now.
-            InternalTransaction implicitTx = txManager.begin(false);
-
-            final BaseQueryContext ctx = BaseQueryContext.builder()
-                    .cancel(new QueryCancel())
-                    .frameworkConfig(
-                            Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                    .defaultSchema(schema)
-                                    .build()
-                    )
-                    .logger(LOG)
-                    .parameters(params)
-                    .plannerTimeout(PLANNER_TIMEOUT)
-                    .build();
-
-            // TODO https://issues.apache.org/jira/browse/IGNITE-17746 Fix query execution flow.
-            CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
-                    .thenCompose(none -> prepareSvc.prepareAsync(sqlNode, ctx))
-                    .thenApply(plan -> {
-                        SqlQueryType queryType = plan.type();
-                        assert queryType != null : "Expected a full plan but got a fragment: " + plan;
-
-                        return new AsyncSqlCursorImpl<>(
-                                queryType,
-                                plan.metadata(),
-                                implicitTx,
-                                executionSrvc.executePlan(implicitTx, plan, ctx)
-                        );
-                    });
-
-            stage.whenComplete((cur, ex) -> {
-                if (ex instanceof CancellationException) {
-                    ctx.cancel().cancel();
-                }
-            });
-
-            res.add(stage);
-        }
-
-        start.completeAsync(() -> null, taskExecutor);
-
-        return res;
-    }
-
-    private static <T> AsyncSqlCursor<T> failedCursor(Throwable th) {
-        return new AsyncSqlCursorImpl<>(
-                null, null, null,
-                new AsyncCursor<>() {
-                    @Override
-                    public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
-                        return CompletableFuture.failedFuture(th);
-                    }
-
-                    @Override
-                    public CompletableFuture<Void> closeAsync() {
-                        return CompletableFuture.completedFuture(null);
-                    }
-                }
-        );
     }
 
     private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {
