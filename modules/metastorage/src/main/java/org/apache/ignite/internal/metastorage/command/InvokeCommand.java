@@ -20,14 +20,13 @@ package org.apache.ignite.internal.metastorage.command;
 import java.util.Collection;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
-import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Represents invoke command for meta storage.
  */
 @Transferable(MetastorageCommandsMessageGroup.INVOKE)
-public interface InvokeCommand extends WriteCommand {
+public interface InvokeCommand extends MetaStorageWriteCommand {
     /**
      * Returns condition.
      *

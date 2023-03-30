@@ -28,6 +28,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
@@ -42,6 +43,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
@@ -83,13 +85,14 @@ public class MetaStorageRangeCursorTest {
         when(storage.range(any(), any(), anyBoolean())).thenReturn(Cursor.fromIterable(expectedEntries));
         when(storage.range(any(), any(), anyLong(), anyBoolean())).thenReturn(Cursor.fromIterable(expectedEntries));
 
-        listener = new MetaStorageListener(storage);
+        listener = new MetaStorageListener(storage, mock(ClusterTime.class));
 
         when(raftGroupService.run(any())).thenAnswer(invocation -> runCommand(invocation.getArgument(0)));
 
         var localNode = new ClusterNode("test", "test", new NetworkAddress("localhost", 10000));
 
-        MetaStorageService metaStorageService = new MetaStorageServiceImpl(raftGroupService, new IgniteSpinBusyLock(), localNode);
+        MetaStorageService metaStorageService = new MetaStorageServiceImpl(raftGroupService, new IgniteSpinBusyLock(), localNode,
+                mock(ClusterTime.class));
 
         checkCursor(metaStorageService.range(intToBytes(0), intToBytes(keyTo)), expectedEntries);
         checkCursor(metaStorageService.range(intToBytes(0), intToBytes(keyTo), 0), expectedEntries);

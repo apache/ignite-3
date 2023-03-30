@@ -19,9 +19,12 @@ package org.apache.ignite.internal.raft.service;
 
 import java.nio.file.Path;
 import java.util.Iterator;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A listener for replication group events.
@@ -81,4 +84,13 @@ public interface RaftGroupListener {
      * Invoked once after a raft node has been shut down.
      */
     void onShutdown();
+
+    /**
+     * Invoked before submitting a command to a raft group.
+     *
+     * @param command The command.
+     */
+    default void onBeforeApply(Command command) {
+        // No-op.
+    }
 }

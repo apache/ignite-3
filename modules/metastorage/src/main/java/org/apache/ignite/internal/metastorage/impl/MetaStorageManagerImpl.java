@@ -111,6 +111,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     private volatile long appliedRevision;
 
+    private final ClusterTimeImpl clusterTime;
+
     /**
      * The constructor.
      *
@@ -127,7 +129,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             ClusterManagementGroupManager cmgMgr,
             LogicalTopologyService logicalTopologyService,
             RaftManager raftMgr,
-            KeyValueStorage storage
+            KeyValueStorage storage,
+            HybridClock clock
     ) {
         this.vaultMgr = vaultMgr;
         this.clusterService = clusterService;
@@ -135,6 +138,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         this.cmgMgr = cmgMgr;
         this.logicalTopologyService = logicalTopologyService;
         this.storage = storage;
+        this.clusterTime = new ClusterTimeImpl(busyLock, clock);
     }
 
     private CompletableFuture<MetaStorageServiceImpl> initializeMetaStorage(Set<String> metaStorageNodes) {
@@ -156,8 +160,14 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 raftServiceFuture = raftMgr.startRaftGroupNode(
                         new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                         configuration,
-                        new MetaStorageListener(storage),
-                        new MetaStorageRaftGroupEventsListener(busyLock, clusterService, logicalTopologyService, metaStorageSvcFut)
+                        new MetaStorageListener(storage, clusterTime),
+                        new MetaStorageRaftGroupEventsListener(
+                                busyLock,
+                                clusterService,
+                                logicalTopologyService,
+                                metaStorageSvcFut,
+                                clusterTime
+                        )
                 );
             } else {
                 PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageNodes, Set.of(thisNodeName));
@@ -169,7 +179,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 raftServiceFuture = raftMgr.startRaftGroupNode(
                         new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                         configuration,
-                        new MetaStorageLearnerListener(storage),
+                        new MetaStorageLearnerListener(storage, clusterTime),
                         RaftGroupEventsListener.noopLsnr
                 );
             }
@@ -177,7 +187,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             return CompletableFuture.failedFuture(e);
         }
 
-        return raftServiceFuture.thenApply(raftService -> new MetaStorageServiceImpl(raftService, busyLock, thisNode));
+        return raftServiceFuture.thenApply(raftService -> new MetaStorageServiceImpl(raftService, busyLock, thisNode, clusterTime));
     }
 
     @Override

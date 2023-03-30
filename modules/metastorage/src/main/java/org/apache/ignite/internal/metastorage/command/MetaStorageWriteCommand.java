@@ -17,22 +17,16 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
-import java.util.List;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.network.annotations.WithSetter;
 
-/**
- * Get and put all command for MetaStorageCommandListener that inserts or updates entries with given keys and given values and retrieves a
- * previous entries for given keys.
- */
-@Transferable(MetastorageCommandsMessageGroup.GET_AND_PUT_ALL)
-public interface GetAndPutAllCommand extends MetaStorageWriteCommand {
-    /**
-     * Returns keys.
-     */
-    List<byte[]> keys();
+public interface MetaStorageWriteCommand extends WriteCommand {
+    HybridTimestampMessage initiatorTime();
 
-    /**
-     * Returns values.
-     */
-    List<byte[]> values();
+    @WithSetter
+    HybridTimestampMessage safeTime();
+
+    default void safeTime(HybridTimestampMessage safeTime) {
+        // No-op.
+    }
 }

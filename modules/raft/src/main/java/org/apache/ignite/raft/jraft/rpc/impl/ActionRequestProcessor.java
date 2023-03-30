@@ -19,8 +19,8 @@ package org.apache.ignite.raft.jraft.rpc.impl;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.concurrent.Executor;
-import org.apache.ignite.internal.logger.IgniteLogger;
+import java.util.concurrent.CompletableFuture;import java.util.concurrent.Executor;
+import java.util.function.BiFunction;import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.Command;
@@ -72,6 +72,11 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
             return;
         }
+
+        JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
+
+        // Apply a filter before committing to STM.
+        fsm.getListener().onBeforeApply(request.command());
 
         if (request.command() instanceof WriteCommand) {
             applyWrite(node, request, rpcCtx);

@@ -15,24 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command;
-
-import java.util.List;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.network.annotations;
 
 /**
- * Get and put all command for MetaStorageCommandListener that inserts or updates entries with given keys and given values and retrieves a
- * previous entries for given keys.
+ * Annotation for the {@link Transferable} class methods. If a method is marked with this annotation,
+ * a setter for the field with the same name as method's will be generated.
+ * In order to have access to this setter via interface one can use default method:
+ * <pre>
+ * {@code
+ *  @WithSetter
+ *  HybridTimestampMessage safeTime();
+ *
+ *  default void safeTime(HybridTimestampMessage safeTime) {
+ *       // No-op.
+ *  }
+ * }
+ * </pre>
+ * Note that fields with setters will not be final.
  */
-@Transferable(MetastorageCommandsMessageGroup.GET_AND_PUT_ALL)
-public interface GetAndPutAllCommand extends MetaStorageWriteCommand {
-    /**
-     * Returns keys.
-     */
-    List<byte[]> keys();
-
-    /**
-     * Returns values.
-     */
-    List<byte[]> values();
+public @interface WithSetter {
 }

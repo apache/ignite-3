@@ -39,6 +39,9 @@ import org.apache.ignite.internal.metastorage.command.cursor.NextBatchCommand;
 import org.apache.ignite.internal.metastorage.command.response.BatchResponse;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
+import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -64,9 +67,9 @@ public class MetaStorageListener implements RaftGroupListener {
      *
      * @param storage Storage.
      */
-    public MetaStorageListener(KeyValueStorage storage) {
+    public MetaStorageListener(KeyValueStorage storage, ClusterTimeImpl clusterTime) {
         this.storage = storage;
-        this.writeHandler = new MetaStorageWriteHandler(storage);
+        this.writeHandler = new MetaStorageWriteHandler(storage, clusterTime);
         this.cursors = new ConcurrentHashMap<>();
     }
 
@@ -215,6 +218,11 @@ public class MetaStorageListener implements RaftGroupListener {
                 assert false : "Command was not found [cmd=" + command + ']';
             }
         }
+    }
+
+    @Override
+    public void onBeforeApply(Command command) {
+        writeHandler.beforeApply(command);
     }
 
     private void closeCursor(IgniteUuid cursorId) {

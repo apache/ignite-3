@@ -90,6 +90,8 @@ import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageLearnerListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -177,6 +179,8 @@ public class ItMetaStorageServiceTest {
 
         private final KeyValueStorage mockStorage;
 
+        private final ClusterTime clusterTime;
+
         private RaftGroupService metaStorageRaftService;
 
         private MetaStorageService metaStorageService;
@@ -184,12 +188,16 @@ public class ItMetaStorageServiceTest {
         Node(ClusterService clusterService, RaftConfiguration raftConfiguration, Path dataPath) {
             this.clusterService = clusterService;
 
+            HybridClockImpl clock = new HybridClockImpl();
+
             this.raftManager = new Loza(
                     clusterService,
                     raftConfiguration,
                     dataPath.resolve(name()),
-                    new HybridClockImpl()
+                    clock
             );
+
+            this.clusterTime = new ClusterTimeImpl(new IgniteSpinBusyLock(), clock);
 
             this.mockStorage = mock(KeyValueStorage.class);
         }
@@ -206,7 +214,7 @@ public class ItMetaStorageServiceTest {
 
             ClusterNode node = clusterService.topologyService().localMember();
 
-            metaStorageService = new MetaStorageServiceImpl(metaStorageRaftService, new IgniteSpinBusyLock(), node);
+            metaStorageService = new MetaStorageServiceImpl(metaStorageRaftService, new IgniteSpinBusyLock(), node, clusterTime);
         }
 
         String name() {
@@ -222,7 +230,9 @@ public class ItMetaStorageServiceTest {
 
             assert peer != null;
 
-            RaftGroupListener listener = isLearner ? new MetaStorageLearnerListener(mockStorage) : new MetaStorageListener(mockStorage);
+            RaftGroupListener listener = isLearner
+                    ? new MetaStorageLearnerListener(mockStorage, clusterTime)
+                    : new MetaStorageListener(mockStorage, clusterTime);
 
             var raftNodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, peer);
 

@@ -17,22 +17,18 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
-import java.util.List;
+import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
-/**
- * Get and put all command for MetaStorageCommandListener that inserts or updates entries with given keys and given values and retrieves a
- * previous entries for given keys.
- */
-@Transferable(MetastorageCommandsMessageGroup.GET_AND_PUT_ALL)
-public interface GetAndPutAllCommand extends MetaStorageWriteCommand {
-    /**
-     * Returns keys.
-     */
-    List<byte[]> keys();
+@Transferable(MetastorageCommandsMessageGroup.HYBRID_TS)
+public interface HybridTimestampMessage extends NetworkMessage, Serializable {
+    long physical();
 
-    /**
-     * Returns values.
-     */
-    List<byte[]> values();
+    int logical();
+
+    default HybridTimestamp asHybridTimestamp() {
+        return new HybridTimestamp(physical(), logical());
+    }
 }

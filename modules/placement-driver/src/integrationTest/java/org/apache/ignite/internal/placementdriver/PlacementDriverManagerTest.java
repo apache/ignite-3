@@ -158,7 +158,8 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
                 cmgManager,
                 logicalTopologyService,
                 raftManager,
-                storage
+                storage,
+                mock(HybridClock.class)
         );
 
         placementDriverManager = new PlacementDriverManager(

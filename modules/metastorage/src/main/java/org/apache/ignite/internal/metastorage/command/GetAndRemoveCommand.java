@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
-import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
@@ -25,7 +24,7 @@ import org.apache.ignite.network.annotations.Transferable;
  * given key.
  */
 @Transferable(MetastorageCommandsMessageGroup.GET_AND_REMOVE)
-public interface GetAndRemoveCommand extends WriteCommand {
+public interface GetAndRemoveCommand extends MetaStorageWriteCommand {
     /**
      * Returns the key. Couldn't be {@code null}.
      */
