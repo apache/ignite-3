@@ -64,39 +64,59 @@ internal static class Metrics
     /// <summary>
     /// Total number of connections lost due to timeout.
     /// </summary>
-    public static readonly Counter<long> ConnectionsLostTimeout = Meter.CreateCounter<long>("connections-lost-timeout");
+    public static readonly Counter<long> ConnectionsLostTimeout = Meter.CreateCounter<long>(
+        name: "connections-lost-timeout",
+        unit: "connections",
+        description: "Total number of lost connections due to network timeout");
 
     /// <summary>
     /// Handshakes failed.
     /// </summary>
-    public static readonly Counter<long> HandshakesFailed = Meter.CreateCounter<long>("handshakes-failed");
+    public static readonly Counter<long> HandshakesFailed = Meter.CreateCounter<long>(
+        name: "handshakes-failed",
+        unit: "handshakes",
+        description: "Total number of failed handshakes (due to version mismatch, auth failure, etc)");
 
     /// <summary>
     /// Handshakes failed due to a timeout.
     /// </summary>
-    public static readonly Counter<long> HandshakesFailedTimeout = Meter.CreateCounter<long>("handshakes-failed-timeout");
+    public static readonly Counter<long> HandshakesFailedTimeout = Meter.CreateCounter<long>(
+        name: "handshakes-failed-timeout",
+        unit: "handshakes",
+        description: "Total number of failed handshakes due to network timeout");
 
     /// <summary>
     /// Currently active requests (request sent, waiting for response).
     /// </summary>
     public static readonly ObservableCounter<int> RequestsActive = Meter.CreateObservableCounter(
-        "requests-active",
-        () => Interlocked.CompareExchange(ref _requestsActive, 0, 0));
+        name: "requests-active",
+        observeValue: () => Interlocked.CompareExchange(ref _requestsActive, 0, 0),
+        unit: "requests",
+        description: "Currently active requests (request sent, waiting for response)");
 
     /// <summary>
     /// Requests sent.
     /// </summary>
-    public static readonly Counter<long> RequestsSent = Meter.CreateCounter<long>("requests-sent");
+    public static readonly Counter<long> RequestsSent = Meter.CreateCounter<long>(
+        name: "requests-sent",
+        unit: "requests",
+        description: "Total number of requests sent");
 
     /// <summary>
     /// Requests completed (response received).
     /// </summary>
-    public static readonly Counter<long> RequestsCompleted = Meter.CreateCounter<long>("requests-completed");
+    public static readonly Counter<long> RequestsCompleted = Meter.CreateCounter<long>(
+        name: "requests-completed",
+        unit: "requests",
+        description: "Total number of requests completed (response received)");
 
     /// <summary>
     /// Total number of request retries.
     /// </summary>
-    public static readonly Counter<long> RequestsRetried = Meter.CreateCounter<long>("requests-retried");
+    public static readonly Counter<long> RequestsRetried = Meter.CreateCounter<long>(
+        name: "requests-retried",
+        unit: "requests",
+        description: "Total number of request retries");
 
     /// <summary>
     /// Requests failed.
