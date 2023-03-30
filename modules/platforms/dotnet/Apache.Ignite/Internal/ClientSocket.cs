@@ -260,10 +260,10 @@ namespace Apache.Ignite.Internal
             }
 
             var requestId = Interlocked.Increment(ref _requestId);
-
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
-
             _requests[requestId] = taskCompletionSource;
+
+            Metrics.RequestsActive.Add(1);
 
             SendRequestAsync(request, clientOp, requestId)
                 .AsTask()
@@ -282,6 +282,9 @@ namespace Apache.Ignite.Internal
                         {
                             completionSource.TrySetException(task.Exception);
                         }
+
+                        Metrics.RequestsFailed.Add(1);
+                        Metrics.RequestsActive.Add(-1);
                     },
                     taskCompletionSource,
                     CancellationToken.None,
@@ -584,6 +587,8 @@ namespace Apache.Ignite.Internal
 
                     Metrics.BytesSent.Add(prefixBytes.Length);
                 }
+
+                Metrics.RequestsSent.Add(1);
             }
             finally
             {
@@ -645,6 +650,8 @@ namespace Apache.Ignite.Internal
                 return;
             }
 
+            Metrics.RequestsActive.Add(-1);
+
             var flags = (ResponseFlags)reader.ReadInt32();
 
             if (flags.HasFlag(ResponseFlags.PartitionAssignmentChanged))
@@ -664,12 +671,16 @@ namespace Apache.Ignite.Internal
             {
                 response.Dispose();
                 taskCompletionSource.SetException(exception);
+
+                Metrics.RequestsFailed.Add(-1);
             }
             else
             {
                 var resultBuffer = response.Slice(reader.Consumed);
 
                 taskCompletionSource.SetResult(resultBuffer);
+
+                Metrics.RequestsCompleted.Add(-1);
             }
         }
 
