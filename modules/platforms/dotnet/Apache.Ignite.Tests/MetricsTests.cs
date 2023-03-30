@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
 using System.Threading.Tasks;
 using NUnit.Framework;
@@ -68,6 +69,46 @@ public class MetricsTests
 
         Assert.AreEqual(17, listener.GetMetric("bytes-sent"));
         Assert.AreEqual(72, listener.GetMetric("bytes-received"));
+    }
+
+    [Test]
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed.")]
+    public async Task TestConnectionsLost()
+    {
+        using var listener = new Listener();
+        using var server = new FakeServer();
+        using var client = await server.ConnectClientAsync();
+
+        Assert.AreEqual(0, listener.GetMetric("connections-lost"));
+        Assert.AreEqual(0, listener.GetMetric("connections-lost-timeout"));
+
+        server.Dispose();
+
+        TestUtils.WaitForCondition(
+            () => listener.GetMetric("connections-lost") == 1,
+            1000,
+            () => "connections-lost: " + listener.GetMetric("connections-lost"));
+
+        Assert.AreEqual(0, listener.GetMetric("connections-lost-timeout"));
+    }
+
+    [Test]
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed.")]
+    public async Task TestConnectionsLostTimeout()
+    {
+        using var listener = new Listener();
+        using var server = new FakeServer { HeartbeatDelay = TimeSpan.FromSeconds(3) };
+        using var client = await server.ConnectClientAsync(new IgniteClientConfiguration
+        {
+            HeartbeatInterval = TimeSpan.FromMilliseconds(50)
+        });
+
+        Assert.AreEqual(0, listener.GetMetric("connections-lost-timeout"));
+
+        TestUtils.WaitForCondition(
+            () => listener.GetMetric("connections-lost-timeout") == 1,
+            10000,
+            () => "connections-lost-timeout: " + listener.GetMetric("connections-lost-timeout"));
     }
 
     private sealed class Listener : IDisposable
