@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
@@ -33,7 +34,6 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
@@ -137,48 +137,52 @@ class IndexBuilder {
             }
 
             try {
-                InternalTable internalTable = table.internalTable();
+                // At the time of creating the index, we should have already waited for the table to be created and its raft of clients
+                // (services) to start for all partitions, so there should be no errors.
+                RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(partitionId);
 
-                // TODO: IGNITE-18539 вот тут надо бы дождаться запуска рафт группы после рекавери!
+                raftGroupService
+                        // We do not check the presence of nodes in the topology on purpose, so as not to get into races on
+                        // rebalancing, it will be more convenient and reliable for us to wait for a stable topology with a chosen
+                        // leader.
+                        .refreshAndGetLeaderWithTerm()
+                        .thenComposeAsync(leaderWithTerm -> {
+                            if (!busyLock.enterBusy()) {
+                                return completedFuture(null);
+                            }
 
-                // TODO: IGNITE-18539 сделать ожидаемым, потому что стало асинхронный старт рафт групп
-                RaftGroupService raftGroupService = internalTable.partitionRaftGroupService(partitionId);
+                            try {
+                                // At this point, we have a stable topology, each node of which has already applied all local updates.
+                                if (!localNodeConsistentId().equals(leaderWithTerm.leader().consistentId())) {
+                                    // TODO: IGNITE-19053 Must handle the change of leader
+                                    // TODO: IGNITE-19053 Add a test to change the leader even at the start of the task
+                                    return completedFuture(null);
+                                }
 
-                if (!isLocalNodeLeader(raftGroupService)) {
-                    // TODO: IGNITE-19053 Must handle the change of leader
-                    // TODO: IGNITE-19053 Add a test to change the leader even at the start of the task
-                    return;
-                }
+                                List<RowId> batchRowIds = collectRowIdBatch();
 
-                RowId nextRowIdToBuilt;
+                                RowId nextRowId = getNextRowIdForNextBatch(batchRowIds);
 
-                if (nextRowIdToBuiltFromPreviousBatch == null) {
-                    nextRowIdToBuilt = internalTable.storage().getOrCreateIndex(partitionId, tableIndexView.id()).getNextRowIdToBuild();
+                                boolean finish = batchRowIds.size() < BUILD_INDEX_ROW_ID_BATCH_SIZE || nextRowId == null;
 
-                    if (nextRowIdToBuilt == null) {
-                        // Index has already been built.
-                        return;
-                    }
-                } else {
-                    nextRowIdToBuilt = nextRowIdToBuiltFromPreviousBatch;
-                }
+                                // TODO: IGNITE-19053 Must handle the change of leader
+                                return raftGroupService.run(createBuildIndexCommand(batchRowIds, finish))
+                                        .thenRun(() -> {
+                                            if (!finish) {
+                                                assert nextRowId != null : createCommonTableIndexInfo();
 
-                if (nextRowIdToBuiltFromPreviousBatch == null) {
-                    LOG.info("Start building the index: [{}]", createCommonTableIndexInfo());
-                }
-
-                List<RowId> batchRowIds = createBatchRowIds(nextRowIdToBuilt, BUILD_INDEX_ROW_ID_BATCH_SIZE);
-
-                RowId nextRowId = getNextRowIdForNextBatch(batchRowIds);
-
-                boolean finish = batchRowIds.size() < BUILD_INDEX_ROW_ID_BATCH_SIZE || nextRowId == null;
-
-                raftGroupService.run(createBuildIndexCommand(batchRowIds, finish))
-                        .thenRun(() -> {
-                            if (!finish) {
-                                assert nextRowId != null : createCommonTableIndexInfo();
-
-                                buildIndexExecutor.submit(new BuildIndexTask(table, tableIndexView, partitionId, nextRowId));
+                                                buildIndexExecutor.submit(
+                                                        new BuildIndexTask(table, tableIndexView, partitionId, nextRowId)
+                                                );
+                                            }
+                                        });
+                            } finally {
+                                busyLock.leaveBusy();
+                            }
+                        }, buildIndexExecutor)
+                        .whenComplete((unused, throwable) -> {
+                            if (throwable != null) {
+                                LOG.error("Index build error: [{}]", throwable, createCommonTableIndexInfo());
                             }
                         });
             } catch (Throwable t) {
@@ -243,6 +247,27 @@ class IndexBuilder {
 
         private @Nullable RowId getNextRowIdForNextBatch(List<RowId> batch) {
             return batch.isEmpty() ? null : batch.get(batch.size() - 1).increment();
+        }
+
+        private @Nullable List<RowId> collectRowIdBatch() {
+            RowId nextRowIdToBuilt;
+
+            if (nextRowIdToBuiltFromPreviousBatch == null) {
+                nextRowIdToBuilt = table.internalTable().storage().getOrCreateIndex(partitionId, tableIndexView.id()).getNextRowIdToBuild();
+
+                if (nextRowIdToBuilt == null) {
+                    // Index has already been built.
+                    return null;
+                }
+            } else {
+                nextRowIdToBuilt = nextRowIdToBuiltFromPreviousBatch;
+            }
+
+            if (nextRowIdToBuiltFromPreviousBatch == null) {
+                LOG.info("Start building the index: [{}]", createCommonTableIndexInfo());
+            }
+
+            return createBatchRowIds(nextRowIdToBuilt, BUILD_INDEX_ROW_ID_BATCH_SIZE);
         }
     }
 }
