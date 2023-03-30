@@ -195,7 +195,7 @@ public class MetricsTests
     {
         private readonly MeterListener _listener = new();
 
-        private readonly ConcurrentDictionary<string, object> _metrics = new();
+        private readonly ConcurrentDictionary<string, long> _metrics = new();
 
         public Listener()
         {
@@ -207,9 +207,7 @@ public class MetricsTests
                 }
             };
 
-            _listener.SetMeasurementEventCallback<int>(HandleInt);
-            _listener.SetMeasurementEventCallback<long>(HandleLong);
-
+            _listener.SetMeasurementEventCallback<long>(Handle);
             _listener.Start();
         }
 
@@ -220,10 +218,7 @@ public class MetricsTests
             _listener.Dispose();
         }
 
-        private void HandleInt(Instrument instrument, int measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state) =>
-            _metrics.AddOrUpdate(instrument.Name, measurement, (_, val) => (int)val + measurement);
-
-        private void HandleLong(Instrument instrument, long measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state) =>
-            _metrics.AddOrUpdate(instrument.Name, (int)measurement, (_, val) => (int)val + (int)measurement);
+        private void Handle(Instrument instrument, long measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state) =>
+            _metrics.AddOrUpdate(instrument.Name, (int)measurement, (_, val) => val + measurement);
     }
 }

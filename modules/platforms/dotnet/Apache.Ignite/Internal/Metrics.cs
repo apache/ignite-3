@@ -34,57 +34,57 @@ internal static class Metrics
     /// <summary>
     /// Currently active connections.
     /// </summary>
-    public static readonly Counter<int> ConnectionsActive = Meter.CreateCounter<int>("connections-active");
+    public static readonly Counter<long> ConnectionsActive = Meter.CreateCounter<long>("connections-active");
 
     /// <summary>
     /// Total number of connections established.
     /// </summary>
-    public static readonly Counter<int> ConnectionsEstablished = Meter.CreateCounter<int>("connections-established");
+    public static readonly Counter<long> ConnectionsEstablished = Meter.CreateCounter<long>("connections-established");
 
     /// <summary>
     /// Total number of connections lost.
     /// </summary>
-    public static readonly Counter<int> ConnectionsLost = Meter.CreateCounter<int>("connections-lost");
+    public static readonly Counter<long> ConnectionsLost = Meter.CreateCounter<long>("connections-lost");
 
     /// <summary>
     /// Total number of connections lost due to timeout.
     /// </summary>
-    public static readonly Counter<int> ConnectionsLostTimeout = Meter.CreateCounter<int>("connections-lost-timeout");
+    public static readonly Counter<long> ConnectionsLostTimeout = Meter.CreateCounter<long>("connections-lost-timeout");
 
     /// <summary>
     /// Handshakes failed.
     /// </summary>
-    public static readonly Counter<int> HandshakesFailed = Meter.CreateCounter<int>("handshakes-failed");
+    public static readonly Counter<long> HandshakesFailed = Meter.CreateCounter<long>("handshakes-failed");
 
     /// <summary>
     /// Handshakes failed due to a timeout.
     /// </summary>
-    public static readonly Counter<int> HandshakesFailedTimeout = Meter.CreateCounter<int>("handshakes-failed-timeout");
+    public static readonly Counter<long> HandshakesFailedTimeout = Meter.CreateCounter<long>("handshakes-failed-timeout");
 
     /// <summary>
     /// Currently active requests (request sent, waiting for response).
     /// </summary>
-    public static readonly Counter<int> RequestsActive = Meter.CreateCounter<int>("requests-active");
+    public static readonly Counter<long> RequestsActive = Meter.CreateCounter<long>("requests-active");
 
     /// <summary>
     /// Requests sent.
     /// </summary>
-    public static readonly Counter<int> RequestsSent = Meter.CreateCounter<int>("requests-sent");
+    public static readonly Counter<long> RequestsSent = Meter.CreateCounter<long>("requests-sent");
 
     /// <summary>
     /// Requests completed (response received).
     /// </summary>
-    public static readonly Counter<int> RequestsCompleted = Meter.CreateCounter<int>("requests-completed");
+    public static readonly Counter<long> RequestsCompleted = Meter.CreateCounter<long>("requests-completed");
 
     /// <summary>
     /// Total number of request retries.
     /// </summary>
-    public static readonly Counter<int> RequestsRetried = Meter.CreateCounter<int>("requests-retried");
+    public static readonly Counter<long> RequestsRetried = Meter.CreateCounter<long>("requests-retried");
 
     /// <summary>
     /// Requests failed.
     /// </summary>
-    public static readonly Counter<int> RequestsFailed = Meter.CreateCounter<int>("requests-failed");
+    public static readonly Counter<long> RequestsFailed = Meter.CreateCounter<long>("requests-failed");
 
     /// <summary>
     /// Bytes sent.
