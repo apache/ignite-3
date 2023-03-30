@@ -41,25 +41,58 @@ internal static class Metrics
     /// </summary>
     public static readonly Counter<int> ConnectionsEstablished = Meter.CreateCounter<int>("connections-established");
 
+    /// <summary>
+    /// Total number of connections lost.
+    /// </summary>
     public static readonly Counter<int> ConnectionsLost = Meter.CreateCounter<int>("connections-lost");
 
+    /// <summary>
+    /// Total number of connections lost due to timeout.
+    /// </summary>
     public static readonly Counter<int> ConnectionsLostTimeout = Meter.CreateCounter<int>("connections-lost-timeout");
 
+    /// <summary>
+    /// Handshakes failed.
+    /// </summary>
     public static readonly Counter<int> HandshakesFailed = Meter.CreateCounter<int>("handshakes-failed");
 
+    /// <summary>
+    /// Handshakes failed due to a timeout.
+    /// </summary>
     public static readonly Counter<int> HandshakesFailedTimeout = Meter.CreateCounter<int>("handshakes-failed-timeout");
 
+    /// <summary>
+    /// Currently active requests (request sent, waiting for response).
+    /// </summary>
     public static readonly Counter<int> RequestsActive = Meter.CreateCounter<int>("requests-active");
 
+    /// <summary>
+    /// Requests sent.
+    /// </summary>
     public static readonly Counter<int> RequestsSent = Meter.CreateCounter<int>("requests-sent");
 
+    /// <summary>
+    /// Requests completed (response received).
+    /// </summary>
     public static readonly Counter<int> RequestsCompleted = Meter.CreateCounter<int>("requests-completed");
 
+    /// <summary>
+    /// Total number of request retries.
+    /// </summary>
     public static readonly Counter<int> RequestsRetried = Meter.CreateCounter<int>("requests-retried");
 
+    /// <summary>
+    /// Requests failed.
+    /// </summary>
     public static readonly Counter<int> RequestsFailed = Meter.CreateCounter<int>("requests-failed");
 
+    /// <summary>
+    /// Bytes sent.
+    /// </summary>
     public static readonly Counter<int> BytesSent = Meter.CreateCounter<int>("bytes-sent");
 
+    /// <summary>
+    /// Bytes received.
+    /// </summary>
     public static readonly Counter<int> BytesReceived = Meter.CreateCounter<int>("bytes-received");
 }
