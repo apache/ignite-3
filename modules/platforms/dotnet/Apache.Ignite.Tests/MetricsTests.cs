@@ -133,15 +133,26 @@ public class MetricsTests
     }
 
     [Test]
-    public async Task TestRequestsActiveSentCompletedFailed()
+    public async Task TestRequestsSentCompletedFailed()
     {
         using var server = new FakeServer();
         using var client = await server.ConnectClientAsync();
 
-        Assert.AreEqual(0, _listener.GetMetric("requests-active"));
         Assert.AreEqual(0, _listener.GetMetric("requests-sent"));
         Assert.AreEqual(0, _listener.GetMetric("requests-failed"));
         Assert.AreEqual(0, _listener.GetMetric("requests-completed"));
+
+        await client.Tables.GetTablesAsync();
+
+        Assert.AreEqual(1, _listener.GetMetric("requests-sent"));
+        Assert.AreEqual(0, _listener.GetMetric("requests-failed"));
+        Assert.AreEqual(1, _listener.GetMetric("requests-completed"));
+
+        Assert.ThrowsAsync<IgniteException>(async () => await client.Tables.GetTableAsync("bad-table"));
+
+        Assert.AreEqual(2, _listener.GetMetric("requests-sent"));
+        Assert.AreEqual(1, _listener.GetMetric("requests-failed"));
+        Assert.AreEqual(1, _listener.GetMetric("requests-completed"));
     }
 
     private static IgniteClientConfiguration GetConfigWithDelay() =>

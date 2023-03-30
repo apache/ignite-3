@@ -670,17 +670,18 @@ namespace Apache.Ignite.Internal
             if (exception != null)
             {
                 response.Dispose();
-                taskCompletionSource.SetException(exception);
 
-                Metrics.RequestsFailed.Add(-1);
+                Metrics.RequestsFailed.Add(1);
+
+                taskCompletionSource.SetException(exception);
             }
             else
             {
                 var resultBuffer = response.Slice(reader.Consumed);
 
-                taskCompletionSource.SetResult(resultBuffer);
+                Metrics.RequestsCompleted.Add(1);
 
-                Metrics.RequestsCompleted.Add(-1);
+                taskCompletionSource.SetResult(resultBuffer);
             }
         }
 
