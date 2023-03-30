@@ -30,7 +30,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -50,7 +49,6 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -120,11 +118,12 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
 
             Path basePath = dataPath.resolve(name());
 
+            HybridClockImpl clock = new HybridClockImpl();
             this.raftManager = new Loza(
                     clusterService,
                     raftConfiguration,
                     basePath.resolve("raft"),
-                    new HybridClockImpl()
+                    clock
             );
 
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
@@ -150,7 +149,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
                     new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
                     raftManager,
                     new SimpleInMemoryKeyValueStorage(name()),
-                    mock(HybridClock.class)
+                    clock
             );
         }
 

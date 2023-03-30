@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
 
 import java.io.Serializable;
 import java.nio.file.Path;
@@ -42,7 +41,6 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -112,7 +110,9 @@ public class ItDistributedConfigurationStorageTest {
                     new StaticNodeFinder(List.of(addr))
             );
 
-            raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
+            HybridClockImpl clock = new HybridClockImpl();
+
+            raftManager = new Loza(clusterService, raftConfiguration, workDir, clock);
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
@@ -138,7 +138,7 @@ public class ItDistributedConfigurationStorageTest {
                     new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
                     raftManager,
                     new SimpleInMemoryKeyValueStorage(name()),
-                    mock(HybridClock.class)
+                    clock
             );
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);

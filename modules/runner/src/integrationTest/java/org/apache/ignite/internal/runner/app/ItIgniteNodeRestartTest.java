@@ -321,7 +321,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
                 raftMgr,
                 new RocksDbKeyValueStorage(name, dir.resolve("metastorage")),
-                mock(HybridClock.class)
+                hybridClock
         );
 
         var cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vault);
