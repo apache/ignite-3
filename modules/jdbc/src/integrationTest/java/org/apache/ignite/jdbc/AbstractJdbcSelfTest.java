@@ -39,6 +39,8 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -159,7 +161,8 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
      * @param ex Executable function that throws an error.
      */
     protected void checkConnectionClosed(Executable ex) {
-        assertThrows(SQLException.class, ex, "Connection is closed");
+        SQLException ex0 = assertThrows(SQLException.class, ex);
+        assertThat(ex0.getMessage(), Matchers.containsString("Connection is closed")); 
     }
 
     /**

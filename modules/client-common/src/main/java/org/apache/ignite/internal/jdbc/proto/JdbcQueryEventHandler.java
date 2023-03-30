@@ -22,6 +22,8 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
@@ -102,4 +104,7 @@ public interface JdbcQueryEventHandler {
      * @return Result future.
      */
     CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMetaAsync(JdbcMetaPrimaryKeysRequest req);
+
+    // todo
+    CompletableFuture<JdbcFinishTxResult> finishTx(JdbcFinishTxRequest req);
 }

@@ -38,6 +38,8 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
@@ -67,6 +69,8 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -88,6 +92,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
     /** Current JDBC cursors. */
     private final ClientResourceRegistry resources;
+    
+    private final IgniteTransactions igniteTransactions;
 
     /**
      * Constructor.
@@ -99,11 +105,13 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     public JdbcQueryEventHandlerImpl(
             QueryProcessor processor,
             JdbcMetadataCatalog meta,
-            ClientResourceRegistry resources
+            ClientResourceRegistry resources,
+            IgniteTransactions igniteTransactions
     ) {
         this.processor = processor;
         this.meta = meta;
         this.resources = resources;
+        this.igniteTransactions = igniteTransactions;
     }
 
     /** {@inheritDoc} */
@@ -112,7 +120,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         try {
             JdbcConnectionContext connectionContext = new JdbcConnectionContext(
                     processor::createSession,
-                    processor::closeSession
+                    processor::closeSession,
+                    igniteTransactions
             );
 
             long connectionId = resources.put(new ClientResource(
@@ -144,7 +153,10 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                     "Connection is broken"));
         }
 
-        QueryContext context = createQueryContext(req.getStmtType());
+
+        Transaction tx = req.implicitTx() ? null : connectionContext.transaction();
+
+        QueryContext context = createQueryContext(req.getStmtType(), tx);
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connectionContext.doInSession(sessionId -> processor.querySingleAsync(
                 sessionId,
@@ -163,14 +175,14 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                 });
     }
 
-    private QueryContext createQueryContext(JdbcStatementType stmtType) {
+    private QueryContext createQueryContext(JdbcStatementType stmtType, @Nullable Transaction tx) {
         switch (stmtType) {
             case ANY_STATEMENT_TYPE:
-                return QueryContext.create(SqlQueryType.ALL);
+                return QueryContext.create(SqlQueryType.ALL, tx);
             case SELECT_STATEMENT_TYPE:
-                return QueryContext.create(SELECT_STATEMENT_QUERIES);
+                return QueryContext.create(SELECT_STATEMENT_QUERIES, tx);
             case UPDATE_STATEMENT_TYPE:
-                return QueryContext.create(UPDATE_STATEMENT_QUERIES);
+                return QueryContext.create(UPDATE_STATEMENT_QUERIES, tx);
             default:
                 throw new AssertionError("Unexpected jdbc statement type: " + stmtType);
         }
@@ -229,7 +241,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     }
 
     private CompletableFuture<Long> executeAndCollectUpdateCount(long connectionId, String sql, Object[] arg) {
-        var context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE);
+        var context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE, null);
 
         JdbcConnectionContext connectionContext;
         try {
@@ -285,6 +297,24 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     @Override
     public CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMetaAsync(JdbcMetaPrimaryKeysRequest req) {
         return meta.getPrimaryKeys(req.schemaName(), req.tableName()).thenApply(JdbcMetaPrimaryKeysResult::new);
+    }
+
+    @Override
+    public CompletableFuture<JdbcFinishTxResult> finishTx(JdbcFinishTxRequest req) {
+        JdbcConnectionContext connectionContext;
+
+        try {
+            connectionContext = resources.get(req.connectionId()).get(JdbcConnectionContext.class);
+        } catch (IgniteInternalCheckedException exception) {
+            return CompletableFuture.completedFuture(new JdbcFinishTxResult(Response.STATUS_FAILED,
+                    "Connection is broken"));
+        }
+
+        connectionContext.finishTx(req.commit());
+
+        JdbcFinishTxResult txFinishResult = new JdbcFinishTxResult();
+
+        return CompletableFuture.completedFuture(txFinishResult);
     }
 
     /**
@@ -375,20 +405,26 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         private final SessionFactory factory;
         private final SessionCleaner cleaner;
+        private final IgniteTransactions igniteTransactions;
         private final PropertiesHolder properties = PropertiesHelper.emptyHolder();
 
         private volatile @Nullable SessionId sessionId;
+        private volatile @Nullable Transaction tx;
 
         JdbcConnectionContext(
                 SessionFactory factory,
-                SessionCleaner cleaner
+                SessionCleaner cleaner,
+                IgniteTransactions igniteTransactions
         ) {
             this.factory = factory;
             this.cleaner = cleaner;
+            this.igniteTransactions = igniteTransactions;
         }
 
         void close() {
             synchronized (mux) {
+                finishTx(false);
+                
                 SessionId sessionId = this.sessionId;
 
                 this.sessionId = null;
@@ -439,6 +475,31 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                 this.sessionId = newSessionId;
 
                 return newSessionId;
+            }
+        }
+        
+        private Transaction transaction() {
+            Transaction tx0 = tx;
+
+            if (tx0 == null) {
+                tx = tx0 = igniteTransactions.begin();
+            }
+            
+            return tx0;
+        }
+        
+        private void finishTx(boolean commit) {
+            Transaction tx0 = tx;
+
+            tx = null;
+            
+            if (tx0 == null)
+                return;
+
+            if (commit) {
+                tx0.commit();
+            } else {
+                tx0.rollback();
             }
         }
 

@@ -21,6 +21,7 @@ import static java.sql.ResultSet.CLOSE_CURSORS_AT_COMMIT;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
 import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
+import static java.util.Arrays.asList;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CLIENT_CONNECTION_FAILED;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CONNECTION_CLOSED;
 
@@ -45,6 +46,8 @@ import java.sql.Struct;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
@@ -57,7 +60,13 @@ import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcPrimaryKeyMeta;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -316,9 +325,12 @@ public class JdbcConnection implements Connection {
         ensureNotClosed();
 
         if (autoCommit != this.autoCommit) {
+            if (autoCommit) {
+                finishTx(true);
+            }
+
             this.autoCommit = autoCommit;
         }
-        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-18985
     }
 
     /** {@inheritDoc} */
@@ -337,7 +349,8 @@ public class JdbcConnection implements Connection {
         if (autoCommit) {
             throw new SQLException("Transaction cannot be committed explicitly in auto-commit mode.");
         }
-        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-18985
+
+        finishTx(true);
     }
 
     /** {@inheritDoc} */
@@ -348,7 +361,16 @@ public class JdbcConnection implements Connection {
         if (autoCommit) {
             throw new SQLException("Transaction cannot be rolled back explicitly in auto-commit mode.");
         }
-        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-18985
+        
+        finishTx(false);
+    }
+
+    private void finishTx(boolean commit) throws SQLException {
+        JdbcFinishTxResult res = handler().finishTx(new JdbcFinishTxRequest(connectionId, commit)).join();
+
+        if (!res.hasResults()) {
+            throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+        }
     }
 
     /** {@inheritDoc} */

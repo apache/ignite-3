@@ -45,6 +45,8 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
 
     /** Sql query arguments. */
     private Object[] args;
+    
+    private boolean implicitTx;
 
     /**
      * Default constructor. For deserialization purposes.
@@ -56,22 +58,28 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
      * Constructor.
      *
      * @param stmtType Expected statement type.
+     * @param implicitTx 
      * @param schemaName Cache name.
      * @param pageSize   Fetch size.
      * @param maxRows    Max rows.
      * @param sqlQry     SQL query.
      * @param args       Arguments list.
      */
-    public JdbcQueryExecuteRequest(JdbcStatementType stmtType,
+    public JdbcQueryExecuteRequest(JdbcStatementType stmtType, boolean implicitTx,
             String schemaName, int pageSize, int maxRows, String sqlQry, Object[] args) {
         Objects.requireNonNull(stmtType);
 
+        this.implicitTx = implicitTx;
         this.stmtType = stmtType;
         this.schemaName = schemaName == null || schemaName.isEmpty() ? null : schemaName;
         this.pageSize = pageSize;
         this.maxRows = maxRows;
         this.sqlQry = sqlQry;
         this.args = args;
+    }
+    
+    public boolean implicitTx() {
+        return implicitTx;
     }
 
     /**
@@ -131,6 +139,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
+        packer.packBoolean(implicitTx);
         packer.packByte(stmtType.getId());
         packer.packString(schemaName);
         packer.packInt(pageSize);
@@ -143,6 +152,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
+        implicitTx = unpacker.unpackBoolean();
         stmtType = JdbcStatementType.getStatement(unpacker.unpackByte());
         schemaName = unpacker.unpackString();
         pageSize = unpacker.unpackInt();

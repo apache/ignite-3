@@ -25,6 +25,8 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
@@ -158,5 +160,23 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
 
             return res;
         });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<JdbcFinishTxResult> finishTx(JdbcFinishTxRequest req) {
+        return client.sendRequestAsync(ClientOp.SQL_FINISH_TX, w -> req.writeBinary(w.out()), r -> {
+            JdbcFinishTxResult res = new JdbcFinishTxResult();
+
+            res.readBinary(r.in());
+
+            return res;
+        });
+
+//        client.transactions().begin()
+//
+//        CompletableFuture<Void> mainFinishFut = ch.serviceAsync(ClientOp.TX_COMMIT, w -> w.out().packLong(id), r -> null);
+//
+//        mainFinishFut.handle((res, e) -> finishFut.get().complete(null));
     }
 }
