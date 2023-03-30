@@ -19,12 +19,10 @@ package org.apache.ignite.internal.raft.service;
 
 import java.nio.file.Path;
 import java.util.Iterator;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * A listener for replication group events.

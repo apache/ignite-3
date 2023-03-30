@@ -22,10 +22,17 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
+/** Message with a {@link HybridTimestamp}. */
 @Transferable(MetastorageCommandsMessageGroup.HYBRID_TS)
 public interface HybridTimestampMessage extends NetworkMessage, Serializable {
+    /**
+     * Returns physical time.
+     */
     long physical();
 
+    /**
+     * Returns logical time.
+     */
     int logical();
 
     default HybridTimestamp asHybridTimestamp() {

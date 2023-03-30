@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -26,11 +25,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
-import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.ItAbstractListenerSnapshotTest;
@@ -71,7 +71,8 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
     public void beforeFollowerStop(RaftGroupService service, RaftServer server) throws Exception {
         ClusterNode followerNode = getNode(server);
 
-        metaStorage = new MetaStorageServiceImpl(service, new IgniteSpinBusyLock(), followerNode, mock(ClusterTime.class));
+        metaStorage = new MetaStorageServiceImpl(service, new IgniteSpinBusyLock(), followerNode,
+                new ClusterTimeImpl(new IgniteSpinBusyLock(), new HybridClockImpl()));
 
         // Put some data in the metastorage
         metaStorage.put(FIRST_KEY, FIRST_VALUE).get();
@@ -147,7 +148,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
             return s;
         });
 
-        return new MetaStorageListener(storage, mock(ClusterTime.class));
+        return new MetaStorageListener(storage, new ClusterTimeImpl(new IgniteSpinBusyLock(), new HybridClockImpl()));
     }
 
     /** {@inheritDoc} */

@@ -90,7 +90,6 @@ import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageLearnerListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
-import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -179,7 +178,7 @@ public class ItMetaStorageServiceTest {
 
         private final KeyValueStorage mockStorage;
 
-        private final ClusterTime clusterTime;
+        private final ClusterTimeImpl clusterTime;
 
         private RaftGroupService metaStorageRaftService;
 

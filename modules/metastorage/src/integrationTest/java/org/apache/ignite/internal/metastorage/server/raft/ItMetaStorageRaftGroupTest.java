@@ -53,6 +53,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageService;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -371,17 +372,17 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         var raftNodeId1 = new RaftNodeId(MetastorageGroupId.INSTANCE, membersConfiguration.peer(localMemberName(cluster.get(0))));
 
         metaStorageRaftSrv1.startRaftNode(raftNodeId1, membersConfiguration,
-                new MetaStorageListener(mockStorage, mock(ClusterTime.class)), defaults());
+                new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)), defaults());
 
         var raftNodeId2 = new RaftNodeId(MetastorageGroupId.INSTANCE, membersConfiguration.peer(localMemberName(cluster.get(1))));
 
         metaStorageRaftSrv2.startRaftNode(raftNodeId2, membersConfiguration,
-                new MetaStorageListener(mockStorage, mock(ClusterTime.class)), defaults());
+                new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)), defaults());
 
         var raftNodeId3 = new RaftNodeId(MetastorageGroupId.INSTANCE, membersConfiguration.peer(localMemberName(cluster.get(2))));
 
         metaStorageRaftSrv3.startRaftNode(raftNodeId3, membersConfiguration,
-                new MetaStorageListener(mockStorage, mock(ClusterTime.class)), defaults());
+                new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)), defaults());
 
         metaStorageRaftGrpSvc1 = RaftGroupServiceImpl.start(
                 MetastorageGroupId.INSTANCE,

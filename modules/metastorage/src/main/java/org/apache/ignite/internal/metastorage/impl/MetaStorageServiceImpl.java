@@ -275,9 +275,15 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return new CursorPublisher(context, createPrefixCommand);
     }
 
-    public CompletableFuture<Void> syncTime(HybridTimestamp hybridTimestamp) {
+    /**
+     * Sends safe time sync message. Should be called only on the leader node.
+     *
+     * @param safeTime New safe time.
+     * @return Future that will be completed when message is sent.
+     */
+    public CompletableFuture<Void> syncTime(HybridTimestamp safeTime) {
         SyncTimeCommand syncTimeCommand = context.commandsFactory().syncTimeCommand()
-                .safeTime(hybridTimestamp(clusterTime.now()))
+                .safeTime(hybridTimestamp(safeTime))
                 .build();
 
         return context.raftService().run(syncTimeCommand);

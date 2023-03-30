@@ -19,10 +19,9 @@ package org.apache.ignite.internal.metastorage.server.time;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl;
 
 /**
- * Cluster time.
+ * Cluster time with a hybrid clock instance and access to safe time.
  */
 public interface ClusterTime {
     /**

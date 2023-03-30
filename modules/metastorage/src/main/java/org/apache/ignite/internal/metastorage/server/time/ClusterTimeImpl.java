@@ -33,6 +33,9 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Cluster time implementation with additional methods to adjust time and update safe time.
+ */
 public class ClusterTimeImpl implements ClusterTime {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClusterTimeImpl.class);
@@ -45,12 +48,23 @@ public class ClusterTimeImpl implements ClusterTime {
 
     private final PendingComparableValuesTracker<HybridTimestamp> safeTime;
 
+    /**
+     * Constructor.
+     *
+     * @param busyLock Busy lock.
+     * @param clock Node's hybrid clock.
+     */
     public ClusterTimeImpl(IgniteSpinBusyLock busyLock, HybridClock clock) {
         this.busyLock = busyLock;
         this.clock = clock;
         this.safeTime = new PendingComparableValuesTracker<>(clock.now());
     }
 
+    /**
+     * Starts sync time scheduler.
+     *
+     * @param service MetaStorage service that is used by scheduler to sync time.
+     */
     public void startLeaderTimer(MetaStorageServiceImpl service) {
         if (!busyLock.enterBusy()) {
             return;
@@ -69,6 +83,9 @@ public class ClusterTimeImpl implements ClusterTime {
         }
     }
 
+    /**
+     * Stops sync time scheduler.
+     */
     public void stopLeaderTimer() {
         LeaderTimer timer = leaderTimer;
 

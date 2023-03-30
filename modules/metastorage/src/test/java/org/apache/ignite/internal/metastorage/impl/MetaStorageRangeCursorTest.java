@@ -44,6 +44,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
@@ -85,7 +86,7 @@ public class MetaStorageRangeCursorTest {
         when(storage.range(any(), any(), anyBoolean())).thenReturn(Cursor.fromIterable(expectedEntries));
         when(storage.range(any(), any(), anyLong(), anyBoolean())).thenReturn(Cursor.fromIterable(expectedEntries));
 
-        listener = new MetaStorageListener(storage, mock(ClusterTime.class));
+        listener = new MetaStorageListener(storage, mock(ClusterTimeImpl.class));
 
         when(raftGroupService.run(any())).thenAnswer(invocation -> runCommand(invocation.getArgument(0)));
 
