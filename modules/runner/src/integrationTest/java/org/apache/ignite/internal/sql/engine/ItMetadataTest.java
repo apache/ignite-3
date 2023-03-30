@@ -188,8 +188,8 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
                         new MetadataMatcher().name("TIME_C2").type(ColumnType.TIME).precision(9).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("TIME_LTZ_C").type(ColumnType.TIME).precision(0).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("TIME_LTZ_C2").type(ColumnType.TIME).precision(9).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("DATETIME_C").type(ColumnType.DATETIME).precision(6).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("DATETIME_C2").type(ColumnType.DATETIME).precision(9).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("DATETIME_C").type(ColumnType.TIMESTAMP).precision(6).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("DATETIME_C2").type(ColumnType.TIMESTAMP).precision(9).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("TIMESTAMP_C").type(ColumnType.TIMESTAMP).precision(6).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("TIMESTAMP_C2").type(ColumnType.TIMESTAMP).precision(9).scale(UNDEFINED_SCALE),
 

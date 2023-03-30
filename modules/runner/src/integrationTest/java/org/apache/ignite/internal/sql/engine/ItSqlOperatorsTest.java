@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.sql.engine;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.Period;
 import java.util.List;
 import java.util.Map;
@@ -210,7 +210,7 @@ public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
         assertExpression("EXTRACT(DAY FROM DATE '2021-01-15')").returns(15L).check();
         assertExpression("FLOOR(DATE '2021-01-15' TO MONTH)").returns(LocalDate.parse("2021-01-01")).check();
         assertExpression("CEIL(DATE '2021-01-15' TO MONTH)").returns(LocalDate.parse("2021-02-01")).check();
-        assertExpression("TIMESTAMPADD(DAY, 1, TIMESTAMP '2021-01-01')").returns(LocalDateTime.parse("2021-01-02T00:00:00")).check();
+        assertExpression("TIMESTAMPADD(DAY, 1, TIMESTAMP '2021-01-01')").returns(Instant.parse("2021-01-02T00:00:00Z")).check();
         assertExpression("TIMESTAMPDIFF(DAY, TIMESTAMP '2021-01-01', TIMESTAMP '2021-01-02')").returns(1).check();
         assertExpression("LAST_DAY(DATE '2021-01-01')").returns(LocalDate.parse("2021-01-31")).check();
         assertExpression("DAYNAME(DATE '2021-01-01')").returns("Friday").check();
@@ -225,9 +225,9 @@ public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
         assertExpression("HOUR(TIMESTAMP '2021-01-01 01:01:01')").returns(1L).check();
         assertExpression("MINUTE(TIMESTAMP '2021-01-01 01:01:01')").returns(1L).check();
         assertExpression("SECOND(TIMESTAMP '2021-01-01 01:01:01')").returns(1L).check();
-        assertExpression("TIMESTAMP_SECONDS(1609459200)").returns(LocalDateTime.parse("2021-01-01T00:00:00")).check();
-        assertExpression("TIMESTAMP_MILLIS(1609459200000)").returns(LocalDateTime.parse("2021-01-01T00:00:00")).check();
-        assertExpression("TIMESTAMP_MICROS(1609459200000000)").returns(LocalDateTime.parse("2021-01-01T00:00:00")).check();
+        assertExpression("TIMESTAMP_SECONDS(1609459200)").returns(Instant.parse("2021-01-01T00:00:00Z")).check();
+        assertExpression("TIMESTAMP_MILLIS(1609459200000)").returns(Instant.parse("2021-01-01T00:00:00Z")).check();
+        assertExpression("TIMESTAMP_MICROS(1609459200000000)").returns(Instant.parse("2021-01-01T00:00:00Z")).check();
         assertExpression("UNIX_SECONDS(TIMESTAMP '2021-01-01 00:00:00')").returns(1609459200L).check();
         assertExpression("UNIX_MILLIS(TIMESTAMP '2021-01-01 00:00:00')").returns(1609459200000L).check();
         assertExpression("UNIX_MICROS(TIMESTAMP '2021-01-01 00:00:00')").returns(1609459200000000L).check();

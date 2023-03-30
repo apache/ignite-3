@@ -38,10 +38,9 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.STORAGE_ENGINE_NOT_VALID_ER
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZoneOffset;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -789,11 +788,7 @@ public class DdlSqlToCommandConverter {
                 case TIMESTAMP: {
                     var tsString = literal.getValueAs(TimestampString.class);
 
-                    return LocalDateTime.ofEpochSecond(
-                            TimeUnit.MILLISECONDS.toSeconds(tsString.getMillisSinceEpoch()),
-                            (int) (TimeUnit.MILLISECONDS.toNanos(tsString.getMillisSinceEpoch() % 1000)),
-                            ZoneOffset.UTC
-                    );
+                    return Instant.ofEpochMilli(tsString.getMillisSinceEpoch());
                 }
                 case TIMESTAMP_WITH_LOCAL_TIME_ZONE: {
                     // TODO: IGNITE-17376

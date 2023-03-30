@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -53,7 +54,7 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
     public void testUnicodeStrings() {
         sql("CREATE TABLE string_table(key int primary key, val varchar)");
 
-        String[] values = new String[]{"Кирилл", "Müller", "我是谁", "ASCII"};
+        String[] values = {"Кирилл", "Müller", "我是谁", "ASCII"};
 
         int key = 0;
 
@@ -174,37 +175,37 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
         assertQuery("select date '1992-01-18' + interval (1) days").returns(sqlDate("1992-01-19")).check();
         assertQuery("select date '1992-01-18' + interval (24) hours").returns(sqlDate("1992-01-19")).check();
         assertQuery("SELECT timestamp '1992-01-18 02:30:00' + interval (25) hours")
-                .returns(sqlDateTime("1992-01-19T03:30:00")).check();
+                .returns(instant("1992-01-19T03:30:00Z")).check();
         assertQuery("SELECT timestamp '1992-01-18 02:30:00' + interval (23) hours")
-                .returns(sqlDateTime("1992-01-19T01:30:00.000")).check();
+                .returns(instant("1992-01-19T01:30:00.000Z")).check();
         assertQuery("SELECT timestamp '1992-01-18 02:30:00' + interval (24) hours")
-                .returns(sqlDateTime("1992-01-19T02:30:00.000")).check();
+                .returns(instant("1992-01-19T02:30:00.000Z")).check();
 
         assertQuery("select date '1992-03-29'").returns(sqlDate("1992-03-29")).check();
         assertQuery("select date '1992-03-28' + interval (1) days").returns(sqlDate("1992-03-29")).check();
         assertQuery("select date '1992-03-28' + interval (24) hours").returns(sqlDate("1992-03-29")).check();
         assertQuery("SELECT timestamp '1992-03-28 02:30:00' + interval (25) hours")
-                .returns(sqlDateTime("1992-03-29T03:30:00.000")).check();
+                .returns(instant("1992-03-29T03:30:00.000Z")).check();
         assertQuery("SELECT timestamp '1992-03-28 02:30:00' + interval (23) hours")
-                .returns(sqlDateTime("1992-03-29T01:30:00.000")).check();
+                .returns(instant("1992-03-29T01:30:00.000Z")).check();
         assertQuery("SELECT timestamp '1992-03-28 02:30:00' + interval (24) hours")
-                .returns(sqlDateTime("1992-03-29T02:30:00.000")).check();
+                .returns(instant("1992-03-29T02:30:00.000Z")).check();
 
         assertQuery("select date '1992-09-27'").returns(sqlDate("1992-09-27")).check();
         assertQuery("select date '1992-09-26' + interval (1) days").returns(sqlDate("1992-09-27")).check();
         assertQuery("select date '1992-09-26' + interval (24) hours").returns(sqlDate("1992-09-27")).check();
         assertQuery("SELECT timestamp '1992-09-26 02:30:00' + interval (25) hours")
-                .returns(sqlDateTime("1992-09-27T03:30:00.000")).check();
+                .returns(instant("1992-09-27T03:30:00.000Z")).check();
         assertQuery("SELECT timestamp '1992-09-26 02:30:00' + interval (23) hours")
-                .returns(sqlDateTime("1992-09-27T01:30:00.000")).check();
+                .returns(instant("1992-09-27T01:30:00.000Z")).check();
         assertQuery("SELECT timestamp '1992-09-26 02:30:00' + interval (24) hours")
-                .returns(sqlDateTime("1992-09-27T02:30:00.000")).check();
+                .returns(instant("1992-09-27T02:30:00.000Z")).check();
 
         assertQuery("select date '2021-11-07'").returns(sqlDate("2021-11-07")).check();
         assertQuery("select date '2021-11-06' + interval (1) days").returns(sqlDate("2021-11-07")).check();
         assertQuery("select date '2021-11-06' + interval (24) hours").returns(sqlDate("2021-11-07")).check();
         assertQuery("SELECT timestamp '2021-11-06 01:30:00' + interval (25) hours")
-                .returns(sqlDateTime("2021-11-07T02:30:00.000")).check();
+                .returns(instant("2021-11-07T02:30:00.000Z")).check();
         // Check string representation here, since after timestamp calculation we have '2021-11-07T01:30:00.000-0800'
         // but Timestamp.valueOf method converts '2021-11-07 01:30:00' in 'America/Los_Angeles' time zone to
         // '2021-11-07T01:30:00.000-0700' (we pass through '2021-11-07 01:30:00' twice after DST ended).
@@ -390,5 +391,9 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
 
     private LocalDateTime sqlDateTime(String str) {
         return LocalDateTime.parse(str);
+    }
+
+    private Instant instant(String str) {
+        return Instant.parse(str);
     }
 }

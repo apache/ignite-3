@@ -222,8 +222,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? NativeTypes.time() :
                         NativeTypes.time(relType.getPrecision());
             case TIMESTAMP:
-                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? NativeTypes.datetime() :
-                        NativeTypes.datetime(relType.getPrecision());
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                 return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? NativeTypes.timestamp() :
                         NativeTypes.timestamp(relType.getPrecision());
@@ -285,7 +283,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 case TIME_WITH_LOCAL_TIME_ZONE:
                     return LocalTime.class;
                 case TIMESTAMP:
-                    return LocalDateTime.class;
                 case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                     return Instant.class;
                 case INTEGER:

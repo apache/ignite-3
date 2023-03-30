@@ -301,7 +301,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
      * Check an operation failed if an unknown column found.
      */
     @Test
-    public void testInsertRowOfDifferentSchema() throws Exception {
+    public void testInsertRowOfDifferentSchema() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);

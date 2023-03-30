@@ -21,8 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -444,7 +444,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
                 new DefaultValueArg("DATE", "DATE '2021-01-01'", LocalDate.parse("2021-01-01")),
                 new DefaultValueArg("TIME", "TIME '01:01:01'", LocalTime.parse("01:01:01")),
-                new DefaultValueArg("TIMESTAMP", "TIMESTAMP '2021-01-01 01:01:01'", LocalDateTime.parse("2021-01-01T01:01:01")),
+                new DefaultValueArg("TIMESTAMP", "TIMESTAMP '2021-01-01 01:01:01'", Instant.parse("2021-01-01T01:01:01Z")),
 
                 // TODO: IGNITE-17376
                 // new DefaultValueArg("TIMESTAMP WITH LOCAL TIME ZONE", "TIMESTAMP '2021-01-01 01:01:01'"

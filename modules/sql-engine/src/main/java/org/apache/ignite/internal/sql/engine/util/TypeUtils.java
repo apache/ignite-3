@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.transform;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -264,6 +265,10 @@ public class TypeUtils {
             var dt = (LocalDateTime) val;
 
             return TimeUnit.SECONDS.toMillis(dt.toEpochSecond(ZoneOffset.UTC)) + TimeUnit.NANOSECONDS.toMillis(dt.getNano());
+        } else if (storageType == Instant.class) {
+            var timeStamp = (Instant) val;
+
+            return timeStamp.toEpochMilli();
         } else if (storageType == Duration.class) {
             return TimeUnit.SECONDS.toMillis(((Duration) val).getSeconds())
                     + TimeUnit.NANOSECONDS.toMillis(((Duration) val).getNano());
@@ -312,6 +317,8 @@ public class TypeUtils {
         } else if (storageType == LocalDateTime.class && (val instanceof Long)) {
             return LocalDateTime.ofEpochSecond(TimeUnit.MILLISECONDS.toSeconds((Long) val),
                     (int) TimeUnit.MILLISECONDS.toNanos((Long) val % 1000), ZoneOffset.UTC);
+        } else if (storageType == Instant.class && val instanceof Long) {
+            return Instant.ofEpochMilli((long) val);
         } else if (storageType == Duration.class && val instanceof Long) {
             return Duration.ofMillis((Long) val);
         } else if (storageType == Period.class && val instanceof Integer) {
@@ -348,7 +355,7 @@ public class TypeUtils {
             case INTEGER:
                 return ColumnType.INT32;
             case TIMESTAMP:
-                return ColumnType.DATETIME;
+                return ColumnType.TIMESTAMP;
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                 return ColumnType.TIMESTAMP;
             case BIGINT:
@@ -477,7 +484,7 @@ public class TypeUtils {
 
                 var ts = (TemporalNativeType) nativeType;
 
-                return factory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, ts.precision());
+                return factory.createSqlType(SqlTypeName.TIMESTAMP, ts.precision());
             case DATETIME:
                 assert nativeType instanceof TemporalNativeType;
 

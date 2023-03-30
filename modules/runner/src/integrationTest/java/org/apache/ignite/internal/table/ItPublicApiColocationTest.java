@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -61,13 +62,8 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
     /** Rows count ot test. */
     private static final int ROWS = 10;
 
-    /**
-     * Excluded native types.
-     * ToDo: https://issues.apache.org/jira/browse/IGNITE-15623 - support timestamp
-     */
     private static final Set<NativeTypeSpec> EXCLUDED_TYPES = Stream.of(
             NativeTypeSpec.BITMASK,
-            NativeTypeSpec.TIMESTAMP,
             NativeTypeSpec.NUMBER)
             .collect(Collectors.toSet());
 
@@ -300,9 +296,8 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             case TIME:
                 return "time";
             case DATETIME:
-                return "timestamp";
             case TIMESTAMP:
-                return "timestamp_tz";
+                return "timestamp";
             default:
                 throw new IllegalStateException("Unexpected type: " + type);
         }

@@ -210,7 +210,7 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testCreateTable() throws Exception {
+    public void testCreateTable() {
         Table table = ignite.tables().table(TABLE_NAME);
 
         assertNotNull(table);
@@ -233,7 +233,7 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testCreateTableAsync() throws Exception {
+    public void testCreateTableAsync() {
         assertNotNull(ignite.tables().table(TABLE_NAME));
 
         CompletableFuture<Table> tableFut2 = tableManager()

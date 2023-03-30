@@ -18,20 +18,33 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.lang.ErrorGroups.Sql;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType.TemporalColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
 /** Test common SQL API. */
@@ -94,5 +107,64 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         // second session could start new query
         ses2.execute(null, "SELECT 2 + 2").close();
+    }
+
+    /** Check timestamp type operations correctness using sql and kv api. */
+    @Test
+    public void checkTimestampOperations() {
+        String kvTblName = "tbl_all_columns_sql";
+        String schemaName = "PUBLIC";
+        String keyCol = "key";
+        int maxTimePrecision = TemporalColumnType.MAX_TIME_PRECISION;
+
+        Ignite node = CLUSTER_NODES.get(0);
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19162 Trim all less than millisecond information from timestamp
+        //String tsStr = "2023-03-29T08:22:33.005007Z";
+        String tsStr = "2023-03-29T08:22:33.005Z";
+
+        Instant ins = Instant.parse(tsStr);
+
+        sql("CREATE TABLE timestamps(id INTEGER PRIMARY KEY, i TIMESTAMP(9))");
+
+        TableDefinition schTblAllSql = SchemaBuilders.tableBuilder(schemaName, kvTblName).columns(
+                SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
+                SchemaBuilders.column("time", ColumnType.time(maxTimePrecision)).asNullable(true).build(),
+                SchemaBuilders.column("timestamp", ColumnType.timestamp(maxTimePrecision)).asNullable(true).build(),
+                SchemaBuilders.column("datetime", ColumnType.datetime(maxTimePrecision)).asNullable(true).build()
+        ).withPrimaryKey(keyCol).build();
+
+        await(((TableManager) node.tables()).createTableAsync(schTblAllSql.name(), tblCh ->
+                SchemaConfigurationConverter.convert(schTblAllSql, tblCh)
+                        .changeReplicas(1)
+                        .changePartitions(10)
+        ));
+
+        Table tbl = node.tables().table(kvTblName);
+
+        Tuple rec = Tuple.create()
+                .set("KEY", 1L)
+                .set("TIMESTAMP", ins)
+                .set("DATETIME", LocalDateTime.of(2023, 1, 18, 18, 9, 29));
+
+        tbl.recordView().insert(null, rec);
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19161 Can`t insert timestamp representing in ISO_INSTANT format
+        tsStr = tsStr.replace("T", " ").substring(0, tsStr.length() - 1);
+
+        sql("INSERT INTO timestamps VALUES (101, TIMESTAMP '" + tsStr + "')");
+
+        try (Session ses = node.sql().createSession()) {
+            // for projection pop up
+            ResultSet<SqlRow> res = ses.execute(null, "SELECT i, id FROM timestamps");
+
+            assertEquals(ins, res.next().timestampValue(0));
+
+            String query = "select \"KEY\", \"TIME\", \"DATETIME\", \"TIMESTAMP\" from TBL_ALL_COLUMNS_SQL ORDER BY KEY";
+
+            res = node.sql().createSession().execute(null, query);
+
+            assertEquals(ins, res.next().timestampValue(3));
+        }
     }
 }

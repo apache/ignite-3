@@ -24,10 +24,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.temporal.Temporal;
+import java.util.TimeZone;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -58,12 +61,12 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
     public void testCurrentDateTimeTimeStamp() {
         checkDateTimeQuery("SELECT CURRENT_DATE", Clock.DATE_CLOCK, LocalDate.class);
         checkDateTimeQuery("SELECT CURRENT_TIME", Clock.TIME_CLOCK, LocalTime.class);
-        checkDateTimeQuery("SELECT CURRENT_TIMESTAMP", Clock.DATE_TIME_CLOCK, LocalDateTime.class);
+        checkDateTimeQuery("SELECT CURRENT_TIMESTAMP", Clock.TIMESTAMP_CLOCK, Instant.class);
         checkDateTimeQuery("SELECT LOCALTIME", Clock.TIME_CLOCK, LocalTime.class);
-        checkDateTimeQuery("SELECT LOCALTIMESTAMP", Clock.DATE_TIME_CLOCK, LocalDateTime.class);
+        checkDateTimeQuery("SELECT LOCALTIMESTAMP", Clock.TIMESTAMP_CLOCK, Instant.class);
         checkDateTimeQuery("SELECT {fn CURDATE()}", Clock.DATE_CLOCK, LocalDate.class);
         checkDateTimeQuery("SELECT {fn CURTIME()}", Clock.TIME_CLOCK, LocalTime.class);
-        checkDateTimeQuery("SELECT {fn NOW()}", Clock.DATE_TIME_CLOCK, LocalDateTime.class);
+        checkDateTimeQuery("SELECT {fn NOW()}", Clock.TIMESTAMP_CLOCK, Instant.class);
     }
 
     private static <T extends Temporal & Comparable<? super T>> void checkDateTimeQuery(String sql, Clock<T> clock, Class<T> cls) {
@@ -87,6 +90,25 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
             assertThat(time, instanceOf(cls));
 
             var castedTime = cls.cast(time);
+
+            if (cls.equals(Instant.class)) {
+                Instant tsBegImpl = (Instant) tsBeg;
+                Instant tsEndImpl = (Instant) tsEnd;
+                Instant castedTimeImpl = (Instant) castedTime;
+                LocalDateTime ldtBeg = tsBegImpl.atZone(ZoneId.systemDefault()).toLocalDateTime();
+                LocalDateTime ldtEnd = tsEndImpl.atZone(ZoneId.systemDefault()).toLocalDateTime();
+
+                // TIMESTAMP family functions returns instant with current tzone offset.
+                TimeZone timeZone = TimeZone.getDefault();
+                int off = timeZone.getOffset(System.currentTimeMillis());
+                castedTimeImpl = castedTimeImpl.minusMillis(off);
+
+                LocalDateTime castedTime0 = castedTimeImpl.atZone(ZoneId.systemDefault()).toLocalDateTime();
+
+                assertTrue(ldtBeg.compareTo(castedTime0) <= 0, format("exp ts:{}, act ts:{}", tsBeg, castedTime));
+                assertTrue(ldtEnd.compareTo(castedTime0) >= 0, format("exp ts:{}, act ts:{}", tsEnd, castedTime));
+                return;
+            }
 
             assertTrue(tsBeg.compareTo(castedTime) <= 0, format("exp ts:{}, act ts:{}", tsBeg, castedTime));
             assertTrue(tsEnd.compareTo(castedTime) >= 0, format("exp ts:{}, act ts:{}", tsEnd, castedTime));
@@ -312,6 +334,11 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
          * A clock reporting a local datetime.
          */
         Clock<LocalDateTime> DATE_TIME_CLOCK = LocalDateTime::now;
+
+        /**
+         * A clock reporting a timestamp.
+         */
+        Clock<Instant> TIMESTAMP_CLOCK = Instant::now;
 
         /**
          * Returns a temporal value representing the current moment.

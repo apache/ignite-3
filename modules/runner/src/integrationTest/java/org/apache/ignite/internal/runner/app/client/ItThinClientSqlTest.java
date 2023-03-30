@@ -27,9 +27,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -457,6 +460,10 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         waitForTableOnAllNodes("testAllColumnTypes");
 
+        LocalDateTime dt = LocalDateTime.of(2020, 1, 1, 12, 0, 0);
+        DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        String formattedTime = dt.format(format);
+
         String insertData = "INSERT INTO testAllColumnTypes VALUES ("
                 + "1, "
                 + "1, "
@@ -469,7 +476,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 + "'foo', "
                 + "'2020-01-01', "
                 + "'12:00:00', "
-                + "'2020-01-01 12:00:00', "
+                + "'" + formattedTime + "', "
                 + "'10000000-2000-3000-4000-500000000000', "
                 + "x'42')";
 
@@ -495,7 +502,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals("foo", row.stringValue(8));
         assertEquals(LocalDate.of(2020, 1, 1), row.value(9));
         assertEquals(LocalTime.of(12, 0, 0), row.value(10));
-        assertEquals(LocalDateTime.of(2020, 1, 1, 12, 0, 0), row.value(11));
+        assertEquals(Instant.ofEpochSecond(dt.toEpochSecond(ZoneOffset.UTC)), row.value(11));
         assertEquals(UUID.fromString("10000000-2000-3000-4000-500000000000"), row.value(12));
         assertArrayEquals(new byte[]{0x42}, row.value(13));
 
@@ -509,7 +516,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(ColumnType.STRING, meta.columns().get(8).type());
         assertEquals(ColumnType.DATE, meta.columns().get(9).type());
         assertEquals(ColumnType.TIME, meta.columns().get(10).type());
-        assertEquals(ColumnType.DATETIME, meta.columns().get(11).type());
+        assertEquals(ColumnType.TIMESTAMP, meta.columns().get(11).type());
         assertEquals(ColumnType.UUID, meta.columns().get(12).type());
         assertEquals(ColumnType.BYTE_ARRAY, meta.columns().get(13).type());
     }
