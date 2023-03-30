@@ -40,18 +40,26 @@ internal static class Metrics
     /// Currently active connections.
     /// </summary>
     public static readonly ObservableCounter<int> ConnectionsActive = Meter.CreateObservableCounter(
-        "connections-active",
-        () => Interlocked.CompareExchange(ref _connectionsActive, 0, 0));
+        name: "connections-active",
+        observeValue: () => Interlocked.CompareExchange(ref _connectionsActive, 0, 0),
+        unit: "connections",
+        description: "Currently active connections");
 
     /// <summary>
     /// Total number of connections established.
     /// </summary>
-    public static readonly Counter<long> ConnectionsEstablished = Meter.CreateCounter<long>("connections-established");
+    public static readonly Counter<long> ConnectionsEstablished = Meter.CreateCounter<long>(
+        name: "connections-established",
+        unit: "connections",
+        description: "Total number of established connections");
 
     /// <summary>
     /// Total number of connections lost.
     /// </summary>
-    public static readonly Counter<long> ConnectionsLost = Meter.CreateCounter<long>("connections-lost");
+    public static readonly Counter<long> ConnectionsLost = Meter.CreateCounter<long>(
+        name: "connections-lost",
+        unit: "connections",
+        description: "Total number of lost connections");
 
     /// <summary>
     /// Total number of connections lost due to timeout.
