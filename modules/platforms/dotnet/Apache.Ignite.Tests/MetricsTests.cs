@@ -97,10 +97,16 @@ public class MetricsTests
     public async Task TestConnectionsLostTimeout()
     {
         using var listener = new Listener();
-        using var server = new FakeServer { HeartbeatDelay = TimeSpan.FromSeconds(3) };
+
+        using var server = new FakeServer
+        {
+            HeartbeatDelay = TimeSpan.FromSeconds(3)
+        };
+
         using var client = await server.ConnectClientAsync(new IgniteClientConfiguration
         {
-            HeartbeatInterval = TimeSpan.FromMilliseconds(50)
+            HeartbeatInterval = TimeSpan.FromMilliseconds(50),
+            SocketTimeout = TimeSpan.FromMilliseconds(50)
         });
 
         Assert.AreEqual(0, listener.GetMetric("connections-lost-timeout"));
