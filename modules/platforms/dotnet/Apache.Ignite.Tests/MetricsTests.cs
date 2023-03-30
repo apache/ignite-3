@@ -117,6 +117,16 @@ public class MetricsTests
             () => "connections-lost-timeout: " + listener.GetMetric("connections-lost-timeout"));
     }
 
+    [Test]
+    public void TestHandshakesFailed()
+    {
+        using var listener = new Listener();
+        using var server = new FakeServer { SendInvalidMagic = true };
+
+        Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync());
+        Assert.AreEqual(1, listener.GetMetric("handshakes-failed"));
+    }
+
     private sealed class Listener : IDisposable
     {
         private readonly MeterListener _listener = new();
