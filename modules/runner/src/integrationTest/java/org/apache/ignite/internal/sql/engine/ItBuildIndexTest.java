@@ -48,6 +48,8 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Integration test of index building.
  */
 public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
+    private static final String ZONE_NAME = "zone_table";
+
     private static final String TABLE_NAME = "test_table";
 
     private static final String INDEX_NAME = "test_index";
@@ -60,9 +62,13 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource("replicas")
     void testBuildIndexOnStableTopology(int replicas) throws Exception {
+        sql(IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}",
+                ZONE_NAME, replicas, 2
+        ));
+
         sql(IgniteStringFormatter.format(
-                "CREATE TABLE {} (i0 INTEGER PRIMARY KEY, i1 INTEGER) WITH replicas={}, partitions={}",
-                TABLE_NAME, replicas, 2
+                "CREATE TABLE {} (i0 INTEGER PRIMARY KEY, i1 INTEGER) WITH PRIMARY_ZONE='{}'",
+                TABLE_NAME, ZONE_NAME.toUpperCase()
         ));
 
         sql(IgniteStringFormatter.format(

@@ -112,13 +112,22 @@ class IndexBuilder {
 
         private final int partitionId;
 
-        private final @Nullable RowId nextRowId;
+        /**
+         * ID of the next row to build the index from the previous batch, {@code null} if it is the first row after the index was crated
+         * (both on a live node and after a restore).
+         */
+        private final @Nullable RowId nextRowIdToBuiltFromPreviousBatch;
 
-        private BuildIndexTask(TableImpl table, TableIndexView tableIndexView, int partitionId, @Nullable RowId nextRowId) {
+        private BuildIndexTask(
+                TableImpl table,
+                TableIndexView tableIndexView,
+                int partitionId,
+                @Nullable RowId nextRowIdToBuiltFromPreviousBatch
+        ) {
             this.table = table;
             this.tableIndexView = tableIndexView;
             this.partitionId = partitionId;
-            this.nextRowId = nextRowId;
+            this.nextRowIdToBuiltFromPreviousBatch = nextRowIdToBuiltFromPreviousBatch;
         }
 
         @Override
@@ -129,6 +138,8 @@ class IndexBuilder {
 
             try {
                 InternalTable internalTable = table.internalTable();
+
+                // TODO: IGNITE-18539 вот тут надо бы дождаться запуска рафт группы после рекавери!
 
                 // TODO: IGNITE-18539 сделать ожидаемым, потому что стало асинхронный старт рафт групп
                 RaftGroupService raftGroupService = internalTable.partitionRaftGroupService(partitionId);
@@ -141,24 +152,24 @@ class IndexBuilder {
 
                 RowId nextRowIdToBuilt;
 
-                if (nextRowId == null) {
+                if (nextRowIdToBuiltFromPreviousBatch == null) {
                     nextRowIdToBuilt = internalTable.storage().getOrCreateIndex(partitionId, tableIndexView.id()).getNextRowIdToBuild();
+
+                    if (nextRowIdToBuilt == null) {
+                        // Index has already been built.
+                        return;
+                    }
                 } else {
-                    nextRowIdToBuilt = nextRowId;
+                    nextRowIdToBuilt = nextRowIdToBuiltFromPreviousBatch;
                 }
 
-                if (nextRowIdToBuilt == null) {
-                    // Index has already been built.
-                    return;
-                }
-
-                if (nextRowId == null) {
+                if (nextRowIdToBuiltFromPreviousBatch == null) {
                     LOG.info("Start building the index: [{}]", createCommonTableIndexInfo());
                 }
 
                 List<RowId> batchRowIds = createBatchRowIds(nextRowIdToBuilt, BUILD_INDEX_ROW_ID_BATCH_SIZE);
 
-                RowId nextRowId = getNextRowId(batchRowIds);
+                RowId nextRowId = getNextRowIdForNextBatch(batchRowIds);
 
                 boolean finish = batchRowIds.size() < BUILD_INDEX_ROW_ID_BATCH_SIZE || nextRowId == null;
 
@@ -230,7 +241,7 @@ class IndexBuilder {
             return clusterService.topologyService().localMember().name();
         }
 
-        private @Nullable RowId getNextRowId(List<RowId> batch) {
+        private @Nullable RowId getNextRowIdForNextBatch(List<RowId> batch) {
             return batch.isEmpty() ? null : batch.get(batch.size() - 1).increment();
         }
     }

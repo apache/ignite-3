@@ -94,7 +94,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Index builder. */
-    private IndexBuilder indexBuilder;
+    private final IndexBuilder indexBuilder;
 
     /**
      * Constructor.
@@ -419,8 +419,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         CompletableFuture<SchemaRegistry> schemaRegistryFuture = schemaManager.schemaRegistry(causalityToken, tableId);
 
         CompletableFuture<?> createIndexFuture = tableFuture.thenAcceptBoth(schemaRegistryFuture, (table, schemaRegistry) -> {
-            indexBuilder.startIndexBuild(tableIndexView, table);
-
             TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
                     schemaRegistry,
                     descriptor.columns().toArray(STRING_EMPTY_ARRAY)
@@ -435,6 +433,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     table.pkId(indexId);
                 }
             }
+
+            indexBuilder.startIndexBuild(tableIndexView, table);
         });
 
         return allOf(createIndexFuture, fireEventFuture);
