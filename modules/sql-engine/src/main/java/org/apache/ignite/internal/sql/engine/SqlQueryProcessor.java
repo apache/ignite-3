@@ -336,29 +336,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(String schemaName, String qry, Object... params) {
-        QueryContext context = QueryContext.create(SqlQueryType.ALL);
-
-        return queryAsync(context, schemaName, qry, params);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(QueryContext context, String schemaName,
-            String qry, Object... params) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(OPERATION_INTERRUPTED_ERR, new NodeStoppingException());
-        }
-
-        try {
-            return query0(context, schemaName, qry, params);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
             SessionId sessionId, QueryContext context, String qry, Object... params
     ) {
