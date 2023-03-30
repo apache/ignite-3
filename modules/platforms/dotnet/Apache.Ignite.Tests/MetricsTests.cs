@@ -101,16 +101,8 @@ public class MetricsTests
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed.")]
     public async Task TestConnectionsLostTimeout()
     {
-        using var server = new FakeServer
-        {
-            HeartbeatDelay = TimeSpan.FromSeconds(3)
-        };
-
-        using var client = await server.ConnectClientAsync(new IgniteClientConfiguration
-        {
-            HeartbeatInterval = TimeSpan.FromMilliseconds(50),
-            SocketTimeout = TimeSpan.FromMilliseconds(50)
-        });
+        using var server = new FakeServer { HeartbeatDelay = TimeSpan.FromSeconds(3) };
+        using var client = await server.ConnectClientAsync(GetConfigWithDelay());
 
         Assert.AreEqual(0, _listener.GetMetric("connections-lost-timeout"));
 
@@ -127,7 +119,25 @@ public class MetricsTests
 
         Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync());
         Assert.AreEqual(1, _listener.GetMetric("handshakes-failed"));
+        Assert.AreEqual(0, _listener.GetMetric("handshakes-failed-timeout"));
     }
+
+    [Test]
+    public void TestHandshakesFailedTimeout()
+    {
+        using var server = new FakeServer { HandshakeDelay = TimeSpan.FromSeconds(1) };
+
+        Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync(GetConfigWithDelay()));
+        Assert.AreEqual(0, _listener.GetMetric("handshakes-failed"));
+        Assert.AreEqual(1, _listener.GetMetric("handshakes-failed-timeout"));
+    }
+
+    private static IgniteClientConfiguration GetConfigWithDelay() =>
+        new()
+        {
+            HeartbeatInterval = TimeSpan.FromMilliseconds(50),
+            SocketTimeout = TimeSpan.FromMilliseconds(50)
+        };
 
     private sealed class Listener : IDisposable
     {
