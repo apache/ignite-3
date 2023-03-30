@@ -155,6 +155,22 @@ public class MetricsTests
         Assert.AreEqual(1, _listener.GetMetric("requests-completed"));
     }
 
+    [Test]
+    public async Task TestRequestsActive()
+    {
+        using var server = new FakeServer { OperationDelay = TimeSpan.FromSeconds(1) };
+        using var client = await server.ConnectClientAsync();
+
+        Assert.AreEqual(0, _listener.GetMetric("requests-active"));
+
+        _ = client.Tables.GetTablesAsync();
+
+        Assert.AreEqual(1, _listener.GetMetric("requests-active"));
+        Assert.AreEqual(1, _listener.GetMetric("requests-sent"));
+        Assert.AreEqual(0, _listener.GetMetric("requests-completed"));
+        Assert.AreEqual(0, _listener.GetMetric("requests-failed"));
+    }
+
     private static IgniteClientConfiguration GetConfigWithDelay() =>
         new()
         {
