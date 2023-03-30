@@ -5,10 +5,35 @@
 statement ok
 PRAGMA enable_verification
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18655
-statement error
+
+statement ok
 CREATE TABLE decimals_without_params(d DECIMAL);
+
+statement ok
+INSERT INTO decimals_without_params values ('1234567890.12345'), ('12345678901234567890123456789.12345');
+
+query I
+SELECT * FROM decimals_without_params ORDER BY d
+----
+1234567890
+12345678901234567890123456789
+
+
+statement ok
+CREATE TABLE decimals_without_precision(d DECIMAL(9));
+
+statement error
+INSERT INTO decimals_without_precision values ('1234567890.12345');
+
+statement ok
+INSERT INTO decimals_without_precision values ('123456789.12'), ('123456788');
+
+query I
+SELECT * FROM decimals_without_precision ORDER BY d
+----
+123456788
+123456789
+
 
 statement ok
 CREATE TABLE decimals(d DECIMAL(3, 2));
