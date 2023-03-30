@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.lang.ByteArray.fromString;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -38,7 +39,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -56,6 +59,11 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.placementdriver.leases.Lease;
+import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
+import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -87,12 +95,21 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public class PlacementDriverManagerTest extends IgniteAbstractTest {
     public static final int PORT = 1234;
+
+    /** Placement driver message factory. */
+    private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
     private String nodeName;
+
+    /** Another node name. The node name is matched to {@code anotherClusterService}. */
+    private String anotherNodeName;
 
     HybridClock clock = new HybridClockImpl();
     private VaultManager vaultManager;
 
     private ClusterService clusterService;
+
+    /** This service is used to redirect a lease proposal. */
+    private ClusterService anotherClusterService;
 
     private Loza raftManager;
 
@@ -111,10 +128,17 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
     private TestInfo testInfo;
 
+    /** This closure handles {@link LeaseGrantedMessage} to check the placement driver manager behavior. */
+    private BiFunction<LeaseGrantedMessage, String, LeaseGrantedMessageResponse> leaseGrantHandler;
+
     @BeforeEach
     public void beforeTest(TestInfo testInfo) throws NodeStoppingException {
         this.nodeName = testNodeName(testInfo, PORT);
+        this.anotherNodeName = testNodeName(testInfo, PORT + 1);
         this.testInfo = testInfo;
+
+        assertTrue(nodeName.hashCode() < anotherNodeName.hashCode(),
+                "Node for the first lease grant message should be determined strictly.");
 
         startPlacementDriverManager();
     }
@@ -125,6 +149,47 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         var nodeFinder = new StaticNodeFinder(Collections.singletonList(new NetworkAddress("localhost", PORT)));
 
         clusterService = ClusterServiceTestUtils.clusterService(testInfo, PORT, nodeFinder);
+        anotherClusterService = ClusterServiceTestUtils.clusterService(testInfo, PORT + 1, nodeFinder);
+
+        anotherClusterService.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, (msg, sender, correlationId) -> {
+            assert msg instanceof LeaseGrantedMessage : "Message type is unexpected [type=" + msg.getClass().getSimpleName() + ']';
+
+            log.info("Lease is being granted [actor={}, recipient={}, force={}]", sender, anotherNodeName,
+                    ((LeaseGrantedMessage) msg).force());
+
+            var leaseAcceptedResp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
+                    .groupId(((LeaseGrantedMessage) msg).groupId())
+                    .accepted(true)
+                    .build();
+
+            clusterService.messagingService().respond(
+                    sender,
+                    leaseAcceptedResp,
+                    correlationId);
+        });
+
+        clusterService.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, (msg, sender, correlationId) -> {
+            assert msg instanceof LeaseGrantedMessage : "Message type is unexpected [type=" + msg.getClass().getSimpleName() + ']';
+
+            log.info("Lease is being granted [actor={}, recipient={}, force={}]", sender, nodeName,
+                    ((LeaseGrantedMessage) msg).force());
+
+            LeaseGrantedMessageResponse resp = null;
+
+            if (leaseGrantHandler != null) {
+                resp = leaseGrantHandler.apply((LeaseGrantedMessage) msg, sender);
+            }
+
+            var leaseAcceptedResp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
+                    .groupId(((LeaseGrantedMessage) msg).groupId())
+                    .accepted(true)
+                    .build();
+
+            clusterService.messagingService().respond(
+                    sender,
+                    resp != null ? resp : leaseAcceptedResp,
+                    correlationId);
+        });
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
@@ -181,6 +246,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
         vaultManager.start();
         clusterService.start();
+        anotherClusterService.start();
         raftManager.start();
         metaStorageManager.start();
         placementDriverManager.start();
@@ -203,6 +269,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         placementDriverManager.stop();
         metaStorageManager.stop();
         raftManager.stop();
+        anotherClusterService.stop();
         clusterService.stop();
         vaultManager.stop();
     }
@@ -255,7 +322,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
             Lease leaseRenew = ByteUtils.fromBytes(fut.join().value());
 
-            return lease.getLeaseExpirationTime().compareTo(leaseRenew.getLeaseExpirationTime()) < 0;
+            return lease.getExpirationTime().compareTo(leaseRenew.getExpirationTime()) < 0;
 
         }, 10_000));
     }
@@ -275,7 +342,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
             Lease lease = ByteUtils.fromBytes(fut.join().value());
 
-            return lease.getLeaseExpirationTime().compareTo(clock.now()) < 0;
+            return lease.getExpirationTime().compareTo(clock.now()) < 0;
 
         }, 10_000));
 
@@ -288,9 +355,70 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
             Lease lease = ByteUtils.fromBytes(fut.join().value());
 
-            return lease.getLeaseExpirationTime().compareTo(clock.now()) > 0;
+            return lease.getExpirationTime().compareTo(clock.now()) > 0;
 
         }, 10_000));
+    }
+
+    @Test
+    public void testLeaseAccepted() throws Exception {
+        TablePartitionId grpPart0 = createTableAssignment();
+
+        checkLeaseCreated(grpPart0);
+
+        checkAccepted(grpPart0);
+    }
+
+    @Test
+    public void testLeaseForceAccepted() throws Exception {
+        leaseGrantHandler = (req, sender) ->
+                PLACEMENT_DRIVER_MESSAGES_FACTORY
+                        .leaseGrantedMessageResponse()
+                        .accepted(req.force())
+                        .build();
+
+        TablePartitionId grpPart0 = createTableAssignment();
+
+        checkLeaseCreated(grpPart0);
+
+        checkAccepted(grpPart0);
+    }
+
+    @Test
+    public void testExceptionOnAcceptance() throws Exception {
+        CountDownLatch latch = new CountDownLatch(1);
+
+        leaseGrantHandler = (req, sender) -> {
+            latch.countDown();
+
+            throw new RuntimeException("test");
+        };
+
+        TablePartitionId grpPart0 = createTableAssignment();
+
+        checkLeaseCreated(grpPart0);
+
+        latch.await();
+
+        Lease lease = readLease(grpPart0);
+
+        assertFalse(lease.isAccepted());
+    }
+
+    @Test
+    public void testRedirectionAcceptance() throws Exception {
+        leaseGrantHandler = (req, sender) ->
+                PLACEMENT_DRIVER_MESSAGES_FACTORY
+                        .leaseGrantedMessageResponse()
+                        .accepted(false)
+                        .redirectProposal(anotherNodeName)
+                        .build();
+
+        TablePartitionId grpPart0 = createTableAssignment();
+
+        checkLeaseCreated(grpPart0);
+
+        checkAccepted(grpPart0);
     }
 
     @Test
@@ -322,6 +450,45 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
     }
 
     /**
+     * Checks that the lease for the group is accepted.
+     *
+     * @param grpPartId Replication group id.
+     * @throws InterruptedException If the waiting is interrupted.
+     */
+    private void checkAccepted(TablePartitionId grpPartId) throws InterruptedException {
+        assertTrue(waitForCondition(() -> {
+            var leaseFut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPartId));
+
+            var leaseEntry = leaseFut.join();
+
+            if (leaseEntry != null && !leaseEntry.empty()) {
+                Lease lease = ByteUtils.fromBytes(leaseEntry.value());
+
+                return lease.isAccepted();
+            }
+
+            return false;
+        }, 10_000));
+    }
+
+    /**
+     * Reads a leas from Meta storage. When you call this method the lease is expected presenting in Meta storage.
+     *
+     * @param grpPartId Replication group id.
+     * @return A lease that is read from Meta storage.
+     * @throws InterruptedException If the waiting is interrupted.
+     */
+    private Lease readLease(TablePartitionId grpPartId) throws InterruptedException {
+        var leaseFut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPartId));
+
+        var leaseEntry = leaseFut.join();
+
+        assertTrue(leaseEntry != null && !leaseEntry.empty());
+
+        return ByteUtils.fromBytes(leaseEntry.value());
+    }
+
+    /**
      * Creates an assignment for the fake table.
      *
      * @return Replication group id.
@@ -330,7 +497,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
     private TablePartitionId createTableAssignment() throws Exception {
         AtomicReference<UUID> tblIdRef = new AtomicReference<>();
 
-        List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(Collections.singleton(nodeName), 1, 1);
+        List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(List.of(nodeName, anotherNodeName), 1, 2);
 
         int zoneId = createZone();
 
@@ -348,6 +515,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         var grpPart0 = new TablePartitionId(tblIdRef.get(), 0);
 
         log.info("Fake table created [id={}, repGrp={}]", tblIdRef.get(), grpPart0);
+
         return grpPart0;
     }
 
@@ -360,7 +528,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         dstZnsCfg.distributionZones().change(zones -> {
             zones.create("zone1", ch -> {
                 ch.changePartitions(1);
-                ch.changeReplicas(1);
+                ch.changeReplicas(2);
                 ch.changeZoneId(DEFAULT_ZONE_ID + 1);
             });
         }).join();

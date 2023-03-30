@@ -30,6 +30,7 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
@@ -49,7 +50,7 @@ import org.jetbrains.annotations.TestOnly;
  * The another role of the manager is providing a node, which is leaseholder at the moment, for a particular replication group.
  */
 public class PlacementDriverManager implements IgniteComponent {
-    static final String PLACEMENTDRIVER_PREFIX = "placementdriver.lease.";
+    public static final String PLACEMENTDRIVER_PREFIX = "placementdriver.lease.";
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -118,6 +119,7 @@ public class PlacementDriverManager implements IgniteComponent {
         this.raftClientFuture = new CompletableFuture<>();
         this.leaseTracker = new LeaseTracker(vaultManager, metaStorageMgr);
         this.leaseUpdater = new LeaseUpdater(
+                clusterService,
                 vaultManager,
                 metaStorageMgr,
                 logicalTopologyService,

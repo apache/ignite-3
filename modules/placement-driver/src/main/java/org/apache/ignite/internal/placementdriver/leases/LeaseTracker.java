@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdriver;
+package org.apache.ignite.internal.placementdriver.leases;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
+import static org.apache.ignite.internal.placementdriver.leases.Lease.EMPTY_LEASE;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -55,6 +56,9 @@ public class LeaseTracker {
 
     /** Leases cache. */
     private final Map<ReplicationGroupId, Lease> leases;
+
+    /** Lease update closure. */
+    private volatile LeaseUpdateClosure updateClosure;
 
     /** Listener to update a leases cache. */
     private final UpdateListener updateListener = new UpdateListener();
@@ -98,6 +102,22 @@ public class LeaseTracker {
     }
 
     /**
+     * Subscribes to notifications.
+     *
+     * @param closure Closure to notify about an adding / removing a lease.
+     */
+    public void subscribeLeaseAdded(LeaseUpdateClosure closure) {
+        this.updateClosure = closure;
+    }
+
+    /**
+     * Unsubscribes for notification.
+     */
+    public void unsubscribeLeaseAdded() {
+        this.updateClosure = null;
+    }
+
+    /**
      * Stops the tracker.
      */
     public void stopTrack() {
@@ -111,7 +131,7 @@ public class LeaseTracker {
      * @return A lease is associated with the group.
      */
     public @NotNull Lease getLease(ReplicationGroupId grpId) {
-        return leases.getOrDefault(grpId, Lease.EMPTY_LEASE);
+        return leases.getOrDefault(grpId, EMPTY_LEASE);
     }
 
     private static String incrementLastChar(String str) {
@@ -135,12 +155,22 @@ public class LeaseTracker {
 
                 TablePartitionId grpId = TablePartitionId.fromString(key);
 
+                LeaseUpdateClosure closure0 = updateClosure;
+
                 if (msEntry.empty()) {
-                    leases.remove(grpId);
+                    Lease previousLease = leases.remove(grpId);
+
+                    if (closure0 != null) {
+                        closure0.update(grpId, previousLease, null);
+                    }
                 } else {
                     Lease lease = ByteUtils.fromBytes(msEntry.value());
 
-                    leases.put(grpId, lease);
+                    Lease previousLease = leases.put(grpId, lease);
+
+                    if (closure0 != null) {
+                        closure0.update(grpId, previousLease, lease);
+                    }
                 }
             }
 
