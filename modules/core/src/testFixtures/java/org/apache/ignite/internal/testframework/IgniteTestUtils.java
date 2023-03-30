@@ -156,7 +156,7 @@ public final class IgniteTestUtils {
      * @param fieldName     name of the field
      * @return field
      */
-    public static Field getField(Object target, Class<?> declaredClass, String fieldName) {
+    public static Field getField(@Nullable Object target, Class<?> declaredClass, String fieldName) {
         Field field;
         try {
             field = declaredClass.getDeclaredField(fieldName);
@@ -179,7 +179,7 @@ public final class IgniteTestUtils {
      * @param fieldName     name of the field
      * @return field value
      */
-    public static Object getFieldValue(Object target, Class<?> declaredClass, String fieldName) {
+    public static Object getFieldValue(@Nullable Object target, Class<?> declaredClass, String fieldName) {
         try {
             return getField(target, declaredClass, fieldName).get(target);
         } catch (IllegalAccessException e) {
@@ -196,7 +196,7 @@ public final class IgniteTestUtils {
      * @return Field value.
      * @throws IgniteInternalException In case of error.
      */
-    public static <T> T getFieldValue(Object obj, String... fieldNames) {
+    public static <T> T getFieldValue(@Nullable Object obj, String... fieldNames) {
         assert obj != null;
         assert fieldNames != null;
         assert fieldNames.length >= 1;
