@@ -208,17 +208,33 @@ public class MetricsTests
             };
 
             _listener.SetMeasurementEventCallback<long>(Handle);
+            _listener.SetMeasurementEventCallback<int>(Handle);
             _listener.Start();
         }
 
-        public int GetMetric(string name) => _metrics.TryGetValue(name, out var val) ? (int)val : 0;
+        public int GetMetric(string name)
+        {
+            _listener.RecordObservableInstruments();
+            return _metrics.TryGetValue(name, out var val) ? (int)val : 0;
+        }
 
         public void Dispose()
         {
             _listener.Dispose();
         }
 
-        private void Handle(Instrument instrument, long measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state) =>
-            _metrics.AddOrUpdate(instrument.Name, (int)measurement, (_, val) => val + measurement);
+        private void Handle<T>(Instrument instrument, T measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state)
+        {
+            var newVal = Convert.ToInt64(measurement);
+
+            if (instrument.IsObservable)
+            {
+                _metrics[instrument.Name] = newVal;
+            }
+            else
+            {
+                _metrics.AddOrUpdate(instrument.Name, newVal, (_, val) => val + newVal);
+            }
+        }
     }
 }

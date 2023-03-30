@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal;
 
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
+using System.Threading;
 
 /// <summary>
 /// Ignite.NET client metrics.
@@ -31,10 +32,16 @@ internal static class Metrics
 {
     private static readonly Meter Meter = new(name: "Apache.Ignite", version: "3.0.0");
 
+    private static int _connectionsActive;
+
+    private static int _requestsActive;
+
     /// <summary>
     /// Currently active connections.
     /// </summary>
-    public static readonly Counter<long> ConnectionsActive = Meter.CreateCounter<long>("connections-active");
+    public static readonly ObservableCounter<int> ConnectionsActive = Meter.CreateObservableCounter(
+        "connections-active",
+        () => Interlocked.CompareExchange(ref _connectionsActive, 0, 0));
 
     /// <summary>
     /// Total number of connections established.
@@ -64,7 +71,9 @@ internal static class Metrics
     /// <summary>
     /// Currently active requests (request sent, waiting for response).
     /// </summary>
-    public static readonly Counter<long> RequestsActive = Meter.CreateCounter<long>("requests-active");
+    public static readonly ObservableCounter<int> RequestsActive = Meter.CreateObservableCounter(
+        "requests-active",
+        () => Interlocked.CompareExchange(ref _requestsActive, 0, 0));
 
     /// <summary>
     /// Requests sent.
@@ -95,4 +104,24 @@ internal static class Metrics
     /// Bytes received.
     /// </summary>
     public static readonly Counter<long> BytesReceived = Meter.CreateCounter<long>("bytes-received");
+
+    /// <summary>
+    /// Increments active connections.
+    /// </summary>
+    public static void ConnectionsActiveIncrement() => Interlocked.Increment(ref _connectionsActive);
+
+    /// <summary>
+    /// Decrements active connections.
+    /// </summary>
+    public static void ConnectionsActiveDecrement() => Interlocked.Decrement(ref _connectionsActive);
+
+    /// <summary>
+    /// Increments active requests.
+    /// </summary>
+    public static void RequestsActiveIncrement() => Interlocked.Increment(ref _requestsActive);
+
+    /// <summary>
+    /// Decrements active requests.
+    /// </summary>
+    public static void RequestsActiveDecrement() => Interlocked.Decrement(ref _requestsActive);
 }

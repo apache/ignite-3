@@ -182,7 +182,7 @@ namespace Apache.Ignite.Internal
                 }
 
                 Metrics.ConnectionsEstablished.Add(1);
-                Metrics.ConnectionsActive.Add(1);
+                Metrics.ConnectionsActiveIncrement();
 
                 Stream stream = new NetworkStream(socket, ownsSocket: true);
 
@@ -212,7 +212,7 @@ namespace Apache.Ignite.Internal
             catch (Exception e)
             {
                 logger?.Warn($"Connection failed before or during handshake [remoteAddress={socket.RemoteEndPoint}]: {e.Message}.", e);
-                Metrics.ConnectionsActive.Add(-1);
+                Metrics.ConnectionsActiveDecrement();
 
                 if (e.GetBaseException() is TimeoutException)
                 {
@@ -263,7 +263,7 @@ namespace Apache.Ignite.Internal
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
             _requests[requestId] = taskCompletionSource;
 
-            Metrics.RequestsActive.Add(1);
+            Metrics.RequestsActiveIncrement();
 
             SendRequestAsync(request, clientOp, requestId)
                 .AsTask()
@@ -284,7 +284,7 @@ namespace Apache.Ignite.Internal
                         }
 
                         Metrics.RequestsFailed.Add(1);
-                        Metrics.RequestsActive.Add(-1);
+                        Metrics.RequestsActiveDecrement();
                     },
                     taskCompletionSource,
                     CancellationToken.None,
@@ -650,7 +650,7 @@ namespace Apache.Ignite.Internal
                 return;
             }
 
-            Metrics.RequestsActive.Add(-1);
+            Metrics.RequestsActiveDecrement();
 
             var flags = (ResponseFlags)reader.ReadInt32();
 
@@ -751,11 +751,12 @@ namespace Apache.Ignite.Internal
                         if (_requests.TryRemove(reqId, out var req))
                         {
                             req.TrySetException(ex);
+                            Metrics.RequestsActiveDecrement();
                         }
                     }
                 }
 
-                Metrics.ConnectionsActive.Add(-1);
+                Metrics.ConnectionsActiveDecrement();
             }
         }
     }
