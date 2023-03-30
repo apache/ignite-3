@@ -171,10 +171,12 @@ namespace Apache.Ignite.Internal
             };
 
             var logger = configuration.Logger.GetLogger(nameof(ClientSocket) + "-" + Interlocked.Increment(ref _socketId));
+            bool connected = false;
 
             try
             {
                 await socket.ConnectAsync(endPoint.EndPoint).ConfigureAwait(false);
+                connected = true;
 
                 if (logger?.IsEnabled(LogLevel.Debug) == true)
                 {
@@ -212,7 +214,11 @@ namespace Apache.Ignite.Internal
             catch (Exception e)
             {
                 logger?.Warn($"Connection failed before or during handshake [remoteAddress={socket.RemoteEndPoint}]: {e.Message}.", e);
-                Metrics.ConnectionsActiveDecrement();
+
+                if (connected)
+                {
+                    Metrics.ConnectionsActiveDecrement();
+                }
 
                 if (e.GetBaseException() is TimeoutException)
                 {
@@ -719,6 +725,8 @@ namespace Apache.Ignite.Internal
                     return;
                 }
 
+                _disposeTokenSource.Cancel();
+
                 if (ex != null)
                 {
                     _logger?.Warn(ex, $"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]: " + ex.Message);
@@ -738,7 +746,6 @@ namespace Apache.Ignite.Internal
                 }
 
                 _heartbeatTimer.Dispose();
-                _disposeTokenSource.Cancel();
                 _exception = ex;
                 _stream.Dispose();
 
