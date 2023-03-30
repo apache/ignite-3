@@ -436,6 +436,8 @@ namespace Apache.Ignite.Internal
                 }
 
                 received += res;
+
+                Metrics.BytesReceived.Add(res);
             }
         }
 
