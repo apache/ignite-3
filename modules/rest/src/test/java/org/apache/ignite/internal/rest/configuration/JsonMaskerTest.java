@@ -39,14 +39,14 @@ class JsonMaskerTest {
     void maskAll() {
         String json = "{\"name\": \"John Doe\", \"age\": 30}";
         String masked = jsonMasker.mask(json, emptySet()).toString();
-        assertEquals("{\"name\":\"********\",\"age\":30}", masked);
+        assertEquals("{\"name\":\"******\",\"age\":30}", masked);
     }
 
     @Test
     void maskField() {
         String json = "{\"name\": \"John Doe\", \"age\": 30, \"credentials\": \"admin\"}";
         String masked = jsonMasker.mask(json, keysToMask).toString();
-        assertEquals("{\"name\":\"John Doe\",\"age\":30,\"credentials\":\"*****\"}", masked);
+        assertEquals("{\"name\":\"John Doe\",\"age\":30,\"credentials\":\"******\"}", masked);
     }
 
     @Test
@@ -70,7 +70,7 @@ class JsonMaskerTest {
                 + "}";
         String masked = jsonMasker.mask(json, keysToMask).toString();
         assertEquals(
-                "{\"name\":\"John Doe\",\"age\":30,\"credentials\":{\"basic\":{\"user\":\"*****\",\"password\":\"*****\"}}}",
+                "{\"name\":\"John Doe\",\"age\":30,\"credentials\":{\"basic\":{\"user\":\"******\",\"password\":\"******\"}}}",
                 masked
         );
     }
@@ -93,6 +93,6 @@ class JsonMaskerTest {
     void fieldInUpperCase() {
         String json = "{\"name\": \"John Doe\", \"age\": 30, \"CREDENTIALS\": \"admin\"}";
         String masked = jsonMasker.mask(json, keysToMask).toString();
-        assertEquals("{\"name\":\"John Doe\",\"age\":30,\"CREDENTIALS\":\"*****\"}", masked);
+        assertEquals("{\"name\":\"John Doe\",\"age\":30,\"CREDENTIALS\":\"******\"}", masked);
     }
 }
