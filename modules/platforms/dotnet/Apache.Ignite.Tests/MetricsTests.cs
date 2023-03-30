@@ -59,15 +59,15 @@ public class MetricsTests
         Assert.AreEqual(0, listener.GetMetric("bytes-sent"));
         Assert.AreEqual(0, listener.GetMetric("bytes-received"));
 
-        var client = await server.ConnectClientAsync();
+        using var client = await server.ConnectClientAsync();
 
-        Assert.AreEqual(0, listener.GetMetric("bytes-sent"));
+        Assert.AreEqual(11, listener.GetMetric("bytes-sent"));
         Assert.AreEqual(63, listener.GetMetric("bytes-received"));
 
         await client.Tables.GetTablesAsync();
 
-        Assert.AreEqual(1, listener.GetMetric("bytes-sent"));
-        Assert.AreEqual(1, listener.GetMetric("bytes-received"));
+        Assert.AreEqual(17, listener.GetMetric("bytes-sent"));
+        Assert.AreEqual(72, listener.GetMetric("bytes-received"));
     }
 
     private sealed class Listener : IDisposable
