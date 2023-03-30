@@ -40,4 +40,26 @@ internal static class Metrics
     /// Total number of connections established.
     /// </summary>
     public static readonly Counter<int> ConnectionsEstablished = Meter.CreateCounter<int>("connections-established");
+
+    public static readonly Counter<int> ConnectionsLost = Meter.CreateCounter<int>("connections-lost");
+
+    public static readonly Counter<int> ConnectionsLostTimeout = Meter.CreateCounter<int>("connections-lost-timeout");
+
+    public static readonly Counter<int> HandshakesFailed = Meter.CreateCounter<int>("handshakes-failed");
+
+    public static readonly Counter<int> HandshakesFailedTimeout = Meter.CreateCounter<int>("handshakes-failed-timeout");
+
+    public static readonly Counter<int> RequestsActive = Meter.CreateCounter<int>("requests-active");
+
+    public static readonly Counter<int> RequestsSent = Meter.CreateCounter<int>("requests-sent");
+
+    public static readonly Counter<int> RequestsCompleted = Meter.CreateCounter<int>("requests-completed");
+
+    public static readonly Counter<int> RequestsRetried = Meter.CreateCounter<int>("requests-retried");
+
+    public static readonly Counter<int> RequestsFailed = Meter.CreateCounter<int>("requests-failed");
+
+    public static readonly Counter<int> BytesSent = Meter.CreateCounter<int>("bytes-sent");
+
+    public static readonly Counter<int> BytesReceived = Meter.CreateCounter<int>("bytes-received");
 }
