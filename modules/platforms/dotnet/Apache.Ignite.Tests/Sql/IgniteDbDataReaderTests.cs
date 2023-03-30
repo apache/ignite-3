@@ -172,7 +172,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         Assert.AreEqual(LocalDate.ToDateTimeUnspecified(), reader.GetFieldValue<DateTime>("DATE"));
 
         Assert.AreEqual(LocalTime, reader.GetFieldValue<LocalTime>("TIME"));
-        Assert.AreEqual(Instant, reader.GetFieldValue<Instant>("DATETIME"));
+        Assert.AreEqual(LocalDateTime, reader.GetFieldValue<Instant>("DATETIME"));
         Assert.AreEqual(LocalDateTime.ToDateTimeUnspecified(), reader.GetFieldValue<Instant>("DATETIME"));
 
         Assert.AreEqual(Instant, reader.GetFieldValue<Instant>("TIMESTAMP"));

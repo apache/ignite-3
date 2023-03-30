@@ -296,6 +296,7 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             case TIME:
                 return "time";
             case DATETIME:
+                return "timestamp";
             case TIMESTAMP:
                 return "timestamp";
             default:
