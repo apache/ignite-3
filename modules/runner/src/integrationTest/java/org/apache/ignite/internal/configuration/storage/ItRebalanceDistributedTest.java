@@ -898,17 +898,15 @@ public class ItRebalanceDistributedTest {
     }
 
     private void createTableWithOnePartition(String tableName, String zoneName, int replicas, boolean testDataStorage) {
-        int zoneId = await(createZone(nodes.get(0).distributionZoneManager, zoneName, 1, replicas));
+        int zoneId = await(
+                createZone(nodes.get(0).distributionZoneManager, zoneName, 1, replicas, dataStorageChange -> dataStorageChange.convert(TestDataStorageChange.class)));
+
         assertThat(
                 nodes.get(0).tableManager.createTableAsync(
                         tableName,
                         tableChange -> {
                             SchemaConfigurationConverter.convert(createTableDefinition(tableName), tableChange)
                                     .changeZoneId(zoneId);
-
-                            if (testDataStorage) {
-                                tableChange.changeDataStorage(dataStorageChange -> dataStorageChange.convert(TestDataStorageChange.class));
-                            }
                         }
                 ),
                 willCompleteSuccessfully()

@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.distributionzones;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneChange;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange;
 
 /**
  * Utils to manage distribution zones inside tests.
@@ -34,13 +37,26 @@ public class DistributionZonesTestUtil {
      * @return A future, which will be completed, when create operation finished.
      */
     public static CompletableFuture<Integer> createZone(
-            DistributionZoneManager zoneManager, String zoneName, int partitions, int replicas) {
+            DistributionZoneManager zoneManager, String zoneName,
+            int partitions, int replicas, Consumer<DataStorageChange> dataStorageChangeConsumer) {
         var distributionZoneCfgBuilder = new Builder(zoneName)
                 .replicas(replicas)
                 .partitions(partitions);
+
+        if (dataStorageChangeConsumer != null) {
+            distributionZoneCfgBuilder
+                    .dataStorageChangeConsumer(dataStorageChangeConsumer);
+        }
+
         var distributionZoneCfg = distributionZoneCfgBuilder.build();
 
         return zoneManager.createZone(distributionZoneCfg).thenApply((v) -> zoneManager.getZoneId(zoneName));
+    }
+
+    public static CompletableFuture<Integer> createZone(
+            DistributionZoneManager zoneManager, String zoneName,
+            int partitions, int replicas) {
+        return createZone(zoneManager, zoneName, partitions, replicas, null);
     }
 
     /**

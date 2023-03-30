@@ -362,7 +362,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     closeables.add(storageEngine::stop);
 
-                    tableCfg.dataStorage().change(ds -> ds.convert(storageEngine.name())).join();
+                    zoneCfg.dataStorage().change(ds -> ds.convert(storageEngine.name())).join();
 
                     MvTableStorage mvTableStorage = storageEngine.createMvTable(tableCfg, tablesCfg, zoneCfg);
                     mvTableStorage.start();
@@ -376,7 +376,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
 
                     StorageUpdateHandler storageUpdateHandler =
-                            new StorageUpdateHandler(0, partitionDataStorage, Map::of, tableCfg.dataStorage());
+                            new StorageUpdateHandler(0, partitionDataStorage, Map::of, zoneCfg.dataStorage());
 
                     PartitionListener listener = new PartitionListener(
                             partitionDataStorage,

@@ -56,6 +56,7 @@ dependencies {
     testFixturesImplementation libs.mockito.junit
     testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation project(':ignite-metastorage')
+    testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-metastorage')))
 }

@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.distributionzones;
 
 import java.util.function.Consumer;
+import javax.xml.crypto.Data;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneChange;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange;
 import org.jetbrains.annotations.Nullable;
 

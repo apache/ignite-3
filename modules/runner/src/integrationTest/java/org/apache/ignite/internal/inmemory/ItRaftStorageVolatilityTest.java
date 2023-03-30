@@ -232,7 +232,8 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createTableWithMaxOneInMemoryEntryAllowed(String tableName) {
-        int zoneId = await(createZone(node(0).distributionZoneManager(), "zone1", 1, DEFAULT_PARTITION_COUNT));
+        int zoneId = await(createZone(node(0).distributionZoneManager(), "zone1", 1, DEFAULT_PARTITION_COUNT, dataStorageChange -> dataStorageChange.convert(
+                VolatilePageMemoryDataStorageChange.class)));
 
         TableDefinition tableDef = SchemaBuilders.tableBuilder("PUBLIC", tableName).columns(
                 SchemaBuilders.column("ID", ColumnType.INT32).build(),
@@ -241,10 +242,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
         await(((TableManager) node(0).tables()).createTableAsync(tableName, tableChange -> {
             SchemaConfigurationConverter.convert(tableDef, tableChange)
-                    .changeZoneId(zoneId)
-                    .changeDataStorage(storageChange -> {
-                        storageChange.convert(VolatilePageMemoryDataStorageChange.class);
-                    });
+                    .changeZoneId(zoneId);
         }));
     }
 }
