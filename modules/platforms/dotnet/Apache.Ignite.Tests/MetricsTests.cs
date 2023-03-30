@@ -30,74 +30,77 @@ using NUnit.Framework;
 /// </summary>
 public class MetricsTests
 {
+    private Listener _listener = null!;
+
+    [SetUp]
+    public void SetUp() => _listener = new Listener();
+
+    [TearDown]
+    public void TearDown() => _listener.Dispose();
+
     [Test]
     public async Task TestConnectionsMetrics()
     {
         using var server = new FakeServer();
-        using var listener = new Listener();
 
-        Assert.AreEqual(0, listener.GetMetric("connections-established"));
-        Assert.AreEqual(0, listener.GetMetric("connections-active"));
+        Assert.AreEqual(0, _listener.GetMetric("connections-established"));
+        Assert.AreEqual(0, _listener.GetMetric("connections-active"));
 
         var client = await server.ConnectClientAsync();
-        Assert.AreEqual(1, listener.GetMetric("connections-established"));
-        Assert.AreEqual(1, listener.GetMetric("connections-active"));
+        Assert.AreEqual(1, _listener.GetMetric("connections-established"));
+        Assert.AreEqual(1, _listener.GetMetric("connections-active"));
 
         client.Dispose();
-        Assert.AreEqual(0, listener.GetMetric("connections-active"));
+        Assert.AreEqual(0, _listener.GetMetric("connections-active"));
 
         (await server.ConnectClientAsync()).Dispose();
-        Assert.AreEqual(2, listener.GetMetric("connections-established"));
-        Assert.AreEqual(0, listener.GetMetric("connections-active"));
+        Assert.AreEqual(2, _listener.GetMetric("connections-established"));
+        Assert.AreEqual(0, _listener.GetMetric("connections-active"));
     }
 
     [Test]
     public async Task TestBytesSentReceived()
     {
         using var server = new FakeServer();
-        using var listener = new Listener();
 
-        Assert.AreEqual(0, listener.GetMetric("bytes-sent"));
-        Assert.AreEqual(0, listener.GetMetric("bytes-received"));
+        Assert.AreEqual(0, _listener.GetMetric("bytes-sent"));
+        Assert.AreEqual(0, _listener.GetMetric("bytes-received"));
 
         using var client = await server.ConnectClientAsync();
 
-        Assert.AreEqual(11, listener.GetMetric("bytes-sent"));
-        Assert.AreEqual(63, listener.GetMetric("bytes-received"));
+        Assert.AreEqual(11, _listener.GetMetric("bytes-sent"));
+        Assert.AreEqual(63, _listener.GetMetric("bytes-received"));
 
         await client.Tables.GetTablesAsync();
 
-        Assert.AreEqual(17, listener.GetMetric("bytes-sent"));
-        Assert.AreEqual(72, listener.GetMetric("bytes-received"));
+        Assert.AreEqual(17, _listener.GetMetric("bytes-sent"));
+        Assert.AreEqual(72, _listener.GetMetric("bytes-received"));
     }
 
     [Test]
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed.")]
     public async Task TestConnectionsLost()
     {
-        using var listener = new Listener();
         using var server = new FakeServer();
         using var client = await server.ConnectClientAsync();
 
-        Assert.AreEqual(0, listener.GetMetric("connections-lost"));
-        Assert.AreEqual(0, listener.GetMetric("connections-lost-timeout"));
+        Assert.AreEqual(0, _listener.GetMetric("connections-lost"));
+        Assert.AreEqual(0, _listener.GetMetric("connections-lost-timeout"));
 
         server.Dispose();
 
         TestUtils.WaitForCondition(
-            () => listener.GetMetric("connections-lost") == 1,
+            () => _listener.GetMetric("connections-lost") == 1,
             1000,
-            () => "connections-lost: " + listener.GetMetric("connections-lost"));
+            () => "connections-lost: " + _listener.GetMetric("connections-lost"));
 
-        Assert.AreEqual(0, listener.GetMetric("connections-lost-timeout"));
+        Assert.AreEqual(0, _listener.GetMetric("connections-lost-timeout"));
     }
 
     [Test]
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed.")]
     public async Task TestConnectionsLostTimeout()
     {
-        using var listener = new Listener();
-
         using var server = new FakeServer
         {
             HeartbeatDelay = TimeSpan.FromSeconds(3)
@@ -109,22 +112,21 @@ public class MetricsTests
             SocketTimeout = TimeSpan.FromMilliseconds(50)
         });
 
-        Assert.AreEqual(0, listener.GetMetric("connections-lost-timeout"));
+        Assert.AreEqual(0, _listener.GetMetric("connections-lost-timeout"));
 
         TestUtils.WaitForCondition(
-            () => listener.GetMetric("connections-lost-timeout") == 1,
+            () => _listener.GetMetric("connections-lost-timeout") == 1,
             10000,
-            () => "connections-lost-timeout: " + listener.GetMetric("connections-lost-timeout"));
+            () => "connections-lost-timeout: " + _listener.GetMetric("connections-lost-timeout"));
     }
 
     [Test]
     public void TestHandshakesFailed()
     {
-        using var listener = new Listener();
         using var server = new FakeServer { SendInvalidMagic = true };
 
         Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync());
-        Assert.AreEqual(1, listener.GetMetric("handshakes-failed"));
+        Assert.AreEqual(1, _listener.GetMetric("handshakes-failed"));
     }
 
     private sealed class Listener : IDisposable
