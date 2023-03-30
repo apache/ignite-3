@@ -236,6 +236,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
                 || hasCause(e, IgniteInternalException.class, "Failed to send message to node")
                 || hasCause(e, IgniteInternalCheckedException.class, "Failed to execute query, node left")
                 || hasCause(e, SqlValidatorException.class, "Object 'TEST' not found")
+                // TODO: remove after https://issues.apache.org/jira/browse/IGNITE-18848 is implemented.
                 || hasCause(e, StorageRebalanceException.class, "process of rebalancing");
     }
 
