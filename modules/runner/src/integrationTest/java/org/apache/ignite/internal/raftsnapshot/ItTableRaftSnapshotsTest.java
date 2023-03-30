@@ -60,6 +60,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
@@ -234,7 +235,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         return hasCause(e, ReplicationTimeoutException.class, null)
                 || hasCause(e, IgniteInternalException.class, "Failed to send message to node")
                 || hasCause(e, IgniteInternalCheckedException.class, "Failed to execute query, node left")
-                || hasCause(e, SqlValidatorException.class, "Object 'TEST' not found");
+                || hasCause(e, SqlValidatorException.class, "Object 'TEST' not found")
+                || hasCause(e, StorageRebalanceException.class, "process of rebalancing");
     }
 
     private <T> T queryWithRetry(int nodeIndex, String sql, Function<ResultSet<SqlRow>, T> extractor) {
