@@ -701,6 +701,15 @@ namespace Apache.Ignite.Internal
                 if (ex != null)
                 {
                     _logger?.Warn(ex, $"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]: " + ex.Message);
+
+                    if (ex.GetBaseException() is TimeoutException)
+                    {
+                        Metrics.ConnectionsLostTimeout.Add(1);
+                    }
+                    else
+                    {
+                        Metrics.ConnectionsLost.Add(1);
+                    }
                 }
                 else if (_logger?.IsEnabled(LogLevel.Debug) == true)
                 {
