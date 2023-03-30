@@ -27,9 +27,9 @@ import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.schema.configuration.TableConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
@@ -52,18 +52,18 @@ public class DataStorageManager implements IgniteComponent {
     /**
      * Constructor.
      *
-     * @param tablesConfig Tables configuration.
+     * @param dstZnsCfg Zones configuration.
      * @param engines Storage engines unique by {@link DataStorageModule#name name}.
      */
     public DataStorageManager(
-            TablesConfiguration tablesConfig,
+            DistributionZonesConfiguration dstZnsCfg,
             Map<String, StorageEngine> engines
     ) {
         assert !engines.isEmpty();
 
         this.engines = engines;
 
-        defaultDataStorageConfig = tablesConfig.defaultDataStorage();
+        defaultDataStorageConfig = dstZnsCfg.defaultDataStorage();
     }
 
     /** {@inheritDoc} */

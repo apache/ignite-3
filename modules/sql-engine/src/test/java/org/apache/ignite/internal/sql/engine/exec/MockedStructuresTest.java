@@ -237,7 +237,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         ));
 
         dataStorageManager = new DataStorageManager(
-                tblsCfg,
+                dstZnsCfg,
                 dataStorageModules.createStorageEngines(NODE_NAME, configRegistry, workDir, null)
         );
 
@@ -275,7 +275,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         queryProc.start();
 
-        tblsCfg.defaultDataStorage().update(ENGINE_NAME).get(1, TimeUnit.SECONDS);
+        dstZnsCfg.defaultDataStorage().update(ENGINE_NAME).get(1, TimeUnit.SECONDS);
 
         rocksDbEngineConfig.regions()
                 .change(c -> c.create("test_region", rocksDbDataRegionChange -> {}))

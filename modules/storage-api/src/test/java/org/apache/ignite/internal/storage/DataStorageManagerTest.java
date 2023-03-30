@@ -39,7 +39,7 @@ import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdExcept
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageView;
 import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageChange;
@@ -69,14 +69,14 @@ public class DataStorageManagerTest {
     private DataStorageConfiguration dataStorageConfig;
 
     @InjectConfiguration
-    private TablesConfiguration tablesConfig;
+    private DistributionZonesConfiguration distributionZonesConfiguration;
 
     @Test
     void testDefaultDataStorageSingleStorage() {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(createMockedDataStorageModule(FIRST)));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
-                tablesConfig,
+                distributionZonesConfiguration,
                 dataStorageModules.createStorageEngines("test", mock(ConfigurationRegistry.class), workDir, null)
         );
 
@@ -92,19 +92,19 @@ public class DataStorageManagerTest {
         ));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
-                tablesConfig,
+                distributionZonesConfiguration,
                 dataStorageModules.createStorageEngines("test", mock(ConfigurationRegistry.class), workDir, null)
         );
 
         assertThat(dataStorageManager.defaultDataStorage(), is("aipersist"));
 
-        tablesConfig.defaultDataStorage().update(FIRST).get(1, TimeUnit.SECONDS);
+        distributionZonesConfiguration.defaultDataStorage().update(FIRST).get(1, TimeUnit.SECONDS);
         assertThat(FIRST, equalTo(dataStorageManager.defaultDataStorage()));
 
-        tablesConfig.defaultDataStorage().update(SECOND).get(1, TimeUnit.SECONDS);
+        distributionZonesConfiguration.defaultDataStorage().update(SECOND).get(1, TimeUnit.SECONDS);
         assertThat(SECOND, equalTo(dataStorageManager.defaultDataStorage()));
 
-        tablesConfig.defaultDataStorage().update(UNKNOWN_DATA_STORAGE).get(1, TimeUnit.SECONDS);
+        distributionZonesConfiguration.defaultDataStorage().update(UNKNOWN_DATA_STORAGE).get(1, TimeUnit.SECONDS);
         assertThat(UNKNOWN_DATA_STORAGE, equalTo(dataStorageManager.defaultDataStorage()));
     }
 
@@ -116,7 +116,7 @@ public class DataStorageManagerTest {
         ));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
-                tablesConfig,
+                distributionZonesConfiguration,
                 dataStorageModules.createStorageEngines("test", mock(ConfigurationRegistry.class), workDir, null)
         );
 
@@ -159,7 +159,7 @@ public class DataStorageManagerTest {
         ));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
-                tablesConfig,
+                distributionZonesConfiguration,
                 dataStorageModules.createStorageEngines("test", mock(ConfigurationRegistry.class), workDir, null)
         );
 
@@ -195,7 +195,7 @@ public class DataStorageManagerTest {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(createMockedDataStorageModule(FIRST)));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
-                tablesConfig,
+                distributionZonesConfiguration,
                 dataStorageModules.createStorageEngines("test", mock(ConfigurationRegistry.class), workDir, null)
         );
 
@@ -216,7 +216,7 @@ public class DataStorageManagerTest {
         ));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
-                tablesConfig,
+                distributionZonesConfiguration,
                 dataStorageModules.createStorageEngines("test", mock(ConfigurationRegistry.class), workDir, null)
         );
 

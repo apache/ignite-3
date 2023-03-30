@@ -702,7 +702,7 @@ public class ItRebalanceDistributedTest {
             Path storagePath = dir.resolve("storage");
 
             dataStorageMgr = new DataStorageManager(
-                    tablesCfg,
+                    zonesCfg,
                     dataStorageModules.createStorageEngines(
                             name,
                             clusterCfgMgr.configurationRegistry(),

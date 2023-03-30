@@ -439,7 +439,7 @@ public class IgniteImpl implements Ignite {
                 clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
 
         dataStorageMgr = new DataStorageManager(
-                tablesConfiguration,
+                distributionZonesConfiguration,
                 dataStorageModules.createStorageEngines(
                         name,
                         clusterConfigRegistry,
