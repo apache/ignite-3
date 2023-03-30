@@ -50,6 +50,26 @@ public class MetricsTests
         Assert.AreEqual(0, listener.GetMetric("connections-active"));
     }
 
+    [Test]
+    public async Task TestBytesSentReceived()
+    {
+        using var server = new FakeServer();
+        using var listener = new Listener();
+
+        Assert.AreEqual(0, listener.GetMetric("bytes-sent"));
+        Assert.AreEqual(0, listener.GetMetric("bytes-received"));
+
+        var client = await server.ConnectClientAsync();
+
+        Assert.AreEqual(0, listener.GetMetric("bytes-sent"));
+        Assert.AreEqual(63, listener.GetMetric("bytes-received"));
+
+        await client.Tables.GetTablesAsync();
+
+        Assert.AreEqual(1, listener.GetMetric("bytes-sent"));
+        Assert.AreEqual(1, listener.GetMetric("bytes-received"));
+    }
+
     private sealed class Listener : IDisposable
     {
         private readonly MeterListener _listener = new();
@@ -66,7 +86,8 @@ public class MetricsTests
                 }
             };
 
-            _listener.SetMeasurementEventCallback<int>(HandleEvent);
+            _listener.SetMeasurementEventCallback<int>(HandleInt);
+            _listener.SetMeasurementEventCallback<long>(HandleLong);
 
             _listener.Start();
         }
@@ -78,7 +99,10 @@ public class MetricsTests
             _listener.Dispose();
         }
 
-        private void HandleEvent(Instrument instrument, int measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state) =>
+        private void HandleInt(Instrument instrument, int measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state) =>
             _metrics.AddOrUpdate(instrument.Name, measurement, (_, val) => (int)val + measurement);
+
+        private void HandleLong(Instrument instrument, long measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state) =>
+            _metrics.AddOrUpdate(instrument.Name, (int)measurement, (_, val) => (int)val + (int)measurement);
     }
 }
