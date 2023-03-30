@@ -132,6 +132,18 @@ public class MetricsTests
         Assert.AreEqual(1, _listener.GetMetric("handshakes-failed-timeout"));
     }
 
+    [Test]
+    public async Task TestRequestsActiveSentCompletedFailed()
+    {
+        using var server = new FakeServer();
+        using var client = await server.ConnectClientAsync();
+
+        Assert.AreEqual(0, _listener.GetMetric("requests-active"));
+        Assert.AreEqual(0, _listener.GetMetric("requests-sent"));
+        Assert.AreEqual(0, _listener.GetMetric("requests-failed"));
+        Assert.AreEqual(0, _listener.GetMetric("requests-completed"));
+    }
+
     private static IgniteClientConfiguration GetConfigWithDelay() =>
         new()
         {
