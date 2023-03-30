@@ -50,7 +50,7 @@ using Log;
 /// </summary>
 public static class ManyConnectionsBenchmark
 {
-    private const int Connections = 25_000;
+    private const int Connections = 250_000;
 
     public static async Task RunAsync()
     {
@@ -58,7 +58,7 @@ public static class ManyConnectionsBenchmark
         {
             RetryPolicy = new RetryNonePolicy(),
             Logger = new ConsoleLogger { MinLevel = LogLevel.Warn },
-            HeartbeatInterval = TimeSpan.FromSeconds(1)
+            HeartbeatInterval = TimeSpan.FromMinutes(5)
         };
 
         var clients = new List<IIgniteClient>();
