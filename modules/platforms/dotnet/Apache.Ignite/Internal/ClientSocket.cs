@@ -213,7 +213,15 @@ namespace Apache.Ignite.Internal
             {
                 logger?.Warn($"Connection failed before or during handshake [remoteAddress={socket.RemoteEndPoint}]: {e.Message}.", e);
                 Metrics.ConnectionsActive.Add(-1);
-                Metrics.HandshakesFailed.Add(1);
+
+                if (e.GetBaseException() is TimeoutException)
+                {
+                    Metrics.HandshakesFailedTimeout.Add(1);
+                }
+                else
+                {
+                    Metrics.HandshakesFailed.Add(1);
+                }
 
                 // ReSharper disable once MethodHasAsyncOverload
                 socket.Dispose();
