@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.schema.configuration.index.TableIndexCo
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
@@ -154,6 +155,11 @@ public interface MvTableStorage extends ManuallyCloseable {
      * Returns configuration for all tables and indices.
      */
     TablesConfiguration tablesConfiguration();
+
+    /**
+     * Returns the distribution zone configuration.
+     */
+    DistributionZoneConfiguration distributionZoneConfiguration();
 
     /**
      * Starts the storage.

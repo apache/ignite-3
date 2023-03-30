@@ -25,6 +25,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
+import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
@@ -186,4 +187,14 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      */
     @Override
     void close();
+
+    /**
+     * Scans the partition and returns a cursor of values at the given timestamp. This cursor filters out committed tombstones, but not
+     * tombstones in the write-intent state.
+     *
+     * @param timestamp Timestamp. Can't be {@code null}.
+     * @return Cursor.
+     * @throws StorageException If failed to read data from the storage.
+     */
+    PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException;
 }

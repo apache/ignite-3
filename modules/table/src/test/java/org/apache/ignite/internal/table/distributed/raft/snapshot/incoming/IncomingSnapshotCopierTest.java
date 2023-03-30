@@ -56,6 +56,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -136,6 +137,9 @@ public class IncomingSnapshotCopierTest {
     @InjectConfiguration("mock.tables.foo {}")
     private TablesConfiguration tablesConfig;
 
+    @InjectConfiguration
+    private DistributionZonesConfiguration distributionZonesConfiguration;
+
     private final ClusterNode clusterNode = mock(ClusterNode.class);
 
     private final UUID snapshotId = UUID.randomUUID();
@@ -173,7 +177,8 @@ public class IncomingSnapshotCopierTest {
         fillMvPartitionStorage(outgoingMvPartitionStorage, expLastAppliedIndex, expLastAppliedTerm, expLastGroupConfig, rowIds);
         fillTxStatePartitionStorage(outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, txIds);
 
-        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig));
+        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig,
+                distributionZonesConfiguration.defaultDistributionZone()));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
         assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());
@@ -436,7 +441,8 @@ public class IncomingSnapshotCopierTest {
 
     @Test
     void cancellationMakesJoinFinishIfHangingOnNetworkCall() throws Exception {
-        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig));
+        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig,
+                distributionZonesConfiguration.defaultDistributionZone()));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
         assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());
@@ -492,7 +498,8 @@ public class IncomingSnapshotCopierTest {
         fillMvPartitionStorage(outgoingMvPartitionStorage, expLastAppliedIndex, expLastAppliedTerm, expLastGroupConfig, rowIds);
         fillTxStatePartitionStorage(outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, txIds);
 
-        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig));
+        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig,
+                distributionZonesConfiguration.defaultDistributionZone()));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
         assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());
@@ -560,7 +567,8 @@ public class IncomingSnapshotCopierTest {
         fillMvPartitionStorage(outgoingMvPartitionStorage, expLastAppliedIndex, expLastAppliedTerm, expLastGroupConfig, rowIds);
         fillTxStatePartitionStorage(outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, txIds);
 
-        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig));
+        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig,
+                distributionZonesConfiguration.defaultDistributionZone()));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
         assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());

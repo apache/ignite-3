@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.rest.ssl.ItRestSslTest;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 
 /** Presentation of Ignite node for tests. */
 public class RestNode {
@@ -81,14 +82,14 @@ public class RestNode {
 
     /** Starts the node. */
     public CompletableFuture<Ignite> start() {
-        igniteNodeFuture = IgnitionManager.start(name, bootstrapCfg(), workDir.resolve(name));
+        igniteNodeFuture = TestIgnitionManager.start(name, bootstrapCfg(), workDir.resolve(name));
         return igniteNodeFuture;
     }
 
     /** Restarts the node. */
     public CompletableFuture<Ignite> restart() {
         stop();
-        igniteNodeFuture = IgnitionManager.start(name, null, workDir.resolve(name));
+        igniteNodeFuture = TestIgnitionManager.start(name, null, workDir.resolve(name));
         return igniteNodeFuture;
     }
 
