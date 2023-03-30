@@ -171,6 +171,19 @@ public class MetricsTests
         Assert.AreEqual(0, _listener.GetMetric("requests-failed"));
     }
 
+    [Test]
+    public async Task TestRequestsRetried()
+    {
+        using var server = new FakeServer(shouldDropConnection: idx => idx is > 1 and < 5);
+        using var client = await server.ConnectClientAsync();
+
+        await client.Tables.GetTablesAsync();
+        Assert.AreEqual(0, _listener.GetMetric("requests-retried"));
+
+        await client.Tables.GetTablesAsync();
+        Assert.AreEqual(3, _listener.GetMetric("requests-retried"));
+    }
+
     private static IgniteClientConfiguration GetConfigWithDelay() =>
         new()
         {
