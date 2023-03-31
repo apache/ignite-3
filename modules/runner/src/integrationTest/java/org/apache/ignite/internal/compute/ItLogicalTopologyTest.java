@@ -24,10 +24,14 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -179,6 +183,25 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertThat(event.node.nodeAttributes(), is(Collections.emptyMap()));
 
         assertThat(events, is(empty()));
+    }
+
+    @Test
+    void receiveLogicalTopologyFromLeaderWithAttributes() throws Exception {
+        IgniteImpl entryNode = node(0);
+
+        IgniteImpl secondIgnite = startNode(1, NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES);
+
+        List<LogicalNode> logicalTopologyFromLeader = new ArrayList<>(
+                entryNode.logicalTopologyService().logicalTopologyOnLeader().get(5, TimeUnit.SECONDS).nodes()
+        );
+
+        assertEquals(2, logicalTopologyFromLeader.size());
+
+        Optional<LogicalNode> secondNode = logicalTopologyFromLeader.stream().filter(n -> n.name().equals(secondIgnite.name())).findFirst();
+
+        assertTrue(secondNode.isPresent());
+
+        assertThat(secondNode.get().nodeAttributes(), is(NODE_ATTRIBUTES_MAP));
     }
 
     @Test
