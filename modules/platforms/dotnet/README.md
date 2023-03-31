@@ -25,7 +25,8 @@ var cfg = new IgniteClientConfiguration("127.0.0.1:10800");
 IIgniteClient client = await IgniteClient.StartAsync(cfg);
 
 // Start a read-only transaction.
-await using var tx = await client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
+await using var tx = await client.Transactions.BeginAsync(
+    new TransactionOptions { ReadOnly = true });
 
 // Get table by name.
 ITable? table = await client.Tables.GetTableAsync("Person");
@@ -37,7 +38,9 @@ IRecordView<Person> view = table!.GetRecordView<Person>();
 await view.UpsertAsync(tx, new Person(1, "John"));
 
 // Query data with SQL.
-await using var resultSet = await client.Sql.ExecuteAsync<Person>(tx, "SELECT * FROM Person");
+await using var resultSet = await client.Sql.ExecuteAsync<Person>(
+    tx, "SELECT * FROM Person");
+    
 List<Person> sqlResults = await resultSet.ToListAsync();
 
 // Query data with LINQ.
@@ -48,7 +51,8 @@ List<string> names  = view.AsQueryable(tx)
 
 // Execute a distributed computation.
 IList<IClusterNode> nodes = await client.GetClusterNodesAsync();
-int wordCount = await client.Compute.ExecuteAsync<int>(nodes, "org.foo.bar.WordCountTask", "Hello, world!");
+int wordCount = await client.Compute.ExecuteAsync<int>(
+    nodes, "org.foo.bar.WordCountTask", "Hello, world!");
 ```
 
 # API Walkthrough
@@ -69,7 +73,8 @@ var cfg = new IgniteClientConfiguration
         SslClientAuthenticationOptions = new SslClientAuthenticationOptions
         {
             // Allow self-signed certificates.
-            RemoteCertificateValidationCallback = (sender, certificate, chain, errors) => true
+            RemoteCertificateValidationCallback = 
+                (sender, certificate, chain, errors) => true
         }
     },    
         
@@ -88,10 +93,15 @@ SQL is the primary API for data access. It is used to create, drop, and query ta
 ```cs
 using var client = await IgniteClient.StartAsync(new("localhost"));
 
-await client.Sql.ExecuteAsync(null, "CREATE TABLE Person (Id INT PRIMARY KEY, Name VARCHAR)");
-await client.Sql.ExecuteAsync(null, "INSERT INTO Person (Id, Name) VALUES (1, 'John Doe')");
+await client.Sql.ExecuteAsync(
+    null, "CREATE TABLE Person (Id INT PRIMARY KEY, Name VARCHAR)");
 
-await using var resultSet = await client.Sql.ExecuteAsync(null, "SELECT Name FROM Person");
+await client.Sql.ExecuteAsync(
+    null, "INSERT INTO Person (Id, Name) VALUES (1, 'John Doe')");
+
+await using var resultSet = await client.Sql.ExecuteAsync(
+    null, "SELECT Name FROM Person");
+
 await foreach (IIgniteTuple row in resultSet)
     Console.WriteLine(row[0]);
 ```
@@ -101,7 +111,9 @@ await foreach (IIgniteTuple row in resultSet)
 SQL results can be mapped to user types using `ExecuteAsync<T>` method. This is cleaner and more efficient than `IIgniteTuple` approach above.
 
 ```cs
-await using var resultSet = await client.Sql.ExecuteAsync<Person>(null, "SELECT Name FROM Person");
+await using var resultSet = await client.Sql.ExecuteAsync<Person>(
+    null, "SELECT Name FROM Person");
+    
 await foreach (Person p in resultSet)
     Console.WriteLine(p.Name);
     
@@ -117,7 +129,8 @@ Another way to work with query results is `System.Data.Common.DbDataReader`, whi
 For example, you can bind query results to a `DataGridView` control:
 
 ```cs
-await using var reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
+await using var reader = await Client.Sql.ExecuteReaderAsync(
+    null, "select * from Person");
 
 var dt = new DataTable();
 dt.Load(reader);
@@ -153,7 +166,7 @@ await view.UpsertAsync(null, new Person(1, "John"));
 
 Key/Value view splits the row into key and value parts.
 
-```
+```cs
 IKeyValueView<IIgniteTuple, IIgniteTuple> kvBinaryView = table.KeyValueBinaryView;
 IKeyValueView<PersonKey, Person> kvView = table.GetKeyValueView<PersonKey, Person>();
 
@@ -190,9 +203,16 @@ To start a transaction, use `ITransactions.BeginAsync` method. Then, pass the tr
 
 ```cs
 ITransaction tx = await client.Transactions.BeginAsync();
+
 await view.UpsertAsync(tx, new Person(1, "John"));
-await client.Sql.ExecuteAsync(tx, "INSERT INTO Person (Id, Name) VALUES (2, 'Jane')");
-await view.AsQueryable(tx).Where(p => p.Id > 0).ExecuteUpdateAsync(p => new Person(p.Id, p.Name + " Doe"));
+
+await client.Sql.ExecuteAsync(
+    tx, "INSERT INTO Person (Id, Name) VALUES (2, 'Jane')");
+
+await view.AsQueryable(tx)
+    .Where(p => p.Id > 0)
+    .ExecuteUpdateAsync(p => new Person(p.Id, p.Name + " Doe"));
+
 await tx.CommitAsync();
 ```
 
@@ -203,7 +223,8 @@ Compute API is used to execute distributed computations on the cluster. Compute 
 
 ```cs 
 IList<IClusterNode> nodes = await client.GetClusterNodesAsync();
-string result = await client.Compute.ExecuteAsync<string>(nodes, "org.acme.tasks.MyTask", "Task argument 1", "Task argument 2");
+string result = await client.Compute.ExecuteAsync<string>(
+    nodes, "org.acme.tasks.MyTask", "Task argument 1", "Task argument 2");
 ```
 
 
