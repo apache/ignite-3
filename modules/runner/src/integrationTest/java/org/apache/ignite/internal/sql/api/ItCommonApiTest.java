@@ -136,8 +136,6 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         await(((TableManager) node.tables()).createTableAsync(schTblAllSql.name(), tblCh ->
                 SchemaConfigurationConverter.convert(schTblAllSql, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
         ));
 
         Table tbl = node.tables().table(kvTblName);
