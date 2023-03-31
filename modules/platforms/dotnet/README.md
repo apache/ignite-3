@@ -1,6 +1,6 @@
 # Apache Ignite 3 .NET Client
 
-.NET client for Apache Ignite - a distributed database for high‑performance applications with in‑memory speed.
+.NET client for [Apache Ignite](https://ignite.apache.org/) - a distributed database for high‑performance applications with in‑memory speed.
 
 
 # Key Features
@@ -241,5 +241,5 @@ Full documentation is available at https://ignite.apache.org/docs.
 Use any of the following channels to provide feedback:
 
 * [user@ignite.apache.org](mailto:user@ignite.apache.org)
-* https://github.com/apache/ignite-3/issues
 * https://stackoverflow.com/questions/tagged/ignite
+* https://github.com/apache/ignite-3/issues
