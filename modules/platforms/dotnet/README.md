@@ -122,6 +122,8 @@ To map columns to properties with different names, use `ColumnAttribute`:
 public string Name { get; set; }
 ```
 
+Mapping is performed using runtime code generation (IL emit). Emitted delegates are cached. User type mapping is more performant than `IIgniteTuple` approach and allocates less memory while reading query results.
+
 ## LINQ
 
 ## Tables
