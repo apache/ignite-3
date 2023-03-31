@@ -30,10 +30,9 @@ public interface ColumnMetadata {
     int UNDEFINED_SCALE = Integer.MIN_VALUE;
 
     /**
-     * Return column name in the result set.
+     * Returns a column name in the result set.
      *
-     * <p>Note: If row column does not represent any table column, then generated name will be
-     * used.
+     * <p>Note: If a row column does not represent any table column, a generated name is used.
      *
      * @return Column name.
      */
@@ -47,14 +46,14 @@ public interface ColumnMetadata {
     Class<?> valueClass();
 
     /**
-     * Returns column type.
+     * Returns an SQL column type.
      *
      * @return Value type.
      */
     ColumnType type();
 
     /**
-     * Returns SQL column precision or {@code -1} if precision is not applicable for the type.
+     * Returns an SQL column precision or {@code -1} if precision is not applicable to the column's type.
      *
      * @return Number of decimal digits for exact numeric types; number of decimal digits in mantissa for approximate numeric types; number
      *     of decimal digits for fractional seconds of datetime types; length in characters for character types; length in bytes for binary
@@ -63,28 +62,28 @@ public interface ColumnMetadata {
     int precision();
 
     /**
-     * Returns SQL column scale or {@link Integer#MIN_VALUE} if scale is not applicable for this type.
+     * Returns an SQL column scale or {@code -1} if scale is not applicable to the column's type.
      *
      * @return Number of digits of scale.
      */
     int scale();
 
     /**
-     * Returns row column nullability flag.
+     * Returns a row column nullability flag.
      *
      * @return {@code true} if column is nullable, {@code false} otherwise.
      */
     boolean nullable();
 
     /**
-     * Return column origin.
+     * Returns a column origin.
      *
      * @return Column origin or {@code null} if not applicable.
      */
     @Nullable ColumnOrigin origin();
 
     /**
-     * Represent column origin.
+     * Represents a column origin.
      *
      * <p>Example:
      * <pre>
@@ -103,23 +102,23 @@ public interface ColumnMetadata {
      */
     interface ColumnOrigin {
         /**
-         * Return the column's table's schema.
+         * Returns a column table's schema.
          *
          * @return Schema name.
          */
         String schemaName();
 
         /**
-         * Return the column's table name.
+         * Returns a column table's name.
          *
          * @return Table name.
          */
         String tableName();
 
         /**
-         * Return the column name.
+         * Return a column name.
          *
-         * @return Table name.
+         * @return Column name.
          */
         String columnName();
     }

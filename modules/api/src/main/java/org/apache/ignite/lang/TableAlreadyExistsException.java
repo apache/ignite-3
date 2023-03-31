@@ -23,11 +23,11 @@ import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_ALREADY_EXISTS_ERR;
 import java.util.UUID;
 
 /**
- * This exception is thrown when a new table failed to be created, because a table with same name already exists.
+ * This exception is thrown when a table creation has failed because a table with the specified name already existed.
  */
 public class TableAlreadyExistsException extends IgniteException {
     /**
-     * Create a new exception with given table name.
+     * Creates an exception with the given table name.
      *
      * @param schemaName Schema name.
      * @param tableName Table name.
@@ -37,11 +37,11 @@ public class TableAlreadyExistsException extends IgniteException {
     }
 
     /**
-     * Creates a new exception with the given trace id, error code, detail message and cause.
+     * Creates an exception with the given trace IDS, error code, detailed message, and cause.
      *
-     * @param traceId Unique identifier of this exception.
+     * @param traceId Unique identifier of the exception.
      * @param code Full error code.
-     * @param message Detail message.
+     * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
     public TableAlreadyExistsException(UUID traceId, int code, String message, Throwable cause) {
