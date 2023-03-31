@@ -104,7 +104,7 @@ public final class ConfigurationToSchemaDescriptorConverter {
                 return NativeTypes.datetime(colTypeView.precision());
 
             case "TIMESTAMP":
-                return NativeTypes.timestamp(colTypeView.precision());
+                return NativeTypes.datetime(colTypeView.precision());
 
             default:
                 throw new IllegalArgumentException("Unknown type " + typeName);
