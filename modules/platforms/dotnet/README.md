@@ -84,6 +84,46 @@ var cfg = new IgniteClientConfiguration
 };
 ```
 
+## SQL
+
+SQL is the primary API for data access. It is used to create, drop, and query tables, as well as to insert, update, and delete data. 
+
+```cs
+using var client = await IgniteClient.StartAsync(new("localhost"));
+
+await client.Sql.ExecuteAsync(null, "CREATE TABLE Person (Id INT PRIMARY KEY, Name VARCHAR)");
+await client.Sql.ExecuteAsync(null, "INSERT INTO Person (Id, Name) VALUES (1, 'John Doe')");
+
+await using var resultSet = await client.Sql.ExecuteAsync(null, "SELECT Name FROM Person");
+await foreach (IIgniteTuple row in resultSet)
+    Console.WriteLine(row[0]);
+```
+
+### Mapping SQL Results to User Types
+
+By default, SQL results are returned as `IIgniteTuple` instances. This interface provides access to raw data by column name or index (see example above).
+
+To map SQL results to user types and access data in a strongly-typed manner, use generic `ExecuteAsync<T>` overload: 
+
+```cs
+await using var resultSet = await client.Sql.ExecuteAsync<Person>(null, "SELECT Name FROM Person");
+await foreach (Person p in resultSet)
+    Console.WriteLine(p.Name);
+    
+public record Person(int Id, string Name);
+```
+
+Column names are matched to record properties by name. If a column name does not match any property, it is ignored.
+
+To map columns to properties with different names, use `ColumnAttribute`:
+
+```cs
+[Column("FULL_NAME")]
+public string Name { get; set; }
+```
+
+## LINQ
+
 ## Tables
 
 ## RecordView
@@ -95,10 +135,6 @@ var cfg = new IgniteClientConfiguration
 ## Transactions
 
 TODO RW, RO
-
-## SQL
-
-## LINQ
 
 ## Compute
 
