@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 
 import java.nio.charset.StandardCharsets;
@@ -30,6 +31,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.EntryEvent;
@@ -63,6 +66,8 @@ public class AssignmentsTracker {
     /** Tables configuration. */
     private final TablesConfiguration tablesCfg;
 
+    private final DistributionZonesConfiguration distributionZonesConfiguration;
+
     /** Map replication group id to assignment nodes. */
     private final Map<ReplicationGroupId, Set<Assignment>> groupAssignments;
 
@@ -79,10 +84,12 @@ public class AssignmentsTracker {
      * @param msManager Metastorage manager.
      * @param tablesCfg Table configuration.
      */
-    public AssignmentsTracker(VaultManager vaultManager, MetaStorageManager msManager, TablesConfiguration tablesCfg) {
+    public AssignmentsTracker(VaultManager vaultManager, MetaStorageManager msManager,
+            TablesConfiguration tablesCfg, DistributionZonesConfiguration distributionZonesConfiguration) {
         this.vaultManager = vaultManager;
         this.msManager = msManager;
         this.tablesCfg = tablesCfg;
+        this.distributionZonesConfiguration = distributionZonesConfiguration;
 
         this.groupAssignments = new ConcurrentHashMap<>();
         this.assignmentsCfgListener = new AssignmentsCfgListener();
@@ -147,6 +154,9 @@ public class AssignmentsTracker {
         public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
             ExtendedTableConfiguration tblCfg = assignmentsCtx.config(ExtendedTableConfiguration.class);
 
+            DistributionZoneView distributionZoneView =
+                    getZoneById(distributionZonesConfiguration, tblCfg.zoneId().value()).value();
+
             UUID tblId = tblCfg.id().value();
 
             LOG.debug("Table assignments configuration update for placement driver [revision={}, tblId={}]",
@@ -157,7 +167,7 @@ public class AssignmentsTracker {
 
             boolean leaseRenewalRequired = false;
 
-            for (int part = 0; part < tblCfg.partitions().value(); part++) {
+            for (int part = 0; part < distributionZoneView.partitions(); part++) {
                 var replicationGrpId = new TablePartitionId(tblId, part);
 
                 if (tableAssignments == null) {
@@ -183,11 +193,6 @@ public class AssignmentsTracker {
      * Meta storage assignments watch.
      */
     private class AssignmentsListener implements WatchListener {
-        @Override
-        public String id() {
-            return STABLE_ASSIGNMENTS_PREFIX + "watch";
-        }
-
         @Override
         public CompletableFuture<Void> onUpdate(WatchEvent event) {
             assert !event.entryEvent().newEntry().empty() : "New assignments are empty";

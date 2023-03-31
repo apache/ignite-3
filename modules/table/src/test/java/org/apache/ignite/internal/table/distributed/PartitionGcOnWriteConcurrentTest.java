@@ -28,6 +28,7 @@ import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
 import java.util.Collections;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfig
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -68,7 +70,12 @@ public class PartitionGcOnWriteConcurrentTest {
 
         when(storage.pollForVacuum(any())).thenReturn(null);
 
-        storageUpdateHandler = new StorageUpdateHandler(1, new TestPartitionDataStorage(storage), Collections::emptyMap, dsCfg);
+        storageUpdateHandler = new StorageUpdateHandler(
+                PARTITION_ID,
+                new TestPartitionDataStorage(storage),
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
+                dsCfg
+        );
     }
 
     @ParameterizedTest

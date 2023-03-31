@@ -123,10 +123,14 @@ public class DistributionZoneManager implements IgniteComponent {
 
     private static final String DISTRIBUTION_ZONE_MANAGER_POOL_NAME = "dst-zones-scheduler";
 
-    private static final String META_STORAGE_WATCH_ID = "dst-zones-watch";
-
     /** Id of the default distribution zone. */
     public static final int DEFAULT_ZONE_ID = 0;
+
+    /** Default number of zone replicas. */
+    public static final int DEFAULT_REPLICA_COUNT = 1;
+
+    /** Default number of zone partitions. */
+    public static final int DEFAULT_PARTITION_COUNT = 25;
 
     /** Default infinite value for the distribution zones' timers. */
     public static final int INFINITE_TIMER_VALUE = Integer.MAX_VALUE;
@@ -264,6 +268,18 @@ public class DistributionZoneManager implements IgniteComponent {
             zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
                 try {
                     zonesListChange.create(distributionZoneCfg.name(), zoneChange -> {
+                        if (distributionZoneCfg.partitions() == null) {
+                            zoneChange.changePartitions(DEFAULT_PARTITION_COUNT);
+                        } else {
+                            zoneChange.changePartitions(distributionZoneCfg.partitions());
+                        }
+
+                        if (distributionZoneCfg.replicas() == null) {
+                            zoneChange.changeReplicas(DEFAULT_REPLICA_COUNT);
+                        } else {
+                            zoneChange.changeReplicas(distributionZoneCfg.replicas());
+                        }
+
                         if (distributionZoneCfg.dataNodesAutoAdjust() == null) {
                             zoneChange.changeDataNodesAutoAdjust(INFINITE_TIMER_VALUE);
                         } else {
@@ -717,6 +733,14 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param distributionZoneCfg Distribution zone configuration.
      */
     private static void updateZoneChange(DistributionZoneChange zoneChange, DistributionZoneConfigurationParameters distributionZoneCfg) {
+        if (distributionZoneCfg.replicas() != null) {
+            zoneChange.changeReplicas(distributionZoneCfg.replicas());
+        }
+
+        if (distributionZoneCfg.partitions() != null) {
+            zoneChange.changePartitions(distributionZoneCfg.partitions());
+        }
+
         if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
             zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
             zoneChange.changeDataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE);
@@ -868,12 +892,14 @@ public class DistributionZoneManager implements IgniteComponent {
 
         try {
             vaultMgr.get(zonesLogicalTopologyKey())
-                    .thenAcceptBoth(metaStorageManager.appliedRevision(META_STORAGE_WATCH_ID), (vaultEntry, appliedRevision) -> {
+                    .thenAccept(vaultEntry -> {
                         if (!busyLock.enterBusy()) {
                             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
                         }
 
                         try {
+                            long appliedRevision = metaStorageManager.appliedRevision();
+
                             if (vaultEntry != null && vaultEntry.value() != null) {
                                 logicalTopology = fromBytes(vaultEntry.value());
 
@@ -906,11 +932,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
     private WatchListener createMetastorageListener() {
         return new WatchListener() {
-            @Override
-            public String id() {
-                return META_STORAGE_WATCH_ID;
-            }
-
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent evt) {
                 if (!busyLock.enterBusy()) {

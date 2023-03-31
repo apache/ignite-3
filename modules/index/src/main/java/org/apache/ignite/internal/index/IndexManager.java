@@ -67,12 +67,14 @@ import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
  * as well as managing indexes' lifecycle.
  */
+// TODO: IGNITE-19082 Delete this class
 public class IndexManager extends Producer<IndexEvent, IndexEventParameters> implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
@@ -91,17 +93,29 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    /** Index builder. */
+    private final IndexBuilder indexBuilder;
+
     /**
      * Constructor.
      *
+     * @param nodeName Node name.
      * @param tablesCfg Tables and indexes configuration.
      * @param schemaManager Schema manager.
      * @param tableManager Table manager.
+     * @param clusterService Cluster service.
      */
-    public IndexManager(TablesConfiguration tablesCfg, SchemaManager schemaManager, TableManager tableManager) {
+    public IndexManager(
+            String nodeName,
+            TablesConfiguration tablesCfg,
+            SchemaManager schemaManager,
+            TableManager tableManager,
+            ClusterService clusterService
+    ) {
         this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
         this.schemaManager = Objects.requireNonNull(schemaManager, "schemaManager");
         this.tableManager = tableManager;
+        this.indexBuilder = new IndexBuilder(nodeName, busyLock, clusterService);
     }
 
     /** {@inheritDoc} */
@@ -157,6 +171,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         busyLock.block();
+
+        indexBuilder.stop();
 
         LOG.info("Index manager stopped");
     }
@@ -417,6 +433,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     table.pkId(indexId);
                 }
             }
+
+            indexBuilder.startIndexBuild(tableIndexView, table);
         });
 
         return allOf(createIndexFuture, fireEventFuture);

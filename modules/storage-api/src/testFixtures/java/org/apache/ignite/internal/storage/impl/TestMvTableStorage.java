@@ -28,6 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -55,6 +56,8 @@ public class TestMvTableStorage implements MvTableStorage {
 
     private final TableConfiguration tableCfg;
 
+    private final DistributionZoneConfiguration distributionZoneCfg;
+
     private final TablesConfiguration tablesCfg;
 
     /**
@@ -70,7 +73,7 @@ public class TestMvTableStorage implements MvTableStorage {
         }
 
         TestSortedIndexStorage getOrCreateStorage(Integer partitionId) {
-            return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestSortedIndexStorage(descriptor));
+            return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestSortedIndexStorage(id, descriptor));
         }
     }
 
@@ -87,16 +90,18 @@ public class TestMvTableStorage implements MvTableStorage {
         }
 
         TestHashIndexStorage getOrCreateStorage(Integer partitionId) {
-            return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestHashIndexStorage(descriptor));
+            return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestHashIndexStorage(id, descriptor));
         }
     }
 
     /** Constructor. */
-    public TestMvTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
+    public TestMvTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg,
+            DistributionZoneConfiguration distributionZoneCfg) {
         this.tableCfg = tableCfg;
         this.tablesCfg = tablesCfg;
+        this.distributionZoneCfg = distributionZoneCfg;
 
-        mvPartitionStorages = new MvPartitionStorages<>(tableCfg.value());
+        mvPartitionStorages = new MvPartitionStorages<>(tableCfg.value(), distributionZoneCfg.value());
     }
 
     @Override
@@ -194,6 +199,11 @@ public class TestMvTableStorage implements MvTableStorage {
     @Override
     public TablesConfiguration tablesConfiguration() {
         return tablesCfg;
+    }
+
+    @Override
+    public DistributionZoneConfiguration distributionZoneConfiguration() {
+        return distributionZoneCfg;
     }
 
     @Override

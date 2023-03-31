@@ -272,6 +272,63 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         }
 
         @Test
+        @DisplayName("init --cluster-endpoint-url http://localhost:10300 --meta-storage-node node1ConsistentId --meta-storage-node node2ConsistentId "
+                + "--cmg-node node2ConsistentId --cmg-node node3ConsistentId --cluster-name cluster "
+                + "--auth-enabled --basic-auth-login admin --basic-auth-password password")
+        void initWithAuthenticationSuccess() {
+            var expectedSentContent = "{\n"
+                    + "  \"metaStorageNodes\": [\n"
+                    + "    \"node1ConsistentId\",\n"
+                    + "    \"node2ConsistentId\"\n"
+                    + "  ],\n"
+                    + "  \"cmgNodes\": [\n"
+                    + "    \"node2ConsistentId\",\n"
+                    + "    \"node3ConsistentId\"\n"
+                    + "  ],\n"
+                    + "  \"clusterName\": \"cluster\",\n"
+                    + "  \"authenticationConfig\": {\n"
+                    + "    \"enabled\": true,\n"
+                    + "    \"providers\": [\n"
+                    + "      {\n"
+                    + "        \"login\": \"admin\",\n"
+                    + "        \"password\": \"password\",\n"
+                    + "        \"name\": \"basic\",\n"
+                    + "        \"type\": \"BASIC\"\n"
+                    + "      }\n"
+                    + "    ]\n"
+                    + "  }\n"
+                    + "}";
+
+            clientAndServer
+                    .when(request()
+                            .withMethod("POST")
+                            .withPath("/management/v1/cluster/init")
+                            .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
+                            .withContentType(MediaType.APPLICATION_JSON_UTF_8)
+                    )
+                    .respond(response(null));
+
+
+            int exitCode = execute(
+                    "cluster", "init",
+                    "--cluster-endpoint-url", mockUrl,
+                    "--meta-storage-node", "node1ConsistentId",
+                    "--meta-storage-node", "node2ConsistentId",
+                    "--cmg-node", "node2ConsistentId",
+                    "--cmg-node", "node3ConsistentId",
+                    "--cluster-name", "cluster",
+                    "--auth-enabled",
+                    "--basic-auth-login", "admin",
+                    "--basic-auth-password", "password"
+            );
+
+            assertThatExitCodeMeansSuccess(exitCode);
+
+            assertOutputEqual("Cluster was initialized successfully");
+            assertThatStderrIsEmpty();
+        }
+
+        @Test
         void initError() {
             clientAndServer
                     .when(request()

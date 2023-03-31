@@ -255,11 +255,6 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
 
         secondNode.metaStorageManager.registerExactWatch(key, new WatchListener() {
             @Override
-            public String id() {
-                return "test";
-            }
-
-            @Override
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
                 // Skip the first update event, because it's not guaranteed to arrive here (insert may have happened before the watch was
                 // registered).

@@ -375,11 +375,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
-        CompletableFuture.allOf(queryManagerMap.values().stream()
+        CompletableFuture<Void> f = CompletableFuture.allOf(queryManagerMap.values().stream()
                 .filter(mgr -> mgr.rootFragmentId != null)
                 .map(mgr -> mgr.close(true))
                 .toArray(CompletableFuture[]::new)
-        ).join();
+        );
+        f.join();
     }
 
     /** {@inheritDoc} */

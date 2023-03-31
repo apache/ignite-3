@@ -26,11 +26,10 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 @FunctionalInterface
 public interface OnRevisionAppliedCallback {
     /**
-     * Notifies of completion of processing of Meta Storage watches for a particular Watch and revision.
+     * Notifies of completion of processing of Meta Storage watches for a particular revision.
      *
-     * @param watchId ID of the Watch that has finished processing the revision.
-     * @param watchEvent Event with modified Meta Storage entries processed by the Watch.
+     * @param watchEvent Event with modified Meta Storage entries processed at least one Watch.
      * @return Future that represents the state of the execution of the callback.
      */
-    CompletableFuture<Void> onRevisionApplied(String watchId, WatchEvent watchEvent);
+    CompletableFuture<Void> onRevisionApplied(WatchEvent watchEvent);
 }

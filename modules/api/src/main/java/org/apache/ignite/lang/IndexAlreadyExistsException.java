@@ -24,11 +24,11 @@ import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 
 /**
- * This exception is thrown when a new index failed to be created, because another index with the same name already exists.
+ * This exception is thrown when a new index creation has failed because an index with the specified name already existed.
  */
 public class IndexAlreadyExistsException extends IgniteException {
     /**
-     * Create a new exception with given index name.
+     * Creates an exception with the given index name.
      *
      * @param schemaName Schema name.
      * @param indexName Index name.
@@ -38,11 +38,11 @@ public class IndexAlreadyExistsException extends IgniteException {
     }
 
     /**
-     * Creates a new exception with the given trace id, error code, detail message and cause.
+     * Creates an exception with the given trace ID, error code, detailed message, and cause.
      *
-     * @param traceId Unique identifier of this exception.
+     * @param traceId Unique identifier of the exception.
      * @param code Full error code.
-     * @param message Detail message.
+     * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IndexAlreadyExistsException(UUID traceId, int code, String message, Throwable cause) {

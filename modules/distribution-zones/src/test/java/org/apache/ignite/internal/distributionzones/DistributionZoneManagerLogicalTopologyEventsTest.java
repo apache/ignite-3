@@ -112,8 +112,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
 
-        when(metaStorageManager.appliedRevision(any())).thenReturn(completedFuture(0L));
-
         cmgManager = mock(ClusterManagementGroupManager.class);
 
         clusterStateStorage = new TestClusterStateStorage();

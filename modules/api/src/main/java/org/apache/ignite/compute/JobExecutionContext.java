@@ -20,7 +20,7 @@ package org.apache.ignite.compute;
 import org.apache.ignite.Ignite;
 
 /**
- * Context of {@link ComputeJob} execution.
+ * Context of the {@link ComputeJob} execution.
  */
 public interface JobExecutionContext {
     Ignite ignite();

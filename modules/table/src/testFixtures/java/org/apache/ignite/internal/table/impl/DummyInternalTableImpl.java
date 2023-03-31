@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.impl;
 
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -29,7 +30,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
@@ -62,6 +62,7 @@ import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
+import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -255,7 +256,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                 indexId,
-                new TestHashIndexStorage(null),
+                new TestHashIndexStorage(PART_ID, null),
                 row2Tuple
         ));
 
@@ -263,7 +264,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
         PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
-        Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes = () -> Map.of(pkStorage.get().id(), pkStorage.get());
+        TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()));
 
         DataStorageConfiguration dsCfg = mock(DataStorageConfiguration.class);
         ConfigurationValue<Integer> gcBatchSizeValue = mock(ConfigurationValue.class);
@@ -397,5 +398,24 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
             safeTimeUpdaterThread = null;
         }
+    }
+
+    /**
+     * Returns dummy table index storages supplier.
+     *
+     * @param indexes Index storage by ID.
+     */
+    public static TableIndexStoragesSupplier createTableIndexStoragesSupplier(Map<UUID, TableSchemaAwareIndexStorage> indexes) {
+        return new TableIndexStoragesSupplier() {
+            @Override
+            public Map<UUID, TableSchemaAwareIndexStorage> get() {
+                return indexes;
+            }
+
+            @Override
+            public void addIndexToWaitIfAbsent(UUID indexId) {
+                fail("not supported");
+            }
+        };
     }
 }

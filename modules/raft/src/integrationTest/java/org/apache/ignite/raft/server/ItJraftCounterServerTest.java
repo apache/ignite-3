@@ -659,6 +659,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                 RaftGroupOptions opts = defaults().snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage));
 
                 raftServer.startRaftNode(new RaftNodeId(grpId, serverPeer), initialMembersConf, listener, opts);
+
+                raftServer.raftNodeReadyFuture(grpId).join();
             }, opts -> {});
         }
 
