@@ -79,11 +79,13 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
+import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -205,8 +207,8 @@ public class IgniteImpl implements Ignite {
     private final MetaStorageManager metaStorageMgr;
 
     // TODO: IGNITE-16985 Design table management flow
-    // /** Placement driver manager. */
-    //private final PlacementDriverManager placementDriverMgr;
+    /** Placement driver manager. */
+    private final PlacementDriverManager placementDriverMgr;
 
     /** Configuration manager that handles cluster (distributed) configuration. */
     private final ConfigurationManager clusterCfgMgr;
@@ -392,6 +394,9 @@ public class IgniteImpl implements Ignite {
 
         TablesConfiguration tablesConfiguration = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
+        DistributionZonesConfiguration distributionZonesConfiguration =
+                clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
+
         TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                 clusterSvc,
                 logicalTopologyService,
@@ -400,18 +405,19 @@ public class IgniteImpl implements Ignite {
         );
 
         // TODO: IGNITE-16985 Design table management flow
-        // placementDriverMgr = new PlacementDriverManager(
-        //         metaStorageMgr,
-        //         vaultMgr,
-        //         MetastorageGroupId.INSTANCE,
-        //         clusterSvc,
-        //         raftConfiguration,
-        //         cmgMgr::metaStorageNodes,
-        //         logicalTopologyService,
-        //         raftExecutorService,
-        //         tablesConfiguration,
-        //         clock
-        // );
+        placementDriverMgr = new PlacementDriverManager(
+                metaStorageMgr,
+                vaultMgr,
+                MetastorageGroupId.INSTANCE,
+                clusterSvc,
+                cmgMgr::metaStorageNodes,
+                logicalTopologyService,
+                raftMgr,
+                topologyAwareRaftGroupServiceFactory,
+                tablesConfiguration,
+                distributionZonesConfiguration,
+                clock
+        );
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));
 
@@ -434,9 +440,6 @@ public class IgniteImpl implements Ignite {
         );
 
         Path storagePath = getPartitionsStorePath(workDir);
-
-        DistributionZonesConfiguration distributionZonesConfiguration =
-                clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
 
         dataStorageMgr = new DataStorageManager(
                 tablesConfiguration,
@@ -656,7 +659,7 @@ public class IgniteImpl implements Ignite {
                                     metaStorageMgr,
                                     clusterCfgMgr,
                                     // TODO: IGNITE-16985 Design table management flow
-                                    // placementDriverMgr,
+                                    placementDriverMgr,
                                     metricManager,
                                     distributionZoneManager,
                                     computeComponent,
