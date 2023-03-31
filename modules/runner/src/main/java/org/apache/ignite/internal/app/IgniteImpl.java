@@ -394,7 +394,7 @@ public class IgniteImpl implements Ignite {
 
         TablesConfiguration tablesConfiguration = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
-        DistributionZonesConfiguration distributionZonesConfiguration =
+        DistributionZonesConfiguration distributionZonesConfiguration0 =
                 clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
 
         TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
@@ -415,7 +415,7 @@ public class IgniteImpl implements Ignite {
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
                 tablesConfiguration,
-                distributionZonesConfiguration,
+                distributionZonesConfiguration0,
                 clock
         );
 
@@ -470,7 +470,7 @@ public class IgniteImpl implements Ignite {
                 name,
                 registry,
                 tablesConfiguration,
-                distributionZonesConfiguration,
+                distributionZonesConfiguration0,
                 clusterSvc,
                 raftMgr,
                 replicaMgr,
