@@ -397,7 +397,7 @@ public class IgniteImpl implements Ignite {
         DistributionZonesConfiguration distributionZonesConfiguration =
                 clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
 
-        TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+        TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory0 = new TopologyAwareRaftGroupServiceFactory(
                 clusterSvc,
                 logicalTopologyService,
                 Loza.FACTORY,
@@ -413,7 +413,7 @@ public class IgniteImpl implements Ignite {
                 cmgMgr::metaStorageNodes,
                 logicalTopologyService,
                 raftMgr,
-                topologyAwareRaftGroupServiceFactory,
+                topologyAwareRaftGroupServiceFactory0,
                 tablesConfiguration,
                 distributionZonesConfiguration,
                 clock
@@ -486,7 +486,7 @@ public class IgniteImpl implements Ignite {
                 volatileLogStorageFactoryCreator,
                 clock,
                 outgoingSnapshotsManager,
-                topologyAwareRaftGroupServiceFactory
+                topologyAwareRaftGroupServiceFactory0
         );
 
         indexManager = new IndexManager(tablesConfiguration, schemaManager, distributedTblMgr);
