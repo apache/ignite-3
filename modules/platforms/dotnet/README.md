@@ -41,13 +41,10 @@ await using var resultSet = await client.Sql.ExecuteAsync<Person>(tx, "SELECT * 
 List<Person> sqlResults = await resultSet.ToListAsync();
 
 // Query data with LINQ.
-IQueryable<Person> query = view.AsQueryable(tx)
-    .Where(person => person.Id > 0)
-    .OrderBy(person => person.Name);
-
-List<Person> linqResults = await query.ToListAsync();
-
-string generatedSql = query.ToQueryString();
+List<string> names  = view.AsQueryable(tx)
+    .OrderBy(person => person.Name)
+    .Select(person => person.Name)
+    .ToList();
 
 // Execute a distributed computation.
 IList<IClusterNode> nodes = await client.GetClusterNodesAsync();
@@ -198,6 +195,13 @@ await tx.CommitAsync();
 ```
 
 ## Compute
+
+Compute API is used to execute distributed computations on the cluster. Compute jobs should be implemented in Java, deployed to server nodes, and called by the full class name. 
+
+```cs 
+IList<IClusterNode> nodes = await client.GetClusterNodesAsync();
+string result = await client.Compute.ExecuteAsync<string>(nodes, "org.acme.tasks.MyTask", "Task argument 1", "Task argument 2");
+```
 
 ## Logging
 
