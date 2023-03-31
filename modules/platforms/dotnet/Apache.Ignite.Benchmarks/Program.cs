@@ -34,6 +34,12 @@ internal static class Program
 
         ITable? table = await client.Tables.GetTableAsync("Person");
         IRecordView<Person> view = table!.GetRecordView<Person>();
+        IRecordView<IIgniteTuple> binaryView = table.RecordBinaryView;
+
+        IKeyValueView<IIgniteTuple, IIgniteTuple> kvBinaryView = table.KeyValueBinaryView;
+        IKeyValueView<PersonKey, Person> kvView = table.GetKeyValueView<PersonKey, Person>();
+
+        kvView.PutAsync(null, new PersonKey(1), new Person("John"));
 
         IQueryable<string> query = view.AsQueryable()
             .Where(p => p.Id > 100)

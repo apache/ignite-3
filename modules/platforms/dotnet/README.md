@@ -127,9 +127,41 @@ dt.Load(reader);
 dataGridView1.DataSource = dt;
 ```
 
-## NoSQL (Key/Value API)
+## NoSQL
 
-TODO: Tables, RecordView, KvView
+NoSQL API is used to store and retrieve data in a key/value fashion. It can be more efficient than SQL in certain scenarios. 
+Existing tables can be accessed, but new tables can only be created with SQL.
+
+First, get a table by name:
+
+```cs
+ITable? table = await client.Tables.GetTableAsync("Person");
+```
+
+Then, there are two ways to look at the data.
+
+### Record View
+
+Record view represents the entire row as a single object. It can be an `IIgniteTuple` or a user-defined type.
+
+```cs
+IRecordView<IIgniteTuple> binaryView = table.RecordBinaryView;
+IRecordView<Person> view = table.GetRecordView<Person>();
+
+await view.UpsertAsync(null, new Person(1, "John"));
+```
+
+### KeyValue View
+
+Key/Value view splits the row into key and value parts.
+
+```
+IKeyValueView<IIgniteTuple, IIgniteTuple> kvBinaryView = table.KeyValueBinaryView;
+IKeyValueView<PersonKey, Person> kvView = table.GetKeyValueView<PersonKey, Person>();
+
+await kvView.PutAsync(null, new PersonKey(1), new Person("John"));
+```
+
 
 ## LINQ
 
