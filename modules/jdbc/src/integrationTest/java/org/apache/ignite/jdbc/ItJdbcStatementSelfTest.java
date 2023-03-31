@@ -32,6 +32,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -467,13 +468,48 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
     @Test
     public void testExecuteUpdate() throws Exception {
-        final String sqlText = "update TEST set NAME='CHANGED_NAME_1' where ID=1;";
+        int id = 1;
+        String oldName = "name_" + id;
+        String newName = "CHANGED_NAME_1";
+        String sqlChangeName = String.format("update TEST set NAME='%s' where ID=%d;", newName, id);
+        
+        Supplier<String> selectName = () -> {
+            try {
+                try (ResultSet rs = stmt.executeQuery("select NAME from TEST where ID=" + id)) {
+                    assertTrue(rs.next());
+                    
+                    return rs.getString("NAME");
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        };
+        
+        conn.setAutoCommit(false);
+        assertEquals(oldName, selectName.get());
 
-        assertEquals(1, stmt.executeUpdate(sqlText));
+        // Change oldName to newName.
+        assertEquals(1, stmt.executeUpdate(sqlChangeName));
+        assertEquals(newName, selectName.get());
+        
+        // Check rollback.
+        conn.rollback();
+        assertEquals(oldName, selectName.get());
+
+        // Change oldName to newName.
+        assertEquals(1, stmt.executeUpdate(sqlChangeName));
+        assertEquals(newName, selectName.get());
+        
+        // Check commit;
+        conn.commit();
+        assertEquals(newName, selectName.get());
+        
+        conn.rollback();
+        assertEquals(newName, selectName.get());
 
         stmt.close();
 
-        checkStatementClosed(() -> stmt.executeUpdate(sqlText));
+        checkStatementClosed(() -> stmt.executeUpdate(sqlChangeName));
     }
 
     @Test
