@@ -231,3 +231,15 @@ For example, [dotnet-counters](https://learn.microsoft.com/en-us/dotnet/core/dia
 ```sh
 dotnet-counters monitor --counters Apache.Ignite,System.Runtime --process-id PID
 ```
+
+# Documentation
+
+Full documentation is available at https://ignite.apache.org/docs.
+
+# Feedback
+
+Use any of the following channels to provide feedback:
+
+* [user@ignite.apache.org](mailto:user@ignite.apache.org)
+* https://github.com/apache/ignite-3/issues
+* https://stackoverflow.com/questions/tagged/ignite
