@@ -203,7 +203,7 @@ public class ItDistributedConfigurationStorageTest {
             assertThat(node.cfgStorage.writeConfigurationRevision(0, 1), willCompleteSuccessfully());
 
             assertTrue(waitForCondition(
-                    () -> node.metaStorageManager.appliedRevision(DistributedConfigurationStorage.WATCH_ID).join() != 0,
+                    () -> node.metaStorageManager.appliedRevision() != 0,
                     3000
             ));
         } finally {

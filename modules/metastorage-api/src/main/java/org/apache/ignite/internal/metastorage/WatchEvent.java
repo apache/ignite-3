@@ -39,8 +39,8 @@ public class WatchEvent {
      * @param entryEvts Events for entries corresponding to an update under one revision.
      * @param revision Revision of the updated entries.
      */
-    public WatchEvent(List<EntryEvent> entryEvts, long revision) {
-        this.entryEvts = entryEvts;
+    public WatchEvent(Collection<EntryEvent> entryEvts, long revision) {
+        this.entryEvts = List.copyOf(entryEvts);
         this.revision = revision;
     }
 
@@ -77,6 +77,8 @@ public class WatchEvent {
      * @return Entry event.
      */
     public EntryEvent entryEvent() {
+        assert single();
+
         return entryEvts.get(0);
     }
 

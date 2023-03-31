@@ -122,8 +122,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
     private static final String DISTRIBUTION_ZONE_MANAGER_POOL_NAME = "dst-zones-scheduler";
 
-    private static final String META_STORAGE_WATCH_ID = "dst-zones-watch";
-
     /** Id of the default distribution zone. */
     public static final int DEFAULT_ZONE_ID = 0;
 
@@ -893,12 +891,14 @@ public class DistributionZoneManager implements IgniteComponent {
 
         try {
             vaultMgr.get(zonesLogicalTopologyKey())
-                    .thenAcceptBoth(metaStorageManager.appliedRevision(META_STORAGE_WATCH_ID), (vaultEntry, appliedRevision) -> {
+                    .thenAccept(vaultEntry -> {
                         if (!busyLock.enterBusy()) {
                             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
                         }
 
                         try {
+                            long appliedRevision = metaStorageManager.appliedRevision();
+
                             if (vaultEntry != null && vaultEntry.value() != null) {
                                 logicalTopology = fromBytes(vaultEntry.value());
 
@@ -931,11 +931,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
     private WatchListener createMetastorageListener() {
         return new WatchListener() {
-            @Override
-            public String id() {
-                return META_STORAGE_WATCH_ID;
-            }
-
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent evt) {
                 if (!busyLock.enterBusy()) {

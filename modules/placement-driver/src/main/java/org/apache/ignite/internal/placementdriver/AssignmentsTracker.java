@@ -194,11 +194,6 @@ public class AssignmentsTracker {
      */
     private class AssignmentsListener implements WatchListener {
         @Override
-        public String id() {
-            return STABLE_ASSIGNMENTS_PREFIX + "watch";
-        }
-
-        @Override
         public CompletableFuture<Void> onUpdate(WatchEvent event) {
             assert !event.entryEvent().newEntry().empty() : "New assignments are empty";
 
