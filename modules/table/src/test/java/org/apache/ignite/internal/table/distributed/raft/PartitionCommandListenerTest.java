@@ -478,19 +478,19 @@ public class PartitionCommandListenerTest {
 
         commandListener.handleBuildIndexCommand(createBuildIndexCommand(indexId, rowUuids0, false), 10, 1);
 
-        inOrder.verify(partitionDataStorage).lastApplied(10, 1);
         inOrder.verify(storageUpdateHandler).buildIndex(indexId, rowUuids0, false);
+        inOrder.verify(partitionDataStorage).lastApplied(10, 1);
 
         commandListener.handleBuildIndexCommand(createBuildIndexCommand(indexId, rowUuids1, true), 20, 2);
 
-        inOrder.verify(partitionDataStorage).lastApplied(20, 2);
         inOrder.verify(storageUpdateHandler).buildIndex(indexId, rowUuids1, true);
+        inOrder.verify(partitionDataStorage).lastApplied(20, 2);
 
         // Let's check that the command with a lower commandIndex than in the storage will not be executed.
         commandListener.handleBuildIndexCommand(createBuildIndexCommand(indexId, rowUuids2, false), 5, 1);
 
-        inOrder.verify(partitionDataStorage, never()).lastApplied(5, 1);
         inOrder.verify(storageUpdateHandler, never()).buildIndex(indexId, rowUuids2, false);
+        inOrder.verify(partitionDataStorage, never()).lastApplied(5, 1);
     }
 
     private BuildIndexCommand createBuildIndexCommand(UUID indexId, List<UUID> rowUuids, boolean finish) {
