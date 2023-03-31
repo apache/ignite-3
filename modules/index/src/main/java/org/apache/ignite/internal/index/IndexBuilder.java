@@ -91,6 +91,7 @@ class IndexBuilder {
      */
     void startIndexBuild(TableIndexView tableIndexView, TableImpl table) {
         for (int partitionId = 0; partitionId < table.internalTable().partitions(); partitionId++) {
+            // TODO: IGNITE-19177 Add assignments check
             buildIndexExecutor.submit(new BuildIndexTask(table, tableIndexView, partitionId, null));
         }
     }
