@@ -41,7 +41,7 @@ internal static class ResultSelector
 {
     private static readonly ConcurrentDictionary<ResultSelectorCacheKey<ConstructorInfo>, object> CtorCache = new();
 
-    private static readonly ConcurrentDictionary<ResultSelectorCacheKey<ConstructorInfo>, object> MemberInitCache = new();
+    private static readonly ConcurrentDictionary<ResultSelectorCacheKey<MemberInitCacheTarget>, object> MemberInitCache = new();
 
     private static readonly ConcurrentDictionary<ResultSelectorCacheKey<Type>, object> SingleColumnReaderCache = new();
 
@@ -80,10 +80,11 @@ internal static class ResultSelector
         if (selectorExpression is MemberInitExpression memberInitExpression)
         {
             var ctorInfo = memberInitExpression.NewExpression.Constructor!;
-            var ctorCacheKey = new ResultSelectorCacheKey<ConstructorInfo>(ctorInfo, columns, options);
+            var cacheTarget = new MemberInitCacheTarget(ctorInfo, memberInitExpression.Bindings.Select(b => b.Member).ToList());
+            var ctorCacheKey = new ResultSelectorCacheKey<MemberInitCacheTarget>(cacheTarget, columns, options);
             return (RowReader<T>)MemberInitCache.GetOrAdd(
-                ctorCacheKey,
-                static k => EmitMemberInitReader<T>(k.Target, k.Columns, k.Options));
+                    ctorCacheKey,
+                    static k => EmitMemberInitReader<T>(k.Target, k.Columns, k.Options));
         }
 
         if (columns.Count == 1 && (typeof(T).ToSqlColumnType() is not null || typeof(T).IsEnum))
@@ -119,38 +120,6 @@ internal static class ResultSelector
         return (RowReader<T>)ReaderCache.GetOrAdd(
             readerCacheKey,
             static k => EmitUninitializedObjectReader<T>(k.Columns, k.Options == ReturnDefaultIfNull));
-    }
-
-    private static RowReader<T> EmitMemberInitReader<T>(
-        ConstructorInfo ctorInfo,
-        IReadOnlyList<IColumnMetadata> columns,
-        ResultSelectorOptions options)
-    {
-        var method = new DynamicMethod(
-            name: $"ConstructorFromBinaryTupleReader_{typeof(T).FullName}_{GetNextId()}",
-            returnType: typeof(T),
-            parameterTypes: new[] { typeof(IReadOnlyList<IColumnMetadata>), typeof(BinaryTupleReader).MakeByRefType() },
-            m: typeof(IIgnite).Module,
-            skipVisibility: true);
-
-        var il = method.GetILGenerator();
-        var ctorParams = ctorInfo.GetParameters();
-
-        if (ctorParams.Length != columns.Count)
-        {
-            throw new InvalidOperationException("Constructor parameter count does not match column count, can't emit row reader.");
-        }
-
-        // Read all constructor parameters and push them to the evaluation stack.
-        for (var index = 0; index < ctorParams.Length; index++)
-        {
-            var paramType = ctorParams[index].ParameterType;
-            EmitReadToStack(il, columns[index], paramType, index, options);
-        }
-
-        il.Emit(OpCodes.Newobj, ctorInfo);
-        il.Emit(OpCodes.Ret);
-        return (RowReader<T>)method.CreateDelegate(typeof(RowReader<T>));
     }
 
     private static RowReader<T> EmitSingleColumnReader<T>(IColumnMetadata column, ResultSelectorOptions options)
@@ -235,6 +204,58 @@ internal static class ResultSelector
         il.Emit(OpCodes.Ldloc_0); // res
         il.Emit(OpCodes.Ret);
 
+        return (RowReader<T>)method.CreateDelegate(typeof(RowReader<T>));
+    }
+
+    private static RowReader<T> EmitMemberInitReader<T>(
+        MemberInitCacheTarget target,
+        IReadOnlyList<IColumnMetadata> columns,
+        ResultSelectorOptions options)
+    {
+        var method = new DynamicMethod(
+            name: $"MemberInitFromBinaryTupleReader_{typeof(T).FullName}_{GetNextId()}",
+            returnType: typeof(T),
+            parameterTypes: new[] { typeof(IReadOnlyList<IColumnMetadata>), typeof(BinaryTupleReader).MakeByRefType() },
+            m: typeof(IIgnite).Module,
+            skipVisibility: true);
+
+        var il = method.GetILGenerator();
+        var ctorParams = target.CtorInfo.GetParameters();
+        var membersInitiated = target.PropertiesOrFields;
+
+        if (ctorParams.Length + membersInitiated.Count != columns.Count)
+        {
+            throw new InvalidOperationException("Constructor parameter count does not match column count, can't emit row reader.");
+        }
+
+        // Read all constructor parameters and push them to the evaluation stack.
+        var columnsIndex = 0;
+        for (; columnsIndex < ctorParams.Length; columnsIndex++)
+        {
+            var paramType = ctorParams[columnsIndex].ParameterType;
+            EmitReadToStack(il, columns[columnsIndex], paramType, columnsIndex, options);
+        }
+
+        // create the object
+        il.Emit(OpCodes.Newobj, target.CtorInfo);
+
+        // initialize the members
+        for (int memberIndex = 0; memberIndex < membersInitiated.Count; memberIndex++, columnsIndex++)
+        {
+            il.Emit(OpCodes.Dup);
+            var member = membersInitiated[memberIndex];
+            if (member is PropertyInfo {SetMethod: {}} pi)
+            {
+                EmitReadToStack(il, columns[columnsIndex], pi.PropertyType, columnsIndex, options);
+                il.Emit(OpCodes.Callvirt, pi.SetMethod);
+            }
+            else
+            {
+                throw new InvalidOperationException($"Member type {member.GetType()} is not supported.");
+            }
+        }
+
+        il.Emit(OpCodes.Ret);
         return (RowReader<T>)method.CreateDelegate(typeof(RowReader<T>));
     }
 
@@ -391,4 +412,33 @@ internal static class ResultSelector
     }
 
     private static long GetNextId() => Interlocked.Increment(ref _idCounter);
+
+    private static CustomProjectionCtorAndInit TestReadSEST(IReadOnlyList<ColumnMetadata> cols, ref BinaryTupleReader reader)
+    {
+        var result = new CustomProjectionCtorAndInit(reader.GetLong(0), reader.GetString(1))
+        {
+            Value = reader.GetString(2),
+            Value1 = reader.GetString(3)
+        };
+        return result;
+    }
+
+    private class CustomProjectionCtorAndInit
+    {
+        public CustomProjectionCtorAndInit()
+        {
+            // no-op
+        }
+
+        public CustomProjectionCtorAndInit(long id, string s)
+        {
+            Id = id;
+        }
+
+        public long Id { get; }
+
+        public string? Value { get; set; }
+
+        public string? Value1 { get; set; } // init
+    }
 }
