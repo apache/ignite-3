@@ -61,10 +61,14 @@ public class LeastRestrictiveTypesTest {
 
     private static final RelDataType VARCHAR = TYPE_FACTORY.createSqlType(SqlTypeName.VARCHAR, 36);
 
-    private static final RelDataType CUSTOM_TYPE = new TestCustomType(false);
+    private static final TestCustomType CUSTOM_TYPE = new TestCustomType(false);
+
+    private static final RelDataType NULLABLE_CUSTOM_TYPE = CUSTOM_TYPE.createWithNullability(true);
 
     // ANY produced by the default implementation of leastRestrictiveType has nullability = true
     private static final RelDataType ANY = TYPE_FACTORY.createTypeWithNullability(TYPE_FACTORY.createSqlType(SqlTypeName.ANY), true);
+
+    private static final RelDataType NULL = TYPE_FACTORY.createTypeWithNullability(TYPE_FACTORY.createSqlType(SqlTypeName.NULL), true);
 
     @ParameterizedTest
     @MethodSource("tinyIntTests")
@@ -240,6 +244,8 @@ public class LeastRestrictiveTypesTest {
         tests.add(Arguments.arguments(CUSTOM_TYPE, BIGINT, LeastRestrictiveType.none()));
         tests.add(Arguments.arguments(CUSTOM_TYPE, VARCHAR, LeastRestrictiveType.none()));
         tests.add(Arguments.arguments(CUSTOM_TYPE, CUSTOM_TYPE, new LeastRestrictiveType(CUSTOM_TYPE)));
+        tests.add(Arguments.arguments(NULLABLE_CUSTOM_TYPE, CUSTOM_TYPE, new LeastRestrictiveType(NULLABLE_CUSTOM_TYPE)));
+        tests.add(Arguments.arguments(NULL, CUSTOM_TYPE, new LeastRestrictiveType(CUSTOM_TYPE)));
 
         return tests.stream();
     }
@@ -275,6 +281,22 @@ public class LeastRestrictiveTypesTest {
         assertNull(TYPE_FACTORY.leastRestrictive(List.of(CUSTOM_TYPE, INTEGER, ANY)));
         assertNull(TYPE_FACTORY.leastRestrictive(List.of(INTEGER, ANY, CUSTOM_TYPE)));
         assertNull(TYPE_FACTORY.leastRestrictive(List.of(ANY, CUSTOM_TYPE, INTEGER)));
+        assertNull(TYPE_FACTORY.leastRestrictive(List.of(ANY, CUSTOM_TYPE, NULLABLE_CUSTOM_TYPE, INTEGER)));
+        assertNull(TYPE_FACTORY.leastRestrictive(List.of(ANY, NULL, CUSTOM_TYPE, NULLABLE_CUSTOM_TYPE, INTEGER)));
+    }
+
+    @Test
+    public void testCustomDataTypeNullableTypesAreLessRestrictive() {
+        assertEquals(NULLABLE_CUSTOM_TYPE, TYPE_FACTORY.leastRestrictive(List.of(NULLABLE_CUSTOM_TYPE, CUSTOM_TYPE, CUSTOM_TYPE)));
+        assertEquals(NULLABLE_CUSTOM_TYPE, TYPE_FACTORY.leastRestrictive(List.of(CUSTOM_TYPE, NULLABLE_CUSTOM_TYPE, CUSTOM_TYPE)));
+        assertEquals(NULLABLE_CUSTOM_TYPE, TYPE_FACTORY.leastRestrictive(List.of(CUSTOM_TYPE, CUSTOM_TYPE, NULLABLE_CUSTOM_TYPE)));
+    }
+
+    @Test
+    public void testCustomDataTypeIgnoreNulls() {
+        assertEquals(NULLABLE_CUSTOM_TYPE, TYPE_FACTORY.leastRestrictive(List.of(NULLABLE_CUSTOM_TYPE, CUSTOM_TYPE, NULL)));
+        assertEquals(NULLABLE_CUSTOM_TYPE, TYPE_FACTORY.leastRestrictive(List.of(NULL, NULLABLE_CUSTOM_TYPE, CUSTOM_TYPE)));
+        assertEquals(NULLABLE_CUSTOM_TYPE, TYPE_FACTORY.leastRestrictive(List.of(CUSTOM_TYPE, NULL, NULLABLE_CUSTOM_TYPE)));
     }
 
     @ParameterizedTest
@@ -347,13 +369,13 @@ public class LeastRestrictiveTypesTest {
                 NativeTypes.INT8, ColumnType.INT8, Byte.class,
                 IgniteCustomTypeSpec.getCastFunction(TestCustomType.class, "cast"));
 
-        private TestCustomType(boolean nullable) {
-            super(SPEC, nullable, -1);
-        }
-
         @Override
         public IgniteCustomType createWithNullability(boolean nullable) {
-            throw new AssertionError();
+            return new TestCustomType(nullable);
+        }
+
+        private TestCustomType(boolean nullable) {
+            super(SPEC, nullable, -1);
         }
 
         @Override
