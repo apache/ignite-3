@@ -180,6 +180,7 @@ Generated SQL can be retrieved with `ToQueryString` extension method, or by enab
 
 Bulk update and delete with optional conditions are supported via `ExecuteUpdateAsync` and `ExecuteDeleteAsync` extensions methods on `IQueryable<T>`
 
+
 ## Transactions
 
 All operations on data in Ignite are transactional. If a transaction is not specified, an explicit transaction is started and committed automatically.
@@ -194,6 +195,7 @@ await view.AsQueryable(tx).Where(p => p.Id > 0).ExecuteUpdateAsync(p => new Pers
 await tx.CommitAsync();
 ```
 
+
 ## Compute
 
 Compute API is used to execute distributed computations on the cluster. Compute jobs should be implemented in Java, deployed to server nodes, and called by the full class name. 
@@ -203,8 +205,28 @@ IList<IClusterNode> nodes = await client.GetClusterNodesAsync();
 string result = await client.Compute.ExecuteAsync<string>(nodes, "org.acme.tasks.MyTask", "Task argument 1", "Task argument 2");
 ```
 
+
+## Failover, Retry, Reconnect, Load Balancing
+
+Ignite client implements a number of features to improve reliability and performance:
+* When multiple endpoints are configured, the client will maintain connections to all of them, and load balance requests between them.
+* If a connection is lost, the client will try to reconnect, assuming it may be a temporary network issue or a node restart.
+* Periodic heartbeat messages are used to detect connection issues early.
+* If a user request fails due to a connection issue, the client will retry it automatically according to the configured `IgniteClientConfiguration.RetryPolicy`.
+
+
 ## Logging
+
+To enable logging, set `IgniteClientConfiguration.Logger` property. `ConsoleLogger` is provided out of the box. Other loggers can be integrated by implementing `IIgniteLogger` interface.
+
 
 ## Metrics
 
-## Failover, Retry, Reconnect, Load Balancing
+Ignite client exposes a number of metrics with `Apache.Ignite` meter name through the [System.Diagnostics.Metrics API](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/metrics-instrumentation) 
+that can be used to monitor system health and performance.
+
+For example, [dotnet-counters](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/dotnet-counters) tool can be used like this:
+
+```sh
+dotnet-counters monitor --counters Apache.Ignite,System.Runtime --process-id PID
+```
