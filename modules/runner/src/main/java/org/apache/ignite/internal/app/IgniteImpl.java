@@ -486,7 +486,7 @@ public class IgniteImpl implements Ignite {
                 topologyAwareRaftGroupServiceFactory
         );
 
-        indexManager = new IndexManager(tablesConfiguration, schemaManager, distributedTblMgr);
+        indexManager = new IndexManager(name, tablesConfiguration, schemaManager, distributedTblMgr, clusterSvc);
 
         catalogManager = new CatalogServiceImpl(metaStorageMgr);
 
