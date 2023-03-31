@@ -391,7 +391,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 topologyAwareRaftGroupServiceFactory
         );
 
-        var indexManager = new IndexManager(tablesConfiguration, schemaManager, tableManager);
+        var indexManager = new IndexManager(name, tablesConfiguration, schemaManager, tableManager, clusterSvc);
 
         CatalogManager catalogManager = new CatalogServiceImpl(metaStorageMgr);
 
