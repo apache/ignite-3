@@ -12,7 +12,7 @@
 * Built-in LINQ provider for strongly-typed SQL queries.
 * Integrates with [NodaTime](https://nodatime.org/) to provide precise mapping to Ignite date/time types.
 * Logging and metrics.
-* High performance and fully async network layer.
+* High performance and fully asynchronous.
 
 
 # Getting Started
