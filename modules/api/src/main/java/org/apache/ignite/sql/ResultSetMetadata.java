@@ -31,7 +31,7 @@ public interface ResultSetMetadata {
     List<ColumnMetadata> columns();
 
     /**
-     * Returns a column index for the column with a giveb name.
+     * Returns a column index for the column with a given name.
      *
      * @param columnName Name of the column whose index is being resolved.
      * @return Column index or {@code -1} if the specified column is not found.

@@ -30,7 +30,7 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * Tuple represents an arbitrary set of columns whose values are accessible by column name.
- * Column name arguments passed to the tuple methods must use  SQL-parser style notation; e.g.,
+ * Column name arguments passed to the tuple methods must use SQL-parser style notation; e.g.,
  * "myColumn" - column named "MYCOLUMN", "\"MyColumn\"" - "MyColumn", etc.
  *
  * <p>Provides a specialized method for some value-types to avoid boxing/unboxing.

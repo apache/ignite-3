@@ -36,7 +36,7 @@ public class IgnitionManager {
     private static Ignition ignition;
 
     /**
-     * Starts an Ignite node with an optional bootstrap configuration from an input stream with a HOCON configuration file.
+     * Starts an Ignite node with a bootstrap configuration from an input stream with a HOCON configuration file.
      *
      * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its
      * REST endpoint is functional).

@@ -298,7 +298,7 @@ public interface Session extends AutoCloseable {
     CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments);
 
     /**
-     * Returns a default query timeout.
+     * Returns a default query timeout. If a query takes more time than specified, it will be interrupted.
      *
      * @param timeUnit Timeunit to convert timeout to.
      * @return Default query timeout in the given timeunit.

@@ -117,7 +117,6 @@ public interface Mapper<T> {
 
         return builder(type).map(Objects.requireNonNull(fieldName), Objects.requireNonNull(columnName), fieldColumnPairs).build();
     }
-    //What does "@return Mapper ." above mean?
 
     /**
      * Adds a manual functional mapping for an object and a row represented by a tuple.

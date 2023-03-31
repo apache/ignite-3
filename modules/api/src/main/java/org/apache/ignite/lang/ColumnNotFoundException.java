@@ -40,6 +40,7 @@ public class ColumnNotFoundException extends IgniteException {
     /**
      * Creates an exception with a given column name.
      *
+     * @param schemaName Name of the schema the table belongs to.
      * @param columnName Column name.
      * @param tableName Table name.
      */

@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Provides methods to subscribe to query results in a reactive way.
  *
- * <p>Note: To be used with the acreactive framework, such as ProjectReactor or R2DBC.
+ * <p>Note: To be used with the reactive framework, such as ProjectReactor or R2DBC.
  *
  * @see ResultSet
  */

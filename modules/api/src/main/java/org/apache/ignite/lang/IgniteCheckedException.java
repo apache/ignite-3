@@ -74,7 +74,7 @@ public class IgniteCheckedException extends Exception {
     }
 
     /**
-     * Creates am exception with the given error code and detailed message.
+     * Creates an exception with the given error code and detailed message.
      *
      * @param code Full error code.
      * @param message Detailed message.
