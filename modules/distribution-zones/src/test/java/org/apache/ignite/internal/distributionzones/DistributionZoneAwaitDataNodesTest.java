@@ -1101,7 +1101,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
     }
 
     private void startZoneManager(long revision) throws Exception {
-        when(metaStorageManager.appliedRevision(any())).thenReturn(completedFuture(revision));
+        when(metaStorageManager.appliedRevision()).thenReturn(revision);
 
         distributionZoneManager.start();
 

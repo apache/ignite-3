@@ -56,25 +56,6 @@ public class DistributionZoneNotFoundException extends IgniteInternalException {
     }
 
     /**
-     * The constructor.
-     *
-     * @param zoneId Zone Id.
-     */
-    public DistributionZoneNotFoundException(int zoneId) {
-        this(zoneId, null);
-    }
-
-    /**
-     * The constructor.
-     *
-     * @param zoneId Zone Id.
-     * @param cause Optional nested exception (can be {@code null}).
-     */
-    public DistributionZoneNotFoundException(int zoneId, @Nullable Throwable cause) {
-        super(ZONE_NOT_FOUND_ERR, "Distribution zone is not found [zoneId=" + zoneId + ']', cause);
-    }
-
-    /**
      * The constructor is used for creating an exception instance that is thrown from a remote server.
      *
      * @param traceId Trace id.

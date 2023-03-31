@@ -54,7 +54,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -73,7 +72,6 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationChangeException;
@@ -312,8 +310,6 @@ public class DistributionZoneManager implements IgniteComponent {
             CompletableFuture<Void> fut = new CompletableFuture<>();
 
             zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
-                AtomicInteger zoneId = new AtomicInteger();
-
                 try {
                     zonesListChange.create(distributionZoneCfg.name(), zoneChange -> {
                         if (distributionZoneCfg.partitions() == null) {
@@ -351,11 +347,8 @@ public class DistributionZoneManager implements IgniteComponent {
                         zonesChange.changeGlobalIdCounter(intZoneId);
 
                         zoneChange.changeZoneId(intZoneId);
-
-                        zoneId.set(intZoneId);
                     });
                 } catch (ConfigurationNodeAlreadyExistException e) {
-
                     throw new DistributionZoneAlreadyExistsException(distributionZoneCfg.name(), e);
                 }
             })).whenComplete((res, e) -> {
