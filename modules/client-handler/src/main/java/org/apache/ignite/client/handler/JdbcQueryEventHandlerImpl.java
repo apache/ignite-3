@@ -60,6 +60,7 @@ import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -234,7 +235,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         try {
             connectionContext = resources.get(connectionId).get(JdbcConnectionContext.class);
         } catch (IgniteInternalCheckedException exception) {
-            return CompletableFuture.failedFuture(new IgniteInternalException("Connection is broken"));
+            return CompletableFuture.failedFuture(new IgniteInternalException(Client.CONNECTION_ERR));
         }
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connectionContext.doInSession(sessionId -> processor.querySingleAsync(
