@@ -20,7 +20,7 @@ package org.apache.ignite.sql;
 import org.apache.ignite.table.Tuple;
 
 /**
- * SQL row provides methods to access row data by column name or id.
+ * Provides methods to access row data by column name or ID.
  *
  * <p>Column description can be retrieved from {@link ResultSet#metadata()}.
  *
@@ -28,9 +28,9 @@ import org.apache.ignite.table.Tuple;
  */
 public interface SqlRow extends Tuple {
     /**
-     * Result set columns metadata.
+     * Result set columns' metadata.
      *
-     * @return Result set columns metadata.
+     * @return Result set columns' metadata.
      */
     ResultSetMetadata metadata();
 }

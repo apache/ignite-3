@@ -22,7 +22,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Simple mapper implementation that maps a whole object of the type {@link ObjectT} to a one column.
+ * Maps an entire object of the {@link ObjectT} type to a single column.
  *
  * @param <ObjectT> Target type.
  */

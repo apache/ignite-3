@@ -20,8 +20,8 @@ package org.apache.ignite.lang;
 import java.util.UUID;
 
 /**
- * Exception is thrown when failed to marshall or unmarshall value.
- * E.g. due to a value mismatch a schema or any other reason.
+ * This exception is caused by a failure to marshall or unmarshall a value.
+ *  The failure can be due to a value not matching the a schema or to another reason.
  */
 public class MarshallerException extends IgniteException {
     /**
