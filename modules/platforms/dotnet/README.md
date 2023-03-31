@@ -155,18 +155,9 @@ IQueryable<string> query = view.AsQueryable()
 List<string> names = await query.ToListAsync();
 ```
 
-Get generated SQL:
+Generated SQL can be retrieved with `ToQueryString` extension method, or by enabling debug logging.
 
-```cs
-string sql = query.ToQueryString();
-```
-
-Alternatively, enable debug logging to see all generated queries.
-
-### Bulk Update and Delete
-
-```cs
-```
+Bulk update and delete with optional conditions are supported via `ExecuteUpdateAsync` and `ExecuteDeleteAsync` extensions methods on `IQueryable<T>`
 
 ## Tables
 
