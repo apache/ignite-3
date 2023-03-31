@@ -1838,11 +1838,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private WatchListener createDistributionZonesDataNodesListener() {
         return new WatchListener() {
             @Override
-            public String id() {
-                return "dst-zones-data-nodes-watch";
-            }
-
-            @Override
             public CompletableFuture<Void> onUpdate(WatchEvent evt) {
                 if (!busyLock.enterBusy()) {
                     return failedFuture(new NodeStoppingException());
@@ -1921,11 +1916,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private WatchListener createPendingAssignmentsRebalanceListener() {
         return new WatchListener() {
-            @Override
-            public String id() {
-                return "pending-assignments-watch";
-            }
-
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent evt) {
                 if (!busyLock.enterBusy()) {
@@ -2157,11 +2147,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private WatchListener createStableAssignmentsRebalanceListener() {
         return new WatchListener() {
             @Override
-            public String id() {
-                return "stable-assignments-watch";
-            }
-
-            @Override
             public CompletableFuture<Void> onUpdate(WatchEvent evt) {
                 if (!busyLock.enterBusy()) {
                     return failedFuture(new NodeStoppingException());
@@ -2188,11 +2173,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private WatchListener createAssignmentsSwitchRebalanceListener() {
         return new WatchListener() {
-            @Override
-            public String id() {
-                return "assignments-switch-watch";
-            }
-
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent evt) {
                 if (!busyLock.enterBusy()) {
