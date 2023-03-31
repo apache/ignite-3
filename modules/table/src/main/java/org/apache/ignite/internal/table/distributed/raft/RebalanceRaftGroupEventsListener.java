@@ -269,7 +269,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                         REBALANCE_RETRY_THRESHOLD);
 
                 // TODO: currently we just retry intent to change peers according to the rebalance infinitely, until new leader is elected,
-                // TODO: but rebalance cancel mechanism should be implemented. https://issues.apache.org/jira/browse/IGNITE-17056
+                // TODO: but rebalance cancel mechanism should be implemented. https://issues.apache.org/jira/browse/IGNITE-19087
                 scheduleChangePeers(configuration, term);
             }
         } finally {

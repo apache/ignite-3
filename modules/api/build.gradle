@@ -35,6 +35,7 @@ dependencies {
     testFixturesImplementation testFixtures(project(":ignite-core"))
     testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.micronaut.junit5
+    testFixturesImplementation libs.jetbrains.annotations
 }
 
 description = 'ignite-api'

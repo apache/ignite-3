@@ -135,9 +135,7 @@ public class DdlSqlToCommandConverter {
         this.dataStorageNames = collectDataStorageNames(dataStorageFields.keySet());
 
         this.tableOptionInfos = Map.of(
-                "PRIMARY_ZONE", new DdlOptionInfo<>(String.class, null, CreateTableCommand::zone),
-                REPLICAS.name(), new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateTableCommand::replicas),
-                PARTITIONS.name(), new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateTableCommand::partitions)
+                "PRIMARY_ZONE", new DdlOptionInfo<>(String.class, null, CreateTableCommand::zone)
         );
 
         this.dataStorageOptionInfos = dataStorageFields.entrySet()
@@ -345,6 +343,10 @@ public class DdlSqlToCommandConverter {
             dedupSetPk.remove(name);
 
             DefaultValueDefinition dflt = convertDefault(col.expression, relType);
+            if (dflt.type() == DefaultValueDefinition.Type.FUNCTION_CALL && !pkCols.contains(name)) {
+                throw new SqlException(QUERY_INVALID_ERR,
+                        "Functional defaults are not supported for non-primary key columns [col=" + name + "]");
+            }
 
             cols.add(new ColumnDefinition(name, relType, dflt));
         }

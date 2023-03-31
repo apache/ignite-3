@@ -106,14 +106,12 @@ public class PartitionListener implements RaftGroupListener {
         this.storageIndexTracker = storageIndexTracker;
 
         // TODO: IGNITE-18502 Implement a pending update storage
-        try (PartitionTimestampCursor cursor = partitionDataStorage.getStorage().scan(HybridTimestamp.MAX_VALUE)) {
-            if (cursor != null) {
-                while (cursor.hasNext()) {
-                    ReadResult readResult = cursor.next();
+        try (PartitionTimestampCursor cursor = partitionDataStorage.scan(HybridTimestamp.MAX_VALUE)) {
+            while (cursor.hasNext()) {
+                ReadResult readResult = cursor.next();
 
-                    if (readResult.isWriteIntent()) {
-                        txsPendingRowIds.computeIfAbsent(readResult.transactionId(), key -> new HashSet()).add(readResult.rowId());
-                    }
+                if (readResult.isWriteIntent()) {
+                    txsPendingRowIds.computeIfAbsent(readResult.transactionId(), key -> new HashSet<>()).add(readResult.rowId());
                 }
             }
         }
@@ -203,18 +201,6 @@ public class PartitionListener implements RaftGroupListener {
             return;
         }
 
-        TxMeta txMeta = txStateStorage.get(cmd.txId());
-
-        if (txMeta != null && (txMeta.txState() == COMMITED || txMeta.txState() == ABORTED)) {
-            storage.runConsistently(() -> {
-                storage.lastApplied(commandIndex, commandTerm);
-
-                return null;
-            });
-
-            return;
-        }
-
         storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.rowBuffer(),
                 rowId -> {
                     txsPendingRowIds.computeIfAbsent(cmd.txId(), entry -> new HashSet<>()).add(rowId);
@@ -235,15 +221,6 @@ public class PartitionListener implements RaftGroupListener {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return;
-        }
-
-        TxMeta txMeta = txStateStorage.get(cmd.txId());
-        if (txMeta != null && (txMeta.txState() == COMMITED || txMeta.txState() == ABORTED)) {
-            storage.runConsistently(() -> {
-                storage.lastApplied(commandIndex, commandTerm);
-
-                return null;
-            });
         }
 
         storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), rowIds -> {

@@ -1610,7 +1610,7 @@ public class DistributionZoneManagerScaleUpTest {
     }
 
     private void mockVaultAppliedRevision(long revision) {
-        when(metaStorageManager.appliedRevision(any())).thenReturn(completedFuture(revision));
+        when(metaStorageManager.appliedRevision()).thenReturn(revision);
     }
 
     private void watchListenerOnUpdate(Set<String> nodes, long rev) {

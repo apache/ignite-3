@@ -152,19 +152,11 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
      * MetaStorage event listener for catalog metadata updates.
      */
     private static class CatalogEventListener implements WatchListener {
-        /** {@inheritDoc} */
-        @Override
-        public String id() {
-            return "catalog-history-watch";
-        }
-
-        /** {@inheritDoc} */
         @Override
         public CompletableFuture<Void> onUpdate(WatchEvent event) {
             return completedFuture(null);
         }
 
-        /** {@inheritDoc} */
         @Override
         public void onError(Throwable e) {
             LOG.warn("Unable to process catalog update event", e);

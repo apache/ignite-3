@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.emptyMap;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -32,7 +33,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
@@ -358,5 +363,30 @@ public class DistributionZonesUtil {
         } else {
             return INITIAL_TRIGGER_REVISION_VALUE;
         }
+    }
+
+    /**
+     * Finds a zone configuration from zones configuration by its id.
+     *
+     * @param dstZnsCfg Distribution zones config.
+     * @param zoneId Id of zone.
+     * @return Zone configuration with appropriate zone id.
+     */
+    public static DistributionZoneConfiguration getZoneById(DistributionZonesConfiguration dstZnsCfg, int zoneId) {
+        if (zoneId == DEFAULT_ZONE_ID) {
+            return dstZnsCfg.defaultDistributionZone();
+        }
+
+        for (UUID id : dstZnsCfg.distributionZones().internalIds()) {
+            DistributionZoneConfiguration distributionZoneConfiguration = dstZnsCfg.distributionZones().get(id);
+
+            assert distributionZoneConfiguration != null;
+
+            if (distributionZoneConfiguration.zoneId().value().equals(zoneId)) {
+                return distributionZoneConfiguration;
+            }
+        }
+
+        throw new DistributionZoneNotFoundException(zoneId);
     }
 }

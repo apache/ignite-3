@@ -349,7 +349,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     }
 
     private void mockVaultAppliedRevision(long revision) {
-        when(metaStorageManager.appliedRevision(any())).thenReturn(completedFuture(revision));
+        when(metaStorageManager.appliedRevision()).thenReturn(revision);
     }
 
     private void mockCmgLocalNodes() {

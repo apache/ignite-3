@@ -71,11 +71,6 @@ public class RocksDbKeyValueStorageTest extends AbstractKeyValueStorageTest {
 
         storage.watchExact("foo".getBytes(UTF_8), 1, new WatchListener() {
             @Override
-            public String id() {
-                return "test1";
-            }
-
-            @Override
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
                 assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(UTF_8)));
 
@@ -92,11 +87,6 @@ public class RocksDbKeyValueStorageTest extends AbstractKeyValueStorageTest {
 
         storage.watchExact("baz".getBytes(UTF_8), 1, new WatchListener() {
             @Override
-            public String id() {
-                return "test2";
-            }
-
-            @Override
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
                 assertThat(event.entryEvent().newEntry().value(), is("quux".getBytes(UTF_8)));
 
@@ -111,7 +101,7 @@ public class RocksDbKeyValueStorageTest extends AbstractKeyValueStorageTest {
             }
         });
 
-        storage.startWatches((revision, updatedEntries) -> CompletableFuture.completedFuture(null));
+        storage.startWatches(event -> CompletableFuture.completedFuture(null));
 
         storage.restoreSnapshot(snapshotPath);
 

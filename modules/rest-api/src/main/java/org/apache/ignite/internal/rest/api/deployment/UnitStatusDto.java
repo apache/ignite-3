@@ -21,15 +21,11 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import org.apache.ignite.deployment.UnitStatus;
-import org.apache.ignite.deployment.version.Version;
 
 /**
- * DTO of {@link UnitStatus}.
+ * DTO of unit status.
  */
 @Schema(name = "UnitStatus", description = "Unit status.")
 public class UnitStatusDto {
@@ -70,21 +66,4 @@ public class UnitStatusDto {
     public Map<String, List<String>> versionToConsistentIds() {
         return versionToConsistentIds;
     }
-
-
-    /**
-     * Mapper method.
-     *
-     * @param status Unit status.
-     * @return Unit status DTO.
-     */
-    public static UnitStatusDto fromUnitStatus(UnitStatus status) {
-        Map<String, List<String>> versionToConsistentIds = new HashMap<>();
-        Set<Version> versions = status.versions();
-        for (Version version : versions) {
-            versionToConsistentIds.put(version.render(), status.consistentIds(version));
-        }
-        return new UnitStatusDto(status.id(), versionToConsistentIds);
-    }
-
 }
