@@ -21,7 +21,6 @@ import static java.sql.ResultSet.CLOSE_CURSORS_AT_COMMIT;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
 import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
-import static java.util.Arrays.asList;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CLIENT_CONNECTION_FAILED;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CONNECTION_CLOSED;
 
@@ -46,8 +45,6 @@ import java.sql.Struct;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.IdentityHashMap;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
@@ -60,13 +57,9 @@ import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcPrimaryKeyMeta;
+import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -365,10 +358,16 @@ public class JdbcConnection implements Connection {
         finishTx(false);
     }
 
+    /**
+     * Finish transaction.
+     * 
+     * @param commit {@code True} to commit, {@code false} to rollback.
+     * @throws SQLException If failed.
+     */
     private void finishTx(boolean commit) throws SQLException {
-        JdbcFinishTxResult res = handler().finishTx(new JdbcFinishTxRequest(connectionId, commit)).join();
+        JdbcFinishTxResult res = handler().finishTx(connectionId, commit).join();
 
-        if (!res.hasResults()) {
+        if (res.status() != Response.STATUS_SUCCESS) {
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
         }
     }

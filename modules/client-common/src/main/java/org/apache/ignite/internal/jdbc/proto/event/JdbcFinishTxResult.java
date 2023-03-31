@@ -18,14 +18,14 @@
 package org.apache.ignite.internal.jdbc.proto.event;
 
 /**
- * 
+ * Result of commit/rollback command.
  */
 public class JdbcFinishTxResult extends Response {
     /**
      * Default constructor is used for deserialization.
      */
     public JdbcFinishTxResult() {
-        hasResults = true;
+        // No-op.
     }
 
     /**

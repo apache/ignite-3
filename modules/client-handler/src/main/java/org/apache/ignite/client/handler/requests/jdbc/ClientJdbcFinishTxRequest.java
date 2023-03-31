@@ -21,8 +21,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesRequest;
 
 /**
  * Client jdbc table metadata request handler.
@@ -41,10 +39,6 @@ public class ClientJdbcFinishTxRequest {
             ClientMessagePacker out,
             JdbcQueryEventHandler handler
     ) {
-        var req = new JdbcFinishTxRequest();
-
-        req.readBinary(in);
-        
-        return handler.finishTx(req).thenAccept(res -> res.writeBinary(out));
+        return handler.finishTx(in.unpackLong(), in.unpackBoolean()).thenAccept(res -> res.writeBinary(out));
     }
 }

@@ -38,7 +38,6 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
@@ -299,22 +298,24 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         return meta.getPrimaryKeys(req.schemaName(), req.tableName()).thenApply(JdbcMetaPrimaryKeysResult::new);
     }
 
+    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcFinishTxResult> finishTx(JdbcFinishTxRequest req) {
+    public CompletableFuture<JdbcFinishTxResult> finishTx(long connectionId, boolean commit) {
         JdbcConnectionContext connectionContext;
 
         try {
-            connectionContext = resources.get(req.connectionId()).get(JdbcConnectionContext.class);
+            connectionContext = resources.get(connectionId).get(JdbcConnectionContext.class);
         } catch (IgniteInternalCheckedException exception) {
-            return CompletableFuture.completedFuture(new JdbcFinishTxResult(Response.STATUS_FAILED,
-                    "Connection is broken"));
+            return CompletableFuture.completedFuture(new JdbcFinishTxResult(Response.STATUS_FAILED, "Connection is broken"));
         }
 
-        connectionContext.finishTx(req.commit());
-
-        JdbcFinishTxResult txFinishResult = new JdbcFinishTxResult();
-
-        return CompletableFuture.completedFuture(txFinishResult);
+        return connectionContext.finishTransactionAsync(commit).handle((ignored, t) -> {
+            if (t != null) {
+                return new JdbcFinishTxResult(Response.STATUS_FAILED, t.getMessage());
+            }
+            
+            return new JdbcFinishTxResult();
+        });
     }
 
     /**
@@ -423,7 +424,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         void close() {
             synchronized (mux) {
-                finishTx(false);
+                finishTransactionAsync(false);
                 
                 SessionId sessionId = this.sessionId;
 
@@ -488,19 +489,15 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             return tx0;
         }
         
-        private void finishTx(boolean commit) {
+        private CompletableFuture<Void> finishTransactionAsync(boolean commit) {
             Transaction tx0 = tx;
 
             tx = null;
             
             if (tx0 == null)
-                return;
+                return CompletableFuture.completedFuture(null);
 
-            if (commit) {
-                tx0.commit();
-            } else {
-                tx0.rollback();
-            }
+            return commit ? tx0.commitAsync() : tx0.rollbackAsync();
         }
 
         private static boolean sessionExpiredError(Throwable throwable) {

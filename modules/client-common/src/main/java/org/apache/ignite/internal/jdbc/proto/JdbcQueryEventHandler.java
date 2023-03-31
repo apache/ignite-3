@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.jdbc.proto;
 
+import java.sql.Connection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
@@ -105,6 +105,12 @@ public interface JdbcQueryEventHandler {
      */
     CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMetaAsync(JdbcMetaPrimaryKeysRequest req);
 
-    // todo
-    CompletableFuture<JdbcFinishTxResult> finishTx(JdbcFinishTxRequest req);
+    /**
+     * Commit/rollback a transaction when {@link Connection#setAutoCommit(boolean)} autocommit} is disabled.  
+     * 
+     * @param connectionId An identifier of the connection on a server.
+     * @param commit {@code True} to commit, {@code false} to rollback.
+     * @return Result future.
+     */
+    CompletableFuture<JdbcFinishTxResult> finishTx(long connectionId, boolean commit);
 }
