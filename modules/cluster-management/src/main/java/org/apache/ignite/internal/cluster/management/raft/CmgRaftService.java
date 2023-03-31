@@ -180,10 +180,6 @@ public class CmgRaftService implements ManuallyCloseable {
                 });
     }
 
-    public CompletableFuture<Void> completeJoinCluster() {
-        return completeJoinCluster(null);
-    }
-
     /**
      * Removes given nodes from the local topology. Should be called by the CMG leader.
      *

@@ -37,7 +37,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Implementation of {@link LogicalTopology}.
@@ -82,7 +81,7 @@ public class LogicalTopologyImpl implements LogicalTopology {
         LogicalTopologySnapshot snapshot = readLogicalTopology();
 
         Map<String, LogicalNode> mapByName = snapshot.nodes().stream()
-                .collect(toMap(ClusterNode::name, identity()));
+                .collect(toMap(LogicalNode::name, identity()));
 
         Runnable fireRemovalTask = null;
 
@@ -124,11 +123,11 @@ public class LogicalTopologyImpl implements LogicalTopology {
         LogicalTopologySnapshot snapshot = readLogicalTopology();
 
         Map<String, LogicalNode> mapById = snapshot.nodes().stream()
-                .collect(toMap(ClusterNode::id, identity()));
+                .collect(toMap(LogicalNode::id, identity()));
 
         // Removing in a well-defined order to make sure that a command produces an identical sequence of events in each CMG listener.
         List<LogicalNode> sortedNodesToRemove = nodesToRemove.stream()
-                .sorted(comparing(ClusterNode::id))
+                .sorted(comparing(LogicalNode::id))
                 .collect(toList());
 
         List<Runnable> fireTasks = new ArrayList<>();

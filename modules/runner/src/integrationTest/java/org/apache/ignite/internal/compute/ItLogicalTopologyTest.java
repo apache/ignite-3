@@ -24,8 +24,12 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -52,7 +56,9 @@ import org.junit.jupiter.api.TestInfo;
 class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     private final BlockingQueue<Event> events = new LinkedBlockingQueue<>();
 
-    private static final String NODE_ATTRIBUTES = "{region:{attribute:'US'},storage:{attribute:'SSD'}}";
+    private static final String NODE_ATTRIBUTES = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
+
+    private static final Map<String, String> NODE_ATTRIBUTES_MAP = Map.of("region", "US", "storage", "SSD");
 
     @Language("JSON")
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES = "{\n"
@@ -151,7 +157,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertThat(event, is(notNullValue()));
         assertThat(event.eventType, is(EventType.VALIDATED));
         assertThat(event.node.name(), is(secondIgnite.name()));
-        assertThat(event.node.nodeAttributes(), is(NODE_ATTRIBUTES));
+        assertThat(event.node.nodeAttributes(), is(NODE_ATTRIBUTES_MAP));
 
         event = events.poll(10, TimeUnit.SECONDS);
 
@@ -159,7 +165,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertThat(event.eventType, is(EventType.JOINED));
         assertThat(event.node.name(), is(secondIgnite.name()));
         assertThat(event.topologyVersion, is(2L));
-        assertThat(event.node.nodeAttributes(), is(NODE_ATTRIBUTES));
+        assertThat(event.node.nodeAttributes(), is(NODE_ATTRIBUTES_MAP));
 
         assertThat(events, is(empty()));
 
@@ -172,7 +178,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertThat(event.eventType, is(EventType.LEFT));
         assertThat(event.node.name(), is(secondIgnite.name()));
         assertThat(event.topologyVersion, is(3L));
-        assertThat(event.node.nodeAttributes(), is(""));
+        assertThat(event.node.nodeAttributes(), is(Collections.emptyMap()));
 
         assertThat(events, is(empty()));
     }

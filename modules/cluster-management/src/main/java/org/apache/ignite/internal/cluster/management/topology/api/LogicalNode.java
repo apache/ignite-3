@@ -40,24 +40,6 @@ public class LogicalNode extends ClusterNode {
     public LogicalNode(
             String id,
             String name,
-            NetworkAddress address,
-            Map<String, String> nodeAttributes
-    ) {
-        super(id, name, address);
-
-        this.nodeAttributes = nodeAttributes;
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param id      Local id that changes between restarts.
-     * @param name    Unique name of a member in a cluster.
-     * @param address Node address.
-     */
-    public LogicalNode(
-            String id,
-            String name,
             NetworkAddress address
     ) {
         super(id, name, address);
@@ -68,7 +50,7 @@ public class LogicalNode extends ClusterNode {
     /**
      * Constructor.
      *
-     * @param clusterNode    Represents a node in a cluster..
+     * @param clusterNode    Represents a node in a cluster.
      * @param nodeAttributes Node attributes.
      */
     public LogicalNode(ClusterNode clusterNode, Map<String, String> nodeAttributes) {
@@ -80,7 +62,7 @@ public class LogicalNode extends ClusterNode {
     /**
      * Constructor.
      *
-     * @param clusterNode    Represents a node in a cluster..
+     * @param clusterNode    Represents a node in a cluster.
      */
     public LogicalNode(ClusterNode clusterNode) {
         super(clusterNode.id(), clusterNode.name(), clusterNode.address(), clusterNode.nodeMetadata());

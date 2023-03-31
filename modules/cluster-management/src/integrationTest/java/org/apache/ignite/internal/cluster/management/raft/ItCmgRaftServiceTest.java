@@ -231,7 +231,7 @@ public class ItCmgRaftServiceTest {
         assertThat(node1.logicalTopologyNodes(), willBe(empty()));
         assertThat(node1.validatedNodes(), will(contains(clusterNode1)));
 
-        assertThat(node1.raftService.completeJoinCluster(), willCompleteSuccessfully());
+        assertThat(node1.raftService.completeJoinCluster(Collections.emptyMap()), willCompleteSuccessfully());
 
         assertThat(node1.logicalTopologyNodes(), will(contains(clusterNode1)));
         assertThat(node1.validatedNodes(), will(contains(clusterNode1)));
@@ -241,7 +241,7 @@ public class ItCmgRaftServiceTest {
         assertThat(node1.logicalTopologyNodes(), willBe(contains(clusterNode1)));
         assertThat(node1.validatedNodes(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
 
-        assertThat(node2.raftService.completeJoinCluster(), willCompleteSuccessfully());
+        assertThat(node2.raftService.completeJoinCluster(Collections.emptyMap()), willCompleteSuccessfully());
 
         assertThat(node1.logicalTopologyNodes(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
         assertThat(node1.validatedNodes(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
@@ -259,7 +259,7 @@ public class ItCmgRaftServiceTest {
 
     private static CompletableFuture<Void> joinCluster(Node node, ClusterTag clusterTag) {
         return node.raftService.startJoinCluster(clusterTag, Collections.emptyMap())
-                .thenCompose(v -> node.raftService.completeJoinCluster());
+                .thenCompose(v -> node.raftService.completeJoinCluster(Collections.emptyMap()));
     }
 
     /**
@@ -447,7 +447,7 @@ public class ItCmgRaftServiceTest {
         );
 
         assertThrowsWithCause(
-                () -> raftService.completeJoinCluster().get(10, TimeUnit.SECONDS),
+                () -> raftService.completeJoinCluster(Collections.emptyMap()).get(10, TimeUnit.SECONDS),
                 IgniteInternalException.class,
                 errMsg
         );
@@ -455,7 +455,7 @@ public class ItCmgRaftServiceTest {
         assertThat(raftService.startJoinCluster(state.clusterTag(), Collections.emptyMap()), willCompleteSuccessfully());
 
         // Everything is ok after the node has passed validation.
-        assertThat(raftService.completeJoinCluster(), willCompleteSuccessfully());
+        assertThat(raftService.completeJoinCluster(Collections.emptyMap()), willCompleteSuccessfully());
     }
 
     /**
@@ -574,10 +574,10 @@ public class ItCmgRaftServiceTest {
 
         assertThat(service.startJoinCluster(state.clusterTag(), Collections.emptyMap()), willCompleteSuccessfully());
 
-        assertThat(service.completeJoinCluster(), willCompleteSuccessfully());
+        assertThat(service.completeJoinCluster(Collections.emptyMap()), willCompleteSuccessfully());
 
-        assertThat(service.completeJoinCluster(), willCompleteSuccessfully());
+        assertThat(service.completeJoinCluster(Collections.emptyMap()), willCompleteSuccessfully());
 
-        assertThat(service.completeJoinCluster(), willCompleteSuccessfully());
+        assertThat(service.completeJoinCluster(Collections.emptyMap()), willCompleteSuccessfully());
     }
 }

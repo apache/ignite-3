@@ -180,10 +180,8 @@ public class DistributionZonesTestUtil {
      * @param keyValueStorage Key-value storage.
      * @throws InterruptedException If thread was interrupted.
      */
-    public static void assertLogicalTopologyWithNodeNames(
-            @Nullable Set<String> clusterNodes,
-            KeyValueStorage keyValueStorage
-    ) throws InterruptedException {
+    public static void assertLogicalTopologyWithNodeNames(@Nullable Set<String> clusterNodes, KeyValueStorage keyValueStorage)
+            throws InterruptedException {
         byte[] nodes = clusterNodes == null ? null : toBytes(clusterNodes);
 
         assertTrue(waitForCondition(() -> Arrays.equals(keyValueStorage.get(zonesLogicalTopologyKey().bytes()).value(), nodes), 1000));
