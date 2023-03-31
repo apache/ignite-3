@@ -244,6 +244,8 @@ internal static class ResultSelector
         {
             il.Emit(OpCodes.Dup);
             var member = membersInitiated[memberIndex];
+
+            // TODO: fields, init only properties, collection initialization? (inline and for properties)
             if (member is PropertyInfo {SetMethod: {}} pi)
             {
                 EmitReadToStack(il, columns[columnsIndex], pi.PropertyType, columnsIndex, options);
