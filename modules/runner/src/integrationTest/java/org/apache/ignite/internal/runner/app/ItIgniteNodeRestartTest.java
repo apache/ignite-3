@@ -36,8 +36,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
 import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.Set;
@@ -776,22 +779,39 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     public void changeNodeAttributesConfigurationOnStartTest() {
         IgniteImpl ignite = startNode(0);
 
-        String nodeAttributes = ignite.nodeConfiguration().getConfiguration(NodeAttributesConfiguration.KEY).nodeAttributes().value()
-                .toString();
+        Map<String, String> attributes = new HashMap<>();
 
-        assertEquals("", nodeAttributes);
+        NodeAttributesConfiguration attributesConfiguration = ignite.nodeConfiguration().getConfiguration(NodeAttributesConfiguration.KEY);
+
+        attributesConfiguration.nodeAttributes().value().namedListKeys().forEach(
+                key -> attributes.put(key, attributesConfiguration.nodeAttributes().get(key).attribute().value())
+        );
+
+        assertEquals(Collections.emptyMap(), attributes);
 
         stopNode(0);
 
-        String newNodeAttributes = "{nodeName:'node1',region:'EU',storage:'SSD',dataRegion:10}";
+        String newAttributesCfg = "{\n"
+                + "      region.attribute = \"US\"\n"
+                + "      storage.attribute = \"SSD\"\n"
+                + "}";
 
-        String updateCfg = "nodeAttributes.nodeAttributes=\"" + newNodeAttributes + "\"";
+        Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD");
+
+        String updateCfg = "nodeAttributes.nodeAttributes=" + newAttributesCfg;
 
         ignite = startNode(0, updateCfg);
 
-        nodeAttributes = ignite.nodeConfiguration().getConfiguration(NodeAttributesConfiguration.KEY).nodeAttributes().value().toString();
+        NodeAttributesConfiguration newAttributesConfiguration =
+                ignite.nodeConfiguration().getConfiguration(NodeAttributesConfiguration.KEY);
 
-        assertEquals(newNodeAttributes, nodeAttributes);
+        Map<String, String> newAttributes = new HashMap<>();
+
+        newAttributesConfiguration.nodeAttributes().value().namedListKeys().forEach(
+                key -> newAttributes.put(key, newAttributesConfiguration.nodeAttributes().get(key).attribute().value())
+        );
+
+        assertEquals(newAttributesMap, newAttributes);
     }
 
     /**
