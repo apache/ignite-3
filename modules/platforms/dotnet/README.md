@@ -53,3 +53,31 @@ string generatedSql = query.ToQueryString();
 IList<IClusterNode> nodes = await client.GetClusterNodesAsync();
 int wordCount = await client.Compute.ExecuteAsync<int>(nodes, "org.foo.bar.WordCountTask", "Hello, world!");
 ```
+
+# API Walkthrough
+
+## Configuration
+
+## Tables
+
+## RecordView
+
+## KeyValueView
+
+## User Type Mapping
+
+## Transactions
+
+TODO RW, RO
+
+## SQL
+
+## LINQ
+
+## Compute
+
+## Logging
+
+## Metrics
+
+## Failover, Retry, Reconnect, Load Balancing
