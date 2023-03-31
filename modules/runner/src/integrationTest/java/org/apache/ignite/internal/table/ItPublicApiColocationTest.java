@@ -58,7 +58,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
-    /** Rows count ot test. */
+    /** Rows count at test. */
     private static final int ROWS = 10;
 
     private static final Set<NativeTypeSpec> EXCLUDED_TYPES = Stream.of(

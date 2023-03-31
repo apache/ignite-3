@@ -357,7 +357,7 @@ public class TypeUtils {
             case TIMESTAMP:
                 return ColumnType.TIMESTAMP;
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return ColumnType.DATETIME;
+                return ColumnType.TIMESTAMP;
             case BIGINT:
                 return ColumnType.INT64;
             case SMALLINT:
@@ -490,7 +490,7 @@ public class TypeUtils {
 
                 var dt = (TemporalNativeType) nativeType;
 
-                return factory.createSqlType(SqlTypeName.TIMESTAMP, dt.precision());
+                return factory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, dt.precision());
             default:
                 throw new IllegalStateException("Unexpected native type " + nativeType);
         }

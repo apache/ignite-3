@@ -39,11 +39,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.GregorianCalendar;
-import java.util.TimeZone;
 import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
 import org.junit.jupiter.api.BeforeAll;
@@ -560,15 +556,9 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
 
         assertTrue(rs.next());
 
-        Instant localEpoch = ZonedDateTime.of(LocalDate.EPOCH, LocalTime.MIDNIGHT, ZoneId.systemDefault()).toInstant();
+        Instant localEpoch = Instant.parse("1970-01-01T00:00:00Z");
 
-        TimeZone timeZone = TimeZone.getDefault();
-        int off = timeZone.getOffset(System.currentTimeMillis());
-        localEpoch = localEpoch.plusMillis(off);
-
-        Instant localEpochInst = localEpoch.atZone(ZoneId.systemDefault()).toInstant();
-
-        assertEquals(Timestamp.from(localEpochInst), rs.getTimestamp("tsVal"));
+        assertEquals(localEpoch, rs.getTimestamp("tsVal").toInstant());
         assertEquals(Date.from(localEpoch), rs.getDate(14));
         assertEquals(Time.from(localEpoch), rs.getTime(14));
         assertEquals(Timestamp.from(localEpoch), rs.getTimestamp(14));
