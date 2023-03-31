@@ -17,12 +17,30 @@
 
 namespace Apache.Ignite.Benchmarks;
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
+using Ignite.Sql;
+using Ignite.Table;
 
 internal static class Program
 {
     private static async Task Main()
     {
         await ManyConnectionsBenchmark.RunAsync();
+
+        using var client = await IgniteClient.StartAsync(new("localhost"));
+
+        ITable? table = await client.Tables.GetTableAsync("Person");
+        IRecordView<Person> view = table!.GetRecordView<Person>();
+
+        IQueryable<string> query = view.AsQueryable()
+            .Where(p => p.Id > 100)
+            .Select(p => p.Name);
+
+        List<string> names = await query.ToListAsync();
     }
+
+    public record Person(int Id, string Name);
 }

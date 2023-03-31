@@ -141,6 +141,33 @@ dataGridView1.DataSource = dt;
 
 ## LINQ
 
+Data can be queried and modified with LINQ using `AsQueryable` method. 
+LINQ expressions are translated to SQL queries and executed on the server. 
+
+```cs
+ITable? table = await client.Tables.GetTableAsync("Person");
+IRecordView<Person> view = table!.GetRecordView<Person>();
+
+IQueryable<string> query = view.AsQueryable()
+    .Where(p => p.Id > 100)
+    .Select(p => p.Name);
+
+List<string> names = await query.ToListAsync();
+```
+
+Get generated SQL:
+
+```cs
+string sql = query.ToQueryString();
+```
+
+Alternatively, enable debug logging to see all generated queries.
+
+### Bulk Update and Delete
+
+```cs
+```
+
 ## Tables
 
 ## RecordView
