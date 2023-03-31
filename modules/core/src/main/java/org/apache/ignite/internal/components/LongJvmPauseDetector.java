@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tostring.S;
@@ -39,6 +40,8 @@ import org.jetbrains.annotations.Nullable;
  * accordingly.
  */
 public class LongJvmPauseDetector implements IgniteComponent {
+    private static final IgniteLogger LOG = Loggers.forClass(LongJvmPauseDetector.class);
+
     /** Ignite JVM pause detector threshold default value. */
     public static final int DEFAULT_JVM_PAUSE_DETECTOR_THRESHOLD = 500;
 
@@ -81,18 +84,15 @@ public class LongJvmPauseDetector implements IgniteComponent {
 
     private final String nodeName;
 
-    private final IgniteLogger log;
-
-    public LongJvmPauseDetector(String nodeName, IgniteLogger log) {
+    public LongJvmPauseDetector(String nodeName) {
         this.nodeName = nodeName;
-        this.log = log;
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
         if (DISABLED) {
-            log.debug("JVM Pause Detector is disabled");
+            LOG.debug("JVM Pause Detector is disabled");
 
             return;
         }
@@ -105,7 +105,7 @@ public class LongJvmPauseDetector implements IgniteComponent {
                     lastWakeUpTime = System.currentTimeMillis();
                 }
 
-                log.debug("Detector worker has been started [thread={}]", getName());
+                LOG.debug("Detector worker has been started [thread={}]", getName());
 
                 while (true) {
                     try {
@@ -115,7 +115,7 @@ public class LongJvmPauseDetector implements IgniteComponent {
                         final long pause = now - PRECISION - lastWakeUpTime;
 
                         if (pause >= threshold) {
-                            log.warn("Possible too long JVM pause [duration={}ms]", pause);
+                            LOG.warn("Possible too long JVM pause [duration={}ms]", pause);
 
                             synchronized (LongJvmPauseDetector.this) {
                                 final int next = (int) (longPausesCnt % EVT_CNT);
@@ -137,9 +137,9 @@ public class LongJvmPauseDetector implements IgniteComponent {
                         }
                     } catch (InterruptedException e) {
                         if (workerRef.compareAndSet(this, null)) {
-                            log.debug("Thread has been interrupted [thread={}]", e, getName());
+                            LOG.debug("Thread has been interrupted [thread={}]", e, getName());
                         } else {
-                            log.debug("Thread has been stopped [thread={}]", getName());
+                            LOG.debug("Thread has been stopped [thread={}]", getName());
                         }
 
                         break;
@@ -149,7 +149,7 @@ public class LongJvmPauseDetector implements IgniteComponent {
         };
 
         if (!workerRef.compareAndSet(null, worker)) {
-            log.debug("{} already started", LongJvmPauseDetector.class.getSimpleName());
+            LOG.debug("{} already started", LongJvmPauseDetector.class.getSimpleName());
 
             return;
         }
@@ -157,7 +157,7 @@ public class LongJvmPauseDetector implements IgniteComponent {
         worker.setDaemon(true);
         worker.start();
 
-        log.debug("{} was successfully started", LongJvmPauseDetector.class.getSimpleName());
+        LOG.debug("{} was successfully started", LongJvmPauseDetector.class.getSimpleName());
     }
 
     /** {@inheritDoc} */
