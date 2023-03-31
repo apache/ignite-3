@@ -17,7 +17,7 @@
 
 # Getting Started
 
-Below are a few examples of basic API usage to get you started: 
+Below are a few examples of basic usage to get you started: 
 
 ```cs
 // Connect to the cluster.
@@ -57,6 +57,32 @@ int wordCount = await client.Compute.ExecuteAsync<int>(nodes, "org.foo.bar.WordC
 # API Walkthrough
 
 ## Configuration
+
+`IgniteClientConfiguration` is used to configure connections properties (endpoints, SSL), retry policy, logging, and timeouts. 
+
+```cs
+var cfg = new IgniteClientConfiguration
+{
+    // Connect to multiple servers.
+    Endpoints = { "server1:10800", "server2:10801" },
+
+    // Enable TLS.
+    SslStreamFactory = new SslStreamFactory
+    {
+        SslClientAuthenticationOptions = new SslClientAuthenticationOptions
+        {
+            // Allow self-signed certificates.
+            RemoteCertificateValidationCallback = (sender, certificate, chain, errors) => true
+        }
+    },    
+        
+    // Retry all read operations in case of network issues.
+    RetryPolicy = new RetryReadPolicy { RetryLimit = 32 },
+
+    // Log to console.
+    Logger = new ConsoleLogger { MinLevel = LogLevel.Debug }
+};
+```
 
 ## Tables
 
