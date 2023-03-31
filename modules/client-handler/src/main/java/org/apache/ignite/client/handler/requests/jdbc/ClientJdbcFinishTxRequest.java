@@ -39,6 +39,6 @@ public class ClientJdbcFinishTxRequest {
             ClientMessagePacker out,
             JdbcQueryEventHandler handler
     ) {
-        return handler.finishTx(in.unpackLong(), in.unpackBoolean()).thenAccept(res -> res.writeBinary(out));
+        return handler.finishTxAsync(in.unpackLong(), in.unpackBoolean()).thenAccept(res -> res.writeBinary(out));
     }
 }

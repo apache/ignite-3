@@ -300,7 +300,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcFinishTxResult> finishTx(long connectionId, boolean commit) {
+    public CompletableFuture<JdbcFinishTxResult> finishTxAsync(long connectionId, boolean commit) {
         JdbcConnectionContext connectionContext;
 
         try {

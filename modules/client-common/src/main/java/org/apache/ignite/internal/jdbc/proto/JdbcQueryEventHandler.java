@@ -112,5 +112,5 @@ public interface JdbcQueryEventHandler {
      * @param commit {@code True} to commit, {@code false} to rollback.
      * @return Result future.
      */
-    CompletableFuture<JdbcFinishTxResult> finishTx(long connectionId, boolean commit);
+    CompletableFuture<JdbcFinishTxResult> finishTxAsync(long connectionId, boolean commit);
 }

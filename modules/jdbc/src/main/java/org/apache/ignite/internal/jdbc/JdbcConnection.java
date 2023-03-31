@@ -365,7 +365,7 @@ public class JdbcConnection implements Connection {
      * @throws SQLException If failed.
      */
     private void finishTx(boolean commit) throws SQLException {
-        JdbcFinishTxResult res = handler().finishTx(connectionId, commit).join();
+        JdbcFinishTxResult res = handler().finishTxAsync(connectionId, commit).join();
 
         if (res.status() != Response.STATUS_SUCCESS) {
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
