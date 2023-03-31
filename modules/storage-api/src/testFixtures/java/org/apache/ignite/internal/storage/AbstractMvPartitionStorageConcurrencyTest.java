@@ -32,6 +32,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -40,6 +41,9 @@ import org.junit.jupiter.params.provider.EnumSource;
  * Test to check for race conditions in MV partition storage.
  */
 public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPartitionStorageTest {
+    /** To be used in a loop. {@link RepeatedTest} has a smaller failure rate due to recreating the storage every time. */
+    private static final int REPEATS = 100;
+
     @Test
     void testAbortAndRead() {
         for (int i = 0; i < REPEATS; i++) {

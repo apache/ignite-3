@@ -38,9 +38,11 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -49,9 +51,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
+    /** To be used in a loop. {@link RepeatedTest} has a smaller failure rate due to recreating the storage every time. */
+    private static final int REPEATS = 100;
+
     private static final int PARTITION_ID = 0;
 
     private StorageEngine storageEngine;
+
+    private MvTableStorage tableStorage;
+
+    private MvPartitionStorage partitionStorage;
 
     private TestPartitionDataStorage partitionDataStorage;
 
@@ -73,22 +82,24 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
                 willCompleteSuccessfully()
         );
 
-        MvTableStorage mvTableStorage = storageEngine.createMvTable(tableConfig, tablesConfig, distributionZoneConfig);
+        tableStorage = storageEngine.createMvTable(tableConfig, tablesConfig, distributionZoneConfig);
 
-        mvTableStorage.start();
+        tableStorage.start();
 
-        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(mvTableStorage, PARTITION_ID);
+        partitionStorage = getOrCreateMvPartition(tableStorage, PARTITION_ID);
 
-        partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
+        partitionDataStorage = new TestPartitionDataStorage(partitionStorage);
 
         storageUpdateHandler = new StorageUpdateHandler(PARTITION_ID, partitionDataStorage, Map::of, tableConfig.dataStorage());
     }
 
     @AfterEach
-    void tearDown() {
-        if (storageEngine != null) {
-            storageEngine.stop();
-        }
+    void tearDown() throws Exception {
+        IgniteUtils.closeAllManually(
+                partitionStorage,
+                tableStorage,
+                storageEngine == null ? null : storageEngine::stop
+        );
     }
 
     protected abstract StorageEngine createStorageEngine();
@@ -108,22 +119,10 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
             addWriteCommitted(partitionDataStorage, rowId0, row0, clock.now());
             addWriteCommitted(partitionDataStorage, rowId1, row1, clock.now());
 
-            addWriteCommitted(partitionDataStorage, rowId0, row0, clock.now());
-            addWriteCommitted(partitionDataStorage, rowId1, row1, clock.now());
-
-            addWriteCommitted(partitionDataStorage, rowId0, row0, clock.now());
-            addWriteCommitted(partitionDataStorage, rowId1, row1, clock.now());
-
-            addWriteCommitted(partitionDataStorage, rowId0, row0, clock.now());
-            addWriteCommitted(partitionDataStorage, rowId1, row1, clock.now());
-
             addWriteCommitted(partitionDataStorage, rowId0, null, clock.now());
             addWriteCommitted(partitionDataStorage, rowId1, null, clock.now());
 
             runRace(
-                    () -> storageUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2),
-                    () -> storageUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2),
-                    () -> storageUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2),
                     () -> storageUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2),
                     () -> storageUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2)
             );

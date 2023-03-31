@@ -52,15 +52,11 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.RepeatedTest;
 
 /**
  * Base test for MV storages, contains pojo classes, their descriptor and a marshaller instance.
  */
 public abstract class BaseMvStoragesTest {
-    /** To be used in a loop. {@link RepeatedTest} has a smaller failure rate due to recreating the storage every time. */
-    protected static final int REPEATS = 100;
-
     /** Default reflection marshaller factory. */
     protected static final MarshallerFactory marshallerFactory = new ReflectionMarshallerFactory();
 
