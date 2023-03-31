@@ -32,6 +32,7 @@ import java.util.BitSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
@@ -145,6 +146,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** Whether the partition assignment has changed since the last server response. */
     private final AtomicBoolean partitionAssignmentChanged = new AtomicBoolean();
 
+    /** Partition assignment change listener. */
+    private final Consumer<IgniteTablesInternal> partitionAssignmentsChangeListener;
+
     /**
      * Constructor.
      *
@@ -190,7 +194,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources);
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
 
-        igniteTables.addAssignmentsChangeListener(this::onPartitionAssignmentChanged);
+        this.partitionAssignmentsChangeListener = this::onPartitionAssignmentChanged;
+        igniteTables.addAssignmentsChangeListener(partitionAssignmentsChangeListener);
     }
 
     /** {@inheritDoc} */
@@ -218,7 +223,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         resources.close();
-        igniteTables.removeAssignmentsChangeListener(this::onPartitionAssignmentChanged);
+        igniteTables.removeAssignmentsChangeListener(partitionAssignmentsChangeListener);
 
         super.channelInactive(ctx);
     }

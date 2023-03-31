@@ -20,6 +20,7 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -99,6 +101,9 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private TablesConfiguration tblsCfg;
+
+    @InjectConfiguration
+    private DistributionZonesConfiguration dstZnsCfg;
 
     private MetaStorageManagerImpl metaStorageManager;
 
@@ -170,6 +175,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
                 raftManager,
                 topologyAwareRaftGroupServiceFactory,
                 tblsCfg,
+                dstZnsCfg,
                 clock
         );
 
@@ -326,11 +332,12 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
         List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(Collections.singleton(nodeName), 1, 1);
 
+        int zoneId = createZone();
+
         tblsCfg.tables().change(tableViewTableChangeNamedListChange -> {
             tableViewTableChangeNamedListChange.create("test-table", tableChange -> {
                 var extConfCh = ((ExtendedTableChange) tableChange);
-                extConfCh.changePartitions(1);
-                extConfCh.changeReplicas(1);
+                extConfCh.changeZoneId(zoneId);
 
                 tblIdRef.set(extConfCh.id());
 
@@ -342,6 +349,23 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
         log.info("Fake table created [id={}, repGrp={}]", tblIdRef.get(), grpPart0);
         return grpPart0;
+    }
+
+    /**
+     * Creates a distribution zone.
+     *
+     * @return Id of created distribution zone.
+     */
+    private int createZone() {
+        dstZnsCfg.distributionZones().change(zones -> {
+            zones.create("zone1", ch -> {
+                ch.changePartitions(1);
+                ch.changeReplicas(1);
+                ch.changeZoneId(DEFAULT_ZONE_ID + 1);
+            });
+        }).join();
+
+        return dstZnsCfg.distributionZones().get("zone1").value().zoneId();
     }
 
     /**
