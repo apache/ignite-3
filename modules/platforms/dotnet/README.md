@@ -101,9 +101,7 @@ await foreach (IIgniteTuple row in resultSet)
 
 ### Mapping SQL Results to User Types
 
-By default, SQL results are returned as `IIgniteTuple` instances. This interface provides access to raw data by column name or index (see example above).
-
-To map SQL results to user types and access data in a strongly-typed manner, use generic `ExecuteAsync<T>` overload: 
+SQL results can be mapped to user types using `ExecuteAsync<T>` method. This is cleaner and more efficient than `IIgniteTuple` approach above
 
 ```cs
 await using var resultSet = await client.Sql.ExecuteAsync<Person>(null, "SELECT Name FROM Person");
@@ -113,17 +111,7 @@ await foreach (Person p in resultSet)
 public record Person(int Id, string Name);
 ```
 
-Column names are matched to record properties by name. If a column name does not match any property, it is ignored.
-
-To map columns to properties with different names, use `ColumnAttribute`:
-
-```cs
-[Column("FULL_NAME")]
-public string Name { get; set; }
-```
-
-Mapping is performed using runtime code generation (IL emit). Emitted delegates are cached. User type mapping is more performant than `IIgniteTuple` approach and allocates less memory while reading query results.
-
+Column names are matched to record properties by name. To map columns to properties with different names, use `ColumnAttribute`.
 ## DbDataReader (ADO.NET API)
 
 Another way to work with query results is `System.Data.Common.DbDataReader`, which can be obtained with `ExecuteReaderAsync` method. 
@@ -138,6 +126,10 @@ dt.Load(reader);
 
 dataGridView1.DataSource = dt;
 ```
+
+## NoSQL (Key/Value API)
+
+TODO: Tables, RecordView, KvView
 
 ## LINQ
 
@@ -158,14 +150,6 @@ List<string> names = await query.ToListAsync();
 Generated SQL can be retrieved with `ToQueryString` extension method, or by enabling debug logging.
 
 Bulk update and delete with optional conditions are supported via `ExecuteUpdateAsync` and `ExecuteDeleteAsync` extensions methods on `IQueryable<T>`
-
-## Tables
-
-## RecordView
-
-## KeyValueView
-
-## User Type Mapping
 
 ## Transactions
 
