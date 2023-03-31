@@ -180,8 +180,6 @@ public class StorageUpdateHandler {
             @Nullable HybridTimestamp lowWatermark
     ) {
         storage.runConsistently(() -> {
-            executeBatchGc(lowWatermark);
-
             UUID commitTblId = commitPartitionId.tableId();
             int commitPartId = commitPartitionId.partitionId();
 
@@ -210,6 +208,8 @@ public class StorageUpdateHandler {
 
             return null;
         });
+
+        executeBatchGc(lowWatermark);
     }
 
     private void executeBatchGc(@Nullable HybridTimestamp newLwm) {
