@@ -486,6 +486,7 @@ public class PartitionCommandListenerTest {
         inOrder.verify(partitionDataStorage).lastApplied(20, 2);
         inOrder.verify(storageUpdateHandler).buildIndex(indexId, rowUuids1, true);
 
+        // Let's check that the command with a lower commandIndex than in the storage will not be executed.
         commandListener.handleBuildIndexCommand(createBuildIndexCommand(indexId, rowUuids2, false), 5, 1);
 
         inOrder.verify(partitionDataStorage, never()).lastApplied(5, 1);

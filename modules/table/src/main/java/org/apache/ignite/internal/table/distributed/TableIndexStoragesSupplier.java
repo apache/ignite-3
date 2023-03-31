@@ -32,7 +32,9 @@ public interface TableIndexStoragesSupplier {
     Map<UUID, TableSchemaAwareIndexStorage> get();
 
     /**
-     * Adds a wait to create an index, if not already created, on a subsequent call to {@link #get()}.
+     * Adds index creation waits if it hasn't been created yet.
+     *
+     * @param indexId Index ID.
      */
     void addIndexToWaitIfAbsent(UUID indexId);
 }

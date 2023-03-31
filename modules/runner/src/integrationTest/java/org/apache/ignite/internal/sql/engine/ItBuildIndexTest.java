@@ -78,7 +78,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
 
         sql(IgniteStringFormatter.format("CREATE INDEX {} ON {} (i1)", INDEX_NAME, TABLE_NAME));
 
-        // FIXME: IGNITE-18733
+        // TODO: IGNITE-18733
         waitForIndex(INDEX_NAME);
 
         waitForIndexBuild(TABLE_NAME, INDEX_NAME);
@@ -94,7 +94,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
     }
 
     private static int[] replicas() {
-        // FIXME: IGNITE-19086 Fix NullPointerException on insertAll
+        // TODO: IGNITE-19086 Fix NullPointerException on insertAll
         //        return new int[]{1, 2, 3};
         return new int[]{1};
     }

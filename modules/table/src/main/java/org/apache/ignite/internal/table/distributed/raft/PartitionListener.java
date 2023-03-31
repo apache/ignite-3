@@ -440,9 +440,9 @@ public class PartitionListener implements RaftGroupListener {
         }
 
         storage.runConsistently(() -> {
-            storage.lastApplied(commandIndex, commandTerm);
-
             storageUpdateHandler.buildIndex(cmd.indexId(), cmd.rowIds(), cmd.finish());
+
+            storage.lastApplied(commandIndex, commandTerm);
 
             return null;
         });

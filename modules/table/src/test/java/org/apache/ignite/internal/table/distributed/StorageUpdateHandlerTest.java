@@ -70,8 +70,8 @@ public class StorageUpdateHandlerTest {
 
         StorageUpdateHandler storageUpdateHandler = createStorageUpdateHandler(partitionStorage, indexes);
 
-        RowId rowId0 = new RowId(PARTITION_ID, UUID.randomUUID());
-        RowId rowId1 = new RowId(PARTITION_ID, UUID.randomUUID());
+        RowId rowId0 = new RowId(PARTITION_ID);
+        RowId rowId1 = new RowId(PARTITION_ID);
 
         List<BinaryRow> rowVersions0 = asList(mock(BinaryRow.class), null);
         List<BinaryRow> rowVersions1 = asList(mock(BinaryRow.class), null);

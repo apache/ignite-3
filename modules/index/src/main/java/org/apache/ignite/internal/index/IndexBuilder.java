@@ -113,21 +113,21 @@ class IndexBuilder {
         private final int partitionId;
 
         /**
-         * ID of the next row to build the index from the previous batch, {@code null} if it is the first row after the index was crated
+         * ID of the next row to build the index from the previous batch, {@code null} if it is the first row after the index was created
          * (both on a live node and after a restore).
          */
-        private final @Nullable RowId nextRowIdToBuiltFromPreviousBatch;
+        private final @Nullable RowId nextRowIdToBuildFromPreviousBatch;
 
         private BuildIndexTask(
                 TableImpl table,
                 TableIndexView tableIndexView,
                 int partitionId,
-                @Nullable RowId nextRowIdToBuiltFromPreviousBatch
+                @Nullable RowId nextRowIdToBuildFromPreviousBatch
         ) {
             this.table = table;
             this.tableIndexView = tableIndexView;
             this.partitionId = partitionId;
-            this.nextRowIdToBuiltFromPreviousBatch = nextRowIdToBuiltFromPreviousBatch;
+            this.nextRowIdToBuildFromPreviousBatch = nextRowIdToBuildFromPreviousBatch;
         }
 
         @Override
@@ -250,24 +250,24 @@ class IndexBuilder {
         }
 
         private @Nullable List<RowId> collectRowIdBatch() {
-            RowId nextRowIdToBuilt;
+            RowId nextRowIdToBuild;
 
-            if (nextRowIdToBuiltFromPreviousBatch == null) {
-                nextRowIdToBuilt = table.internalTable().storage().getOrCreateIndex(partitionId, tableIndexView.id()).getNextRowIdToBuild();
+            if (nextRowIdToBuildFromPreviousBatch == null) {
+                nextRowIdToBuild = table.internalTable().storage().getOrCreateIndex(partitionId, tableIndexView.id()).getNextRowIdToBuild();
 
-                if (nextRowIdToBuilt == null) {
+                if (nextRowIdToBuild == null) {
                     // Index has already been built.
                     return null;
                 }
             } else {
-                nextRowIdToBuilt = nextRowIdToBuiltFromPreviousBatch;
+                nextRowIdToBuild = nextRowIdToBuildFromPreviousBatch;
             }
 
-            if (nextRowIdToBuiltFromPreviousBatch == null) {
+            if (nextRowIdToBuildFromPreviousBatch == null) {
                 LOG.info("Start building the index: [{}]", createCommonTableIndexInfo());
             }
 
-            return createBatchRowIds(nextRowIdToBuilt, BUILD_INDEX_ROW_ID_BATCH_SIZE);
+            return createBatchRowIds(nextRowIdToBuild, BUILD_INDEX_ROW_ID_BATCH_SIZE);
         }
     }
 }
