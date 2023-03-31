@@ -144,5 +144,6 @@ public class ClientOp {
     /** Create JDBC connection context on a server. */
     public static final int JDBC_CONNECT = 54;
     
-    public static final int SQL_FINISH_TX = 55;
+    /** JDBC command to commit/rollback transaction. */
+    public static final int JDBC_TX_FINISH = 55;
 }

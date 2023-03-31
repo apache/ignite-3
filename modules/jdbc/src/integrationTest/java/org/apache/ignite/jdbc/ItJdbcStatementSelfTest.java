@@ -486,30 +486,35 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         };
         
         conn.setAutoCommit(false);
-        assertEquals(oldName, selectName.get());
-
-        // Change oldName to newName.
-        assertEquals(1, stmt.executeUpdate(sqlChangeName));
-        assertEquals(newName, selectName.get());
         
-        // Check rollback.
-        conn.rollback();
-        assertEquals(oldName, selectName.get());
+        try {
+            assertEquals(oldName, selectName.get());
 
-        // Change oldName to newName.
-        assertEquals(1, stmt.executeUpdate(sqlChangeName));
-        assertEquals(newName, selectName.get());
-        
-        // Check commit;
-        conn.commit();
-        assertEquals(newName, selectName.get());
-        
-        conn.rollback();
-        assertEquals(newName, selectName.get());
+            // Change oldName to newName.
+            assertEquals(1, stmt.executeUpdate(sqlChangeName));
+            assertEquals(newName, selectName.get());
 
-        stmt.close();
+            // Check rollback.
+            conn.rollback();
+            assertEquals(oldName, selectName.get());
 
-        checkStatementClosed(() -> stmt.executeUpdate(sqlChangeName));
+            // Change oldName to newName.
+            assertEquals(1, stmt.executeUpdate(sqlChangeName));
+            assertEquals(newName, selectName.get());
+
+            // Check commit;
+            conn.commit();
+            assertEquals(newName, selectName.get());
+
+            conn.rollback();
+            assertEquals(newName, selectName.get());
+
+            stmt.close();
+
+            checkStatementClosed(() -> stmt.executeUpdate(sqlChangeName));
+        } finally {
+            conn.setAutoCommit(true);
+        }
     }
 
     @Test

@@ -164,7 +164,7 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcFinishTxResult> finishTxAsync(long connectionId, boolean commit) {
-        return client.sendRequestAsync(ClientOp.SQL_FINISH_TX, w -> {
+        return client.sendRequestAsync(ClientOp.JDBC_TX_FINISH, w -> {
             w.out().packLong(connectionId);
             w.out().packBoolean(commit);
         }, r -> {

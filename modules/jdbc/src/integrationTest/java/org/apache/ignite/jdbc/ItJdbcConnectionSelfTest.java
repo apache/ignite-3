@@ -524,7 +524,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
             conn.setAutoCommit(true);
 
             try (Statement stmt = conn.createStatement()) {
-                stmt.executeUpdate("create table digits(a int primary key, b int) WITH replicas=1,partitions=1");
+                stmt.executeUpdate("create table digits(a int primary key, b int)");
 
                 int rowsCount = 3;
                 String sqlUpdate = "insert into digits values (1, 1), (2, 2), (3, 3)";
