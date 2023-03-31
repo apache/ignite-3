@@ -357,7 +357,7 @@ public class TypeUtils {
             case TIMESTAMP:
                 return ColumnType.TIMESTAMP;
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return ColumnType.TIMESTAMP;
+                return ColumnType.DATETIME;
             case BIGINT:
                 return ColumnType.INT64;
             case SMALLINT:
