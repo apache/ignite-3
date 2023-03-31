@@ -124,6 +124,21 @@ public string Name { get; set; }
 
 Mapping is performed using runtime code generation (IL emit). Emitted delegates are cached. User type mapping is more performant than `IIgniteTuple` approach and allocates less memory while reading query results.
 
+## DbDataReader (ADO.NET API)
+
+Another way to work with query results is `System.Data.Common.DbDataReader`, which can be obtained with `ExecuteReaderAsync` method. 
+
+For example, you can bind query results to a `DataGridView` control:
+
+```cs
+await using var reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
+
+var dt = new DataTable();
+dt.Load(reader);
+
+dataGridView1.DataSource = dt;
+```
+
 ## LINQ
 
 ## Tables
