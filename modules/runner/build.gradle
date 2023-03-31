@@ -96,7 +96,9 @@ dependencies {
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
     integrationTestAnnotationProcessor libs.auto.service
+    integrationTestAnnotationProcessor libs.jmh.annotation.processor
     integrationTestImplementation project(':ignite-affinity')
+    integrationTestImplementation project(':ignite-jdbc')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-baseline')
@@ -138,6 +140,7 @@ dependencies {
     integrationTestImplementation libs.rocksdb.jni
     integrationTestImplementation libs.disruptor
     integrationTestImplementation libs.jackson.databind
+    integrationTestImplementation libs.jmh.core
     integrationTestImplementation(libs.jsonpath.assert) {
         //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
         //So, exclude asm-core transitive dependency to protect of jar-hell.
