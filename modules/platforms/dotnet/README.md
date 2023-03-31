@@ -98,7 +98,7 @@ await foreach (IIgniteTuple row in resultSet)
 
 ### Mapping SQL Results to User Types
 
-SQL results can be mapped to user types using `ExecuteAsync<T>` method. This is cleaner and more efficient than `IIgniteTuple` approach above
+SQL results can be mapped to user types using `ExecuteAsync<T>` method. This is cleaner and more efficient than `IIgniteTuple` approach above.
 
 ```cs
 await using var resultSet = await client.Sql.ExecuteAsync<Person>(null, "SELECT Name FROM Person");
@@ -109,6 +109,7 @@ public record Person(int Id, string Name);
 ```
 
 Column names are matched to record properties by name. To map columns to properties with different names, use `ColumnAttribute`.
+
 ## DbDataReader (ADO.NET API)
 
 Another way to work with query results is `System.Data.Common.DbDataReader`, which can be obtained with `ExecuteReaderAsync` method. 
