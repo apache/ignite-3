@@ -71,7 +71,7 @@ public interface NamedListView<VIEWT> extends Iterable<VIEWT> {
     int size();
 
     /**
-     * @return The ordered stream of values from the named list.
+     * Returns an ordered stream of values from the named list.
      */
     Stream<VIEWT> stream();
 
