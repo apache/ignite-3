@@ -38,6 +38,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
@@ -247,7 +248,7 @@ class IndexBuilder {
         }
 
         private @Nullable RowId getNextRowIdForNextBatch(List<RowId> batch) {
-            return batch.isEmpty() ? null : batch.get(batch.size() - 1).increment();
+            return CollectionUtils.nullOrEmpty(batch) ? null : batch.get(batch.size() - 1).increment();
         }
 
         private @Nullable List<RowId> collectRowIdBatch() {
