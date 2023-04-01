@@ -1517,11 +1517,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 tblChg.delete(name);
                             })
                             .changeIndexes(idxChg -> {
-                                NamedListView<? extends TableIndexView> indexes = chg.indexes();
-
-                                for (String indexName : indexes.namedListKeys()) {
-                                    if (indexes.get(indexName).tableId().equals(tbl.tableId())) {
-                                        idxChg.delete(indexName);
+                                for (TableIndexView index : idxChg) {
+                                    if (index.tableId().equals(tbl.tableId())) {
+                                        idxChg.delete(index.name());
                                     }
                                 }
                             }))

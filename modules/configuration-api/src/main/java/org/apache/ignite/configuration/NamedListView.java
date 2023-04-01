@@ -17,8 +17,10 @@
 
 package org.apache.ignite.configuration;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -26,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <VIEWT> Type for immutable snapshots of named list elements.
  */
-public interface NamedListView<VIEWT> {
+public interface NamedListView<VIEWT> extends Iterable<VIEWT> {
     /**
      * Returns an immutable collection of keys contained within this list.
      *
@@ -67,4 +69,14 @@ public interface NamedListView<VIEWT> {
      * @return Number of elements.
      */
     int size();
+
+    /**
+     * @return The ordered stream of values from the named list.
+     */
+    Stream<VIEWT> stream();
+
+    @Override
+    default Iterator<VIEWT> iterator() {
+        return stream().iterator();
+    }
 }

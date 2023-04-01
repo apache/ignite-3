@@ -159,15 +159,13 @@ public final class ConfigurationToSchemaDescriptorConverter {
 
         int idx = 0;
 
-        for (String columnName : tableView.columns().namedListKeys()) {
-            ColumnView column = tableView.columns().get(columnName);
-
+        for (ColumnView column : tableView.columns()) {
             if (column == null) {
                 // columns was removed, so let's skip it
                 continue;
             }
 
-            if (keyColumnsNames.contains(columnName)) {
+            if (keyColumnsNames.contains(column.name())) {
                 keyCols.add(convert(idx, column));
             } else {
                 valCols.add(convert(idx, column));
