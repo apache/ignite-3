@@ -23,8 +23,9 @@ dependencies {
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-binary-tuple')
-    api project(':ignite-client-common')
+    implementation project(':ignite-client-common')
     implementation project(':ignite-marshaller-common')
+    implementation project(':ignite-metrics')
 
     implementation libs.jetbrains.annotations
     implementation libs.msgpack.core
@@ -47,6 +48,7 @@ dependencies {
     testImplementation project(':ignite-raft-api')
     testImplementation project(':ignite-transactions')
     testImplementation project(':ignite-storage-api')
+    testImplementation project(':ignite-metrics')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation libs.hamcrest.core

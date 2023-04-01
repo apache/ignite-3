@@ -409,6 +409,11 @@ namespace Apache.Ignite.Internal
 
             await _socketLock.WaitAsync().ConfigureAwait(false);
 
+            if (endpoint.Socket?.IsDisposed == false)
+            {
+                return endpoint.Socket;
+            }
+
             try
             {
                 var socket = await ClientSocket.ConnectAsync(endpoint, Configuration, OnAssignmentChanged).ConfigureAwait(false);
@@ -582,6 +587,8 @@ namespace Apache.Ignite.Internal
             {
                 _logger.Debug($"Retrying operation [opCode={(int)op}, opType={op}, attempt={attempt}, lastError={exception}]");
             }
+
+            Metrics.RequestsRetried.Add(1);
 
             if (errors == null)
             {

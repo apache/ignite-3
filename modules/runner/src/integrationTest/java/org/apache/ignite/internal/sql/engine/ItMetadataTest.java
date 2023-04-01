@@ -26,6 +26,7 @@ import java.time.Period;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -46,6 +47,7 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken after upgrading to calcite 1.34")
     public void trimColumnNames() {
         String var300 = generate(() -> "X").limit(300).collect(joining());
         String var256 = "'" + var300.substring(0, 255);
@@ -54,6 +56,7 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken after upgrading to calcite 1.34")
     public void columnNames() {
         assertQuery("select (select count(*) from person), (select avg(salary) from person) from person")
                 .columnNames("EXPR$0", "EXPR$1").check();
@@ -85,6 +88,7 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken after upgrading to calcite 1.34")
     public void infixTypeCast() {
         assertQuery("select id, id::tinyint as tid, id::smallint as sid, id::varchar as vid, id::interval hour, "
                 + "id::interval year from person")

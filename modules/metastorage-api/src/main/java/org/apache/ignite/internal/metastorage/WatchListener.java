@@ -24,12 +24,6 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface WatchListener {
     /**
-     * Returns a unique identifier for this Watch. This identifier should never change between node restarts and must uniquely identify
-     * a Watch among all Watches on a local node.
-     */
-    String id();
-
-    /**
      * The method will be called on each meta storage update.
      *
      * @param event A single event or a batch. The batch always contains updates for specific revision.

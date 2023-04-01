@@ -51,7 +51,8 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
-import org.apache.ignite.internal.cli.core.ApiClientFactory;
+import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -352,12 +353,18 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void nodeMetricList() throws ApiException {
+    void nodeMetricSourcesList() throws ApiException {
         List<MetricSource> metricSources = List.of(
-                new MetricSource().name("jvm").enabled(false)
+                new MetricSource().name("jvm").enabled(false),
+                new MetricSource().name("client.handler").enabled(false)
         );
 
-        assertThat(nodeMetricApi.listNodeMetrics(), containsInAnyOrder(metricSources.toArray()));
+        assertThat(nodeMetricApi.listNodeMetricSources(), containsInAnyOrder(metricSources.toArray()));
+    }
+
+    @Test
+    void nodeMetricSetsList() throws ApiException {
+        assertThat(nodeMetricApi.listNodeMetricSets(), empty());
     }
 
     @Test
@@ -417,7 +424,7 @@ public class ItGeneratedRestClientTest {
 
         clusterNodeNames.add(nodeName);
 
-        return IgnitionManager.start(nodeName, buildConfig(index), workDir.resolve(nodeName));
+        return TestIgnitionManager.start(nodeName, buildConfig(index), workDir.resolve(nodeName));
     }
 }
 

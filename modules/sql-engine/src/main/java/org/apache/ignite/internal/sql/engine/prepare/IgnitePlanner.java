@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.io.PrintWriter;
 import java.io.Reader;
@@ -61,7 +63,6 @@ import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
@@ -76,10 +77,13 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
+import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Query planer.
@@ -111,6 +115,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     private final IgniteTypeFactory typeFactory;
 
     private final CalciteCatalogReader catalogReader;
+
+    private @Nullable SqlNode validatedSqlNode;
 
     private RelOptPlanner planner;
 
@@ -165,15 +171,27 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     /** {@inheritDoc} */
     @Override
     public SqlNode parse(Reader reader) throws SqlParseException {
-        SqlNodeList sqlNodes = Commons.parse(reader, parserCfg);
+        StatementParseResult parseResult = IgniteSqlParser.parse(reader, StatementParseResult.MODE);
+        Object[] parameters = ctx.parameters();
 
-        return sqlNodes.size() == 1 ? sqlNodes.get(0) : sqlNodes;
+        // Parse method is only used in tests.
+        if (parameters.length != parseResult.dynamicParamsCount()) {
+            String message = format(
+                    "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
+                    parameters.length, parseResult.dynamicParamsCount()
+            );
+
+            throw new SqlException(QUERY_INVALID_ERR, message);
+        }
+
+        return parseResult.statement();
     }
 
     /** {@inheritDoc} */
     @Override
     public SqlNode validate(SqlNode sqlNode) {
-        return validator().validate(sqlNode);
+        validatedSqlNode = validator().validate(sqlNode);
+        return validatedSqlNode;
     }
 
     /** {@inheritDoc} */
@@ -182,6 +200,12 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         SqlNode validatedNode = validator().validate(sqlNode);
         RelDataType type = validator().getValidatedNodeType(validatedNode);
         return Pair.of(validatedNode, type);
+    }
+
+    @Override
+    public RelDataType getParameterRowType() {
+        return requireNonNull(validator, "validator")
+                .getParameterRowType(requireNonNull(validatedSqlNode, "validatedSqlNode"));
     }
 
     /**

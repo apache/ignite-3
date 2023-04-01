@@ -46,6 +46,7 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.sql.Session;
@@ -115,7 +116,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
 
         CLUSTER_NODES_NAMES.add(idx, nodeName);
 
-        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
+        CompletableFuture<Ignite> future = TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
 
         if (CLUSTER_NODES.isEmpty()) {
             InitParameters initParameters = InitParameters.builder()
@@ -185,7 +186,6 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
     /**
      * Restarts an in-memory node that is not a leader of the table's partition.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19044")
     @Test
     public void inMemoryNodeRestartNotLeader(TestInfo testInfo) throws Exception {
         // Start three nodes, the first one is going to be CMG and MetaStorage leader.
@@ -293,7 +293,6 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
     /**
      * Restarts all the nodes with the partition.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18822")
     @Test
     public void inMemoryNodeFullPartitionRestart(TestInfo testInfo) throws Exception {
         // Start three nodes, the first one is going to be CMG and MetaStorage leader.
@@ -360,10 +359,12 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
      */
     private static void createTableWithData(Ignite ignite, String name, int replicas, int partitions) {
         try (Session session = ignite.sql().createSession()) {
+            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d",
+                    name, replicas, partitions));
             session.execute(null, "CREATE TABLE " + name
                     + " (id INT PRIMARY KEY, name VARCHAR)"
                     + " ENGINE aimem"
-                    + " WITH replicas=" + replicas + ", partitions=" + partitions);
+                    + " WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
 
             for (int i = 0; i < 100; i++) {
                 session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",

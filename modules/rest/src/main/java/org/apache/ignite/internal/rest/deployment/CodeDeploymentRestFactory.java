@@ -20,7 +20,7 @@ package org.apache.ignite.internal.rest.deployment;
 import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
-import org.apache.ignite.deployment.IgniteDeployment;
+import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.rest.RestFactory;
 
 /**

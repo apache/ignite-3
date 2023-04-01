@@ -20,9 +20,9 @@ package org.apache.ignite.internal.storage.util;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willTimeoutFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
@@ -40,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
@@ -54,14 +55,17 @@ import org.junit.jupiter.api.function.Executable;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class MvPartitionStoragesTest {
-    @InjectConfiguration("mock.partitions = 10")
+    @InjectConfiguration
     private TableConfiguration tableConfig;
+
+    @InjectConfiguration("mock.partitions = 10")
+    private DistributionZoneConfiguration distributionZoneConfiguration;
 
     private MvPartitionStorages<MvPartitionStorage> mvPartitionStorages;
 
     @BeforeEach
     void setUp() {
-        mvPartitionStorages = new MvPartitionStorages(tableConfig.value());
+        mvPartitionStorages = new MvPartitionStorages(tableConfig.value(), distributionZoneConfiguration.value());
     }
 
     @Test
@@ -115,7 +119,7 @@ public class MvPartitionStoragesTest {
 
         assertThat(mvPartitionStorages.create(2, partId -> {
             throw new RuntimeException("from test");
-        }), willFailFast(RuntimeException.class));
+        }), willThrowFast(RuntimeException.class));
 
         assertNull(getMvStorage(2));
     }
@@ -163,22 +167,20 @@ public class MvPartitionStoragesTest {
         CompletableFuture<Void> startErrorDestroyMvStorageFuture = new CompletableFuture<>();
         CompletableFuture<Void> finishErrorDestroyMvStorageFuture = new CompletableFuture<>();
 
-        CompletableFuture<?> errorDestroyMvStorageFuture = runAsync(() ->
-                assertThat(mvPartitionStorages.destroy(0, mvStorage1 -> {
-                    startErrorDestroyMvStorageFuture.complete(null);
+        CompletableFuture<?> errorDestroyMvStorageFuture = mvPartitionStorages.destroy(0, mvStorage1 -> {
+            startErrorDestroyMvStorageFuture.complete(null);
 
-                    return finishErrorDestroyMvStorageFuture;
-                }), willCompleteSuccessfully())
-        );
+            return finishErrorDestroyMvStorageFuture;
+        });
 
         assertThat(startErrorDestroyMvStorageFuture, willCompleteSuccessfully());
 
         CompletableFuture<MvPartitionStorage> errorReCreateMvStorageFuture = createMvStorage(0);
 
-        finishErrorDestroyMvStorageFuture.completeExceptionally(new RuntimeException("from test"));
+        finishErrorDestroyMvStorageFuture.completeExceptionally(new IllegalStateException("from test"));
 
-        assertThat(errorDestroyMvStorageFuture, willFailFast(RuntimeException.class));
-        assertThat(errorReCreateMvStorageFuture, willFailFast(RuntimeException.class));
+        assertThat(errorDestroyMvStorageFuture, willThrowFast(IllegalStateException.class));
+        assertThat(errorReCreateMvStorageFuture, willThrowFast(IllegalStateException.class));
 
         assertNull(getMvStorage(0));
     }
@@ -241,7 +243,7 @@ public class MvPartitionStoragesTest {
 
         assertThat(
                 mvPartitionStorages.destroy(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
-                willFailFast(RuntimeException.class)
+                willThrowFast(RuntimeException.class)
         );
 
         assertNull(getMvStorage(0));
@@ -299,7 +301,7 @@ public class MvPartitionStoragesTest {
 
         assertThat(
                 mvPartitionStorages.clear(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
-                willFailFast(RuntimeException.class)
+                willThrowFast(RuntimeException.class)
         );
 
         assertNotNull(getMvStorage(0));
@@ -356,7 +358,7 @@ public class MvPartitionStoragesTest {
 
         assertThat(
                 mvPartitionStorages.startRebalance(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
-                willFailFast(RuntimeException.class)
+                willThrowFast(RuntimeException.class)
         );
 
         assertNotNull(getMvStorage(0));
@@ -423,7 +425,7 @@ public class MvPartitionStoragesTest {
 
         assertThat(
                 mvPartitionStorages.startRebalance(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
-                willFailFast(RuntimeException.class)
+                willThrowFast(RuntimeException.class)
         );
 
         assertThat(mvPartitionStorages.abortRebalance(0, mvStorage -> {
@@ -449,7 +451,7 @@ public class MvPartitionStoragesTest {
 
         assertThat(
                 mvPartitionStorages.abortRebalance(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
-                willFailFast(RuntimeException.class)
+                willThrowFast(RuntimeException.class)
         );
     }
 
@@ -505,7 +507,7 @@ public class MvPartitionStoragesTest {
 
         assertThat(
                 mvPartitionStorages.finishRebalance(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
-                willFailFast(RuntimeException.class)
+                willThrowFast(RuntimeException.class)
         );
 
         // What if the start of the rebalance fails?
@@ -514,10 +516,10 @@ public class MvPartitionStoragesTest {
 
         assertThat(
                 mvPartitionStorages.startRebalance(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
-                willFailFast(RuntimeException.class)
+                willThrowFast(RuntimeException.class)
         );
 
-        assertThat(finishRebalanceMvStorage(0), willFailFast(RuntimeException.class));
+        assertThat(finishRebalanceMvStorage(0), willThrowFast(RuntimeException.class));
     }
 
     @Test
@@ -678,7 +680,7 @@ public class MvPartitionStoragesTest {
     }
 
     private int getPartitionIdOutOfConfig() {
-        return tableConfig.partitions().value();
+        return distributionZoneConfiguration.partitions().value();
     }
 
     private static <T extends Throwable> void assertThrowsWithMessage(

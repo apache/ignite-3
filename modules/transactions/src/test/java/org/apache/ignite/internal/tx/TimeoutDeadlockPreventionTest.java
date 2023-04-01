@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.tx;
 
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -89,7 +89,7 @@ public class TimeoutDeadlockPreventionTest extends AbstractDeadlockPreventionTes
 
         commitTx(tx1);
 
-        assertThat(tx2Fut, willFailFast(LockException.class));
+        assertThat(tx2Fut, willThrowFast(LockException.class));
     }
 
     @Test
@@ -108,7 +108,7 @@ public class TimeoutDeadlockPreventionTest extends AbstractDeadlockPreventionTes
 
         commitTx(tx2);
 
-        assertThat(tx2Fut, willFailFast(LockException.class));
+        assertThat(tx2Fut, willThrowFast(LockException.class));
     }
 
     @Test
@@ -121,8 +121,8 @@ public class TimeoutDeadlockPreventionTest extends AbstractDeadlockPreventionTes
         assertThat(slock(tx0, key), willSucceedFast());
         assertThat(slock(tx1, key), willSucceedFast());
 
-        assertThat(xlock(tx0, key), willFailFast(LockException.class));
-        assertThat(xlock(tx1, key), willFailFast(LockException.class));
+        assertThat(xlock(tx0, key), willThrowFast(LockException.class));
+        assertThat(xlock(tx1, key), willThrowFast(LockException.class));
     }
 
     @Test
@@ -136,7 +136,7 @@ public class TimeoutDeadlockPreventionTest extends AbstractDeadlockPreventionTes
         assertThat(xlock(tx0, key0), willSucceedFast());
         assertThat(xlock(tx1, key1), willSucceedFast());
 
-        assertThat(xlock(tx0, key1), willFailFast(LockException.class));
-        assertThat(xlock(tx1, key0), willFailFast(LockException.class));
+        assertThat(xlock(tx0, key1), willThrowFast(LockException.class));
+        assertThat(xlock(tx1, key0), willThrowFast(LockException.class));
     }
 }

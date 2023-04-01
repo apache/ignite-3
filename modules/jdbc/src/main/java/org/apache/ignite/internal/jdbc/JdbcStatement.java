@@ -137,7 +137,7 @@ public class JdbcStatement implements Statement {
 
         Response res;
         try {
-            res = conn.handler().queryAsync(req).join();
+            res = conn.handler().queryAsync(conn.connectionId(), req).join();
         } catch (CompletionException e) {
             throw toSqlException(e);
         } catch (CancellationException e) {
@@ -550,7 +550,7 @@ public class JdbcStatement implements Statement {
         JdbcBatchExecuteRequest req = new JdbcBatchExecuteRequest(conn.getSchema(), batch);
 
         try {
-            JdbcBatchExecuteResult res = conn.handler().batchAsync(req).join();
+            JdbcBatchExecuteResult res = conn.handler().batchAsync(conn.connectionId(), req).join();
 
             if (!res.hasResults()) {
                 throw new BatchUpdateException(res.err(),

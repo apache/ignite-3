@@ -77,6 +77,9 @@ namespace Apache.Ignite.Internal
             Justification = "WaitHandle is not used in CancellationTokenSource, no need to dispose.")]
         private readonly CancellationTokenSource _disposeTokenSource = new();
 
+        /** Dispose lock. */
+        private readonly object _disposeLock = new();
+
         /** Heartbeat timer. */
         private readonly Timer _heartbeatTimer;
 
@@ -168,15 +171,20 @@ namespace Apache.Ignite.Internal
             };
 
             var logger = configuration.Logger.GetLogger(nameof(ClientSocket) + "-" + Interlocked.Increment(ref _socketId));
+            bool connected = false;
 
             try
             {
                 await socket.ConnectAsync(endPoint.EndPoint).ConfigureAwait(false);
+                connected = true;
 
                 if (logger?.IsEnabled(LogLevel.Debug) == true)
                 {
                     logger.Debug($"Connection established [remoteAddress={socket.RemoteEndPoint}]");
                 }
+
+                Metrics.ConnectionsEstablished.Add(1);
+                Metrics.ConnectionsActiveIncrement();
 
                 Stream stream = new NetworkStream(socket, ownsSocket: true);
 
@@ -206,6 +214,20 @@ namespace Apache.Ignite.Internal
             catch (Exception e)
             {
                 logger?.Warn($"Connection failed before or during handshake [remoteAddress={socket.RemoteEndPoint}]: {e.Message}.", e);
+
+                if (connected)
+                {
+                    Metrics.ConnectionsActiveDecrement();
+                }
+
+                if (e.GetBaseException() is TimeoutException)
+                {
+                    Metrics.HandshakesFailedTimeout.Add(1);
+                }
+                else
+                {
+                    Metrics.HandshakesFailed.Add(1);
+                }
 
                 // ReSharper disable once MethodHasAsyncOverload
                 socket.Dispose();
@@ -244,10 +266,10 @@ namespace Apache.Ignite.Internal
             }
 
             var requestId = Interlocked.Increment(ref _requestId);
-
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
-
             _requests[requestId] = taskCompletionSource;
+
+            Metrics.RequestsActiveIncrement();
 
             SendRequestAsync(request, clientOp, requestId)
                 .AsTask()
@@ -256,7 +278,7 @@ namespace Apache.Ignite.Internal
                     {
                         var completionSource = (TaskCompletionSource<PooledBuffer>)state!;
 
-                        if (task.IsCanceled || task.Exception?.GetBaseException() is TaskCanceledException)
+                        if (task.IsCanceled || task.Exception?.GetBaseException() is TaskCanceledException or ObjectDisposedException)
                         {
                             // Canceled task means Dispose was called.
                             completionSource.TrySetException(
@@ -266,6 +288,9 @@ namespace Apache.Ignite.Internal
                         {
                             completionSource.TrySetException(task.Exception);
                         }
+
+                        Metrics.RequestsFailed.Add(1);
+                        Metrics.RequestsActiveDecrement();
                     },
                     taskCompletionSource,
                     CancellationToken.None,
@@ -429,6 +454,8 @@ namespace Apache.Ignite.Internal
                 }
 
                 received += res;
+
+                Metrics.BytesReceived.Add(res);
             }
         }
 
@@ -444,6 +471,7 @@ namespace Apache.Ignite.Internal
             WriteMessageSize(resBuf, size);
 
             await stream.WriteAsync(resBuf).ConfigureAwait(false);
+            Metrics.BytesSent.Add(resBuf.Length);
         }
 
         private static void WriteHandshake(ClientProtocolVersion version, MsgPackWriter w)
@@ -553,6 +581,8 @@ namespace Apache.Ignite.Internal
                     prefixBytes.CopyTo(requestBufWithPrefix);
 
                     await _stream.WriteAsync(requestBufWithPrefix, _disposeTokenSource.Token).ConfigureAwait(false);
+
+                    Metrics.BytesSent.Add(requestBufWithPrefix.Length);
                 }
                 else
                 {
@@ -560,7 +590,11 @@ namespace Apache.Ignite.Internal
                     WriteMessageSize(_prefixBuffer, prefixSize);
                     var prefixBytes = _prefixBuffer.AsMemory()[..(prefixSize + 4)];
                     await _stream.WriteAsync(prefixBytes, _disposeTokenSource.Token).ConfigureAwait(false);
+
+                    Metrics.BytesSent.Add(prefixBytes.Length);
                 }
+
+                Metrics.RequestsSent.Add(1);
             }
             finally
             {
@@ -622,6 +656,8 @@ namespace Apache.Ignite.Internal
                 return;
             }
 
+            Metrics.RequestsActiveDecrement();
+
             var flags = (ResponseFlags)reader.ReadInt32();
 
             if (flags.HasFlag(ResponseFlags.PartitionAssignmentChanged))
@@ -640,11 +676,16 @@ namespace Apache.Ignite.Internal
             if (exception != null)
             {
                 response.Dispose();
+
+                Metrics.RequestsFailed.Add(1);
+
                 taskCompletionSource.SetException(exception);
             }
             else
             {
                 var resultBuffer = response.Slice(reader.Consumed);
+
+                Metrics.RequestsCompleted.Add(1);
 
                 taskCompletionSource.SetResult(resultBuffer);
             }
@@ -677,36 +718,52 @@ namespace Apache.Ignite.Internal
         /// <param name="ex">Exception that caused this socket to close. Null when socket is closed by the user.</param>
         private void Dispose(Exception? ex)
         {
-            if (_disposeTokenSource.IsCancellationRequested)
+            lock (_disposeLock)
             {
-                return;
-            }
-
-            if (ex != null)
-            {
-                _logger?.Warn(ex, $"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]: " + ex.Message);
-            }
-            else if (_logger?.IsEnabled(LogLevel.Debug) == true)
-            {
-                _logger.Debug($"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]");
-            }
-
-            _heartbeatTimer.Dispose();
-            _disposeTokenSource.Cancel();
-            _exception = ex;
-            _stream.Dispose();
-
-            ex ??= new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed.");
-
-            while (!_requests.IsEmpty)
-            {
-                foreach (var reqId in _requests.Keys.ToArray())
+                if (_disposeTokenSource.IsCancellationRequested)
                 {
-                    if (_requests.TryRemove(reqId, out var req))
+                    return;
+                }
+
+                _disposeTokenSource.Cancel();
+
+                if (ex != null)
+                {
+                    _logger?.Warn(ex, $"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]: " + ex.Message);
+
+                    if (ex.GetBaseException() is TimeoutException)
                     {
-                        req.TrySetException(ex);
+                        Metrics.ConnectionsLostTimeout.Add(1);
+                    }
+                    else
+                    {
+                        Metrics.ConnectionsLost.Add(1);
                     }
                 }
+                else if (_logger?.IsEnabled(LogLevel.Debug) == true)
+                {
+                    _logger.Debug($"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]");
+                }
+
+                _heartbeatTimer.Dispose();
+                _exception = ex;
+                _stream.Dispose();
+
+                ex ??= new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed.");
+
+                while (!_requests.IsEmpty)
+                {
+                    foreach (var reqId in _requests.Keys.ToArray())
+                    {
+                        if (_requests.TryRemove(reqId, out var req))
+                        {
+                            req.TrySetException(ex);
+                            Metrics.RequestsActiveDecrement();
+                        }
+                    }
+                }
+
+                Metrics.ConnectionsActiveDecrement();
             }
         }
     }

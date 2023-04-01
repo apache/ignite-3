@@ -33,7 +33,7 @@ import org.apache.ignite.internal.sql.engine.session.SessionInfo;
  */
 public class FakeIgniteQueryProcessor implements QueryProcessor {
     @Override
-    public SessionId createSession(long sessionTimeoutMs, PropertiesHolder queryProperties) {
+    public SessionId createSession(PropertiesHolder properties) {
         return new SessionId(UUID.randomUUID());
     }
 
@@ -45,17 +45,6 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     @Override
     public List<SessionInfo> liveSessions() {
         return Collections.emptyList();
-    }
-
-    @Override
-    public List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(String schemaName, String qry, Object... params) {
-        return List.of(CompletableFuture.completedFuture(new FakeCursor()));
-    }
-
-    @Override
-    public List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(QueryContext context, String schemaName,
-            String qry, Object... params) {
-        return List.of(CompletableFuture.completedFuture(new FakeCursor()));
     }
 
     @Override

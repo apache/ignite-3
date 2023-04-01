@@ -17,6 +17,8 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -122,9 +124,20 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    public void testMultipleStatementForBatchIsNotAllowed() throws SQLException {
+        String insertStmt = "insert into Person (id, firstName, lastName, age) values";
+        String ins1 = insertStmt + valuesRow(1);
+        String ins2 = insertStmt + valuesRow(2);
+
+        stmt.addBatch(ins1 + ";" + ins2);
+
+        assertThrows(BatchUpdateException.class, () -> stmt.executeBatch(), "Multiple statements are not allowed.");
+    }
+
+    @Test
     public void testBatchOnClosedStatement() throws SQLException {
-        final Statement stmt2 = conn.createStatement();
-        final PreparedStatement pstmt2 = conn.prepareStatement("");
+        Statement stmt2 = conn.createStatement();
+        PreparedStatement pstmt2 = conn.prepareStatement("");
 
         stmt2.close();
         pstmt2.close();
@@ -158,11 +171,31 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             assertEquals(0, updCnts.length, "Invalid update counts size");
 
-            if (!e.getMessage().contains("Unexpected number of query parameters. Provided 1 but there is only 0 dynamic parameter(s).")) {
-                log.error("Invalid exception: ", e);
+            assertThat(e.getMessage(), containsString("Given statement type does not match that declared by JDBC driver"));
 
-                fail();
-            }
+            assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
+            assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
+        }
+    }
+
+    @Test
+    public void testPreparedStatementSupplyParametersToQueryWithoutParameters() throws Exception {
+        PreparedStatement preparedStatement = conn.prepareStatement("UPDATE Person SET firstName='NONE'");
+
+        preparedStatement.setString(1, "broken");
+        preparedStatement.addBatch();
+
+        try {
+            preparedStatement.executeBatch();
+
+            fail("BatchUpdateException must be thrown");
+        } catch (BatchUpdateException e) {
+            int[] updCnts = e.getUpdateCounts();
+
+            assertEquals(0, updCnts.length, "Invalid update counts size");
+
+            assertThat(e.getMessage(),
+                    containsString("Unexpected number of query parameters. Provided 1 but there is only 0 dynamic parameter(s)."));
 
             assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
             assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
@@ -196,11 +229,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                 assertEquals(i + 1, updCnts[i], "Invalid update count");
             }
 
-            if (!e.getMessage().contains("Given statement type does not match that declared by JDBC driver")) {
-                log.error("Invalid exception: ", e);
-
-                fail();
-            }
+            assertThat(e.getMessage(), containsString("Given statement type does not match that declared by JDBC driver"));
 
             assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
             assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
@@ -311,11 +340,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                 assertEquals(i + 1, updCnts[i], "Invalid update count: " + i);
             }
 
-            if (!e.getMessage().contains("PK unique constraint is violated")) {
-                log.error("Invalid exception: ", e);
-
-                fail();
-            }
+            assertThat(e.toString(), e.getMessage(), containsString("PK unique constraint is violated"));
 
             assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
             assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");

@@ -36,6 +36,7 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -89,11 +90,12 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
                         + "  network.port: 3345,\n"
                         + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "  clientConnector.sendServerExceptionStackTraceToClient: true\n"
+                        + "  clientConnector.metricsEnabled: true\n"
                         + "}"
         );
 
         List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
-                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
                 .collect(toList());
 
         String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
@@ -112,8 +114,9 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
         }
 
         try (Session session = startedNodes.get(0).sql().createSession()) {
+            session.execute(null, "CREATE ZONE TEST_ZONE WITH REPLICAS=1, PARTITIONS=10");
             session.execute(null, "CREATE TABLE " + TABLE_NAME + "("
-                    + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH replicas=1, partitions=10");
+                    + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
         }
 
         client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build();

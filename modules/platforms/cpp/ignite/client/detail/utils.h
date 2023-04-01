@@ -23,9 +23,8 @@
 #include "ignite/client/transaction/transaction.h"
 
 #include "ignite/protocol/writer.h"
-#include "ignite/schema/binary_tuple_builder.h"
-#include "ignite/schema/binary_tuple_parser.h"
-#include "ignite/schema/ignite_type.h"
+#include "ignite/tuple/binary_tuple_builder.h"
+#include "ignite/tuple/binary_tuple_parser.h"
 
 namespace ignite::detail {
 
@@ -54,16 +53,6 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
  * @return Column value.
  */
 [[nodiscard]] primitive read_next_column(binary_tuple_parser &parser, ignite_type typ, std::int32_t scale);
-
-/**
- * Read column value from binary tuple.
- *
- * @param parser Binary tuple parser.
- * @param typ Column type.
- * @param scale Column scale.
- * @return Column value.
- */
-[[nodiscard]] primitive read_next_column(binary_tuple_parser &parser, column_type typ, std::int32_t scale);
 
 /**
  * Tuple concatenation function.

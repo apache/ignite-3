@@ -23,12 +23,14 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_EXPIRED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_SQL_OPERATION_KIND_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -40,9 +42,10 @@ import java.util.stream.Stream;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
@@ -62,16 +65,24 @@ import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
+import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandlerWrapper;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
+import org.apache.ignite.internal.sql.engine.session.Session;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionInfo;
 import org.apache.ignite.internal.sql.engine.session.SessionManager;
+import org.apache.ignite.internal.sql.engine.session.SessionProperty;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
+import org.apache.ignite.internal.sql.engine.sql.ParseResult;
+import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -105,8 +116,19 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Session expiration check period in milliseconds. */
     private static final long SESSION_EXPIRE_CHECK_PERIOD = TimeUnit.SECONDS.toMillis(1);
 
+    /**
+     * Duration in milliseconds after which the session will be considered expired if no action have been performed
+     * on behalf of this session during this period.
+     */
+    private static final long DEFAULT_SESSION_IDLE_TIMEOUT = TimeUnit.MINUTES.toMillis(15);
+
     /** Name of the default schema. */
     public static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
+
+    private static final PropertiesHolder DEFAULT_PROPERTIES = PropertiesHelper.newBuilder()
+            .set(QueryProperty.DEFAULT_SCHEMA, DEFAULT_SCHEMA_NAME)
+            .set(SessionProperty.IDLE_TIMEOUT, DEFAULT_SESSION_IDLE_TIMEOUT)
+            .build();
 
     private final List<LifecycleAware> services = new ArrayList<>();
 
@@ -151,6 +173,9 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Clock. */
     private final HybridClock clock;
 
+    /** Distributed catalog manager. */
+    private final CatalogManager catalogManager;
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<Function<Long, CompletableFuture<?>>> registry,
@@ -163,7 +188,8 @@ public class SqlQueryProcessor implements QueryProcessor {
             DistributionZoneManager distributionZoneManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             ReplicaService replicaService,
-            HybridClock clock
+            HybridClock clock,
+            CatalogManager catalogManager
     ) {
         this.registry = registry;
         this.clusterSrvc = clusterSrvc;
@@ -176,6 +202,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
         this.replicaService = replicaService;
         this.clock = clock;
+        this.catalogManager = catalogManager;
     }
 
     /** {@inheritDoc} */
@@ -220,7 +247,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         this.prepareSvc = prepareSvc;
 
-        var ddlCommandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager);
+        var ddlCommandHandler = CatalogService.useCatalogService()
+                ? new DdlCommandHandlerWrapper(distributionZoneManager, tableManager, indexManager, dataStorageManager, catalogManager)
+                : new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager);
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
@@ -252,10 +281,12 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public SessionId createSession(long sessionTimeoutMs, PropertiesHolder queryProperties) {
+    public SessionId createSession(PropertiesHolder properties) {
+        properties = PropertiesHelper.merge(properties, DEFAULT_PROPERTIES);
+
         return sessionManager.createSession(
-                sessionTimeoutMs,
-                queryProperties
+                properties.get(SessionProperty.IDLE_TIMEOUT),
+                properties
         );
     }
 
@@ -304,27 +335,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(String schemaName, String qry, Object... params) {
-        return queryAsync(QueryContext.of(), schemaName, qry, params);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(QueryContext context, String schemaName,
-            String qry, Object... params) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(OPERATION_INTERRUPTED_ERR, new NodeStoppingException());
-        }
-
-        try {
-            return query0(context, schemaName, qry, params);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
             SessionId sessionId, QueryContext context, String qry, Object... params
     ) {
@@ -363,14 +373,14 @@ public class SqlQueryProcessor implements QueryProcessor {
             String sql,
             Object... params
     ) {
-        var session = sessionManager.session(sessionId);
+        Session session = sessionManager.session(sessionId);
 
         if (session == null) {
             return CompletableFuture.failedFuture(
                     new SqlException(SESSION_NOT_FOUND_ERR, format("Session not found [{}]", sessionId)));
         }
 
-        var schemaName = session.queryProperties().get(QueryProperty.DEFAULT_SCHEMA);
+        String schemaName = session.properties().get(QueryProperty.DEFAULT_SCHEMA);
 
         SchemaPlus schema = sqlSchemaManager.schema(schemaName);
 
@@ -381,7 +391,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         InternalTransaction outerTx = context.unwrap(InternalTransaction.class);
 
-        var queryCancel = new QueryCancel();
+        QueryCancel queryCancel = new QueryCancel();
 
         AsyncCloseable closeableResource = () -> CompletableFuture.runAsync(
                 queryCancel::cancel,
@@ -401,13 +411,12 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
                 .thenApply(v -> {
-                    var nodes = Commons.parse(sql, Commons.PARSER_CONFIG);
+                    StatementParseResult parseResult = IgniteSqlParser.parse(sql, StatementParseResult.MODE);
+                    SqlNode sqlNode = parseResult.statement();
 
-                    if (nodes.size() > 1) {
-                        throw new SqlException(QUERY_INVALID_ERR, "Multiple statements aren't allowed.");
-                    }
+                    validateParsedStatement(context, parseResult, sqlNode, params);
 
-                    return nodes.get(0);
+                    return sqlNode;
                 })
                 .thenCompose(sqlNode -> {
                     boolean rwOp = dataModificationOp(sqlNode);
@@ -426,17 +435,17 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     return prepareSvc.prepareAsync(sqlNode, ctx)
                             .thenApply(plan -> {
-                                context.maybeUnwrap(QueryValidator.class)
-                                        .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
-
                                 boolean implicitTxRequired = outerTx == null;
 
                                 InternalTransaction tx = implicitTxRequired ? txManager.begin(!rwOp) : outerTx;
 
                                 var dataCursor = executionSrvc.executePlan(tx, plan, ctx);
 
+                                SqlQueryType queryType = plan.type();
+                                assert queryType != null : "Expected a full plan but got a fragment: " + plan;
+
                                 return new AsyncSqlCursorImpl<>(
-                                        SqlQueryType.mapPlanTypeToSqlType(plan.type()),
+                                        queryType,
                                         plan.metadata(),
                                         implicitTxRequired ? tx : null,
                                         new AsyncCursor<List<Object>>() {
@@ -469,93 +478,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         return stage;
     }
 
-    private List<CompletableFuture<AsyncSqlCursor<List<Object>>>> query0(
-            QueryContext context,
-            String schemaName,
-            String sql,
-            Object... params
-    ) {
-        SchemaPlus schema = sqlSchemaManager.schema(schemaName);
-
-        if (schema == null) {
-            throw new IgniteInternalException(SCHEMA_NOT_FOUND_ERR, format("Schema not found [schemaName={}]", schemaName));
-        }
-
-        CompletableFuture<Void> start = new CompletableFuture<>();
-
-        SqlNodeList nodes = SqlNodeList.EMPTY;
-
-        var res = new ArrayList<CompletableFuture<AsyncSqlCursor<List<Object>>>>(nodes.size());
-
-        try {
-            nodes = Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig());
-        } catch (Throwable th) {
-            start.completeExceptionally(th);
-
-            res.add(CompletableFuture.completedFuture(failedCursor(th)));
-        }
-
-        for (SqlNode sqlNode : nodes) {
-            // Only rw transactions for now.
-            InternalTransaction implicitTx = txManager.begin(false);
-
-            final BaseQueryContext ctx = BaseQueryContext.builder()
-                    .cancel(new QueryCancel())
-                    .frameworkConfig(
-                            Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                    .defaultSchema(schema)
-                                    .build()
-                    )
-                    .logger(LOG)
-                    .parameters(params)
-                    .plannerTimeout(PLANNER_TIMEOUT)
-                    .build();
-
-            // TODO https://issues.apache.org/jira/browse/IGNITE-17746 Fix query execution flow.
-            CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenCompose(none -> prepareSvc.prepareAsync(sqlNode, ctx))
-                    .thenApply(plan -> {
-                        context.maybeUnwrap(QueryValidator.class)
-                                .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
-
-                        return new AsyncSqlCursorImpl<>(
-                                SqlQueryType.mapPlanTypeToSqlType(plan.type()),
-                                plan.metadata(),
-                                implicitTx,
-                                executionSrvc.executePlan(implicitTx, plan, ctx)
-                        );
-                    });
-
-            stage.whenComplete((cur, ex) -> {
-                if (ex instanceof CancellationException) {
-                    ctx.cancel().cancel();
-                }
-            });
-
-            res.add(stage);
-        }
-
-        start.completeAsync(() -> null, taskExecutor);
-
-        return res;
-    }
-
-    private static <T> AsyncSqlCursor<T> failedCursor(Throwable th) {
-        return new AsyncSqlCursorImpl<>(
-                null, null, null,
-                new AsyncCursor<>() {
-                    @Override
-                    public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
-                        return CompletableFuture.failedFuture(th);
-                    }
-
-                    @Override
-                    public CompletableFuture<Void> closeAsync() {
-                        return CompletableFuture.completedFuture(null);
-                    }
-                }
-        );
-    }
-
     private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {
         protected final SqlSchemaManagerImpl schemaHolder;
 
@@ -583,7 +505,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             return schemaHolder.onTableCreated(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     DEFAULT_SCHEMA_NAME,
-                    parameters.table(),
+                    parameters.tableId(),
                     parameters.causalityToken()
             )
                     .thenApply(v -> false);
@@ -601,7 +523,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             return schemaHolder.onTableUpdated(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     DEFAULT_SCHEMA_NAME,
-                    parameters.table(),
+                    parameters.tableId(),
                     parameters.causalityToken()
             )
                     .thenApply(v -> false);
@@ -619,7 +541,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             return schemaHolder.onTableDropped(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     DEFAULT_SCHEMA_NAME,
-                    parameters.tableName(),
+                    parameters.tableId(),
                     parameters.causalityToken()
             )
                     .thenApply(v -> false);
@@ -637,6 +559,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             return schemaHolder.onIndexDropped(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     DEFAULT_SCHEMA_NAME,
+                    parameters.tableId(),
                     parameters.indexId(),
                     parameters.causalityToken()
             )
@@ -653,7 +576,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onIndexCreated(
-                    parameters.index(),
+                    parameters.tableId(),
+                    parameters.indexId(),
+                    parameters.indexDescriptor(),
                     parameters.causalityToken()
             )
                     .thenApply(v -> false);
@@ -663,5 +588,32 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Returns {@code true} if this is data modification operation. */
     private static boolean dataModificationOp(SqlNode sqlNode) {
         return SqlKind.DML.contains(sqlNode.getKind());
+    }
+
+    /** Performs additional validation of a parsed statement. **/
+    private static void validateParsedStatement(QueryContext context, ParseResult parseResult, SqlNode node, Object[] params) {
+        Set<SqlQueryType> allowedTypes = context.allowedQueryTypes();
+        SqlQueryType queryType = Commons.getQueryType(node);
+
+        if (queryType == null) {
+            throw new IgniteInternalException(UNSUPPORTED_SQL_OPERATION_KIND_ERR, "Unsupported operation ["
+                    + "sqlNodeKind=" + node.getKind() + "; "
+                    + "querySql=\"" + node + "\"]");
+        }
+
+        if (!allowedTypes.contains(queryType)) {
+            String message = format("Invalid SQL statement type in the batch. Expected {} but got {}.", allowedTypes, queryType);
+
+            throw new QueryValidationException(message);
+        }
+
+        if (parseResult.dynamicParamsCount() != params.length) {
+            String message = format(
+                    "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
+                    params.length, parseResult.dynamicParamsCount()
+            );
+
+            throw new SqlException(QUERY_INVALID_ERR, message);
+        }
     }
 }

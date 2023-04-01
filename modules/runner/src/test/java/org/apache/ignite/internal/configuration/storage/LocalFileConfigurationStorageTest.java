@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
@@ -40,13 +39,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 public class LocalFileConfigurationStorageTest extends ConfigurationStorageTest {
 
+    private static final String CONFIG_NAME = "ignite-config.conf";
+
     @WorkDirectory
     private Path tmpDir;
 
     @Override
     public ConfigurationStorage getStorage() {
-        Path configFile = getConfigFile();
-        return new LocalFileConfigurationStorage(NodeBootstrapConfiguration.directFile(configFile));
+        return new LocalFileConfigurationStorage(getConfigFile());
     }
 
     @Test
@@ -84,6 +84,6 @@ public class LocalFileConfigurationStorageTest extends ConfigurationStorageTest 
     }
 
     private Path getConfigFile() {
-        return tmpDir.resolve(NodeBootstrapConfiguration.DEFAULT_CONFIG_NAME);
+        return tmpDir.resolve(CONFIG_NAME);
     }
 }

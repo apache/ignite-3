@@ -25,11 +25,11 @@ import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import java.util.UUID;
 
 /**
- * Exception is thrown when appropriate column is not found.
+ * Exception is thrown when the indicated column is not found.
  */
 public class ColumnNotFoundException extends IgniteException {
     /**
-     * Create a new exception with given column name.
+     * Creates an exception with a given column name.
      *
      * @param columnName Column name.
      */
@@ -38,11 +38,11 @@ public class ColumnNotFoundException extends IgniteException {
     }
 
     /**
-     * Create a new exception with given column name.
+     * Creates an exception with a given column name.
      *
      * @param schemaName Name of the schema the table belongs to.
-     * @param tableName Name of the table the column belongs to.
-     * @param columnName Name of the column of interest.
+     * @param columnName Column name.
+     * @param tableName Table name.
      */
     public ColumnNotFoundException(String schemaName, String tableName, String columnName) {
         super(COLUMN_NOT_FOUND_ERR, format("Column does not exist [tableName={}, columnName={}]",
@@ -50,11 +50,11 @@ public class ColumnNotFoundException extends IgniteException {
     }
 
     /**
-     * Creates a new exception with the given trace id, error code, detail message and cause.
+     * Creates an exception with the given trace ID, error code, detailed message, and cause.
      *
-     * @param traceId Unique identifier of this exception.
+     * @param traceId Unique identifier of the exception.
      * @param code Full error code.
-     * @param message Detail message.
+     * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
     public ColumnNotFoundException(UUID traceId, int code, String message, Throwable cause) {

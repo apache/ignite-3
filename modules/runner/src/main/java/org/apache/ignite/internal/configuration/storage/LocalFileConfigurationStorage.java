@@ -42,7 +42,6 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
 import org.apache.ignite.internal.configuration.NodeConfigCreateException;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
 import org.apache.ignite.internal.future.InFlightFutures;
@@ -88,10 +87,10 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     /**
      * Constructor.
      *
-     * @param configuration Node bootstrap configuration.
+     * @param configPath Path to node bootstrap configuration file.
      */
-    public LocalFileConfigurationStorage(NodeBootstrapConfiguration configuration) {
-        this.configPath = configuration.configPath();
+    public LocalFileConfigurationStorage(Path configPath) {
+        this.configPath = configPath;
         tempConfigPath = configPath.resolveSibling(configPath.getFileName() + ".tmp");
         checkAndRestoreConfigFile();
     }

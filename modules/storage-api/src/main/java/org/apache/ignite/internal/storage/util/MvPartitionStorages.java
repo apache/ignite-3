@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
@@ -61,11 +62,12 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
      * Constructor.
      *
      * @param tableView Table configuration.
+     * @param distributionZoneView Distribution zone configuration.
      */
-    public MvPartitionStorages(TableView tableView) {
+    public MvPartitionStorages(TableView tableView, DistributionZoneView distributionZoneView) {
         this.tableView = tableView;
 
-        storageByPartitionId = new AtomicReferenceArray<>(tableView.partitions());
+        storageByPartitionId = new AtomicReferenceArray<>(distributionZoneView.partitions());
     }
 
     /**

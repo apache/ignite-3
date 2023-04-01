@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -48,12 +49,6 @@ import org.apache.ignite.network.ClusterNode;
 public class LeaseUpdater {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(LeaseUpdater.class);
-
-    /**
-     * Cluster cLock skew. The constant determines the undefined inclusive interval to compares timestamp from various nodes.
-     * TODO: IGNITE-18978 Method to comparison timestamps with clock skew.
-     */
-    private static final long CLOCK_SKEW = 7L;
 
     /** Update attempts interval in milliseconds. */
     private static final long UPDATE_LEASE_MS = 200L;
@@ -100,6 +95,7 @@ public class LeaseUpdater {
             MetaStorageManager msManager,
             LogicalTopologyService topologyService,
             TablesConfiguration tablesConfiguration,
+            DistributionZonesConfiguration distributionZonesConfiguration,
             LeaseTracker leaseTracker,
             HybridClock clock
     ) {
@@ -107,7 +103,7 @@ public class LeaseUpdater {
         this.leaseTracker = leaseTracker;
         this.clock = clock;
 
-        this.assignmentsTracker = new AssignmentsTracker(vaultManager, msManager, tablesConfiguration);
+        this.assignmentsTracker = new AssignmentsTracker(vaultManager, msManager, tablesConfiguration, distributionZonesConfiguration);
         this.topologyTracker = new TopologyTracker(topologyService);
         this.updater = new Updater();
     }
@@ -150,23 +146,6 @@ public class LeaseUpdater {
 
             updaterTread = null;
         }
-    }
-
-    /**
-     * Compares two timestamps with the clock skew.
-     * t1, t2 comparable if t1 is not contained on [t2 - CLOCK_SKEW; t2 + CLOCK_SKEW].
-     * TODO: IGNITE-18978 Method to comparison timestamps with clock skew.
-     *
-     * @param ts1 First timestamp.
-     * @param ts2 Second timestamp.
-     * @return Result of comparison can be positive or negative, or {@code 0} if timestamps are not comparable.
-     */
-    private static int compareWithClockSkew(HybridTimestamp ts1, HybridTimestamp ts2) {
-        if (ts1.getPhysical() - CLOCK_SKEW <= ts2.getPhysical() && ts1.getPhysical() + CLOCK_SKEW >= ts2.getPhysical()) {
-            return 0;
-        }
-
-        return ts1.compareTo(ts2);
     }
 
     /**
@@ -263,7 +242,7 @@ public class LeaseUpdater {
             HybridTimestamp now = clock.now();
 
             return lease == EMPTY_LEASE
-                    || (!candidate.equals(lease.getLeaseholder()) && compareWithClockSkew(now, lease.getLeaseExpirationTime()) > 0);
+                    || (!candidate.equals(lease.getLeaseholder()) && now.after(lease.getLeaseExpirationTime()));
         }
     }
 }

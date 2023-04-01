@@ -39,6 +39,7 @@ import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.cli.AbstractCliTest;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.jul.NoOpHandler;
@@ -130,7 +131,7 @@ class ItClusterCommandTest extends AbstractCliTest {
             throw new RuntimeException("Cannot load config", e);
         }
 
-        IgnitionManager.start(nodeName, config, workDir.resolve(nodeName));
+        TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName));
     }
 
     private String configJsonFor(Node node) throws IOException {

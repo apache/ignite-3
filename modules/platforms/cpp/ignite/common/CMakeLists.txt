@@ -30,10 +30,13 @@ set(PUBLIC_HEADERS
     end_point.h
     ignite_date.h
     ignite_date_time.h
+    ignite_duration.h
     ignite_error.h
+    ignite_period.h
     ignite_result.h
     ignite_time.h
     ignite_timestamp.h
+    ignite_type.h
     uuid.h
 )
 

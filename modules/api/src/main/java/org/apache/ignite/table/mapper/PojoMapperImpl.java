@@ -22,7 +22,7 @@ import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Mapper implementation which maps object fields to the columns by their names.
+ * Maps object fields to columns by name.
  *
  * @param <T> Target type.
  */
@@ -36,7 +36,7 @@ class PojoMapperImpl<T> implements PojoMapper<T> {
     private final Map<String, TypeConverter<?, ?>> converters;
 
     /**
-     * Creates a mapper for given type.
+     * Creates a mapper for a given type.
      *
      * @param targetType Target type.
      * @param mapping    Column-to-field name mapping.

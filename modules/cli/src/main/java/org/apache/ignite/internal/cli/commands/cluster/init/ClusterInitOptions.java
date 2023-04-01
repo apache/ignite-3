@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.META_STO
 
 import java.util.ArrayList;
 import java.util.List;
+import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
 /**
@@ -54,15 +55,22 @@ public class ClusterInitOptions {
     @Option(names = {CLUSTER_NAME_OPTION, CLUSTER_NAME_OPTION_SHORT}, required = true, description = CLUSTER_NAME_OPTION_DESC)
     private String clusterName;
 
-    public List<String> getMetaStorageNodes() {
+    @Mixin
+    private AuthenticationOptions authenticationOptions;
+
+    public List<String> metaStorageNodes() {
         return metaStorageNodes;
     }
 
-    public List<String> getCmgNodes() {
+    public List<String> cmgNodes() {
         return cmgNodes;
     }
 
-    public String getClusterName() {
+    public String clusterName() {
         return clusterName;
+    }
+
+    public AuthenticationOptions authenticationOptions() {
+        return authenticationOptions;
     }
 }

@@ -126,6 +126,9 @@ public class ClientUtils {
             case ClientOp.TUPLE_CONTAINS_KEY:
                 return ClientOperationType.TUPLE_CONTAINS_KEY;
 
+            case ClientOp.JDBC_CONNECT:
+                return null;
+
             case ClientOp.JDBC_EXEC:
                 return null;
 

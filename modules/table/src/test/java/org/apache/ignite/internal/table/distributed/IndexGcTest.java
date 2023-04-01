@@ -32,7 +32,7 @@ public class IndexGcTest extends IndexBaseTest {
     @Test
     void testRemoveStaleEntryWithSameIndex() {
         UUID rowUuid = UUID.randomUUID();
-        RowId rowId = new RowId(1, rowUuid);
+        RowId rowId = new RowId(PARTITION_ID, rowUuid);
 
         BinaryRow row = defaultRow();
 
@@ -52,7 +52,7 @@ public class IndexGcTest extends IndexBaseTest {
     @Test
     void testRemoveStaleEntriesWithDifferentIndexes() {
         UUID rowUuid = UUID.randomUUID();
-        RowId rowId = new RowId(1, rowUuid);
+        RowId rowId = new RowId(PARTITION_ID, rowUuid);
 
         var key = new TestKey(1, "foo");
 
@@ -87,7 +87,7 @@ public class IndexGcTest extends IndexBaseTest {
     @Test
     void testRemoveTombstonesRowNullNull() {
         UUID rowUuid = UUID.randomUUID();
-        RowId rowId = new RowId(1, rowUuid);
+        RowId rowId = new RowId(PARTITION_ID, rowUuid);
 
         BinaryRow row = defaultRow();
 
@@ -114,7 +114,7 @@ public class IndexGcTest extends IndexBaseTest {
     @Test
     void testRemoveTombstonesRowNullRow() {
         UUID rowUuid = UUID.randomUUID();
-        RowId rowId = new RowId(1, rowUuid);
+        RowId rowId = new RowId(PARTITION_ID, rowUuid);
 
         BinaryRow row = defaultRow();
 
@@ -139,7 +139,7 @@ public class IndexGcTest extends IndexBaseTest {
     @Test
     void testRemoveTombstonesRowRowNull() {
         UUID rowUuid = UUID.randomUUID();
-        RowId rowId = new RowId(1, rowUuid);
+        RowId rowId = new RowId(PARTITION_ID, rowUuid);
 
         BinaryRow row = defaultRow();
 
