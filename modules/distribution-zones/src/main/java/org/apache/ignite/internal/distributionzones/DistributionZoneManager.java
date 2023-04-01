@@ -521,12 +521,11 @@ public class DistributionZoneManager implements IgniteComponent {
             // Init timers after restart.
             zonesState.putIfAbsent(DEFAULT_ZONE_ID, new ZoneState(executor));
 
-            zonesConfiguration.distributionZones().value().namedListKeys()
-                    .forEach(zoneName -> {
-                        int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
+            zonesConfiguration.distributionZones().value().forEach(zone -> {
+                int zoneId = zone.zoneId();
 
-                        zonesState.putIfAbsent(zoneId, new ZoneState(executor));
-                    });
+                zonesState.putIfAbsent(zoneId, new ZoneState(executor));
+            });
 
             logicalTopologyService.addEventListener(topologyEventListener);
 
@@ -909,16 +908,15 @@ public class DistributionZoneManager implements IgniteComponent {
                                         logicalTopology
                                 );
 
-                                zonesConfiguration.distributionZones().value().namedListKeys()
-                                        .forEach(zoneName -> {
-                                            int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
+                                zonesConfiguration.distributionZones().value().forEach(zone -> {
+                                    int zoneId = zone.zoneId();
 
-                                            saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                                                    zoneId,
-                                                    appliedRevision,
-                                                    logicalTopology
-                                            );
-                                        });
+                                    saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+                                            zoneId,
+                                            appliedRevision,
+                                            logicalTopology
+                                    );
+                                });
                             }
                         } finally {
                             busyLock.leaveBusy();

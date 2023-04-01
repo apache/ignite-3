@@ -35,13 +35,12 @@ public class AuthenticationProvidersValidatorImpl implements
 
     @Override
     public void validate(AuthenticationProvidersValidator annotation, ValidationContext<NamedListView<AuthenticationProviderView>> ctx) {
-        NamedListView<AuthenticationProviderView> providers = ctx.getNewValue();
-        providers.namedListKeys()
-                .forEach(it -> validateProvider(it, providers.get(it), ctx));
-
+        for (AuthenticationProviderView provider : ctx.getNewValue()) {
+            validateProvider(provider.name(), provider, ctx);
+        }
     }
 
-    private void validateProvider(String key, AuthenticationProviderView view,
+    private static void validateProvider(String key, AuthenticationProviderView view,
             ValidationContext<NamedListView<AuthenticationProviderView>> ctx) {
         try {
             AuthenticationType authenticationType = AuthenticationType.parse(view.type());
