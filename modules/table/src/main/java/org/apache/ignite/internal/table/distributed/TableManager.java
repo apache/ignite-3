@@ -522,6 +522,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return A future.
      */
     private CompletableFuture<?> onTableCreate(ConfigurationNotificationEvent<TableView> ctx) {
+        LOG.info("On table create table=[" + ((ExtendedTableView) ctx.newValue()).id() + ']' );
         if (!busyLock.enterBusy()) {
             UUID tblId = ((ExtendedTableView) ctx.newValue()).id();
 
@@ -642,6 +643,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return A future.
      */
     private CompletableFuture<?> onUpdateAssignments(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
+        ExtendedTableConfiguration tblCfg = assignmentsCtx.config(ExtendedTableConfiguration.class);
+
+        UUID tblId = tblCfg.id().value();
+
+        LOG.info("On update assignments table=[" + tblId + ']' );
+
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -994,9 +1001,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         Map<UUID, TableImpl> tables = tablesByIdVv.latest();
 
+        LOG.info("Clean up process started for tables: " + tables.keySet());
         cleanUpTablesResources(tables);
+        LOG.info("Clean up process finished for tables: " + tables.keySet());
 
+        LOG.info("Clean up process started for tablesToStopInCaseOfError: " + tablesToStopInCaseOfError.keySet());
         cleanUpTablesResources(tablesToStopInCaseOfError);
+        LOG.info("Clean up process finished for tablesToStopInCaseOfError: " + tablesToStopInCaseOfError.keySet());
 
         tablesToStopInCaseOfError.clear();
 
