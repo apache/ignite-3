@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.configuration.notifications;
 
-import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.jetbrains.annotations.Nullable;
 
@@ -79,33 +78,23 @@ class ConfigurationNotificationEventImpl<VIEWT> implements ConfigurationNotifica
         return storageRevision;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public <T extends ConfigurationProperty> @Nullable T config(Class<T> configClass) {
-        ConfigurationContainer container = findContainer(configClass);
-
-        return container == null ? null : (T) container.specificConfig();
+    public <T> @Nullable T oldValue(Class<T> viewClass) {
+        return tail.find(viewClass, true);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public @Nullable String name(Class<? extends ConfigurationProperty> configClass) {
-        ConfigurationContainer container = findContainer(configClass);
-
-        return container == null ? null : container.name;
+    public <T> @Nullable T newValue(Class<T> viewClass) {
+        return tail.find(viewClass, false);
     }
 
-    private @Nullable ConfigurationContainer findContainer(Class<?> configClass) {
-        ConfigurationContainer curr = tail;
+    @Override
+    public @Nullable String oldName(Class<?> viewClass) {
+        return tail.name(viewClass, true);
+    }
 
-        while (curr != null) {
-            if (configClass.isAssignableFrom(curr.configClass())) {
-                return curr;
-            } else {
-                curr = curr.prev;
-            }
-        }
-
-        return null;
+    @Override
+    public @Nullable String newName(Class<?> viewClass) {
+        return tail.name(viewClass, false);
     }
 }

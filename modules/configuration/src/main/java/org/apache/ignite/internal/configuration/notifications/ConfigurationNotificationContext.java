@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,7 +31,6 @@ class ConfigurationNotificationContext {
     /** Current configuration storage revision. */
     private final long storageRevision;
 
-    /** The tail of containers, implements a stack for safe traversal in {@link ConfigurationNotificationEventImpl events}. */
     @Nullable
     private ConfigurationContainer tailContainers;
 
@@ -53,24 +51,17 @@ class ConfigurationNotificationContext {
         this.notificationNum = notificationNum;
     }
 
-    /**
-     * Adds {@link ConfigurationContainer container}.
-     *
-     * @param config Configuration.
-     * @param name Key in named list.
-     */
-    void addContainer(DynamicConfiguration<InnerNode, ?> config, @Nullable String name) {
-        tailContainers = new ConfigurationContainer(config, name, tailContainers);
+    void addContainer(
+            @Nullable InnerNode oldNode,
+            @Nullable InnerNode newNode,
+            @Nullable String oldName,
+            @Nullable String newName
+    ) {
+        tailContainers = new ConfigurationContainer(tailContainers, oldNode, newNode, oldName, newName);
     }
 
-    /**
-     * Removes {@link ConfigurationContainer container}.
-     *
-     * @param config Configuration.
-     */
-    void removeContainer(DynamicConfiguration<InnerNode, ?> config) {
+    void removeContainer() {
         assert tailContainers != null;
-        assert tailContainers.config == config;
 
         tailContainers = tailContainers.prev;
     }

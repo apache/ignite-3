@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.file.Path;
@@ -153,13 +154,13 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             throw new StorageException("Error starting checkpoint manager", e);
         }
 
-        addDataRegion(engineConfig.defaultRegion());
+        addDataRegion(DEFAULT_DATA_REGION_NAME);
 
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
         engineConfig.regions().listenElements(new ConfigurationNamedListListener<>() {
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<PersistentPageMemoryDataRegionView> ctx) {
-                addDataRegion(ctx.config(PersistentPageMemoryDataRegionConfiguration.class));
+                addDataRegion(ctx.newName(PersistentPageMemoryDataRegionView.class));
 
                 return completedFuture(null);
             }
@@ -205,12 +206,14 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     /**
      * Creates, starts and adds a new data region to the engine.
      *
-     * @param dataRegionConfig Data region configuration.
+     * @param name Data region name.
      */
-    private void addDataRegion(PersistentPageMemoryDataRegionConfiguration dataRegionConfig) {
-        int pageSize = engineConfig.pageSize().value();
+    private void addDataRegion(String name) {
+        PersistentPageMemoryDataRegionConfiguration dataRegionConfig = DEFAULT_DATA_REGION_NAME.equals(name)
+                ? engineConfig.defaultRegion()
+                : engineConfig.regions().get(name);
 
-        String name = dataRegionConfig.name().value();
+        int pageSize = engineConfig.pageSize().value();
 
         PersistentPageMemoryDataRegion dataRegion = new PersistentPageMemoryDataRegion(
                 dataRegionConfig,

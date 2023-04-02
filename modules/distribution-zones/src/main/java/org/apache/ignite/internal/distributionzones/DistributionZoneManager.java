@@ -546,12 +546,12 @@ public class DistributionZoneManager implements IgniteComponent {
      */
     private ConfigurationListener<Integer> onUpdateScaleUp() {
         return ctx -> {
-            int zoneId = ctx.config(DistributionZoneConfiguration.class).zoneId().value();
-
             if (ctx.oldValue() == null) {
                 // zone creation, already handled in a separate listener.
                 return completedFuture(null);
             }
+
+            int zoneId = ctx.newValue(DistributionZoneView.class).zoneId();
 
             int newScaleUp = ctx.newValue().intValue();
 
@@ -584,12 +584,12 @@ public class DistributionZoneManager implements IgniteComponent {
      */
     private ConfigurationListener<Integer> onUpdateScaleDown() {
         return ctx -> {
-            int zoneId = ctx.config(DistributionZoneConfiguration.class).zoneId().value();
-
             if (ctx.oldValue() == null) {
                 // zone creation, already handled in a separate listener.
                 return completedFuture(null);
             }
+
+            int zoneId = ctx.newValue(DistributionZoneView.class).zoneId();
 
             int newScaleDown = ctx.newValue().intValue();
 

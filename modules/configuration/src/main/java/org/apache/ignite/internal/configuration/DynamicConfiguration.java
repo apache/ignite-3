@@ -47,9 +47,6 @@ public abstract class DynamicConfiguration<VIEWT, CHANGET extends VIEWT> extends
     /** Configuration members (leaves and nodes). */
     protected volatile Map<String, ConfigurationProperty<?>> members = new LinkedHashMap<>();
 
-    /** Removed from the named list. */
-    protected boolean removedFromNamedList;
-
     /**
      * Constructor.
      *
@@ -264,19 +261,5 @@ public abstract class DynamicConfiguration<VIEWT, CHANGET extends VIEWT> extends
             P member
     ) {
         members.remove(member.key());
-    }
-
-    /**
-     * Mark that the configuration has been removed from the named list.
-     */
-    public void removedFromNamedList() {
-        removedFromNamedList = true;
-    }
-
-    /**
-     * Return {@code true} if the configuration has been removed from the named list.
-     */
-    public boolean isRemovedFromNamedList() {
-        return removedFromNamedList;
     }
 }
