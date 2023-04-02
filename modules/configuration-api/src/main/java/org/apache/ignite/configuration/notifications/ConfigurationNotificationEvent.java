@@ -36,19 +36,6 @@ public interface ConfigurationNotificationEvent<VIEWT> {
     @Nullable VIEWT oldValue();
 
     /**
-     * Returns updated value of the configuration.
-     */
-    @Nullable VIEWT newValue();
-
-    /**
-     * Returns monotonously increasing counter, linked to the specific storage for current configuration values. Gives a unique change
-     * identifier inside a specific configuration storage.
-     *
-     * @return Counter value.
-     */
-    long storageRevision();
-
-    /**
      * Returns old value of the parent (any from the root) or current configuration.
      *
      * <p>For example, if we changed the child configuration, then we can get both the parent and the current child configuration.
@@ -59,6 +46,11 @@ public interface ConfigurationNotificationEvent<VIEWT> {
     @Nullable <T> T oldValue(Class<T> viewClass);
 
     /**
+     * Returns updated value of the configuration.
+     */
+    @Nullable VIEWT newValue();
+
+    /**
      * Returns new value of the parent (any from the root) or current configuration.
      *
      * <p>For example, if we changed the child configuration, then we can get both the parent and the current child configuration.
@@ -67,6 +59,14 @@ public interface ConfigurationNotificationEvent<VIEWT> {
      * @param <T> Configuration type.
      */
     @Nullable <T> T newValue(Class<T> viewClass);
+
+    /**
+     * Returns monotonously increasing counter, linked to the specific storage for current configuration values. Gives a unique change
+     * identifier inside a specific configuration storage.
+     *
+     * @return Counter value.
+     */
+    long storageRevision();
 
     /**
      * Returns old value of the key of a named list item for the parent (any from the root) or current configuration.

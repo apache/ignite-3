@@ -66,26 +66,26 @@ class ConfigurationNotificationEventImpl<VIEWT> implements ConfigurationNotifica
         return oldValue;
     }
 
+    @Override
+    public <T> @Nullable T oldValue(Class<T> viewClass) {
+        return tail.find(viewClass, true);
+    }
+
     /** {@inheritDoc} */
     @Override
     public @Nullable VIEWT newValue() {
         return newValue;
     }
 
+    @Override
+    public <T> @Nullable T newValue(Class<T> viewClass) {
+        return tail.find(viewClass, false);
+    }
+
     /** {@inheritDoc} */
     @Override
     public long storageRevision() {
         return storageRevision;
-    }
-
-    @Override
-    public <T> @Nullable T oldValue(Class<T> viewClass) {
-        return tail.find(viewClass, true);
-    }
-
-    @Override
-    public <T> @Nullable T newValue(Class<T> viewClass) {
-        return tail.find(viewClass, false);
     }
 
     @Override
