@@ -522,7 +522,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return A future.
      */
     private CompletableFuture<?> onTableCreate(ConfigurationNotificationEvent<TableView> ctx) {
-        LOG.info("On table create table=[" + ((ExtendedTableView) ctx.newValue()).id() + ']' );
+        LOG.info("On table create table=[" + ((ExtendedTableView) ctx.newValue()).id() + ']');
+
         if (!busyLock.enterBusy()) {
             UUID tblId = ((ExtendedTableView) ctx.newValue()).id();
 
@@ -647,7 +648,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         UUID tblId = tblCfg.id().value();
 
-        LOG.info("On update assignments table=[" + tblId + ']' );
+        LOG.info("On update assignments table=[" + tblId + ']');
 
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
