@@ -1028,7 +1028,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 stopping.add(() -> {
                     try {
-                        raftMgr.stopRaftNodes(replicationGroupId);
+                        boolean b = raftMgr.stopRaftNodes(replicationGroupId);
+
+                        if (!b) {
+                            LOG.error("Unable to stop raft node, groupId=[" + replicationGroupId + ']');
+                            throw new IgniteInternalException("Unable to stop raft node, groupId=[" + replicationGroupId + ']');
+                        }
                     } catch (Throwable t) {
                         handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
                     }
@@ -1036,7 +1041,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 stopping.add(() -> {
                     try {
-                        replicaMgr.stopReplica(replicationGroupId);
+                        boolean c = replicaMgr.stopReplica(replicationGroupId);
+
+                        if (!c) {
+                            LOG.error("Unable to stop replica, groupId=[" + replicationGroupId + ']');
+                            throw new IgniteInternalException("Unable to stop replica, groupId=[" + replicationGroupId + ']');
+                        }
                     } catch (Throwable t) {
                         handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
                     }
