@@ -38,24 +38,24 @@ public class StubAuthenticationViewEvent implements ConfigurationNotificationEve
     }
 
     @Override
+    public <T> @Nullable T oldValue(Class<T> viewClass) {
+        return null;
+    }
+
+    @Override
     @Nullable
     public AuthenticationView newValue() {
         return newValue;
     }
 
     @Override
-    public long storageRevision() {
-        return 0;
-    }
-
-    @Override
-    public <T> @Nullable T oldValue(Class<T> viewClass) {
-        return null;
-    }
-
-    @Override
     public <T> @Nullable T newValue(Class<T> viewClass) {
         return null;
+    }
+
+    @Override
+    public long storageRevision() {
+        return 0;
     }
 
     @Override
