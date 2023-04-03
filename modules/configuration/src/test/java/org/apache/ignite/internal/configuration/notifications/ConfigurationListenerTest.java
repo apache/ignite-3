@@ -56,6 +56,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -284,8 +285,6 @@ public class ConfigurationListenerTest {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onRename(
-                    String oldName,
-                    String newName,
                     ConfigurationNotificationEvent<ChildView> ctx
             ) {
                 log.add("rename");
@@ -381,8 +380,6 @@ public class ConfigurationListenerTest {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onRename(
-                    String oldName,
-                    String newName,
                     ConfigurationNotificationEvent<ChildView> ctx
             ) {
                 log.add("rename");
@@ -469,12 +466,10 @@ public class ConfigurationListenerTest {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onRename(
-                    String oldName,
-                    String newName,
                     ConfigurationNotificationEvent<ChildView> ctx
             ) {
-                assertEquals("name", oldName);
-                assertEquals("newName", newName);
+                assertEquals("name", ctx.oldName(ChildView.class));
+                assertEquals("newName", ctx.newName(ChildView.class));
 
                 ChildView oldValue = ctx.oldValue();
 
@@ -570,12 +565,10 @@ public class ConfigurationListenerTest {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onRename(
-                    String oldName,
-                    String newName,
                     ConfigurationNotificationEvent<ChildView> ctx
             ) {
-                assertEquals("name", oldName);
-                assertEquals("newName", newName);
+                assertEquals("name", ctx.oldName(ChildView.class));
+                assertEquals("newName", ctx.newName(ChildView.class));
 
                 ChildView oldValue = ctx.oldValue();
 
@@ -668,8 +661,6 @@ public class ConfigurationListenerTest {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onRename(
-                    String oldName,
-                    String newName,
                     ConfigurationNotificationEvent<ChildView> ctx
             ) {
                 log.add("rename");
@@ -739,7 +730,7 @@ public class ConfigurationListenerTest {
             return completedFuture(null);
         });
 
-        final Future<Void> fut = config.change(parent -> parent.changeChildren(elements ->
+        Future<Void> fut = config.change(parent -> parent.changeChildren(elements ->
                 elements.delete("name"))
         );
 
@@ -762,7 +753,7 @@ public class ConfigurationListenerTest {
         ConfigurationListener<ParentView> listener1 = configListener(ctx -> events.add("1"));
 
         ConfigurationNamedListListener<ChildView> listener2 = configNamedListenerOnUpdate(ctx -> events.add("2"));
-        final ConfigurationNamedListListener<ChildView> listener3 = configNamedListenerOnUpdate(ctx -> events.add("3"));
+        ConfigurationNamedListListener<ChildView> listener3 = configNamedListenerOnUpdate(ctx -> events.add("3"));
 
         config.listen(listener0);
         config.listen(listener1);
@@ -805,34 +796,34 @@ public class ConfigurationListenerTest {
         String newVal = randomUuid();
 
         config.listen(configListener(ctx -> {
-            ParentConfiguration parent = ctx.config(ParentConfiguration.class);
+            ParentView parent = ctx.newValue(ParentView.class);
 
             assertNotNull(parent);
-            assertNull(ctx.name(ParentConfiguration.class));
+            assertNull(ctx.newName(ParentView.class));
 
-            assertEquals(newVal, parent.child().str().value());
+            assertEquals(newVal, parent.child().str());
         }));
 
         config.child().listen(configListener(ctx -> {
-            assertNotNull(ctx.config(ParentConfiguration.class));
+            assertNotNull(ctx.newValue(ParentView.class));
 
-            ChildConfiguration child = ctx.config(ChildConfiguration.class);
+            ChildView child = ctx.newValue(ChildView.class);
 
             assertNotNull(child);
-            assertNull(ctx.name(ChildConfiguration.class));
+            assertNull(ctx.newName(ChildView.class));
 
-            assertEquals(newVal, child.str().value());
+            assertEquals(newVal, child.str());
         }));
 
         config.child().str().listen(configListener(ctx -> {
-            assertNotNull(ctx.config(ParentConfiguration.class));
+            assertNotNull(ctx.newValue(ParentView.class));
 
-            ChildConfiguration child = ctx.config(ChildConfiguration.class);
+            ChildView child = ctx.newValue(ChildView.class);
 
             assertNotNull(child);
-            assertNull(ctx.name(ChildConfiguration.class));
+            assertNull(ctx.newName(ChildView.class));
 
-            assertEquals(newVal, child.str().value());
+            assertEquals(newVal, child.str());
         }));
 
         config.change(c0 -> c0.changeChild(c1 -> c1.changeStr(newVal))).get(1, SECONDS);
@@ -844,27 +835,27 @@ public class ConfigurationListenerTest {
         String key = randomUuid();
 
         config.children().listen(configListener(ctx -> {
-            ParentConfiguration parent = ctx.config(ParentConfiguration.class);
+            ParentView parent = ctx.newValue(ParentView.class);
 
             assertNotNull(parent);
-            assertNull(ctx.name(ParentConfiguration.class));
+            assertNull(ctx.newName(ParentView.class));
 
-            assertNull(ctx.config(ChildConfiguration.class));
-            assertNull(ctx.name(ChildConfiguration.class));
+            assertNull(ctx.newValue(ChildView.class));
+            assertNull(ctx.newName(ChildView.class));
 
-            assertEquals(newVal, parent.children().get(key).str().value());
+            assertEquals(newVal, parent.children().get(key).str());
         }));
 
         config.children().listenElements(configNamedListenerOnCreate(ctx -> {
-            assertNotNull(ctx.config(ParentConfiguration.class));
-            assertNull(ctx.name(ParentConfiguration.class));
+            assertNotNull(ctx.newValue(ParentView.class));
+            assertNull(ctx.newName(ParentView.class));
 
-            ChildConfiguration child = ctx.config(ChildConfiguration.class);
+            ChildView child = ctx.newValue(ChildView.class);
 
             assertNotNull(child);
-            assertEquals(key, ctx.name(ChildConfiguration.class));
+            assertEquals(key, ctx.newName(ChildView.class));
 
-            assertEquals(newVal, child.str().value());
+            assertEquals(newVal, child.str());
         }));
 
         config.children().change(c -> c.create(key, c1 -> c1.changeStr(newVal))).get(1, SECONDS);
@@ -879,28 +870,28 @@ public class ConfigurationListenerTest {
         config.children().change(c -> c.create(oldKey, doNothingConsumer())).get(1, SECONDS);
 
         config.children().listen(configListener(ctx -> {
-            ParentConfiguration parent = ctx.config(ParentConfiguration.class);
+            ParentView parent = ctx.newValue(ParentView.class);
 
             assertNotNull(parent);
-            assertNull(ctx.name(ParentConfiguration.class));
+            assertNull(ctx.newName(ParentView.class));
 
-            assertNull(ctx.config(ChildConfiguration.class));
-            assertNull(ctx.name(ChildConfiguration.class));
+            assertNull(ctx.newValue(ChildView.class));
+            assertNull(ctx.newName(ChildView.class));
 
             assertNull(parent.children().get(oldKey));
-            assertEquals(val, parent.children().get(newKey).str().value());
+            assertEquals(val, parent.children().get(newKey).str());
         }));
 
         config.children().listenElements(configNamedListenerOnRename(ctx -> {
-            assertNotNull(ctx.config(ParentConfiguration.class));
-            assertNull(ctx.name(ParentConfiguration.class));
+            assertNotNull(ctx.newValue(ParentView.class));
+            assertNull(ctx.newName(ParentView.class));
 
-            ChildConfiguration child = ctx.config(ChildConfiguration.class);
+            ChildView child = ctx.newValue(ChildView.class);
 
             assertNotNull(child);
-            assertEquals(newKey, ctx.name(ChildConfiguration.class));
+            assertEquals(newKey, ctx.newName(ChildView.class));
 
-            assertEquals(val, child.str().value());
+            assertEquals(val, child.str());
         }));
 
         config.children().change(c -> c.rename(oldKey, newKey));
@@ -913,32 +904,33 @@ public class ConfigurationListenerTest {
         config.children().change(c -> c.create(key, doNothingConsumer())).get(1, SECONDS);
 
         config.children().listen(configListener(ctx -> {
-            ParentConfiguration parent = ctx.config(ParentConfiguration.class);
+            ParentView parent = ctx.newValue(ParentView.class);
 
             assertNotNull(parent);
-            assertNull(ctx.name(ParentConfiguration.class));
+            assertNull(ctx.newName(ParentView.class));
 
-            assertNull(ctx.config(ChildConfiguration.class));
-            assertNull(ctx.name(ChildConfiguration.class));
+            assertNull(ctx.oldValue(ChildView.class));
+            assertNull(ctx.oldName(ChildView.class));
+
+            assertNull(ctx.newValue(ChildView.class));
+            assertNull(ctx.newName(ChildView.class));
 
             assertNull(parent.children().get(key));
         }));
 
-        config.children().listenElements(configNamedListenerOnDelete(ctx -> {
-            assertNotNull(ctx.config(ParentConfiguration.class));
-            assertNull(ctx.name(ParentConfiguration.class));
+        Consumer<ConfigurationNotificationEvent<ChildView>> assertions = ctx -> {
+            assertNotNull(ctx.newValue(ParentView.class));
+            assertNull(ctx.newName(ParentView.class));
 
-            assertNull(ctx.config(ChildConfiguration.class));
-            assertEquals(key, ctx.name(ChildConfiguration.class));
-        }));
+            assertNotNull(ctx.oldValue(ChildView.class));
+            assertEquals(key, ctx.oldName(ChildView.class));
 
-        config.children().get(key).listen(configListener(ctx -> {
-            assertNotNull(ctx.config(ParentConfiguration.class));
-            assertNull(ctx.name(ParentConfiguration.class));
+            assertNull(ctx.newValue(ChildView.class));
+            assertNull(ctx.newName(ChildView.class));
+        };
 
-            assertNull(ctx.config(ChildConfiguration.class));
-            assertEquals(key, ctx.name(ChildConfiguration.class));
-        }));
+        config.children().listenElements(configNamedListenerOnDelete(assertions));
+        config.children().get(key).listen(configListener(assertions));
 
         config.children().change(c -> c.delete(key)).get(1, SECONDS);
     }
@@ -951,40 +943,34 @@ public class ConfigurationListenerTest {
         config.children().change(c -> c.create(key, doNothingConsumer())).get(1, SECONDS);
 
         config.children().listen(configListener(ctx -> {
-            ParentConfiguration parent = ctx.config(ParentConfiguration.class);
+            ParentView parent = ctx.newValue(ParentView.class);
 
             assertNotNull(parent);
-            assertNull(ctx.name(ParentConfiguration.class));
+            assertNull(ctx.newName(ParentView.class));
 
-            assertNull(ctx.config(ChildConfiguration.class));
-            assertNull(ctx.name(ChildConfiguration.class));
+            assertNull(ctx.oldValue(ChildView.class));
+            assertNull(ctx.oldName(ChildView.class));
 
-            assertEquals(newVal, parent.children().get(key).str().value());
+            assertNull(ctx.newValue(ChildView.class));
+            assertNull(ctx.newName(ChildView.class));
+
+            assertEquals(newVal, parent.children().get(key).str());
         }));
 
-        config.children().listenElements(configNamedListenerOnUpdate(ctx -> {
-            assertNotNull(ctx.config(ParentConfiguration.class));
-            assertNull(ctx.name(ParentConfiguration.class));
+        Consumer<ConfigurationNotificationEvent<ChildView>> assertions = ctx -> {
+            assertNotNull(ctx.newValue(ParentView.class));
+            assertNull(ctx.newName(ParentView.class));
 
-            ChildConfiguration child = ctx.config(ChildConfiguration.class);
+            ChildView child = ctx.newValue(ChildView.class);
 
             assertNotNull(child);
-            assertEquals(key, ctx.name(ChildConfiguration.class));
+            assertEquals(key, ctx.newName(ChildView.class));
 
-            assertEquals(newVal, child.str().value());
-        }));
+            assertEquals(newVal, child.str());
+        };
 
-        config.children().get(key).listen(configListener(ctx -> {
-            assertNotNull(ctx.config(ParentConfiguration.class));
-            assertNull(ctx.name(ParentConfiguration.class));
-
-            ChildConfiguration child = ctx.config(ChildConfiguration.class);
-
-            assertNotNull(child);
-            assertEquals(key, ctx.name(ChildConfiguration.class));
-
-            assertEquals(newVal, child.str().value());
-        }));
+        config.children().listenElements(configNamedListenerOnUpdate(assertions));
+        config.children().get(key).listen(configListener(assertions));
 
         config.children().get(key).str().update(newVal).get(1, SECONDS);
     }
@@ -995,7 +981,7 @@ public class ConfigurationListenerTest {
 
         config.polyChild().commonIntVal().listen(event -> {
             intHolder.set(event.newValue());
-            return CompletableFuture.completedFuture(null);
+            return completedFuture(null);
         });
 
         config.polyChild().commonIntVal().update(42).get(1, SECONDS);
@@ -1006,13 +992,13 @@ public class ConfigurationListenerTest {
     @Test
     void testNotificationEventConfigForNestedConfiguration() throws Exception {
         config.child().listen(ctx -> {
-            assertInstanceOf(ChildConfiguration.class, ctx.config(ChildConfiguration.class));
-            assertInstanceOf(InternalChildConfiguration.class, ctx.config(InternalChildConfiguration.class));
+            assertInstanceOf(ChildView.class, ctx.newValue(ChildView.class));
+            assertInstanceOf(InternalChildView.class, ctx.newValue(InternalChildView.class));
 
-            assertNull(ctx.name(ChildConfiguration.class));
-            assertNull(ctx.name(InternalChildConfiguration.class));
+            assertNull(ctx.newName(ChildView.class));
+            assertNull(ctx.newName(InternalChildView.class));
 
-            return CompletableFuture.completedFuture(null);
+            return completedFuture(null);
         });
 
         config.child().str().update(randomUuid()).get(1, SECONDS);
@@ -1024,49 +1010,52 @@ public class ConfigurationListenerTest {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
-                assertInstanceOf(ChildConfiguration.class, ctx.config(ChildConfiguration.class));
-                assertInstanceOf(InternalChildConfiguration.class, ctx.config(InternalChildConfiguration.class));
+                assertInstanceOf(ChildView.class, ctx.newValue(ChildView.class));
+                assertInstanceOf(InternalChildView.class, ctx.newValue(InternalChildView.class));
 
-                assertEquals("0", ctx.name(ChildConfiguration.class));
-                assertEquals("0", ctx.name(InternalChildConfiguration.class));
+                assertEquals("0", ctx.newName(ChildView.class));
+                assertEquals("0", ctx.newName(InternalChildView.class));
 
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
 
             /** {@inheritDoc} */
             @Override
-            public CompletableFuture<?> onRename(String oldName, String newName, ConfigurationNotificationEvent<ChildView> ctx) {
-                assertInstanceOf(ChildConfiguration.class, ctx.config(ChildConfiguration.class));
-                assertInstanceOf(InternalChildConfiguration.class, ctx.config(InternalChildConfiguration.class));
+            public CompletableFuture<?> onRename(ConfigurationNotificationEvent<ChildView> ctx) {
+                assertInstanceOf(ChildView.class, ctx.newValue(ChildView.class));
+                assertInstanceOf(InternalChildView.class, ctx.newValue(InternalChildView.class));
 
-                assertEquals("1", ctx.name(ChildConfiguration.class));
-                assertEquals("1", ctx.name(InternalChildConfiguration.class));
+                assertEquals("1", ctx.newName(ChildView.class));
+                assertEquals("1", ctx.newName(InternalChildView.class));
 
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
 
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<ChildView> ctx) {
-                assertNull(ctx.config(ChildConfiguration.class));
-                assertNull(ctx.config(InternalChildConfiguration.class));
+                assertNull(ctx.newValue(ChildView.class));
+                assertNull(ctx.newValue(InternalChildView.class));
 
-                assertEquals("1", ctx.name(ChildConfiguration.class));
-                assertEquals("1", ctx.name(InternalChildConfiguration.class));
+                assertEquals("1", ctx.oldName(ChildView.class));
+                assertEquals("1", ctx.oldName(InternalChildView.class));
 
-                return CompletableFuture.completedFuture(null);
+                assertNull(ctx.newName(ChildView.class));
+                assertNull(ctx.newName(InternalChildView.class));
+
+                return completedFuture(null);
             }
 
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<ChildView> ctx) {
-                assertInstanceOf(ChildConfiguration.class, ctx.config(ChildConfiguration.class));
-                assertInstanceOf(InternalChildConfiguration.class, ctx.config(InternalChildConfiguration.class));
+                assertInstanceOf(ChildView.class, ctx.newValue(ChildView.class));
+                assertInstanceOf(InternalChildView.class, ctx.newValue(InternalChildView.class));
 
-                assertEquals("1", ctx.name(ChildConfiguration.class));
-                assertEquals("1", ctx.name(InternalChildConfiguration.class));
+                assertEquals("1", ctx.newName(ChildView.class));
+                assertEquals("1", ctx.newName(InternalChildView.class));
 
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
         });
 
@@ -1079,16 +1068,16 @@ public class ConfigurationListenerTest {
     @Test
     void testNotificationEventConfigForNestedPolymorphicConfiguration() throws Exception {
         config.polyChild().listen(ctx -> {
-            assertInstanceOf(PolyConfiguration.class, ctx.config(PolyConfiguration.class));
-            assertInstanceOf(StringPolyConfiguration.class, ctx.config(StringPolyConfiguration.class));
+            assertInstanceOf(PolyView.class, ctx.newValue(PolyView.class));
+            assertInstanceOf(StringPolyView.class, ctx.newValue(StringPolyView.class));
 
-            assertNull(ctx.config(LongPolyConfiguration.class));
+            assertNull(ctx.newValue(LongPolyView.class));
 
-            assertNull(ctx.name(PolyConfiguration.class));
-            assertNull(ctx.name(StringPolyConfiguration.class));
-            assertNull(ctx.name(LongPolyConfiguration.class));
+            assertNull(ctx.newName(PolyView.class));
+            assertNull(ctx.newName(StringPolyView.class));
+            assertNull(ctx.newName(LongPolyView.class));
 
-            return CompletableFuture.completedFuture(null);
+            return completedFuture(null);
         });
 
         config.polyChild().commonIntVal().update(22).get(1, SECONDS);
@@ -1100,64 +1089,67 @@ public class ConfigurationListenerTest {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<PolyView> ctx) {
-                assertInstanceOf(PolyConfiguration.class, ctx.config(PolyConfiguration.class));
-                assertInstanceOf(StringPolyConfiguration.class, ctx.config(StringPolyConfiguration.class));
+                assertInstanceOf(PolyView.class, ctx.newValue(PolyView.class));
+                assertInstanceOf(StringPolyView.class, ctx.newValue(StringPolyView.class));
 
-                assertNull(ctx.config(LongPolyConfiguration.class));
+                assertNull(ctx.newValue(LongPolyView.class));
 
-                assertEquals("0", ctx.name(PolyConfiguration.class));
-                assertEquals("0", ctx.name(StringPolyConfiguration.class));
+                assertEquals("0", ctx.newName(PolyView.class));
+                assertEquals("0", ctx.newName(StringPolyView.class));
 
-                assertNull(ctx.name(LongPolyConfiguration.class));
+                assertNull(ctx.newName(LongPolyView.class));
 
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
 
             /** {@inheritDoc} */
             @Override
-            public CompletableFuture<?> onRename(String oldName, String newName, ConfigurationNotificationEvent<PolyView> ctx) {
-                assertInstanceOf(PolyConfiguration.class, ctx.config(PolyConfiguration.class));
-                assertInstanceOf(StringPolyConfiguration.class, ctx.config(StringPolyConfiguration.class));
+            public CompletableFuture<?> onRename(ConfigurationNotificationEvent<PolyView> ctx) {
+                assertInstanceOf(PolyView.class, ctx.newValue(PolyView.class));
+                assertInstanceOf(StringPolyView.class, ctx.newValue(StringPolyView.class));
 
-                assertNull(ctx.config(LongPolyConfiguration.class));
+                assertNull(ctx.newValue(LongPolyView.class));
 
-                assertEquals("1", ctx.name(PolyConfiguration.class));
-                assertEquals("1", ctx.name(StringPolyConfiguration.class));
+                assertEquals("1", ctx.newName(PolyView.class));
+                assertEquals("1", ctx.newName(StringPolyView.class));
 
-                assertNull(ctx.name(LongPolyConfiguration.class));
+                assertNull(ctx.newName(LongPolyView.class));
 
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
 
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<PolyView> ctx) {
-                assertNull(ctx.config(PolyConfiguration.class));
-                assertNull(ctx.config(StringPolyConfiguration.class));
-                assertNull(ctx.config(LongPolyConfiguration.class));
+                assertNull(ctx.newValue(PolyView.class));
+                assertNull(ctx.newValue(StringPolyView.class));
+                assertNull(ctx.newValue(LongPolyView.class));
 
-                assertEquals("1", ctx.name(PolyConfiguration.class));
-                assertEquals("1", ctx.name(StringPolyConfiguration.class));
+                assertNull(ctx.newName(PolyView.class));
+                assertNull(ctx.newName(StringPolyView.class));
 
-                assertNull(ctx.name(LongPolyConfiguration.class));
+                assertEquals("1", ctx.oldName(PolyView.class));
+                assertEquals("1", ctx.oldName(StringPolyView.class));
 
-                return CompletableFuture.completedFuture(null);
+                assertNull(ctx.newName(LongPolyView.class));
+
+                return completedFuture(null);
             }
 
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<PolyView> ctx) {
-                assertInstanceOf(PolyConfiguration.class, ctx.config(PolyConfiguration.class));
-                assertInstanceOf(StringPolyConfiguration.class, ctx.config(StringPolyConfiguration.class));
+                assertInstanceOf(PolyView.class, ctx.newValue(PolyView.class));
+                assertInstanceOf(StringPolyView.class, ctx.newValue(StringPolyView.class));
 
-                assertNull(ctx.config(LongPolyConfiguration.class));
+                assertNull(ctx.newValue(LongPolyView.class));
 
-                assertEquals("1", ctx.name(PolyConfiguration.class));
-                assertEquals("1", ctx.name(StringPolyConfiguration.class));
+                assertEquals("1", ctx.newName(PolyView.class));
+                assertEquals("1", ctx.newName(StringPolyView.class));
 
-                assertNull(ctx.name(LongPolyConfiguration.class));
+                assertNull(ctx.newName(LongPolyView.class));
 
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
         });
 
@@ -1180,14 +1172,14 @@ public class ConfigurationListenerTest {
             assertInstanceOf(PolyView.class, ctx.oldValue());
             assertInstanceOf(StringPolyView.class, ctx.oldValue());
 
-            assertInstanceOf(PolyConfiguration.class, ctx.config(PolyConfiguration.class));
-            assertInstanceOf(LongPolyConfiguration.class, ctx.config(LongPolyConfiguration.class));
+            assertInstanceOf(PolyView.class, ctx.newValue(PolyView.class));
+            assertInstanceOf(LongPolyView.class, ctx.newValue(LongPolyView.class));
 
-            assertNull(ctx.config(StringPolyConfiguration.class));
+            assertNull(ctx.newValue(StringPolyView.class));
 
-            assertNull(ctx.name(PolyConfiguration.class));
-            assertNull(ctx.name(LongPolyConfiguration.class));
-            assertNull(ctx.name(StringPolyConfiguration.class));
+            assertNull(ctx.newName(PolyView.class));
+            assertNull(ctx.newName(LongPolyView.class));
+            assertNull(ctx.newName(StringPolyView.class));
         }));
 
         config.polyChild()
@@ -1209,15 +1201,15 @@ public class ConfigurationListenerTest {
 
             assertNull(ctx.oldValue());
 
-            assertInstanceOf(PolyConfiguration.class, ctx.config(PolyConfiguration.class));
-            assertInstanceOf(StringPolyConfiguration.class, ctx.config(StringPolyConfiguration.class));
+            assertInstanceOf(PolyView.class, ctx.newValue(PolyView.class));
+            assertInstanceOf(StringPolyView.class, ctx.newValue(StringPolyView.class));
 
-            assertNull(ctx.config(LongPolyConfiguration.class));
+            assertNull(ctx.newValue(LongPolyView.class));
 
-            assertEquals("0", ctx.name(PolyConfiguration.class));
-            assertEquals("0", ctx.name(StringPolyConfiguration.class));
+            assertEquals("0", ctx.newName(PolyView.class));
+            assertEquals("0", ctx.newName(StringPolyView.class));
 
-            assertNull(ctx.name(LongPolyConfiguration.class));
+            assertNull(ctx.newName(LongPolyView.class));
         }));
 
         config.polyChildren()
@@ -1244,15 +1236,15 @@ public class ConfigurationListenerTest {
             assertInstanceOf(PolyView.class, ctx.oldValue());
             assertInstanceOf(StringPolyView.class, ctx.oldValue());
 
-            assertInstanceOf(PolyConfiguration.class, ctx.config(PolyConfiguration.class));
-            assertInstanceOf(LongPolyConfiguration.class, ctx.config(LongPolyConfiguration.class));
+            assertInstanceOf(PolyView.class, ctx.newValue(PolyView.class));
+            assertInstanceOf(LongPolyView.class, ctx.newValue(LongPolyView.class));
 
-            assertNull(ctx.config(StringPolyConfiguration.class));
+            assertNull(ctx.newValue(StringPolyView.class));
 
-            assertEquals("0", ctx.name(PolyConfiguration.class));
-            assertEquals("0", ctx.name(LongPolyConfiguration.class));
+            assertEquals("0", ctx.newName(PolyView.class));
+            assertEquals("0", ctx.newName(LongPolyView.class));
 
-            assertNull(ctx.name(StringPolyConfiguration.class));
+            assertNull(ctx.newName(StringPolyView.class));
         }));
 
         config.polyChildren()
@@ -1279,15 +1271,15 @@ public class ConfigurationListenerTest {
             assertInstanceOf(PolyView.class, ctx.oldValue());
             assertInstanceOf(StringPolyView.class, ctx.oldValue());
 
-            assertInstanceOf(PolyConfiguration.class, ctx.config(PolyConfiguration.class));
-            assertInstanceOf(StringPolyConfiguration.class, ctx.config(StringPolyConfiguration.class));
+            assertInstanceOf(PolyView.class, ctx.newValue(PolyView.class));
+            assertInstanceOf(StringPolyView.class, ctx.newValue(StringPolyView.class));
 
-            assertNull(ctx.config(LongPolyConfiguration.class));
+            assertNull(ctx.newValue(LongPolyView.class));
 
-            assertEquals("1", ctx.name(PolyConfiguration.class));
-            assertEquals("1", ctx.name(StringPolyConfiguration.class));
+            assertEquals("1", ctx.newName(PolyView.class));
+            assertEquals("1", ctx.newName(StringPolyView.class));
 
-            assertNull(ctx.name(LongPolyConfiguration.class));
+            assertNull(ctx.newName(LongPolyView.class));
         }));
 
         config.polyChildren()
@@ -1313,14 +1305,17 @@ public class ConfigurationListenerTest {
             assertInstanceOf(PolyView.class, ctx.oldValue());
             assertInstanceOf(StringPolyView.class, ctx.oldValue());
 
-            assertNull(ctx.config(PolyConfiguration.class));
-            assertNull(ctx.config(StringPolyConfiguration.class));
-            assertNull(ctx.config(LongPolyConfiguration.class));
+            assertNull(ctx.newValue(PolyView.class));
+            assertNull(ctx.newValue(StringPolyView.class));
+            assertNull(ctx.newValue(LongPolyView.class));
 
-            assertEquals("0", ctx.name(PolyConfiguration.class));
-            assertEquals("0", ctx.name(StringPolyConfiguration.class));
+            assertNull(ctx.newName(PolyView.class));
+            assertNull(ctx.newName(StringPolyView.class));
 
-            assertNull(ctx.name(LongPolyConfiguration.class));
+            assertEquals("0", ctx.oldName(PolyView.class));
+            assertEquals("0", ctx.oldName(StringPolyView.class));
+
+            assertNull(ctx.newName(LongPolyView.class));
         }));
 
         config.polyChildren()
@@ -1348,13 +1343,13 @@ public class ConfigurationListenerTest {
         assertInstanceOf(ChildView.class, event.oldValue());
         assertInstanceOf(InternalChildView.class, event.oldValue());
 
-        assertInstanceOf(ChildConfiguration.class, event.config(ChildConfiguration.class));
-        assertInstanceOf(InternalChildConfiguration.class, event.config(InternalChildConfiguration.class));
+        assertInstanceOf(ChildView.class, event.newValue(ChildView.class));
+        assertInstanceOf(InternalChildView.class, event.newValue(InternalChildView.class));
 
-        assertInstanceOf(ParentConfiguration.class, event.config(ParentConfiguration.class));
+        assertInstanceOf(ParentView.class, event.newValue(ParentView.class));
 
-        assertNull(event.name(ChildConfiguration.class));
-        assertNull(event.name(InternalChildConfiguration.class));
+        assertNull(event.newName(ChildView.class));
+        assertNull(event.newName(InternalChildView.class));
     }
 
     @Test
@@ -1374,13 +1369,13 @@ public class ConfigurationListenerTest {
 
         assertNull(event.oldValue());
 
-        assertInstanceOf(ChildConfiguration.class, event.config(ChildConfiguration.class));
-        assertInstanceOf(InternalChildConfiguration.class, event.config(InternalChildConfiguration.class));
+        assertInstanceOf(ChildView.class, event.newValue(ChildView.class));
+        assertInstanceOf(InternalChildView.class, event.newValue(InternalChildView.class));
 
-        assertInstanceOf(ParentConfiguration.class, event.config(ParentConfiguration.class));
+        assertInstanceOf(ParentView.class, event.newValue(ParentView.class));
 
-        assertEquals("0", event.name(ChildConfiguration.class));
-        assertEquals("0", event.name(InternalChildConfiguration.class));
+        assertEquals("0", event.newName(ChildView.class));
+        assertEquals("0", event.newName(InternalChildView.class));
     }
 
     @Test

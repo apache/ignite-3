@@ -121,6 +121,7 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -451,7 +452,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
 
             @Override
-            public CompletableFuture<?> onRename(String oldName, String newName, ConfigurationNotificationEvent<TableView> ctx) {
+            public CompletableFuture<?> onRename(ConfigurationNotificationEvent<TableView> ctx) {
                 // TODO: IGNITE-15485 Support table rename operation.
 
                 return completedFuture(null);
@@ -591,7 +592,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         try {
             if (replicasCtx.oldValue() != null && replicasCtx.oldValue() > 0) {
-                DistributionZoneView zoneCfg = replicasCtx.config(DistributionZoneConfiguration.class).value();
+                DistributionZoneView zoneCfg = replicasCtx.newValue(DistributionZoneView.class);
 
                 List<TableConfiguration> tblsCfg = new ArrayList<>();
 
@@ -666,9 +667,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param assignmentsCtx Change assignment event.
      */
     private CompletableFuture<?> updateAssignmentInternal(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
-        ExtendedTableConfiguration tblCfg = assignmentsCtx.config(ExtendedTableConfiguration.class);
+        ExtendedTableView tblCfg = assignmentsCtx.newValue(ExtendedTableView.class);
 
-        UUID tblId = tblCfg.id().value();
+        UUID tblId = tblCfg.id();
+
+        DataStorageConfiguration dsCfg = tablesCfg.tables().get(tblId).dataStorage();
 
         long causalityToken = assignmentsCtx.storageRevision();
 
@@ -732,7 +735,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     partId,
                                     storage,
                                     table.indexStorageAdapters(partId),
-                                    tblCfg.dataStorage()
+                                    dsCfg
                             );
 
                             mvGc.addStorage(replicaGrpId, storageUpdateHandler);

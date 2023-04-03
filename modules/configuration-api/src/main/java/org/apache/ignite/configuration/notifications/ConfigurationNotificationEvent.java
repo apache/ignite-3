@@ -36,9 +36,29 @@ public interface ConfigurationNotificationEvent<VIEWT> {
     @Nullable VIEWT oldValue();
 
     /**
+     * Returns old value of the parent (any from the root) or current configuration.
+     *
+     * <p>For example, if we changed the child configuration, then we can get both the parent and the current child configuration.
+     *
+     * @param viewClass Configuration interface, for example {@code RootView.class}.
+     * @param <T> Configuration type.
+     */
+    @Nullable <T> T oldValue(Class<T> viewClass);
+
+    /**
      * Returns updated value of the configuration.
      */
     @Nullable VIEWT newValue();
+
+    /**
+     * Returns new value of the parent (any from the root) or current configuration.
+     *
+     * <p>For example, if we changed the child configuration, then we can get both the parent and the current child configuration.
+     *
+     * @param viewClass Configuration interface, for example {@code RootView.class}.
+     * @param <T> Configuration type.
+     */
+    @Nullable <T> T newValue(Class<T> viewClass);
 
     /**
      * Returns monotonously increasing counter, linked to the specific storage for current configuration values. Gives a unique change
@@ -49,22 +69,22 @@ public interface ConfigurationNotificationEvent<VIEWT> {
     long storageRevision();
 
     /**
-     * Returns the parent (any from the root) or current configuration.
-     *
-     * <p>For example, if we changed the child configuration, then we can get both the parent and the current child configuration.
-     *
-     * @param configClass Configuration interface, for example {@code RootConfiguration}.
-     * @param <T> Configuration type.
-     */
-    @Nullable <T extends ConfigurationProperty> T config(Class<T> configClass);
-
-    /**
-     * Returns the key of a named list item for the parent (any from the root) or current configuration.
+     * Returns old value of the key of a named list item for the parent (any from the root) or current configuration.
      *
      * <p>For example, if a column of a table has changed, then we can get the name of the table and columns for which the changes have
      * occurred.
      *
-     * @param configClass Configuration interface, for example {@code TableConfiguration}.
+     * @param viewClass Configuration interface, for example {@code TableView.class}.
      */
-    @Nullable String name(Class<? extends ConfigurationProperty> configClass);
+    @Nullable String oldName(Class<?> viewClass);
+
+    /**
+     * Returns new value of the key of a named list item for the parent (any from the root) or current configuration.
+     *
+     * <p>For example, if a column of a table has changed, then we can get the name of the table and columns for which the changes have
+     * occurred.
+     *
+     * @param viewClass Configuration interface, for example {@code TableView.class}.
+     */
+    @Nullable String newName(Class<?> viewClass);
 }

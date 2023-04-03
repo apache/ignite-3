@@ -118,7 +118,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         }
 
         try {
-            ExtendedTableView tblCfg = (ExtendedTableView) ctx.config(ExtendedTableConfiguration.class).value();
+            ExtendedTableView tblCfg = ctx.newValue(ExtendedTableView.class);
 
             int newSchemaVersion = tblCfg.schemaId();
 

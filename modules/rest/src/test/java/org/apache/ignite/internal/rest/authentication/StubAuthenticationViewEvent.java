@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.rest.authentication;
 
-import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.configuration.AuthenticationView;
 import org.jetbrains.annotations.Nullable;
@@ -39,9 +38,19 @@ public class StubAuthenticationViewEvent implements ConfigurationNotificationEve
     }
 
     @Override
+    public <T> @Nullable T oldValue(Class<T> viewClass) {
+        return null;
+    }
+
+    @Override
     @Nullable
     public AuthenticationView newValue() {
         return newValue;
+    }
+
+    @Override
+    public <T> @Nullable T newValue(Class<T> viewClass) {
+        return null;
     }
 
     @Override
@@ -50,14 +59,12 @@ public class StubAuthenticationViewEvent implements ConfigurationNotificationEve
     }
 
     @Override
-    @Nullable
-    public <T extends ConfigurationProperty> T config(Class<T> configClass) {
+    public @Nullable String oldName(Class<?> viewClass) {
         return null;
     }
 
     @Override
-    @Nullable
-    public String name(Class<? extends ConfigurationProperty> configClass) {
+    public @Nullable String newName(Class<?> viewClass) {
         return null;
     }
 }

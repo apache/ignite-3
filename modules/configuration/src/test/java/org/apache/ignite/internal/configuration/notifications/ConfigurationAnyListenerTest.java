@@ -39,6 +39,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationListenOnlyException;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.annotation.Config;
@@ -51,6 +52,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
+import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.junit.jupiter.api.AfterEach;
@@ -539,27 +541,22 @@ public class ConfigurationAnyListenerTest {
         String key1 = UUID.randomUUID().toString();
 
         rootConfig.elements().any().listen(configListener(ctx -> {
-            assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
+            assertNotNull(ctx.newValue(FirstSubView.class));
+            assertEquals(key0, ctx.newName(FirstSubView.class));
         }));
 
         rootConfig.elements().change(c -> c.create(key0, doNothingConsumer())).get(1, SECONDS);
 
-        rootConfig.elements().any().elements2().listenElements(configNamedListenerOnCreate(ctx -> {
-            assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
+        Consumer<ConfigurationNotificationEvent<SecondSubView>> assertions = ctx -> {
+            assertNotNull(ctx.newValue(FirstSubView.class));
+            assertEquals(key0, ctx.newName(FirstSubView.class));
 
-            assertNotNull(ctx.config(SecondSubConfiguration.class));
-            assertEquals(key1, ctx.name(SecondSubConfiguration.class));
-        }));
+            assertNotNull(ctx.newValue(SecondSubView.class));
+            assertEquals(key1, ctx.newName(SecondSubView.class));
+        };
 
-        rootConfig.elements().any().elements2().any().listen(configListener(ctx -> {
-            assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
-
-            assertNotNull(ctx.config(SecondSubConfiguration.class));
-            assertEquals(key1, ctx.name(SecondSubConfiguration.class));
-        }));
+        rootConfig.elements().any().elements2().listenElements(configNamedListenerOnCreate(assertions));
+        rootConfig.elements().any().elements2().any().listen(configListener(assertions));
 
         rootConfig.elements().get(key0).elements2().change(c -> c.create(key1, doNothingConsumer())).get(1, SECONDS);
     }
@@ -571,29 +568,25 @@ public class ConfigurationAnyListenerTest {
         String newKey1 = UUID.randomUUID().toString();
 
         rootConfig.elements().any().listen(configListener(ctx -> {
-            assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
+            assertNotNull(ctx.newValue(FirstSubView.class));
+            assertEquals(key0, ctx.newName(FirstSubView.class));
         }));
 
         rootConfig.elements()
                 .change(c -> c.create(key0, c1 -> c1.changeElements2(c2 -> c2.create(oldKey1, doNothingConsumer()))))
                 .get(1, SECONDS);
 
-        rootConfig.elements().get(key0).elements2().listenElements(configNamedListenerOnRename(ctx -> {
-            assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
+        Consumer<ConfigurationNotificationEvent<SecondSubView>> assertions = ctx -> {
+            assertNotNull(ctx.newValue(FirstSubView.class));
+            assertEquals(key0, ctx.newName(FirstSubView.class));
 
-            assertNotNull(ctx.config(SecondSubConfiguration.class));
-            assertEquals(newKey1, ctx.name(SecondSubConfiguration.class));
-        }));
+            assertNotNull(ctx.newValue(SecondSubView.class));
+            assertEquals(oldKey1, ctx.oldName(SecondSubView.class));
+            assertEquals(newKey1, ctx.newName(SecondSubView.class));
+        };
 
-        rootConfig.elements().any().elements2().listenElements(configNamedListenerOnRename(ctx -> {
-            assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
-
-            assertNotNull(ctx.config(SecondSubConfiguration.class));
-            assertEquals(newKey1, ctx.name(SecondSubConfiguration.class));
-        }));
+        rootConfig.elements().get(key0).elements2().listenElements(configNamedListenerOnRename(assertions));
+        rootConfig.elements().any().elements2().listenElements(configNamedListenerOnRename(assertions));
 
         rootConfig.elements().get(key0).elements2().change(c -> c.rename(oldKey1, newKey1)).get(1, SECONDS);
     }
@@ -604,45 +597,28 @@ public class ConfigurationAnyListenerTest {
         String key1 = UUID.randomUUID().toString();
 
         rootConfig.elements().any().listen(configListener(ctx -> {
-            assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
+            assertNotNull(ctx.newValue(FirstSubView.class));
+            assertEquals(key0, ctx.newName(FirstSubView.class));
         }));
 
         rootConfig.elements()
                 .change(c -> c.create(key0, c1 -> c1.changeElements2(c2 -> c2.create(key1, doNothingConsumer()))))
                 .get(1, SECONDS);
 
-        rootConfig.elements().any().elements2().listenElements(configNamedListenerOnDelete(ctx -> {
-            assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
+        Consumer<ConfigurationNotificationEvent<SecondSubView>> assertions = ctx -> {
+            assertNotNull(ctx.newValue(FirstSubView.class));
+            assertEquals(key0, ctx.newName(FirstSubView.class));
 
-            assertNull(ctx.config(SecondSubConfiguration.class));
-            assertEquals(key1, ctx.name(SecondSubConfiguration.class));
-        }));
+            assertNotNull(ctx.oldValue(SecondSubView.class));
+            assertNull(ctx.newValue(SecondSubView.class));
+            assertEquals(key1, ctx.oldName(SecondSubView.class));
+            assertNull(ctx.newName(SecondSubView.class));
+        };
 
-        rootConfig.elements().get(key0).elements2().listenElements(configNamedListenerOnDelete(ctx -> {
-            assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
-
-            assertNull(ctx.config(SecondSubConfiguration.class));
-            assertEquals(key1, ctx.name(SecondSubConfiguration.class));
-        }));
-
-        rootConfig.elements().any().elements2().any().listen(configListener(ctx -> {
-            assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
-
-            assertNull(ctx.config(SecondSubConfiguration.class));
-            assertEquals(key1, ctx.name(SecondSubConfiguration.class));
-        }));
-
-        rootConfig.elements().get(key0).elements2().any().listen(configListener(ctx -> {
-            assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
-
-            assertNull(ctx.config(SecondSubConfiguration.class));
-            assertEquals(key1, ctx.name(SecondSubConfiguration.class));
-        }));
+        rootConfig.elements().any().elements2().listenElements(configNamedListenerOnDelete(assertions));
+        rootConfig.elements().get(key0).elements2().listenElements(configNamedListenerOnDelete(assertions));
+        rootConfig.elements().any().elements2().any().listen(configListener(assertions));
+        rootConfig.elements().get(key0).elements2().any().listen(configListener(assertions));
 
         rootConfig.elements().get(key0).elements2().change(c -> c.delete(key1)).get(1, SECONDS);
     }
@@ -657,41 +633,21 @@ public class ConfigurationAnyListenerTest {
                 .change(c -> c.create(key0, c1 -> c1.changeElements2(c2 -> c2.create(key1, doNothingConsumer()))))
                 .get(1, SECONDS);
 
-        rootConfig.elements().any().elements2().listenElements(configNamedListenerOnUpdate(ctx -> {
-            assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
+        Consumer<ConfigurationNotificationEvent<SecondSubView>> assertions = ctx -> {
+            assertNotNull(ctx.newValue(FirstSubView.class));
+            assertEquals(key0, ctx.newName(FirstSubView.class));
 
-            SecondSubConfiguration second = ctx.config(SecondSubConfiguration.class);
-
-            assertNotNull(second);
-            assertEquals(key1, ctx.name(SecondSubConfiguration.class));
-
-            assertEquals(newVal, second.intVal().value());
-        }));
-
-        rootConfig.elements().any().elements2().any().listen(configListener(ctx -> {
-            assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
-
-            SecondSubConfiguration second = ctx.config(SecondSubConfiguration.class);
+            SecondSubView second = ctx.newValue(SecondSubView.class);
 
             assertNotNull(second);
-            assertEquals(key1, ctx.name(SecondSubConfiguration.class));
+            assertEquals(key1, ctx.newName(SecondSubView.class));
 
-            assertEquals(newVal, second.intVal().value());
-        }));
+            assertEquals(newVal, second.intVal());
+        };
 
-        rootConfig.elements().get(key0).elements2().any().listen(configListener(ctx -> {
-            assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
-
-            SecondSubConfiguration second = ctx.config(SecondSubConfiguration.class);
-
-            assertNotNull(second);
-            assertEquals(key1, ctx.name(SecondSubConfiguration.class));
-
-            assertEquals(newVal, second.intVal().value());
-        }));
+        rootConfig.elements().any().elements2().listenElements(configNamedListenerOnUpdate(assertions));
+        rootConfig.elements().any().elements2().any().listen(configListener(assertions));
+        rootConfig.elements().get(key0).elements2().any().listen(configListener(assertions));
 
         rootConfig.elements().get(key0).elements2().get(key1).intVal().update(newVal).get(1, SECONDS);
     }
@@ -708,15 +664,15 @@ public class ConfigurationAnyListenerTest {
 
             assertNull(ctx.oldValue());
 
-            assertEquals("0", ctx.name(PolyAnyConfiguration.class));
-            assertEquals("0", ctx.name(FirstPolyAnyConfiguration.class));
+            assertEquals("0", ctx.newName(PolyAnyView.class));
+            assertEquals("0", ctx.newName(FirstPolyAnyView.class));
 
-            assertNull(ctx.name(SecondPolyAnyConfiguration.class));
+            assertNull(ctx.newName(SecondPolyAnyView.class));
 
-            assertInstanceOf(PolyAnyConfiguration.class, ctx.config(PolyAnyConfiguration.class));
-            assertInstanceOf(FirstPolyAnyConfiguration.class, ctx.config(FirstPolyAnyConfiguration.class));
+            assertInstanceOf(PolyAnyView.class, ctx.newValue(PolyAnyView.class));
+            assertInstanceOf(FirstPolyAnyView.class, ctx.newValue(FirstPolyAnyView.class));
 
-            assertNull(ctx.config(SecondPolyAnyConfiguration.class));
+            assertNull(ctx.newValue(SecondPolyAnyView.class));
         }));
 
         rootConfig.polyNamed()
@@ -743,15 +699,15 @@ public class ConfigurationAnyListenerTest {
             assertInstanceOf(FirstPolyAnyView.class, ctx.oldValue());
             assertInstanceOf(PolyAnyView.class, ctx.oldValue());
 
-            assertEquals("0", ctx.name(PolyAnyConfiguration.class));
-            assertEquals("0", ctx.name(SecondPolyAnyConfiguration.class));
+            assertEquals("0", ctx.newName(PolyAnyView.class));
+            assertEquals("0", ctx.newName(SecondPolyAnyView.class));
 
-            assertNull(ctx.name(FirstPolyAnyConfiguration.class));
+            assertNull(ctx.newName(FirstPolyAnyView.class));
 
-            assertInstanceOf(PolyAnyConfiguration.class, ctx.config(PolyAnyConfiguration.class));
-            assertInstanceOf(SecondPolyAnyConfiguration.class, ctx.config(SecondPolyAnyConfiguration.class));
+            assertInstanceOf(PolyAnyView.class, ctx.newValue(PolyAnyView.class));
+            assertInstanceOf(SecondPolyAnyView.class, ctx.newValue(SecondPolyAnyView.class));
 
-            assertNull(ctx.config(FirstPolyAnyConfiguration.class));
+            assertNull(ctx.newValue(FirstPolyAnyView.class));
         }));
 
         rootConfig.polyNamed()

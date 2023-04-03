@@ -151,7 +151,7 @@ class ConfigurationListenerTestUtils {
         return new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
-            public CompletableFuture<?> onRename(String oldName, String newName, ConfigurationNotificationEvent<T> ctx) {
+            public CompletableFuture<?> onRename(ConfigurationNotificationEvent<T> ctx) {
                 try {
                     consumer.accept(ctx);
                 } catch (Throwable t) {
