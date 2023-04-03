@@ -20,6 +20,7 @@ namespace Apache.Ignite.Log
     using System;
     using System.Globalization;
     using System.Text;
+    using Internal.Common;
 
     /// <summary>
     /// Logs to Console.
@@ -109,5 +110,11 @@ namespace Apache.Ignite.Log
         {
             return level >= MinLevel;
         }
+
+        /// <inheritdoc />
+        public override string ToString() =>
+            new IgniteToStringBuilder(nameof(ConsoleLogger))
+                .Append(MinLevel)
+                .Build();
     }
 }
