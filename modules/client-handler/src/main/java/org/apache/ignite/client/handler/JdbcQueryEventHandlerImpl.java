@@ -91,7 +91,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
     /** Current JDBC cursors. */
     private final ClientResourceRegistry resources;
-    
+
+    /** Ignite transactions API. */
     private final IgniteTransactions igniteTransactions;
 
     /**
@@ -100,6 +101,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      * @param processor Processor.
      * @param meta JdbcMetadataInfo.
      * @param resources Client resources.
+     * @param igniteTransactions 
      */
     public JdbcQueryEventHandlerImpl(
             QueryProcessor processor,

@@ -111,7 +111,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** Ignite tables API. */
     private final IgniteTablesInternal igniteTables;
 
-    /** Ignite tables API. */
+    /** Ignite transactions API. */
     private final IgniteTransactions igniteTransactions;
 
     /** JDBC Handler. */
@@ -154,7 +154,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
      * Constructor.
      *
      * @param igniteTables Ignite tables API entry point.
-     * @param igniteTransactions Transactions API.
+     * @param igniteTransactions Ignite transactions API.
      * @param processor Sql query processor.
      * @param configuration Configuration.
      * @param compute Compute.
@@ -192,8 +192,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         this.clusterId = clusterId;
         this.metrics = metrics;
 
-        jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources, igniteTransactions);
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
+        jdbcQueryEventHandler = 
+                new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources, igniteTransactions);
 
         this.partitionAssignmentsChangeListener = this::onPartitionAssignmentChanged;
         igniteTables.addAssignmentsChangeListener(partitionAssignmentsChangeListener);
