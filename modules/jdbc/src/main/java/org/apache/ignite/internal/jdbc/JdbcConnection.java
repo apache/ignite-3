@@ -354,22 +354,8 @@ public class JdbcConnection implements Connection {
         if (autoCommit) {
             throw new SQLException("Transaction cannot be rolled back explicitly in auto-commit mode.");
         }
-        
+
         finishTx(false);
-    }
-
-    /**
-     * Finish transaction.
-     * 
-     * @param commit {@code True} to commit, {@code false} to rollback.
-     * @throws SQLException If failed.
-     */
-    private void finishTx(boolean commit) throws SQLException {
-        JdbcFinishTxResult res = handler().finishTxAsync(connectionId, commit).join();
-
-        if (res.status() != Response.STATUS_SUCCESS) {
-            throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
-        }
     }
 
     /** {@inheritDoc} */
@@ -386,6 +372,20 @@ public class JdbcConnection implements Connection {
         }
 
         throw new SQLFeatureNotSupportedException("Savepoints are not supported.");
+    }
+
+    /**
+     * Finish transaction.
+     *
+     * @param commit {@code True} to commit, {@code false} to rollback.
+     * @throws SQLException If failed.
+     */
+    private void finishTx(boolean commit) throws SQLException {
+        JdbcFinishTxResult res = handler().finishTxAsync(connectionId, commit).join();
+
+        if (res.status() != Response.STATUS_SUCCESS) {
+            throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+        }
     }
 
     /** {@inheritDoc} */
