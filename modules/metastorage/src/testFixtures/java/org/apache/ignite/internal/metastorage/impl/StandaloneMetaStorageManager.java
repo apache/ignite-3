@@ -29,7 +29,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Command;
@@ -96,7 +96,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
      */
     private StandaloneMetaStorageManager(VaultManager vaultMgr, ClusterService clusterService, ClusterManagementGroupManager cmgMgr,
             LogicalTopologyService logicalTopologyService, RaftManager raftMgr, KeyValueStorage storage) {
-        super(vaultMgr, clusterService, cmgMgr, logicalTopologyService, raftMgr, storage, mock(HybridClock.class));
+        super(vaultMgr, clusterService, cmgMgr, logicalTopologyService, raftMgr, storage, new HybridClockImpl());
     }
 
     private static ClusterService mockClusterService() {
