@@ -101,6 +101,11 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         Assert.AreEqual("KEY", reader.Metadata.Columns[0].Name);
         Assert.AreEqual("INT8", reader.Metadata.Columns[1].Name);
 
+        StringAssert.StartsWith(
+            "IgniteDbDataReader { FieldCount = 2, RecordsAffected = -1, HasRows = True, IsClosed = False, " +
+            "Metadata = ResultSetMetadata { Columns = [",
+            reader.ToString());
+
         Assert.Throws<InvalidOperationException>(() => reader.GetByte(1));
 
         await reader.ReadAsync();
