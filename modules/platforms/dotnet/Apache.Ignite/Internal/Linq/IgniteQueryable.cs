@@ -87,7 +87,7 @@ internal sealed class IgniteQueryable<T>
 
         return new IgniteToStringBuilder(GetType())
             .Append("Query", queryData.QueryText)
-            .Append("Parameters", string.Join(", ", queryData.Parameters))
+            .AppendList("Parameters", queryData.Parameters)
             .Build();
     }
 }
