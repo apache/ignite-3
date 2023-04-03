@@ -45,7 +45,7 @@ public interface IgniteDeployment extends IgniteComponent {
      *
      * @param id Unit identifier. Not empty and not null.
      * @param version Unit version.
-     * @param force Force to redeploy if unit with provided id and version is exist.
+     * @param force Force redeploy if unit with provided id and version exists.
      * @param deploymentUnit Unit content.
      * @return Future with success or not result.
      */
