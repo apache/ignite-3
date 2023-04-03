@@ -492,7 +492,7 @@ public:
      */
     void get_async(transaction *tx, const value_type &key, ignite_callback<std::optional<value_type>> callback) {
         m_delegate.get_async(tx, convert_to_tuple(key), [callback = std::move(callback)] (auto res) {
-            callback(convert_from_tuple<value_type>(std::move(res)));
+            callback(convert_result(std::move(res)));
         });
     }
 
@@ -505,41 +505,45 @@ public:
      * @return Value if exists and @c std::nullopt otherwise.
      */
     [[nodiscard]] std::optional<value_type> get(transaction *tx, const value_type &key) {
-        return convert_from_tuple<value_type>(m_delegate.get(tx, convert_to_tuple(key)));
+        return sync<std::optional<value_type>>(
+            [this, tx, &key](auto callback) { get_async(tx, key, std::move(callback)); });
     }
 
-//    /**
-//     * Gets multiple records by keys asynchronously.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param keys Keys.
-//     * @param callback Callback that is called on operation completion. Called with
-//     *   resulting records with all columns filled from the table. The order of
-//     *   elements is guaranteed to be the same as the order of keys. If a record
-//     *   does not exist, the resulting element of the corresponding order is
-//     *   @c std::nullopt.
-//     */
-//    void get_all_async(transaction *tx, std::vector<value_type> keys,
-//        ignite_callback<std::vector<std::optional<value_type>>> callback);
-//
-//    /**
-//     * Gets multiple records by keys.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param keys Keys.
-//     * @return Resulting records with all columns filled from the table.
-//     *   The order of elements is guaranteed to be the same as the order of
-//     *   keys. If a record does not exist, the resulting element of the
-//     *   corresponding order is @c std::nullopt.
-//     */
-//    [[nodiscard]] std::vector<std::optional<value_type>> get_all(
-//        transaction *tx, std::vector<value_type> keys) {
-//        return sync<std::vector<std::optional<value_type>>>([this, tx, keys = std::move(keys)](auto callback) mutable {
-//            get_all_async(tx, std::move(keys), std::move(callback));
-//        });
-//    }
+    /**
+     * Gets multiple records by keys asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param keys Keys.
+     * @param callback Callback that is called on operation completion. Called with
+     *   resulting records with all columns filled from the table. The order of
+     *   elements is guaranteed to be the same as the order of keys. If a record
+     *   does not exist, the resulting element of the corresponding order is
+     *   @c std::nullopt.
+     */
+    void get_all_async(transaction *tx, std::vector<value_type> keys,
+        ignite_callback<std::vector<std::optional<value_type>>> callback) {
+        m_delegate.get_all_async(tx, values_to_tuples(std::move(keys)), [callback = std::move(callback)] (auto res) {
+            callback(convert_result(std::move(res)));
+        });
+    }
+
+    /**
+     * Gets multiple records by keys.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param keys Keys.
+     * @return Resulting records with all columns filled from the table.
+     *   The order of elements is guaranteed to be the same as the order of
+     *   keys. If a record does not exist, the resulting element of the
+     *   corresponding order is @c std::nullopt.
+     */
+    [[nodiscard]] std::vector<std::optional<value_type>> get_all(transaction *tx, std::vector<value_type> keys) {
+        return sync<std::vector<std::optional<value_type>>>([this, tx, keys = std::move(keys)](auto callback) mutable {
+            get_all_async(tx, std::move(keys), std::move(callback));
+        });
+    }
 
     /**
      * Inserts a record into the table if does not exist or replaces the existing one.
@@ -561,7 +565,7 @@ public:
      * @param record A record to insert into the table. The record cannot be @c nullptr.
      */
     void upsert(transaction *tx, const value_type &record) {
-        m_delegate.upsert(tx, convert_to_tuple(record));
+        sync<void>([this, tx, &record](auto callback) { upsert_async(tx, record, std::move(callback)); });
     }
 
 //    /**
@@ -875,6 +879,61 @@ public:
 //    }
 
 private:
+    /**
+     * Convert values to tuples.
+     * @param vals Values.
+     * @return Tuples.
+     */
+    static std::vector<ignite_tuple> values_to_tuples(std::vector<value_type> values) {
+        //TODO: Optimize memory usage
+        std::vector<ignite_tuple> tuples;
+        tuples.reserve(values.size());
+        for (auto &&value : std::move(values)) {
+            tuples.push_back(convert_to_tuple(std::move(value)));
+        }
+        return tuples;
+    }
+
+    /**
+     * Optional tuples to optional values.
+     * @param tuples Tuples.
+     * @return Values.
+     */
+    static std::vector<std::optional<value_type>> tuples_to_values(std::vector<std::optional<ignite_tuple>> tuples) {
+        //TODO: Optimize memory usage
+        std::vector<std::optional<value_type>> values;
+        values.reserve(tuples.size());
+        for (auto &&tuple : std::move(tuples)) {
+            values.emplace_back(convert_from_tuple<value_type>(std::move(tuple)));
+        }
+        return values;
+    }
+
+    /**
+     * Convert result from tuple-based type to user type.
+     * @param res Result to convert.
+     * @return Converted result.
+     */
+    static ignite_result<std::optional<value_type>> convert_result(ignite_result<std::optional<ignite_tuple>> &&res) {
+        if (res.has_error())
+            return {std::move(res).error()};
+
+        return {convert_from_tuple<value_type>(std::move(res).value())};
+    }
+
+    /**
+     * Convert result from tuple-based type to user type.
+     * @param res Result to convert.
+     * @return Converted result.
+     */
+    static ignite_result<std::vector<std::optional<value_type>>> convert_result(
+        ignite_result<std::vector<std::optional<ignite_tuple>>> &&res) {
+        if (res.has_error())
+            return {std::move(res).error()};
+
+        return {tuples_to_values(std::move(res).value())};
+    }
+
     /**
      * Constructor
      *

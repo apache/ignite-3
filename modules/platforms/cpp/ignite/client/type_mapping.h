@@ -48,12 +48,4 @@ std::optional<T> convert_from_tuple(std::optional<ignite_tuple> &&value) {
     return {convert_from_tuple<T>(*std::move(value))};
 }
 
-template<typename T>
-ignite_result<std::optional<T>> convert_from_tuple(ignite_result<std::optional<ignite_tuple>> &&value) {
-    if (value.has_error())
-        return {std::move(value).error()};
-
-    return {convert_from_tuple<T>(std::move(value).value())};
-}
-
 } // namespace ignite
