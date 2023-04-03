@@ -273,7 +273,7 @@ public partial class LinqTests
         TestOpString(
             x => Regex.Replace(x.Val!, @"V-(\d+)", "V$1", RegexOptions.IgnoreCase | RegexOptions.Multiline),
             "V9",
-            @"select regexp_replace(_T0.VAL, ?, ?, 1, 1, ?) from PUBLIC.TBL1 as _T0, Parameters=V-(\d+), V$1, im");
+            @"select regexp_replace(_T0.VAL, ?, ?, 1, 1, ?) from PUBLIC.TBL1 as _T0, Parameters = V-(\d+), V$1, im");
     }
 
     private static void TestOp<T, TRes>(IRecordView<T> view, Expression<Func<T, TRes>> expr, TRes expectedRes, string expectedQuery)

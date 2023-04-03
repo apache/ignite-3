@@ -669,7 +669,7 @@ public partial class LinqTests : IgniteTestsBase
             .Select(x => new { x.Key, Res = x.Val });
 
         StringAssert.Contains(
-            "select _T0.KEY, _T0.VAL from PUBLIC.TBL_INT32 as _T0 where (cast(_T0.VAL as int) IS NOT DISTINCT FROM ?), Parameters=3",
+            "select _T0.KEY, _T0.VAL from PUBLIC.TBL_INT32 as _T0 where (cast(_T0.VAL as int) IS NOT DISTINCT FROM ?), Parameters = 3",
             query.ToString());
 
         var res = query.ToList();
