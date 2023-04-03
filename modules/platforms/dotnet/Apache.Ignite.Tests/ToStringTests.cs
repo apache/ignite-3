@@ -17,6 +17,10 @@
 
 namespace Apache.Ignite.Tests;
 
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 
 /// <summary>
@@ -33,5 +37,26 @@ public class ToStringTests
         // For abstract classes, get internal types deriving from them.
         // 2. Check that all types have ToString() method, which uses 'TypeName { Property = Value }' format.
         // We can introduce IgniteToStringBuilder for that.
+        var typeNames = string.Join(Environment.NewLine, GetPublicFacingTypes().Select(x => x.Name).OrderBy(x => x));
+        Console.WriteLine(typeNames);
+    }
+
+    private static IEnumerable<Type> GetPublicFacingTypes()
+    {
+        var asm = typeof(IIgnite).Assembly;
+        var types = asm.GetTypes();
+
+        foreach (var type in types)
+        {
+            if (type.IsInterface || type.IsAbstract)
+            {
+                continue;
+            }
+
+            if (type.IsPublic || type.GetInterfaces().Any(x => x.IsPublic))
+            {
+                yield return type;
+            }
+        }
     }
 }
