@@ -20,8 +20,6 @@ namespace Apache.Ignite.Sql
 {
     using System;
     using System.Collections.Generic;
-    using System.Globalization;
-    using System.Text;
     using Internal.Common;
 
     /// <summary>
@@ -114,31 +112,15 @@ namespace Apache.Ignite.Sql
         public static SqlStatement ToSqlStatement(string query) => new(query);
 
         /// <inheritdoc />
-        public override string ToString()
-        {
-            var builder = new StringBuilder();
-
-            builder
-                .Append("SqlStatement { ")
-                .Append(CultureInfo.InvariantCulture, $"Query = {Query}, Timeout = {Timeout}, Schema = {Schema}, PageSize = {PageSize}, ")
-                .Append("Properties = {");
-
-            var first = true;
-
-            foreach (var (key, val) in Properties)
-            {
-                builder
-                    .Append(first ? " " : ", ")
-                    .Append(key)
-                    .Append(" = ")
-                    .Append(val);
-
-                first = false;
-            }
-
-            builder.Append(" } }");
-
-            return builder.ToString();
-        }
+        public override string ToString() =>
+            new IgniteToStringBuilder(nameof(SqlStatement))
+                .Append(nameof(Query), Query)
+                .Append(nameof(Timeout), Timeout)
+                .Append(nameof(Schema), Schema)
+                .Append(nameof(PageSize), PageSize)
+                .BeginNested(nameof(Properties))
+                .AppendAll(Properties)
+                .EndNested()
+                .Build();
     }
 }

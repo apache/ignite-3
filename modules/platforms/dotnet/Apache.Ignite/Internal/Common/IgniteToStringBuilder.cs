@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Common;
 
 using System;
+using System.Collections.Generic;
 using System.Text;
 
 /// <summary>
@@ -65,7 +66,7 @@ internal record IgniteToStringBuilder
     /// <param name="name">Property name.</param>
     /// <param name="value">Property value.</param>
     /// <returns>This instance.</returns>
-    public IgniteToStringBuilder Append(string name, object value)
+    public IgniteToStringBuilder Append(string name, object? value)
     {
         if (_first)
         {
@@ -79,6 +80,22 @@ internal record IgniteToStringBuilder
         _builder.Append(name);
         _builder.Append(" = ");
         _builder.Append(value);
+
+        return this;
+    }
+
+    /// <summary>
+    /// Appends multiple properties.
+    /// </summary>
+    /// <param name="pairs">Key value pairs.</param>
+    /// <typeparam name="T">Value type.</typeparam>
+    /// <returns>This instance.</returns>
+    public IgniteToStringBuilder AppendAll<T>(IEnumerable<KeyValuePair<string, T>> pairs)
+    {
+        foreach (var pair in pairs)
+        {
+            Append(pair.Key, pair.Value);
+        }
 
         return this;
     }
