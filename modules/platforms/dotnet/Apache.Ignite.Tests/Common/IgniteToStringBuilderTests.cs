@@ -52,4 +52,17 @@ public class IgniteToStringBuilderTests
 
         Assert.AreEqual("IgniteToStringBuilderTests { a = 1, b = 2, c = 3 }", builder.Build());
     }
+
+    [Test]
+    public void TestAppendNested()
+    {
+        var builder = new IgniteToStringBuilder(typeof(IgniteToStringBuilderTests));
+        builder.Append("a", 1);
+        builder.Append("b", new Foo(123));
+        builder.Append("c", 3);
+
+        Assert.AreEqual("IgniteToStringBuilderTests { a = 1, b = Foo { X = 123 }, c = 3 }", builder.Build());
+    }
+
+    private record Foo(int X);
 }
