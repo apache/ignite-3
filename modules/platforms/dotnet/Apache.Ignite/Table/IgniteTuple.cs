@@ -21,6 +21,7 @@ namespace Apache.Ignite.Table
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
     using System.Text;
+    using Internal.Common;
 
     /// <summary>
     /// Ignite tuple.
@@ -86,28 +87,14 @@ namespace Apache.Ignite.Table
         /// <inheritdoc />
         public override string ToString()
         {
-            if (FieldCount == 0)
-            {
-                return nameof(IgniteTuple) + " { }";
-            }
-
-            var sb = new StringBuilder();
-
-            sb.Append(nameof(IgniteTuple)).Append(" { ");
+            var builder = new IgniteToStringBuilder(nameof(IgniteTuple));
 
             for (var i = 0; i < FieldCount; i++)
             {
-                if (i > 0)
-                {
-                    sb.Append(", ");
-                }
-
-                sb.Append(GetName(i)).Append(" = ").Append(this[i]);
+                builder.Append(GetName(i), this[i]);
             }
 
-            sb.Append(" }");
-
-            return sb.ToString();
+            return builder.Build();
         }
 
         /// <inheritdoc />
