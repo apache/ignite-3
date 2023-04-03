@@ -68,6 +68,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      * @return The highest hybrid timestamp.
      */
     public static HybridTimestamp max(HybridTimestamp... times) {
+        assert times != null;
         assert times.length > 0;
 
         HybridTimestamp maxTime = times[0];
