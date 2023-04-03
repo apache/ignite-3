@@ -31,7 +31,8 @@ class ConfigurationNotificationContext {
     /** Current configuration storage revision. */
     private final long storageRevision;
 
-    @Nullable
+    /** The tail of containers, implements a stack for safe traversal in {@link ConfigurationNotificationEventImpl events}. */
+     @Nullable
     private ConfigurationContainer tailContainers;
 
     /** For collect configuration listener futures. */
@@ -51,6 +52,14 @@ class ConfigurationNotificationContext {
         this.notificationNum = notificationNum;
     }
 
+    /**
+     * Adds {@link ConfigurationContainer container}.
+     *
+     * @param oldNode Old node value.
+     * @param newNode New node value.
+     * @param oldName Old name of the node, only applicable to named list elements.
+     * @param newName New name of the node, only applicable to named list elements.
+     */
     void addContainer(
             @Nullable InnerNode oldNode,
             @Nullable InnerNode newNode,
@@ -60,6 +69,9 @@ class ConfigurationNotificationContext {
         tailContainers = new ConfigurationContainer(tailContainers, oldNode, newNode, oldName, newName);
     }
 
+    /**
+     * Removes {@link ConfigurationContainer container}.
+     */
     void removeContainer() {
         assert tailContainers != null;
 
