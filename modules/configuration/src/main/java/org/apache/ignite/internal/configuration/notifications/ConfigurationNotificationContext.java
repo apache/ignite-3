@@ -32,7 +32,7 @@ class ConfigurationNotificationContext {
     private final long storageRevision;
 
     /** The tail of containers, implements a stack for safe traversal in {@link ConfigurationNotificationEventImpl events}. */
-     @Nullable
+    @Nullable
     private ConfigurationContainer tailContainers;
 
     /** For collect configuration listener futures. */
