@@ -175,7 +175,7 @@ class JdbcQueryEventHandlerImplTest {
         long connectionId = acquireConnectionId();
 
         await(eventHandler.queryAsync(connectionId, new JdbcQueryExecuteRequest(
-                JdbcStatementType.SELECT_STATEMENT_TYPE, true, "my_schema", 1024, 1024, "SELECT 1", ArrayUtils.OBJECT_EMPTY_ARRAY
+                JdbcStatementType.SELECT_STATEMENT_TYPE, "my_schema", 1024, 1024, "SELECT 1", ArrayUtils.OBJECT_EMPTY_ARRAY, true
         )));
 
         verify(queryProcessor).createSession(any());

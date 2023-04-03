@@ -153,7 +153,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
 
 
-        Transaction tx = req.implicitTx() ? null : connectionContext.transaction();
+        Transaction tx = req.autoCommit() ? null : connectionContext.transaction();
 
         QueryContext context = createQueryContext(req.getStmtType(), tx);
 
@@ -222,7 +222,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         var tail = CompletableFuture.completedFuture(counters);
 
         for (Object[] args : argList) {
-            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionId, false, req.getQuery(), args)
+            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionId, req.autoCommit(), req.getQuery(), args)
                     .thenApply(cnt -> {
                         list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
 
@@ -247,7 +247,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             return CompletableFuture.failedFuture(new IgniteInternalException(Client.CONNECTION_ERR));
         }
 
-        var tx = autoCommit ? null : connectionContext.transaction();
+        Transaction tx = autoCommit ? null : connectionContext.transaction();
         var context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE, tx);
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connectionContext.doInSession(sessionId -> processor.querySingleAsync(

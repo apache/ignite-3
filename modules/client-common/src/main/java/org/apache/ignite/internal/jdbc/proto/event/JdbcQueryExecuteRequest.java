@@ -45,8 +45,9 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
 
     /** Sql query arguments. */
     private Object[] args;
-    
-    private boolean implicitTx;
+
+    /** Flag indicating whether auto-commit mode is enabled. */
+    private boolean autoCommit;
 
     /**
      * Default constructor. For deserialization purposes.
@@ -58,28 +59,24 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
      * Constructor.
      *
      * @param stmtType Expected statement type.
-     * @param implicitTx 
      * @param schemaName Cache name.
      * @param pageSize   Fetch size.
      * @param maxRows    Max rows.
      * @param sqlQry     SQL query.
      * @param args       Arguments list.
+     * @param autoCommit Flag indicating whether auto-commit mode is enabled.
      */
-    public JdbcQueryExecuteRequest(JdbcStatementType stmtType, boolean implicitTx,
-            String schemaName, int pageSize, int maxRows, String sqlQry, Object[] args) {
+    public JdbcQueryExecuteRequest(JdbcStatementType stmtType, String schemaName,
+            int pageSize, int maxRows, String sqlQry, Object[] args, boolean autoCommit) {
         Objects.requireNonNull(stmtType);
 
-        this.implicitTx = implicitTx;
+        this.autoCommit = autoCommit;
         this.stmtType = stmtType;
         this.schemaName = schemaName == null || schemaName.isEmpty() ? null : schemaName;
         this.pageSize = pageSize;
         this.maxRows = maxRows;
         this.sqlQry = sqlQry;
         this.args = args;
-    }
-    
-    public boolean implicitTx() {
-        return implicitTx;
     }
 
     /**
@@ -136,10 +133,18 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         return stmtType;
     }
 
+    /**
+     * Get flag indicating whether auto-commit mode is enabled.
+     *
+     * @return Flag indicating whether auto-commit mode is enabled.
+     */
+    public boolean autoCommit() {
+        return autoCommit;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
-        packer.packBoolean(implicitTx);
         packer.packByte(stmtType.getId());
         packer.packString(schemaName);
         packer.packInt(pageSize);
@@ -147,12 +152,13 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         packer.packString(sqlQry);
 
         packer.packObjectArrayAsBinaryTuple(args);
+
+        packer.packBoolean(autoCommit);
     }
 
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
-        implicitTx = unpacker.unpackBoolean();
         stmtType = JdbcStatementType.getStatement(unpacker.unpackByte());
         schemaName = unpacker.unpackString();
         pageSize = unpacker.unpackInt();
@@ -160,6 +166,8 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         sqlQry = unpacker.unpackString();
 
         args = unpacker.unpackObjectArrayFromBinaryTuple();
+
+        autoCommit = unpacker.unpackBoolean();
     }
 
     /** {@inheritDoc} */

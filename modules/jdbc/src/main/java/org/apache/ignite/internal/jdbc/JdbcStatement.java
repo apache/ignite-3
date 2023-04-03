@@ -132,8 +132,8 @@ public class JdbcStatement implements Statement {
             throw new SQLException("SQL query is empty.");
         }
 
-        JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(stmtType, conn.getAutoCommit(), schema, pageSize, maxRows, sql,
-                args == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : args.toArray());
+        JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql,
+                args == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : args.toArray(), conn.getAutoCommit());
 
         Response res;
         try {
