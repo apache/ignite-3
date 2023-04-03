@@ -46,4 +46,10 @@ public sealed class SslStreamFactory : ISslStreamFactory
 
         return sslStream;
     }
+
+    /// <inheritdoc />
+    public override string ToString() =>
+        new IgniteToStringBuilder(nameof(SslStreamFactory))
+            .Append(nameof(SslClientAuthenticationOptions), SslClientAuthenticationOptions)
+            .Build();
 }
