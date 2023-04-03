@@ -120,8 +120,6 @@ public class StorageUpdateHandler {
             @Nullable HybridTimestamp lowWatermark
     ) {
         storage.runConsistently(() -> {
-            executeBatchGc(lowWatermark);
-
             BinaryRow row = rowBuffer != null ? new ByteBufferRow(rowBuffer) : null;
             RowId rowId = new RowId(partitionId, rowUuid);
             UUID commitTblId = commitPartitionId.tableId();
@@ -134,14 +132,16 @@ public class StorageUpdateHandler {
                 tryRemovePreviousWritesIndex(rowId, oldRow);
             }
 
+            addToIndexes(row, rowId);
+
             if (onReplication != null) {
                 onReplication.accept(rowId);
             }
 
-            addToIndexes(row, rowId);
-
             return null;
         });
+
+        executeBatchGc(lowWatermark);
     }
 
     /**
@@ -179,8 +179,6 @@ public class StorageUpdateHandler {
             @Nullable HybridTimestamp lowWatermark
     ) {
         storage.runConsistently(() -> {
-            executeBatchGc(lowWatermark);
-
             UUID commitTblId = commitPartitionId.tableId();
             int commitPartId = commitPartitionId.partitionId();
 
@@ -209,6 +207,8 @@ public class StorageUpdateHandler {
 
             return null;
         });
+
+        executeBatchGc(lowWatermark);
     }
 
     private void executeBatchGc(@Nullable HybridTimestamp newLwm) {
@@ -356,16 +356,12 @@ public class StorageUpdateHandler {
      * @param lowWatermark Low watermark for the vacuum.
      * @param count Count of entries to GC.
      */
-    private void vacuumBatch(HybridTimestamp lowWatermark, int count) {
-        storage.runConsistently(() -> {
-            for (int i = 0; i < count; i++) {
-                if (!internalVacuum(lowWatermark)) {
-                    break;
-                }
+    void vacuumBatch(HybridTimestamp lowWatermark, int count) {
+        for (int i = 0; i < count; i++) {
+            if (!storage.runConsistently(() -> internalVacuum(lowWatermark))) {
+                break;
             }
-
-            return null;
-        });
+        }
     }
 
     /**

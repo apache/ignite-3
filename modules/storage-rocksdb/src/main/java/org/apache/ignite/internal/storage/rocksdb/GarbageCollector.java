@@ -204,7 +204,7 @@ class GarbageCollector {
 
                 // Someone has processed the element in parallel, so we need to take a new head of the queue.
                 if (!gcRowVersion.equals(oldGcRowVersion)) {
-                    helper.lockByRowId.releaseLock(gcRowVersion.getRowId());
+                    helper.lockByRowId.releaseLock(oldGcRowVersion.getRowId());
 
                     continue;
                 }
