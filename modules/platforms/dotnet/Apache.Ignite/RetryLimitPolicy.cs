@@ -47,5 +47,11 @@ namespace Apache.Ignite
 
             return context.Iteration < RetryLimit;
         }
+
+        /// <inheritdoc />
+        public override string ToString() =>
+            new IgniteToStringBuilder(GetType())
+                .Append(nameof(RetryLimit), RetryLimit)
+                .Build();
     }
 }

@@ -49,6 +49,7 @@ public class ToStringTests
                 if (code.Contains("record " + GetCleanTypeName(type)) ||
                     code.Contains("record struct " + GetCleanTypeName(type)))
                 {
+                    // records provide property-based ToString() in the same format we use.
                     continue;
                 }
 
