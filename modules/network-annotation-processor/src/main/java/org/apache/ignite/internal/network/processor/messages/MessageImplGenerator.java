@@ -142,6 +142,7 @@ public class MessageImplGenerator {
                         .returns(TypeName.VOID)
                         .addModifiers(Modifier.PUBLIC)
                         .addParameter(getterReturnType, getterName)
+                        .addAnnotation(Override.class)
                         .addStatement("this.$L = $L", getterName, getterName)
                         .build();
 

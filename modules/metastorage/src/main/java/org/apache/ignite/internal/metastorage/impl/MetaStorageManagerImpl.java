@@ -51,6 +51,7 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageLearnerListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -619,6 +620,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    @TestOnly
+    ClusterTime clusterTime() {
+        return clusterTime;
     }
 
     @TestOnly

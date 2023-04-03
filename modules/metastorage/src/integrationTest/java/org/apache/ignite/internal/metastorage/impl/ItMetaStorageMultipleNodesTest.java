@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
@@ -50,12 +51,14 @@ import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -78,6 +81,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for scenarios when Meta Storage nodes join and leave a cluster.
@@ -376,5 +381,41 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
         firstNode.stopDroppingMessages();
 
         assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), 10_000));
+    }
+
+    /**
+     * Tests that safe time is propagated from the leader to the follower/learner.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testSafeTimePropagation(boolean useFollower, TestInfo testInfo) throws Exception {
+        Node firstNode = startNode(testInfo);
+        Node secondNode = startNode(testInfo);
+
+        List<String> followers = new ArrayList<>();
+        followers.add(firstNode.name());
+
+        if (useFollower) {
+            followers.add(secondNode.name());
+        }
+
+        firstNode.cmgManager.initCluster(followers, List.of(firstNode.name()), "test");
+
+        ClusterTimeImpl firstNodeTime = (ClusterTimeImpl) firstNode.metaStorageManager.clusterTime();
+        ClusterTimeImpl secondNodeTime = (ClusterTimeImpl) secondNode.metaStorageManager.clusterTime();
+
+        assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
+
+        assertThat(
+                firstNode.metaStorageManager.put(ByteArray.fromString("test-key"), new byte[]{0, 1, 2, 3}),
+                willCompleteSuccessfully()
+        );
+
+        assertTrue(waitForCondition(() -> {
+            HybridTimestamp sf1 = firstNodeTime.currentSafeTime();
+            HybridTimestamp sf2 = secondNodeTime.currentSafeTime();
+
+            return sf1.equals(sf2);
+        }, TimeUnit.SECONDS.toMillis(2)));
     }
 }

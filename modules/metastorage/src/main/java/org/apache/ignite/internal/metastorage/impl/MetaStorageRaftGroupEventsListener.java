@@ -89,18 +89,19 @@ public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListen
             registerTopologyEventListeners();
 
             // Update learner configuration (in case we missed some topology updates) and initialize the serialization future.
-            serializationFuture = executeIfLeaderImpl(this::resetLearners);
-
             serializationFuture = executeWithStatus((service, term1, isLeader) -> {
+                CompletableFuture<Void> fut;
                 if (isLeader) {
-                    this.resetLearners(service, term1);
+                    fut = this.resetLearners(service, term1);
 
                     clusterTime.startLeaderTimer(service);
                 } else {
+                    fut = CompletableFuture.completedFuture(null);
+
                     clusterTime.stopLeaderTimer();
                 }
 
-                return null;
+                return fut;
             });
         }
     }
