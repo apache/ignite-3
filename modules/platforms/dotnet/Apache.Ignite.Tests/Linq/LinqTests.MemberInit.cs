@@ -47,10 +47,6 @@ public partial class LinqTests
     [Test]
     public void Do1()
     {
-        // var res1 = PocoView.AsQueryable()
-        //     .Where(x => x.Key == 2)
-        //     .Select(x => new { Id = x.Key, Value = x.Val })
-        //     .ToArray();
         var res = PocoView.AsQueryable()
             .Where(x => x.Key == 2)
             .Select(x => new CustomProjectionCtorAndInit(x.Key)
@@ -77,10 +73,6 @@ public partial class LinqTests
     [Test]
     public void Do2()
     {
-        // var res1 = PocoView.AsQueryable()
-        //     .Where(x => x.Key == 2)
-        //     .Select(x => new { Id = x.Key, Value = x.Val })
-        //     .ToArray();
         var query = PocoView.AsQueryable()
             .Where(x => x.Key == 2)
             .Select(x => new CustomProjectionCtor(x.Key + 42, x.Val));
@@ -90,41 +82,6 @@ public partial class LinqTests
         Assert.AreEqual(1, res.Length);
         Assert.AreEqual(44, res[0].Id);
         Assert.AreEqual("v-2", res[0].Data);
-    }
-
-    [Test]
-    [Ignore("Why not. Complains about not supported stuff")]
-    public async Task TestSelectTwoColumns1()
-    {
-        var tableAllColumns = await Client.Tables.GetTableAsync(TableAllColumnsName);
-
-        var view = tableAllColumns!.GetRecordView<Poco1>();
-        var res = view.AsQueryable()
-            .Where(x => x.Key == 2)
-            .Select(x => new { Id = x.Key + 1, Id1 = (long)x.Int32 })
-            .ToArray();
-
-        var res1 = view.AsQueryable()
-            .Where(x => x.Key == 2)
-            .Select(x => new { Id1 = x.Key + 1, Id = (long)x.Int32 })
-            .ToArray();
-
-        Assert.AreEqual(1, res.Length);
-    }
-
-    private class Poco1
-    {
-        public long Key { get; set; }
-
-        public string? Val { get; set; }
-
-        public int Int32 { get; set; }
-
-        [NotMapped]
-        public Guid UnmappedId { get; set; }
-
-        [NotMapped]
-        public string? UnmappedStr { get; set; }
     }
 
     private class CustomProjection
