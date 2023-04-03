@@ -426,4 +426,15 @@ public class ErrorGroups {
         /** Garbage collector closed error. */
         public static final int CLOSED_ERR = GC_ERR_GROUP.registerErrorCode(1);
     }
+
+    /**
+     * Authentication error group.
+     */
+    public static class Authentication {
+        /** Authentication error group. */
+        public static final ErrorGroup AUTHENTICATION_ERR_GROUP = ErrorGroup.newGroup("AUTHENTICATION", 15);
+
+        /** General authentication error. */
+        public static final int UNKNOWN_AUTHENTICATION_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode(1);
+    }
 }
