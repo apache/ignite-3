@@ -35,7 +35,7 @@ public sealed class SslStreamFactory : ISslStreamFactory
     /// <inheritdoc />
     public async Task<SslStream?> CreateAsync(Stream stream, string targetHost)
     {
-        IgniteArgumentCheck.NotNull(stream, "stream");
+        IgniteArgumentCheck.NotNull(stream);
 
         var sslStream = new SslStream(stream, false, null, null);
 

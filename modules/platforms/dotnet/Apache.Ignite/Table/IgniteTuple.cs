@@ -20,7 +20,6 @@ namespace Apache.Ignite.Table
     using System;
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
-    using System.Text;
     using Internal.Common;
 
     /// <summary>
