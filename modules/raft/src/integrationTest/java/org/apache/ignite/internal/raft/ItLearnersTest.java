@@ -106,7 +106,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         RaftNode(ClusterService clusterService) {
             this.clusterService = clusterService;
 
-            Path raftDir = workDir.resolve(clusterService.localConfiguration().getName());
+            Path raftDir = workDir.resolve(clusterService.nodeName());
 
             loza = new Loza(clusterService, raftConfiguration, raftDir, new HybridClockImpl());
         }

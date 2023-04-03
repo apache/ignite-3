@@ -99,7 +99,7 @@ class ItScaleCubeNetworkMessagingTest {
             member.messagingService().addMessageHandler(
                     TestMessageTypes.class,
                     (message, sender, correlationId) -> {
-                        messageStorage.put(member.localConfiguration().getName(), (TestMessage) message);
+                        messageStorage.put(member.nodeName(), (TestMessage) message);
                         messageReceivedLatch.countDown();
                     }
             );
@@ -119,7 +119,7 @@ class ItScaleCubeNetworkMessagingTest {
         assertTrue(messagesReceived);
 
         testCluster.members.stream()
-                .map(member -> member.localConfiguration().getName())
+                .map(ClusterService::nodeName)
                 .map(messageStorage::get)
                 .forEach(msg -> assertThat(msg.msg(), is(testMessage.msg())));
     }
@@ -333,7 +333,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         ClusterService alice = testCluster.members.get(0);
         ClusterService bob = testCluster.members.get(1);
-        String aliceName = alice.localConfiguration().getName();
+        String aliceName = alice.nodeName();
 
         var aliceShutdownLatch = new CountDownLatch(1);
 

@@ -73,7 +73,7 @@ public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListen
             CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut
     ) {
         this.busyLock = busyLock;
-        this.nodeName = clusterService.localConfiguration().getName();
+        this.nodeName = clusterService.nodeName();
         this.logicalTopologyService = logicalTopologyService;
         this.metaStorageSvcFut = metaStorageSvcFut;
     }

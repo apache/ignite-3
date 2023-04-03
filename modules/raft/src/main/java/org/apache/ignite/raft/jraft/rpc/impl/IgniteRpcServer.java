@@ -120,7 +120,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new RemoveLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ResetLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
         // common client integration
-        var commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.localConfiguration().getSerializationRegistry());
+        var commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.serializationRegistry());
         registerProcessor(new ActionRequestProcessor(rpcExecutor, raftMessagesFactory, commandsMarshaller));
         registerProcessor(new NotifyElectProcessor(raftMessagesFactory, serviceEventInterceptor));
         registerProcessor(new RaftGroupEventsProcessor(raftGroupEventsClientListener));

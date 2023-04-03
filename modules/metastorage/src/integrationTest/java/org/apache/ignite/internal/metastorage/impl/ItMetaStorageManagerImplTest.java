@@ -97,10 +97,9 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
-        when(cmgManager.metaStorageNodes())
-                .thenReturn(completedFuture(Set.of(clusterService.localConfiguration().getName())));
+        when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of(clusterService.nodeName())));
 
-        storage = new RocksDbKeyValueStorage(clusterService.localConfiguration().getName(), workDir.resolve("metastorage"));
+        storage = new RocksDbKeyValueStorage(clusterService.nodeName(), workDir.resolve("metastorage"));
 
         metaStorageManager = new MetaStorageManagerImpl(
                 vaultManager,
@@ -259,7 +258,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
-        Set<String> msNodes = Set.of(clusterService.localConfiguration().getName());
+        Set<String> msNodes = Set.of(clusterService.nodeName());
         CompletableFuture<Set<String>> cmgFut = new CompletableFuture<>();
 
         when(cmgManager.metaStorageNodes()).thenReturn(cmgFut);
