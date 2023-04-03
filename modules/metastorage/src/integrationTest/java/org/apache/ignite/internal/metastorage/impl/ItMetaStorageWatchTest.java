@@ -152,7 +152,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         }
 
         String name() {
-            return clusterService.localConfiguration().getName();
+            return clusterService.nodeName();
         }
 
         void stop() throws Exception {

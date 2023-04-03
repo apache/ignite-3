@@ -128,8 +128,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
-        when(cmgManager.metaStorageNodes())
-                .thenReturn(completedFuture(Set.of(clusterService.localConfiguration().getName())));
+        when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of(clusterService.nodeName())));
 
         RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 

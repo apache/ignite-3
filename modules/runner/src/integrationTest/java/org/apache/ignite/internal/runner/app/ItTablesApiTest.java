@@ -111,7 +111,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
             String nodeName = testNodeName(testInfo, i);
 
             futures.add(TestIgnitionManager.start(nodeName, nodesBootstrapCfg.get(i), workDir.resolve(nodeName)));
-        }
+        });
 
         String metaStorageNodeName = testNodeName(testInfo, 0);
 

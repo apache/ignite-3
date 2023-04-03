@@ -243,7 +243,7 @@ public class ItDistributedConfigurationPropertiesTest {
         }
 
         String name() {
-            return clusterService.localConfiguration().getName();
+            return clusterService.nodeName();
         }
     }
 

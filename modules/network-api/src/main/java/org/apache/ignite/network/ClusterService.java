@@ -18,12 +18,18 @@
 package org.apache.ignite.network;
 
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
  * Class, that represents the network-related resources of a node and provides entry points for working with the network members of a
  * cluster.
  */
 public interface ClusterService extends IgniteComponent {
+    /**
+     * Returns the network alias of the node.
+     */
+    String nodeName();
+
     /**
      * Returns the {@link TopologyService} for working with the cluster topology.
      *
@@ -39,11 +45,9 @@ public interface ClusterService extends IgniteComponent {
     MessagingService messagingService();
 
     /**
-     * Returns the local configuration of this node.
-     *
-     * @return Configuration of the current node.
+     * Returns the message serialization registry.
      */
-    ClusterLocalConfiguration localConfiguration();
+    MessageSerializationRegistry serializationRegistry();
 
     /** {@inheritDoc} */
     @Override

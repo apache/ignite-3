@@ -29,7 +29,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.network.AbstractMessagingService;
 import org.apache.ignite.network.AbstractTopologyService;
 import org.apache.ignite.network.ChannelType;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -38,6 +37,7 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -67,6 +67,11 @@ public class ClusterServiceFactory {
      */
     public ClusterService forNode(String nodeName) {
         return new ClusterService() {
+            @Override
+            public String nodeName() {
+                throw new AssertionError("Should not be called");
+            }
+
             /** {@inheritDoc} */
             @Override
             public TopologyService topologyService() {
@@ -81,12 +86,6 @@ public class ClusterServiceFactory {
 
             /** {@inheritDoc} */
             @Override
-            public ClusterLocalConfiguration localConfiguration() {
-                throw new AssertionError("Should not be called");
-            }
-
-            /** {@inheritDoc} */
-            @Override
             public boolean isStopped() {
                 return false;
             }
@@ -94,6 +93,11 @@ public class ClusterServiceFactory {
             /** {@inheritDoc} */
             @Override
             public void updateMetadata(NodeMetadata metadata) {
+                throw new AssertionError("Should not be called");
+            }
+
+            @Override
+            public MessageSerializationRegistry serializationRegistry() {
                 throw new AssertionError("Should not be called");
             }
 

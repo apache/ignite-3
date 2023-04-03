@@ -135,7 +135,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
     /** {@inheritDoc} */
     @Override
     public RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath, int index) {
-        String nodeName = service.localConfiguration().getName();
+        String nodeName = service.nodeName();
 
         KeyValueStorage storage = storageByName.computeIfAbsent(nodeName, name -> {
             var s = new RocksDbKeyValueStorage(name, listenerPersistencePath);

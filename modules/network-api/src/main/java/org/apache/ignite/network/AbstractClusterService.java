@@ -17,14 +17,16 @@
 
 package org.apache.ignite.network;
 
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+
 /**
  * Default implementation of a {@link ClusterService}.
  *
  * <p>Extending classes should use {@link #start()} and {@link #stop()} to allocate and free any network-related resources.
  */
 public abstract class AbstractClusterService implements ClusterService {
-    /** Context. */
-    private final ClusterLocalConfiguration context;
+    /** Node name. */
+    private final String nodeName;
 
     /** Topology service. */
     private final TopologyService topologyService;
@@ -32,27 +34,30 @@ public abstract class AbstractClusterService implements ClusterService {
     /** Messaging service. */
     private final MessagingService messagingService;
 
+    /** Serialization registry. */
+    private final MessageSerializationRegistry serializationRegistry;
+
     /**
      * Constructor.
      *
-     * @param context          Cluster context.
      * @param topologyService  Topology service.
      * @param messagingService Messaging service.
      */
     public AbstractClusterService(
-            ClusterLocalConfiguration context,
+            String nodeName,
             TopologyService topologyService,
-            MessagingService messagingService
+            MessagingService messagingService,
+            MessageSerializationRegistry serializationRegistry
     ) {
-        this.context = context;
+        this.nodeName = nodeName;
+        this.serializationRegistry = serializationRegistry;
         this.topologyService = topologyService;
         this.messagingService = messagingService;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public final ClusterLocalConfiguration localConfiguration() {
-        return context;
+    public String nodeName() {
+        return nodeName;
     }
 
     /** {@inheritDoc} */
@@ -65,5 +70,10 @@ public abstract class AbstractClusterService implements ClusterService {
     @Override
     public final MessagingService messagingService() {
         return messagingService;
+    }
+
+    @Override
+    public MessageSerializationRegistry serializationRegistry() {
+        return serializationRegistry;
     }
 }

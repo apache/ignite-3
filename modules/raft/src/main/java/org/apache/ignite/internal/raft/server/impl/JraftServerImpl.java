@@ -164,7 +164,7 @@ public class JraftServerImpl implements RaftServer {
         this.opts.setSharedPools(true);
 
         if (opts.getServerName() == null) {
-            this.opts.setServerName(service.localConfiguration().getName());
+            this.opts.setServerName(service.nodeName());
         }
 
         /*
@@ -187,7 +187,7 @@ public class JraftServerImpl implements RaftServer {
 
         startGroupInProgressMonitors = Collections.unmodifiableList(monitors);
 
-        commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.localConfiguration().getSerializationRegistry());
+        commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.serializationRegistry());
         serviceEventInterceptor = new RaftServiceEventInterceptor();
     }
 
@@ -397,20 +397,25 @@ public class JraftServerImpl implements RaftServer {
             // Thread pools are shared by all raft groups.
             NodeOptions nodeOptions = opts.copy();
 
-            // TODO: IGNITE-17083 - Do not create paths for volatile stores at all when we get rid of snapshot storage on FS.
-            Path serverDataPath = getServerDataPath(nodeId);
-
-            try {
-                Files.createDirectories(serverDataPath);
-            } catch (IOException e) {
-                throw new IgniteInternalException(e);
-            }
-
             nodeOptions.setLogUri(nodeIdStr(nodeId));
 
-            nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
+            if (groupOptions.volatileStores()) {
+                nodeOptions.setRaftMetaUri("");
 
-            nodeOptions.setSnapshotUri(serverDataPath.resolve("snapshot").toString());
+                nodeOptions.setSnapshotUri("");
+            } else {
+                Path serverDataPath = getServerDataPath(nodeId);
+
+                try {
+                    Files.createDirectories(serverDataPath);
+                } catch (IOException e) {
+                    throw new IgniteInternalException(e);
+                }
+
+                nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
+
+                nodeOptions.setSnapshotUri(serverDataPath.resolve("snapshot").toString());
+            }
 
             nodeOptions.setFsm(new DelegatingStateMachine(lsnr, commandsMarshaller));
 

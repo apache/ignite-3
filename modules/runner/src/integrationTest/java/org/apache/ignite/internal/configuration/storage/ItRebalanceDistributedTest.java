@@ -647,7 +647,7 @@ public class ItRebalanceDistributedTest {
                     clusterManagementConfiguration,
                     distributedConfigurationUpdater);
 
-            String nodeName = clusterService.localConfiguration().getName();
+            String nodeName = clusterService.nodeName();
 
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
