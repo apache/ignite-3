@@ -740,34 +740,38 @@ public:
         });
     }
 
-//    /**
-//     * Asynchronously replaces a record with the same key columns if it exists
-//     * returning previous record value.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param record A record to insert.
-//     * @param callback Callback. Called with a previous value for the given key,
-//     *   or @c std::nullopt if it did not exist.
-//     */
-//    void get_and_replace_async(
-//        transaction *tx, const value_type &record, ignite_callback<std::optional<value_type>> callback);
-//
-//    /**
-//     * Replaces a record with the same key columns if it exists returning
-//     * previous record value.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param record A record to insert.
-//     * @param callback A previous value for the given key, or @c std::nullopt if
-//     *   it did not exist.
-//     */
-//    [[nodiscard]] std::optional<value_type> get_and_replace(transaction *tx, const value_type &record) {
-//        return sync<std::optional<value_type>>(
-//            [this, tx, &record](auto callback) { get_and_replace_async(tx, record, std::move(callback)); });
-//    }
-//
+    /**
+     * Asynchronously replaces a record with the same key columns if it exists
+     * returning previous record value.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to insert.
+     * @param callback Callback. Called with a previous value for the given key,
+     *   or @c std::nullopt if it did not exist.
+     */
+    void get_and_replace_async(
+        transaction *tx, const value_type &record, ignite_callback<std::optional<value_type>> callback) {
+        m_delegate.get_and_replace_async(tx, convert_to_tuple(record), [callback = std::move(callback)] (auto res) {
+            callback(convert_result(std::move(res)));
+        });
+    }
+
+    /**
+     * Replaces a record with the same key columns if it exists returning
+     * previous record value.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to insert.
+     * @param callback A previous value for the given key, or @c std::nullopt if
+     *   it did not exist.
+     */
+    [[nodiscard]] std::optional<value_type> get_and_replace(transaction *tx, const value_type &record) {
+        return sync<std::optional<value_type>>(
+            [this, tx, &record](auto callback) { get_and_replace_async(tx, record, std::move(callback)); });
+    }
+
 //    /**
 //     * Deletes a record with the specified key asynchronously.
 //     *
