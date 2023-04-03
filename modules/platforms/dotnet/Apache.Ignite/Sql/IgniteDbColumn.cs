@@ -52,12 +52,12 @@ public sealed class IgniteDbColumn : DbColumn
     /// <inheritdoc />
     public override string ToString() =>
         new IgniteToStringBuilder(nameof(IgniteDbColumn))
-            .Append(nameof(ColumnName), ColumnName)
-            .Append(nameof(ColumnOrdinal), ColumnOrdinal)
-            .Append(nameof(DataTypeName), DataTypeName)
-            .Append(nameof(AllowDBNull), AllowDBNull)
-            .Append(nameof(NumericPrecision), NumericPrecision)
-            .Append(nameof(NumericScale), NumericScale)
-            .Append(nameof(ColumnMetadata), ColumnMetadata)
+            .Append(ColumnName, nameof(ColumnName))
+            .Append(ColumnOrdinal, nameof(ColumnOrdinal))
+            .Append(DataTypeName, nameof(DataTypeName))
+            .Append(AllowDBNull, nameof(AllowDBNull))
+            .Append(NumericPrecision, nameof(NumericPrecision))
+            .Append(NumericScale, nameof(NumericScale))
+            .Append(ColumnMetadata, nameof(ColumnMetadata))
             .Build();
 }

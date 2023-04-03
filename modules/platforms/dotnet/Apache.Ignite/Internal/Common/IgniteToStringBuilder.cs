@@ -64,27 +64,10 @@ internal record IgniteToStringBuilder
     /// <summary>
     /// Appends a property.
     /// </summary>
-    /// <param name="name">Property name.</param>
-    /// <param name="value">Property value.</param>
-    /// <returns>This instance.</returns>
-    public IgniteToStringBuilder Append(string name, object? value)
-    {
-        AppendComma();
-
-        _builder.Append(name);
-        _builder.Append(" = ");
-        _builder.Append(value);
-
-        return this;
-    }
-
-    /// <summary>
-    /// Appends a property.
-    /// </summary>
     /// <param name="value">Property value.</param>
     /// <param name="name">Property name.</param>
     /// <returns>This instance.</returns>
-    public IgniteToStringBuilder Append2(object? value, [CallerArgumentExpression("value")] string? name = null)
+    public IgniteToStringBuilder Append(object? value, [CallerArgumentExpression("value")] string? name = null)
     {
         IgniteArgumentCheck.NotNull(name, nameof(name));
 
@@ -141,7 +124,7 @@ internal record IgniteToStringBuilder
     {
         foreach (var pair in pairs)
         {
-            Append(pair.Key, pair.Value);
+            Append(pair.Value, pair.Key);
         }
 
         return this;

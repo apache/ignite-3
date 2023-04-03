@@ -185,7 +185,7 @@ namespace Apache.Ignite.Internal
         /** <inheritdoc /> */
         public override string ToString() =>
             new IgniteToStringBuilder(nameof(ClientProtocolVersion))
-                .Append("Version", $"{Major}.{Minor}.{Patch}")
+                .Append($"{Major}.{Minor}.{Patch}", "Version")
                 .Build();
     }
 }

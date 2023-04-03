@@ -50,6 +50,6 @@ public sealed class SslStreamFactory : ISslStreamFactory
     /// <inheritdoc />
     public override string ToString() =>
         new IgniteToStringBuilder(nameof(SslStreamFactory))
-            .Append(nameof(SslClientAuthenticationOptions), SslClientAuthenticationOptions)
+            .Append(SslClientAuthenticationOptions, nameof(SslClientAuthenticationOptions))
             .Build();
 }

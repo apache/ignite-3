@@ -90,7 +90,7 @@ namespace Apache.Ignite.Table
 
             for (var i = 0; i < FieldCount; i++)
             {
-                builder.Append(GetName(i), this[i]);
+                builder.Append(this[i], GetName(i));
             }
 
             return builder.Build();

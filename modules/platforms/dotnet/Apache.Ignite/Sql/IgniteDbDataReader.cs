@@ -463,11 +463,11 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <inheritdoc/>
     public override string ToString() =>
         new IgniteToStringBuilder(nameof(IgniteDbDataReader))
-            .Append2(FieldCount)
-            .Append2(RecordsAffected)
-            .Append2(HasRows)
-            .Append2(IsClosed)
-            .Append2(Metadata)
+            .Append(FieldCount)
+            .Append(RecordsAffected)
+            .Append(HasRows)
+            .Append(IsClosed)
+            .Append(Metadata)
             .Build();
 
     /// <inheritdoc/>

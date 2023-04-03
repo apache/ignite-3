@@ -37,7 +37,7 @@ public class IgniteToStringBuilderTests
     public void TestAppendOne()
     {
         var builder = new IgniteToStringBuilder(typeof(IgniteClient));
-        builder.Append("a", 1);
+        builder.Append(1, "a");
 
         Assert.AreEqual("IgniteClient { a = 1 }", builder.Build());
     }
@@ -46,9 +46,9 @@ public class IgniteToStringBuilderTests
     public void TestAppendMultiple()
     {
         var res = new IgniteToStringBuilder(typeof(IgniteToStringBuilderTests))
-            .Append("a", 1)
-            .Append("b", 2)
-            .Append("c", 3)
+            .Append(1, "a")
+            .Append(2, "b")
+            .Append(3, "c")
             .Build();
 
         Assert.AreEqual("IgniteToStringBuilderTests { a = 1, b = 2, c = 3 }", res);
@@ -57,9 +57,10 @@ public class IgniteToStringBuilderTests
     [Test]
     public void TestAppendNestedRecord()
     {
-        var res = new IgniteToStringBuilder(typeof(IgniteToStringBuilderTests)).Append("a", 1)
-            .Append("b", new Foo(123))
-            .Append("c", 3)
+        var res = new IgniteToStringBuilder(typeof(IgniteToStringBuilderTests))
+            .Append(1, "a")
+            .Append(new Foo(123), "b")
+            .Append(3, "c")
             .Build();
 
         Assert.AreEqual("IgniteToStringBuilderTests { a = 1, b = Foo { X = 123 }, c = 3 }", res);
@@ -69,12 +70,13 @@ public class IgniteToStringBuilderTests
     public void TestGetNested()
     {
         // TODO: Test double build, double close, etc
-        var res = new IgniteToStringBuilder("Foo").Append("a", 1)
+        var res = new IgniteToStringBuilder("Foo")
+            .Append(1, "a")
             .BeginNested("Bar")
-            .Append("b", 2)
-            .Append("c", 3)
+            .Append(2, "b")
+            .Append(3, "c")
             .EndNested()
-            .Append("d", 4)
+            .Append(4, "d")
             .Build();
 
         Assert.AreEqual("Foo { a = 1, Bar { b = 2, c = 3 }, d = 4 }", res);
