@@ -31,9 +31,6 @@ namespace Apache.Ignite.Log
         /** Wrapped logger. */
         private readonly IIgniteLogger _logger;
 
-        /** Category to use. */
-        private readonly string _category;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="CategoryLogger"/> class.
         /// </summary>
@@ -46,8 +43,13 @@ namespace Apache.Ignite.Log
             // If logger is already a CategoryLogger, get underlying logger instead to avoid unnecessary nesting.
             _logger = logger is CategoryLogger catLogger ? catLogger._logger : logger;
 
-            _category = category;
+            Category = category;
         }
+
+        /// <summary>
+        /// Gets the category name.
+        /// </summary>
+        public string Category { get; }
 
         /// <summary>
         /// Logs the specified message.
@@ -69,7 +71,7 @@ namespace Apache.Ignite.Log
             string? nativeErrorInfo,
             Exception? ex)
         {
-            _logger.Log(level, message, args, formatProvider, category ?? _category, nativeErrorInfo, ex);
+            _logger.Log(level, message, args, formatProvider, category ?? Category, nativeErrorInfo, ex);
         }
 
         /// <summary>
@@ -83,5 +85,11 @@ namespace Apache.Ignite.Log
         {
             return _logger.IsEnabled(level);
         }
+
+        /// <inheritdoc />
+        public override string ToString() =>
+            new IgniteToStringBuilder(nameof(CategoryLogger))
+                .Append(Category)
+                .Build();
     }
 }
