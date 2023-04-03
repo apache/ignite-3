@@ -59,7 +59,7 @@ import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
  */
 public class ReplExecutor {
 
-    private final Parser parser = new DefaultParser();
+    private final Parser parser = new DefaultParser().escapeChars(null);
 
     private final Supplier<Path> workDirProvider = () -> Paths.get(System.getProperty("user.dir"));
 
