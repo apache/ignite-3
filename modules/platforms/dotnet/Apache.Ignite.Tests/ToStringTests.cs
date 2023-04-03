@@ -47,7 +47,13 @@ public class ToStringTests
 
         foreach (var type in types)
         {
-            if (type.IsInterface || type.IsAbstract)
+            if (typeof(Exception).IsAssignableFrom(type))
+            {
+                // Exceptions use built-in string conversion.
+                continue;
+            }
+
+            if (type.IsInterface || type.IsAbstract || type.IsEnum)
             {
                 continue;
             }
