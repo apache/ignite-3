@@ -118,7 +118,7 @@ namespace Apache.Ignite.Sql
                 .Append(nameof(Timeout), Timeout)
                 .Append(nameof(Schema), Schema)
                 .Append(nameof(PageSize), PageSize)
-                .BeginNested(nameof(Properties))
+                .BeginNested(nameof(Properties) + " =")
                 .AppendAll(Properties)
                 .EndNested()
                 .Build();
