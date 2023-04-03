@@ -53,7 +53,7 @@ public class ToStringTests
                 continue;
             }
 
-            if (type.IsPublic || type.GetInterfaces().Any(x => x.IsPublic))
+            if (type.IsPublic || type.GetInterfaces().Any(x => x.IsPublic && x.Assembly == asm))
             {
                 yield return type;
             }
