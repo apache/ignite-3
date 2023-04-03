@@ -38,6 +38,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
+import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -90,7 +91,12 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
 
         partitionDataStorage = new TestPartitionDataStorage(partitionStorage);
 
-        storageUpdateHandler = new StorageUpdateHandler(PARTITION_ID, partitionDataStorage, Map::of, tableConfig.dataStorage());
+        storageUpdateHandler = new StorageUpdateHandler(
+                PARTITION_ID,
+                partitionDataStorage,
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
+                tableConfig.dataStorage()
+        );
     }
 
     @AfterEach
