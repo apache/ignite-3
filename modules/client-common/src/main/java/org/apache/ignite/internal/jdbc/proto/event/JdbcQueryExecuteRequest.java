@@ -145,6 +145,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
+        packer.packBoolean(autoCommit);
         packer.packByte(stmtType.getId());
         packer.packString(schemaName);
         packer.packInt(pageSize);
@@ -152,13 +153,12 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         packer.packString(sqlQry);
 
         packer.packObjectArrayAsBinaryTuple(args);
-
-        packer.packBoolean(autoCommit);
     }
 
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
+        autoCommit = unpacker.unpackBoolean();
         stmtType = JdbcStatementType.getStatement(unpacker.unpackByte());
         schemaName = unpacker.unpackString();
         pageSize = unpacker.unpackInt();
@@ -166,8 +166,6 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         sqlQry = unpacker.unpackString();
 
         args = unpacker.unpackObjectArrayFromBinaryTuple();
-
-        autoCommit = unpacker.unpackBoolean();
     }
 
     /** {@inheritDoc} */
