@@ -399,23 +399,19 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setLogUri(nodeIdStr(nodeId));
 
-            if (groupOptions.volatileStores()) {
-                nodeOptions.setRaftMetaUri("");
+            Path serverDataPath = getServerDataPath(nodeId);
 
-                nodeOptions.setSnapshotUri("");
-            } else {
-                Path serverDataPath = getServerDataPath(nodeId);
-
+            if (!groupOptions.volatileStores()) {
                 try {
                     Files.createDirectories(serverDataPath);
                 } catch (IOException e) {
                     throw new IgniteInternalException(e);
                 }
-
-                nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
-
-                nodeOptions.setSnapshotUri(serverDataPath.resolve("snapshot").toString());
             }
+
+            nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
+
+            nodeOptions.setSnapshotUri(serverDataPath.resolve("snapshot").toString());
 
             nodeOptions.setFsm(new DelegatingStateMachine(lsnr, commandsMarshaller));
 
