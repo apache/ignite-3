@@ -41,6 +41,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -92,6 +93,9 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
     @InjectConfiguration
     private static SecurityConfiguration securityConfiguration;
 
+    @InjectConfiguration
+    private static NodeAttributesConfiguration nodeAttributes;
+
     private static class Node {
         private final VaultManager vaultManager;
 
@@ -133,7 +137,8 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
                     clusterStateStorage,
                     logicalTopology,
                     cmgConfiguration,
-                    distributedConfigurationUpdater
+                    distributedConfigurationUpdater,
+                    nodeAttributes
             );
 
             this.metaStorageManager = new MetaStorageManagerImpl(
