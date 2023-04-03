@@ -19,6 +19,7 @@ namespace Apache.Ignite.Log
 {
     using System;
     using System.Diagnostics.CodeAnalysis;
+    using Internal.Common;
 
     /// <summary>
     /// Returns <see cref="DateTime.Now"/>.
@@ -32,12 +33,15 @@ namespace Apache.Ignite.Log
             "Microsoft.Security",
             "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes",
             Justification = "Type is immutable.")]
-        public static readonly LocalDateTimeProvider Instance = new LocalDateTimeProvider();
+        public static readonly LocalDateTimeProvider Instance = new();
 
         /// <inheritdoc />
         public DateTime Now()
         {
             return DateTime.Now;
         }
+
+        /// <inheritdoc />
+        public override string ToString() => new IgniteToStringBuilder(nameof(LocalDateTimeProvider)).Build();
     }
 }
