@@ -51,14 +51,12 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
-import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -69,25 +67,19 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     private final MetaStorageServiceContext context;
 
-    /** Local node. */
-    private final ClusterNode localNode;
-
     /**
      * Constructor.
      *
      * @param metaStorageRaftGrpSvc Meta storage raft group service.
-     * @param localNode Local node.
      */
-    public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGrpSvc, IgniteSpinBusyLock busyLock, ClusterNode localNode) {
+    public MetaStorageServiceImpl(String nodeName, RaftGroupService metaStorageRaftGrpSvc, IgniteSpinBusyLock busyLock) {
         this.context = new MetaStorageServiceContext(
                 metaStorageRaftGrpSvc,
                 new MetaStorageCommandsFactory(),
                 // TODO: Extract the pool size into configuration, see https://issues.apache.org/jira/browse/IGNITE-18735
-                Executors.newFixedThreadPool(5, NamedThreadFactory.create(localNode.name(), "metastorage-publisher", LOG)),
+                Executors.newFixedThreadPool(5, NamedThreadFactory.create(nodeName, "metastorage-publisher", LOG)),
                 busyLock
         );
-
-        this.localNode = localNode;
     }
 
     RaftGroupService raftGroupService() {
@@ -233,40 +225,33 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             long revUpperBound,
             boolean includeTombstones
     ) {
-        Function<IgniteUuid, WriteCommand> createRangeCommand = cursorId -> context.commandsFactory().createRangeCursorCommand()
+        Function<byte[], ReadCommand> getRangeCommand = prevKey -> context.commandsFactory().getRangeCommand()
                 .keyFrom(keyFrom.bytes())
                 .keyTo(keyTo == null ? null : keyTo.bytes())
                 .revUpperBound(revUpperBound)
-                .requesterNodeId(localNode.id())
-                .cursorId(cursorId)
                 .includeTombstones(includeTombstones)
+                .previousKey(prevKey)
                 .build();
 
-        return new CursorPublisher(context, createRangeCommand);
+        return new CursorPublisher(context, getRangeCommand);
     }
 
     @Override
     public Publisher<Entry> prefix(ByteArray prefix, long revUpperBound) {
-        Function<IgniteUuid, WriteCommand> createPrefixCommand = cursorId -> context.commandsFactory().createPrefixCursorCommand()
+        Function<byte[], ReadCommand> getPrefixCommand = prevKey -> context.commandsFactory().getPrefixCommand()
                 .prefix(prefix.bytes())
                 .revUpperBound(revUpperBound)
-                .requesterNodeId(localNode.id())
-                .cursorId(cursorId)
                 .includeTombstones(false)
+                .previousKey(prevKey)
                 .build();
 
-        return new CursorPublisher(context, createPrefixCommand);
+        return new CursorPublisher(context, getPrefixCommand);
     }
 
     // TODO: IGNITE-14734 Implement.
     @Override
     public CompletableFuture<Void> compact() {
         throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public CompletableFuture<Void> closeCursors(String nodeId) {
-        return context.raftService().run(context.commandsFactory().closeAllCursorsCommand().nodeId(nodeId).build());
     }
 
     @Override

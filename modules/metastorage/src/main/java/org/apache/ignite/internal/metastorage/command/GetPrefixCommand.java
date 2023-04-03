@@ -15,21 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command.cursor;
+package org.apache.ignite.internal.metastorage.command;
 
-import org.apache.ignite.internal.metastorage.command.MetastorageCommandsMessageGroup;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Command for retrieving a portion of a given remote cursor.
+ * Range command for MetaStorageCommandListener that retrieves entries for the given key prefix in lexicographic order. Entries will be
+ * filtered out by upper bound of given revision number.
  */
-@Transferable(MetastorageCommandsMessageGroup.NEXT_BATCH)
-public interface NextBatchCommand extends WriteCommand {
-    /** Cursor ID. */
-    IgniteUuid cursorId();
-
-    /** Maximum size of the requested batch. */
-    int batchSize();
+@Transferable(MetastorageCommandsMessageGroup.GET_PREFIX)
+public interface GetPrefixCommand extends PaginationCommand {
+    byte[] prefix();
 }

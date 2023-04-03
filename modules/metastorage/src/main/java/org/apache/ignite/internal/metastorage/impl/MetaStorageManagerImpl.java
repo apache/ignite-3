@@ -47,7 +47,6 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.raft.MetaStorageLearnerListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.raft.Peer;
@@ -62,7 +61,6 @@ import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -138,9 +136,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     private CompletableFuture<MetaStorageServiceImpl> initializeMetaStorage(Set<String> metaStorageNodes) {
-        ClusterNode thisNode = clusterService.topologyService().localMember();
-
-        String thisNodeName = thisNode.name();
+        String thisNodeName = clusterService.nodeName();
 
         CompletableFuture<RaftGroupService> raftServiceFuture;
 
@@ -169,7 +165,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 raftServiceFuture = raftMgr.startRaftGroupNode(
                         new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                         configuration,
-                        new MetaStorageLearnerListener(storage),
+                        new MetaStorageListener(storage),
                         RaftGroupEventsListener.noopLsnr
                 );
             }
@@ -177,7 +173,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             return CompletableFuture.failedFuture(e);
         }
 
-        return raftServiceFuture.thenApply(raftService -> new MetaStorageServiceImpl(raftService, busyLock, thisNode));
+        return raftServiceFuture.thenApply(raftService -> new MetaStorageServiceImpl(thisNodeName, raftService, busyLock));
     }
 
     @Override
@@ -240,7 +236,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     @Override
     public void registerPrefixWatch(ByteArray key, WatchListener listener) {
-        storage.watchPrefix(key.bytes(), appliedRevision() + 1, listener);
+        storage.watchRange(key.bytes(), storage.nextKey(key.bytes()), appliedRevision() + 1, listener);
     }
 
     @Override

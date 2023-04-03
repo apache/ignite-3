@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
@@ -27,8 +28,10 @@ import static org.apache.ignite.internal.distributionzones.util.DistributionZone
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZonesChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -41,6 +44,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -52,9 +56,9 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -85,7 +89,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     private TablesConfiguration tablesConfiguration;
 
     @BeforeEach
-    public void setUp() throws NodeStoppingException {
+    public void setUp() throws Exception {
         clusterCfgMgr = new ConfigurationManager(
                 List.of(DistributionZonesConfiguration.KEY),
                 Set.of(),
@@ -98,18 +102,17 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
                 .getConfiguration(DistributionZonesConfiguration.KEY);
 
         // Mock logical topology for distribution zone.
-        //TODO https://issues.apache.org/jira/browse/IGNITE-19104 We may get stale value, due to asynchronous read from Vault.
-        // vaultMgr = new VaultManager(new InMemoryVaultService());
-        // vaultMgr.put(zonesLogicalTopologyKey(), toBytes(nodes));
-
-        vaultMgr = mock(VaultManager.class);
-        when(vaultMgr.get(any())).thenReturn(completedFuture(null));
-        // TODO: IGNITE-19104 Already completed future workaround the race.
-        when(vaultMgr.get(zonesLogicalTopologyKey()))
-                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), toBytes(nodes))));
+        vaultMgr = new VaultManager(new InMemoryVaultService());
+        assertThat(vaultMgr.put(zonesLogicalTopologyKey(), toBytes(nodes)), willCompleteSuccessfully());
 
         LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
-        when(logicalTopologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(new LogicalTopologySnapshot(1, Set.of())));
+
+        Set<LogicalNode> logicalTopology = nodes.stream()
+                .map(n -> new LogicalNode(n, n, new NetworkAddress(n, 10_000)))
+                .collect(toSet());
+
+        when(logicalTopologyService.logicalTopologyOnLeader())
+                .thenReturn(completedFuture(new LogicalTopologySnapshot(1, logicalTopology)));
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
 
@@ -130,6 +133,10 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         distributionZoneManager.start();
 
         metaStorageManager.deployWatches();
+
+        // This a is hacky way to wait for all Meta Storage invokes that happen on DistributionZoneManager start
+        // (see "initLogicalTopologyAndVersionInMetaStorageOnStart" and "saveDataNodesAndUpdateTriggerKeysInMetaStorage").
+        verify(keyValueStorage, timeout(1_000).times(2)).invoke(any());
 
         clearInvocations(keyValueStorage);
     }

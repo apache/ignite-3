@@ -17,11 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
-import org.apache.ignite.internal.metastorage.command.cursor.CloseAllCursorsCommand;
-import org.apache.ignite.internal.metastorage.command.cursor.CloseCursorCommand;
-import org.apache.ignite.internal.metastorage.command.cursor.CreatePrefixCursorCommand;
-import org.apache.ignite.internal.metastorage.command.cursor.CreateRangeCursorCommand;
-import org.apache.ignite.internal.metastorage.command.cursor.NextBatchCommand;
 import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
@@ -55,9 +50,6 @@ public interface MetastorageCommandsMessageGroup {
     /** Message type for {@link GetAndRemoveAllCommand}. */
     short GET_AND_REMOVE_ALL = 32;
 
-    /** Message type for {@link GetRevisionCommand}. */
-    short GET_REVISION = 33;
-
     /** Message type for {@link PutCommand}. */
     short PUT = 40;
 
@@ -70,18 +62,9 @@ public interface MetastorageCommandsMessageGroup {
     /** Message type for {@link RemoveAllCommand}. */
     short REMOVE_ALL = 51;
 
-    /** Message type for {@link CreateRangeCursorCommand}. */
-    short CREATE_RANGE_CURSOR = 60;
+    /** Message type for {@link GetRangeCommand}. */
+    short GET_RANGE = 60;
 
-    /** Message type for {@link CreatePrefixCursorCommand}. */
-    short CREATE_PREFIX_CURSOR = 61;
-
-    /** Message type for {@link NextBatchCommand}. */
-    short NEXT_BATCH = 62;
-
-    /** Message type for {@link CloseCursorCommand}. */
-    short CLOSE_CURSOR = 63;
-
-    /** Message type for {@link CloseAllCursorsCommand}. */
-    short CLOSE_ALL_CURSORS = 64;
+    /** Message type for {@link GetPrefixCommand}. */
+    short GET_PREFIX = 61;
 }

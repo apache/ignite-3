@@ -63,7 +63,7 @@ class MetaStorageWriteHandler {
      * Tries to process a {@link WriteCommand}, returning {@code true} if the command has been successfully processed or {@code false} if
      * the command requires external processing.
      */
-    boolean handleWriteCommand(CommandClosure<WriteCommand> clo) {
+    void handleWriteCommand(CommandClosure<WriteCommand> clo) {
         WriteCommand command = clo.command();
 
         if (command instanceof PutCommand) {
@@ -123,10 +123,8 @@ class MetaStorageWriteHandler {
 
             clo.result(storage.invoke(toIf(cmd.iif())));
         } else {
-            return false;
+            assert false : "Command was not found [cmd=" + command + ']';
         }
-
-        return true;
     }
 
     private static If toIf(Iif iif) {

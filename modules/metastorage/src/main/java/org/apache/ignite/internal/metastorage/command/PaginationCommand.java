@@ -15,20 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command.cursor;
+package org.apache.ignite.internal.metastorage.command;
 
-import org.apache.ignite.internal.metastorage.command.MetastorageCommandsMessageGroup;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.raft.ReadCommand;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Command that closes all cursors for the specified node id. Common use case for a given command is to close cursors for the node that left
- * topology.
+ * Base class for commands that retrieve values for an interval of keys.
  */
-@Transferable(MetastorageCommandsMessageGroup.CLOSE_ALL_CURSORS)
-public interface CloseAllCursorsCommand extends WriteCommand {
+public interface PaginationCommand extends ReadCommand {
     /**
-     * Returns cursor id.
+     * Returns the upper bound for entry revision. {@code -1} means latest revision.
      */
-    String nodeId();
+    long revUpperBound();
+
+    /**
+     * Returns the boolean value indicating whether this range command is supposed to include tombstone entries into the cursor.
+     */
+    boolean includeTombstones();
+
+    /**
+     * Last retrieved key or {@code null} for the first ever request (used for pagination purposes).
+     */
+    byte @Nullable [] previousKey();
+
+    /**
+     * Max amount of values to retrieve.
+     */
+    int batchSize();
 }

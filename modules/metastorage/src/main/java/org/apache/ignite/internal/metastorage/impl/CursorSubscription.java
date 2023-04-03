@@ -20,13 +20,10 @@ package org.apache.ignite.internal.metastorage.impl;
 import java.util.List;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import java.util.function.Function;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.command.cursor.CloseCursorCommand;
-import org.apache.ignite.internal.metastorage.command.cursor.NextBatchCommand;
 import org.apache.ignite.internal.metastorage.command.response.BatchResponse;
-import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 
@@ -38,16 +35,11 @@ import org.jetbrains.annotations.Nullable;
  *     was used to invoke {@code onNext}.
  */
 class CursorSubscription implements Subscription {
-    private static final IgniteLogger LOG = Loggers.forClass(MetaStorageService.class);
-
-    /** Default batch size that is requested from the remote server. */
-    private static final int BATCH_SIZE = 1000;
-
     private final MetaStorageServiceContext context;
 
-    private final IgniteUuid cursorId;
-
     private final Subscriber<? super Entry> subscriber;
+
+    private final Function<byte[], ReadCommand> nextBatchCommandSupplier;
 
     /** Flag indicating that either the whole data range has been exhausted or the subscription has been cancelled. */
     private boolean isDone = false;
@@ -62,9 +54,13 @@ class CursorSubscription implements Subscription {
     /** Amount of entries requested by the subscriber. */
     private long demand;
 
-    CursorSubscription(MetaStorageServiceContext context, IgniteUuid cursorId, Subscriber<? super Entry> subscriber) {
+    CursorSubscription(
+            MetaStorageServiceContext context,
+            Function<byte[], ReadCommand> nextBatchCommandSupplier,
+            Subscriber<? super Entry> subscriber
+    ) {
         this.context = context;
-        this.cursorId = cursorId;
+        this.nextBatchCommandSupplier = nextBatchCommandSupplier;
         this.subscriber = subscriber;
     }
 
@@ -98,7 +94,7 @@ class CursorSubscription implements Subscription {
 
             // Start the processing if it has not been started yet (async operation).
             if (cachedResponse == null) {
-                requestNextBatch();
+                requestNextBatch(null);
             }
         } finally {
             context.busyLock().leaveBusy();
@@ -130,7 +126,9 @@ class CursorSubscription implements Subscription {
                     demand--;
                 } else {
                     if (cachedResponse.hasNextBatch()) {
-                        requestNextBatch();
+                        byte[] lastProcessedKey = entries.get(entries.size() - 1).key();
+
+                        requestNextBatch(lastProcessedKey);
                     } else {
                         isDone = true;
 
@@ -147,29 +145,18 @@ class CursorSubscription implements Subscription {
         }
     }
 
-    private void requestNextBatch() {
-        NextBatchCommand command = context.commandsFactory().nextBatchCommand()
-                .cursorId(cursorId)
-                .batchSize(BATCH_SIZE)
-                .build();
+    private void requestNextBatch(byte @Nullable [] lastProcessedKey) {
+        ReadCommand nextBatchCommand = nextBatchCommandSupplier.apply(lastProcessedKey);
 
-        context.raftService().<BatchResponse>run(command)
+        context.raftService().<BatchResponse>run(nextBatchCommand)
                 .whenCompleteAsync((resp, e) -> {
-                    if (!context.busyLock().enterBusy()) {
-                        onError(new NodeStoppingException());
-                    }
+                    if (e == null) {
+                        cachedResponse = resp;
+                        responseIndex = 0;
 
-                    try {
-                        if (e == null) {
-                            cachedResponse = resp;
-                            responseIndex = 0;
-
-                            processRequest();
-                        } else {
-                            onError(e);
-                        }
-                    } finally {
-                        context.busyLock().leaveBusy();
+                        processRequest();
+                    } else {
+                        onError(e);
                     }
                 }, context.executorService());
     }
@@ -177,14 +164,6 @@ class CursorSubscription implements Subscription {
     @Override
     public void cancel() {
         isDone = true;
-
-        CloseCursorCommand command = context.commandsFactory().closeCursorCommand().cursorId(cursorId).build();
-
-        context.raftService().run(command).whenComplete((v, e) -> {
-            if (e != null) {
-                LOG.error("Unable to close cursor " + cursorId, e);
-            }
-        });
     }
 
     private void onError(Throwable e) {

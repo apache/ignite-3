@@ -24,6 +24,9 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
@@ -77,7 +80,7 @@ public class DistributionZonesTestUtil {
             @Nullable Set<String> clusterNodes,
             KeyValueStorage keyValueStorage
     ) throws InterruptedException {
-        assertTrue(waitForCondition(
+        boolean success = waitForCondition(
                 () -> {
                     byte[] dataNodes = keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value();
 
@@ -90,7 +93,15 @@ public class DistributionZonesTestUtil {
                     return res.equals(clusterNodes);
                 },
                 2000
-        ));
+        );
+
+        if (!success) {
+            byte[] dataNodes = keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value();
+
+            Set<String> res = dataNodes == null ? null : DistributionZonesUtil.dataNodes(ByteUtils.fromBytes(dataNodes));
+
+            assertThat(res, is(equalTo(clusterNodes)));
+        }
     }
 
     /**

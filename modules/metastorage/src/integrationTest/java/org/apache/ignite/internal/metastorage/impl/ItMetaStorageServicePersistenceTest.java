@@ -69,7 +69,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
     public void beforeFollowerStop(RaftGroupService service, RaftServer server) throws Exception {
         ClusterNode followerNode = getNode(server);
 
-        metaStorage = new MetaStorageServiceImpl(service, new IgniteSpinBusyLock(), followerNode);
+        metaStorage = new MetaStorageServiceImpl(followerNode.name(), service, new IgniteSpinBusyLock());
 
         // Put some data in the metastorage
         metaStorage.put(FIRST_KEY, FIRST_VALUE).get();

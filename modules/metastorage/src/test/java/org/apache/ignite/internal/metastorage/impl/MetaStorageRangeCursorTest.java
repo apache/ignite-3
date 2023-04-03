@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscr
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 
@@ -50,8 +49,6 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -80,16 +77,14 @@ public class MetaStorageRangeCursorTest {
 
         List<Entry> expectedEntries = generateRange(limit);
 
-        when(storage.range(any(), any(), anyBoolean())).thenReturn(Cursor.fromIterable(expectedEntries));
-        when(storage.range(any(), any(), anyLong(), anyBoolean())).thenReturn(Cursor.fromIterable(expectedEntries));
+        when(storage.range(any(), any())).thenReturn(Cursor.fromIterable(expectedEntries));
+        when(storage.range(any(), any(), anyLong())).thenReturn(Cursor.fromIterable(expectedEntries));
 
         listener = new MetaStorageListener(storage);
 
         when(raftGroupService.run(any())).thenAnswer(invocation -> runCommand(invocation.getArgument(0)));
 
-        var localNode = new ClusterNode("test", "test", new NetworkAddress("localhost", 10000));
-
-        MetaStorageService metaStorageService = new MetaStorageServiceImpl(raftGroupService, new IgniteSpinBusyLock(), localNode);
+        MetaStorageService metaStorageService = new MetaStorageServiceImpl("test", raftGroupService, new IgniteSpinBusyLock());
 
         checkCursor(metaStorageService.range(intToBytes(0), intToBytes(keyTo)), expectedEntries);
         checkCursor(metaStorageService.range(intToBytes(0), intToBytes(keyTo), 0), expectedEntries);
