@@ -83,12 +83,14 @@ internal record IgniteToStringBuilder
     /// <summary>
     /// Appends a property.
     /// </summary>
-    /// <param name="name">Property name.</param>
     /// <param name="value">Property value.</param>
+    /// <param name="name">Property name.</param>
     /// <typeparam name="T">Value type.</typeparam>
     /// <returns>This instance.</returns>
-    public IgniteToStringBuilder AppendList<T>(string name, IEnumerable<T> value)
+    public IgniteToStringBuilder AppendList<T>(IEnumerable<T> value, [CallerArgumentExpression("value")] string? name = null)
     {
+        IgniteArgumentCheck.NotNull(name, nameof(name));
+
         AppendComma();
 
         _builder.Append(name);

@@ -51,7 +51,7 @@ namespace Apache.Ignite
         /// <inheritdoc />
         public override string ToString() =>
             new IgniteToStringBuilder(GetType())
-                .Append(RetryLimit, nameof(RetryLimit))
+                .Append(RetryLimit)
                 .Build();
     }
 }

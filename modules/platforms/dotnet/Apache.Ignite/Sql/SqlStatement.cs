@@ -114,10 +114,10 @@ namespace Apache.Ignite.Sql
         /// <inheritdoc />
         public override string ToString() =>
             new IgniteToStringBuilder(nameof(SqlStatement))
-                .Append(Query, nameof(Query))
-                .Append(Timeout, nameof(Timeout))
-                .Append(Schema, nameof(Schema))
-                .Append(PageSize, nameof(PageSize))
+                .Append(Query)
+                .Append(Timeout)
+                .Append(Schema)
+                .Append(PageSize)
                 .BeginNested(nameof(Properties) + " =")
                 .AppendAll(Properties)
                 .EndNested()

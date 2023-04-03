@@ -103,9 +103,9 @@ namespace Apache.Ignite.Internal.Transactions
             };
 
             var builder = new IgniteToStringBuilder(typeof(Transaction));
-            builder.Append(Id, nameof(Id));
+            builder.Append(Id);
             builder.Append(state, "State");
-            builder.Append(IsReadOnly, nameof(IsReadOnly));
+            builder.Append(IsReadOnly);
 
             return builder.Build();
         }
