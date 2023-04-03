@@ -76,7 +76,7 @@ public class IgniteToStringBuilderTests
             .Append("d", 4)
             .Build();
 
-        Assert.AreEqual("IgniteToStringBuilderTests { a = 1, b = Foo { X = 123 }, c = 3 }", res);
+        Assert.AreEqual("Foo { a = 1, Bar { b = 2, c = 3 }, d = 4 }", res);
     }
 
     // ReSharper disable once NotAccessedPositionalProperty.Local

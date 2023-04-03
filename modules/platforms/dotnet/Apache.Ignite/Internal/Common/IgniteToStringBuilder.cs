@@ -88,7 +88,19 @@ internal record IgniteToStringBuilder
     /// </summary>
     /// <param name="name">Property name.</param>
     /// <returns>Builder.</returns>
-    public IgniteToStringBuilder GetNested(string name) => new(_builder, name, this);
+    public IgniteToStringBuilder GetNested(string name)
+    {
+        if (_first)
+        {
+            _first = false;
+        }
+        else
+        {
+            _builder.Append(", ");
+        }
+
+        return new(_builder, name, this);
+    }
 
     /// <summary>
     /// Closes the builder.
