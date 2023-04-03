@@ -196,7 +196,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         var tail = CompletableFuture.completedFuture(counters);
 
         for (String query : queries) {
-            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionId, query, OBJECT_EMPTY_ARRAY)
+            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionId, req.autoCommit(), query, OBJECT_EMPTY_ARRAY)
                     .thenApply(cnt -> {
                         list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
 
@@ -222,7 +222,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         var tail = CompletableFuture.completedFuture(counters);
 
         for (Object[] args : argList) {
-            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionId, req.getQuery(), args)
+            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionId, false, req.getQuery(), args)
                     .thenApply(cnt -> {
                         list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
 
@@ -239,15 +239,16 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         });
     }
 
-    private CompletableFuture<Long> executeAndCollectUpdateCount(long connectionId, String sql, Object[] arg) {
-        var context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE, null);
-
+    private CompletableFuture<Long> executeAndCollectUpdateCount(long connectionId, boolean autoCommit, String sql, Object[] arg) {
         JdbcConnectionContext connectionContext;
         try {
             connectionContext = resources.get(connectionId).get(JdbcConnectionContext.class);
         } catch (IgniteInternalCheckedException exception) {
             return CompletableFuture.failedFuture(new IgniteInternalException(Client.CONNECTION_ERR));
         }
+
+        var tx = autoCommit ? null : connectionContext.transaction();
+        var context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE, tx);
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connectionContext.doInSession(sessionId -> processor.querySingleAsync(
                 sessionId,

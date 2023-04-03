@@ -34,6 +34,9 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
 
     /** Sql queries. */
     private List<String> queries;
+    
+    /** Flag indicating whether auto-commit mode is enabled. */
+    private boolean autoCommit;
 
     /**
      * Default constructor.
@@ -46,12 +49,14 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
      *
      * @param schemaName Schema name.
      * @param queries    Queries.
+     * @param autoCommit Flag indicating whether auto-commit mode is enabled.
      */
-    public JdbcBatchExecuteRequest(String schemaName, List<String> queries) {
+    public JdbcBatchExecuteRequest(String schemaName, List<String> queries, boolean autoCommit) {
         assert !CollectionUtils.nullOrEmpty(queries);
 
         this.schemaName = schemaName;
         this.queries = queries;
+        this.autoCommit = autoCommit;
     }
 
     /**
@@ -72,6 +77,15 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
         return queries;
     }
 
+    /**
+     * Get flag indicating whether auto-commit mode is enabled.
+     * 
+     * @return Flag indicating whether auto-commit mode is enabled.
+     */
+    public boolean autoCommit() {
+        return autoCommit;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
@@ -82,6 +96,8 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
         for (String q : queries) {
             packer.packString(q);
         }
+
+        packer.packBoolean(autoCommit);
     }
 
     /** {@inheritDoc} */
@@ -96,6 +112,8 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
         for (int i = 0; i < n; ++i) {
             queries.add(unpacker.unpackString());
         }
+
+        autoCommit = unpacker.unpackBoolean();
     }
 
     /** {@inheritDoc} */

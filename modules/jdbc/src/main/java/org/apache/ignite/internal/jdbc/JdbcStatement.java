@@ -547,7 +547,7 @@ public class JdbcStatement implements Statement {
             return INT_EMPTY_ARRAY;
         }
 
-        JdbcBatchExecuteRequest req = new JdbcBatchExecuteRequest(conn.getSchema(), batch);
+        JdbcBatchExecuteRequest req = new JdbcBatchExecuteRequest(conn.getSchema(), batch, conn.getAutoCommit());
 
         try {
             JdbcBatchExecuteResult res = conn.handler().batchAsync(conn.connectionId(), req).join();

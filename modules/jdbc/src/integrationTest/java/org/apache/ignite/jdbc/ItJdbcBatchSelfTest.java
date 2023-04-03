@@ -124,6 +124,38 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    public void testBatchCommitRollback() throws SQLException {
+        int rowsCnt = 5;
+
+        conn.setAutoCommit(false);
+
+        doBatchCommitRollback(rowsCnt, false);
+        doBatchCommitRollback(rowsCnt, true);
+    }
+
+    private void doBatchCommitRollback(int rowsCnt, boolean commit) throws SQLException {
+        for (int i = 0; i < rowsCnt; i++) {
+            stmt.addBatch("insert into Person (id, firstName, lastName, age) values " + valuesRow(i));
+        }
+
+        stmt.executeBatch();
+
+        if (commit) {
+            conn.commit();
+        } else {
+            conn.rollback();
+        }
+
+        try (ResultSet rs = stmt.executeQuery("select count(*) from Person")) {
+            assertTrue(rs.next());
+
+            assertEquals(commit ? rowsCnt : 0, rs.getLong(1));
+        }
+
+        conn.rollback();
+    }
+
+    @Test
     public void testMultipleStatementForBatchIsNotAllowed() throws SQLException {
         String insertStmt = "insert into Person (id, firstName, lastName, age) values";
         String ins1 = insertStmt + valuesRow(1);
