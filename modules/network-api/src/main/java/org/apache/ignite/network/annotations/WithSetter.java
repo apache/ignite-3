@@ -22,8 +22,7 @@ package org.apache.ignite.network.annotations;
  * a setter for the field with the same name as method's will be generated.
  * In order to have access to this setter via interface one can use default method:
  * <pre>
- * {@code
- *  @WithSetter
+ * {@code  @WithSetter
  *  HybridTimestampMessage safeTime();
  *
  *  default void safeTime(HybridTimestampMessage safeTime) {
