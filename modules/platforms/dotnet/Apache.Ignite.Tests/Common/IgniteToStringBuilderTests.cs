@@ -30,7 +30,7 @@ public class IgniteToStringBuilderTests
     {
         var builder = new IgniteToStringBuilder(typeof(IgniteToStringBuilderTests));
 
-        Assert.AreEqual("IgniteToStringBuilderTests {  }", builder.Build());
+        Assert.AreEqual("IgniteToStringBuilderTests { }", builder.Build());
     }
 
     [Test]

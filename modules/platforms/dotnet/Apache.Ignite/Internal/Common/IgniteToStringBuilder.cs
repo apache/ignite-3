@@ -66,7 +66,7 @@ internal ref struct IgniteToStringBuilder
     /// <returns>String representation.</returns>
     public string Build()
     {
-        _builder.Append(" }");
+        _builder.AppendWithSpace("}");
 
         return _builder.ToString();
     }
