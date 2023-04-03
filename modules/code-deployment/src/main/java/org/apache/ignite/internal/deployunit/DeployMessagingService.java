@@ -213,13 +213,15 @@ public class DeployMessagingService {
     private void processDeployRequest(DeployUnitRequest executeRequest, String senderConsistentId, long correlationId) {
         String id = executeRequest.id();
         String version = executeRequest.version();
-        deployerService.deploy(id, version, executeRequest.unitName(), executeRequest.unitContent())
-                .thenAccept(success -> clusterService.messagingService().respond(
-                        senderConsistentId,
-                        DEPLOYMENT_CHANNEL,
-                        DeployUnitResponseImpl.builder().success(success).build(),
-                        correlationId)
-                );
+        tracker.track(id, Version.parseVersion(version),
+                deployerService.deploy(id, version, executeRequest.unitName(), executeRequest.unitContent())
+                        .thenCompose(success -> clusterService.messagingService().respond(
+                                senderConsistentId,
+                                DEPLOYMENT_CHANNEL,
+                                DeployUnitResponseImpl.builder().success(success).build(),
+                                correlationId)
+                        )
+        );
     }
 
     private void processUndeployRequest(UndeployUnitRequest executeRequest, String senderConsistentId, long correlationId) {

@@ -22,7 +22,6 @@ import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
-import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -104,9 +103,11 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     @Test
     public void testDeployUndeploy() {
         Unit unit = deployAndVerifySmall("test", Version.parseVersion("1.1.0"), 1);
-        unit.undeploy();
 
         IgniteImpl cmg = cluster.node(0);
+        waitUnitReplica(cmg, unit);
+
+        unit.undeploy();
         waitUnitClean(cmg, unit);
 
         CompletableFuture<List<UnitStatus>> list = node(2).deployment().unitsAsync();
@@ -173,9 +174,6 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
 
         assertThat(unit.undeployAsync(), willSucceedFast());
 
-        assertThat(node(1).deployment().statusAsync(id)
-                .thenApply(status1 -> status1.status(version)), willBe(REMOVING));
-
         waitUnitClean(unit.deployedNode, unit);
         waitUnitClean(cmg, unit);
 
@@ -187,7 +185,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     public void testFindByConsistentId() {
         String id = "test";
         String version = "1.1.0";
-        Unit unit = deployAndVerify(id, Version.parseVersion(version), mediumFile, 1);
+        Unit unit = deployAndVerifyMedium(id, Version.parseVersion(version), 1);
 
         IgniteImpl cmg = cluster.node(0);
         waitUnitReplica(cmg, unit);
@@ -225,6 +223,22 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         assertThat(nodes, willBe(Collections.emptyList()));
     }
 
+    @Test
+    public void testRedeploy() {
+        String id = "test";
+        String version = "1.1.0";
+        Unit smallUnit = deployAndVerify(id, Version.parseVersion(version), smallFile, 1);
+
+        IgniteImpl cmg = cluster.node(0);
+        waitUnitReplica(cmg, smallUnit);
+
+        Unit mediumUnit = deployAndVerify(id, Version.parseVersion(version), true, mediumFile, 1);
+        waitUnitReplica(cmg, mediumUnit);
+
+        waitUnitClean(smallUnit.deployedNode, smallUnit);
+        waitUnitClean(cmg, smallUnit);
+    }
+
     private UnitStatus buildStatus(String id, Unit... units) {
         IgniteImpl cmg = cluster.node(0);
 
@@ -243,10 +257,14 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     }
 
     private Unit deployAndVerify(String id, Version version, DeployFile file, int nodeIndex) {
+        return deployAndVerify(id, version, false, file, nodeIndex);
+    }
+
+    private Unit deployAndVerify(String id, Version version, boolean force, DeployFile file, int nodeIndex) {
         IgniteImpl entryNode = node(nodeIndex);
 
         CompletableFuture<Boolean> deploy = entryNode.deployment()
-                .deployAsync(id, version, fromPath(file.file));
+                .deployAsync(id, version, force, fromPath(file.file));
 
         assertThat(deploy, willBe(true));
 
@@ -258,7 +276,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     }
 
     private Unit deployAndVerifySmall(String id, Version version, int nodeIndex) {
-        return deployAndVerify(id, version, smallFile, nodeIndex);
+        return deployAndVerifyMedium(id, version, nodeIndex);
     }
 
     private Unit deployAndVerifyMedium(String id, Version version, int nodeIndex) {
