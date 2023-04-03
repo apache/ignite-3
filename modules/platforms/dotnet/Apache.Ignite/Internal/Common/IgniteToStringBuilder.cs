@@ -23,19 +23,39 @@ using System.Text;
 /// <summary>
 /// ToString helper.
 /// </summary>
-internal ref struct IgniteToStringBuilder
+internal record IgniteToStringBuilder
 {
-    private readonly StringBuilder _builder = new();
+    private readonly StringBuilder _builder;
 
     private bool _first = true;
 
+    private bool _closed;
+
+    private IgniteToStringBuilder? _parent;
+
     /// <summary>
-    /// Initializes a new instance of the <see cref="IgniteToStringBuilder"/> struct.
+    /// Initializes a new instance of the <see cref="IgniteToStringBuilder"/> class.
+    /// </summary>
+    /// <param name="typeName">Type name.</param>
+    public IgniteToStringBuilder(string typeName)
+        : this(new(), typeName, null)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="IgniteToStringBuilder"/> class.
     /// </summary>
     /// <param name="type">Type.</param>
     public IgniteToStringBuilder(Type type)
+        : this(new(), type.Name, null)
     {
-        _builder.Append(type.Name);
+    }
+
+    private IgniteToStringBuilder(StringBuilder builder, string typeName, IgniteToStringBuilder? parent)
+    {
+        _parent = parent;
+        _builder = builder;
+        _builder.Append(typeName);
         _builder.Append(" { ");
     }
 
@@ -44,7 +64,8 @@ internal ref struct IgniteToStringBuilder
     /// </summary>
     /// <param name="name">Property name.</param>
     /// <param name="value">Property value.</param>
-    public void Append(string name, object value)
+    /// <returns>This instance.</returns>
+    public IgniteToStringBuilder Append(string name, object value)
     {
         if (_first)
         {
@@ -58,6 +79,31 @@ internal ref struct IgniteToStringBuilder
         _builder.Append(name);
         _builder.Append(" = ");
         _builder.Append(value);
+
+        return this;
+    }
+
+    /// <summary>
+    /// Gets a nested builder.
+    /// </summary>
+    /// <param name="name">Property name.</param>
+    /// <returns>Builder.</returns>
+    public IgniteToStringBuilder GetNested(string name) => new(_builder, name, this);
+
+    /// <summary>
+    /// Closes the builder.
+    /// </summary>
+    /// <returns>Parent builder.</returns>
+    public IgniteToStringBuilder CloseNested()
+    {
+        if (_parent == null)
+        {
+            throw new InvalidOperationException("Nested builder must have a parent.");
+        }
+
+        Close();
+
+        return _parent;
     }
 
     /// <summary>
@@ -66,8 +112,24 @@ internal ref struct IgniteToStringBuilder
     /// <returns>String representation.</returns>
     public string Build()
     {
-        _builder.AppendWithSpace("}");
+        if (_parent != null)
+        {
+            throw new InvalidOperationException("Nested builder must be closed before building.");
+        }
+
+        Close();
 
         return _builder.ToString();
+    }
+
+    private void Close()
+    {
+        if (_closed)
+        {
+            throw new InvalidOperationException("Builder is already closed.");
+        }
+
+        _builder.AppendWithSpace("}");
+        _closed = true;
     }
 }

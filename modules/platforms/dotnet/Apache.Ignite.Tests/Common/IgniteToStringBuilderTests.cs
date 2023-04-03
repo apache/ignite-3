@@ -45,23 +45,38 @@ public class IgniteToStringBuilderTests
     [Test]
     public void TestAppendMultiple()
     {
-        var builder = new IgniteToStringBuilder(typeof(IgniteToStringBuilderTests));
-        builder.Append("a", 1);
-        builder.Append("b", 2);
-        builder.Append("c", 3);
+        var res = new IgniteToStringBuilder(typeof(IgniteToStringBuilderTests))
+            .Append("a", 1)
+            .Append("b", 2)
+            .Append("c", 3)
+            .Build();
 
-        Assert.AreEqual("IgniteToStringBuilderTests { a = 1, b = 2, c = 3 }", builder.Build());
+        Assert.AreEqual("IgniteToStringBuilderTests { a = 1, b = 2, c = 3 }", res);
     }
 
     [Test]
-    public void TestAppendNested()
+    public void TestAppendNestedRecord()
     {
-        var builder = new IgniteToStringBuilder(typeof(IgniteToStringBuilderTests));
-        builder.Append("a", 1);
-        builder.Append("b", new Foo(123));
-        builder.Append("c", 3);
+        var res = new IgniteToStringBuilder(typeof(IgniteToStringBuilderTests)).Append("a", 1)
+            .Append("b", new Foo(123))
+            .Append("c", 3)
+            .Build();
 
-        Assert.AreEqual("IgniteToStringBuilderTests { a = 1, b = Foo { X = 123 }, c = 3 }", builder.Build());
+        Assert.AreEqual("IgniteToStringBuilderTests { a = 1, b = Foo { X = 123 }, c = 3 }", res);
+    }
+
+    [Test]
+    public void TestGetNested()
+    {
+        var res = new IgniteToStringBuilder("Foo").Append("a", 1)
+            .GetNested("Bar")
+            .Append("b", 2)
+            .Append("c", 3)
+            .CloseNested()
+            .Append("d", 4)
+            .Build();
+
+        Assert.AreEqual("IgniteToStringBuilderTests { a = 1, b = Foo { X = 123 }, c = 3 }", res);
     }
 
     // ReSharper disable once NotAccessedPositionalProperty.Local
