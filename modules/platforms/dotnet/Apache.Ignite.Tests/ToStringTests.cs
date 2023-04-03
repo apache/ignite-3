@@ -31,6 +31,11 @@ public class ToStringTests
 {
     private static readonly List<Type> PublicFacingTypes = GetPublicFacingTypes().ToList();
 
+    private static readonly HashSet<Type> ExcludedTypes = new()
+    {
+        typeof(RetryReadPolicy), // Inherits from RetryReadPolicy
+    };
+
     [Test]
     public void TestAllPublicFacingTypesHaveConsistentToString()
     {
@@ -38,6 +43,11 @@ public class ToStringTests
         {
             foreach (var type in GetPublicFacingTypes())
             {
+                if (ExcludedTypes.Contains(type))
+                {
+                    continue;
+                }
+
                 var path = GetSourcePath(type);
                 var code = File.ReadAllText(path);
 
