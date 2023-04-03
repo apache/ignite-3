@@ -68,11 +68,12 @@ public class IgniteToStringBuilderTests
     [Test]
     public void TestGetNested()
     {
+        // TODO: Test double build, double close, etc
         var res = new IgniteToStringBuilder("Foo").Append("a", 1)
-            .GetNested("Bar")
+            .BeginNested("Bar")
             .Append("b", 2)
             .Append("c", 3)
-            .CloseNested()
+            .EndNested()
             .Append("d", 4)
             .Build();
 

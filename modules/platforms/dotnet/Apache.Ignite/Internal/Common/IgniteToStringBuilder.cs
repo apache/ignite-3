@@ -88,7 +88,7 @@ internal record IgniteToStringBuilder
     /// </summary>
     /// <param name="name">Property name.</param>
     /// <returns>Builder.</returns>
-    public IgniteToStringBuilder GetNested(string name)
+    public IgniteToStringBuilder BeginNested(string name)
     {
         if (_first)
         {
@@ -106,7 +106,7 @@ internal record IgniteToStringBuilder
     /// Closes the builder.
     /// </summary>
     /// <returns>Parent builder.</returns>
-    public IgniteToStringBuilder CloseNested()
+    public IgniteToStringBuilder EndNested()
     {
         if (_parent == null)
         {
