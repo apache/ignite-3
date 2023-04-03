@@ -37,4 +37,16 @@ public class StringBuilderExtensionsTests
 
         Assert.AreEqual(expected, sb.ToString());
     }
+
+    [Test]
+    [TestCase("abc", "abc def")]
+    [TestCase("abc ", "abc def")]
+    [TestCase("abc  ", "abc  def")]
+    public void TestAppendWithSpace(string input, string expected)
+    {
+        var sb = new StringBuilder(input);
+        sb.AppendWithSpace("def");
+
+        Assert.AreEqual(expected, sb.ToString());
+    }
 }
