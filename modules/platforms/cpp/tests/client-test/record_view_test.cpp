@@ -157,98 +157,94 @@ TEST_F(record_view_test, get_all_nonexisting) {
 
     ASSERT_TRUE(res.empty());
 }
-//
-//TEST_F(record_view_test, upsert_all_empty_no_throw) {
-//    view.upsert_all(nullptr, {});
-//}
-//
-//TEST_F(record_view_test, upsert_all_get_all) {
-//    static constexpr std::size_t records_num = 10;
-//
-//    std::vector<ignite_tuple> records;
-//    records.reserve(records_num);
-//    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i)
-//        records.emplace_back(get_tuple(i, "Val" + std::to_string(i)));
-//
-//    std::vector<ignite_tuple> keys;
-//    for (std::int64_t i = 9; i < 13; ++i)
-//        keys.emplace_back(get_tuple(i));
-//
-//    view.upsert_all(nullptr, records);
-//    auto res = view.get_all(nullptr, keys);
-//
-//    // TODO: Key order should be preserved by the server (IGNITE-16004).
-//    EXPECT_EQ(res.size(), 2);
-//
-//    ASSERT_TRUE(res[0].has_value());
-//    EXPECT_EQ(2, res[0]->column_count());
-//    EXPECT_EQ(9, res[0]->get<int64_t>("key"));
-//    EXPECT_EQ("Val9", res[0]->get<std::string>("val"));
-//
-//    ASSERT_TRUE(res[1].has_value());
-//    EXPECT_EQ(2, res[1]->column_count());
-//    EXPECT_EQ(10, res[1]->get<int64_t>("key"));
-//    EXPECT_EQ("Val10", res[1]->get<std::string>("val"));
-//}
-//
-//TEST_F(record_view_test, upsert_all_get_all_async) {
-//    static constexpr std::size_t records_num = 10;
-//
-//    std::vector<ignite_tuple> records;
-//    records.reserve(records_num);
-//    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i)
-//        records.emplace_back(get_tuple(i, "Val" + std::to_string(i)));
-//
-//    std::vector<ignite_tuple> keys;
-//    for (std::int64_t i = 9; i < 13; ++i)
-//        keys.emplace_back(get_tuple(i));
-//
-//    auto all_done = std::make_shared<std::promise<std::vector<std::optional<ignite_tuple>>>>();
-//
-//    view.upsert_all_async(nullptr, records, [&](ignite_result<void> &&res) {
-//        if (!check_and_set_operation_error(*all_done, res))
-//            return;
-//
-//        // TODO: Key order should be preserved by the server (IGNITE-16004).
-//        view.get_all_async(nullptr, keys, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
-//    });
-//
-//    auto res = all_done->get_future().get();
-//
-//    EXPECT_EQ(res.size(), 2);
-//
-//    ASSERT_TRUE(res[0].has_value());
-//    EXPECT_EQ(2, res[0]->column_count());
-//    EXPECT_EQ(9, res[0]->get<int64_t>("key"));
-//    EXPECT_EQ("Val9", res[0]->get<std::string>("val"));
-//
-//    ASSERT_TRUE(res[1].has_value());
-//    EXPECT_EQ(2, res[1]->column_count());
-//    EXPECT_EQ(10, res[1]->get<int64_t>("key"));
-//    EXPECT_EQ("Val10", res[1]->get<std::string>("val"));
-//}
-//
+
+TEST_F(record_view_test, upsert_all_empty_no_throw) {
+    view.upsert_all(nullptr, {});
+}
+
+TEST_F(record_view_test, upsert_all_get_all) {
+    static constexpr std::size_t records_num = 10;
+
+    std::vector<test_type> records;
+    records.reserve(records_num);
+    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i)
+        records.emplace_back(i, "Val" + std::to_string(i));
+
+    std::vector<test_type> keys;
+    for (std::int64_t i = 9; i < 13; ++i)
+        keys.emplace_back(i);
+
+    view.upsert_all(nullptr, records);
+    auto res = view.get_all(nullptr, keys);
+
+    // TODO: Key order should be preserved by the server (IGNITE-16004).
+    EXPECT_EQ(res.size(), 2);
+
+    ASSERT_TRUE(res[0].has_value());
+    EXPECT_EQ(9, res[0]->key);
+    EXPECT_EQ("Val9", res[0]->val);
+
+    ASSERT_TRUE(res[1].has_value());
+    EXPECT_EQ(10, res[1]->key);
+    EXPECT_EQ("Val10", res[1]->val);
+}
+
+TEST_F(record_view_test, upsert_all_get_all_async) {
+    static constexpr std::size_t records_num = 10;
+
+    std::vector<test_type> records;
+    records.reserve(records_num);
+    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i)
+        records.emplace_back(i, "Val" + std::to_string(i));
+
+    std::vector<test_type> keys;
+    for (std::int64_t i = 9; i < 13; ++i)
+        keys.emplace_back(i);
+
+    auto all_done = std::make_shared<std::promise<std::vector<std::optional<test_type>>>>();
+
+    view.upsert_all_async(nullptr, records, [&](ignite_result<void> &&res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        // TODO: Key order should be preserved by the server (IGNITE-16004).
+        view.get_all_async(nullptr, keys, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+    });
+
+    auto res = all_done->get_future().get();
+
+    EXPECT_EQ(res.size(), 2);
+
+    ASSERT_TRUE(res[0].has_value());
+    EXPECT_EQ(9, res[0]->key);
+    EXPECT_EQ("Val9", res[0]->val);
+
+    ASSERT_TRUE(res[1].has_value());
+    EXPECT_EQ(10, res[1]->key);
+    EXPECT_EQ("Val10", res[1]->val);
+}
+
 //TEST_F(record_view_test, get_and_upsert_new_record) {
-//    auto val = get_tuple(42, "foo");
+//    auto val = test_type(42, "foo");
 //    auto res = view.get_and_upsert(nullptr, val);
 //
 //    ASSERT_FALSE(res_tuple.has_value());
 //}
 //
 //TEST_F(record_view_test, get_and_upsert_existing_record) {
-//    auto val1 = get_tuple(42, "foo");
+//    auto val1 = test_type(42, "foo");
 //    auto res = view.get_and_upsert(nullptr, val1);
 //
 //    ASSERT_FALSE(res_tuple.has_value());
 //
-//    auto val2 = get_tuple(42, "bar");
+//    auto val2 = test_type(42, "bar");
 //    res = view.get_and_upsert(nullptr, val2);
 //
 //    ASSERT_TRUE(res.has_value());
 //    EXPECT_EQ(42, res->key);
 //    EXPECT_EQ("foo", res->val);
 //
-//    res = view.get(nullptr, get_tuple(42));
+//    res = view.get(nullptr, test_type(42));
 //
 //    ASSERT_TRUE(res.has_value());
 //    EXPECT_EQ(42, res->key);
@@ -256,10 +252,10 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //}
 //
 //TEST_F(record_view_test, get_and_upsert_existing_record_async) {
-//    auto val1 = get_tuple(42, "foo");
-//    auto val2 = get_tuple(42, "bar");
+//    auto val1 = test_type(42, "foo");
+//    auto val2 = test_type(42, "bar");
 //
-//    auto first = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
+//    auto first = std::make_shared<std::promise<std::optional<test_type>>>();
 //
 //    view.get_and_upsert_async(nullptr, val1, [&](auto res) {
 //        if (!check_and_set_operation_error(*first, res))
@@ -278,8 +274,8 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //    EXPECT_EQ(val1.get<int64_t>("key"), res->key);
 //    EXPECT_EQ(val1.get<std::string>("val"), res->val);
 //
-//    auto second = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
-//    view.get_async(nullptr, get_tuple(42), [&](auto res) { result_set_promise(*second, std::move(res)); });
+//    auto second = std::make_shared<std::promise<std::optional<test_type>>>();
+//    view.get_async(nullptr, test_type(42), [&](auto res) { result_set_promise(*second, std::move(res)); });
 //
 //    res = second->get_future().get();
 //    ASSERT_TRUE(res.has_value());
@@ -287,34 +283,34 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //    EXPECT_EQ(val2.get<int64_t>("key"), res->key);
 //    EXPECT_EQ(val2.get<std::string>("val"), res->val);
 //}
-//
+
 //TEST_F(record_view_test, insert_new_record) {
-//    auto val = get_tuple(42, "foo");
+//    auto val = test_type(42, "foo");
 //    auto res = view.insert(nullptr, val);
 //
 //    ASSERT_TRUE(res);
 //}
 //
 //TEST_F(record_view_test, insert_existing_record) {
-//    auto val1 = get_tuple(42, "foo");
+//    auto val1 = test_type(42, "foo");
 //    auto res = view.insert(nullptr, val1);
 //    ASSERT_TRUE(res);
 //
-//    auto val2 = get_tuple(42, "bar");
+//    auto val2 = test_type(42, "bar");
 //    res = view.insert(nullptr, val2);
 //    ASSERT_FALSE(res);
 //
-//    auto res = view.get(nullptr, get_tuple(42));
+//    auto res = view.get(nullptr, test_type(42));
 //    ASSERT_TRUE(res.has_value());
 //    EXPECT_EQ(42, res->key);
 //    EXPECT_EQ("foo", res->val);
 //}
 //
 //TEST_F(record_view_test, insert_existing_record_async) {
-//    auto val1 = get_tuple(42, "foo");
-//    auto val2 = get_tuple(42, "bar");
+//    auto val1 = test_type(42, "foo");
+//    auto val2 = test_type(42, "bar");
 //
-//    auto all_done = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
+//    auto all_done = std::make_shared<std::promise<std::optional<test_type>>>();
 //
 //    view.insert_async(nullptr, val1, [&](ignite_result<bool> &&res) {
 //        if (!check_and_set_operation_error(*all_done, res))
@@ -331,7 +327,7 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //                all_done->set_exception(std::make_exception_ptr(ignite_error("Expected false on second insertion")));
 //
 //            view.get_async(
-//                nullptr, get_tuple(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+//                nullptr, test_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
 //        });
 //    });
 //
@@ -346,7 +342,7 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //    EXPECT_THROW(
 //        {
 //            try {
-//                view.insert(nullptr, ignite_tuple());
+//                view.insert(nullptr, test_type());
 //            } catch (const ignite_error &e) {
 //                EXPECT_STREQ("Tuple can not be empty", e.what());
 //                throw;
@@ -358,11 +354,11 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //TEST_F(record_view_test, insert_all_new) {
 //    static constexpr std::size_t records_num = 10;
 //
-//    std::vector<ignite_tuple> keys;
-//    std::vector<ignite_tuple> records;
+//    std::vector<test_type> keys;
+//    std::vector<test_type> records;
 //    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i) {
-//        keys.emplace_back(get_tuple(i));
-//        records.emplace_back(get_tuple(i, "Val" + std::to_string(i)));
+//        keys.emplace_back(test_type(i));
+//        records.emplace_back(test_type(i, "Val" + std::to_string(i)));
 //    }
 //
 //    auto insert_res = view.insert_all(nullptr, records);
@@ -376,29 +372,29 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //}
 //
 //TEST_F(record_view_test, insert_all_overlapped) {
-//    auto res = view.insert_all(nullptr, {get_tuple(1, "foo"), get_tuple(2, "bar")});
+//    auto res = view.insert_all(nullptr, {test_type(1, "foo"), test_type(2, "bar")});
 //
 //    ASSERT_TRUE(res.empty());
 //
-//    res = view.insert_all(nullptr, {get_tuple(2, "baz"), get_tuple(3, "bar")});
+//    res = view.insert_all(nullptr, {test_type(2, "baz"), test_type(3, "bar")});
 //
 //    EXPECT_EQ(res.size(), 1);
 //    EXPECT_EQ(2, res.front().column_count());
 //    EXPECT_EQ(2, res.front().get<int64_t>("key"));
 //    EXPECT_EQ("baz", res.front().get<std::string>("val"));
 //
-//    auto tuple2 = view.get(nullptr, get_tuple(2));
+//    auto tuple2 = view.get(nullptr, test_type(2));
 //
 //    ASSERT_TRUE(tuple2.has_value());
 //    EXPECT_EQ(2, tuple2->column_count());
-//    EXPECT_EQ(2, tuple2->get<int64_t>("key"));
-//    EXPECT_EQ("bar", tuple2->get<std::string>("val"));
+//    EXPECT_EQ(2, tuple2->key);
+//    EXPECT_EQ("bar", tuple2->val);
 //}
 //
 //TEST_F(record_view_test, insert_all_overlapped_async) {
-//    auto all_done = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
+//    auto all_done = std::make_shared<std::promise<std::optional<test_type>>>();
 //
-//    view.insert_all_async(nullptr, {get_tuple(1, "foo"), get_tuple(2, "bar")}, [&](auto res) {
+//    view.insert_all_async(nullptr, {test_type(1, "foo"), test_type(2, "bar")}, [&](auto res) {
 //        if (!check_and_set_operation_error(*all_done, res))
 //            return;
 //
@@ -406,7 +402,7 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected empty return on first insertion")));
 //
 //        view.insert_all_async(
-//            nullptr, {get_tuple(1, "foo"), get_tuple(2, "baz"), get_tuple(3, "bar")}, [&](auto res) {
+//            nullptr, {test_type(1, "foo"), test_type(2, "baz"), test_type(3, "bar")}, [&](auto res) {
 //                if (!check_and_set_operation_error(*all_done, res))
 //                    return;
 //
@@ -415,7 +411,7 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //                        ignite_error("Expected 2 on second insertion but got " + std::to_string(res.value().size()))));
 //
 //                view.get_async(
-//                    nullptr, get_tuple(2), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+//                    nullptr, test_type(2), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
 //            });
 //    });
 //
@@ -431,35 +427,35 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //}
 //
 //TEST_F(record_view_test, replace_nonexisting) {
-//    auto val = get_tuple(42, "foo");
+//    auto val = test_type(42, "foo");
 //    auto res = view.replace(nullptr, val);
 //
 //    ASSERT_FALSE(res);
 //
-//    auto res = view.get(nullptr, get_tuple(42));
+//    auto res = view.get(nullptr, test_type(42));
 //    ASSERT_FALSE(res_tuple.has_value());
 //}
 //
 //TEST_F(record_view_test, replace_existing) {
-//    auto val1 = get_tuple(42, "foo");
+//    auto val1 = test_type(42, "foo");
 //    auto res = view.insert(nullptr, val1);
 //    ASSERT_TRUE(res);
 //
-//    auto val2 = get_tuple(42, "bar");
+//    auto val2 = test_type(42, "bar");
 //    res = view.replace(nullptr, val2);
 //    ASSERT_TRUE(res);
 //
-//    auto res = view.get(nullptr, get_tuple(42));
+//    auto res = view.get(nullptr, test_type(42));
 //    ASSERT_TRUE(res.has_value());
 //    EXPECT_EQ(42, res->key);
 //    EXPECT_EQ("bar", res->val);
 //}
 //
 //TEST_F(record_view_test, replace_existing_async) {
-//    auto val1 = get_tuple(42, "foo");
-//    auto val2 = get_tuple(42, "bar");
+//    auto val1 = test_type(42, "foo");
+//    auto val2 = test_type(42, "bar");
 //
-//    auto all_done = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
+//    auto all_done = std::make_shared<std::promise<std::optional<test_type>>>();
 //
 //    view.insert_async(nullptr, val1, [&](ignite_result<bool> &&res) {
 //        if (!check_and_set_operation_error(*all_done, res))
@@ -476,7 +472,7 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //                all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on replace")));
 //
 //            view.get_async(
-//                nullptr, get_tuple(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+//                nullptr, test_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
 //        });
 //    });
 //
@@ -491,7 +487,7 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //    EXPECT_THROW(
 //        {
 //            try {
-//                view.replace(nullptr, ignite_tuple{});
+//                view.replace(nullptr, test_type{});
 //            } catch (const ignite_error &e) {
 //                EXPECT_STREQ("Tuple can not be empty", e.what());
 //                throw;
@@ -501,45 +497,45 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //}
 //
 //TEST_F(record_view_test, replace_exact_nonexisting) {
-//    auto res = view.replace(nullptr, get_tuple(42, "foo"), get_tuple(42, "bar"));
+//    auto res = view.replace(nullptr, test_type(42, "foo"), test_type(42, "bar"));
 //
 //    ASSERT_FALSE(res);
 //
-//    auto res = view.get(nullptr, get_tuple(42));
+//    auto res = view.get(nullptr, test_type(42));
 //    ASSERT_FALSE(res_tuple.has_value());
 //}
 //
 //TEST_F(record_view_test, replace_exact_existing_wrong) {
-//    auto res = view.insert(nullptr, get_tuple(42, "foo"));
+//    auto res = view.insert(nullptr, test_type(42, "foo"));
 //    ASSERT_TRUE(res);
 //
-//    res = view.replace(nullptr, get_tuple(42, "bar"), get_tuple(42, "baz"));
+//    res = view.replace(nullptr, test_type(42, "bar"), test_type(42, "baz"));
 //    ASSERT_FALSE(res);
 //
-//    auto res = view.get(nullptr, get_tuple(42));
+//    auto res = view.get(nullptr, test_type(42));
 //    ASSERT_TRUE(res.has_value());
 //    EXPECT_EQ(42, res->key);
 //    EXPECT_EQ("foo", res->val);
 //}
 //
 //TEST_F(record_view_test, replace_exact_existing_right) {
-//    auto res = view.insert(nullptr, get_tuple(42, "foo"));
+//    auto res = view.insert(nullptr, test_type(42, "foo"));
 //    ASSERT_TRUE(res);
 //
-//    res = view.replace(nullptr, get_tuple(42, "foo"), get_tuple(42, "baz"));
+//    res = view.replace(nullptr, test_type(42, "foo"), test_type(42, "baz"));
 //    ASSERT_TRUE(res);
 //
-//    auto res = view.get(nullptr, get_tuple(42));
+//    auto res = view.get(nullptr, test_type(42));
 //    ASSERT_TRUE(res.has_value());
 //    EXPECT_EQ(42, res->key);
 //    EXPECT_EQ("baz", res->val);
 //}
 //
 //TEST_F(record_view_test, replace_exact_existing_right_async) {
-//    auto val1 = get_tuple(42, "foo");
-//    auto val2 = get_tuple(42, "bar");
+//    auto val1 = test_type(42, "foo");
+//    auto val2 = test_type(42, "bar");
 //
-//    auto all_done = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
+//    auto all_done = std::make_shared<std::promise<std::optional<test_type>>>();
 //
 //    view.insert_async(nullptr, val1, [&](ignite_result<bool> &&res) {
 //        if (!check_and_set_operation_error(*all_done, res))
@@ -556,7 +552,7 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //                all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on replace")));
 //
 //            view.get_async(
-//                nullptr, get_tuple(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+//                nullptr, test_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
 //        });
 //    });
 //
@@ -571,7 +567,7 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //    EXPECT_THROW(
 //        {
 //            try {
-//                view.replace(nullptr, ignite_tuple{}, get_tuple(1, "foo"));
+//                view.replace(nullptr, test_type{}, test_type(1, "foo"));
 //            } catch (const ignite_error &e) {
 //                EXPECT_STREQ("Tuple can not be empty", e.what());
 //                throw;
@@ -582,7 +578,7 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //    EXPECT_THROW(
 //        {
 //            try {
-//                view.replace(nullptr, get_tuple(1, "foo"), ignite_tuple{});
+//                view.replace(nullptr, test_type(1, "foo"), test_type{});
 //            } catch (const ignite_error &e) {
 //                EXPECT_STREQ("Tuple can not be empty", e.what());
 //                throw;
@@ -592,38 +588,38 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //}
 //
 //TEST_F(record_view_test, get_and_replace_nonexisting) {
-//    auto val = get_tuple(42, "foo");
+//    auto val = test_type(42, "foo");
 //    auto res = view.get_and_replace(nullptr, val);
 //
 //    ASSERT_FALSE(res.has_value());
 //
-//    auto res = view.get(nullptr, get_tuple(42));
+//    auto res = view.get(nullptr, test_type(42));
 //    ASSERT_FALSE(res_tuple.has_value());
 //}
 //
 //TEST_F(record_view_test, get_and_replace_existing) {
-//    auto val1 = get_tuple(42, "foo");
+//    auto val1 = test_type(42, "foo");
 //    auto res = view.insert(nullptr, val1);
 //    ASSERT_TRUE(res);
 //
-//    auto val2 = get_tuple(42, "bar");
+//    auto val2 = test_type(42, "bar");
 //    auto res = view.get_and_replace(nullptr, val2);
 //
 //    ASSERT_TRUE(res.has_value());
 //    EXPECT_EQ(42, res->key);
 //    EXPECT_EQ("foo", res->val);
 //
-//    res = view.get(nullptr, get_tuple(42));
+//    res = view.get(nullptr, test_type(42));
 //    ASSERT_TRUE(res.has_value());
 //    EXPECT_EQ(42, res->key);
 //    EXPECT_EQ("bar", res->val);
 //}
 //
 //TEST_F(record_view_test, get_and_replace_existing_async) {
-//    auto val1 = get_tuple(42, "foo");
-//    auto val2 = get_tuple(42, "bar");
+//    auto val1 = test_type(42, "foo");
+//    auto val2 = test_type(42, "bar");
 //
-//    auto all_done = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
+//    auto all_done = std::make_shared<std::promise<std::optional<test_type>>>();
 //
 //    view.insert_async(nullptr, val1, [&](ignite_result<bool> &&res) {
 //        if (!check_and_set_operation_error(*all_done, res))
@@ -647,7 +643,7 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //    EXPECT_THROW(
 //        {
 //            try {
-//                (void) view.get_and_replace(nullptr, ignite_tuple{});
+//                (void) view.get_and_replace(nullptr, test_type{});
 //            } catch (const ignite_error &e) {
 //                EXPECT_STREQ("Tuple can not be empty", e.what());
 //                throw;
@@ -657,28 +653,28 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //}
 //
 //TEST_F(record_view_test, remove_nonexisting) {
-//    auto res = view.remove(nullptr, get_tuple(1));
+//    auto res = view.remove(nullptr, test_type(1));
 //    ASSERT_FALSE(res);
 //
-//    auto res = view.get(nullptr, get_tuple(1));
+//    auto res = view.get(nullptr, test_type(1));
 //    ASSERT_FALSE(res_tuple.has_value());
 //}
 //
 //TEST_F(record_view_test, remove_existing) {
-//    auto res = view.insert(nullptr, get_tuple(1, "foo"));
+//    auto res = view.insert(nullptr, test_type(1, "foo"));
 //    ASSERT_TRUE(res);
 //
-//    res = view.remove(nullptr, get_tuple(1));
+//    res = view.remove(nullptr, test_type(1));
 //    ASSERT_TRUE(res);
 //
-//    auto res = view.get(nullptr, get_tuple(1));
+//    auto res = view.get(nullptr, test_type(1));
 //    ASSERT_FALSE(res_tuple.has_value());
 //}
 //
 //TEST_F(record_view_test, remove_existing_async) {
 //    auto all_done = std::make_shared<std::promise<bool>>();
 //
-//    view.insert_async(nullptr, get_tuple(42, "foo"), [&](ignite_result<bool> &&res) {
+//    view.insert_async(nullptr, test_type(42, "foo"), [&](ignite_result<bool> &&res) {
 //        if (!check_and_set_operation_error(*all_done, res))
 //            return;
 //
@@ -686,7 +682,7 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insertion")));
 //
 //        view.remove_async(
-//            nullptr, get_tuple(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+//            nullptr, test_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
 //    });
 //
 //    auto res = all_done->get_future().get();
@@ -697,7 +693,7 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //    EXPECT_THROW(
 //        {
 //            try {
-//                view.remove(nullptr, ignite_tuple{});
+//                view.remove(nullptr, test_type{});
 //            } catch (const ignite_error &e) {
 //                EXPECT_STREQ("Tuple can not be empty", e.what());
 //                throw;
@@ -707,43 +703,43 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //}
 //
 //TEST_F(record_view_test, remove_exact_nonexisting) {
-//    auto res = view.remove_exact(nullptr, get_tuple(1, "foo"));
+//    auto res = view.remove_exact(nullptr, test_type(1, "foo"));
 //    ASSERT_FALSE(res);
 //}
 //
 //TEST_F(record_view_test, remove_exact_existing) {
-//    auto res = view.insert(nullptr, get_tuple(1, "foo"));
+//    auto res = view.insert(nullptr, test_type(1, "foo"));
 //    ASSERT_TRUE(res);
 //
-//    res = view.remove_exact(nullptr, get_tuple(1));
+//    res = view.remove_exact(nullptr, test_type(1));
 //    ASSERT_FALSE(res);
 //
-//    res = view.remove_exact(nullptr, get_tuple(1, "bar"));
+//    res = view.remove_exact(nullptr, test_type(1, "bar"));
 //    ASSERT_FALSE(res);
 //
-//    res = view.remove_exact(nullptr, get_tuple(1, "foo"));
+//    res = view.remove_exact(nullptr, test_type(1, "foo"));
 //    ASSERT_TRUE(res);
 //
-//    auto res = view.get(nullptr, get_tuple(1));
+//    auto res = view.get(nullptr, test_type(1));
 //    ASSERT_FALSE(res_tuple.has_value());
 //}
 //
 //TEST_F(record_view_test, remove_exact_existing_async) {
-//    auto val = get_tuple(42, "foo");
+//    auto val = test_type(42, "foo");
 //
 //    auto all_done = std::make_shared<std::promise<bool>>();
 //
 //    auto res = view.insert(nullptr, val);
 //    ASSERT_TRUE(res);
 //
-//    view.remove_exact_async(nullptr, get_tuple(42), [&](auto res) {
+//    view.remove_exact_async(nullptr, test_type(42), [&](auto res) {
 //        if (!check_and_set_operation_error(*all_done, res))
 //            return;
 //
 //        if (res.value())
 //            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected false on first remove")));
 //
-//        view.remove_exact_async(nullptr, get_tuple(42, "bar"), [&](auto res) {
+//        view.remove_exact_async(nullptr, test_type(42, "bar"), [&](auto res) {
 //            if (!check_and_set_operation_error(*all_done, res))
 //                return;
 //
@@ -763,7 +759,7 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //    EXPECT_THROW(
 //        {
 //            try {
-//                view.remove_exact(nullptr, ignite_tuple{});
+//                view.remove_exact(nullptr, test_type{});
 //            } catch (const ignite_error &e) {
 //                EXPECT_STREQ("Tuple can not be empty", e.what());
 //                throw;
@@ -773,31 +769,31 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //}
 //
 //TEST_F(record_view_test, get_and_remove_nonexisting) {
-//    auto res = view.get_and_replace(nullptr, get_tuple(42, "foo"));
+//    auto res = view.get_and_replace(nullptr, test_type(42, "foo"));
 //    ASSERT_FALSE(res.has_value());
 //
-//    auto res = view.get(nullptr, get_tuple(42));
+//    auto res = view.get(nullptr, test_type(42));
 //    ASSERT_FALSE(res_tuple.has_value());
 //}
 //
 //TEST_F(record_view_test, get_and_remove_existing) {
-//    auto res = view.insert(nullptr, get_tuple(42, "foo"));
+//    auto res = view.insert(nullptr, test_type(42, "foo"));
 //    ASSERT_TRUE(res);
 //
-//    auto res = view.get_and_remove(nullptr, get_tuple(42));
+//    auto res = view.get_and_remove(nullptr, test_type(42));
 //
 //    ASSERT_TRUE(res.has_value());
 //    EXPECT_EQ(42, res->key);
 //    EXPECT_EQ("foo", res->val);
 //
-//    res = view.get(nullptr, get_tuple(42));
+//    res = view.get(nullptr, test_type(42));
 //    ASSERT_FALSE(res_tuple.has_value());
 //}
 //
 //TEST_F(record_view_test, get_and_remove_existing_async) {
-//    auto val1 = get_tuple(42, "foo");
+//    auto val1 = test_type(42, "foo");
 //
-//    auto all_done = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
+//    auto all_done = std::make_shared<std::promise<std::optional<test_type>>>();
 //
 //    view.insert_async(nullptr, val1, [&](ignite_result<bool> &&res) {
 //        if (!check_and_set_operation_error(*all_done, res))
@@ -807,7 +803,7 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insertion")));
 //
 //        view.get_and_remove_async(
-//            nullptr, get_tuple(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+//            nullptr, test_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
 //    });
 //
 //    auto res = all_done->get_future().get();
@@ -821,7 +817,7 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //    EXPECT_THROW(
 //        {
 //            try {
-//                (void) view.get_and_remove(nullptr, ignite_tuple{});
+//                (void) view.get_and_remove(nullptr, test_type{});
 //            } catch (const ignite_error &e) {
 //                EXPECT_STREQ("Tuple can not be empty", e.what());
 //                throw;
@@ -831,7 +827,7 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //}
 //
 //TEST_F(record_view_test, remove_all_nonexisting_keys_return_all) {
-//    std::vector<ignite_tuple> non_existing = {get_tuple(1), get_tuple(2)};
+//    std::vector<test_type> non_existing = {test_type(1), test_type(2)};
 //    auto res = view.remove_all(nullptr, non_existing);
 //
 //    EXPECT_EQ(res.size(), 2);
@@ -845,10 +841,10 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //}
 //
 //TEST_F(record_view_test, remove_all_only_existing) {
-//    std::vector<ignite_tuple> to_insert = {get_tuple(1, "foo"), get_tuple(2, "bar")};
+//    std::vector<test_type> to_insert = {test_type(1, "foo"), test_type(2, "bar")};
 //    view.upsert_all(nullptr, to_insert);
 //
-//    auto res = view.remove_all(nullptr, {get_tuple(1), get_tuple(2)});
+//    auto res = view.remove_all(nullptr, {test_type(1), test_type(2)});
 //
 //    EXPECT_TRUE(res.empty());
 //}
@@ -856,16 +852,16 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //TEST_F(record_view_test, remove_all_overlapped) {
 //    static constexpr std::size_t records_num = 10;
 //
-//    std::vector<ignite_tuple> to_insert;
+//    std::vector<test_type> to_insert;
 //    to_insert.reserve(records_num);
 //    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i)
-//        to_insert.emplace_back(get_tuple(i, "Val" + std::to_string(i)));
+//        to_insert.emplace_back(test_type(i, "Val" + std::to_string(i)));
 //
 //    view.upsert_all(nullptr, to_insert);
 //
-//    std::vector<ignite_tuple> to_remove;
+//    std::vector<test_type> to_remove;
 //    for (std::int64_t i = 9; i < 13; ++i)
-//        to_remove.emplace_back(get_tuple(i));
+//        to_remove.emplace_back(test_type(i));
 //
 //    auto res = view.remove_all(nullptr, to_remove);
 //
@@ -885,40 +881,40 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //}
 //
 //TEST_F(record_view_test, remove_all_exact_nonexisting) {
-//    auto res = view.remove_all_exact(nullptr, {get_tuple(1, "foo"), get_tuple(2, "bar")});
+//    auto res = view.remove_all_exact(nullptr, {test_type(1, "foo"), test_type(2, "bar")});
 //
 //    // TODO: Key order should be preserved by the server (IGNITE-16004).
 //    ASSERT_EQ(2, res.size());
 //}
 //
 //TEST_F(record_view_test, remove_all_exact_overlapped) {
-//    auto res = view.insert_all(nullptr, {get_tuple(1, "foo"), get_tuple(2, "bar")});
+//    auto res = view.insert_all(nullptr, {test_type(1, "foo"), test_type(2, "bar")});
 //
 //    ASSERT_TRUE(res.empty());
 //
-//    res = view.remove_all_exact(nullptr, {get_tuple(1, "baz"), get_tuple(2, "bar")});
+//    res = view.remove_all_exact(nullptr, {test_type(1, "baz"), test_type(2, "bar")});
 //
 //    EXPECT_EQ(res.size(), 1);
 //    EXPECT_EQ(2, res.front().column_count());
 //    EXPECT_EQ(1, res.front().get<int64_t>("key"));
 //    EXPECT_EQ("baz", res.front().get<std::string>("val"));
 //
-//    auto tuple2 = view.get(nullptr, get_tuple(2));
+//    auto tuple2 = view.get(nullptr, test_type(2));
 //
 //    ASSERT_FALSE(tuple2.has_value());
 //}
 //
 //TEST_F(record_view_test, remove_all_exact_overlapped_async) {
-//    auto all_done = std::make_shared<std::promise<std::vector<ignite_tuple>>>();
+//    auto all_done = std::make_shared<std::promise<std::vector<test_type>>>();
 //
-//    view.insert_all_async(nullptr, {get_tuple(1, "foo"), get_tuple(2, "bar")}, [&](auto res) {
+//    view.insert_all_async(nullptr, {test_type(1, "foo"), test_type(2, "bar")}, [&](auto res) {
 //        if (!check_and_set_operation_error(*all_done, res))
 //            return;
 //
 //        if (!res.value().empty())
 //            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected empty return on first insertion")));
 //
-//        view.remove_all_exact_async(nullptr, {get_tuple(1, "baz"), get_tuple(2, "bar")},
+//        view.remove_all_exact_async(nullptr, {test_type(1, "baz"), test_type(2, "bar")},
 //            [&](auto res) { result_set_promise(*all_done, std::move(res)); });
 //    });
 //
@@ -938,7 +934,7 @@ TEST_F(record_view_test, get_all_nonexisting) {
 //    auto table = m_client.get_tables().get_table(TABLE_NAME_ALL_COLUMNS);
 //    view = table->get_record_binary_view();
 //
-//    ignite_tuple inserted{
+//    test_type inserted{
 //        {"key", std::int64_t(42)},
 //        {"str", "test"},
 //        {"int8", std::int8_t(1)},

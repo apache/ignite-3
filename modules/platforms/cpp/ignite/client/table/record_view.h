@@ -568,29 +568,31 @@ public:
         sync<void>([this, tx, &record](auto callback) { upsert_async(tx, record, std::move(callback)); });
     }
 
-//    /**
-//     * Inserts multiple records into the table asynchronously, replacing
-//     * existing.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param records Records to upsert.
-//     * @param callback Callback that is called on operation completion.
-//     */
-//    void upsert_all_async(transaction *tx, std::vector<value_type> records, ignite_callback<void> callback);
-//
-//    /**
-//     * Inserts multiple records into the table, replacing existing.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param records Records to upsert.
-//     */
-//    void upsert_all(transaction *tx, std::vector<value_type> records) {
-//        sync<void>([this, tx, records = std::move(records)](
-//                       auto callback) mutable { upsert_all_async(tx, std::move(records), std::move(callback)); });
-//    }
-//
+    /**
+     * Inserts multiple records into the table asynchronously, replacing
+     * existing.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param records Records to upsert.
+     * @param callback Callback that is called on operation completion.
+     */
+    void upsert_all_async(transaction *tx, std::vector<value_type> records, ignite_callback<void> callback) {
+        m_delegate.upsert_all_async(tx, values_to_tuples(std::move(records)), std::move(callback));
+    }
+
+    /**
+     * Inserts multiple records into the table, replacing existing.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param records Records to upsert.
+     */
+    void upsert_all(transaction *tx, std::vector<value_type> records) {
+        sync<void>([this, tx, records = std::move(records)](
+                       auto callback) mutable { upsert_all_async(tx, std::move(records), std::move(callback)); });
+    }
+
 //    /**
 //     * Inserts a record into the table and returns previous record asynchronously.
 //     *
