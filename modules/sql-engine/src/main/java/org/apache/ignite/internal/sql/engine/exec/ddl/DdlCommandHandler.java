@@ -25,10 +25,8 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.DEL_PK_COMUMN_CONSTRAINT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -379,13 +377,13 @@ public class DdlCommandHandler {
                     chng.changeColumns(cols -> {
                         retUsr.set(true); // Reset state if closure have been restarted.
 
-                        Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
+                        Set<String> colNamesToOrders = columnNames(chng.columns());
 
                         List<ColumnDefinition> colsDef0;
 
                         if (ignoreColumnExistance) {
                             colsDef0 = colsDef.stream().filter(k -> {
-                                if (colNamesToOrders.containsKey(k.name())) {
+                                if (colNamesToOrders.contains(k.name())) {
                                     retUsr.set(false);
 
                                     return false;
@@ -395,7 +393,7 @@ public class DdlCommandHandler {
                             }).collect(Collectors.toList());
                         } else {
                             colsDef.stream()
-                                    .filter(k -> colNamesToOrders.containsKey(k.name()))
+                                    .filter(k -> colNamesToOrders.contains(k.name()))
                                     .findAny()
                                     .ifPresent(c -> {
                                         throw new ColumnAlreadyExistsException(c.name());
@@ -469,14 +467,14 @@ public class DdlCommandHandler {
 
                         PrimaryKeyView priKey = chng.primaryKey();
 
-                        Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
+                        Set<String> colNamesToOrders = columnNames(chng.columns());
 
                         Set<String> colNames0 = new HashSet<>();
 
                         Set<String> primaryCols = Set.of(priKey.columns());
 
                         for (String colName : colNames) {
-                            if (!colNamesToOrders.containsKey(colName)) {
+                            if (!colNamesToOrders.contains(colName)) {
                                 ret.set(false);
 
                                 if (!ignoreColumnExistence) {
@@ -492,7 +490,7 @@ public class DdlCommandHandler {
                             }
                         }
 
-                        colNames0.forEach(k -> cols.delete(colNamesToOrders.get(k)));
+                        colNames0.forEach(cols::delete);
                     });
 
                     return ret.get();
@@ -561,14 +559,8 @@ public class DdlCommandHandler {
         }
     }
 
-    /** Map column name to order. */
-    private static Map<String, String> columnOrdersToNames(NamedListView<? extends ColumnView> cols) {
-        Map<String, String> colNames = new HashMap<>(cols.size());
-
-        for (String colOrder : cols.namedListKeys()) {
-            colNames.put(cols.get(colOrder).name(), colOrder);
-        }
-
-        return colNames;
+    /** Column names set. */
+    private static Set<String> columnNames(NamedListView<? extends ColumnView> cols) {
+        return new HashSet<>(cols.namedListKeys());
     }
 }

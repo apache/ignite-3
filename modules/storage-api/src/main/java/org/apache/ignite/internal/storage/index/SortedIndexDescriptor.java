@@ -159,13 +159,13 @@ public class SortedIndexDescriptor implements IndexDescriptor {
 
         NamedListView<? extends IndexColumnView> indexColumns = ((SortedIndexView) indexConfig).columns();
 
-        return indexColumns.namedListKeys().stream()
-                .map(columnName -> {
+        return indexColumns.stream()
+                .map(indexColumnView -> {
+                    String columnName = indexColumnView.name();
+
                     ColumnView columnView = tableConfig.columns().get(columnName);
 
                     assert columnView != null : "Incorrect index column configuration. " + columnName + " column does not exist";
-
-                    IndexColumnView indexColumnView = indexColumns.get(columnName);
 
                     return new SortedIndexColumnDescriptor(columnView, indexColumnView);
                 })
