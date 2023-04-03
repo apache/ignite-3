@@ -84,6 +84,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -204,12 +205,12 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Listener for a topology events. */
     private final LogicalTopologyEventListener topologyEventListener = new LogicalTopologyEventListener() {
         @Override
-        public void onNodeJoined(ClusterNode joinedNode, LogicalTopologySnapshot newTopology) {
+        public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
             updateLogicalTopologyInMetaStorage(newTopology, false);
         }
 
         @Override
-        public void onNodeLeft(ClusterNode leftNode, LogicalTopologySnapshot newTopology) {
+        public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
             updateLogicalTopologyInMetaStorage(newTopology, false);
         }
 
@@ -749,12 +750,11 @@ public class DistributionZoneManager implements IgniteComponent {
             // Init timers after restart.
             zonesState.putIfAbsent(DEFAULT_ZONE_ID, new ZoneState(executor));
 
-            zonesConfiguration.distributionZones().value().namedListKeys()
-                    .forEach(zoneName -> {
-                        int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
+            zonesConfiguration.distributionZones().value().forEach(zone -> {
+                int zoneId = zone.zoneId();
 
-                        zonesState.putIfAbsent(zoneId, new ZoneState(executor));
-                    });
+                zonesState.putIfAbsent(zoneId, new ZoneState(executor));
+            });
 
             logicalTopologyService.addEventListener(topologyEventListener);
 
@@ -1165,10 +1165,15 @@ public class DistributionZoneManager implements IgniteComponent {
                                         logicalTopology
                                 );
 
-                                zonesConfiguration.distributionZones().value().namedListKeys()
-                                        .forEach(zoneName -> {
-                                            int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
+                                zonesConfiguration.distributionZones().value().forEach(zone -> {
+                                    int zoneId = zone.zoneId();
 
+                                    saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+                                            zoneId,
+                                            appliedRevision,
+                                            logicalTopology
+                                    );
+                                });
                                             saveDataNodesAndUpdateTriggerKeysInMetaStorage(
                                                     zoneId,
                                                     appliedRevision,

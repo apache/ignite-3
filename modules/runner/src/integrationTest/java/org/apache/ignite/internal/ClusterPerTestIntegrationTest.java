@@ -27,6 +27,11 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.engine.QueryContext;
+import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
+import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -194,8 +199,12 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
     }
 
     protected final List<List<Object>> executeSql(String sql, Object... args) {
+        QueryProcessor qryProc = node(0).queryEngine();
+        SessionId sessionId = qryProc.createSession(PropertiesHelper.emptyHolder());
+        QueryContext context = QueryContext.create(SqlQueryType.ALL);
+
         return getAllFromCursor(
-                node(0).queryEngine().queryAsync("PUBLIC", sql, args).get(0).join()
+                qryProc.querySingleAsync(sessionId, context, sql, args).join()
         );
     }
 }

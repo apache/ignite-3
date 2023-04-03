@@ -57,31 +57,6 @@ public interface QueryProcessor extends IgniteComponent {
     List<SessionInfo> liveSessions();
 
     /**
-     * Execute the query with given schema name and parameters.
-     *
-     * @param schemaName Schema name.
-     * @param qry Sql query.
-     * @param params Query parameters.
-     * @return List of sql cursors.
-     *
-     * @throws IgniteException in case of an error.
-     */
-    List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(String schemaName, String qry, Object... params);
-
-    /**
-     * Execute the query with given schema name and parameters.
-     *
-     * @param context User query context.
-     * @param schemaName Schema name.
-     * @param qry Sql query.
-     * @param params Query parameters.
-     * @return List of sql cursors.
-     *
-     * @throws IgniteException in case of an error.
-     */
-    List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(QueryContext context, String schemaName, String qry, Object... params);
-
-    /**
      * Execute the single statement query with given schema name and parameters.
      *
      * <p>If the query string contains more than one statement the IgniteException will be thrown.

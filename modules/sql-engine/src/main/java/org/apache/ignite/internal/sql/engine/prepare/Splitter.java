@@ -32,6 +32,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Splits a query into a list of query fragments.
@@ -39,7 +40,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 public class Splitter extends IgniteRelShuttle {
     private final Deque<FragmentProto> stack = new LinkedList<>();
 
-    private FragmentProto curr;
+    private @Nullable FragmentProto curr;
 
     private boolean correlated = false;
 
@@ -54,6 +55,15 @@ public class Splitter extends IgniteRelShuttle {
 
         while (!stack.isEmpty()) {
             curr = stack.pop();
+
+            // We need to clone it after CALCITE-5503, otherwise it become possible to obtain equals multiple inputs i.e.:
+            //          rel#348IgniteExchange
+            //          rel#287IgniteMergeJoin
+            //       _____|             |_____
+            //       V                       V
+            //   IgniteSort#285            IgniteSort#285
+            //   IgniteTableScan#180       IgniteTableScan#180
+            curr.root = Cloner.clone(curr.root);
 
             correlated = curr.correlated;
 

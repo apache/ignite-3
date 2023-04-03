@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tostring.S;
@@ -39,6 +40,8 @@ import org.jetbrains.annotations.Nullable;
  * accordingly.
  */
 public class LongJvmPauseDetector implements IgniteComponent {
+    private final IgniteLogger log = Loggers.forClass(LongJvmPauseDetector.class);
+
     /** Ignite JVM pause detector threshold default value. */
     public static final int DEFAULT_JVM_PAUSE_DETECTOR_THRESHOLD = 500;
 
@@ -81,11 +84,8 @@ public class LongJvmPauseDetector implements IgniteComponent {
 
     private final String nodeName;
 
-    private final IgniteLogger log;
-
-    public LongJvmPauseDetector(String nodeName, IgniteLogger log) {
+    public LongJvmPauseDetector(String nodeName) {
         this.nodeName = nodeName;
-        this.log = log;
     }
 
     /** {@inheritDoc} */

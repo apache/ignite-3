@@ -67,6 +67,7 @@ import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -92,17 +93,29 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    /** Index builder. */
+    private final IndexBuilder indexBuilder;
+
     /**
      * Constructor.
      *
+     * @param nodeName Node name.
      * @param tablesCfg Tables and indexes configuration.
      * @param schemaManager Schema manager.
      * @param tableManager Table manager.
+     * @param clusterService Cluster service.
      */
-    public IndexManager(TablesConfiguration tablesCfg, SchemaManager schemaManager, TableManager tableManager) {
+    public IndexManager(
+            String nodeName,
+            TablesConfiguration tablesCfg,
+            SchemaManager schemaManager,
+            TableManager tableManager,
+            ClusterService clusterService
+    ) {
         this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
         this.schemaManager = Objects.requireNonNull(schemaManager, "schemaManager");
         this.tableManager = tableManager;
+        this.indexBuilder = new IndexBuilder(nodeName, busyLock, clusterService);
     }
 
     /** {@inheritDoc} */
@@ -158,6 +171,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         busyLock.block();
+
+        indexBuilder.stop();
 
         LOG.info("Index manager stopped");
     }
@@ -418,6 +433,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     table.pkId(indexId);
                 }
             }
+
+            indexBuilder.startIndexBuild(tableIndexView, table);
         });
 
         return allOf(createIndexFuture, fireEventFuture);
@@ -445,14 +462,12 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         var indexedColumns = new ArrayList<String>(colsCount);
         var collations = new ArrayList<ColumnCollation>(colsCount);
 
-        for (var columnName : indexView.columns().namedListKeys()) {
-            IndexColumnView columnView = indexView.columns().get(columnName);
-
+        for (IndexColumnView columnView : indexView.columns()) {
             //TODO IGNITE-15141: Make null-order configurable.
             // NULLS FIRST for DESC, NULLS LAST for ASC by default.
             boolean nullsFirst = !columnView.asc();
 
-            indexedColumns.add(columnName);
+            indexedColumns.add(columnView.name());
             collations.add(ColumnCollation.get(columnView.asc(), nullsFirst));
         }
 

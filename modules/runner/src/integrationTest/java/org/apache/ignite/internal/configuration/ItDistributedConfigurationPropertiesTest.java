@@ -39,6 +39,7 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -91,6 +92,9 @@ public class ItDistributedConfigurationPropertiesTest {
 
     @InjectConfiguration
     private static SecurityConfiguration securityConfiguration;
+
+    @InjectConfiguration
+    private static NodeAttributesConfiguration nodeAttributes;
 
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
@@ -146,7 +150,9 @@ public class ItDistributedConfigurationPropertiesTest {
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    distributedConfigurationUpdater);
+                    distributedConfigurationUpdater,
+                    nodeAttributes
+            );
 
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
