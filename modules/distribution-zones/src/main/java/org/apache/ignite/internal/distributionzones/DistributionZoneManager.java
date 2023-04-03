@@ -748,6 +748,11 @@ public class DistributionZoneManager implements IgniteComponent {
             zoneChange.changePartitions(distributionZoneCfg.partitions());
         }
 
+        if (distributionZoneCfg.dataStorageChangeConsumer() != null) {
+            zoneChange.changeDataStorage(
+                    distributionZoneCfg.dataStorageChangeConsumer());
+        }
+
         if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
             zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
             zoneChange.changeDataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE);
