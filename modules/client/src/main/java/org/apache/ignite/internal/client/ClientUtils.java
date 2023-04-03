@@ -182,6 +182,9 @@ public class ClientUtils {
 
             case ClientOp.PARTITION_ASSIGNMENT_GET:
                 return null;
+                
+            case ClientOp.JDBC_TX_FINISH:
+                return null;
 
             // Do not return null from default arm intentionally, so we don't forget to update this when new ClientOp values are added.
             default:
