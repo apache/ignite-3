@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management.topology.api;
 
-import org.apache.ignite.network.ClusterNode;
-
 /**
  * Listens to events related to logical topology changes.
  *
@@ -42,7 +40,7 @@ public interface LogicalTopologyEventListener {
      *
      * @param validatedNode The validated node.
      */
-    default void onNodeValidated(ClusterNode validatedNode) {
+    default void onNodeValidated(LogicalNode validatedNode) {
         // No-op.
     }
 
@@ -51,7 +49,7 @@ public interface LogicalTopologyEventListener {
      *
      * @param invalidatedNode Node that left the cluster.
      */
-    default void onNodeInvalidated(ClusterNode invalidatedNode) {
+    default void onNodeInvalidated(LogicalNode invalidatedNode) {
         // No-op.
     }
 
@@ -61,7 +59,7 @@ public interface LogicalTopologyEventListener {
      * @param joinedNode Appeared cluster member.
      * @param newTopology Topology in which the member has joined.
      */
-    default void onNodeJoined(ClusterNode joinedNode, LogicalTopologySnapshot newTopology) {
+    default void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
         // No-op.
     }
 
@@ -71,14 +69,14 @@ public interface LogicalTopologyEventListener {
      * @param leftNode Disappeared cluster member.
      * @param newTopology Topology in which the member has disappeared.
      */
-    default void onNodeLeft(ClusterNode leftNode, LogicalTopologySnapshot newTopology) {
+    default void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
         // No-op.
     }
 
     /**
      * Called when a topology changed in a way that cannot be interpreted as a sequence of 'appeared'/'disappeared' events,
-     * so the change happens as a leap forward. This is mutually exclusive with {@link #onNodeJoined(ClusterNode, LogicalTopologySnapshot)}
-     * and {@link #onNodeLeft(ClusterNode, LogicalTopologySnapshot)}.
+     * so the change happens as a leap forward. This is mutually exclusive with {@link #onNodeJoined(LogicalNode, LogicalTopologySnapshot)}
+     * and {@link #onNodeLeft(LogicalNode, LogicalTopologySnapshot)}.
      *
      * <p>This happens rarely (in a well-configured system this should never happen), for instance, when a Cluster Management
      * RAFT Group sends its update by installing a RAFT snapshot instead of normal AppendEntries.

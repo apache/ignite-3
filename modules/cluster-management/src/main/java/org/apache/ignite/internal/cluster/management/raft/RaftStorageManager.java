@@ -27,8 +27,8 @@ import java.nio.file.Path;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -71,7 +71,7 @@ class RaftStorageManager {
     /**
      * Returns {@code true} if a given node has been previously validated or {@code false} otherwise.
      */
-    boolean isNodeValidated(ClusterNode node) {
+    boolean isNodeValidated(LogicalNode node) {
         byte[] value = storage.get(validatedNodeKey(node.id()));
 
         return value != null;
@@ -80,14 +80,14 @@ class RaftStorageManager {
     /**
      * Marks the given node as validated.
      */
-    void putValidatedNode(ClusterNode node) {
+    void putValidatedNode(LogicalNode node) {
         storage.put(validatedNodeKey(node.id()), toBytes(node));
     }
 
     /**
      * Removes the given node from the validated node set.
      */
-    void removeValidatedNode(ClusterNode node) {
+    void removeValidatedNode(LogicalNode node) {
         storage.remove(validatedNodeKey(node.id()));
     }
 
@@ -103,8 +103,8 @@ class RaftStorageManager {
     /**
      * Returns a collection of nodes that passed the validation but have not yet joined the logical topology.
      */
-    Set<ClusterNode> getValidatedNodes() {
-        Cursor<ClusterNode> cursor = storage.getWithPrefix(VALIDATED_NODE_PREFIX, (k, v) -> fromBytes(v));
+    Set<LogicalNode> getValidatedNodes() {
+        Cursor<LogicalNode> cursor = storage.getWithPrefix(VALIDATED_NODE_PREFIX, (k, v) -> fromBytes(v));
 
         try (cursor) {
             return cursor.stream().collect(toSet());

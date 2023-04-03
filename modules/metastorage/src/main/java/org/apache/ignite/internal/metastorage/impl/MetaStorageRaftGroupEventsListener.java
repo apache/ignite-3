@@ -26,6 +26,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -90,12 +91,12 @@ public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListen
     private void registerTopologyEventListeners() {
         logicalTopologyService.addEventListener(new LogicalTopologyEventListener() {
             @Override
-            public void onNodeValidated(ClusterNode validatedNode) {
+            public void onNodeValidated(LogicalNode validatedNode) {
                 executeIfLeader((service, term) -> addLearner(service.raftGroupService(), validatedNode));
             }
 
             @Override
-            public void onNodeInvalidated(ClusterNode invalidatedNode) {
+            public void onNodeInvalidated(LogicalNode invalidatedNode) {
                 executeIfLeader((service, term) -> {
                     CompletableFuture<Void> closeCursorsFuture = service.closeCursors(invalidatedNode.id())
                             .exceptionally(e -> {
@@ -111,7 +112,7 @@ public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListen
             }
 
             @Override
-            public void onNodeLeft(ClusterNode leftNode, LogicalTopologySnapshot newTopology) {
+            public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
                 onNodeInvalidated(leftNode);
             }
 

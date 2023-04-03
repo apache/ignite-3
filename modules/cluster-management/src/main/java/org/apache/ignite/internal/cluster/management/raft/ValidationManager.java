@@ -28,6 +28,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateC
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -97,7 +98,7 @@ class ValidationManager {
      */
     ValidationResult validateNode(
             @Nullable ClusterState state,
-            ClusterNode node,
+            LogicalNode node,
             IgniteProductVersion version,
             ClusterTag clusterTag
     ) {
@@ -122,17 +123,17 @@ class ValidationManager {
         }
     }
 
-    boolean isNodeValidated(ClusterNode node) {
+    boolean isNodeValidated(LogicalNode node) {
         return storage.isNodeValidated(node) || logicalTopology.isNodeInLogicalTopology(node);
     }
 
-    void putValidatedNode(ClusterNode node) {
+    void putValidatedNode(LogicalNode node) {
         storage.putValidatedNode(node);
 
         logicalTopology.onNodeValidated(node);
     }
 
-    void removeValidatedNodes(Collection<ClusterNode> nodes) {
+    void removeValidatedNodes(Collection<LogicalNode> nodes) {
         Set<String> validatedNodeIds = storage.getValidatedNodes().stream()
                 .map(ClusterNode::id)
                 .collect(toSet());
@@ -153,7 +154,7 @@ class ValidationManager {
      *
      * @param node Node that wishes to join the logical topology.
      */
-    void completeValidation(ClusterNode node) {
+    void completeValidation(LogicalNode node) {
         // Remove all other versions of this node, if they were validated at some point, but not removed from the physical topology.
         storage.getValidatedNodes().stream()
                 .filter(n -> n.name().equals(node.name()) && !n.id().equals(node.id()))

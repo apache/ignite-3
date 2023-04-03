@@ -45,6 +45,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -390,7 +391,10 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
         @Override
         public CompletableFuture<LogicalTopologySnapshot> logicalTopologyOnLeader() {
-            return completedFuture(new LogicalTopologySnapshot(1, clusterService.topologyService().allMembers()));
+            return completedFuture(new LogicalTopologySnapshot(
+                    1,
+                    clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()))
+            );
         }
 
         @Override

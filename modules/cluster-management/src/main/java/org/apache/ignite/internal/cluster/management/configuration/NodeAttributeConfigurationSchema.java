@@ -17,25 +17,21 @@
 
 package org.apache.ignite.internal.cluster.management.configuration;
 
-import com.google.auto.service.AutoService;
-import java.util.Collection;
-import java.util.List;
-import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Configuration module for Cluster Management configs.
+ * Node's attribute configuration schema.
+ * TODO: add proper javadocs when filtering feature will be closer to the end https://issues.apache.org/jira/browse/IGNITE-19184
  */
-@AutoService(ConfigurationModule.class)
-public class ClusterManagementConfigurationModule implements ConfigurationModule {
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
-    }
+@Config
+public class NodeAttributeConfigurationSchema {
+    /** Name of the node attribute. */
+    @InjectedName
+    public String name;
 
-    @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(ClusterManagementConfiguration.KEY, NodeAttributesConfiguration.KEY);
-    }
+    /** Node attribute field. */
+    @Value(hasDefault = true)
+    public String attribute = "";
 }
