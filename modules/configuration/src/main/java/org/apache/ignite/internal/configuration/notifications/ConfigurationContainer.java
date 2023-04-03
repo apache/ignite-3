@@ -27,8 +27,7 @@ import org.jetbrains.annotations.Nullable;
  */
 class ConfigurationContainer {
     /** Parent container. */
-    @Nullable
-    public final ConfigurationContainer prev;
+    public final @Nullable ConfigurationContainer prev;
 
     /** {@link InnerNode#specificNode()} for the old value. */
     @Nullable
