@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Common;
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 /// <summary>
@@ -68,6 +69,25 @@ internal record IgniteToStringBuilder
     /// <returns>This instance.</returns>
     public IgniteToStringBuilder Append(string name, object? value)
     {
+        AppendComma();
+
+        _builder.Append(name);
+        _builder.Append(" = ");
+        _builder.Append(value);
+
+        return this;
+    }
+
+    /// <summary>
+    /// Appends a property.
+    /// </summary>
+    /// <param name="value">Property value.</param>
+    /// <param name="name">Property name.</param>
+    /// <returns>This instance.</returns>
+    public IgniteToStringBuilder Append2(object? value, [CallerArgumentExpression("value")] string? name = null)
+    {
+        IgniteArgumentCheck.NotNull(name, nameof(name));
+
         AppendComma();
 
         _builder.Append(name);

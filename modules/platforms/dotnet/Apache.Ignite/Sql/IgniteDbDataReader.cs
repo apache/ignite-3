@@ -461,6 +461,16 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override Type GetFieldType(int ordinal) => Metadata.Columns[ordinal].Type.ToClrType();
 
     /// <inheritdoc/>
+    public override string ToString() =>
+        new IgniteToStringBuilder(nameof(IgniteDbDataReader))
+            .Append2(FieldCount)
+            .Append2(RecordsAffected)
+            .Append2(HasRows)
+            .Append2(IsClosed)
+            .Append2(Metadata)
+            .Build();
+
+    /// <inheritdoc/>
     protected override void Dispose(bool disposing) => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
     private static void ValidateColumnType(Type type, IColumnMetadata column)
