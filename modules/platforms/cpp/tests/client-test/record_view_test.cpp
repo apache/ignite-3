@@ -410,167 +410,128 @@ TEST_F(record_view_test, insert_all_empty) {
     EXPECT_TRUE(res.empty());
 }
 
-//TEST_F(record_view_test, replace_nonexisting) {
-//    test_type val{42, "foo"};
-//    auto res = view.replace(nullptr, val);
-//
-//    ASSERT_FALSE(res);
-//
-//    auto res = view.get(nullptr, test_type(42));
-//    ASSERT_FALSE(res.has_value());
-//}
-//
-//TEST_F(record_view_test, replace_existing) {
-//    test_type val1{42, "foo"};
-//    auto res = view.insert(nullptr, val1);
-//    ASSERT_TRUE(res);
-//
-//    test_type val2{42, "bar"};
-//    res = view.replace(nullptr, val2);
-//    ASSERT_TRUE(res);
-//
-//    auto res = view.get(nullptr, test_type(42));
-//    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(42, res->key);
-//    EXPECT_EQ("bar", res->val);
-//}
-//
-//TEST_F(record_view_test, replace_existing_async) {
-//    test_type val1{42, "foo"};
-//    test_type val2{42, "bar"};
-//
-//    auto all_done = std::make_shared<std::promise<std::optional<test_type>>>();
-//
-//    view.insert_async(nullptr, val1, [&](ignite_result<bool> &&res) {
-//        if (!check_and_set_operation_error(*all_done, res))
-//            return;
-//
-//        if (!res.value())
-//            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insertion")));
-//
-//        view.replace_async(nullptr, val2, [&](ignite_result<bool> &&res) {
-//            if (!check_and_set_operation_error(*all_done, res))
-//                return;
-//
-//            if (!res.value())
-//                all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on replace")));
-//
-//            view.get_async(
-//                nullptr, test_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
-//        });
-//    });
-//
-//    auto res = all_done->get_future().get();
-//    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(val2.column_count(), res->column_count());
-//    EXPECT_EQ(val2.key, res->key);
-//    EXPECT_EQ(val2.val, res->val);
-//}
-//
-//TEST_F(record_view_test, replace_empty_throws) {
-//    EXPECT_THROW(
-//        {
-//            try {
-//                view.replace(nullptr, test_type{});
-//            } catch (const ignite_error &e) {
-//                EXPECT_STREQ("Tuple can not be empty", e.what());
-//                throw;
-//            }
-//        },
-//        ignite_error);
-//}
-//
-//TEST_F(record_view_test, replace_exact_nonexisting) {
-//    auto res = view.replace(nullptr, test_type(42, "foo"), test_type(42, "bar"));
-//
-//    ASSERT_FALSE(res);
-//
-//    auto res = view.get(nullptr, test_type(42));
-//    ASSERT_FALSE(res.has_value());
-//}
-//
-//TEST_F(record_view_test, replace_exact_existing_wrong) {
-//    auto res = view.insert(nullptr, test_type(42, "foo"));
-//    ASSERT_TRUE(res);
-//
-//    res = view.replace(nullptr, test_type(42, "bar"), test_type(42, "baz"));
-//    ASSERT_FALSE(res);
-//
-//    auto res = view.get(nullptr, test_type(42));
-//    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(42, res->key);
-//    EXPECT_EQ("foo", res->val);
-//}
-//
-//TEST_F(record_view_test, replace_exact_existing_right) {
-//    auto res = view.insert(nullptr, test_type(42, "foo"));
-//    ASSERT_TRUE(res);
-//
-//    res = view.replace(nullptr, test_type(42, "foo"), test_type(42, "baz"));
-//    ASSERT_TRUE(res);
-//
-//    auto res = view.get(nullptr, test_type(42));
-//    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(42, res->key);
-//    EXPECT_EQ("baz", res->val);
-//}
-//
-//TEST_F(record_view_test, replace_exact_existing_right_async) {
-//    test_type val1{42, "foo"};
-//    test_type val2{42, "bar"};
-//
-//    auto all_done = std::make_shared<std::promise<std::optional<test_type>>>();
-//
-//    view.insert_async(nullptr, val1, [&](ignite_result<bool> &&res) {
-//        if (!check_and_set_operation_error(*all_done, res))
-//            return;
-//
-//        if (!res.value())
-//            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insertion")));
-//
-//        view.replace_async(nullptr, val1, val2, [&](ignite_result<bool> &&res) {
-//            if (!check_and_set_operation_error(*all_done, res))
-//                return;
-//
-//            if (!res.value())
-//                all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on replace")));
-//
-//            view.get_async(
-//                nullptr, test_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
-//        });
-//    });
-//
-//    auto res = all_done->get_future().get();
-//    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(val2.column_count(), res->column_count());
-//    EXPECT_EQ(val2.key, res->key);
-//    EXPECT_EQ(val2.val, res->val);
-//}
-//
-//TEST_F(record_view_test, replace_exact_empty_throws) {
-//    EXPECT_THROW(
-//        {
-//            try {
-//                view.replace(nullptr, test_type{}, test_type(1, "foo"));
-//            } catch (const ignite_error &e) {
-//                EXPECT_STREQ("Tuple can not be empty", e.what());
-//                throw;
-//            }
-//        },
-//        ignite_error);
-//
-//    EXPECT_THROW(
-//        {
-//            try {
-//                view.replace(nullptr, test_type(1, "foo"), test_type{});
-//            } catch (const ignite_error &e) {
-//                EXPECT_STREQ("Tuple can not be empty", e.what());
-//                throw;
-//            }
-//        },
-//        ignite_error);
-//}
-//
+TEST_F(record_view_test, replace_nonexisting) {
+    test_type val{42, "foo"};
+    auto replaced = view.replace(nullptr, val);
+
+    ASSERT_FALSE(replaced);
+
+    auto res = view.get(nullptr, test_type(42));
+    ASSERT_FALSE(res.has_value());
+}
+
+TEST_F(record_view_test, replace_existing) {
+    test_type val1{42, "foo"};
+    auto replaced = view.insert(nullptr, val1);
+    ASSERT_TRUE(replaced);
+
+    test_type val2{42, "bar"};
+    replaced = view.replace(nullptr, val2);
+    ASSERT_TRUE(replaced);
+
+    auto res = view.get(nullptr, test_type(42));
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ(42, res->key);
+    EXPECT_EQ("bar", res->val);
+}
+
+TEST_F(record_view_test, replace_existing_async) {
+    test_type val1{42, "foo"};
+    test_type val2{42, "bar"};
+
+    auto all_done = std::make_shared<std::promise<std::optional<test_type>>>();
+
+    view.insert_async(nullptr, val1, [&](ignite_result<bool> &&res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        if (!res.value())
+            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insertion")));
+
+        view.replace_async(nullptr, val2, [&](ignite_result<bool> &&res) {
+            if (!check_and_set_operation_error(*all_done, res))
+                return;
+
+            if (!res.value())
+                all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on replace")));
+
+            view.get_async(
+                nullptr, test_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+        });
+    });
+
+    auto res = all_done->get_future().get();
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ(val2.key, res->key);
+    EXPECT_EQ(val2.val, res->val);
+}
+
+TEST_F(record_view_test, replace_exact_nonexisting) {
+    auto replaced = view.replace(nullptr, test_type(42, "foo"), test_type(42, "bar"));
+
+    ASSERT_FALSE(replaced);
+
+    auto res = view.get(nullptr, test_type(42));
+    ASSERT_FALSE(res.has_value());
+}
+
+TEST_F(record_view_test, replace_exact_existing_wrong) {
+    auto inserted = view.insert(nullptr, test_type(42, "foo"));
+    ASSERT_TRUE(inserted);
+
+    auto replaced = view.replace(nullptr, test_type(42, "bar"), test_type(42, "baz"));
+    ASSERT_FALSE(replaced);
+
+    auto res = view.get(nullptr, test_type(42));
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ(42, res->key);
+    EXPECT_EQ("foo", res->val);
+}
+
+TEST_F(record_view_test, replace_exact_existing_right) {
+    auto inserted = view.insert(nullptr, test_type(42, "foo"));
+    ASSERT_TRUE(inserted);
+
+    auto replaced = view.replace(nullptr, test_type(42, "foo"), test_type(42, "baz"));
+    ASSERT_TRUE(replaced);
+
+    auto res = view.get(nullptr, test_type(42));
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ(42, res->key);
+    EXPECT_EQ("baz", res->val);
+}
+
+TEST_F(record_view_test, replace_exact_existing_right_async) {
+    test_type val1{42, "foo"};
+    test_type val2{42, "bar"};
+
+    auto all_done = std::make_shared<std::promise<std::optional<test_type>>>();
+
+    view.insert_async(nullptr, val1, [&](ignite_result<bool> &&res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        if (!res.value())
+            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insertion")));
+
+        view.replace_async(nullptr, val1, val2, [&](ignite_result<bool> &&res) {
+            if (!check_and_set_operation_error(*all_done, res))
+                return;
+
+            if (!res.value())
+                all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on replace")));
+
+            view.get_async(
+                nullptr, test_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+        });
+    });
+
+    auto res = all_done->get_future().get();
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ(val2.key, res->key);
+    EXPECT_EQ(val2.val, res->val);
+}
+
 //TEST_F(record_view_test, get_and_replace_nonexisting) {
 //    test_type val{42, "foo"};
 //    auto res = view.get_and_replace(nullptr, val);

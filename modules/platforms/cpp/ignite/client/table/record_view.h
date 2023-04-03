@@ -680,61 +680,66 @@ public:
         });
     }
 
-//    /**
-//     * Asynchronously replaces a record with the same key columns if it exists,
-//     * otherwise does nothing.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param record A record to insert into the table.
-//     * @param callback Callback. Called with a value indicating whether a record
-//     *   with the specified key was replaced.
-//     */
-//    void replace_async(transaction *tx, const value_type &record, ignite_callback<bool> callback);
-//
-//    /**
-//     * Replaces a record with the same key columns if it exists, otherwise does
-//     * nothing.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param record A record to insert into the table.
-//     * @return A value indicating whether a record with the specified key was
-//     *   replaced.
-//     */
-//    bool replace(transaction *tx, const value_type &record) {
-//        return sync<bool>([this, tx, &record](auto callback) { replace_async(tx, record, std::move(callback)); });
-//    }
-//
-//    /**
-//     * Asynchronously replaces a record with a new one only if all existing
-//     * columns have the same values as the specified @c record.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param record Current value of the record to be replaced.
-//     * @param new_record A record to replace it with.
-//     * @param callback Callback. Called with a value indicating whether a
-//     *   specified record was replaced.
-//     */
-//    void replace_async(
-//        transaction *tx, const value_type &record, const value_type &new_record, ignite_callback<bool> callback);
-//
-//    /**
-//     * Replaces a record with a new one only if all existing columns have
-//     * the same values as the specified @c record.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param record Current value of the record to be replaced.
-//     * @param new_record A record to replace it with.
-//     * @return A value indicating whether a specified record was replaced.
-//     */
-//    bool replace(transaction *tx, const value_type &record, const value_type &new_record) {
-//        return sync<bool>([this, tx, &record, &new_record](
-//                              auto callback) { replace_async(tx, record, new_record, std::move(callback)); });
-//    }
-//
+    /**
+     * Asynchronously replaces a record with the same key columns if it exists,
+     * otherwise does nothing.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to insert into the table.
+     * @param callback Callback. Called with a value indicating whether a record
+     *   with the specified key was replaced.
+     */
+    void replace_async(transaction *tx, const value_type &record, ignite_callback<bool> callback) {
+        m_delegate.replace_async(tx, convert_to_tuple(record), std::move(callback));
+    }
+
+    /**
+     * Replaces a record with the same key columns if it exists, otherwise does
+     * nothing.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to insert into the table.
+     * @return A value indicating whether a record with the specified key was
+     *   replaced.
+     */
+    bool replace(transaction *tx, const value_type &record) {
+        return sync<bool>([this, tx, &record](auto callback) { replace_async(tx, record, std::move(callback)); });
+    }
+
+    /**
+     * Asynchronously replaces a record with a new one only if all existing
+     * columns have the same values as the specified @c record.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record Current value of the record to be replaced.
+     * @param new_record A record to replace it with.
+     * @param callback Callback. Called with a value indicating whether a
+     *   specified record was replaced.
+     */
+    void replace_async(
+        transaction *tx, const value_type &record, const value_type &new_record, ignite_callback<bool> callback) {
+        m_delegate.replace_async(tx, convert_to_tuple(record), convert_to_tuple(new_record), std::move(callback));
+    }
+
+    /**
+     * Replaces a record with a new one only if all existing columns have
+     * the same values as the specified @c record.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record Current value of the record to be replaced.
+     * @param new_record A record to replace it with.
+     * @return A value indicating whether a specified record was replaced.
+     */
+    bool replace(transaction *tx, const value_type &record, const value_type &new_record) {
+        return sync<bool>([this, tx, &record, &new_record] (auto callback) {
+            replace_async(tx, record, new_record, std::move(callback));
+        });
+    }
+
 //    /**
 //     * Asynchronously replaces a record with the same key columns if it exists
 //     * returning previous record value.
