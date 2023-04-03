@@ -15,21 +15,16 @@
  * limitations under the License.
  */
 
-#include "ignite/client/table/table.h"
-#include "ignite/client/detail/table/table_impl.h"
+#pragma once
+
+#include <ignite/client/table/ignite_tuple.h>
 
 namespace ignite {
 
-const std::string &table::name() const noexcept {
-    return m_impl->name();
-}
+template<typename T>
+ignite_tuple convert_to_tuple(T&& value);
 
-record_view<ignite_tuple> table::get_record_binary_view() const noexcept {
-    return record_view<ignite_tuple>{m_impl};
-}
-
-key_value_view<ignite_tuple, ignite_tuple> table::get_key_value_binary_view() const noexcept {
-    return key_value_view<ignite_tuple, ignite_tuple>{m_impl};
-}
+template<typename T>
+T convert_from_tuple(ignite_tuple&& value);
 
 } // namespace ignite

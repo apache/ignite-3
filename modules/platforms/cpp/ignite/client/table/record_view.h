@@ -17,11 +17,12 @@
 
 #pragma once
 
-#include "ignite/client/table/ignite_tuple.h"
-#include "ignite/client/transaction/transaction.h"
+#include <ignite/client/table/ignite_tuple.h>
+#include <ignite/client/transaction/transaction.h>
+#include <ignite/client/type_mapping.h>
 
-#include "ignite/common/config.h"
-#include "ignite/common/ignite_result.h"
+#include <ignite/common/config.h>
+#include <ignite/common/ignite_result.h>
 
 #include <memory>
 #include <type_traits>
@@ -36,23 +37,8 @@ namespace detail {
 class table_impl;
 }
 
-/**
- * Record view interface provides methods to access table records.
- */
 template<typename T>
-class record_view {
-public:
-    typedef typename std::decay<T>::type value_type;
-
-    // Deleted
-    record_view(const record_view &) = delete;
-    record_view &operator=(const record_view &) = delete;
-
-    // Default
-    record_view() = default;
-    record_view(record_view &&) noexcept = default;
-    record_view &operator=(record_view &&) noexcept = default;
-};
+class record_view;
 
 /**
  * Record view interface provides methods to access table records.
@@ -473,6 +459,39 @@ private:
 
     /** Implementation. */
     std::shared_ptr<detail::table_impl> m_impl;
+};
+
+
+/**
+ * Record view interface provides methods to access table records.
+ */
+template<typename T>
+class record_view {
+    friend class table;
+
+public:
+    typedef typename std::decay<T>::type value_type;
+
+    // Deleted
+    record_view(const record_view &) = delete;
+    record_view &operator=(const record_view &) = delete;
+
+    // Default
+    record_view() = default;
+    record_view(record_view &&) noexcept = default;
+    record_view &operator=(record_view &&) noexcept = default;
+
+private:
+    /**
+     * Constructor
+     *
+     * @param impl Implementation
+     */
+    explicit record_view(record_view<ignite_tuple> delegate)
+        : m_delegate(std::move(delegate)) {}
+
+    /** Delegate. */
+    record_view<ignite_tuple> m_delegate;
 };
 
 } // namespace ignite
