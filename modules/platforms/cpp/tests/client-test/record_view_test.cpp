@@ -337,81 +337,79 @@ TEST_F(record_view_test, insert_existing_record_async) {
     EXPECT_EQ(val1.val, res->val);
 }
 
-//TEST_F(record_view_test, insert_all_new) {
-//    static constexpr std::size_t records_num = 10;
-//
-//    std::vector<test_type> keys;
-//    std::vector<test_type> records;
-//    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i) {
-//        keys.emplace_back(test_type(i));
-//        records.emplace_back(test_type(i, "Val" + std::to_string(i)));
-//    }
-//
-//    auto insert_res = view.insert_all(nullptr, records);
-//
-//    ASSERT_TRUE(insert_res.empty());
-//
-//    auto tuples_res = view.get_all(nullptr, keys);
-//
-//    EXPECT_EQ(tuples_res.size(), 10);
-//    ASSERT_TRUE(std::all_of(tuples_res.begin(), tuples_res.end(), [](const auto &elem) { return elem.has_value(); }));
-//}
-//
-//TEST_F(record_view_test, insert_all_overlapped) {
-//    auto res = view.insert_all(nullptr, {test_type(1, "foo"), test_type(2, "bar")});
-//
-//    ASSERT_TRUE(res.empty());
-//
-//    res = view.insert_all(nullptr, {test_type(2, "baz"), test_type(3, "bar")});
-//
-//    EXPECT_EQ(res.size(), 1);
-//    EXPECT_EQ(2, res.front().column_count());
-//    EXPECT_EQ(2, res.front().key);
-//    EXPECT_EQ("baz", res.front().val);
-//
-//    auto tuple2 = view.get(nullptr, test_type(2));
-//
-//    ASSERT_TRUE(tuple2.has_value());
-//    EXPECT_EQ(2, tuple2->column_count());
-//    EXPECT_EQ(2, tuple2->key);
-//    EXPECT_EQ("bar", tuple2->val);
-//}
-//
-//TEST_F(record_view_test, insert_all_overlapped_async) {
-//    auto all_done = std::make_shared<std::promise<std::optional<test_type>>>();
-//
-//    view.insert_all_async(nullptr, {test_type(1, "foo"), test_type(2, "bar")}, [&](auto res) {
-//        if (!check_and_set_operation_error(*all_done, res))
-//            return;
-//
-//        if (!res.value().empty())
-//            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected empty return on first insertion")));
-//
-//        view.insert_all_async(
-//            nullptr, {test_type(1, "foo"), test_type(2, "baz"), test_type(3, "bar")}, [&](auto res) {
-//                if (!check_and_set_operation_error(*all_done, res))
-//                    return;
-//
-//                if (res.value().size() != 2)
-//                    all_done->set_exception(std::make_exception_ptr(
-//                        ignite_error("Expected 2 on second insertion but got " + std::to_string(res.value().size()))));
-//
-//                view.get_async(
-//                    nullptr, test_type(2), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
-//            });
-//    });
-//
-//    auto res = all_done->get_future().get();
-//    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(2, res->key);
-//    EXPECT_EQ("bar", res->val);
-//}
-//
-//TEST_F(record_view_test, insert_all_empty) {
-//    auto res = view.insert_all(nullptr, {});
-//    EXPECT_TRUE(res.empty());
-//}
-//
+TEST_F(record_view_test, insert_all_new) {
+    static constexpr std::size_t records_num = 10;
+
+    std::vector<test_type> keys;
+    std::vector<test_type> records;
+    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i) {
+        keys.emplace_back(i);
+        records.emplace_back(i, "Val" + std::to_string(i));
+    }
+
+    auto insert_res = view.insert_all(nullptr, records);
+
+    ASSERT_TRUE(insert_res.empty());
+
+    auto res = view.get_all(nullptr, keys);
+
+    EXPECT_EQ(res.size(), 10);
+    ASSERT_TRUE(std::all_of(res.begin(), res.end(), [](const auto &elem) { return elem.has_value(); }));
+}
+
+TEST_F(record_view_test, insert_all_overlapped) {
+    auto res = view.insert_all(nullptr, {test_type(1, "foo"), test_type(2, "bar")});
+
+    ASSERT_TRUE(res.empty());
+
+    res = view.insert_all(nullptr, {test_type(2, "baz"), test_type(3, "bar")});
+
+    EXPECT_EQ(res.size(), 1);
+    EXPECT_EQ(2, res.front().key);
+    EXPECT_EQ("baz", res.front().val);
+
+    auto res2 = view.get(nullptr, test_type(2));
+
+    ASSERT_TRUE(res2.has_value());
+    EXPECT_EQ(2, res2->key);
+    EXPECT_EQ("bar", res2->val);
+}
+
+TEST_F(record_view_test, insert_all_overlapped_async) {
+    auto all_done = std::make_shared<std::promise<std::optional<test_type>>>();
+
+    view.insert_all_async(nullptr, {test_type(1, "foo"), test_type(2, "bar")}, [&](auto res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        if (!res.value().empty())
+            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected empty return on first insertion")));
+
+        view.insert_all_async(
+            nullptr, {test_type(1, "foo"), test_type(2, "baz"), test_type(3, "bar")}, [&](auto res) {
+                if (!check_and_set_operation_error(*all_done, res))
+                    return;
+
+                if (res.value().size() != 2)
+                    all_done->set_exception(std::make_exception_ptr(
+                        ignite_error("Expected 2 on second insertion but got " + std::to_string(res.value().size()))));
+
+                view.get_async(
+                    nullptr, test_type(2), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+            });
+    });
+
+    auto res = all_done->get_future().get();
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ(2, res->key);
+    EXPECT_EQ("bar", res->val);
+}
+
+TEST_F(record_view_test, insert_all_empty) {
+    auto res = view.insert_all(nullptr, {});
+    EXPECT_TRUE(res.empty());
+}
+
 //TEST_F(record_view_test, replace_nonexisting) {
 //    test_type val{42, "foo"};
 //    auto res = view.replace(nullptr, val);
@@ -879,9 +877,9 @@ TEST_F(record_view_test, remove_all_empty) {
 //    EXPECT_EQ(1, res.front().key);
 //    EXPECT_EQ("baz", res.front().val);
 //
-//    auto tuple2 = view.get(nullptr, test_type(2));
+//    auto res2 = view.get(nullptr, test_type(2));
 //
-//    ASSERT_FALSE(tuple2.has_value());
+//    ASSERT_FALSE(res2.has_value());
 //}
 //
 //TEST_F(record_view_test, remove_all_exact_overlapped_async) {

@@ -648,32 +648,38 @@ public:
         return sync<bool>([this, tx, &record](auto callback) { insert_async(tx, record, std::move(callback)); });
     }
 
-//    /**
-//     * Inserts multiple records into the table asynchronously, skipping existing ones.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param records Records to insert.
-//     * @param callback Callback that is called on operation completion. Called with
-//     *   skipped records.
-//     */
-//    void insert_all_async(
-//        transaction *tx, std::vector<value_type> records, ignite_callback<std::vector<value_type>> callback);
-//
-//    /**
-//     * Inserts multiple records into the table, skipping existing ones.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param records Records to insert.
-//     * @return Skipped records.
-//     */
-//    std::vector<value_type> insert_all(transaction *tx, std::vector<value_type> records) {
-//        return sync<std::vector<value_type>>([this, tx, records = std::move(records)](auto callback) mutable {
-//            insert_all_async(tx, std::move(records), std::move(callback));
-//        });
-//    }
-//
+    /**
+     * Inserts multiple records into the table asynchronously, skipping existing ones.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param records Records to insert.
+     * @param callback Callback that is called on operation completion. Called with
+     *   skipped records.
+     */
+    void insert_all_async(
+        transaction *tx, std::vector<value_type> records, ignite_callback<std::vector<value_type>> callback) {
+        m_delegate.insert_all_async(tx, values_to_tuples(std::move(records)),
+            [callback = std::move(callback)] (auto res) {
+                callback(convert_result(std::move(res)));
+            }
+        );
+    }
+
+    /**
+     * Inserts multiple records into the table, skipping existing ones.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param records Records to insert.
+     * @return Skipped records.
+     */
+    std::vector<value_type> insert_all(transaction *tx, std::vector<value_type> records) {
+        return sync<std::vector<value_type>>([this, tx, records = std::move(records)](auto callback) mutable {
+            insert_all_async(tx, std::move(records), std::move(callback));
+        });
+    }
+
 //    /**
 //     * Asynchronously replaces a record with the same key columns if it exists,
 //     * otherwise does nothing.
