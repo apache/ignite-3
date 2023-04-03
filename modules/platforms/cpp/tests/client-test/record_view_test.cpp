@@ -34,6 +34,7 @@ struct test_type {
     test_type() = default;
     explicit test_type(std::int64_t key) : key(key) {}
     explicit test_type(std::string val) : val(std::move(val)) {}
+    explicit test_type(std::int64_t key, std::string val) : key(key), val(std::move(val)) {}
 
     std::int64_t key{0};
     std::string val;
@@ -94,15 +95,14 @@ protected:
     record_view<test_type> view;
 };
 
-//TEST_F(record_binary_view_test, upsert_get) {
-//    auto key_tuple = get_tuple(1);
-//    auto val_tuple = get_tuple(1, "foo");
-//
-//    tuple_view.upsert(nullptr, val_tuple);
-//    auto res_tuple = tuple_view.get(nullptr, key_tuple);
-//
-//    ASSERT_TRUE(res_tuple.has_value());
-//    EXPECT_EQ(2, res_tuple->column_count());
-//    EXPECT_EQ(1L, res_tuple->get<int64_t>("key"));
-//    EXPECT_EQ("foo", res_tuple->get<std::string>("val"));
-//}
+TEST_F(record_view_test, upsert_get) {
+    test_type key_tuple{1};
+    test_type val_tuple{1, "foo"};
+
+    view.upsert(nullptr, val_tuple);
+    auto res = view.get(nullptr, key_tuple);
+
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ(1L, res->key);
+    EXPECT_EQ("foo", res->val);
+}

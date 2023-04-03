@@ -27,4 +27,33 @@ ignite_tuple convert_to_tuple(T&& value);
 template<typename T>
 T convert_from_tuple(ignite_tuple&& value);
 
+template<typename T>
+ignite_tuple convert_to_tuple(const T& value) {
+    return convert_to_tuple(T(value));
+}
+
+template<typename T>
+std::optional<ignite_tuple> convert_to_tuple(std::optional<T>&& value) {
+    if (!value.has_value())
+        return std::nullopt;
+
+    return {convert_to_tuple<T>(*std::move(value))};
+}
+
+template<typename T>
+std::optional<T> convert_from_tuple(std::optional<ignite_tuple>&& value) {
+    if (!value.has_value())
+        return std::nullopt;
+
+    return {convert_from_tuple<T>(*std::move(value))};
+}
+
+template<typename T>
+ignite_result<std::optional<T>> convert_from_tuple(ignite_result<std::optional<ignite_tuple>>&& value) {
+    if (value.has_error())
+        return {std::move(value).error()};
+
+    return {convert_from_tuple<T>(std::move(value).value())};
+}
+
 } // namespace ignite
