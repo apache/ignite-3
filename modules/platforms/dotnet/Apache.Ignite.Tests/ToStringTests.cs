@@ -34,20 +34,27 @@ public class ToStringTests
     [Test]
     public void TestAllPublicFacingTypesHaveConsistentToString()
     {
-        // TODO:
-        // 1. Get all public types.
-        // For interfaces, get internal types implementing them.
-        // For abstract classes, get internal types deriving from them.
-        // 2. Check that all types have ToString() method, which uses 'TypeName { Property = Value }' format.
-        // We can introduce IgniteToStringBuilder for that.
-        // 3. Check that GetPublicFacingTypes returns something.
-        foreach (var type in GetPublicFacingTypes())
+        Assert.Multiple(() =>
         {
-            var path = GetSourcePath(type);
+            foreach (var type in GetPublicFacingTypes())
+            {
+                var path = GetSourcePath(type);
+                var code = File.ReadAllText(path);
 
-            Console.WriteLine(path);
-            Assert.IsTrue(File.Exists(path), path);
-        }
+                if (code.Contains("new IgniteToStringBuilder("))
+                {
+                    continue;
+                }
+
+                if (code.Contains("record " + GetCleanTypeName(type)) ||
+                    code.Contains("record struct " + GetCleanTypeName(type)))
+                {
+                    continue;
+                }
+
+                Assert.Fail("Missing ToString() override: " + type);
+            }
+        });
     }
 
     [Test]
@@ -61,12 +68,7 @@ public class ToStringTests
 
     private static string GetSourcePath(Type type)
     {
-        var typeName = type.Name;
-
-        if (type.IsGenericType || type.IsGenericTypeDefinition)
-        {
-            typeName = typeName[..typeName.IndexOf('`')];
-        }
+        var typeName = GetCleanTypeName(type);
 
         var subNamespace = type.Namespace!
             .Substring("Apache.Ignite".Length)
@@ -78,6 +80,18 @@ public class ToStringTests
             "Apache.Ignite",
             subNamespace,
             typeName + ".cs");
+    }
+
+    private static string GetCleanTypeName(Type type)
+    {
+        var typeName = type.Name;
+
+        if (type.IsGenericType || type.IsGenericTypeDefinition)
+        {
+            typeName = typeName[..typeName.IndexOf('`')];
+        }
+
+        return typeName;
     }
 
     private static IEnumerable<Type> GetPublicFacingTypes()
