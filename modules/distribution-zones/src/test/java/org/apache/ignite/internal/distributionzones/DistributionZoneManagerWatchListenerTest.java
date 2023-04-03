@@ -156,6 +156,10 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
         mockVaultAppliedRevision(1);
 
         when(vaultMgr.get(zonesLogicalTopologyKey())).thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), null)));
+
+        when(vaultMgr.get(zonesLogicalTopologyVersionKey()))
+                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyVersionKey(), longToBytes(3))));
+
         when(vaultMgr.put(any(), any())).thenReturn(completedFuture(null));
 
         doAnswer(invocation -> {
