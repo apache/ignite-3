@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Sql;
 
 using System.Data.Common;
+using Internal.Common;
 using Internal.Sql;
 
 /// <summary>
@@ -38,6 +39,7 @@ public sealed class IgniteDbColumn : DbColumn
         DataTypeName = column.Type.ToSqlTypeName();
         DataType = column.Type.ToClrType();
         AllowDBNull = column.Nullable;
+        AllowDBNull = column.Nullable;
         NumericPrecision = column.Precision < 0 ? null : column.Precision;
         NumericScale = column.Scale < 0 ? null : column.Scale;
     }
@@ -46,4 +48,16 @@ public sealed class IgniteDbColumn : DbColumn
     /// Gets Ignite-specific column metadata.
     /// </summary>
     public IColumnMetadata ColumnMetadata { get; }
+
+    /// <inheritdoc />
+    public override string ToString() =>
+        new IgniteToStringBuilder(nameof(IgniteDbColumn))
+            .Append(nameof(ColumnName), ColumnName)
+            .Append(nameof(ColumnOrdinal), ColumnOrdinal)
+            .Append(nameof(DataTypeName), DataTypeName)
+            .Append(nameof(AllowDBNull), AllowDBNull)
+            .Append(nameof(NumericPrecision), NumericPrecision)
+            .Append(nameof(NumericScale), NumericScale)
+            .Append(nameof(ColumnMetadata), ColumnMetadata)
+            .Build();
 }
