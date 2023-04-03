@@ -1174,12 +1174,6 @@ public class DistributionZoneManager implements IgniteComponent {
                                             logicalTopology
                                     );
                                 });
-                                            saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                                                    zoneId,
-                                                    appliedRevision,
-                                                    logicalTopology
-                                            );
-                                        });
 
                                 synchronized (dataNodesMutex) {
                                     ZoneState defaultZoneState = zonesState.get(DEFAULT_ZONE_ID);
