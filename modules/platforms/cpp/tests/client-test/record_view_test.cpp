@@ -284,73 +284,59 @@ TEST_F(record_view_test, get_and_upsert_existing_record_async) {
     EXPECT_EQ(val2.val, res->val);
 }
 
-//TEST_F(record_view_test, insert_new_record) {
-//    auto val = test_type(42, "foo");
-//    auto res = view.insert(nullptr, val);
-//
-//    ASSERT_TRUE(res);
-//}
-//
-//TEST_F(record_view_test, insert_existing_record) {
-//    auto val1 = test_type(42, "foo");
-//    auto res = view.insert(nullptr, val1);
-//    ASSERT_TRUE(res);
-//
-//    auto val2 = test_type(42, "bar");
-//    res = view.insert(nullptr, val2);
-//    ASSERT_FALSE(res);
-//
-//    auto res = view.get(nullptr, test_type(42));
-//    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(42, res->key);
-//    EXPECT_EQ("foo", res->val);
-//}
-//
-//TEST_F(record_view_test, insert_existing_record_async) {
-//    auto val1 = test_type(42, "foo");
-//    auto val2 = test_type(42, "bar");
-//
-//    auto all_done = std::make_shared<std::promise<std::optional<test_type>>>();
-//
-//    view.insert_async(nullptr, val1, [&](ignite_result<bool> &&res) {
-//        if (!check_and_set_operation_error(*all_done, res))
-//            return;
-//
-//        if (!res.value())
-//            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on first insertion")));
-//
-//        view.insert_async(nullptr, val2, [&](ignite_result<bool> &&res) {
-//            if (!check_and_set_operation_error(*all_done, res))
-//                return;
-//
-//            if (res.value())
-//                all_done->set_exception(std::make_exception_ptr(ignite_error("Expected false on second insertion")));
-//
-//            view.get_async(
-//                nullptr, test_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
-//        });
-//    });
-//
-//    auto res = all_done->get_future().get();
-//    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(val1.column_count(), res->column_count());
-//    EXPECT_EQ(val1.key, res->key);
-//    EXPECT_EQ(val1.val, res->val);
-//}
-//
-//TEST_F(record_view_test, insert_empty_tuple_throws) {
-//    EXPECT_THROW(
-//        {
-//            try {
-//                view.insert(nullptr, test_type());
-//            } catch (const ignite_error &e) {
-//                EXPECT_STREQ("Tuple can not be empty", e.what());
-//                throw;
-//            }
-//        },
-//        ignite_error);
-//}
-//
+TEST_F(record_view_test, insert_new_record) {
+    test_type val{42, "foo"};
+    auto res = view.insert(nullptr, val);
+
+    ASSERT_TRUE(res);
+}
+
+TEST_F(record_view_test, insert_existing_record) {
+    test_type val1{42, "foo"};
+    auto inserted = view.insert(nullptr, val1);
+    ASSERT_TRUE(inserted);
+
+    test_type val2{42, "bar"};
+    inserted = view.insert(nullptr, val2);
+    ASSERT_FALSE(inserted);
+
+    auto res = view.get(nullptr, test_type(42));
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ(42, res->key);
+    EXPECT_EQ("foo", res->val);
+}
+
+TEST_F(record_view_test, insert_existing_record_async) {
+    test_type val1{42, "foo"};
+    test_type val2{42, "bar"};
+
+    auto all_done = std::make_shared<std::promise<std::optional<test_type>>>();
+
+    view.insert_async(nullptr, val1, [&](ignite_result<bool> &&res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        if (!res.value())
+            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on first insertion")));
+
+        view.insert_async(nullptr, val2, [&](ignite_result<bool> &&res) {
+            if (!check_and_set_operation_error(*all_done, res))
+                return;
+
+            if (res.value())
+                all_done->set_exception(std::make_exception_ptr(ignite_error("Expected false on second insertion")));
+
+            view.get_async(
+                nullptr, test_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+        });
+    });
+
+    auto res = all_done->get_future().get();
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ(val1.key, res->key);
+    EXPECT_EQ(val1.val, res->val);
+}
+
 //TEST_F(record_view_test, insert_all_new) {
 //    static constexpr std::size_t records_num = 10;
 //
@@ -427,7 +413,7 @@ TEST_F(record_view_test, get_and_upsert_existing_record_async) {
 //}
 //
 //TEST_F(record_view_test, replace_nonexisting) {
-//    auto val = test_type(42, "foo");
+//    test_type val{42, "foo"};
 //    auto res = view.replace(nullptr, val);
 //
 //    ASSERT_FALSE(res);
@@ -437,11 +423,11 @@ TEST_F(record_view_test, get_and_upsert_existing_record_async) {
 //}
 //
 //TEST_F(record_view_test, replace_existing) {
-//    auto val1 = test_type(42, "foo");
+//    test_type val1{42, "foo"};
 //    auto res = view.insert(nullptr, val1);
 //    ASSERT_TRUE(res);
 //
-//    auto val2 = test_type(42, "bar");
+//    test_type val2{42, "bar"};
 //    res = view.replace(nullptr, val2);
 //    ASSERT_TRUE(res);
 //
@@ -452,8 +438,8 @@ TEST_F(record_view_test, get_and_upsert_existing_record_async) {
 //}
 //
 //TEST_F(record_view_test, replace_existing_async) {
-//    auto val1 = test_type(42, "foo");
-//    auto val2 = test_type(42, "bar");
+//    test_type val1{42, "foo"};
+//    test_type val2{42, "bar"};
 //
 //    auto all_done = std::make_shared<std::promise<std::optional<test_type>>>();
 //
@@ -532,8 +518,8 @@ TEST_F(record_view_test, get_and_upsert_existing_record_async) {
 //}
 //
 //TEST_F(record_view_test, replace_exact_existing_right_async) {
-//    auto val1 = test_type(42, "foo");
-//    auto val2 = test_type(42, "bar");
+//    test_type val1{42, "foo"};
+//    test_type val2{42, "bar"};
 //
 //    auto all_done = std::make_shared<std::promise<std::optional<test_type>>>();
 //
@@ -588,7 +574,7 @@ TEST_F(record_view_test, get_and_upsert_existing_record_async) {
 //}
 //
 //TEST_F(record_view_test, get_and_replace_nonexisting) {
-//    auto val = test_type(42, "foo");
+//    test_type val{42, "foo"};
 //    auto res = view.get_and_replace(nullptr, val);
 //
 //    ASSERT_FALSE(res.has_value());
@@ -598,11 +584,11 @@ TEST_F(record_view_test, get_and_upsert_existing_record_async) {
 //}
 //
 //TEST_F(record_view_test, get_and_replace_existing) {
-//    auto val1 = test_type(42, "foo");
+//    test_type val1{42, "foo"};
 //    auto res = view.insert(nullptr, val1);
 //    ASSERT_TRUE(res);
 //
-//    auto val2 = test_type(42, "bar");
+//    test_type val2{42, "bar"};
 //    auto res = view.get_and_replace(nullptr, val2);
 //
 //    ASSERT_TRUE(res.has_value());
@@ -616,8 +602,8 @@ TEST_F(record_view_test, get_and_upsert_existing_record_async) {
 //}
 //
 //TEST_F(record_view_test, get_and_replace_existing_async) {
-//    auto val1 = test_type(42, "foo");
-//    auto val2 = test_type(42, "bar");
+//    test_type val1{42, "foo"};
+//    test_type val2{42, "bar"};
 //
 //    auto all_done = std::make_shared<std::promise<std::optional<test_type>>>();
 //
@@ -725,7 +711,7 @@ TEST_F(record_view_test, get_and_upsert_existing_record_async) {
 //}
 //
 //TEST_F(record_view_test, remove_exact_existing_async) {
-//    auto val = test_type(42, "foo");
+//    test_type val{42, "foo"};
 //
 //    auto all_done = std::make_shared<std::promise<bool>>();
 //
@@ -791,7 +777,7 @@ TEST_F(record_view_test, get_and_upsert_existing_record_async) {
 //}
 //
 //TEST_F(record_view_test, get_and_remove_existing_async) {
-//    auto val1 = test_type(42, "foo");
+//    test_type val1{42, "foo"};
 //
 //    auto all_done = std::make_shared<std::promise<std::optional<test_type>>>();
 //

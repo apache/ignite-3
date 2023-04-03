@@ -623,29 +623,31 @@ public:
             [this, tx, &record](auto callback) { get_and_upsert_async(tx, record, std::move(callback)); });
     }
 
-//    /**
-//     * Inserts a record into the table if it does not exist asynchronously.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param record A record to insert into the table.
-//     * @param callback Callback. Called with a value indicating whether the
-//     *   record was inserted. Equals @c false if a record with the same key
-//     *   already exists.
-//     */
-//    void insert_async(transaction *tx, const value_type &record, ignite_callback<bool> callback);
-//
-//    /**
-//     * Inserts a record into the table if does not exist.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param record A record to insert into the table.
-//     */
-//    bool insert(transaction *tx, const value_type &record) {
-//        return sync<bool>([this, tx, &record](auto callback) { insert_async(tx, record, std::move(callback)); });
-//    }
-//
+    /**
+     * Inserts a record into the table if it does not exist asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to insert into the table.
+     * @param callback Callback. Called with a value indicating whether the
+     *   record was inserted. Equals @c false if a record with the same key
+     *   already exists.
+     */
+    void insert_async(transaction *tx, const value_type &record, ignite_callback<bool> callback) {
+        m_delegate.insert_async(tx, convert_to_tuple(record), std::move(callback));
+    }
+
+    /**
+     * Inserts a record into the table if does not exist.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to insert into the table.
+     */
+    bool insert(transaction *tx, const value_type &record) {
+        return sync<bool>([this, tx, &record](auto callback) { insert_async(tx, record, std::move(callback)); });
+    }
+
 //    /**
 //     * Inserts multiple records into the table asynchronously, skipping existing ones.
 //     *
