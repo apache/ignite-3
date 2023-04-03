@@ -19,7 +19,7 @@ namespace Apache.Ignite.Internal.Linq;
 
 using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
+using Common;
 using Remotion.Linq;
 
 /// <summary>
@@ -84,28 +84,10 @@ internal sealed class IgniteQueryable<T>
     public override string ToString()
     {
         var queryData = GetQueryData();
-        var sb = new StringBuilder();
 
-        sb.Append(GetType());
-        sb.Append(" [Query=").Append(queryData.QueryText);
-
-        sb.Append(", Parameters=");
-        var count = 0;
-
-        foreach (var parameter in queryData.Parameters)
-        {
-            if (count > 0)
-            {
-                sb.Append(", ");
-            }
-
-            sb.Append(parameter);
-
-            count++;
-        }
-
-        sb.Append(']');
-
-        return sb.ToString();
+        return new IgniteToStringBuilder(GetType())
+            .Append("Query", queryData.QueryText)
+            .Append("Parameters", string.Join(", ", queryData.Parameters))
+            .Build();
     }
 }
