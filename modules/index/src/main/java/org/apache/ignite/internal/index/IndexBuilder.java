@@ -160,7 +160,14 @@ class IndexBuilder {
                                     return completedFuture(null);
                                 }
 
-                                List<RowId> batchRowIds = collectRowIdBatch();
+                                RowId nextRowIdToBuild = nextRowIdToBuild();
+
+                                if (nextRowIdToBuild == null) {
+                                    // Index has already been built.
+                                    return completedFuture(null);
+                                }
+
+                                List<RowId> batchRowIds = collectRowIdBatch(nextRowIdToBuild);
 
                                 RowId nextRowId = getNextRowIdForNextBatch(batchRowIds);
 
@@ -250,20 +257,15 @@ class IndexBuilder {
             return batch.isEmpty() ? null : batch.get(batch.size() - 1).increment();
         }
 
-        private @Nullable List<RowId> collectRowIdBatch() {
-            RowId nextRowIdToBuild;
-
-            if (nextRowIdToBuildFromPreviousBatch == null) {
-                nextRowIdToBuild = table.internalTable().storage().getOrCreateIndex(partitionId, tableIndexView.id()).getNextRowIdToBuild();
-
-                if (nextRowIdToBuild == null) {
-                    // Index has already been built.
-                    return null;
-                }
-            } else {
-                nextRowIdToBuild = nextRowIdToBuildFromPreviousBatch;
+        private @Nullable RowId nextRowIdToBuild() {
+            if (nextRowIdToBuildFromPreviousBatch != null) {
+                return nextRowIdToBuildFromPreviousBatch;
             }
 
+            return table.internalTable().storage().getOrCreateIndex(partitionId, tableIndexView.id()).getNextRowIdToBuild();
+        }
+
+        private List<RowId> collectRowIdBatch(RowId nextRowIdToBuild) {
             if (nextRowIdToBuildFromPreviousBatch == null) {
                 LOG.info("Start building the index: [{}]", createCommonTableIndexInfo());
             }
