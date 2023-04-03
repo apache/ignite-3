@@ -53,11 +53,25 @@ public partial class LinqTests
         //     .ToArray();
         var res = PocoView.AsQueryable()
             .Where(x => x.Key == 2)
-            .Select(x => new CustomProjectionCtorAndInit(x.Key) { Value = x.Val })
+            .Select(x => new CustomProjectionCtorAndInit(x.Key)
+            {
+                RefProp = x.Val,
+                ValueProp = x.Key + 1,
+                RefPropInitOnly = x.Val,
+                ValuePropInitOnly = x.Key + 2,
+                RefField = x.Val,
+                ValueField = x.Key + 3
+            })
             .ToArray();
 
         Assert.AreEqual(1, res.Length);
-        Assert.AreEqual(2, res[0].Id); // Assert.AreEqual("v-2", res[0].Value);
+        Assert.AreEqual(2, res[0].Id);
+        Assert.AreEqual("v-2", res[0].RefProp);
+        Assert.AreEqual(3, res[0].ValueProp);
+        Assert.AreEqual("v-2", res[0].RefPropInitOnly);
+        Assert.AreEqual(4, res[0].ValuePropInitOnly);
+        Assert.AreEqual("v-2", res[0].RefField);
+        Assert.AreEqual(5, res[0].ValueField);
     }
 
     [Test]
@@ -129,7 +143,21 @@ public partial class LinqTests
 
         public long Id { get; }
 
-        public string? Value { get; set; }
+        public string? RefProp { get; set; }
+
+        public long ValueProp { get; set; }
+
+        public string? RefPropInitOnly { get; init; }
+
+        public long ValuePropInitOnly { get; init; }
+
+#pragma warning disable CS0649
+#pragma warning disable SA1401
+        public string? RefField;
+
+        public long ValueField;
+#pragma warning restore SA1401
+#pragma warning restore CS0649
     }
 
     private class CustomProjectionCtor

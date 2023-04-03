@@ -225,7 +225,8 @@ internal static class ResultSelector
 
         if (ctorParams.Length + membersInitiated.Count != columns.Count)
         {
-            throw new InvalidOperationException("Constructor parameter count does not match column count, can't emit row reader.");
+            throw new InvalidOperationException("Constructor parameter count + initialized members parameter count" +
+                                                " does not match column count, can't emit row reader.");
         }
 
         // Read all constructor parameters and push them to the evaluation stack.
@@ -245,11 +246,16 @@ internal static class ResultSelector
             il.Emit(OpCodes.Dup);
             var member = membersInitiated[memberIndex];
 
-            // TODO: fields, init only properties, collection initialization? (inline and for properties)
-            if (member is PropertyInfo {SetMethod: {}} pi)
+            // TODO: collection initialization? (inline and for properties)
+            if (member is PropertyInfo {SetMethod: {}} propertyInfo)
             {
-                EmitReadToStack(il, columns[columnsIndex], pi.PropertyType, columnsIndex, options);
-                il.Emit(OpCodes.Callvirt, pi.SetMethod);
+                EmitReadToStack(il, columns[columnsIndex], propertyInfo.PropertyType, columnsIndex, options);
+                il.Emit(OpCodes.Callvirt, propertyInfo.SetMethod);
+            }
+            else if (member is FieldInfo fieldInfo)
+            {
+                EmitReadToStack(il, columns[columnsIndex], fieldInfo.FieldType, columnsIndex, options);
+                il.Emit(OpCodes.Stfld, fieldInfo);
             }
             else
             {
