@@ -64,5 +64,6 @@ public class IgniteToStringBuilderTests
         Assert.AreEqual("IgniteToStringBuilderTests { a = 1, b = Foo { X = 123 }, c = 3 }", builder.Build());
     }
 
+    // ReSharper disable once NotAccessedPositionalProperty.Local
     private record Foo(int X);
 }
