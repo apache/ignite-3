@@ -57,7 +57,9 @@ test_type convert_from_tuple(ignite_tuple&& value) {
     test_type res;
 
     res.key = value.get<std::int64_t>("key");
-    res.val = value.get<std::string>("val");
+
+    if (value.column_count() > 1)
+        res.val = value.get<std::string>("val");
 
     return res;
 }
@@ -85,7 +87,7 @@ protected:
         for (std::int64_t i = -100; i < 100; ++i)
             work_range.emplace_back(i);
 
-//        record_view.remove_all(nullptr, work_range);
+        view.remove_all(nullptr, work_range);
     }
 
     /** Ignite client. */
@@ -224,65 +226,63 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
     EXPECT_EQ("Val10", res[1]->val);
 }
 
-//TEST_F(record_view_test, get_and_upsert_new_record) {
-//    auto val = test_type(42, "foo");
-//    auto res = view.get_and_upsert(nullptr, val);
-//
-//    ASSERT_FALSE(res_tuple.has_value());
-//}
-//
-//TEST_F(record_view_test, get_and_upsert_existing_record) {
-//    auto val1 = test_type(42, "foo");
-//    auto res = view.get_and_upsert(nullptr, val1);
-//
-//    ASSERT_FALSE(res_tuple.has_value());
-//
-//    auto val2 = test_type(42, "bar");
-//    res = view.get_and_upsert(nullptr, val2);
-//
-//    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(42, res->key);
-//    EXPECT_EQ("foo", res->val);
-//
-//    res = view.get(nullptr, test_type(42));
-//
-//    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(42, res->key);
-//    EXPECT_EQ("bar", res->val);
-//}
-//
-//TEST_F(record_view_test, get_and_upsert_existing_record_async) {
-//    auto val1 = test_type(42, "foo");
-//    auto val2 = test_type(42, "bar");
-//
-//    auto first = std::make_shared<std::promise<std::optional<test_type>>>();
-//
-//    view.get_and_upsert_async(nullptr, val1, [&](auto res) {
-//        if (!check_and_set_operation_error(*first, res))
-//            return;
-//
-//        if (res.value().has_value())
-//            first->set_exception(std::make_exception_ptr(ignite_error("Expected nullopt on first insertion")));
-//
-//        view.get_and_upsert_async(
-//            nullptr, val2, [&](auto res) { result_set_promise(*first, std::move(res)); });
-//    });
-//
-//    auto res = first->get_future().get();
-//    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(val1.column_count(), res_tuple->column_count());
-//    EXPECT_EQ(val1.get<int64_t>("key"), res->key);
-//    EXPECT_EQ(val1.get<std::string>("val"), res->val);
-//
-//    auto second = std::make_shared<std::promise<std::optional<test_type>>>();
-//    view.get_async(nullptr, test_type(42), [&](auto res) { result_set_promise(*second, std::move(res)); });
-//
-//    res = second->get_future().get();
-//    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(val2.column_count(), res_tuple->column_count());
-//    EXPECT_EQ(val2.get<int64_t>("key"), res->key);
-//    EXPECT_EQ(val2.get<std::string>("val"), res->val);
-//}
+TEST_F(record_view_test, get_and_upsert_new_record) {
+    test_type val{42, "foo"};
+    auto res = view.get_and_upsert(nullptr, val);
+
+    ASSERT_FALSE(res.has_value());
+}
+
+TEST_F(record_view_test, get_and_upsert_existing_record) {
+    test_type val1{42, "foo"};
+    auto res = view.get_and_upsert(nullptr, val1);
+
+    ASSERT_FALSE(res.has_value());
+
+    test_type val2{42, "bar"};
+    res = view.get_and_upsert(nullptr, val2);
+
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ(42, res->key);
+    EXPECT_EQ("foo", res->val);
+
+    res = view.get(nullptr, test_type(42));
+
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ(42, res->key);
+    EXPECT_EQ("bar", res->val);
+}
+
+TEST_F(record_view_test, get_and_upsert_existing_record_async) {
+    test_type val1{42, "foo"};
+    test_type val2{42, "bar"};
+
+    auto first = std::make_shared<std::promise<std::optional<test_type>>>();
+
+    view.get_and_upsert_async(nullptr, val1, [&](auto res) {
+        if (!check_and_set_operation_error(*first, res))
+            return;
+
+        if (res.value().has_value())
+            first->set_exception(std::make_exception_ptr(ignite_error("Expected nullopt on first insertion")));
+
+        view.get_and_upsert_async(
+            nullptr, val2, [&](auto res) { result_set_promise(*first, std::move(res)); });
+    });
+
+    auto res = first->get_future().get();
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ(val1.key, res->key);
+    EXPECT_EQ(val1.val, res->val);
+
+    auto second = std::make_shared<std::promise<std::optional<test_type>>>();
+    view.get_async(nullptr, test_type(42), [&](auto res) { result_set_promise(*second, std::move(res)); });
+
+    res = second->get_future().get();
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ(val2.key, res->key);
+    EXPECT_EQ(val2.val, res->val);
+}
 
 //TEST_F(record_view_test, insert_new_record) {
 //    auto val = test_type(42, "foo");
@@ -333,9 +333,9 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
 //
 //    auto res = all_done->get_future().get();
 //    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(val1.column_count(), res_tuple->column_count());
-//    EXPECT_EQ(val1.get<int64_t>("key"), res->key);
-//    EXPECT_EQ(val1.get<std::string>("val"), res->val);
+//    EXPECT_EQ(val1.column_count(), res->column_count());
+//    EXPECT_EQ(val1.key, res->key);
+//    EXPECT_EQ(val1.val, res->val);
 //}
 //
 //TEST_F(record_view_test, insert_empty_tuple_throws) {
@@ -380,8 +380,8 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
 //
 //    EXPECT_EQ(res.size(), 1);
 //    EXPECT_EQ(2, res.front().column_count());
-//    EXPECT_EQ(2, res.front().get<int64_t>("key"));
-//    EXPECT_EQ("baz", res.front().get<std::string>("val"));
+//    EXPECT_EQ(2, res.front().key);
+//    EXPECT_EQ("baz", res.front().val);
 //
 //    auto tuple2 = view.get(nullptr, test_type(2));
 //
@@ -433,7 +433,7 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
 //    ASSERT_FALSE(res);
 //
 //    auto res = view.get(nullptr, test_type(42));
-//    ASSERT_FALSE(res_tuple.has_value());
+//    ASSERT_FALSE(res.has_value());
 //}
 //
 //TEST_F(record_view_test, replace_existing) {
@@ -478,9 +478,9 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
 //
 //    auto res = all_done->get_future().get();
 //    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(val2.column_count(), res_tuple->column_count());
-//    EXPECT_EQ(val2.get<int64_t>("key"), res->key);
-//    EXPECT_EQ(val2.get<std::string>("val"), res->val);
+//    EXPECT_EQ(val2.column_count(), res->column_count());
+//    EXPECT_EQ(val2.key, res->key);
+//    EXPECT_EQ(val2.val, res->val);
 //}
 //
 //TEST_F(record_view_test, replace_empty_throws) {
@@ -502,7 +502,7 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
 //    ASSERT_FALSE(res);
 //
 //    auto res = view.get(nullptr, test_type(42));
-//    ASSERT_FALSE(res_tuple.has_value());
+//    ASSERT_FALSE(res.has_value());
 //}
 //
 //TEST_F(record_view_test, replace_exact_existing_wrong) {
@@ -558,9 +558,9 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
 //
 //    auto res = all_done->get_future().get();
 //    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(val2.column_count(), res_tuple->column_count());
-//    EXPECT_EQ(val2.get<int64_t>("key"), res->key);
-//    EXPECT_EQ(val2.get<std::string>("val"), res->val);
+//    EXPECT_EQ(val2.column_count(), res->column_count());
+//    EXPECT_EQ(val2.key, res->key);
+//    EXPECT_EQ(val2.val, res->val);
 //}
 //
 //TEST_F(record_view_test, replace_exact_empty_throws) {
@@ -594,7 +594,7 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
 //    ASSERT_FALSE(res.has_value());
 //
 //    auto res = view.get(nullptr, test_type(42));
-//    ASSERT_FALSE(res_tuple.has_value());
+//    ASSERT_FALSE(res.has_value());
 //}
 //
 //TEST_F(record_view_test, get_and_replace_existing) {
@@ -634,9 +634,9 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
 //
 //    auto res = all_done->get_future().get();
 //    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(val1.column_count(), res_tuple->column_count());
-//    EXPECT_EQ(val1.get<int64_t>("key"), res->key);
-//    EXPECT_EQ(val1.get<std::string>("val"), res->val);
+//    EXPECT_EQ(val1.column_count(), res->column_count());
+//    EXPECT_EQ(val1.key, res->key);
+//    EXPECT_EQ(val1.val, res->val);
 //}
 //
 //TEST_F(record_view_test, get_and_replace_empty_throws) {
@@ -657,7 +657,7 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
 //    ASSERT_FALSE(res);
 //
 //    auto res = view.get(nullptr, test_type(1));
-//    ASSERT_FALSE(res_tuple.has_value());
+//    ASSERT_FALSE(res.has_value());
 //}
 //
 //TEST_F(record_view_test, remove_existing) {
@@ -668,7 +668,7 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
 //    ASSERT_TRUE(res);
 //
 //    auto res = view.get(nullptr, test_type(1));
-//    ASSERT_FALSE(res_tuple.has_value());
+//    ASSERT_FALSE(res.has_value());
 //}
 //
 //TEST_F(record_view_test, remove_existing_async) {
@@ -686,7 +686,7 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
 //    });
 //
 //    auto res = all_done->get_future().get();
-//    ASSERT_TRUE(res_tuple);
+//    ASSERT_TRUE(res);
 //}
 //
 //TEST_F(record_view_test, remove_empty_throws) {
@@ -721,7 +721,7 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
 //    ASSERT_TRUE(res);
 //
 //    auto res = view.get(nullptr, test_type(1));
-//    ASSERT_FALSE(res_tuple.has_value());
+//    ASSERT_FALSE(res.has_value());
 //}
 //
 //TEST_F(record_view_test, remove_exact_existing_async) {
@@ -752,7 +752,7 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
 //    });
 //
 //    auto res = all_done->get_future().get();
-//    ASSERT_TRUE(res_tuple);
+//    ASSERT_TRUE(res);
 //}
 //
 //TEST_F(record_view_test, remove_exact_empty_throws) {
@@ -773,7 +773,7 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
 //    ASSERT_FALSE(res.has_value());
 //
 //    auto res = view.get(nullptr, test_type(42));
-//    ASSERT_FALSE(res_tuple.has_value());
+//    ASSERT_FALSE(res.has_value());
 //}
 //
 //TEST_F(record_view_test, get_and_remove_existing) {
@@ -787,7 +787,7 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
 //    EXPECT_EQ("foo", res->val);
 //
 //    res = view.get(nullptr, test_type(42));
-//    ASSERT_FALSE(res_tuple.has_value());
+//    ASSERT_FALSE(res.has_value());
 //}
 //
 //TEST_F(record_view_test, get_and_remove_existing_async) {
@@ -808,9 +808,9 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
 //
 //    auto res = all_done->get_future().get();
 //    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(val1.column_count(), res_tuple->column_count());
-//    EXPECT_EQ(val1.get<int64_t>("key"), res->key);
-//    EXPECT_EQ(val1.get<std::string>("val"), res->val);
+//    EXPECT_EQ(val1.column_count(), res->column_count());
+//    EXPECT_EQ(val1.key, res->key);
+//    EXPECT_EQ(val1.val, res->val);
 //}
 //
 //TEST_F(record_view_test, get_and_remove_empty_throws) {
@@ -825,61 +825,55 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
 //        },
 //        ignite_error);
 //}
-//
-//TEST_F(record_view_test, remove_all_nonexisting_keys_return_all) {
-//    std::vector<test_type> non_existing = {test_type(1), test_type(2)};
-//    auto res = view.remove_all(nullptr, non_existing);
-//
-//    EXPECT_EQ(res.size(), 2);
-//
-//    // TODO: Key order should be preserved by the server (IGNITE-16004).
-//    EXPECT_EQ(1, res[0].column_count());
-//    EXPECT_EQ(2, res[0].get<int64_t>("key"));
-//
-//    EXPECT_EQ(1, res[1].column_count());
-//    EXPECT_EQ(1, res[1].get<int64_t>("key"));
-//}
-//
-//TEST_F(record_view_test, remove_all_only_existing) {
-//    std::vector<test_type> to_insert = {test_type(1, "foo"), test_type(2, "bar")};
-//    view.upsert_all(nullptr, to_insert);
-//
-//    auto res = view.remove_all(nullptr, {test_type(1), test_type(2)});
-//
-//    EXPECT_TRUE(res.empty());
-//}
-//
-//TEST_F(record_view_test, remove_all_overlapped) {
-//    static constexpr std::size_t records_num = 10;
-//
-//    std::vector<test_type> to_insert;
-//    to_insert.reserve(records_num);
-//    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i)
-//        to_insert.emplace_back(test_type(i, "Val" + std::to_string(i)));
-//
-//    view.upsert_all(nullptr, to_insert);
-//
-//    std::vector<test_type> to_remove;
-//    for (std::int64_t i = 9; i < 13; ++i)
-//        to_remove.emplace_back(test_type(i));
-//
-//    auto res = view.remove_all(nullptr, to_remove);
-//
-//    EXPECT_EQ(res.size(), 2);
-//
-//    // TODO: Key order should be preserved by the server (IGNITE-16004).
-//    EXPECT_EQ(1, res[0].column_count());
-//    EXPECT_EQ(12, res[0].get<int64_t>("key"));
-//
-//    EXPECT_EQ(1, res[1].column_count());
-//    EXPECT_EQ(11, res[1].get<int64_t>("key"));
-//}
-//
-//TEST_F(record_view_test, remove_all_empty) {
-//    auto res = view.remove_all(nullptr, {});
-//    EXPECT_TRUE(res.empty());
-//}
-//
+
+TEST_F(record_view_test, remove_all_nonexisting_keys_return_all) {
+    std::vector<test_type> non_existing = {test_type(1), test_type(2)};
+    auto res = view.remove_all(nullptr, non_existing);
+
+    EXPECT_EQ(res.size(), 2);
+
+    // TODO: Key order should be preserved by the server (IGNITE-16004).
+    EXPECT_EQ(2, res[0].key);
+    EXPECT_EQ(1, res[1].key);
+}
+
+TEST_F(record_view_test, remove_all_only_existing) {
+    std::vector<test_type> to_insert = {test_type(1, "foo"), test_type(2, "bar")};
+    view.upsert_all(nullptr, to_insert);
+
+    auto res = view.remove_all(nullptr, {test_type(1), test_type(2)});
+
+    EXPECT_TRUE(res.empty());
+}
+
+TEST_F(record_view_test, remove_all_overlapped) {
+    static constexpr std::size_t records_num = 10;
+
+    std::vector<test_type> to_insert;
+    to_insert.reserve(records_num);
+    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i)
+        to_insert.emplace_back(i, "Val" + std::to_string(i));
+
+    view.upsert_all(nullptr, to_insert);
+
+    std::vector<test_type> to_remove;
+    for (std::int64_t i = 9; i < 13; ++i)
+        to_remove.emplace_back(i);
+
+    auto res = view.remove_all(nullptr, to_remove);
+
+    EXPECT_EQ(res.size(), 2);
+
+    // TODO: Key order should be preserved by the server (IGNITE-16004).
+    EXPECT_EQ(12, res[0].key);
+    EXPECT_EQ(11, res[1].key);
+}
+
+TEST_F(record_view_test, remove_all_empty) {
+    auto res = view.remove_all(nullptr, {});
+    EXPECT_TRUE(res.empty());
+}
+
 //TEST_F(record_view_test, remove_all_exact_nonexisting) {
 //    auto res = view.remove_all_exact(nullptr, {test_type(1, "foo"), test_type(2, "bar")});
 //
@@ -896,8 +890,8 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
 //
 //    EXPECT_EQ(res.size(), 1);
 //    EXPECT_EQ(2, res.front().column_count());
-//    EXPECT_EQ(1, res.front().get<int64_t>("key"));
-//    EXPECT_EQ("baz", res.front().get<std::string>("val"));
+//    EXPECT_EQ(1, res.front().key);
+//    EXPECT_EQ("baz", res.front().val);
 //
 //    auto tuple2 = view.get(nullptr, test_type(2));
 //
@@ -919,10 +913,10 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
 //    });
 //
 //    auto res = all_done->get_future().get();
-//    EXPECT_EQ(res_tuple.size(), 1);
-//    EXPECT_EQ(2, res_tuple.front().column_count());
-//    EXPECT_EQ(1, res_tuple.front().get<int64_t>("key"));
-//    EXPECT_EQ("baz", res_tuple.front().get<std::string>("val"));
+//    EXPECT_EQ(res.size(), 1);
+//    EXPECT_EQ(2, res.front().column_count());
+//    EXPECT_EQ(1, res.front().key);
+//    EXPECT_EQ("baz", res.front().val);
 //}
 //
 //TEST_F(record_view_test, remove_all_exact_empty) {

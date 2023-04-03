@@ -589,35 +589,40 @@ public:
      * @param records Records to upsert.
      */
     void upsert_all(transaction *tx, std::vector<value_type> records) {
-        sync<void>([this, tx, records = std::move(records)](
-                       auto callback) mutable { upsert_all_async(tx, std::move(records), std::move(callback)); });
+        sync<void>([this, tx, records = std::move(records)](auto callback) mutable {
+            upsert_all_async(tx, std::move(records), std::move(callback));
+        });
     }
 
-//    /**
-//     * Inserts a record into the table and returns previous record asynchronously.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param record A record to upsert.
-//     * @param callback Callback. Called with a value which contains replaced
-//     *   record or @c std::nullopt if it did not exist.
-//     */
-//    void get_and_upsert_async(
-//        transaction *tx, const value_type &record, ignite_callback<std::optional<value_type>> callback);
-//
-//    /**
-//     * Inserts a record into the table and returns previous record.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param record A record to upsert.
-//     * @return A replaced record or @c std::nullopt if it did not exist.
-//     */
-//    [[nodiscard]] std::optional<value_type> get_and_upsert(transaction *tx, const value_type &record) {
-//        return sync<std::optional<value_type>>(
-//            [this, tx, &record](auto callback) { get_and_upsert_async(tx, record, std::move(callback)); });
-//    }
-//
+    /**
+     * Inserts a record into the table and returns previous record asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to upsert.
+     * @param callback Callback. Called with a value which contains replaced
+     *   record or @c std::nullopt if it did not exist.
+     */
+    void get_and_upsert_async(
+        transaction *tx, const value_type &record, ignite_callback<std::optional<value_type>> callback) {
+        m_delegate.get_and_upsert_async(tx, convert_to_tuple(record), [callback = std::move(callback)] (auto res) {
+            callback(convert_result(std::move(res)));
+        });
+    }
+
+    /**
+     * Inserts a record into the table and returns previous record.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to upsert.
+     * @return A replaced record or @c std::nullopt if it did not exist.
+     */
+    [[nodiscard]] std::optional<value_type> get_and_upsert(transaction *tx, const value_type &record) {
+        return sync<std::optional<value_type>>(
+            [this, tx, &record](auto callback) { get_and_upsert_async(tx, record, std::move(callback)); });
+    }
+
 //    /**
 //     * Inserts a record into the table if it does not exist asynchronously.
 //     *
@@ -823,35 +828,39 @@ public:
 //        return sync<std::optional<value_type>>(
 //            [this, tx, &key](auto callback) { get_and_remove_async(tx, key, std::move(callback)); });
 //    }
-//
-//    /**
-//     * Deletes multiple records from the table asynchronously. If one or more
-//     * keys do not exist, other records are still deleted
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param keys Record keys to delete.
-//     * @param callback Callback that is called on operation completion. Called with
-//     *   records from @c keys that did not exist.
-//     */
-//    void remove_all_async(
-//        transaction *tx, std::vector<value_type> keys, ignite_callback<std::vector<value_type>> callback);
-//
-//    /**
-//     * Deletes multiple records from the table If one or more keys do not exist,
-//     * other records are still deleted
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param keys Record keys to delete.
-//     * @return Records from @c keys that did not exist.
-//     */
-//    std::vector<value_type> remove_all(transaction *tx, std::vector<value_type> keys) {
-//        return sync<std::vector<value_type>>([this, tx, keys = std::move(keys)](auto callback) mutable {
-//            remove_all_async(tx, std::move(keys), std::move(callback));
-//        });
-//    }
-//
+
+    /**
+     * Deletes multiple records from the table asynchronously. If one or more
+     * keys do not exist, other records are still deleted
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param keys Record keys to delete.
+     * @param callback Callback that is called on operation completion. Called with
+     *   records from @c keys that did not exist.
+     */
+    void remove_all_async(
+        transaction *tx, std::vector<value_type> keys, ignite_callback<std::vector<value_type>> callback) {
+        m_delegate.remove_all_async(tx, values_to_tuples(std::move(keys)), [callback = std::move(callback)] (auto res) {
+            callback(convert_result(std::move(res)));
+        });
+    }
+
+    /**
+     * Deletes multiple records from the table If one or more keys do not exist,
+     * other records are still deleted
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param keys Record keys to delete.
+     * @return Records from @c keys that did not exist.
+     */
+    std::vector<value_type> remove_all(transaction *tx, std::vector<value_type> keys) {
+        return sync<std::vector<value_type>>([this, tx, keys = std::move(keys)](auto callback) mutable {
+            remove_all_async(tx, std::move(keys), std::move(callback));
+        });
+    }
+
 //    /**
 //     * Deletes multiple exactly matching records asynchronously. If one or more
 //     * records do not exist, other records are still deleted.
@@ -897,6 +906,21 @@ private:
     }
 
     /**
+     * Tuples to values.
+     * @param tuples Tuples.
+     * @return Values.
+     */
+    static std::vector<value_type> tuples_to_values(std::vector<ignite_tuple> tuples) {
+        //TODO: Optimize memory usage
+        std::vector<value_type> values;
+        values.reserve(tuples.size());
+        for (auto &&tuple : std::move(tuples)) {
+            values.emplace_back(convert_from_tuple<value_type>(std::move(tuple)));
+        }
+        return values;
+    }
+
+    /**
      * Optional tuples to optional values.
      * @param tuples Tuples.
      * @return Values.
@@ -930,6 +954,18 @@ private:
      */
     static ignite_result<std::vector<std::optional<value_type>>> convert_result(
         ignite_result<std::vector<std::optional<ignite_tuple>>> &&res) {
+        if (res.has_error())
+            return {std::move(res).error()};
+
+        return {tuples_to_values(std::move(res).value())};
+    }
+
+    /**
+     * Convert result from tuple-based type to user type.
+     * @param res Result to convert.
+     * @return Converted result.
+     */
+    static ignite_result<std::vector<value_type>> convert_result(ignite_result<std::vector<ignite_tuple>> &&res) {
         if (res.has_error())
             return {std::move(res).error()};
 
