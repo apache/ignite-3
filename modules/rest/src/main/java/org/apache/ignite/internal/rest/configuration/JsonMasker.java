@@ -55,7 +55,7 @@ public class JsonMasker {
     }
 
     private JsonNode traverseAndMask(JsonNode target, Set<String> keysToMask) {
-        if (target.isTextual() && keysToMask.isEmpty()) {
+        if (target.isTextual() && !target.textValue().isBlank() && keysToMask.isEmpty()) {
             return new TextNode(MASKING_STRING);
         }
 

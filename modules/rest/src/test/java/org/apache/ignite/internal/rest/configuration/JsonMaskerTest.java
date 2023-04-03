@@ -90,6 +90,13 @@ class JsonMaskerTest {
     }
 
     @Test
+    void emptyNotMasked() {
+        String json = "{\"name\": \"John Doe\", \"age\": 30, \"credentials\": \"\"}";
+        String masked = jsonMasker.mask(json, keysToMask).toString();
+        assertEquals("{\"name\":\"John Doe\",\"age\":30,\"credentials\":\"\"}", masked);
+    }
+
+    @Test
     void fieldInUpperCase() {
         String json = "{\"name\": \"John Doe\", \"age\": 30, \"CREDENTIALS\": \"admin\"}";
         String masked = jsonMasker.mask(json, keysToMask).toString();
