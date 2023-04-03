@@ -161,7 +161,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                                     .thenCompose(v -> deployAsync(id, version, deploymentUnit));
                         }
                         LOG.warn("Failed to deploy meta of unit " + id + ":" + version + " to metastore. "
-                                + "Already exist.");
+                                + "Already exists.");
                         return CompletableFuture.failedFuture(
                                 new DeploymentUnitAlreadyExistsException(id,
                                         "Unit " + id + ":" + version + " already exists"));
