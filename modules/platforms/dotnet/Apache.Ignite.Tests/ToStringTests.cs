@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Ignite.Table;
 using NUnit.Framework;
 
 /// <summary>
@@ -28,6 +29,8 @@ using NUnit.Framework;
 /// </summary>
 public class ToStringTests
 {
+    private static readonly List<Type> PublicFacingTypes = GetPublicFacingTypes().ToList();
+
     [Test]
     public void TestAllPublicFacingTypesHaveConsistentToString()
     {
@@ -37,6 +40,7 @@ public class ToStringTests
         // For abstract classes, get internal types deriving from them.
         // 2. Check that all types have ToString() method, which uses 'TypeName { Property = Value }' format.
         // We can introduce IgniteToStringBuilder for that.
+        // 3. Check that GetPublicFacingTypes returns something.
         foreach (var type in GetPublicFacingTypes())
         {
             var path = GetSourcePath(type);
@@ -44,6 +48,15 @@ public class ToStringTests
             Console.WriteLine(path);
             Assert.IsTrue(File.Exists(path), path);
         }
+    }
+
+    [Test]
+    public void TestPublicFacingTypes()
+    {
+        CollectionAssert.Contains(PublicFacingTypes, typeof(IgniteTuple));
+        CollectionAssert.Contains(PublicFacingTypes, typeof(SslStreamFactory));
+        CollectionAssert.Contains(PublicFacingTypes, typeof(Internal.Table.Table));
+        CollectionAssert.Contains(PublicFacingTypes, typeof(Internal.Compute.Compute));
     }
 
     private static string GetSourcePath(Type type)
@@ -60,12 +73,11 @@ public class ToStringTests
             .TrimStart('.')
             .Replace('.', Path.DirectorySeparatorChar);
 
-        var path = Path.Combine(
+        return Path.Combine(
             TestUtils.SolutionDir,
             "Apache.Ignite",
             subNamespace,
             typeName + ".cs");
-        return path;
     }
 
     private static IEnumerable<Type> GetPublicFacingTypes()
