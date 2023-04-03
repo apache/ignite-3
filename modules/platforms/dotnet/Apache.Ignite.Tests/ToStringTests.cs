@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests;
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using NUnit.Framework;
 
@@ -36,8 +37,35 @@ public class ToStringTests
         // For abstract classes, get internal types deriving from them.
         // 2. Check that all types have ToString() method, which uses 'TypeName { Property = Value }' format.
         // We can introduce IgniteToStringBuilder for that.
-        var typeNames = string.Join(Environment.NewLine, GetPublicFacingTypes().Select(x => x.Name).OrderBy(x => x));
-        Console.WriteLine(typeNames);
+        foreach (var type in GetPublicFacingTypes())
+        {
+            var path = GetSourcePath(type);
+
+            Console.WriteLine(path);
+            Assert.IsTrue(File.Exists(path), path);
+        }
+    }
+
+    private static string GetSourcePath(Type type)
+    {
+        var typeName = type.Name;
+
+        if (type.IsGenericType || type.IsGenericTypeDefinition)
+        {
+            typeName = typeName[..typeName.IndexOf('`')];
+        }
+
+        var subNamespace = type.Namespace!
+            .Substring("Apache.Ignite".Length)
+            .TrimStart('.')
+            .Replace('.', Path.DirectorySeparatorChar);
+
+        var path = Path.Combine(
+            TestUtils.SolutionDir,
+            "Apache.Ignite",
+            subNamespace,
+            typeName + ".cs");
+        return path;
     }
 
     private static IEnumerable<Type> GetPublicFacingTypes()
