@@ -409,7 +409,7 @@ public partial class LinqTests : IgniteTestsBase
         CollectionAssert.AreEquivalent(new[] { "v-2", "v-4" }, res);
 
         StringAssert.Contains(
-            "select _T0.VAL from PUBLIC.TBL1 as _T0 where (_T0.KEY IN (?, ?)), Parameters=4, 2",
+            "select _T0.VAL from PUBLIC.TBL1 as _T0 where (_T0.KEY IN (?, ?)), Parameters = 4, 2",
             query.ToString());
     }
 

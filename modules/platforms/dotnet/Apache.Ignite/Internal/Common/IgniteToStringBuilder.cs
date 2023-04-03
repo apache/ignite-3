@@ -68,18 +68,45 @@ internal record IgniteToStringBuilder
     /// <returns>This instance.</returns>
     public IgniteToStringBuilder Append(string name, object? value)
     {
-        if (_first)
-        {
-            _first = false;
-        }
-        else
-        {
-            _builder.Append(", ");
-        }
+        AppendComma();
 
         _builder.Append(name);
         _builder.Append(" = ");
         _builder.Append(value);
+
+        return this;
+    }
+
+    /// <summary>
+    /// Appends a property.
+    /// </summary>
+    /// <param name="name">Property name.</param>
+    /// <param name="value">Property value.</param>
+    /// <typeparam name="T">Value type.</typeparam>
+    /// <returns>This instance.</returns>
+    public IgniteToStringBuilder AppendList<T>(string name, IEnumerable<T> value)
+    {
+        AppendComma();
+
+        _builder.Append(name);
+        _builder.Append(" = [ ");
+        bool first = true;
+
+        foreach (var item in value)
+        {
+            if (first)
+            {
+                first = false;
+            }
+            else
+            {
+                _builder.Append(", ");
+            }
+
+            _builder.Append(item);
+        }
+
+        _builder.Append(" ]");
 
         return this;
     }
@@ -107,14 +134,7 @@ internal record IgniteToStringBuilder
     /// <returns>Builder.</returns>
     public IgniteToStringBuilder BeginNested(string name)
     {
-        if (_first)
-        {
-            _first = false;
-        }
-        else
-        {
-            _builder.Append(", ");
-        }
+        AppendComma();
 
         return new(_builder, name, this);
     }
@@ -149,6 +169,18 @@ internal record IgniteToStringBuilder
         Close();
 
         return _builder.ToString();
+    }
+
+    private void AppendComma()
+    {
+        if (_first)
+        {
+            _first = false;
+        }
+        else
+        {
+            _builder.Append(", ");
+        }
     }
 
     private void Close()

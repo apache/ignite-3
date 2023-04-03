@@ -70,6 +70,12 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual(0, resultSet.Metadata!.IndexOf("NUM"));
             Assert.AreEqual(1, resultSet.Metadata!.IndexOf("STR"));
 
+            Assert.AreEqual(
+                "ResultSetMetadata { Columns = [ " +
+                "ColumnMetadata { Name = NUM, Type = Int32, Precision = 10, Scale = 0, Nullable = False, Origin =  }, " +
+                "ColumnMetadata { Name = STR, Type = String, Precision = 5, Scale = -2147483648, Nullable = False, Origin =  } ] }",
+                resultSet.Metadata.ToString());
+
             Assert.AreEqual(1, rows.Count);
             Assert.AreEqual("IgniteTuple { NUM = 1, STR = hello }", rows[0].ToString());
         }
