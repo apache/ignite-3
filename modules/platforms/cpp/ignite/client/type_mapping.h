@@ -22,18 +22,18 @@
 namespace ignite {
 
 template<typename T>
-ignite_tuple convert_to_tuple(T&& value);
+ignite_tuple convert_to_tuple(T &&value);
 
 template<typename T>
-T convert_from_tuple(ignite_tuple&& value);
+T convert_from_tuple(ignite_tuple &&value);
 
 template<typename T>
-ignite_tuple convert_to_tuple(const T& value) {
+ignite_tuple convert_to_tuple(const T &value) {
     return convert_to_tuple(T(value));
 }
 
 template<typename T>
-std::optional<ignite_tuple> convert_to_tuple(std::optional<T>&& value) {
+std::optional<ignite_tuple> convert_to_tuple(std::optional<T> &&value) {
     if (!value.has_value())
         return std::nullopt;
 
@@ -41,7 +41,7 @@ std::optional<ignite_tuple> convert_to_tuple(std::optional<T>&& value) {
 }
 
 template<typename T>
-std::optional<T> convert_from_tuple(std::optional<ignite_tuple>&& value) {
+std::optional<T> convert_from_tuple(std::optional<ignite_tuple> &&value) {
     if (!value.has_value())
         return std::nullopt;
 
@@ -49,7 +49,7 @@ std::optional<T> convert_from_tuple(std::optional<ignite_tuple>&& value) {
 }
 
 template<typename T>
-ignite_result<std::optional<T>> convert_from_tuple(ignite_result<std::optional<ignite_tuple>>&& value) {
+ignite_result<std::optional<T>> convert_from_tuple(ignite_result<std::optional<ignite_tuple>> &&value) {
     if (value.has_error())
         return {std::move(value).error()};
 

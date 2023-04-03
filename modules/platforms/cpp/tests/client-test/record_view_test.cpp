@@ -96,13 +96,32 @@ protected:
 };
 
 TEST_F(record_view_test, upsert_get) {
-    test_type key_tuple{1};
-    test_type val_tuple{1, "foo"};
+    test_type key{1};
+    test_type val{1, "foo"};
 
-    view.upsert(nullptr, val_tuple);
-    auto res = view.get(nullptr, key_tuple);
+    view.upsert(nullptr, val);
+    auto res = view.get(nullptr, key);
 
     ASSERT_TRUE(res.has_value());
     EXPECT_EQ(1L, res->key);
     EXPECT_EQ("foo", res->val);
+}
+
+TEST_F(record_view_test, upsert_get_async) {
+    test_type key{1};
+    test_type val{1, "foo"};
+
+    auto all_done = std::make_shared<std::promise<std::optional<test_type>>>();
+
+    view.upsert_async(nullptr, val, [&](ignite_result<void> &&res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        view.get_async(nullptr, key, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+    });
+
+    auto res = all_done->get_future().get();
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ(val.key, res->key);
+    EXPECT_EQ(val.val, res->val);
 }

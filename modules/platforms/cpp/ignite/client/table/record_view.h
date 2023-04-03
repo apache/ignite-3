@@ -491,8 +491,8 @@ public:
      *   exists and @c std::nullopt otherwise
      */
     void get_async(transaction *tx, const value_type &key, ignite_callback<std::optional<value_type>> callback) {
-        m_delegate.get_async(tx, convert_to_tuple(key), [callback = std::move(callback)](auto res) {
-            callback(convert_from_tuple<T>(res));
+        m_delegate.get_async(tx, convert_to_tuple(key), [callback = std::move(callback)] (auto res) {
+            callback(convert_from_tuple<value_type>(std::move(res)));
         });
     }
 
