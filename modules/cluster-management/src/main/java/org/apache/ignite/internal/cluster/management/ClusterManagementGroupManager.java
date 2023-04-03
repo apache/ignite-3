@@ -891,6 +891,11 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 });
     }
 
+    /**
+     * Returns a map of node's attributes produced from the local configuration of a node.
+     *
+     * @return A map of node's attributes.
+     */
     private Map<String, String> mapNodeAttributes() {
         Map<String, String> attributes = new HashMap<>();
 

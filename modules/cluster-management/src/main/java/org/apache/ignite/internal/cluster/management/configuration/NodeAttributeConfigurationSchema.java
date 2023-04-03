@@ -23,6 +23,7 @@ import org.apache.ignite.configuration.annotation.Value;
 
 /**
  * Node's attribute configuration schema.
+ * TODO: add proper javadocs when filtering feature will be closer to the end https://issues.apache.org/jira/browse/IGNITE-19184
  */
 @Config
 public class NodeAttributeConfigurationSchema {

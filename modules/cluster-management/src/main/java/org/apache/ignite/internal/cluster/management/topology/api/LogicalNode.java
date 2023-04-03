@@ -82,6 +82,7 @@ public class LogicalNode extends ClusterNode {
     /** {@inheritDoc} */
     @Override
     public String toString() {
+        // TODO: S.toString for inherited classes do not work properly https://issues.apache.org/jira/browse/IGNITE-19183
         return S.toString(LogicalNode.class, this);
     }
 }
