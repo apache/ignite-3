@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Transactions
 {
     using System.Threading;
     using System.Threading.Tasks;
+    using Common;
     using Ignite.Transactions;
     using Proto;
     using Proto.MsgPack;
@@ -101,7 +102,12 @@ namespace Apache.Ignite.Internal.Transactions
                 _ => "RolledBack"
             };
 
-            return $"Transaction {{ Id = {Id}, State = {state}, IsReadOnly = {IsReadOnly} }}";
+            var builder = new IgniteToStringBuilder(typeof(Transaction));
+            builder.Append(nameof(Id), Id);
+            builder.Append("State", state);
+            builder.Append(nameof(IsReadOnly), IsReadOnly);
+
+            return builder.Build();
         }
 
         /// <summary>
