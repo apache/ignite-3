@@ -53,7 +53,7 @@ public interface ClusterConfigurationApi {
     @ApiResponse(
             responseCode = "200",
             content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
-            description = "Get cluster configuration")
+            description = "Received cluster configuration.")
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "400", description = "Incorrect configuration.",

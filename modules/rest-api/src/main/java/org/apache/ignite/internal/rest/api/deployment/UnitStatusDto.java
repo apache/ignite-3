@@ -58,7 +58,7 @@ public class UnitStatusDto {
     }
 
     /**
-     * Returns map from existing unit version to list of nodes consistent ids where unit deployed.
+     * Returns the map of existing unit versions mapped to the list of node consistent ids where these units are deployed.
      *
      * @return Map from existing unit version to list of nodes consistent ids where unit deployed.
      */

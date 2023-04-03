@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * REST command for initializing a cluster.
  */
-@Schema(description = "Cluster initialization data.")
+@Schema(description = "Cluster initialization configuration.")
 public class InitCommand {
     @Schema(description = "A list of RAFT metastorage nodes.")
     private final Collection<String> metaStorageNodes;
@@ -60,7 +60,7 @@ public class InitCommand {
         Objects.requireNonNull(clusterName);
 
         if (metaStorageNodes.isEmpty()) {
-            throw new IllegalArgumentException("Meta Storage node names list must not be empty");
+            throw new IllegalArgumentException("Meta Storage node names list must not be empty.");
         }
 
         if (metaStorageNodes.stream().anyMatch(StringUtils::nullOrBlank)) {
@@ -72,7 +72,7 @@ public class InitCommand {
         }
 
         if (clusterName.isBlank()) {
-            throw new IllegalArgumentException("Cluster name must not be empty");
+            throw new IllegalArgumentException("Cluster name must not be empty.");
         }
 
         this.metaStorageNodes = List.copyOf(metaStorageNodes);

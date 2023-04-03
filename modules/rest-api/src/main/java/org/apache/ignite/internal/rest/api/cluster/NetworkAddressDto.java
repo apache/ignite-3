@@ -29,7 +29,7 @@ import org.apache.ignite.network.NetworkAddress;
 @Schema(name = "NetworkAddress", description = "Node network address information.")
 public class NetworkAddressDto {
     /** Host. */
-    @Schema(description = "Name of the host node is on.")
+    @Schema(description = "Name of the host node runs on.")
     private final String host;
 
     /** Port. */

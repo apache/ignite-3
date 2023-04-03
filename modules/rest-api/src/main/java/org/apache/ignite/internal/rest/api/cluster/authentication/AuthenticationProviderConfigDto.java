@@ -35,7 +35,7 @@ import org.apache.ignite.security.AuthenticationType;
 })
 @Schema(
         name = "AuthenticationProviderConfig",
-        description = "Authentication provider configuration",
+        description = "Configuration for the authentication provider.",
         discriminatorProperty = "type",
         discriminatorMapping = {
                 @DiscriminatorMapping(value = "basic", schema = BasicAuthenticationProviderConfigDto.class)
