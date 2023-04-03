@@ -153,7 +153,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
 
 
-        Transaction tx = req.autoCommit() ? null : connectionContext.transaction();
+        Transaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
 
         QueryContext context = createQueryContext(req.getStmtType(), tx);
 
@@ -247,7 +247,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             return CompletableFuture.failedFuture(new IgniteInternalException(Client.CONNECTION_ERR));
         }
 
-        Transaction tx = autoCommit ? null : connectionContext.transaction();
+        Transaction tx = autoCommit ? null : connectionContext.getOrStartTransaction();
         var context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE, tx);
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connectionContext.doInSession(sessionId -> processor.querySingleAsync(
@@ -480,7 +480,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             }
         }
         
-        private Transaction transaction() {
+        private Transaction getOrStartTransaction() {
             Transaction tx0 = tx;
 
             if (tx0 == null) {
