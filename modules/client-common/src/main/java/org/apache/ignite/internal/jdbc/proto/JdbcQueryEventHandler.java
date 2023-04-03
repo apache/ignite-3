@@ -107,7 +107,7 @@ public interface JdbcQueryEventHandler {
 
     /**
      * Commit/rollback a transaction when {@link Connection#setAutoCommit(boolean)} autocommit} is disabled.  
-     * 
+     *
      * @param connectionId An identifier of the connection on a server.
      * @param commit {@code True} to commit, {@code false} to rollback.
      * @return Result future.

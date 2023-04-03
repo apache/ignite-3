@@ -101,7 +101,7 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
     public boolean autoCommit() {
         return autoCommit;
     }
-    
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
@@ -113,7 +113,7 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         for (Object[] arg : args) {
             packer.packObjectArrayAsBinaryTuple(arg);
         }
-        
+
         packer.packBoolean(autoCommit);
     }
 
@@ -131,7 +131,7 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         for (int i = 0; i < n; ++i) {
             args.add(unpacker.unpackObjectArrayFromBinaryTuple());
         }
-        
+
         autoCommit = unpacker.unpackBoolean();
     }
 

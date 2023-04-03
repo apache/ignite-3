@@ -34,7 +34,7 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
 
     /** Sql queries. */
     private List<String> queries;
-    
+
     /** Flag indicating whether auto-commit mode is enabled. */
     private boolean autoCommit;
 
@@ -79,7 +79,7 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
 
     /**
      * Get flag indicating whether auto-commit mode is enabled.
-     * 
+     *
      * @return Flag indicating whether auto-commit mode is enabled.
      */
     public boolean autoCommit() {
