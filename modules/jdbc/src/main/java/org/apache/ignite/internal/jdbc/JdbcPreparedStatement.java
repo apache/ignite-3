@@ -115,7 +115,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
                 = new JdbcBatchPreparedStmntRequest(conn.getSchema(), sql, batchedArgs);
 
         try {
-            JdbcBatchExecuteResult res = conn.handler().batchPrepStatementAsync(req).join();
+            JdbcBatchExecuteResult res = conn.handler().batchPrepStatementAsync(conn.connectionId(), req).join();
 
             if (!res.hasResults()) {
                 throw new BatchUpdateException(res.err(),

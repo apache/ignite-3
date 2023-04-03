@@ -42,8 +42,10 @@ public class ClientJdbcExecuteBatchRequest {
     ) {
         var req = new JdbcBatchExecuteRequest();
 
+        long connectionId = in.unpackLong();
+
         req.readBinary(in);
 
-        return handler.batchAsync(req).thenAccept(res -> res.writeBinary(out));
+        return handler.batchAsync(connectionId, req).thenAccept(res -> res.writeBinary(out));
     }
 }
