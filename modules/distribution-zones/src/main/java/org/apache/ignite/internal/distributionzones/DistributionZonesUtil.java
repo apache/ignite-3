@@ -332,6 +332,7 @@ public class DistributionZonesUtil {
      */
     public static DistributionZoneConfiguration getZoneById(DistributionZonesConfiguration dstZnsCfg, int zoneId) {
         if (zoneId == DEFAULT_ZONE_ID) {
+            dstZnsCfg.defaultDistributionZone().change(ch -> ch.changeDataStorage(c -> c.convert(dstZnsCfg.defaultDataStorage().value())));
             return dstZnsCfg.defaultDistributionZone();
         }
 

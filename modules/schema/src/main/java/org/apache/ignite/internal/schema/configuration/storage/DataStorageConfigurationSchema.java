@@ -28,7 +28,7 @@ import org.apache.ignite.configuration.annotation.Value;
 public class DataStorageConfigurationSchema {
     /** Name of data storage. */
     @PolymorphicId(hasDefault = true)
-    public String name = "aipersist";
+    public String name = UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 
     /** The number of entries in the storage to be garbage collected during a storage update operation. */
     @Value(hasDefault = true)
