@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
@@ -502,7 +503,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
             assertEquals(1, stmt.executeUpdate(sqlChangeName));
             assertEquals(newName, selectName.get());
 
-            // Check commit;
+            // Check commit.
             conn.commit();
             assertEquals(newName, selectName.get());
 
@@ -512,6 +513,57 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
             stmt.close();
 
             checkStatementClosed(() -> stmt.executeUpdate(sqlChangeName));
+        } finally {
+            conn.setAutoCommit(true);
+        }
+    }
+
+    @Test
+    public void testExecuteUpdatePrepared() throws Exception {
+        int id = 1;
+        String oldName = "name_" + id;
+        String newName = "CHANGED_NAME_1";
+        String sqlChangeName = "update TEST set NAME=? where ID=?;";
+
+        conn.setAutoCommit(false);
+
+        try (PreparedStatement pstmt = conn.prepareStatement(sqlChangeName)){
+            Supplier<String> selectName = () -> {
+                try {
+                    try (ResultSet rs = stmt.executeQuery("select NAME from TEST where ID=" + id)) {
+                        assertTrue(rs.next());
+
+                        return rs.getString("NAME");
+                    }
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            };
+
+            assertEquals(oldName, selectName.get());
+
+            // Change oldName to newName.
+            pstmt.setString(1, newName);
+            pstmt.setInt(2, id);
+            assertEquals(1, pstmt.executeUpdate());
+            assertEquals(newName, selectName.get());
+
+            // Check rollback.
+            conn.rollback();
+            assertEquals(oldName, selectName.get());
+
+            // Change oldName to newName.
+            pstmt.setString(1, newName);
+            pstmt.setInt(2, id);
+            assertEquals(1, pstmt.executeUpdate());
+            assertEquals(newName, selectName.get());
+
+            // Check commit.
+            conn.commit();
+            assertEquals(newName, selectName.get());
+
+            conn.rollback();
+            assertEquals(newName, selectName.get());
         } finally {
             conn.setAutoCommit(true);
         }
