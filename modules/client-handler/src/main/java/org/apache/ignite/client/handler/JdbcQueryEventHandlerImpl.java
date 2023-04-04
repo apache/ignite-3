@@ -412,7 +412,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         private final PropertiesHolder properties = PropertiesHelper.emptyHolder();
 
         private volatile @Nullable SessionId sessionId;
-        private volatile @Nullable Transaction tx;
+        private @Nullable Transaction tx;
 
         JdbcConnectionContext(
                 SessionFactory factory,
@@ -482,13 +482,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
         
         private Transaction getOrStartTransaction() {
-            Transaction tx0 = tx;
-
-            if (tx0 == null) {
-                tx = tx0 = igniteTransactions.begin();
-            }
-            
-            return tx0;
+            return tx == null ? tx = igniteTransactions.begin() : tx;
         }
         
         private CompletableFuture<Void> finishTransactionAsync(boolean commit) {
