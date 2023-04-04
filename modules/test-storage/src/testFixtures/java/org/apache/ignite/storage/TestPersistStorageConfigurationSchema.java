@@ -15,22 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration.storage;
+package org.apache.ignite.storage;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfig;
-import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
 
 /**
- * Configuration schema for data storage.
+ *
  */
-@PolymorphicConfig
-public class DataStorageConfigurationSchema {
-    /** Name of data storage. */
-    @PolymorphicId(hasDefault = true)
-    public String name = "aipersist";
-
-    /** The number of entries in the storage to be garbage collected during a storage update operation. */
+@PolymorphicConfigInstance("aipersist")
+public class TestPersistStorageConfigurationSchema extends DataStorageConfigurationSchema {
+    /** Data region. */
     @Value(hasDefault = true)
-    public int gcOnUpdateBatchSize = 5;
+    public String dataRegion = "none";
 }

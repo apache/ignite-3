@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import java.util.Map;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -56,7 +57,8 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
 
 
     public String dataStorage() {
-        return dataStorage;
+        // TODO: KKK dirty hack
+        return (dataStorage == null) ? "aipersist" : dataStorage;
     }
 
     public void dataStorage(String dataStorage) {
@@ -64,7 +66,7 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
     }
 
     public Map<String, Object> dataStorageOptions() {
-        return dataStorageOptions;
+        return (dataStorageOptions == null) ? Map.of() : dataStorageOptions;
     }
 
     public void dataStorageOptions(Map<String, Object> dataStorageOptions) {

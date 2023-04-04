@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration.storage;
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfig;
-import org.apache.ignite.configuration.annotation.PolymorphicId;
-import org.apache.ignite.configuration.annotation.Value;
+dependencies {
+    testFixturesAnnotationProcessor project(':ignite-configuration-annotation-processor')
+    testFixturesAnnotationProcessor libs.auto.service
 
-/**
- * Configuration schema for data storage.
- */
-@PolymorphicConfig
-public class DataStorageConfigurationSchema {
-    /** Name of data storage. */
-    @PolymorphicId(hasDefault = true)
-    public String name = "aipersist";
-
-    /** The number of entries in the storage to be garbage collected during a storage update operation. */
-    @Value(hasDefault = true)
-    public int gcOnUpdateBatchSize = 5;
+    testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-schema')
+    testFixturesImplementation project(':ignite-configuration')
+    testFixturesImplementation libs.jetbrains.annotations
+    testFixturesImplementation libs.auto.service.annotations
 }
+
+description = 'ignite-test-storage'
