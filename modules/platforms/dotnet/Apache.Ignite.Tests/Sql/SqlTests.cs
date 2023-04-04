@@ -404,5 +404,18 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual("10", props["prop1"]);
             Assert.AreEqual("xyz", props["prop-2"]);
         }
+
+        [Test]
+        public async Task TestResultSetToString()
+        {
+            await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(null, "select 1 as num, 'hello' as str");
+
+            Assert.AreEqual(
+                "ResultSet`1[IIgniteTuple] { HasRowSet = True, AffectedRows = -1, WasApplied = False, " +
+                "Metadata = ResultSetMetadata { Columns = [ " +
+                "ColumnMetadata { Name = NUM, Type = Int32, Precision = 10, Scale = 0, Nullable = False, Origin =  }, " +
+                "ColumnMetadata { Name = STR, Type = String, Precision = 5, Scale = -2147483648, Nullable = False, Origin =  } ] } }",
+                resultSet.ToString());
+        }
     }
 }
