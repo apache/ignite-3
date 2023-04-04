@@ -23,6 +23,7 @@ namespace Apache.Ignite.Internal.Table
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
+    using Common;
     using Ignite.Table;
     using Ignite.Transactions;
     using Log;
@@ -126,6 +127,13 @@ namespace Apache.Ignite.Internal.Table
             where TK : notnull
             where TV : notnull =>
             new KeyValueView<TK, TV>(GetRecordViewInternal<KvPair<TK, TV>>());
+
+        /// <inheritdoc/>
+        public override string ToString() =>
+            new IgniteToStringBuilder(GetType())
+                .Append(Name)
+                .Append(Id)
+                .ToString();
 
         /// <summary>
         /// Gets the record view for the specified type.

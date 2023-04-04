@@ -51,7 +51,7 @@ public sealed class IgniteDbColumn : DbColumn
 
     /// <inheritdoc />
     public override string ToString() =>
-        new IgniteToStringBuilder(nameof(IgniteDbColumn))
+        new IgniteToStringBuilder(GetType())
             .Append(ColumnName)
             .Append(ColumnOrdinal)
             .Append(DataTypeName)

@@ -88,7 +88,7 @@ namespace Apache.Ignite.Log
 
         /// <inheritdoc />
         public override string ToString() =>
-            new IgniteToStringBuilder(nameof(CategoryLogger))
+            new IgniteToStringBuilder(GetType())
                 .Append(Category)
                 .Build();
     }

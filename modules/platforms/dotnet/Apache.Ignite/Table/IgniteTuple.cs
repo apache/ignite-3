@@ -86,7 +86,7 @@ namespace Apache.Ignite.Table
         /// <inheritdoc />
         public override string ToString()
         {
-            var builder = new IgniteToStringBuilder(nameof(IgniteTuple));
+            var builder = new IgniteToStringBuilder(GetType());
 
             for (var i = 0; i < FieldCount; i++)
             {

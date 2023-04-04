@@ -112,7 +112,7 @@ namespace Apache.Ignite.Internal
 
         /// <inheritdoc/>
         public override string ToString() =>
-            new IgniteToStringBuilder(nameof(IgniteClientInternal))
+            new IgniteToStringBuilder(GetType())
                 .AppendList(GetConnections().Select(c => c.Node), "Connections")
                 .Build();
     }

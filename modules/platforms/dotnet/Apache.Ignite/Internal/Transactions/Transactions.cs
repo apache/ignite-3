@@ -57,6 +57,6 @@ namespace Apache.Ignite.Internal.Transactions
         }
 
         /// <inheritdoc />
-        public override string ToString() => IgniteToStringBuilder.Build(nameof(Transactions));
+        public override string ToString() => IgniteToStringBuilder.Build(GetType());
     }
 }

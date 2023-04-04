@@ -36,6 +36,6 @@ namespace Apache.Ignite
         }
 
         /// <inheritdoc />
-        public override string ToString() => IgniteToStringBuilder.Build(nameof(RetryNonePolicy));
+        public override string ToString() => IgniteToStringBuilder.Build(GetType());
     }
 }

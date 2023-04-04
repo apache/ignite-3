@@ -113,7 +113,7 @@ namespace Apache.Ignite.Log
 
         /// <inheritdoc />
         public override string ToString() =>
-            new IgniteToStringBuilder(nameof(ConsoleLogger))
+            new IgniteToStringBuilder(GetType())
                 .Append(MinLevel)
                 .Build();
     }

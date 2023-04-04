@@ -38,18 +38,9 @@ internal record IgniteToStringBuilder
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteToStringBuilder"/> class.
     /// </summary>
-    /// <param name="typeName">Type name.</param>
-    public IgniteToStringBuilder(string typeName)
-        : this(new(), typeName, null)
-    {
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="IgniteToStringBuilder"/> class.
-    /// </summary>
     /// <param name="type">Type.</param>
     public IgniteToStringBuilder(Type type)
-        : this(new(), type.Name, null)
+        : this(new(), GetTypeName(type), null)
     {
     }
 
@@ -64,9 +55,9 @@ internal record IgniteToStringBuilder
     /// <summary>
     /// Builds the string representation.
     /// </summary>
-    /// <param name="typeName">Type name.</param>
+    /// <param name="type">Type.</param>
     /// <returns>String.</returns>
-    public static string Build(string typeName) => typeName + " { }";
+    public static string Build(Type type) => GetTypeName(type) + " { }";
 
     /// <summary>
     /// Appends a property.
@@ -181,6 +172,12 @@ internal record IgniteToStringBuilder
         Close();
 
         return _builder.ToString();
+    }
+
+    private static string GetTypeName(Type type)
+    {
+        // TODO: Generics
+        return type.Name;
     }
 
     private void AppendComma()

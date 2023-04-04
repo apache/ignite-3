@@ -70,7 +70,7 @@ public class IgniteToStringBuilderTests
     public void TestGetNested()
     {
         // TODO: Test double build, double close, etc
-        var res = new IgniteToStringBuilder("Foo")
+        var res = new IgniteToStringBuilder(typeof(Foo))
             .Append(1, "a")
             .BeginNested("Bar")
             .Append(2, "b")

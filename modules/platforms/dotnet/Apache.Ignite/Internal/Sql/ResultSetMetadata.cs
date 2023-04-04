@@ -48,7 +48,7 @@ namespace Apache.Ignite.Internal.Sql
 
         /// <inheritdoc/>
         public override string ToString() =>
-            new IgniteToStringBuilder(nameof(ResultSetMetadata))
+            new IgniteToStringBuilder(GetType())
                 .AppendList(Columns)
                 .Build();
     }
