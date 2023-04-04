@@ -113,9 +113,6 @@ public class SessionManager implements LifecycleAware {
      * @return A session associated with given id, or {@code null} if this session have already expired or never exists.
      */
     public @Nullable Session session(SessionId sessionId) {
-        if (sessionId == null)
-            return null;
-
         var session = activeSessions.get(sessionId);
 
         if (session != null && !session.touch()) {

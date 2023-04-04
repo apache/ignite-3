@@ -89,6 +89,7 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
+        packer.packBoolean(autoCommit);
         ClientMessageUtils.writeStringNullable(packer, schemaName);
 
         packer.packArrayHeader(queries.size());
@@ -96,13 +97,12 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
         for (String q : queries) {
             packer.packString(q);
         }
-
-        packer.packBoolean(autoCommit);
     }
 
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
+        autoCommit = unpacker.unpackBoolean();
         schemaName = ClientMessageUtils.readStringNullable(unpacker);
 
         int n = unpacker.unpackArrayHeader();
@@ -112,8 +112,6 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
         for (int i = 0; i < n; ++i) {
             queries.add(unpacker.unpackString());
         }
-
-        autoCommit = unpacker.unpackBoolean();
     }
 
     /** {@inheritDoc} */

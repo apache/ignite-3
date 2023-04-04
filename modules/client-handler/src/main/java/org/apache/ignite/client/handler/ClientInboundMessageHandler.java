@@ -565,8 +565,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientTablePartitionAssignmentGetRequest.process(in, out, igniteTables);
             
             case ClientOp.JDBC_TX_FINISH:
-                //resources.put(new ClientResource())
-                return ClientJdbcFinishTxRequest.process(in, out, jdbcQueryEventHandler); 
+                return ClientJdbcFinishTxRequest.process(in, out, jdbcQueryEventHandler);
 
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);

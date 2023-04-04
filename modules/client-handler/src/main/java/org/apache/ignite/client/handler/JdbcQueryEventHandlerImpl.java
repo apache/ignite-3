@@ -154,7 +154,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                     "Connection is broken"));
         }
 
-
         Transaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
 
         QueryContext context = createQueryContext(req.getStmtType(), tx);
