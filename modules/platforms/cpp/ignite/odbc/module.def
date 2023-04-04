@@ -65,4 +65,3 @@ EXPORTS
 	SQLSetStmtAttr
 	SQLBulkOperations
 	SQLSpecialColumns
-	

@@ -22,65 +22,64 @@ set(TARGET ${PROJECT_NAME})
 find_package(ODBC REQUIRED)
 
 include_directories(SYSTEM ${ODBC_INCLUDE_DIRS})
-include_directories(include)
 
 set(SOURCES
-    src/app/application_data_buffer.cpp
-    src/app/parameter.cpp
-    src/app/parameter_set.cpp
-    src/common_types.cpp
-    src/config/config_tools.cpp
-    src/config/configuration.cpp
-    src/config/connection_info.cpp
-    src/config/connection_string_parser.cpp
-    src/connection.cpp
-    src/cursor.cpp
-    src/diagnostic/diagnosable_adapter.cpp
-    src/diagnostic/diagnostic_record.cpp
-    src/diagnostic/diagnostic_record_storage.cpp
-    src/environment.cpp
-    src/meta/column_meta.cpp
-    src/meta/table_meta.cpp
-    src/odbc.cpp
-    src/entry_points.cpp
-    src/dsn_config.cpp
-    src/query/column_metadata_query.cpp
-    src/query/data_query.cpp
-    src/query/batch_query.cpp
-    src/query/foreign_keys_query.cpp
-    src/query/primary_keys_query.cpp
-    src/query/table_metadata_query.cpp
-    src/query/type_info_query.cpp
-    src/query/special_columns_query.cpp
-    src/query/streaming_query.cpp
-    src/sql/sql_parser.cpp
-    src/sql/sql_lexer.cpp
-    src/sql/sql_set_streaming_command.cpp
-    src/sql/sql_utils.cpp
-    src/streaming/streaming_batch.cpp
-    src/streaming/streaming_context.cpp
-    src/ssl_mode.cpp
-    src/protocol_version.cpp
-    src/result_page.cpp
-    src/row.cpp
-    src/nested_tx_mode.cpp
-    src/engine_mode.cpp
-    src/message.cpp
-    src/column.cpp
-    src/statement.cpp
-    src/type_traits.cpp
-    src/utility.cpp
-    src/log.cpp
+    app/application_data_buffer.cpp
+    app/parameter.cpp
+    app/parameter_set.cpp
+    common_types.cpp
+    config/config_tools.cpp
+    config/configuration.cpp
+    config/connection_info.cpp
+    config/connection_string_parser.cpp
+    connection.cpp
+    cursor.cpp
+    diagnostic/diagnosable_adapter.cpp
+    diagnostic/diagnostic_record.cpp
+    diagnostic/diagnostic_record_storage.cpp
+    environment.cpp
+    meta/column_meta.cpp
+    meta/table_meta.cpp
+    odbc.cpp
+    entry_points.cpp
+    dsn_config.cpp
+    query/column_metadata_query.cpp
+    query/data_query.cpp
+    query/batch_query.cpp
+    query/foreign_keys_query.cpp
+    query/primary_keys_query.cpp
+    query/table_metadata_query.cpp
+    query/type_info_query.cpp
+    query/special_columns_query.cpp
+    query/streaming_query.cpp
+    sql/sql_parser.cpp
+    sql/sql_lexer.cpp
+    sql/sql_set_streaming_command.cpp
+    sql/sql_utils.cpp
+    streaming/streaming_batch.cpp
+    streaming/streaming_context.cpp
+    ssl_mode.cpp
+    protocol_version.cpp
+    result_page.cpp
+    row.cpp
+    nested_tx_mode.cpp
+    engine_mode.cpp
+    message.cpp
+    column.cpp
+    statement.cpp
+    type_traits.cpp
+    utility.cpp
+    log.cpp
 )
 
 if (WIN32)
-    include_directories(os/win/include)
-
-    list(APPEND SOURCES os/win/src/system_dsn.cpp
-            os/win/src/system/ui/custom_window.cpp
-            os/win/src/system/ui/dsn_configuration_window.cpp
-            os/win/src/system/ui/window.cpp
-            module.def)
+    list(APPEND SOURCES
+        system/win/system_dsn.cpp
+        system/win/ui/custom_window.cpp
+        system/win/ui/dsn_configuration_window.cpp
+        system/win/ui/window.cpp
+        module.def
+    )
 endif ()
 
 add_library(${TARGET} SHARED ${SOURCES})
