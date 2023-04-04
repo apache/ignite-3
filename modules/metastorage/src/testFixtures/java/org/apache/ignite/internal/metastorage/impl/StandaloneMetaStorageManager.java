@@ -130,6 +130,9 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
         when(raftGroupService.run(any())).thenAnswer(invocation -> {
             Command command = invocation.getArgument(0);
             RaftGroupListener listener = listenerCaptor.getValue();
+
+            listener.onBeforeApply(command);
+
             return runCommand(command, listener);
         });
 
