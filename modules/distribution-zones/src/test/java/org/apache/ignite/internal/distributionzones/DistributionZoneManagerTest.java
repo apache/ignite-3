@@ -848,9 +848,10 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         assertNull(zone1, "Zone was not dropped.");
     }
 
-    private void bindZoneToTable(String zoneName) {
+    private void bindZoneToTable(String zoneName) throws Exception {
         int zoneId = distributionZoneManager.getZoneId(zoneName);
 
-        tablesConfiguration.change(ch -> ch.changeTables(tables -> tables.update("fooTable", chg -> chg.changeZoneId(zoneId))));
+        tablesConfiguration.change(ch -> ch.changeTables(tables -> tables.update("fooTable", chg -> chg.changeZoneId(zoneId))))
+                .get(5, TimeUnit.SECONDS);
     }
 }
