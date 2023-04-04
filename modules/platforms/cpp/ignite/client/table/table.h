@@ -56,7 +56,7 @@ public:
      *
      * @return Table name.
      */
-    [[nodiscard]] IGNITE_API const std::string &name() const noexcept;
+    [[nodiscard]] IGNITE_API const std::string &get_name() const noexcept;
 
     /**
      * Gets the record binary view.

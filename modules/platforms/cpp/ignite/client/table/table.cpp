@@ -20,7 +20,7 @@
 
 namespace ignite {
 
-const std::string &table::name() const noexcept {
+const std::string &table::get_name() const noexcept {
     return m_impl->name();
 }
 

@@ -22,7 +22,7 @@
 namespace ignite {
 
 /**
- * Function that specifies how a value of a type should be conversed to @c ignite_tuple.
+ * Function that specifies how a value of a type should be converted to @c ignite_tuple.
  *
  * @tparam T Type of the value.
  * @param value Value to convert.
@@ -32,7 +32,7 @@ template<typename T>
 ignite_tuple convert_to_tuple(T &&value);
 
 /**
- * Function that specifies how an @c ignite_tuple instance should be conversed to specific type.
+ * Function that specifies how an @c ignite_tuple instance should be converted to specific type.
  *
  * @tparam T Type to convert to.
  * @param value Instance of the @c ignite_tuple type.
@@ -41,11 +41,25 @@ ignite_tuple convert_to_tuple(T &&value);
 template<typename T>
 T convert_from_tuple(ignite_tuple &&value);
 
+/**
+ * Specialisation for const-references.
+ *
+ * @tparam T Type to convert from.
+ * @param value Value.
+ * @return Tuple.
+ */
 template<typename T>
 ignite_tuple convert_to_tuple(const T &value) {
     return convert_to_tuple(T(value));
 }
 
+/**
+ * Specialisation for optionals.
+ *
+ * @tparam T Type to convert from.
+ * @param value Optional value.
+ * @return Optional tuple.
+ */
 template<typename T>
 std::optional<ignite_tuple> convert_to_tuple(std::optional<T> &&value) {
     if (!value.has_value())
@@ -54,6 +68,13 @@ std::optional<ignite_tuple> convert_to_tuple(std::optional<T> &&value) {
     return {convert_to_tuple<T>(*std::move(value))};
 }
 
+/**
+ * Specialisation for optionals.
+ *
+ * @tparam T Type to convert to.
+ * @param value Optional tuple.
+ * @return Optional value.
+ */
 template<typename T>
 std::optional<T> convert_from_tuple(std::optional<ignite_tuple> &&value) {
     if (!value.has_value())

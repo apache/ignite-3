@@ -323,7 +323,7 @@ public:
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
-     * @param key A record with key columns set..
+     * @param key A record with key columns set.
      * @param callback Callback that is called on operation completion. Called with
      *   a value indicating whether a record with the specified key was deleted.
      */
@@ -777,7 +777,7 @@ public:
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
-     * @param key A record with key columns set..
+     * @param key A record with key columns set.
      * @param callback Callback that is called on operation completion. Called with
      *   a value indicating whether a record with the specified key was deleted.
      */

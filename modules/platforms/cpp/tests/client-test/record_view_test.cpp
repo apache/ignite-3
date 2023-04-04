@@ -21,6 +21,7 @@
 #include "ignite/client/ignite_client.h"
 #include "ignite/client/ignite_client_configuration.h"
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -35,6 +36,26 @@ struct test_type {
     explicit test_type(std::int64_t key) : key(key) {}
     explicit test_type(std::string val) : val(std::move(val)) {}
     explicit test_type(std::int64_t key, std::string val) : key(key), val(std::move(val)) {}
+
+    std::int64_t key{0};
+    std::string val;
+};
+
+struct wrong_mapping_key {
+    wrong_mapping_key() = default;
+    explicit wrong_mapping_key(std::int64_t key) : key(key) {}
+    explicit wrong_mapping_key(std::string val) : val(std::move(val)) {}
+    explicit wrong_mapping_key(std::int64_t key, std::string val) : key(key), val(std::move(val)) {}
+
+    std::int64_t key{0};
+    std::string val;
+};
+
+struct wrong_mapping_value {
+    wrong_mapping_value() = default;
+    explicit wrong_mapping_value(std::int64_t key) : key(key) {}
+    explicit wrong_mapping_value(std::string val) : val(std::move(val)) {}
+    explicit wrong_mapping_value(std::int64_t key, std::string val) : key(key), val(std::move(val)) {}
 
     std::int64_t key{0};
     std::string val;
@@ -60,6 +81,50 @@ test_type convert_from_tuple(ignite_tuple&& value) {
 
     if (value.column_count() > 1)
         res.val = value.get<std::string>("val");
+
+    return res;
+}
+
+template<>
+ignite_tuple convert_to_tuple(wrong_mapping_key &&value) {
+    ignite_tuple tuple;
+
+    tuple.set("id", value.key);
+    tuple.set("val", value.val);
+
+    return tuple;
+}
+
+template<>
+wrong_mapping_key convert_from_tuple(ignite_tuple&& value) {
+    wrong_mapping_key res;
+
+    res.key = value.get<std::int64_t>("id");
+
+    if (value.column_count() > 1)
+        res.val = value.get<std::string>("val");
+
+    return res;
+}
+
+template<>
+ignite_tuple convert_to_tuple(wrong_mapping_value &&value) {
+    ignite_tuple tuple;
+
+    tuple.set("key", value.key);
+    tuple.set("str", value.val);
+
+    return tuple;
+}
+
+template<>
+wrong_mapping_value convert_from_tuple(ignite_tuple&& value) {
+    wrong_mapping_value res;
+
+    res.key = value.get<std::int64_t>("key");
+
+    if (value.column_count() > 1)
+        res.val = value.get<std::string>("str");
 
     return res;
 }
@@ -96,6 +161,68 @@ protected:
     /** Record binary view. */
     record_view<test_type> view;
 };
+
+TEST_F(record_view_test, wrong_mapped_key_throws) {
+    {
+        test_type val{1, "foo"};
+        view.upsert(nullptr, val);
+    }
+
+    auto table = m_client.get_tables().get_table(TABLE_1);
+    auto wrong_view = table->get_record_view<wrong_mapping_key>();
+
+    wrong_mapping_key key{1};
+    wrong_mapping_key val{1, "foo"};
+
+    EXPECT_THROW(
+        {
+            try {
+                wrong_view.upsert(nullptr, val);
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Missed key column: KEY"));
+                throw;
+            }
+        },
+        ignite_error);
+
+    EXPECT_THROW(
+        {
+            try {
+                (void) wrong_view.get(nullptr, key);
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Missed key column: KEY"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(record_view_test, wrong_mapped_value_throws) {
+    {
+        test_type val{1, "foo"};
+        view.upsert(nullptr, val);
+    }
+
+    auto table = m_client.get_tables().get_table(TABLE_1);
+    auto wrong_view = table->get_record_view<wrong_mapping_value>();
+
+    wrong_mapping_value key{1};
+    wrong_mapping_value val{1, "foo"};
+
+    // Should work just fine. Having additional field and not providing value field is not an error.
+    wrong_view.upsert(nullptr, val);
+
+    EXPECT_THROW(
+        {
+            try {
+                (void) wrong_view.get(nullptr, key);
+            } catch (const ignite_error &e) {
+                EXPECT_EQ(e.what_str(), "Can not find column with the name 'str' in the tuple");
+                throw;
+            }
+        },
+        ignite_error);
+}
 
 TEST_F(record_view_test, upsert_get) {
     test_type key{1};
