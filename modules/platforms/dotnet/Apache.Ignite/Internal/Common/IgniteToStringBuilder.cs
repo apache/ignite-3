@@ -181,12 +181,8 @@ internal record IgniteToStringBuilder
             return type.Name;
         }
 
-        var sb = new StringBuilder(type.Name);
+        var sb = new StringBuilder(type.Name).Append('[');
         var args = type.GetGenericArguments();
-
-        sb.Append('`')
-            .Append(args.Length)
-            .Append('[');
 
         for (var i = 0; i < args.Length; i++)
         {

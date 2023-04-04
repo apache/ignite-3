@@ -133,7 +133,7 @@ namespace Apache.Ignite.Internal.Table
             new IgniteToStringBuilder(GetType())
                 .Append(Name)
                 .Append(Id)
-                .ToString();
+                .Build();
 
         /// <summary>
         /// Gets the record view for the specified type.
