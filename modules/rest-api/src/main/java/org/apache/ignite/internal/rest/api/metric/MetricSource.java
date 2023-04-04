@@ -21,38 +21,41 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
-import org.jetbrains.annotations.Nullable;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 
 /**
- * REST representation of Metric.
+ * REST representation of MetricSource.
  */
-@Schema(name = "Metric")
-public class MetricDto {
-    /** Metric name. */
+@Schema(description = "A list of metric sources provided by modules.")
+public class MetricSource {
+    /** Name of the metric source. */
+    @Schema(description = "Metric source name.",
+            requiredMode = RequiredMode.REQUIRED)
     private final String name;
 
-    /** Metric description. */
-    private final String desc;
+    /** Enabled. */
+    @Schema(description = "If True, the metric is tracked. Otherwise, the metric is not tracked.",
+            requiredMode = RequiredMode.REQUIRED)
+    private final boolean enabled;
 
     /**
      * Constructor.
      *
-     * @param name metric name
-     * @param desc metric description
+     * @param name metric source name
+     * @param enabled flags showing whether this metric source is enabled or not
      */
     @JsonCreator
-    public MetricDto(
+    public MetricSource(
             @JsonProperty("name") String name,
-            @JsonProperty("desc") @Nullable String desc
-    ) {
+            @JsonProperty("enabled") boolean enabled) {
         this.name = name;
-        this.desc = desc;
+        this.enabled = enabled;
     }
 
     /**
-     * Returns the metric name.
+     * Returns the metric source name.
      *
-     * @return metric name
+     * @return metric source name
      */
     @JsonGetter("name")
     public String name() {
@@ -60,12 +63,12 @@ public class MetricDto {
     }
 
     /**
-     * Returns the metric description.
+     * Returns the status of the metric source.
      *
-     * @return metric description
+     * @return {@code true} if metrics are enabled, otherwise - {@code false}
      */
-    @JsonGetter("desc")
-    public @Nullable String desc() {
-        return desc;
+    @JsonGetter("enabled")
+    public boolean enabled() {
+        return enabled;
     }
 }

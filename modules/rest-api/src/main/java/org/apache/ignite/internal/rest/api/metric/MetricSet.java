@@ -20,21 +20,27 @@ package org.apache.ignite.internal.rest.api.metric;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import java.util.Collection;
 
 /**
  * REST representation of MetricSet.
  */
-@Schema(name = "MetricSet")
-public class MetricSetDto {
+@Schema(description = "Metrics set representation.")
+public class MetricSet {
     /** Metric set name. */
-    @Schema(description = "Metric set name.", required = true)
+    @Schema(description = "Metric set name.", requiredMode = RequiredMode.REQUIRED)
     private final String name;
 
     /** Metrics. */
-    @Schema(description = "A list of metrics.", required = true)
-    private final Collection<MetricDto> metrics;
+    @ArraySchema(schema = @Schema(
+            description = "A list of metrics.",
+            requiredMode = RequiredMode.REQUIRED,
+            implementation = Metric.class)
+    )
+    private final Collection<Metric> metrics;
 
     /**
      * Constructor.
@@ -43,9 +49,9 @@ public class MetricSetDto {
      * @param metrics metrics
      */
     @JsonCreator
-    public MetricSetDto(
+    public MetricSet(
             @JsonProperty("name") String name,
-            @JsonProperty("metrics") Collection<MetricDto> metrics
+            @JsonProperty("metrics") Collection<Metric> metrics
     ) {
         this.name = name;
         this.metrics = metrics;
@@ -67,7 +73,7 @@ public class MetricSetDto {
      * @return metrics
      */
     @JsonGetter("metrics")
-    public Collection<MetricDto> metrics() {
+    public Collection<Metric> metrics() {
         return metrics;
     }
 }

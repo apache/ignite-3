@@ -27,21 +27,22 @@ import java.util.Map;
 /**
  * DTO of unit status.
  */
-@Schema(name = "UnitStatus", description = "Unit status.")
-public class UnitStatusDto {
-
+@Schema(description = "Unit status.")
+public class UnitStatus {
     /**
      * Unit identifier.
      */
+    @Schema(description = "Unit identifier.")
     private final String id;
 
     /**
      * Map from existing unit version to list of nodes consistent ids where unit deployed.
      */
+    @Schema(description = "Map from unit version to node consistent id where unit is deployed.")
     private final Map<String, List<String>> versionToConsistentIds;
 
     @JsonCreator
-    public UnitStatusDto(@JsonProperty("id") String id,
+    public UnitStatus(@JsonProperty("id") String id,
             @JsonProperty("versionToConsistentIds") Map<String, List<String>> versionToConsistentIds) {
         this.id = id;
         this.versionToConsistentIds = versionToConsistentIds;

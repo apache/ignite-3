@@ -21,17 +21,18 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
-import org.apache.ignite.network.NodeMetadata;
 
 /**
- * REST representation of {@link NodeMetadata}.
+ * REST representation of {@link org.apache.ignite.network.NodeMetadata}.
  */
-@Schema(name = "NodeMetadata", description = "Node metadata information.")
-public class NodeMetadataDto {
+@Schema(description = "Node metadata information.")
+public class NodeMetadata {
     @Schema(description = "The host exposed to REST API.")
     private final String restHost;
+
     @Schema(description = "The HTTP port exposed to REST API.")
     private final int httpPort;
+
     @Schema(description = "The HTTPS port exposed to REST API.")
     private final int httpsPort;
 
@@ -43,7 +44,7 @@ public class NodeMetadataDto {
      * @param httpsPort HTTPS port of a node.
      */
     @JsonCreator
-    public NodeMetadataDto(
+    public NodeMetadata(
             @JsonProperty("restHost") String restHost,
             @JsonProperty("httpPort") int httpPort,
             @JsonProperty("httpsPort") int httpsPort) {
