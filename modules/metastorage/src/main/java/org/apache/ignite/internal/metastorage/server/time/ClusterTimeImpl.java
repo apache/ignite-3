@@ -133,6 +133,7 @@ public class ClusterTimeImpl implements ClusterTime {
 
         private void schedule() {
             try {
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-19199 Only propagate safe time when ms is idle
                 scheduledClusterTimeSyncExecutor.scheduleAtFixedRate(
                         this::disseminateTime,
                         0,

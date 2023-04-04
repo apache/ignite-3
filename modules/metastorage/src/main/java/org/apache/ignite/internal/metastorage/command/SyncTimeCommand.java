@@ -21,9 +21,10 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Represents invoke command with nested conditions and execution branches.
+ * Command that initiates safe time synchronization.
  */
 @Transferable(MetastorageCommandsMessageGroup.SYNC_TIME)
 public interface SyncTimeCommand extends WriteCommand {
+    /** New safe time. */
     HybridTimestampMessage safeTime();
 }

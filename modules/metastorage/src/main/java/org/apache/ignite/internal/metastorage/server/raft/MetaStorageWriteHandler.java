@@ -76,6 +76,10 @@ class MetaStorageWriteHandler {
     boolean handleWriteCommand(CommandClosure<WriteCommand> clo) {
         WriteCommand command = clo.command();
 
+        if (command instanceof MetaStorageWriteCommand) {
+            clusterTime.updateSafeTime(((MetaStorageWriteCommand) command).safeTime().asHybridTimestamp());
+        }
+
         if (command instanceof PutCommand) {
             PutCommand putCmd = (PutCommand) command;
 
