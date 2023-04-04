@@ -472,21 +472,21 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         String oldName = "name_" + id;
         String newName = "CHANGED_NAME_1";
         String sqlChangeName = String.format("update TEST set NAME='%s' where ID=%d;", newName, id);
-        
+
         Supplier<String> selectName = () -> {
             try {
                 try (ResultSet rs = stmt.executeQuery("select NAME from TEST where ID=" + id)) {
                     assertTrue(rs.next());
-                    
+
                     return rs.getString("NAME");
                 }
             } catch (SQLException e) {
                 throw new RuntimeException(e);
             }
         };
-        
+
         conn.setAutoCommit(false);
-        
+
         try {
             assertEquals(oldName, selectName.get());
 
