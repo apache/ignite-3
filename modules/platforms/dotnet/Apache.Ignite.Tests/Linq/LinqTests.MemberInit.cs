@@ -18,12 +18,8 @@
 namespace Apache.Ignite.Tests.Linq;
 
 using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Threading.Tasks;
-using Ignite.Sql;
-using Internal.Linq;
 using NUnit.Framework;
 
 /// <summary>
@@ -32,20 +28,69 @@ using NUnit.Framework;
 public partial class LinqTests
 {
     [Test]
-    public void Do()
+    public void TestSelectMemberInitInitOnly()
     {
         var res = PocoView.AsQueryable()
             .Where(x => x.Key == 2)
-            .Select(x => new CustomProjection { Key = x.Key, Value = x.Val })
+            .Select(x => new CustomProjectionCtorAndInit { ValueProp = x.Key, RefProp = x.Val })
             .ToArray();
 
         Assert.AreEqual(1, res.Length);
-        Assert.AreEqual(2, res[0].Key);
-        Assert.AreEqual("v-2", res[0].Value);
+        Assert.AreEqual(2, res[0].ValueProp);
+        Assert.AreEqual("v-2", res[0].RefProp);
     }
 
     [Test]
-    public void Do1()
+    public void TestSelectMemberInitCtorOnly()
+    {
+        var res = PocoView.AsQueryable()
+            .Where(x => x.Key == 2)
+            .Select(x => new CustomProjectionCtorAndInit(x.Key + 42, x.Val))
+            .ToArray();
+
+        Assert.AreEqual(1, res.Length);
+        Assert.AreEqual(44, res[0].Id);
+        Assert.AreEqual("v-2", res[0].RefProp);
+    }
+
+    [Test]
+    public void TestSelectMemberInitSupportsInitOnlyProps()
+    {
+        var res = PocoView.AsQueryable()
+            .Where(x => x.Key == 2)
+            .Select(x => new CustomProjectionCtorAndInit
+            {
+                RefPropInitOnly = x.Val,
+                ValuePropInitOnly = x.Key + 2,
+            })
+            .ToArray();
+
+        Assert.AreEqual(1, res.Length);
+        var resRow = res[0];
+        Assert.AreEqual("v-2", resRow.RefPropInitOnly);
+        Assert.AreEqual(4, resRow.ValuePropInitOnly);
+    }
+
+    [Test]
+    public void TestSelectMemberInitSupportsFields()
+    {
+        var res = PocoView.AsQueryable()
+            .Where(x => x.Key == 2)
+            .Select(x => new CustomProjectionCtorAndInit
+            {
+                RefField = x.Val,
+                ValueField = x.Key + 3
+            })
+            .ToArray();
+
+        Assert.AreEqual(1, res.Length);
+        var resRow = res[0];
+        Assert.AreEqual("v-2", resRow.RefField);
+        Assert.AreEqual(5, resRow.ValueField);
+    }
+
+    [Test]
+    public void TestSelectMemberInitCtorAndInit()
     {
         var res = PocoView.AsQueryable()
             .Where(x => x.Key == 2)
@@ -61,41 +106,126 @@ public partial class LinqTests
             .ToArray();
 
         Assert.AreEqual(1, res.Length);
-        Assert.AreEqual(2, res[0].Id);
-        Assert.AreEqual("v-2", res[0].RefProp);
-        Assert.AreEqual(3, res[0].ValueProp);
-        Assert.AreEqual("v-2", res[0].RefPropInitOnly);
-        Assert.AreEqual(4, res[0].ValuePropInitOnly);
-        Assert.AreEqual("v-2", res[0].RefField);
-        Assert.AreEqual(5, res[0].ValueField);
+        var resRow = res[0];
+        Assert.AreEqual(2, resRow.Id);
+        Assert.AreEqual("v-2", resRow.RefProp);
+        Assert.AreEqual(3, resRow.ValueProp);
+        Assert.AreEqual("v-2", resRow.RefPropInitOnly);
+        Assert.AreEqual(4, resRow.ValuePropInitOnly);
+        Assert.AreEqual("v-2", resRow.RefField);
+        Assert.AreEqual(5, resRow.ValueField);
     }
 
     [Test]
-    public void Do2()
+    public void TestSelectMemberInitFirstOrDefaultReturnsNull()
     {
-        var query = PocoView.AsQueryable()
-            .Where(x => x.Key == 2)
-            .Select(x => new CustomProjectionCtor(x.Key + 42, x.Val));
-        var res = query
+        var res = PocoView.AsQueryable()
+            .Where(x => false)
+            .Select(x => new CustomProjectionCtorAndInit(x.Key)
+            {
+                RefProp = x.Val,
+                ValueProp = x.Key + 1,
+                RefPropInitOnly = x.Val,
+                ValuePropInitOnly = x.Key + 2,
+                RefField = x.Val,
+                ValueField = x.Key + 3
+            })
             .ToArray();
 
         Assert.AreEqual(1, res.Length);
-        Assert.AreEqual(44, res[0].Id);
-        Assert.AreEqual("v-2", res[0].Data);
+        var resRow = res[0];
+        Assert.AreEqual(2, resRow.Id);
+        Assert.AreEqual("v-2", resRow.RefProp);
+        Assert.AreEqual(3, resRow.ValueProp);
+        Assert.AreEqual("v-2", resRow.RefPropInitOnly);
+        Assert.AreEqual(4, resRow.ValuePropInitOnly);
+        Assert.AreEqual("v-2", resRow.RefField);
+        Assert.AreEqual(5, resRow.ValueField);
     }
 
-    private class CustomProjection
+    [Test]
+    [SuppressMessage("ReSharper", "ReturnValueOfPureMethodIsNotUsed", Justification = "Reviewed")]
+    public void TestSelectMemberInitSingleWithMultipleRowsThrows()
     {
-        public long Key { get; set; }
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => PocoView.AsQueryable()
+                .Select(x => new CustomProjectionCtorAndInit(x.Key) { RefField = x.Val })
+                .Single());
 
-        public string? Value { get; set; }
+        const string expected = "ResultSet is expected to have one row, but has more: " +
+                                "select _T0.KEY, _T0.VAL as REFFIELD from PUBLIC.TBL1 as _T0 limit 2";
+
+        Assert.AreEqual(expected, ex!.Message);
+
+        _ = Assert.Throws<InvalidOperationException>(
+            () => PocoView.AsQueryable()
+                .Select(x => new CustomProjectionCtorAndInit(x.Key)
+                {
+                    RefProp = x.Val,
+                    ValueProp = x.Key + 1,
+                    RefPropInitOnly = x.Val,
+                    ValuePropInitOnly = x.Key + 2,
+                    RefField = x.Val,
+                    ValueField = x.Key + 3
+                })
+                .Single());
+
+        _ = Assert.Throws<InvalidOperationException>(
+            () => PocoView.AsQueryable()
+                .Select(x => new CustomProjectionCtorAndInit(x.Key))
+                .Single());
+
+        _ = Assert.Throws<InvalidOperationException>(
+            () => PocoView.AsQueryable()
+                .Select(x => new CustomProjectionCtorAndInit { RefField = x.Val })
+                .Single());
+    }
+
+    [Test]
+    [Ignore("Does not work at the moment.")]
+    public void TestSelectMemberInitFirstOrDefaultReturnsNullWithEmptyResponse()
+    {
+        var query = PocoView.AsQueryable()
+            .Where(poco => false);
+
+        Assert.IsNull(query
+            .Select(x => new CustomProjectionCtorAndInit(x.Key) { RefField = x.Val })
+            .FirstOrDefault());
+
+        Assert.IsNull(query
+            .Select(x => new CustomProjectionCtorAndInit(x.Key))
+            .FirstOrDefault());
+
+        Assert.IsNull(query
+            .Select(x => new CustomProjectionCtorAndInit(x.Key)
+            {
+                RefProp = x.Val,
+                ValueProp = x.Key + 1,
+                RefPropInitOnly = x.Val,
+                ValuePropInitOnly = x.Key + 2,
+                RefField = x.Val,
+                ValueField = x.Key + 3
+            })
+            .FirstOrDefault());
     }
 
     private class CustomProjectionCtorAndInit
     {
+        public CustomProjectionCtorAndInit()
+        {
+            // No-op.
+        }
+
         public CustomProjectionCtorAndInit(long id)
+            : this(id, null)
+        {
+            // No-op.
+        }
+
+        public CustomProjectionCtorAndInit(long id, string? value)
         {
             Id = id;
+            RefProp = value;
         }
 
         public long Id { get; }
@@ -115,18 +245,5 @@ public partial class LinqTests
         public long ValueField;
 #pragma warning restore SA1401
 #pragma warning restore CS0649
-    }
-
-    private class CustomProjectionCtor
-    {
-        public CustomProjectionCtor(long id, string? data)
-        {
-            Id = id;
-            Data = data;
-        }
-
-        public long Id { get; }
-
-        public string? Data { get; }
     }
 }

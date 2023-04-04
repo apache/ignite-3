@@ -258,7 +258,6 @@ public partial class LinqTests : IgniteTestsBase
     }
 
     [Test]
-    [Ignore("IGNITE-18120 Allow arbitrary MemberInit projections in LINQ")]
     public void TestSelectComputedColumnIntoPoco()
     {
         var res = PocoView.AsQueryable()
