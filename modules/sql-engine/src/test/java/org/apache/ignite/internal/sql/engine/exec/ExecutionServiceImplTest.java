@@ -393,7 +393,7 @@ public class ExecutionServiceImplTest {
      *     <li>An exception happens when trying to send via network, this exception arrives before the root fragment gets executed</li>
      * </ol>
      *
-     * When this happens, the query state must be cleaned up so as not to hang stop() invocation, for example.
+     * <p>When this happens, the query state must be cleaned up so as not to hang stop() invocation, for example.
      */
     @Test
     public void exceptionArrivingBeforeRootFragmentExecutesDoesNotLeaveQueryHanging() {
