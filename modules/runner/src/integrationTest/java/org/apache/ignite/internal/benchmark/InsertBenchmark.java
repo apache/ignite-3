@@ -25,8 +25,10 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -43,9 +45,15 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
+/**
+ * Benchmark for insertion operation, comparing KV, JDBC and SQL APIs.
+ */
 @State(Scope.Benchmark)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 public class InsertBenchmark extends AbstractOneNodeBenchmark {
+    /**
+     * Benchmark for SQL insert.
+     */
     @Benchmark
     @Warmup(iterations = 1, time = 10)
     @Measurement(iterations = 1, time = 20)
@@ -53,20 +61,29 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
         state.executeQuery();
     }
 
+    /**
+     * Benchmark for KV insert.
+     */
     @Benchmark
     @Warmup(iterations = 1, time = 10)
     @Measurement(iterations = 1, time = 20)
-    public void kvInsert(KVState state) {
+    public void kvInsert(KvState state) {
         state.executeQuery();
     }
 
+    /**
+     * Benchmark for JDBC insert.
+     */
     @Benchmark
     @Warmup(iterations = 1, time = 10)
     @Measurement(iterations = 1, time = 20)
-    public void jdbcInsert(JDBCState state) throws SQLException {
+    public void jdbcInsert(JdbcState state) throws SQLException {
         state.executeQuery();
     }
 
+    /**
+     * Benchmark's entry point.
+     */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(".*" + InsertBenchmark.class.getSimpleName() + ".*")
@@ -78,77 +95,109 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
         new Runner(opt).run();
     }
 
+    /**
+     * Benchmark state for {@link #sqlInsert(SqlState)}. Holds {@link Session} and {@link Statement}.
+     */
     @State(Scope.Benchmark)
     public static class SqlState {
-        private String queryStr;
-        private QueryProcessor q = clusterNode.queryEngine();
+        private Statement statement;
+        private Session session;
 
+        /**
+         * Initializes session and statement.
+         */
         @Setup
         public void setUp() {
-            var fieldsQ = IntStream.range(1, 11).mapToObj(i -> "field" + i).collect(joining(","));
-            var valQ = IntStream.range(1, 11).mapToObj(i -> "'" + fieldVal + "'").collect(joining(","));
+            String fieldsQ = IntStream.range(1, 11).mapToObj(i -> "field" + i).collect(joining(","));
+            String valQ = IntStream.range(1, 11).mapToObj(i -> "'" + FIELD_VAL + "'").collect(joining(","));
 
-            queryStr = String.format("insert into usertable(%s, %s)", "ycsb_key", fieldsQ) + "values(%s, " + String.format("%s);", valQ);
+            String queryStr = String.format("insert into %s(%s, %s) values(?, %s);", TABLE_NAME, "ycsb_key", fieldsQ, valQ);
+
+            IgniteSql sql = clusterNode.sql();
+
+            statement = sql.createStatement(queryStr);
+            session = sql.createSession();
+        }
+
+        /**
+         * Closes resources.
+         */
+        @TearDown
+        public void tearDow() throws Exception {
+            IgniteUtils.closeAll(session/*, statement*/);
         }
 
         private int id = 0;
 
-        public void executeQuery() {
-            q.queryAsync("PUBLIC", String.format(queryStr, id++)).get(0).join();
+        void executeQuery() {
+            session.execute(null, statement, id++);
         }
     }
 
+    /**
+     * Benchmark state for {@link #jdbcInsert(JdbcState)}. Holds {@link Connection} and {@link PreparedStatement}.
+     */
     @State(Scope.Benchmark)
-    public static class JDBCState {
-        private String queryStr;
-
+    public static class JdbcState {
         private Connection conn;
 
         private PreparedStatement stmt;
 
         private int id;
 
+        /**
+         * Initializes connection and prepared statement.
+         */
         @Setup
         public void setUp() throws SQLException {
-            var fieldsQ = IntStream.range(1, 11).mapToObj(i -> "field" + i).collect(joining(","));
-            var valQ = IntStream.range(1, 11).mapToObj(i -> "'" + fieldVal + "'").collect(joining(","));
+            String fieldsQ = IntStream.range(1, 11).mapToObj(i -> "field" + i).collect(joining(","));
+            String valQ = IntStream.range(1, 11).mapToObj(i -> "'" + FIELD_VAL + "'").collect(joining(","));
 
-            queryStr = String.format("insert into usertable(%s, %s)", "ycsb_key", fieldsQ) + "values(?, " + String.format("%s);", valQ);
+            String queryStr = String.format("insert into %s(%s, %s) values(?, %s);", TABLE_NAME, "ycsb_key", fieldsQ, valQ);
 
+            //noinspection CallToDriverManagerGetConnection
             conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
 
             stmt = conn.prepareStatement(queryStr);
         }
 
+        /**
+         * Closes resources.
+         */
         @TearDown
-        public void tearDow() throws Exception {
+        public void tearDown() throws Exception {
             IgniteUtils.closeAll(stmt, conn);
         }
 
-        public void executeQuery() throws SQLException {
+        void executeQuery() throws SQLException {
             stmt.setInt(1, id++);
             stmt.executeUpdate();
         }
     }
 
+    /**
+     * Benchmark state for {@link #kvInsert(KvState)}. Holds {@link Tuple} and {@link KeyValueView} for the table.
+     */
     @State(Scope.Benchmark)
-    public static class KVState {
-        private Tuple tuple;
+    public static class KvState {
+        private final Tuple tuple = Tuple.create();
 
         private int id = 0;
 
-        private KeyValueView<Tuple, Tuple> kvView1 = clusterNode.tables().table("usertable").keyValueView();
+        private final KeyValueView<Tuple, Tuple> kvView = clusterNode.tables().table(TABLE_NAME).keyValueView();
 
+        /**
+         * Initializes the tuple.
+         */
         @Setup
         public void setUp() {
-            tuple = Tuple.create();
-            for (int i = 0; i < 10; i++) {
-                tuple.set("field" + 1, fieldVal);
+            for (int i = 1; i < 11; i++) {
+                tuple.set("field" + i, FIELD_VAL);
             }
         }
 
-        public void executeQuery() {
-            kvView1.put(null, Tuple.create().set("ycsb_key", id++), tuple);
+        void executeQuery() {
+            kvView.put(null, Tuple.create().set("ycsb_key", id++), tuple);
         }
     }
 }

@@ -34,42 +34,50 @@ import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
+import org.intellij.lang.annotations.Language;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 
+/**
+ * Base benchmark class for {@link SelectBenchmark} and {@link InsertBenchmark}. Starts an Ignite node with a single table
+ * {@link #TABLE_NAME}, that has single PK column and 10 value columns.
+ */
 @State(Scope.Benchmark)
 public class AbstractOneNodeBenchmark {
     private static final int PORT = NetworkConfigurationSchema.DEFAULT_PORT;
 
-    private static String nodeName = "node" + PORT;
+    private static final String NODE_NAME = "node" + PORT;
 
-    protected static String fieldVal = "a".repeat(100);
+    protected static final String FIELD_VAL = "a".repeat(100);
 
     protected static final String TABLE_NAME = "usertable";
 
     protected static IgniteImpl clusterNode;
 
+    /**
+     * Starts ignite node and creates table {@link #TABLE_NAME}.
+     */
     @Setup
     public final void nodeSetUp() throws IOException {
         Path workDir = Files.createTempDirectory("tmpDirPrefix").toFile().toPath();
 
-        String config = "{\n"
-                + "  network: {\n"
-                + "    nodeFinder:{\n"
-                + "      netClusterNodes: [ \"localhost:" + PORT + "\"] \n"
-                + "    }\n"
-                + "  }\n"
-                + "}";
+        @Language("HOCON")
+        String config = "network: {\n"
+                        + "  nodeFinder:{\n"
+                        + "    netClusterNodes: [ \"localhost:" + PORT + "\"] \n"
+                        + "  }\n"
+                        + "}";
 
-        var fut =  IgnitionManager.start(nodeName, config, workDir.resolve(nodeName));
+        var fut =  TestIgnitionManager.start(NODE_NAME, config, workDir.resolve(NODE_NAME));
 
         IgnitionManager.init(new InitParametersBuilder()
                 .clusterName("cluster")
-                .destinationNodeName(nodeName)
-                .cmgNodeNames(List.of(nodeName))
-                .metaStorageNodeNames(List.of(nodeName))
+                .destinationNodeName(NODE_NAME)
+                .cmgNodeNames(List.of(NODE_NAME))
+                .metaStorageNodeNames(List.of(NODE_NAME))
                 .build()
         );
 
@@ -110,6 +118,6 @@ public class AbstractOneNodeBenchmark {
 
     @TearDown
     public final void nodeTearDown() {
-        IgnitionManager.stop(nodeName);
+        IgnitionManager.stop(NODE_NAME);
     }
 }

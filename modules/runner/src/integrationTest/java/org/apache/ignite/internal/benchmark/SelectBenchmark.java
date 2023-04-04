@@ -35,6 +35,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -51,16 +52,21 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
+/**
+ * Benchmark for reading operation, comparing KV, JDBC and SQL APIs.
+ */
 @State(Scope.Benchmark)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 public class SelectBenchmark extends AbstractOneNodeBenchmark {
-
-    private Random r = new Random();
+    private final Random random = new Random();
 
     private KeyValueView<Tuple, Tuple> keyValueView;
 
+    /**
+     * Fills the table with data.
+     */
     @Setup
-    public void setUp() throws IOException, ClassNotFoundException {
+    public void setUp() throws IOException {
         int id = 0;
 
         keyValueView = clusterNode.tables().table(TABLE_NAME).keyValueView();
@@ -68,37 +74,49 @@ public class SelectBenchmark extends AbstractOneNodeBenchmark {
         for (int i = 0; i < 1000; i++) {
             Tuple t = Tuple.create();
             for (int j = 1; j <= 10; j++) {
-                t.set("field" + j, fieldVal);
+                t.set("field" + j, FIELD_VAL);
             }
 
             keyValueView.put(null, Tuple.create().set("ycsb_key", id++), t);
         }
     }
 
+    /**
+     * Benchmark for SQL select.
+     */
     @Benchmark
     @Warmup(iterations = 1, time = 10)
     @Measurement(iterations = 1, time = 20)
     public void sqlGet(SqlState sqlState) {
-        sqlState.sql("select * from usertable where ycsb_key = " + r.nextInt(1000));
+        sqlState.sql("select * from usertable where ycsb_key = " + random.nextInt(1000));
     }
 
+    /**
+     * Benchmark for JDBC get.
+     */
     @Benchmark
     @Warmup(iterations = 1, time = 10)
     @Measurement(iterations = 1, time = 20)
-    public void jdbcGet(JDBCState state) throws SQLException {
-        state.stmt.setInt(1, r.nextInt(1000));
+    public void jdbcGet(JdbcState state) throws SQLException {
+        state.stmt.setInt(1, random.nextInt(1000));
         try (ResultSet r = state.stmt.executeQuery()) {
             r.next();
         }
     }
 
+    /**
+     * Benchmark for KV get.
+     */
     @Benchmark
     @Warmup(iterations = 1, time = 10)
     @Measurement(iterations = 1, time = 20)
     public void kvGet() {
-        keyValueView.get(null, Tuple.create().set("ycsb_key", r.nextInt(1000)));
+        keyValueView.get(null, Tuple.create().set("ycsb_key", random.nextInt(1000)));
     }
 
+    /**
+     * Benchmark's entry point.
+     */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(".*" + SelectBenchmark.class.getSimpleName() + ".*")
@@ -110,34 +128,58 @@ public class SelectBenchmark extends AbstractOneNodeBenchmark {
         new Runner(opt).run();
     }
 
+    /**
+     * Benchmark state for {@link #sqlGet(SqlState)}. Holds {@link QueryProcessor} and {@link SessionId}.
+     */
     @State(Scope.Benchmark)
     public static class SqlState {
         QueryProcessor queryProcessor = clusterNode.queryEngine();
-        SessionId sessionId = queryProcessor.createSession(newBuilder()
-                .set(QueryProperty.DEFAULT_SCHEMA, "PUBLIC")
-                .set(QueryProperty.QUERY_TIMEOUT, TimeUnit.SECONDS.toMillis(20))
-                .build()
-        );
+
+        SessionId sessionId;
+
+        /**
+         * Initializes session.
+         */
+        @Setup
+        public void setUp() {
+            sessionId = queryProcessor.createSession(newBuilder()
+                    .set(QueryProperty.DEFAULT_SCHEMA, "PUBLIC")
+                    .set(QueryProperty.QUERY_TIMEOUT, TimeUnit.SECONDS.toMillis(20))
+                    .build()
+            );
+        }
+
+        /**
+         * Closes resources.
+         */
+        @TearDown
+        public void tearDown() {
+            queryProcessor.closeSession(sessionId);
+        }
 
         private List<List<Object>> sql(String sql, Object... args) {
             var context = QueryContext.create(SqlQueryType.ALL);
 
-            return getAllFromCursor(
-                    await(queryProcessor.querySingleAsync(sessionId, context, sql, args))
-            );
+            return getAllFromCursor(await(queryProcessor.querySingleAsync(sessionId, context, sql, args)));
         }
     }
 
+    /**
+     * Benchmark state for {@link #jdbcGet(JdbcState)}. Holds {@link Connection} and {@link PreparedStatement}.
+     */
     @State(Scope.Benchmark)
-    public static class JDBCState {
-        public String queryStr = "select * from " + TABLE_NAME + " where ycsb_key = ?";
+    public static class JdbcState {
+        Connection conn;
 
-        public Connection conn;
+        PreparedStatement stmt;
 
-        public PreparedStatement stmt;
-
+        /**
+         * Initializes connection and prepared statement.
+         */
         @Setup
         public void setUp() {
+            String queryStr = "select * from " + TABLE_NAME + " where ycsb_key = ?";
+
             try {
                 //noinspection CallToDriverManagerGetConnection
                 conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
@@ -149,9 +191,8 @@ public class SelectBenchmark extends AbstractOneNodeBenchmark {
         }
 
         @TearDown
-        public void tearDown() throws SQLException {
-            stmt.close();
-            conn.close();
+        public void tearDown() throws Exception {
+            IgniteUtils.closeAll(stmt, conn);
         }
     }
 }
