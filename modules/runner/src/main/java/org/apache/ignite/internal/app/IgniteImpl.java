@@ -39,13 +39,13 @@ import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.deployment.IgniteDeployment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -61,7 +61,6 @@ import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
 import org.apache.ignite.internal.configuration.NodeConfigReadException;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
@@ -69,6 +68,7 @@ import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
+import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -77,7 +77,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -127,7 +126,6 @@ import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.DefaultMessagingService;
@@ -278,18 +276,15 @@ public class IgniteImpl implements Ignite {
      * The Constructor.
      *
      * @param name Ignite node name.
+     * @param configPath Path to node configuration in the HOCON format.
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @param serviceProviderClassLoader The class loader to be used to load provider-configuration files and provider classes, or
      *         {@code null} if the system class loader (or, failing that the bootstrap class loader) is to be used.
      */
-    IgniteImpl(String name,
-            NodeBootstrapConfiguration configuration,
-            Path workDir,
-            @Nullable ClassLoader serviceProviderClassLoader
-    ) {
+    IgniteImpl(String name, Path configPath, Path workDir, @Nullable ClassLoader serviceProviderClassLoader) {
         this.name = name;
 
-        longJvmPauseDetector = new LongJvmPauseDetector(name, Loggers.forClass(LongJvmPauseDetector.class));
+        longJvmPauseDetector = new LongJvmPauseDetector(name);
 
         lifecycleManager = new LifecycleManager(name);
 
@@ -302,7 +297,7 @@ public class IgniteImpl implements Ignite {
         nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
                 modules.local().validators(),
-                new LocalFileConfigurationStorage(configuration),
+                new LocalFileConfigurationStorage(configPath),
                 modules.local().internalSchemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
         );
@@ -313,14 +308,13 @@ public class IgniteImpl implements Ignite {
 
         MessageSerializationRegistry serializationRegistry = createSerializationRegistry(serviceProviderClassLoader);
 
-        var clusterLocalConfiguration = new ClusterLocalConfiguration(name, serializationRegistry);
-
-        nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, clusterLocalConfiguration.getName());
+        nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
 
         clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
-                clusterLocalConfiguration,
+                name,
                 networkConfiguration,
-                nettyBootstrapFactory
+                nettyBootstrapFactory,
+                serializationRegistry
         );
 
         computeComponent = new ComputeComponentImpl(
@@ -370,7 +364,9 @@ public class IgniteImpl implements Ignite {
                 clusterStateStorage,
                 logicalTopology,
                 nodeConfigRegistry.getConfiguration(ClusterManagementConfiguration.KEY),
-                distributedConfigurationUpdater);
+                distributedConfigurationUpdater,
+                nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY)
+        );
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
 
@@ -440,6 +436,9 @@ public class IgniteImpl implements Ignite {
 
         Path storagePath = getPartitionsStorePath(workDir);
 
+        DistributionZonesConfiguration distributionZonesConfiguration =
+                clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
+
         dataStorageMgr = new DataStorageManager(
                 tablesConfiguration,
                 dataStorageModules.createStorageEngines(
@@ -469,6 +468,7 @@ public class IgniteImpl implements Ignite {
                 name,
                 registry,
                 tablesConfiguration,
+                distributionZonesConfiguration,
                 clusterSvc,
                 raftMgr,
                 replicaMgr,
@@ -487,7 +487,7 @@ public class IgniteImpl implements Ignite {
                 topologyAwareRaftGroupServiceFactory
         );
 
-        indexManager = new IndexManager(tablesConfiguration, schemaManager, distributedTblMgr);
+        indexManager = new IndexManager(name, tablesConfiguration, schemaManager, distributedTblMgr, clusterSvc);
 
         catalogManager = new CatalogServiceImpl(metaStorageMgr);
 
@@ -589,7 +589,7 @@ public class IgniteImpl implements Ignite {
      * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
-     * @param cfg Optional node configuration based on
+     * @param configPath Node configuration based on
      *         {@link NetworkConfigurationSchema}. Following rules are used for applying the
      *         configuration properties:
      *
@@ -606,7 +606,7 @@ public class IgniteImpl implements Ignite {
      *         previously use default values. Please pay attention that previously specified properties are searched in the
      *         {@code workDir} specified by the user.
      */
-    public CompletableFuture<Ignite> start(NodeBootstrapConfiguration cfg) {
+    public CompletableFuture<Ignite> start(Path configPath) {
         ExecutorService startupExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(name, "start", LOG));
 
         try {
@@ -624,7 +624,7 @@ public class IgniteImpl implements Ignite {
             // Node configuration manager bootstrap.
 
             try {
-                nodeCfgMgr.bootstrap(cfg.configPath());
+                nodeCfgMgr.bootstrap(configPath);
             } catch (Exception e) {
                 throw new NodeConfigReadException("Unable to parse user-specific configuration", e);
             }
@@ -673,7 +673,7 @@ public class IgniteImpl implements Ignite {
                                     indexManager,
                                     qryEngine,
                                     clientHandlerModule,
-                                    (IgniteComponent) deploymentManager
+                                    deploymentManager
                             );
                         } catch (NodeStoppingException e) {
                             throw new CompletionException(e);
@@ -799,11 +799,6 @@ public class IgniteImpl implements Ignite {
     @Override
     public IgniteCompute compute() {
         return compute;
-    }
-
-    @Override
-    public IgniteDeployment deployment() {
-        return deploymentManager;
     }
 
     /** {@inheritDoc} */
@@ -963,6 +958,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public LogicalTopologyService logicalTopologyService() {
         return logicalTopologyService;
+    }
+
+    @TestOnly
+    public IgniteDeployment deployment() {
+        return deploymentManager;
     }
 
     // TODO: IGNITE-18493 - remove/move this

@@ -216,7 +216,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         // wait for lazy init of node config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
-                containsInAnyOrder("rest", "compute", "clientConnector", "raft", "network", "cluster", "deployment")
+                containsInAnyOrder("rest", "compute", "clientConnector", "raft", "network", "cluster", "deployment", "nodeAttributes")
         );
     }
 
@@ -243,7 +243,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         // wait for lazy init of node config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
-                containsInAnyOrder("rest", "clientConnector", "network", "cluster", "deployment")
+                containsInAnyOrder("rest", "clientConnector", "network", "cluster", "deployment", "nodeAttributes")
         );
     }
 

@@ -76,6 +76,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -122,10 +123,14 @@ public class DistributionZoneManager implements IgniteComponent {
 
     private static final String DISTRIBUTION_ZONE_MANAGER_POOL_NAME = "dst-zones-scheduler";
 
-    private static final String META_STORAGE_WATCH_ID = "dst-zones-watch";
-
     /** Id of the default distribution zone. */
     public static final int DEFAULT_ZONE_ID = 0;
+
+    /** Default number of zone replicas. */
+    public static final int DEFAULT_REPLICA_COUNT = 1;
+
+    /** Default number of zone partitions. */
+    public static final int DEFAULT_PARTITION_COUNT = 25;
 
     /** Default infinite value for the distribution zones' timers. */
     public static final int INFINITE_TIMER_VALUE = Integer.MAX_VALUE;
@@ -166,12 +171,12 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Listener for a topology events. */
     private final LogicalTopologyEventListener topologyEventListener = new LogicalTopologyEventListener() {
         @Override
-        public void onNodeJoined(ClusterNode joinedNode, LogicalTopologySnapshot newTopology) {
+        public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
             updateLogicalTopologyInMetaStorage(newTopology, false);
         }
 
         @Override
-        public void onNodeLeft(ClusterNode leftNode, LogicalTopologySnapshot newTopology) {
+        public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
             updateLogicalTopologyInMetaStorage(newTopology, false);
         }
 
@@ -263,6 +268,18 @@ public class DistributionZoneManager implements IgniteComponent {
             zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
                 try {
                     zonesListChange.create(distributionZoneCfg.name(), zoneChange -> {
+                        if (distributionZoneCfg.partitions() == null) {
+                            zoneChange.changePartitions(DEFAULT_PARTITION_COUNT);
+                        } else {
+                            zoneChange.changePartitions(distributionZoneCfg.partitions());
+                        }
+
+                        if (distributionZoneCfg.replicas() == null) {
+                            zoneChange.changeReplicas(DEFAULT_REPLICA_COUNT);
+                        } else {
+                            zoneChange.changeReplicas(distributionZoneCfg.replicas());
+                        }
+
                         if (distributionZoneCfg.dataNodesAutoAdjust() == null) {
                             zoneChange.changeDataNodesAutoAdjust(INFINITE_TIMER_VALUE);
                         } else {
@@ -505,12 +522,11 @@ public class DistributionZoneManager implements IgniteComponent {
             // Init timers after restart.
             zonesState.putIfAbsent(DEFAULT_ZONE_ID, new ZoneState(executor));
 
-            zonesConfiguration.distributionZones().value().namedListKeys()
-                    .forEach(zoneName -> {
-                        int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
+            zonesConfiguration.distributionZones().value().forEach(zone -> {
+                int zoneId = zone.zoneId();
 
-                        zonesState.putIfAbsent(zoneId, new ZoneState(executor));
-                    });
+                zonesState.putIfAbsent(zoneId, new ZoneState(executor));
+            });
 
             logicalTopologyService.addEventListener(topologyEventListener);
 
@@ -531,12 +547,12 @@ public class DistributionZoneManager implements IgniteComponent {
      */
     private ConfigurationListener<Integer> onUpdateScaleUp() {
         return ctx -> {
-            int zoneId = ctx.config(DistributionZoneConfiguration.class).zoneId().value();
-
             if (ctx.oldValue() == null) {
                 // zone creation, already handled in a separate listener.
                 return completedFuture(null);
             }
+
+            int zoneId = ctx.newValue(DistributionZoneView.class).zoneId();
 
             int newScaleUp = ctx.newValue().intValue();
 
@@ -569,12 +585,12 @@ public class DistributionZoneManager implements IgniteComponent {
      */
     private ConfigurationListener<Integer> onUpdateScaleDown() {
         return ctx -> {
-            int zoneId = ctx.config(DistributionZoneConfiguration.class).zoneId().value();
-
             if (ctx.oldValue() == null) {
                 // zone creation, already handled in a separate listener.
                 return completedFuture(null);
             }
+
+            int zoneId = ctx.newValue(DistributionZoneView.class).zoneId();
 
             int newScaleDown = ctx.newValue().intValue();
 
@@ -716,6 +732,14 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param distributionZoneCfg Distribution zone configuration.
      */
     private static void updateZoneChange(DistributionZoneChange zoneChange, DistributionZoneConfigurationParameters distributionZoneCfg) {
+        if (distributionZoneCfg.replicas() != null) {
+            zoneChange.changeReplicas(distributionZoneCfg.replicas());
+        }
+
+        if (distributionZoneCfg.partitions() != null) {
+            zoneChange.changePartitions(distributionZoneCfg.partitions());
+        }
+
         if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
             zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
             zoneChange.changeDataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE);
@@ -867,12 +891,14 @@ public class DistributionZoneManager implements IgniteComponent {
 
         try {
             vaultMgr.get(zonesLogicalTopologyKey())
-                    .thenAcceptBoth(metaStorageManager.appliedRevision(META_STORAGE_WATCH_ID), (vaultEntry, appliedRevision) -> {
+                    .thenAccept(vaultEntry -> {
                         if (!busyLock.enterBusy()) {
                             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
                         }
 
                         try {
+                            long appliedRevision = metaStorageManager.appliedRevision();
+
                             if (vaultEntry != null && vaultEntry.value() != null) {
                                 logicalTopology = fromBytes(vaultEntry.value());
 
@@ -883,16 +909,15 @@ public class DistributionZoneManager implements IgniteComponent {
                                         logicalTopology
                                 );
 
-                                zonesConfiguration.distributionZones().value().namedListKeys()
-                                        .forEach(zoneName -> {
-                                            int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
+                                zonesConfiguration.distributionZones().value().forEach(zone -> {
+                                    int zoneId = zone.zoneId();
 
-                                            saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                                                    zoneId,
-                                                    appliedRevision,
-                                                    logicalTopology
-                                            );
-                                        });
+                                    saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+                                            zoneId,
+                                            appliedRevision,
+                                            logicalTopology
+                                    );
+                                });
                             }
                         } finally {
                             busyLock.leaveBusy();
@@ -905,11 +930,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
     private WatchListener createMetastorageListener() {
         return new WatchListener() {
-            @Override
-            public String id() {
-                return META_STORAGE_WATCH_ID;
-            }
-
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent evt) {
                 if (!busyLock.enterBusy()) {

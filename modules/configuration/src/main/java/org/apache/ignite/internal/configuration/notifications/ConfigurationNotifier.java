@@ -80,19 +80,19 @@ public class ConfigurationNotifier {
             return List.of();
         }
 
-        ConfigurationNotificationContext notificationCtx = new ConfigurationNotificationContext(storageRevision, notificationNumber);
+        ConfigurationNotificationContext ctx = new ConfigurationNotificationContext(storageRevision, notificationNumber);
 
-        notificationCtx.addContainer(config, null);
+        ctx.addContainer(oldInnerNode, newInnerNode, null, null);
 
         if (oldInnerNode == null) {
-            notifyListeners(newInnerNode, config, List.of(), notificationCtx);
+            notifyListeners(newInnerNode, config, List.of(), ctx);
         } else {
-            notifyListeners(oldInnerNode, newInnerNode, config, List.of(), notificationCtx);
+            notifyListeners(oldInnerNode, newInnerNode, config, List.of(), ctx);
         }
 
-        notificationCtx.removeContainer(config);
+        ctx.removeContainer();
 
-        return notificationCtx.futures;
+        return ctx.futures;
     }
 
     private static void notifyListeners(
@@ -152,7 +152,7 @@ public class ConfigurationNotifier {
 
                 DynamicConfiguration<InnerNode, ?> newConfig = dynamicConfig(config, key);
 
-                ctx.addContainer(newConfig, null);
+                ctx.addContainer(oldNode, newNode, null, null);
 
                 notifyListeners(
                         oldNode,
@@ -162,7 +162,7 @@ public class ConfigurationNotifier {
                         ctx
                 );
 
-                ctx.removeContainer(newConfig);
+                ctx.removeContainer();
 
                 return null;
             }
@@ -198,9 +198,9 @@ public class ConfigurationNotifier {
 
                         touch(newNodeCfg);
 
-                        ctx.addContainer(newNodeCfg, name);
-
                         InnerNode newVal = newNamedList.getInnerNode(name);
+
+                        ctx.addContainer(null, newVal, null, name);
 
                         notifyPublicListeners(
                                 extendedListeners(namedDynamicConfig(config, key), ctx.notificationNum),
@@ -228,18 +228,16 @@ public class ConfigurationNotifier {
                                 ctx
                         );
 
-                        ctx.removeContainer(newNodeCfg);
+                        ctx.removeContainer();
                     }
 
                     for (String name : namedListChanges.deleted) {
                         DynamicConfiguration<InnerNode, ?> delNodeCfg =
                                 (DynamicConfiguration<InnerNode, ?>) namedListCfgMembers.get(name);
 
-                        delNodeCfg.removedFromNamedList();
-
-                        ctx.addContainer(delNodeCfg, name);
-
                         InnerNode oldVal = oldNamedList.getInnerNode(name);
+
+                        ctx.addContainer(oldVal, null, name, null);
 
                         notifyPublicListeners(
                                 extendedListeners(namedDynamicConfig(config, key), ctx.notificationNum),
@@ -267,17 +265,14 @@ public class ConfigurationNotifier {
                                 ConfigurationListener::onUpdate
                         );
 
-                        ctx.removeContainer(delNodeCfg);
+                        ctx.removeContainer();
                     }
 
                     for (Map.Entry<String, String> entry : namedListChanges.renamed.entrySet()) {
-                        DynamicConfiguration<InnerNode, ?> renNodeCfg =
-                                (DynamicConfiguration<InnerNode, ?>) namedListCfg.members().get(entry.getValue());
-
-                        ctx.addContainer(renNodeCfg, entry.getValue());
-
                         InnerNode oldVal = oldNamedList.getInnerNode(entry.getKey());
                         InnerNode newVal = newNamedList.getInnerNode(entry.getValue());
+
+                        ctx.addContainer(oldVal, newVal, entry.getKey(), entry.getValue());
 
                         notifyPublicListeners(
                                 extendedListeners(namedDynamicConfig(config, key), ctx.notificationNum),
@@ -288,10 +283,10 @@ public class ConfigurationNotifier {
                                 oldVal.specificNode(),
                                 newVal.specificNode(),
                                 ctx,
-                                (listener, event) -> listener.onRename(entry.getKey(), entry.getValue(), event)
+                                (listener, event) -> listener.onRename(event)
                         );
 
-                        ctx.removeContainer(renNodeCfg);
+                        ctx.removeContainer();
                     }
 
                     for (String name : namedListChanges.updated) {
@@ -305,7 +300,7 @@ public class ConfigurationNotifier {
                         DynamicConfiguration<InnerNode, ?> updNodeCfg =
                                 (DynamicConfiguration<InnerNode, ?>) namedListCfgMembers.get(name);
 
-                        ctx.addContainer(updNodeCfg, name);
+                        ctx.addContainer(oldVal, newVal, name, name);
 
                         notifyPublicListeners(
                                 extendedListeners(namedDynamicConfig(config, key), ctx.notificationNum),
@@ -334,7 +329,7 @@ public class ConfigurationNotifier {
                                 ctx
                         );
 
-                        ctx.removeContainer(updNodeCfg);
+                        ctx.removeContainer();
                     }
                 }
 
@@ -391,7 +386,7 @@ public class ConfigurationNotifier {
             public Void visitInnerNode(String key, InnerNode nestedInnerNode) {
                 DynamicConfiguration<InnerNode, ?> nestedNodeConfig = dynamicConfig(config, key);
 
-                ctx.addContainer(nestedNodeConfig, null);
+                ctx.addContainer(null, nestedInnerNode, null, null);
 
                 notifyListeners(
                         nestedInnerNode,
@@ -400,7 +395,7 @@ public class ConfigurationNotifier {
                         ctx
                 );
 
-                ctx.removeContainer(nestedNodeConfig);
+                ctx.removeContainer();
 
                 return null;
             }
@@ -434,9 +429,9 @@ public class ConfigurationNotifier {
                     DynamicConfiguration<InnerNode, ?> namedNodeConfig =
                             (DynamicConfiguration<InnerNode, ?>) namedListCfg.getConfig(name);
 
-                    ctx.addContainer(namedNodeConfig, name);
-
                     InnerNode namedInnerNode = newNamedList.getInnerNode(name);
+
+                    ctx.addContainer(null, namedInnerNode, null, name);
 
                     notifyPublicListeners(
                             extendedListeners(namedDynamicConfig(config, key), ctx.notificationNum),
@@ -464,7 +459,7 @@ public class ConfigurationNotifier {
                             ctx
                     );
 
-                    ctx.removeContainer(namedNodeConfig);
+                    ctx.removeContainer();
                 }
 
                 return null;

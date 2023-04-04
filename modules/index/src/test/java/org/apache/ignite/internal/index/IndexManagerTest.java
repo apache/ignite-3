@@ -54,6 +54,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexNotFoundException;
+import org.apache.ignite.network.ClusterService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -85,14 +86,14 @@ public class IndexManagerTest {
 
             Mockito.doReturn(inv.getArgument(1)).when(tbl).tableId();
 
-            return completedFuture(new TableImpl(tbl, new HeapLockManager(), () -> completedFuture(List.of())));
+            return completedFuture(new TableImpl(tbl, new HeapLockManager()));
         });
 
         SchemaManager schManager = mock(SchemaManager.class);
 
         when(schManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(null));
 
-        indexManager = new IndexManager(tablesConfig, schManager, tableManagerMock);
+        indexManager = new IndexManager("test", tablesConfig, schManager, tableManagerMock, mock(ClusterService.class));
         indexManager.start();
 
         assertThat(

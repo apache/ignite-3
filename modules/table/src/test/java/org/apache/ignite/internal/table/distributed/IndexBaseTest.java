@@ -44,6 +44,7 @@ import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedInde
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -118,12 +119,16 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
         storage = new TestMvPartitionStorage(PARTITION_ID);
 
-        storageUpdateHandler = new StorageUpdateHandler(PARTITION_ID, new TestPartitionDataStorage(storage),
-                () -> Map.of(
-                        pkIndexId, pkStorage,
-                        sortedIndexId, sortedIndexStorage,
-                        hashIndexId, hashIndexStorage
-                ),
+        Map<UUID, TableSchemaAwareIndexStorage> indexes = Map.of(
+                pkIndexId, pkStorage,
+                sortedIndexId, sortedIndexStorage,
+                hashIndexId, hashIndexStorage
+        );
+
+        storageUpdateHandler = new StorageUpdateHandler(
+                PARTITION_ID,
+                new TestPartitionDataStorage(storage),
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(indexes),
                 dsCfg
         );
     }

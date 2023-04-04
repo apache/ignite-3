@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.deployunit.key.UnitKey.key;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.lang.ByteArray;
 

@@ -48,6 +48,7 @@ import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.event.IndexEvent;
@@ -62,12 +63,13 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestHashIndex;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
+import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
@@ -253,27 +255,30 @@ public class StopCalciteModuleTest {
 
         when(txManager.begin(anyBoolean())).thenReturn(new NoOpTransaction(localNode.name()));
         when(tbl.storage()).thenReturn(mock(MvTableStorage.class));
-        when(tbl.storage().configuration()).thenReturn(mock(TableConfiguration.class));
-        when(tbl.storage().configuration().partitions()).thenReturn(mock(ConfigurationValue.class));
-        when(tbl.storage().configuration().partitions().value()).thenReturn(1);
+        when(tbl.storage().distributionZoneConfiguration()).thenReturn(mock(DistributionZoneConfiguration.class));
+        when(tbl.storage().distributionZoneConfiguration().partitions()).thenReturn(mock(ConfigurationValue.class));
+        when(tbl.storage().distributionZoneConfiguration().partitions().value()).thenReturn(1);
 
         qryProc.start();
 
         await(testRevisionRegister.moveRevision.apply(0L));
 
-        var cursors = qryProc.queryAsync(
-                "PUBLIC",
+        SessionId sessionId = qryProc.createSession(PropertiesHelper.emptyHolder());
+        QueryContext context = QueryContext.create(SqlQueryType.ALL);
+
+        var cursors = qryProc.querySingleAsync(
+                sessionId,
+                context,
                 "SELECT * FROM TEST"
         );
 
-        await(cursors.get(0).thenCompose(cursor -> cursor.requestNextAsync(1)));
+        await(cursors.thenCompose(cursor -> cursor.requestNextAsync(1)));
 
         assertTrue(isThereNodeThreads(NODE_NAME));
 
         qryProc.stop();
 
-        var request = cursors.get(0)
-                .thenCompose(cursor -> cursor.requestNextAsync(1));
+        var request = cursors.thenCompose(cursor -> cursor.requestNextAsync(1));
 
         // Check cursor closed.
         await(request.exceptionally(t -> {
@@ -286,8 +291,9 @@ public class StopCalciteModuleTest {
         assertTrue(request.isCompletedExceptionally());
 
         // Check execute query on stopped node.
-        assertTrue(assertThrows(IgniteInternalException.class, () -> qryProc.queryAsync(
-                "PUBLIC",
+        assertTrue(assertThrows(IgniteInternalException.class, () -> qryProc.querySingleAsync(
+                sessionId,
+                context,
                 "SELECT 1"
         )).getCause() instanceof NodeStoppingException);
 

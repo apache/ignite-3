@@ -26,8 +26,8 @@ import org.apache.ignite.internal.metastorage.WatchListener;
  * Subscription on updates of Meta Storage entries corresponding to a subset of keys, starting from a given revision number.
  */
 public class Watch {
-    /** Current revision. */
-    private volatile long targetRevision;
+    /** Minimum revision of entries that this Watch must be notified of. */
+    private final long startRevision;
 
     /** Key predicate. */
     private final Predicate<byte[]> predicate;
@@ -45,7 +45,7 @@ public class Watch {
     public Watch(long startRevision, WatchListener listener, Predicate<byte[]> predicate) {
         this.predicate = predicate;
         this.listener = listener;
-        this.targetRevision = startRevision;
+        this.startRevision = startRevision;
     }
 
     /**
@@ -54,8 +54,8 @@ public class Watch {
      * @param key Meta Storage key.
      * @param revision Revision corresponding to the given {@code key}.
      */
-    public boolean matches(byte[] key, long revision) {
-        return revision >= targetRevision && predicate.test(key);
+    boolean matches(byte[] key, long revision) {
+        return revision >= startRevision && predicate.test(key);
     }
 
     /**
@@ -63,9 +63,7 @@ public class Watch {
      *
      * @see WatchListener#onUpdate
      */
-    public CompletableFuture<Void> onUpdate(WatchEvent event) {
-        targetRevision = event.revision() + 1;
-
+    CompletableFuture<Void> onUpdate(WatchEvent event) {
         return listener.onUpdate(event);
     }
 
@@ -74,56 +72,28 @@ public class Watch {
      *
      * @see WatchListener#onRevisionUpdated
      */
-    public CompletableFuture<Void> onRevisionUpdated(long revision) {
-        targetRevision = revision + 1;
-
+    CompletableFuture<Void> onRevisionUpdated(long revision) {
         return listener.onRevisionUpdated(revision);
     }
 
     /**
      * Callback that gets called if an error has occurred during the event processing.
      */
-    public void onError(Throwable e) {
+    void onError(Throwable e) {
         listener.onError(e);
-    }
-
-    /**
-     * Returns the ID of the Watch.
-     */
-    public String id() {
-        return listener.id();
     }
 
     /**
      * Returns the event listener.
      */
-    public WatchListener listener() {
+    WatchListener listener() {
         return listener;
     }
 
     /**
-     * Returns the current Meta Storage revision this Watch is listening to.
+     * Returns the minimum Meta Storage revision this Watch is listening to.
      */
-    public long targetRevision() {
-        return targetRevision;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        Watch watch = (Watch) o;
-
-        return id().equals(watch.id());
-    }
-
-    @Override
-    public int hashCode() {
-        return id().hashCode();
+    long startRevision() {
+        return startRevision;
     }
 }

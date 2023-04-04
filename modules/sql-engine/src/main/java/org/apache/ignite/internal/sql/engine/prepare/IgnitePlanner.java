@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
@@ -82,6 +83,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Query planer.
@@ -113,6 +115,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     private final IgniteTypeFactory typeFactory;
 
     private final CalciteCatalogReader catalogReader;
+
+    private @Nullable SqlNode validatedSqlNode;
 
     private RelOptPlanner planner;
 
@@ -186,7 +190,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     /** {@inheritDoc} */
     @Override
     public SqlNode validate(SqlNode sqlNode) {
-        return validator().validate(sqlNode);
+        validatedSqlNode = validator().validate(sqlNode);
+        return validatedSqlNode;
     }
 
     /** {@inheritDoc} */
@@ -195,6 +200,12 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         SqlNode validatedNode = validator().validate(sqlNode);
         RelDataType type = validator().getValidatedNodeType(validatedNode);
         return Pair.of(validatedNode, type);
+    }
+
+    @Override
+    public RelDataType getParameterRowType() {
+        return requireNonNull(validator, "validator")
+                .getParameterRowType(requireNonNull(validatedSqlNode, "validatedSqlNode"));
     }
 
     /**

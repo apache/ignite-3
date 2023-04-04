@@ -15,35 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.deployment.version;
+package org.apache.ignite.internal.cluster.management.configuration;
+
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Throws when {@link Version} of deployment unit not parsable.
+ * Node's attribute configuration schema.
+ * TODO: add proper javadocs when filtering feature will be closer to the end https://issues.apache.org/jira/browse/IGNITE-19184
  */
-public class VersionParseException extends RuntimeException {
-    private final String rawVersion;
+@Config
+public class NodeAttributeConfigurationSchema {
+    /** Name of the node attribute. */
+    @InjectedName
+    public String name;
 
-    /**
-     * Constructor.
-     *
-     * @param cause Cause error.
-     */
-    public VersionParseException(String rawVersion, Throwable cause) {
-        super(cause);
-        this.rawVersion = rawVersion;
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param message Error message.
-     */
-    public VersionParseException(String rawVersion, String message) {
-        super(message);
-        this.rawVersion = rawVersion;
-    }
-
-    public String getRawVersion() {
-        return rawVersion;
-    }
+    /** Node attribute field. */
+    @Value(hasDefault = true)
+    public String attribute = "";
 }

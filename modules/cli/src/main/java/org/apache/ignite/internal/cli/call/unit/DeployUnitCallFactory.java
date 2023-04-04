@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.cli.call.unit;
 
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.core.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.call.ProgressTracker;
 import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
+import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 
 /** Factory for {@link DeployUnitCall}. */
 @Singleton

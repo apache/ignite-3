@@ -21,8 +21,8 @@ import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -35,6 +35,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,7 +59,12 @@ public class PartitionGcOnWriteTest extends BaseMvStoragesTest {
     void setUp(@InjectConfiguration("mock.gcOnUpdateBatchSize=" + GC_BATCH_SIZE) DataStorageConfiguration dsCfg) {
         storage = new TestMvPartitionStorage(1);
 
-        storageUpdateHandler = new StorageUpdateHandler(1, new TestPartitionDataStorage(storage), Collections::emptyMap, dsCfg);
+        storageUpdateHandler = new StorageUpdateHandler(
+                1,
+                new TestPartitionDataStorage(storage),
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
+                dsCfg
+        );
     }
 
     @ParameterizedTest

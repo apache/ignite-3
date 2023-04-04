@@ -44,11 +44,13 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
@@ -114,6 +116,9 @@ public class ActiveActorTest extends IgniteAbstractTest {
     @InjectConfiguration()
     private TablesConfiguration tblsCfg;
 
+    @InjectConfiguration
+    private DistributionZonesConfiguration dstZnsCfg;
+
     @AfterEach
     @Override
     public void tearDown(TestInfo testInfo) throws Exception {
@@ -163,6 +168,7 @@ public class ActiveActorTest extends IgniteAbstractTest {
                 raftManager,
                 raftGroupServiceFactory,
                 tblsCfg,
+                dstZnsCfg,
                 new HybridClockImpl()
         );
 
@@ -653,7 +659,10 @@ public class ActiveActorTest extends IgniteAbstractTest {
 
         @Override
         public CompletableFuture<LogicalTopologySnapshot> logicalTopologyOnLeader() {
-            return completedFuture(new LogicalTopologySnapshot(1, clusterService.topologyService().allMembers()));
+            return completedFuture(new LogicalTopologySnapshot(
+                    1,
+                    clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()))
+            );
         }
 
         @Override

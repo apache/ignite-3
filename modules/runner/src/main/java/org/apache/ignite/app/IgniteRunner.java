@@ -51,7 +51,7 @@ public class IgniteRunner implements Callable<CompletableFuture<Ignite>> {
     @Override
     public CompletableFuture<Ignite> call() throws Exception {
         // If config path is specified and there are no overrides then pass it directly.
-        return IgnitionManager.start(nodeName, configPath.toAbsolutePath(), workDir, null);
+        return IgnitionManager.start(nodeName, configPath.toAbsolutePath(), workDir);
     }
 
     /**

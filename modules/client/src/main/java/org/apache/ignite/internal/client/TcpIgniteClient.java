@@ -26,7 +26,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.deployment.IgniteDeployment;
 import org.apache.ignite.internal.client.compute.ClientCompute;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
@@ -160,12 +159,6 @@ public class TcpIgniteClient implements IgniteClient {
     @Override
     public IgniteCompute compute() {
         return compute;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IgniteDeployment deployment() {
-        throw new UnsupportedOperationException("Deployment management not implemented yet.");
     }
 
     /** {@inheritDoc} */

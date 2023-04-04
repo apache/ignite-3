@@ -40,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
@@ -54,14 +55,17 @@ import org.junit.jupiter.api.function.Executable;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class MvPartitionStoragesTest {
-    @InjectConfiguration("mock.partitions = 10")
+    @InjectConfiguration
     private TableConfiguration tableConfig;
+
+    @InjectConfiguration("mock.partitions = 10")
+    private DistributionZoneConfiguration distributionZoneConfiguration;
 
     private MvPartitionStorages<MvPartitionStorage> mvPartitionStorages;
 
     @BeforeEach
     void setUp() {
-        mvPartitionStorages = new MvPartitionStorages(tableConfig.value());
+        mvPartitionStorages = new MvPartitionStorages(tableConfig.value(), distributionZoneConfiguration.value());
     }
 
     @Test
@@ -676,7 +680,7 @@ public class MvPartitionStoragesTest {
     }
 
     private int getPartitionIdOutOfConfig() {
-        return tableConfig.partitions().value();
+        return distributionZoneConfiguration.partitions().value();
     }
 
     private static <T extends Throwable> void assertThrowsWithMessage(

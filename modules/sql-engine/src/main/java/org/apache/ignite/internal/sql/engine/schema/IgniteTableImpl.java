@@ -492,6 +492,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
 
             Object value = hnd.get(colDesc.logicalIndex(), row);
 
+            // TODO Remove this check when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
             assert value != RexImpTable.DEFAULT_VALUE_PLACEHOLDER;
 
             if (value == null) {
@@ -539,7 +540,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         @Override
         public Double getRowCount() {
             if (statReqCnt.getAndIncrement() % STATS_CLI_UPDATE_THRESHOLD == 0) {
-                int parts = table.storage().configuration().partitions().value();
+                int parts = table.storage().distributionZoneConfiguration().partitions().value();
 
                 long size = 0L;
 

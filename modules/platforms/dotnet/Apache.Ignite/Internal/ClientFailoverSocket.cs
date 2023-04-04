@@ -588,6 +588,8 @@ namespace Apache.Ignite.Internal
                 _logger.Debug($"Retrying operation [opCode={(int)op}, opType={op}, attempt={attempt}, lastError={exception}]");
             }
 
+            Metrics.RequestsRetried.Add(1);
+
             if (errors == null)
             {
                 errors = new List<Exception> { exception };

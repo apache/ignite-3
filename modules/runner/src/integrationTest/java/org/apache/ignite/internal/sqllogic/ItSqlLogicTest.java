@@ -47,6 +47,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sqllogic.SqlLogicTestEnvironment.RestartMode;
 import org.apache.ignite.internal.sqllogic.SqlScriptRunner.RunnerRuntime;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -322,7 +323,7 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
 
                     String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr);
 
-                    return IgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
+                    return TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
                 })
                 .collect(toList());
 

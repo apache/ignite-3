@@ -40,6 +40,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -80,6 +81,9 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private static SecurityConfiguration securityConfiguration;
+
+    @InjectConfiguration
+    private static NodeAttributesConfiguration nodeAttributes;
 
     private static class Node {
         private final List<IgniteComponent> components = new ArrayList<>();
@@ -130,7 +134,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     clusterStateStorage,
                     logicalTopology,
                     cmgConfiguration,
-                    distributedConfigurationUpdater
+                    distributedConfigurationUpdater,
+                    nodeAttributes
             );
 
             components.add(cmgManager);
@@ -152,7 +157,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         }
 
         String name() {
-            return clusterService.localConfiguration().getName();
+            return clusterService.nodeName();
         }
 
         void stop() throws Exception {
@@ -206,11 +211,6 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
     void testExactWatch() throws Exception {
         testWatches((node, latch) -> node.metaStorageManager.registerExactWatch(new ByteArray("foo"), new WatchListener() {
             @Override
-            public String id() {
-                return "test";
-            }
-
-            @Override
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
                 assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
                 assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(StandardCharsets.UTF_8)));
@@ -230,11 +230,6 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
     @Test
     void testPrefixWatch() throws Exception {
         testWatches((node, latch) -> node.metaStorageManager.registerPrefixWatch(new ByteArray("fo"), new WatchListener() {
-            @Override
-            public String id() {
-                return "test";
-            }
-
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
                 assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
@@ -259,11 +254,6 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
             var endRange = new ByteArray("foz");
 
             node.metaStorageManager.registerRangeWatch(startRange, endRange, new WatchListener() {
-                @Override
-                public String id() {
-                    return "test";
-                }
-
                 @Override
                 public CompletableFuture<Void> onUpdate(WatchEvent event) {
                     assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
@@ -323,11 +313,6 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         for (Node node : nodes) {
             node.metaStorageManager.registerExactWatch(new ByteArray("foo"), new WatchListener() {
                 @Override
-                public String id() {
-                    return "test1";
-                }
-
-                @Override
                 public CompletableFuture<Void> onUpdate(WatchEvent event) {
                     assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
                     assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(StandardCharsets.UTF_8)));
@@ -344,11 +329,6 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
             });
 
             node.metaStorageManager.registerPrefixWatch(new ByteArray("ba"), new WatchListener() {
-                @Override
-                public String id() {
-                    return "test2";
-                }
-
                 @Override
                 public CompletableFuture<Void> onUpdate(WatchEvent event) {
                     List<String> keys = event.entryEvents().stream()

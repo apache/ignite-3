@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.deployment;
+package org.apache.ignite.internal.deployunit;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.deployunit.version.Version;
 
 /**
  * Deployment unit status.

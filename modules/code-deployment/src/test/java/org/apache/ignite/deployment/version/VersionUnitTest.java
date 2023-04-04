@@ -20,6 +20,9 @@ package org.apache.ignite.deployment.version;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import org.apache.ignite.internal.deployunit.version.UnitVersion;
+import org.apache.ignite.internal.deployunit.version.Version;
+import org.apache.ignite.internal.deployunit.version.VersionParseException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

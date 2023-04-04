@@ -222,9 +222,7 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
                                         SchemaBuilders.column("new_key", ColumnType.INT64).build(),
                                         SchemaBuilders.column("new_val", ColumnType.string()).build())
                                 .withPrimaryKey("new_key")
-                                .build(), tableChange)
-                                .changeReplicas(2)
-                                .changePartitions(10))));
+                                .build(), tableChange))));
     }
 
     /**
@@ -242,9 +240,7 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
                                 SchemaBuilders.column("new_key", ColumnType.INT64).build(),
                                 SchemaBuilders.column("new_val", ColumnType.string()).build())
                         .withPrimaryKey("new_key")
-                        .build(), tableChange)
-                        .changeReplicas(2)
-                        .changePartitions(10));
+                        .build(), tableChange));
 
         assertThrows(TableAlreadyExistsException.class, () -> futureResult(tableFut2));
     }

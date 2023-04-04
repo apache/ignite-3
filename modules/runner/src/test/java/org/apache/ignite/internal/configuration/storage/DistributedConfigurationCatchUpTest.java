@@ -87,8 +87,7 @@ public class DistributedConfigurationCatchUpTest {
     }
 
     /**
-     * Tests that distributed configuration storage correctly picks up latest configuration MetaStorage revision
-     * during recovery process.
+     * Tests that distributed configuration storage correctly picks up latest configuration MetaStorage revision during recovery process.
      *
      * @throws Exception If failed.
      */
@@ -99,8 +98,6 @@ public class DistributedConfigurationCatchUpTest {
         ConfigurationAsmGenerator cgen = new ConfigurationAsmGenerator();
 
         MetaStorageMockWrapper wrapper = new MetaStorageMockWrapper();
-
-        when(wrapper.mock.appliedRevision(DistributedConfigurationStorage.WATCH_ID)).thenReturn(completedFuture(0L));
 
         DistributedConfigurationStorage storage = storage(wrapper);
 
@@ -130,7 +127,7 @@ public class DistributedConfigurationCatchUpTest {
         vaultManager.put(MetaStorageMockWrapper.TEST_KEY, new byte[]{4, 1, 2, 3, 4}).get();
 
         // This emulates a change in MetaStorage that is not related to the configuration.
-        when(wrapper.mock.appliedRevision(DistributedConfigurationStorage.WATCH_ID)).thenReturn(completedFuture(2L));
+        when(wrapper.mock.appliedRevision()).thenReturn(2L);
 
         storage = storage(wrapper);
 
@@ -163,8 +160,8 @@ public class DistributedConfigurationCatchUpTest {
         private static final String DISTRIBUTED_PREFIX = "dst-cfg.";
 
         /**
-         * This and previous field are copy-pasted intentionally, so in case if something changes,
-         * this test should fail and be reviewed and re-written.
+         * This and previous field are copy-pasted intentionally, so in case if something changes, this test should fail and be reviewed and
+         * re-written.
          */
         private static final ByteArray MASTER_KEY = new ByteArray(DISTRIBUTED_PREFIX + "$master$key");
 

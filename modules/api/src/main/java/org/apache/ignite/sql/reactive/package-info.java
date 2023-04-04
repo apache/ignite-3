@@ -16,7 +16,7 @@
  */
 
 /**
- * Contain part of SQL API for SQL query execution in reactive way.
+ * SQL API for reactive SQL query execution.
  */
 
 package org.apache.ignite.sql.reactive;

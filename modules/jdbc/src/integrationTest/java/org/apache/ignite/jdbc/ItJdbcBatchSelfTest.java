@@ -124,9 +124,20 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    public void testMultipleStatementForBatchIsNotAllowed() throws SQLException {
+        String insertStmt = "insert into Person (id, firstName, lastName, age) values";
+        String ins1 = insertStmt + valuesRow(1);
+        String ins2 = insertStmt + valuesRow(2);
+
+        stmt.addBatch(ins1 + ";" + ins2);
+
+        assertThrows(BatchUpdateException.class, () -> stmt.executeBatch(), "Multiple statements are not allowed.");
+    }
+
+    @Test
     public void testBatchOnClosedStatement() throws SQLException {
-        final Statement stmt2 = conn.createStatement();
-        final PreparedStatement pstmt2 = conn.prepareStatement("");
+        Statement stmt2 = conn.createStatement();
+        PreparedStatement pstmt2 = conn.prepareStatement("");
 
         stmt2.close();
         pstmt2.close();
@@ -329,11 +340,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                 assertEquals(i + 1, updCnts[i], "Invalid update count: " + i);
             }
 
-            if (!e.getMessage().contains("PK unique constraint is violated")) {
-                log.error("Invalid exception: ", e);
-
-                fail();
-            }
+            assertThat(e.toString(), e.getMessage(), containsString("PK unique constraint is violated"));
 
             assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
             assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");

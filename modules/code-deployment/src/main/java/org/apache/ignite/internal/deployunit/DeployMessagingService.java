@@ -24,7 +24,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.deployunit.message.DeployUnitMessageTypes;
 import org.apache.ignite.internal.deployunit.message.DeployUnitRequest;
@@ -37,6 +36,7 @@ import org.apache.ignite.internal.deployunit.message.StopDeployResponseImpl;
 import org.apache.ignite.internal.deployunit.message.UndeployUnitRequest;
 import org.apache.ignite.internal.deployunit.message.UndeployUnitRequestImpl;
 import org.apache.ignite.internal.deployunit.message.UndeployUnitResponseImpl;
+import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.network.ChannelType;
@@ -213,13 +213,15 @@ public class DeployMessagingService {
     private void processDeployRequest(DeployUnitRequest executeRequest, String senderConsistentId, long correlationId) {
         String id = executeRequest.id();
         String version = executeRequest.version();
-        deployerService.deploy(id, version, executeRequest.unitName(), executeRequest.unitContent())
-                .thenAccept(success -> clusterService.messagingService().respond(
-                        senderConsistentId,
-                        DEPLOYMENT_CHANNEL,
-                        DeployUnitResponseImpl.builder().success(success).build(),
-                        correlationId)
-                );
+        tracker.track(id, Version.parseVersion(version),
+                deployerService.deploy(id, version, executeRequest.unitName(), executeRequest.unitContent())
+                        .thenCompose(success -> clusterService.messagingService().respond(
+                                senderConsistentId,
+                                DEPLOYMENT_CHANNEL,
+                                DeployUnitResponseImpl.builder().success(success).build(),
+                                correlationId)
+                        )
+        );
     }
 
     private void processUndeployRequest(UndeployUnitRequest executeRequest, String senderConsistentId, long correlationId) {

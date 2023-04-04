@@ -29,7 +29,6 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantClass;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.inlineIf;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArray;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
@@ -115,12 +114,6 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
     /** {@link DynamicConfiguration#specificConfigTree} method. */
     private static final Method SPECIFIC_CONFIG_TREE_MTD;
 
-    /** {@code ConfigurationNode#currentValue}. */
-    private static final Method CURRENT_VALUE_MTD;
-
-    /** {@link DynamicConfiguration#isRemovedFromNamedList}. */
-    private static final Method IS_REMOVED_FROM_NAMED_LIST_MTD;
-
     /** Field name for method {@link DynamicConfiguration#internalConfigTypes}. */
     private static final String INTERNAL_CONFIG_TYPES_FIELD_NAME = "_internalConfigTypes";
 
@@ -146,10 +139,6 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
             REMOVE_MEMBER_MTD = DynamicConfiguration.class.getDeclaredMethod("removeMember", Map.class, ConfigurationProperty.class);
 
             SPECIFIC_CONFIG_TREE_MTD = DynamicConfiguration.class.getDeclaredMethod("specificConfigTree");
-
-            CURRENT_VALUE_MTD = ConfigurationNode.class.getDeclaredMethod("currentValue");
-
-            IS_REMOVED_FROM_NAMED_LIST_MTD = DynamicConfiguration.class.getDeclaredMethod("isRemovedFromNamedList");
         } catch (NoSuchMethodException nsme) {
             throw new ExceptionInInitializerError(nsme);
         }
@@ -687,15 +676,11 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
         // this;
         Variable thisVar = polymorphicInstanceConfigTypeMtd.getThis();
 
-        // tmpObj = this.isRemovedFromNamedList() ? this.currentValue() : this.refreshValue();
+        // tmpObj = this.refreshValue();
         // tmpStr = ((ConfigNode) tmpObj).typeId;
         // switch(tmpStr) ...
         polymorphicInstanceConfigTypeMtd.getBody()
-                .append(tmpObjVar.set(inlineIf(
-                        thisVar.invoke(IS_REMOVED_FROM_NAMED_LIST_MTD),
-                        thisVar.invoke(CURRENT_VALUE_MTD),
-                        thisVar.invoke(REFRESH_VALUE_MTD))
-                ))
+                .append(tmpObjVar.set(thisVar.invoke(REFRESH_VALUE_MTD)))
                 .append(tmpStrVar.set(tmpObjVar.cast(nodeType).getField(polymorphicTypeIdFieldDef.getName(), String.class)))
                 .append(switchBuilder.build())
                 .ret();

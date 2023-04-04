@@ -210,7 +210,7 @@ public class ItMetaStorageServiceTest {
         }
 
         String name() {
-            return clusterService.localConfiguration().getName();
+            return clusterService.nodeName();
         }
 
         private CompletableFuture<RaftGroupService> startRaftService(PeersAndLearners configuration) {

@@ -20,7 +20,7 @@ package org.apache.ignite.internal.deployunit.key;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Base64.Encoder;
-import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.lang.ByteArray;
 
 /**

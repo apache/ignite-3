@@ -17,9 +17,13 @@
 
 package org.apache.ignite.distributed;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.NODE_PORT_BASE;
 import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.startNode;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
@@ -35,6 +39,8 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -55,7 +61,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -71,6 +76,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     );
 
     private final TableMessagesFactory tableMessagesFactory = new TableMessagesFactory();
+
+    private final ReplicaMessagesFactory replicaMessageFactory = new ReplicaMessagesFactory();
 
     private final TestInfo testInfo;
 
@@ -113,7 +120,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18868")
     public void testWithReplicaStartedAfterRequestSending() throws Exception {
         ClusterNode clusterNode = clusterService.topologyService().localMember();
 
@@ -130,18 +136,23 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                     try {
                         replicaManager.startReplica(
                                 tablePartitionId,
-                                CompletableFuture.completedFuture(null),
-                                request0 -> CompletableFuture.completedFuture(null),
+                                completedFuture(null),
+                                request0 -> completedFuture(replicaMessageFactory.replicaResponse()
+                                        .result(Integer.valueOf(5))
+                                        .build()),
                                 mock(TopologyAwareRaftGroupService.class),
-                                new PendingComparableValuesTracker<>(0L)
-                        );
+                                new PendingComparableValuesTracker<>(0L));
                     } catch (NodeStoppingException e) {
                         throw new RuntimeException(e);
                     }
                 }
         );
 
-        replicaService.invoke(clusterNode, request).get(10, TimeUnit.SECONDS);
+        CompletableFuture<ReplicaResponse> respFur = replicaService.invoke(clusterNode, request);
+
+        assertThat(respFur, willSucceedIn(10, TimeUnit.SECONDS));
+
+        assertEquals(5, respFur.get().result());
     }
 
     @Test

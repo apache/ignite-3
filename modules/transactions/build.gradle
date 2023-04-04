@@ -30,6 +30,7 @@ dependencies {
     implementation project(':ignite-rocksdb-common')
     implementation project(':ignite-replicator')
     implementation project(':ignite-schema')
+    implementation project(':ignite-distribution-zones')
     implementation project(':ignite-configuration-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core

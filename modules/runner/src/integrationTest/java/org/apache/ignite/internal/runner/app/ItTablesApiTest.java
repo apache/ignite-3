@@ -53,6 +53,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
@@ -109,7 +110,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         for (int i = 0; i < nodesBootstrapCfg.size(); i++) {
             String nodeName = testNodeName(testInfo, i);
 
-            futures.add(IgnitionManager.start(nodeName, nodesBootstrapCfg.get(i), workDir.resolve(nodeName)));
+            futures.add(TestIgnitionManager.start(nodeName, nodesBootstrapCfg.get(i), workDir.resolve(nodeName)));
         }
 
         String metaStorageNodeName = testNodeName(testInfo, 0);
@@ -473,7 +474,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         return await(((TableManager) node.tables()).createTableAsync(
                 tableName,
                 tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(
-                        cols).withPrimaryKey("key").build(), tblCh).changeReplicas(2).changePartitions(10)
+                        cols).withPrimaryKey("key").build(), tblCh)
         ));
     }
 
@@ -493,7 +494,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
                                     SchemaBuilders.column("valStr", ColumnType.string())
                                             .withDefaultValue("default").build()
                             )).withPrimaryKey("key").build(),
-                            tblCh).changeReplicas(2).changePartitions(10)
+                            tblCh)
             ));
         } catch (TableAlreadyExistsException ex) {
             return node.tables().table(tableName);

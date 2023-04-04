@@ -42,8 +42,10 @@ public class ClientJdbcPreparedStmntBatchRequest {
     ) {
         var req = new JdbcBatchPreparedStmntRequest();
 
+        long connectionId = in.unpackLong();
+
         req.readBinary(in);
 
-        return handler.batchPrepStatementAsync(req).thenAccept(res -> res.writeBinary(out));
+        return handler.batchPrepStatementAsync(connectionId, req).thenAccept(res -> res.writeBinary(out));
     }
 }

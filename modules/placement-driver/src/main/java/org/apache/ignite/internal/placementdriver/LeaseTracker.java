@@ -125,11 +125,6 @@ public class LeaseTracker {
      */
     private class UpdateListener implements WatchListener {
         @Override
-        public String id() {
-            return PLACEMENTDRIVER_PREFIX + "watch";
-        }
-
-        @Override
         public CompletableFuture<Void> onUpdate(WatchEvent event) {
             for (EntryEvent entry : event.entryEvents()) {
                 Entry msEntry = entry.newEntry();

@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.test;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getField;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 
-import java.util.Map;
+import java.lang.reflect.Field;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
-import org.apache.ignite.internal.metastorage.server.Watch;
 import org.apache.ignite.internal.metastorage.server.WatchProcessor;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 
@@ -32,8 +32,9 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
  * Class for blocking Watch processing on a given Ignite node.
  */
 public class WatchListenerInhibitor {
-    /** "watches" field captured from the {@link RocksDbKeyValueStorage} instance. */
-    private final Map<Watch, CompletableFuture<Void>> watches;
+    private final WatchProcessor watchProcessor;
+
+    private final Field notificationFutureField;
 
     /** Future used to block the watch notification thread. */
     private final CompletableFuture<Void> inhibitFuture = new CompletableFuture<>();
@@ -52,20 +53,25 @@ public class WatchListenerInhibitor {
 
         var watchProcessor = (WatchProcessor) getFieldValue(storage, RocksDbKeyValueStorage.class, "watchProcessor");
 
-        var watches = (Map<Watch, CompletableFuture<Void>>) getFieldValue(watchProcessor, WatchProcessor.class, "watches");
-
-        return new WatchListenerInhibitor(watches);
+        return new WatchListenerInhibitor(watchProcessor);
     }
 
-    private WatchListenerInhibitor(Map<Watch, CompletableFuture<Void>> watches) {
-        this.watches = watches;
+    private WatchListenerInhibitor(WatchProcessor watchProcessor) {
+        this.watchProcessor = watchProcessor;
+        this.notificationFutureField = getField(watchProcessor, WatchProcessor.class, "notificationFuture");
     }
 
     /**
      * Starts inhibiting events.
      */
     public void startInhibit() {
-        watches.replaceAll((watch, watchOperation) -> watchOperation.thenCompose(v -> inhibitFuture));
+        try {
+            CompletableFuture<Void> notificationFuture = (CompletableFuture<Void>) notificationFutureField.get(watchProcessor);
+
+            notificationFutureField.set(watchProcessor, notificationFuture.thenCompose(v -> inhibitFuture));
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**

@@ -19,8 +19,7 @@ package org.apache.ignite.internal.deployunit;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.deployment.DeploymentStatus;
-import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.deployunit.version.Version;
 
 /**
  * Unit meta data class.

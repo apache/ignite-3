@@ -33,6 +33,7 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Test;
@@ -97,7 +98,7 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
     private Ignite startNode(TestInfo testInfo) {
         String nodeName = IgniteTestUtils.testNodeName(testInfo, 0);
 
-        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, NODE_CONFIGURATION, workDir.resolve(nodeName));
+        CompletableFuture<Ignite> future = TestIgnitionManager.start(nodeName, NODE_CONFIGURATION, workDir.resolve(nodeName));
 
         InitParameters initParameters = InitParameters.builder()
                 .destinationNodeName(nodeName)

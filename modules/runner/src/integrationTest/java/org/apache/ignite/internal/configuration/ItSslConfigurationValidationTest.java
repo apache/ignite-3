@@ -21,8 +21,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 
 import java.nio.file.Path;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.TestInfo;
@@ -51,7 +51,7 @@ public class ItSslConfigurationValidationTest {
                 + "}";
 
         assertThrowsWithCause(
-                () -> IgnitionManager.start(testNodeName(testInfo, 0), config, workDir),
+                () -> TestIgnitionManager.start(testNodeName(testInfo, 0), config, workDir),
                 ConfigurationValidationException.class,
                 "Validation did not pass for keys: [" + rootKey + ".ssl.keyStore, Key store file doesn't exist at bad_path]");
     }

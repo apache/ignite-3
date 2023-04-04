@@ -65,8 +65,6 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     /** Prefix added to configuration keys to distinguish them in the meta storage. Must end with a dot. */
     private static final String DISTRIBUTED_PREFIX = "dst-cfg.";
 
-    public static final String WATCH_ID = DISTRIBUTED_PREFIX + "watch";
-
     /**
      * Key for CAS-ing configuration keys to meta storage.
      */
@@ -208,9 +206,12 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
     @Override
     public CompletableFuture<Data> readDataOnRecovery() throws StorageException {
-        CompletableFuture<Data> future = metaStorageMgr.appliedRevision(WATCH_ID)
-                .thenCombine(vaultMgr.get(CONFIGURATION_REVISIONS_KEY), DistributedConfigurationStorage::resolveRevision)
-                .thenApplyAsync(this::readDataOnRecovery0, threadPool);
+        CompletableFuture<Data> future = vaultMgr.get(CONFIGURATION_REVISIONS_KEY)
+                .thenApplyAsync(entry -> {
+                    long revision = resolveRevision(metaStorageMgr.appliedRevision(), entry);
+
+                    return readDataOnRecovery0(revision);
+                }, threadPool);
 
         return registerFuture(future);
     }
@@ -311,11 +312,6 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         // TODO: registerPrefixWatch could throw OperationTimeoutException and CompactedException and we should
         // TODO: properly handle such cases https://issues.apache.org/jira/browse/IGNITE-14604
         metaStorageMgr.registerPrefixWatch(DST_KEYS_START_RANGE, new WatchListener() {
-            @Override
-            public String id() {
-                return WATCH_ID;
-            }
-
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent events) {
                 Map<String, Serializable> data = IgniteUtils.newHashMap(events.entryEvents().size() - 1);

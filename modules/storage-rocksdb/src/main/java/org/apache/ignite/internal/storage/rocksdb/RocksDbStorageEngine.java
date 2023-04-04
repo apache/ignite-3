@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,6 +31,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
@@ -114,20 +117,24 @@ public class RocksDbStorageEngine implements StorageEngine {
     /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
-        registerDataRegion(engineConfig.defaultRegion());
+        registerDataRegion(DEFAULT_DATA_REGION_NAME);
 
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
         engineConfig.regions().listenElements(new ConfigurationNamedListListener<>() {
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<RocksDbDataRegionView> ctx) {
-                registerDataRegion(ctx.config(RocksDbDataRegionConfiguration.class));
+                registerDataRegion(ctx.newName(RocksDbDataRegionView.class));
 
                 return CompletableFuture.completedFuture(null);
             }
         });
     }
 
-    private void registerDataRegion(RocksDbDataRegionConfiguration dataRegionConfig) {
+    private void registerDataRegion(String name) {
+        RocksDbDataRegionConfiguration dataRegionConfig = DEFAULT_DATA_REGION_NAME.equals(name)
+                ? engineConfig.defaultRegion()
+                : engineConfig.regions().get(name);
+
         var region = new RocksDbDataRegion(dataRegionConfig);
 
         region.start();
@@ -153,7 +160,9 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public RocksDbTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg) throws StorageException {
+    public RocksDbTableStorage createMvTable(
+            TableConfiguration tableCfg, TablesConfiguration tablesCfg, DistributionZoneConfiguration distributionZoneCfg)
+            throws StorageException {
         RocksDbDataStorageView dataStorageView = (RocksDbDataStorageView) tableCfg.dataStorage().value();
 
         assert dataStorageView.name().equals(ENGINE_NAME) : dataStorageView.name();
@@ -168,6 +177,6 @@ public class RocksDbStorageEngine implements StorageEngine {
             throw new StorageException("Failed to create table store directory for " + tableCfg.name().value(), e);
         }
 
-        return new RocksDbTableStorage(this, tablePath, dataRegion, tableCfg, tablesCfg);
+        return new RocksDbTableStorage(this, tablePath, dataRegion, tableCfg, tablesCfg, distributionZoneCfg);
     }
 }

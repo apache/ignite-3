@@ -50,6 +50,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.jraft.RaftGroupService;
@@ -170,7 +171,7 @@ public class Cluster {
 
         String config = IgniteStringFormatter.format(nodeBootstrapConfigTemplate, BASE_PORT + nodeIndex, CONNECT_NODE_ADDR);
 
-        return IgnitionManager.start(nodeName, config, workDir.resolve(nodeName))
+        return TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName))
                 .thenApply(IgniteImpl.class::cast)
                 .thenApply(ignite -> {
                     synchronized (nodes) {

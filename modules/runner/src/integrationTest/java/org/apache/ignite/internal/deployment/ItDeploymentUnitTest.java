@@ -21,9 +21,8 @@ import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.deployment.DeploymentStatus.DEPLOYED;
-import static org.apache.ignite.deployment.DeploymentStatus.REMOVING;
-import static org.apache.ignite.deployment.DeploymentStatus.UPLOADING;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
@@ -42,20 +41,21 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.deployment.DeploymentInfo;
-import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.deployment.UnitStatus;
-import org.apache.ignite.deployment.UnitStatus.UnitStatusBuilder;
-import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.deployunit.DeploymentInfo;
+import org.apache.ignite.internal.deployunit.DeploymentUnit;
+import org.apache.ignite.internal.deployunit.IgniteDeployment;
+import org.apache.ignite.internal.deployunit.UnitStatus;
+import org.apache.ignite.internal.deployunit.UnitStatus.UnitStatusBuilder;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
+import org.apache.ignite.internal.deployunit.version.Version;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Integration tests for {@link org.apache.ignite.deployment.IgniteDeployment}.
+ * Integration tests for {@link IgniteDeployment}.
  */
 public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     private static final int BASE_REPLICA_TIMEOUT = 30;
@@ -103,9 +103,11 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     @Test
     public void testDeployUndeploy() {
         Unit unit = deployAndVerifySmall("test", Version.parseVersion("1.1.0"), 1);
-        unit.undeploy();
 
         IgniteImpl cmg = cluster.node(0);
+        waitUnitReplica(cmg, unit);
+
+        unit.undeploy();
         waitUnitClean(cmg, unit);
 
         CompletableFuture<List<UnitStatus>> list = node(2).deployment().unitsAsync();
@@ -172,9 +174,6 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
 
         assertThat(unit.undeployAsync(), willSucceedFast());
 
-        assertThat(node(1).deployment().statusAsync(id)
-                .thenApply(status1 -> status1.status(version)), willBe(REMOVING));
-
         waitUnitClean(unit.deployedNode, unit);
         waitUnitClean(cmg, unit);
 
@@ -186,7 +185,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     public void testFindByConsistentId() {
         String id = "test";
         String version = "1.1.0";
-        Unit unit = deployAndVerify(id, Version.parseVersion(version), mediumFile, 1);
+        Unit unit = deployAndVerifyMedium(id, Version.parseVersion(version), 1);
 
         IgniteImpl cmg = cluster.node(0);
         waitUnitReplica(cmg, unit);
@@ -224,6 +223,22 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         assertThat(nodes, willBe(Collections.emptyList()));
     }
 
+    @Test
+    public void testRedeploy() {
+        String id = "test";
+        String version = "1.1.0";
+        Unit smallUnit = deployAndVerify(id, Version.parseVersion(version), smallFile, 1);
+
+        IgniteImpl cmg = cluster.node(0);
+        waitUnitReplica(cmg, smallUnit);
+
+        Unit mediumUnit = deployAndVerify(id, Version.parseVersion(version), true, mediumFile, 1);
+        waitUnitReplica(cmg, mediumUnit);
+
+        waitUnitClean(smallUnit.deployedNode, smallUnit);
+        waitUnitClean(cmg, smallUnit);
+    }
+
     private UnitStatus buildStatus(String id, Unit... units) {
         IgniteImpl cmg = cluster.node(0);
 
@@ -242,10 +257,14 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     }
 
     private Unit deployAndVerify(String id, Version version, DeployFile file, int nodeIndex) {
+        return deployAndVerify(id, version, false, file, nodeIndex);
+    }
+
+    private Unit deployAndVerify(String id, Version version, boolean force, DeployFile file, int nodeIndex) {
         IgniteImpl entryNode = node(nodeIndex);
 
         CompletableFuture<Boolean> deploy = entryNode.deployment()
-                .deployAsync(id, version, fromPath(file.file));
+                .deployAsync(id, version, force, fromPath(file.file));
 
         assertThat(deploy, willBe(true));
 
@@ -257,7 +276,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     }
 
     private Unit deployAndVerifySmall(String id, Version version, int nodeIndex) {
-        return deployAndVerify(id, version, smallFile, nodeIndex);
+        return deployAndVerifyMedium(id, version, nodeIndex);
     }
 
     private Unit deployAndVerifyMedium(String id, Version version, int nodeIndex) {

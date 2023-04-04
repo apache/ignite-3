@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.IgniteIntegrationTest;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -141,7 +142,7 @@ abstract class AbstractRestTestBase extends IgniteIntegrationTest {
         );
 
         for (Map.Entry<String, String> e : nodesBootstrapCfg.entrySet()) {
-            startNodeWithoutInit(e.getKey(), name -> IgnitionManager.start(name, e.getValue(), workDir.resolve(name)));
+            startNodeWithoutInit(e.getKey(), name -> TestIgnitionManager.start(name, e.getValue(), workDir.resolve(name)));
         }
     }
 

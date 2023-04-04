@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metrics.exporters.configuration;
 
+import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
@@ -33,4 +34,7 @@ public class ExporterConfigurationSchema {
      */
     @PolymorphicId
     public String exporterName;
+
+    @InjectedName
+    public String name;
 }

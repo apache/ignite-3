@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.deployunit.metastore;
 
-import org.apache.ignite.deployment.DeploymentInfo;
-import org.apache.ignite.deployment.UnitStatus;
-import org.apache.ignite.deployment.UnitStatus.UnitStatusBuilder;
+import org.apache.ignite.internal.deployunit.DeploymentInfo;
 import org.apache.ignite.internal.deployunit.UnitMeta;
+import org.apache.ignite.internal.deployunit.UnitStatus;
+import org.apache.ignite.internal.deployunit.UnitStatus.UnitStatusBuilder;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.key.UnitMetaSerializer;
 import org.apache.ignite.internal.metastorage.Entry;
