@@ -42,6 +42,6 @@ namespace Apache.Ignite.Log
         }
 
         /// <inheritdoc />
-        public override string ToString() => new IgniteToStringBuilder(nameof(LocalDateTimeProvider)).Build();
+        public override string ToString() => IgniteToStringBuilder.Build(nameof(LocalDateTimeProvider));
     }
 }

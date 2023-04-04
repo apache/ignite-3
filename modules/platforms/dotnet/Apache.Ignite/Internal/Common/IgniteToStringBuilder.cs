@@ -29,11 +29,11 @@ internal record IgniteToStringBuilder
 {
     private readonly StringBuilder _builder;
 
+    private readonly IgniteToStringBuilder? _parent;
+
     private bool _first = true;
 
     private bool _closed;
-
-    private IgniteToStringBuilder? _parent;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteToStringBuilder"/> class.
@@ -60,6 +60,13 @@ internal record IgniteToStringBuilder
         _builder.Append(typeName);
         _builder.Append(" { ");
     }
+
+    /// <summary>
+    /// Builds the string representation.
+    /// </summary>
+    /// <param name="typeName">Type name.</param>
+    /// <returns>String.</returns>
+    public static string Build(string typeName) => typeName + " { }";
 
     /// <summary>
     /// Appends a property.
