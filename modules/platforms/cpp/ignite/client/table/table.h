@@ -68,6 +68,9 @@ public:
     /**
      * Gets the record view for the type.
      *
+     * Template functions @c convert_to_tuple() and @c convert_from_tuple() should be specialized for the type T.
+     * @see See type_mapping.h for details.
+     *
      * @return Record view.
      */
     template<typename T>

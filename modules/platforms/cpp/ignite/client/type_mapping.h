@@ -21,9 +21,23 @@
 
 namespace ignite {
 
+/**
+ * Function that specifies how a value of a type should be conversed to @c ignite_tuple.
+ *
+ * @tparam T Type of the value.
+ * @param value Value to convert.
+ * @return An instance of @c ignite_tuple.
+ */
 template<typename T>
 ignite_tuple convert_to_tuple(T &&value);
 
+/**
+ * Function that specifies how an @c ignite_tuple instance should be conversed to specific type.
+ *
+ * @tparam T Type to convert to.
+ * @param value Instance of the @c ignite_tuple type.
+ * @return A resulting value.
+ */
 template<typename T>
 T convert_from_tuple(ignite_tuple &&value);
 
