@@ -765,56 +765,54 @@ TEST_F(record_view_test, remove_all_empty) {
     EXPECT_TRUE(res.empty());
 }
 
-//TEST_F(record_view_test, remove_all_exact_nonexisting) {
-//    auto res = view.remove_all_exact(nullptr, {test_type(1, "foo"), test_type(2, "bar")});
-//
-//    // TODO: Key order should be preserved by the server (IGNITE-16004).
-//    ASSERT_EQ(2, res.size());
-//}
-//
-//TEST_F(record_view_test, remove_all_exact_overlapped) {
-//    auto res = view.insert_all(nullptr, {test_type(1, "foo"), test_type(2, "bar")});
-//
-//    ASSERT_TRUE(res.empty());
-//
-//    res = view.remove_all_exact(nullptr, {test_type(1, "baz"), test_type(2, "bar")});
-//
-//    EXPECT_EQ(res.size(), 1);
-//    EXPECT_EQ(2, res.front().column_count());
-//    EXPECT_EQ(1, res.front().key);
-//    EXPECT_EQ("baz", res.front().val);
-//
-//    auto res2 = view.get(nullptr, test_type(2));
-//
-//    ASSERT_FALSE(res2.has_value());
-//}
-//
-//TEST_F(record_view_test, remove_all_exact_overlapped_async) {
-//    auto all_done = std::make_shared<std::promise<std::vector<test_type>>>();
-//
-//    view.insert_all_async(nullptr, {test_type(1, "foo"), test_type(2, "bar")}, [&](auto res) {
-//        if (!check_and_set_operation_error(*all_done, res))
-//            return;
-//
-//        if (!res.value().empty())
-//            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected empty return on first insertion")));
-//
-//        view.remove_all_exact_async(nullptr, {test_type(1, "baz"), test_type(2, "bar")},
-//            [&](auto res) { result_set_promise(*all_done, std::move(res)); });
-//    });
-//
-//    auto res = all_done->get_future().get();
-//    EXPECT_EQ(res.size(), 1);
-//    EXPECT_EQ(2, res.front().column_count());
-//    EXPECT_EQ(1, res.front().key);
-//    EXPECT_EQ("baz", res.front().val);
-//}
-//
-//TEST_F(record_view_test, remove_all_exact_empty) {
-//    auto res = view.remove_all_exact(nullptr, {});
-//    EXPECT_TRUE(res.empty());
-//}
-//
+TEST_F(record_view_test, remove_all_exact_nonexisting) {
+    auto res = view.remove_all_exact(nullptr, {test_type(1, "foo"), test_type(2, "bar")});
+
+    // TODO: Key order should be preserved by the server (IGNITE-16004).
+    ASSERT_EQ(2, res.size());
+}
+
+TEST_F(record_view_test, remove_all_exact_overlapped) {
+    auto res = view.insert_all(nullptr, {test_type(1, "foo"), test_type(2, "bar")});
+
+    ASSERT_TRUE(res.empty());
+
+    res = view.remove_all_exact(nullptr, {test_type(1, "baz"), test_type(2, "bar")});
+
+    EXPECT_EQ(res.size(), 1);
+    EXPECT_EQ(1, res.front().key);
+    EXPECT_EQ("baz", res.front().val);
+
+    auto res2 = view.get(nullptr, test_type(2));
+
+    ASSERT_FALSE(res2.has_value());
+}
+
+TEST_F(record_view_test, remove_all_exact_overlapped_async) {
+    auto all_done = std::make_shared<std::promise<std::vector<test_type>>>();
+
+    view.insert_all_async(nullptr, {test_type(1, "foo"), test_type(2, "bar")}, [&](auto res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        if (!res.value().empty())
+            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected empty return on first insertion")));
+
+        view.remove_all_exact_async(nullptr, {test_type(1, "baz"), test_type(2, "bar")},
+            [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+    });
+
+    auto res = all_done->get_future().get();
+    EXPECT_EQ(res.size(), 1);
+    EXPECT_EQ(1, res.front().key);
+    EXPECT_EQ("baz", res.front().val);
+}
+
+TEST_F(record_view_test, remove_all_exact_empty) {
+    auto res = view.remove_all_exact(nullptr, {});
+    EXPECT_TRUE(res.empty());
+}
+
 //TEST_F(record_view_test, types_test) {
 //    auto table = m_client.get_tables().get_table(TABLE_NAME_ALL_COLUMNS);
 //    view = table->get_record_binary_view();
