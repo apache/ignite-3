@@ -29,6 +29,8 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 
+import com.jayway.jsonpath.InvalidPathException;
+import com.jayway.jsonpath.JsonPath;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -346,5 +348,21 @@ public class DistributionZonesUtil {
         }
 
         throw new DistributionZoneNotFoundException(zoneId);
+    }
+
+    /**
+     * Check if a passed filter is a valid {@link JsonPath} query.
+     *
+     * @param filter Filter.
+     * @return {@code true} if the passed filter is a valid filter, {@code false} otherwise.
+     */
+    public static boolean validate(String filter) {
+        try {
+            JsonPath.compile(filter);
+        } catch (InvalidPathException ignored) {
+            return false;
+        }
+
+        return true;
     }
 }

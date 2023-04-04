@@ -67,4 +67,8 @@ public class DistributionZoneConfigurationSchema {
     @Range(min = 0)
     @Value(hasDefault = true)
     public int dataNodesAutoAdjustScaleDown = INFINITE_TIMER_VALUE;
+
+    @ValidFilter
+    @Value(hasDefault = true)
+    public String filter = "$..*";
 }

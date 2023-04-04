@@ -21,46 +21,42 @@ import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTR
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.NamedConfigurationTree;
-import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.FilterValidator;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneBindTableException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
-import org.apache.ignite.internal.schema.configuration.TableChange;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for distribution zone manager.
  */
+@ExtendWith(ConfigurationExtension.class)
 class DistributionZoneManagerTest extends IgniteAbstractTest {
     private static final String ZONE_NAME = "zone1";
 
@@ -68,7 +64,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     private final ConfigurationRegistry registry = new ConfigurationRegistry(
             List.of(DistributionZonesConfiguration.KEY),
-            Set.of(),
+            Set.of(FilterValidator.INSTANCE),
             new TestConfigurationStorage(DISTRIBUTED),
             List.of(),
             List.of()
@@ -76,6 +72,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     private DistributionZoneManager distributionZoneManager;
 
+    @InjectConfiguration("mock.tables.fooTable {}")
     private TablesConfiguration tablesConfiguration;
 
     @BeforeEach
@@ -83,18 +80,6 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         registry.start();
 
         registry.initializeDefaults();
-
-        tablesConfiguration = mock(TablesConfiguration.class);
-
-        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = mock(NamedConfigurationTree.class);
-
-        when(tablesConfiguration.tables()).thenReturn(tables);
-
-        NamedListView<TableView> value = mock(NamedListView.class);
-
-        when(tables.value()).thenReturn(value);
-
-        when(value.namedListKeys()).thenReturn(new ArrayList<>());
 
         DistributionZonesConfiguration zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
 
@@ -200,7 +185,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
             e = e0;
         }
 
-        assertTrue(e != null, "Expected exception was not thrown.");
+        assertNotNull(e, "Expected exception was not thrown.");
         assertTrue(
                 e.getCause() instanceof DistributionZoneAlreadyExistsException,
                 "Unexpected type of exception (requires DistributionZoneAlreadyExistsException): " + e
@@ -376,7 +361,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
             e = e0;
         }
 
-        assertTrue(e != null, "Expected exception was not thrown.");
+        assertNotNull(e, "Expected exception was not thrown.");
         assertTrue(
                 e.getCause() instanceof DistributionZoneNotFoundException,
                 "Unexpected type of exception (requires DistributionZoneRenameException): " + e
@@ -402,7 +387,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
             e = e0;
         }
 
-        assertTrue(e != null, "Expected exception was not thrown.");
+        assertNotNull(e, "Expected exception was not thrown.");
         assertTrue(
                 e.getCause() instanceof DistributionZoneAlreadyExistsException,
                 "Unexpected type of exception (requires DistributionZoneRenameException): " + e
@@ -422,7 +407,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
             e = e0;
         }
 
-        assertTrue(e != null, "Expected exception was not thrown.");
+        assertNotNull(e, "Expected exception was not thrown.");
         assertTrue(
                 e.getCause() instanceof DistributionZoneNotFoundException,
                 "Unexpected type of exception (requires DistributionZoneNotFoundException): " + e
@@ -442,7 +427,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
             e = e0;
         }
 
-        assertTrue(e != null, "Expected exception was not thrown.");
+        assertNotNull(e, "Expected exception was not thrown.");
         assertTrue(
                 e.getCause() instanceof ConfigurationValidationException,
                 "Unexpected type of exception (requires ConfigurationValidationException): " + e
@@ -462,7 +447,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
             e = e0;
         }
 
-        assertTrue(e != null, "Expected exception was not thrown.");
+        assertNotNull(e, "Expected exception was not thrown.");
         assertTrue(
                 e.getCause() instanceof ConfigurationValidationException,
                 "Unexpected type of exception (requires ConfigurationValidationException): " + e
@@ -482,7 +467,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
             e = e0;
         }
 
-        assertTrue(e != null, "Expected exception was not thrown.");
+        assertNotNull(e, "Expected exception was not thrown.");
         assertTrue(
                 e.getCause() instanceof ConfigurationValidationException,
                 "Unexpected type of exception (requires ConfigurationValidationException): " + e
@@ -501,7 +486,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
             e = e0;
         }
 
-        assertTrue(e != null, "Expected exception was not thrown.");
+        assertNotNull(e, "Expected exception was not thrown.");
         assertTrue(
                 e.getCause() instanceof IllegalArgumentException,
                 "Unexpected type of exception (requires IllegalArgumentException): " + e
@@ -525,7 +510,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
             e = e0;
         }
 
-        assertTrue(e != null, "Expected exception was not thrown.");
+        assertNotNull(e, "Expected exception was not thrown.");
         assertTrue(
                 e.getCause() instanceof IllegalArgumentException,
                 "Unexpected type of exception (requires IllegalArgumentException): " + e
@@ -549,7 +534,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
             e = e0;
         }
 
-        assertTrue(e != null, "Expected exception was not thrown.");
+        assertNotNull(e, "Expected exception was not thrown.");
         assertTrue(
                 e.getCause() instanceof IllegalArgumentException,
                 "Unexpected type of exception (requires IllegalArgumentException): " + e
@@ -573,7 +558,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
             e = e0;
         }
 
-        assertTrue(e != null, "Expected exception was not thrown.");
+        assertNotNull(e, "Expected exception was not thrown.");
         assertTrue(
                 e.getCause() instanceof IllegalArgumentException,
                 "Unexpected type of exception (requires IllegalArgumentException): " + e
@@ -646,7 +631,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
             e = e0;
         }
 
-        assertTrue(e != null, "Expected exception was not thrown.");
+        assertNotNull(e, "Expected exception was not thrown.");
         assertTrue(
                 e.getCause() instanceof DistributionZoneBindTableException,
                 "Unexpected type of exception (requires DistributionZoneBindTableException): " + e
@@ -667,7 +652,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
             e = e0;
         }
 
-        assertTrue(e != null, "Expected exception was not thrown.");
+        assertNotNull(e, "Expected exception was not thrown.");
         assertTrue(
                 e.getCause() instanceof IllegalArgumentException,
                 "Unexpected type of exception (requires IllegalArgumentException): " + e
@@ -693,7 +678,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
             e = e0;
         }
 
-        assertTrue(e != null, "Expected exception was not thrown.");
+        assertNotNull(e, "Expected exception was not thrown.");
         assertTrue(
                 e.getCause() instanceof IllegalArgumentException,
                 "Unexpected type of exception (requires IllegalArgumentException): " + e
@@ -719,7 +704,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
             e = e0;
         }
 
-        assertTrue(e != null, "Expected exception was not thrown.");
+        assertNotNull(e, "Expected exception was not thrown.");
         assertTrue(
                 e.getCause() instanceof IllegalArgumentException,
                 "Unexpected type of exception (requires IllegalArgumentException): " + e
@@ -743,7 +728,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
             e = e0;
         }
 
-        assertTrue(e != null, "Expected exception was not thrown.");
+        assertNotNull(e, "Expected exception was not thrown.");
         assertTrue(
                 e.getCause() instanceof IllegalArgumentException,
                 "Unexpected type of exception (requires IllegalArgumentException): " + e
@@ -755,17 +740,117 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         );
     }
 
+    @Test
+    public void testCreateZoneWithFilter() throws Exception {
+        String expectedFilter = "['nodeAttributes'][?(@.['region'] == 'EU')]";
+
+        distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
+                                .filter(expectedFilter).build()
+                )
+                .get(5, TimeUnit.SECONDS);
+
+        DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+                .get(ZONE_NAME);
+
+        assertEquals(expectedFilter, zone1.filter().value());
+
+        distributionZoneManager.dropZone(ZONE_NAME).get(5, TimeUnit.SECONDS);
+
+        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+                .get(ZONE_NAME);
+
+        assertNull(zone1, "Zone was not dropped.");
+    }
+
+    @Test
+    public void testAlterZoneWithFilter() throws Exception {
+        String expectedFilter = "['nodeAttributes'][?(@.['region'] == 'EU')]";
+
+        distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
+                                .filter(expectedFilter).build()
+                )
+                .get(5, TimeUnit.SECONDS);
+
+        DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+                .get(ZONE_NAME);
+
+        assertEquals(expectedFilter, zone1.filter().value());
+
+        String newExpectedFilter = "['nodeAttributes'][?(@.['storage'] == 'SSD')]";
+
+        distributionZoneManager.alterZone(
+                        ZONE_NAME,
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
+                                .filter(newExpectedFilter).build())
+                .get(5, TimeUnit.SECONDS);
+
+        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+                .get(ZONE_NAME);
+
+        assertEquals(newExpectedFilter, zone1.filter().value());
+
+        distributionZoneManager.dropZone(ZONE_NAME).get(5, TimeUnit.SECONDS);
+
+        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+                .get(ZONE_NAME);
+
+        assertNull(zone1, "Zone was not dropped.");
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void testCreateZoneWithNotValidFilter() {
+        assertThrowsWithCause(
+                () -> distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
+                                .filter("['nodeAttributes'[?(@.['region'] == 'EU')]").build()
+                )
+                .get(5, TimeUnit.SECONDS),
+                ConfigurationValidationException.class
+        );
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void testAlterZoneWithNotValidFilter() throws Exception {
+        String expectedFilter = "['nodeAttributes'][?(@.['region'] == 'EU')]";
+
+        distributionZoneManager.createZone(
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
+                        .filter(expectedFilter).build()
+                )
+                .get(5, TimeUnit.SECONDS);
+
+        DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+                .get(ZONE_NAME);
+
+        assertEquals(expectedFilter, zone1.filter().value());
+
+        String notValidFilter = "['nodeAttributes[?(@.['region'] == 'EU')]";
+
+        assertThrowsWithCause(
+                () -> distributionZoneManager.alterZone(
+                        ZONE_NAME,
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
+                                .filter(notValidFilter).build()
+                        )
+                        .get(5, TimeUnit.SECONDS),
+                ConfigurationValidationException.class
+        );
+
+        distributionZoneManager.dropZone(ZONE_NAME).get(5, TimeUnit.SECONDS);
+
+        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+                .get(ZONE_NAME);
+
+        assertNull(zone1, "Zone was not dropped.");
+    }
+
     private void bindZoneToTable(String zoneName) {
         int zoneId = distributionZoneManager.getZoneId(zoneName);
 
-        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = mock(NamedConfigurationTree.class, RETURNS_DEEP_STUBS);
-
-        when(tablesConfiguration.tables()).thenReturn(tables);
-
-        TableView tableView = mock(TableView.class);
-
-        when(tables.value().size()).thenReturn(1);
-        when(tables.value().get(anyInt())).thenReturn(tableView);
-        when(tableView.zoneId()).thenReturn(zoneId);
+        tablesConfiguration.change(ch -> ch.changeTables(tables -> tables.update("fooTable", chg -> chg.changeZoneId(zoneId))));
     }
 }
