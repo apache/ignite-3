@@ -579,7 +579,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
             conn.setAutoCommit(false);
             conn.commit();
-            
+
             conn.close();
 
             // Exception when called on closed connection
@@ -594,7 +594,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
             SQLException rollbackEx = assertThrows(SQLException.class, conn::rollback);
             MatcherAssert.assertThat(rollbackEx.getMessage(),
                     containsString("Transaction cannot be rolled back explicitly in auto-commit mode."));
-            
+
             conn.setAutoCommit(false);
             conn.rollback();
 

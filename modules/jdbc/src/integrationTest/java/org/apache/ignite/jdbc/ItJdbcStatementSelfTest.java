@@ -527,7 +527,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
         conn.setAutoCommit(false);
 
-        try (PreparedStatement pstmt = conn.prepareStatement(sqlChangeName)){
+        try (PreparedStatement pstmt = conn.prepareStatement(sqlChangeName)) {
             Supplier<String> selectName = () -> {
                 try {
                     try (ResultSet rs = stmt.executeQuery("select NAME from TEST where ID=" + id)) {

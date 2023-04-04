@@ -39,7 +39,6 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -121,7 +120,7 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
         setupBase(testInfo, WORK_DIR);
 
         conn.setAutoCommit(true);
-        
+
         stmt = conn.createStatement();
 
         assert stmt != null;

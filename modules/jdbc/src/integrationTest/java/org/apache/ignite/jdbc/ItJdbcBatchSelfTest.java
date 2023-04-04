@@ -624,7 +624,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         conn.setAutoCommit(false);
 
         int rowsCnt = 5;
-        
+
         Callable<int[]> batchOp = () -> {
             for (int i = 0; i < rowsCnt; i++) {
                 stmt.addBatch("insert into Person (id, firstName, lastName, age) values " + valuesRow(i));
@@ -658,7 +658,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         // Check commit.
         checkBatchTxResult(rowsCnt, batchOp, true);
     }
-    
+
     private void checkBatchTxResult(int rowsCnt, Callable<int[]> batchOp, boolean commit) throws Exception {
         int[] updCnts = batchOp.call();
         assertEquals(rowsCnt, updCnts.length, "Invalid update counts size");
@@ -737,7 +737,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
     /**
      * Populates prepared statement.
-     * 
+     *
      * @param rowsCnt Rows count.
      * @throws SQLException If failed.
      */

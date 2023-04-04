@@ -563,7 +563,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             case ClientOp.PARTITION_ASSIGNMENT_GET:
                 return ClientTablePartitionAssignmentGetRequest.process(in, out, igniteTables);
-            
+
             case ClientOp.JDBC_TX_FINISH:
                 return ClientJdbcFinishTxRequest.process(in, out, jdbcQueryEventHandler);
 

@@ -315,7 +315,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             if (t != null) {
                 return new JdbcFinishTxResult(Response.STATUS_FAILED, t.getMessage());
             }
-            
+
             return new JdbcFinishTxResult();
         });
     }
@@ -427,7 +427,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         void close() {
             synchronized (mux) {
                 finishTransactionAsync(false);
-                
+
                 SessionId sessionId = this.sessionId;
 
                 this.sessionId = null;
@@ -480,18 +480,19 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                 return newSessionId;
             }
         }
-        
+
         private Transaction getOrStartTransaction() {
             return tx == null ? tx = igniteTransactions.begin() : tx;
         }
-        
+
         private CompletableFuture<Void> finishTransactionAsync(boolean commit) {
             Transaction tx0 = tx;
 
             tx = null;
-            
-            if (tx0 == null)
+
+            if (tx0 == null) {
                 return CompletableFuture.completedFuture(null);
+            }
 
             return commit ? tx0.commitAsync() : tx0.rollbackAsync();
         }
