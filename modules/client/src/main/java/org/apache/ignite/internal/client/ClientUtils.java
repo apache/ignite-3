@@ -182,7 +182,7 @@ public class ClientUtils {
 
             case ClientOp.PARTITION_ASSIGNMENT_GET:
                 return null;
-                
+
             case ClientOp.JDBC_TX_FINISH:
                 return null;
 
