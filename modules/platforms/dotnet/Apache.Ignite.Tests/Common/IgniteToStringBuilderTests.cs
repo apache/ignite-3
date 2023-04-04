@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Tests.Common;
 
+using System;
+using System.Collections.Generic;
 using Internal.Common;
 using NUnit.Framework;
 
@@ -67,9 +69,14 @@ public class IgniteToStringBuilderTests
     }
 
     [Test]
+    public void TestGenericType()
+    {
+        Assert.AreEqual("KeyValuePair`2[Int32, String] { }", IgniteToStringBuilder.Build(typeof(KeyValuePair<int, string>)));
+    }
+
+    [Test]
     public void TestGetNested()
     {
-        // TODO: Test double build, double close, etc
         var res = new IgniteToStringBuilder(typeof(Foo))
             .Append(1, "a")
             .BeginNested("Bar")
@@ -80,6 +87,34 @@ public class IgniteToStringBuilderTests
             .Build();
 
         Assert.AreEqual("Foo { a = 1, Bar { b = 2, c = 3 }, d = 4 }", res);
+    }
+
+    [Test]
+    public void TestMultipleBuildReturnsSameString()
+    {
+        var builder = new IgniteToStringBuilder(typeof(IgniteToStringBuilderTests));
+        builder.Append(1, "a");
+
+        Assert.AreEqual("IgniteToStringBuilderTests { a = 1 }", builder.Build());
+        Assert.AreEqual("IgniteToStringBuilderTests { a = 1 }", builder.Build());
+        Assert.AreEqual("IgniteToStringBuilderTests { a = 1 }", builder.ToString());
+    }
+
+    [Test]
+    public void TestAppendAfterBuildThrows()
+    {
+        var builder = new IgniteToStringBuilder(typeof(IgniteToStringBuilderTests));
+        builder.Build();
+
+        Assert.Throws<InvalidOperationException>(() => builder.Append(1, "a"));
+    }
+
+    [Test]
+    public void TestBuildBeforeCloseNestedThrows()
+    {
+        var builder = new IgniteToStringBuilder(typeof(Foo));
+
+        Assert.Throws<InvalidOperationException>(() => builder.BeginNested("abc").Build());
     }
 
     // ReSharper disable once NotAccessedPositionalProperty.Local

@@ -69,6 +69,7 @@ internal record IgniteToStringBuilder
     {
         IgniteArgumentCheck.NotNull(name, nameof(name));
 
+        CheckClosed();
         AppendComma();
 
         _builder.Append(name);
@@ -89,6 +90,7 @@ internal record IgniteToStringBuilder
     {
         IgniteArgumentCheck.NotNull(name, nameof(name));
 
+        CheckClosed();
         AppendComma();
 
         _builder.Append(name);
@@ -174,6 +176,9 @@ internal record IgniteToStringBuilder
         return _builder.ToString();
     }
 
+    /// <inheritdoc/>
+    public override string ToString() => Build();
+
     private static string GetTypeName(Type type)
     {
         if (!type.IsGenericType)
@@ -213,12 +218,18 @@ internal record IgniteToStringBuilder
 
     private void Close()
     {
+        if (!_closed)
+        {
+            _builder.AppendWithSpace("}");
+            _closed = true;
+        }
+    }
+
+    private void CheckClosed()
+    {
         if (_closed)
         {
             throw new InvalidOperationException("Builder is already closed.");
         }
-
-        _builder.AppendWithSpace("}");
-        _closed = true;
     }
 }
