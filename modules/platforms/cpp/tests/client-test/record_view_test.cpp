@@ -813,50 +813,144 @@ TEST_F(record_view_test, remove_all_exact_empty) {
     EXPECT_TRUE(res.empty());
 }
 
-//TEST_F(record_view_test, types_test) {
-//    auto table = m_client.get_tables().get_table(TABLE_NAME_ALL_COLUMNS);
-//    view = table->get_record_binary_view();
-//
-//    test_type inserted{
-//        {"key", std::int64_t(42)},
-//        {"str", "test"},
-//        {"int8", std::int8_t(1)},
-//        {"int16", std::int16_t(2)},
-//        {"int32", std::int32_t(3)},
-//        {"int64", std::int64_t(4)},
-//        {"float", .5f},
-//        {"double", .6},
-//        {"uuid", uuid(0x123e4567e89b12d3, 0x7456426614174000)},
-//        {"date", ignite_date(2023, 2, 7)},
-//        {"bitmask", bit_array(16, true)},
-//        {"time", ignite_time(17, 4, 12, 3543634)},
-//        {"time2", ignite_time(17, 4, 12, 3543634)},
-//        {"datetime", ignite_date_time({2020, 7, 28}, {2, 15, 52, 6349879})},
-//        {"datetime2", ignite_date_time({2020, 7, 28}, {2, 15, 52, 6349879})},
-//        {"timestamp", ignite_timestamp(3875238472, 248760634)},
-//        {"timestamp2", ignite_timestamp(3875238472, 248760634)},
-//        {"blob", std::vector<std::byte>{std::byte(1), std::byte(2), std::byte(42)}},
-//        {"decimal", big_decimal(123456789098765)},
-//    };
-//
-//    view.upsert(nullptr, inserted);
-//    auto res = view.get(nullptr, {{"key", std::int64_t(42)}});
-//
-//    ASSERT_TRUE(res.has_value());
-//    ASSERT_EQ(res->column_count(), inserted.column_count());
-//
-//    for (int i = 0; i < res->column_count(); ++i) {
-//        const auto &column = inserted.column_name(i);
-//
-//        if (column == "time2") {
-//            EXPECT_EQ(res->get(column), primitive{ignite_time(17, 4, 12)});
-//        } else if (column == "datetime2") {
-//            EXPECT_EQ(res->get(column), primitive{ignite_date_time({2020, 7, 28}, {2, 15, 52, 6000000})});
-//        } else if (column == "timestamp2") {
-//            EXPECT_EQ(res->get(column), primitive{ignite_timestamp(3875238472, 248700000)});
-//        } else {
-//            EXPECT_EQ(res->get(column), inserted.get(column));
-//        }
-//    }
-//}
-//
+/**
+ * All columns type table mapping (@see ignite_runner_suite::TABLE_NAME_ALL_COLUMNS).
+ */
+struct all_fields_type {
+    all_fields_type() = default;
+    explicit all_fields_type(std::int64_t key) : m_key(key) {}
+
+    std::int64_t m_key{0};
+    std::string m_str;
+    std::int8_t m_int8{0};
+    std::int16_t m_int16{0};
+    std::int32_t m_int32{0};
+    std::int64_t m_int64{0};
+    float m_float{.0f};
+    double m_double{.0};
+    uuid m_uuid;
+    ignite_date m_date;
+    bit_array m_bitmask;
+    ignite_time m_time;
+    ignite_time m_time2;
+    ignite_date_time m_datetime;
+    ignite_date_time m_datetime2;
+    ignite_timestamp m_timestamp;
+    ignite_timestamp m_timestamp2;
+    std::vector<std::byte> m_blob;
+    big_decimal m_decimal;
+};
+
+namespace ignite {
+
+template<>
+ignite_tuple convert_to_tuple(all_fields_type &&value) {
+    ignite_tuple tuple;
+
+    tuple.set("key", value.m_key);
+    tuple.set("str", value.m_str);
+    tuple.set("int8", value.m_int8);
+    tuple.set("int16", value.m_int16);
+    tuple.set("int32", value.m_int32);
+    tuple.set("int64", value.m_int64);
+    tuple.set("float", value.m_float);
+    tuple.set("double", value.m_double);
+    tuple.set("uuid", value.m_uuid);
+    tuple.set("date", value.m_date);
+    tuple.set("bitmask", value.m_bitmask);
+    tuple.set("time", value.m_time);
+    tuple.set("time2", value.m_time2);
+    tuple.set("datetime", value.m_datetime);
+    tuple.set("datetime2", value.m_datetime2);
+    tuple.set("timestamp", value.m_timestamp);
+    tuple.set("timestamp2", value.m_timestamp2);
+    tuple.set("blob", value.m_blob);
+    tuple.set("decimal", value.m_decimal);
+
+    return tuple;
+}
+
+template<>
+all_fields_type convert_from_tuple(ignite_tuple&& value) {
+    all_fields_type res;
+
+    res.m_key = value.get<std::int64_t>("key");
+
+    if (value.column_count() > 1) {
+        res.m_str = value.get<std::string>("str");
+        res.m_int8 = value.get<std::int8_t>("int8");
+        res.m_int16 = value.get<std::int16_t>("int16");
+        res.m_int32 = value.get<std::int32_t>("int32");
+        res.m_int64 = value.get<std::int64_t>("int64");
+        res.m_float = value.get<float>("float");
+        res.m_double = value.get<double>("double");
+        res.m_uuid = value.get<uuid>("uuid");
+        res.m_date = value.get<ignite_date>("date");
+        res.m_bitmask = value.get<bit_array>("bitmask");
+        res.m_time = value.get<ignite_time>("time");
+        res.m_time2 = value.get<ignite_time>("time2");
+        res.m_datetime = value.get<ignite_date_time>("datetime");
+        res.m_datetime2 = value.get<ignite_date_time>("datetime2");
+        res.m_timestamp = value.get<ignite_timestamp>("timestamp");
+        res.m_timestamp2 = value.get<ignite_timestamp>("timestamp2");
+        res.m_blob = value.get<std::vector<std::byte>>("blob");
+        res.m_decimal = value.get<big_decimal>("decimal");
+    }
+
+    return res;
+}
+
+}
+
+TEST_F(record_view_test, types_test) {
+    auto table = m_client.get_tables().get_table(TABLE_NAME_ALL_COLUMNS);
+    auto view2 = table->get_record_view<all_fields_type>();
+
+    all_fields_type inserted;
+    inserted.m_key = 42;
+    inserted.m_str = "test";
+    inserted.m_int8 = 1;
+    inserted.m_int16 = 2;
+    inserted.m_int32 = 3;
+    inserted.m_int64 = 4;
+    inserted.m_float = .5f;
+    inserted.m_double = .6f;
+    inserted.m_uuid = {0x123e4567e89b12d3, 0x7456426614174000};
+    inserted.m_date = {2023, 2, 7};
+    inserted.m_bitmask = bit_array{16, true};
+    inserted.m_time = {17, 4, 12, 3543634};
+    inserted.m_time2 = {17, 4, 12, 3543634};
+    inserted.m_datetime = {{2020, 7, 28}, {2, 15, 52, 6349879}};
+    inserted.m_datetime2 = {{2020, 7, 28}, {2, 15, 52, 6349879}};
+    inserted.m_timestamp = {3875238472, 248760634};
+    inserted.m_timestamp2 = {3875238472, 248760634};
+    inserted.m_blob = {std::byte(1), std::byte(2), std::byte(42)};
+    inserted.m_decimal = big_decimal{123456789098765};
+
+    view2.upsert(nullptr, inserted);
+    auto res = view2.get(nullptr, all_fields_type{42});
+
+    ASSERT_TRUE(res.has_value());
+
+    EXPECT_EQ(inserted.m_key, res->m_key);
+    EXPECT_EQ(inserted.m_str, res->m_str);
+    EXPECT_EQ(inserted.m_int8, res->m_int8);
+    EXPECT_EQ(inserted.m_int16, res->m_int16);
+    EXPECT_EQ(inserted.m_int32, res->m_int32);
+    EXPECT_EQ(inserted.m_int64, res->m_int64);
+    EXPECT_EQ(inserted.m_float, res->m_float);
+    EXPECT_EQ(inserted.m_double, res->m_double);
+    EXPECT_EQ(inserted.m_uuid, res->m_uuid);
+    EXPECT_EQ(inserted.m_date, res->m_date);
+    EXPECT_EQ(inserted.m_bitmask, res->m_bitmask);
+    EXPECT_EQ(inserted.m_time, res->m_time);
+    EXPECT_EQ(inserted.m_datetime, res->m_datetime);
+    EXPECT_EQ(inserted.m_timestamp, res->m_timestamp);
+    EXPECT_EQ(inserted.m_blob, res->m_blob);
+    EXPECT_EQ(inserted.m_decimal, res->m_decimal);
+
+    EXPECT_EQ(ignite_time(17, 4, 12), res->m_time2);
+    EXPECT_EQ(ignite_date_time({2020, 7, 28}, {2, 15, 52, 6000000}), res->m_datetime2);
+    EXPECT_EQ(ignite_timestamp(3875238472, 248700000), res->m_timestamp2);
+}
+
