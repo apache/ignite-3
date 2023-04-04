@@ -927,7 +927,7 @@ private:
      * @return Tuples.
      */
     static std::vector<ignite_tuple> values_to_tuples(std::vector<value_type> values) {
-        //TODO: Optimize memory usage
+        //TODO: Optimize memory usage (IGNITE-19198)
         std::vector<ignite_tuple> tuples;
         tuples.reserve(values.size());
         for (auto &&value : std::move(values)) {
@@ -942,7 +942,7 @@ private:
      * @return Values.
      */
     static std::vector<value_type> tuples_to_values(std::vector<ignite_tuple> tuples) {
-        //TODO: Optimize memory usage
+        //TODO: Optimize memory usage (IGNITE-19198)
         std::vector<value_type> values;
         values.reserve(tuples.size());
         for (auto &&tuple : std::move(tuples)) {
@@ -957,7 +957,7 @@ private:
      * @return Values.
      */
     static std::vector<std::optional<value_type>> tuples_to_values(std::vector<std::optional<ignite_tuple>> tuples) {
-        //TODO: Optimize memory usage
+        //TODO: Optimize memory usage (IGNITE-19198)
         std::vector<std::optional<value_type>> values;
         values.reserve(tuples.size());
         for (auto &&tuple : std::move(tuples)) {
