@@ -29,7 +29,7 @@ import org.apache.ignite.security.BasicAuthenticationProviderConfig;
  * REST representation of {@link BasicAuthenticationProviderConfig}.
  */
 @JsonTypeName("basic")
-@Schema(name = "BasicAuthenticationProviderConfig")
+@Schema(name = "BasicAuthenticationProviderConfig", description = "Configuration for basic authentication.")
 public class BasicAuthenticationProviderConfigDto implements AuthenticationProviderConfigDto {
 
     @Schema(description = "Provider name.")
@@ -48,15 +48,15 @@ public class BasicAuthenticationProviderConfigDto implements AuthenticationProvi
             @JsonProperty("login") String login,
             @JsonProperty("password") String password) {
         if (StringUtils.nullOrBlank(name)) {
-            throw new IllegalArgumentException("Name must not be empty");
+            throw new IllegalArgumentException("Name must not be empty.");
         }
 
         if (StringUtils.nullOrBlank(login)) {
-            throw new IllegalArgumentException("Login must not be empty");
+            throw new IllegalArgumentException("Login must not be empty.");
         }
 
         if (StringUtils.nullOrBlank(password)) {
-            throw new IllegalArgumentException("Password must not be empty");
+            throw new IllegalArgumentException("Password must not be empty.");
         }
 
         this.name = name;
@@ -76,6 +76,7 @@ public class BasicAuthenticationProviderConfigDto implements AuthenticationProvi
 
     @JsonProperty
     @Override
+    @Schema(description = "Authentication type to use.")
     public AuthenticationType type() {
         return AuthenticationType.BASIC;
     }
