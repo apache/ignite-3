@@ -31,6 +31,9 @@ import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -38,10 +41,12 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Compute tests.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class ClientComputeTest {
     private static final String TABLE_NAME = "tbl1";
 
@@ -49,6 +54,9 @@ public class ClientComputeTest {
     private TestServer server1;
     private TestServer server2;
     private TestServer server3;
+
+    @InjectConfiguration
+    private AuthenticationConfiguration authenticationConfiguration;
 
     @AfterEach
     void tearDown() throws Exception {
@@ -163,8 +171,8 @@ public class ClientComputeTest {
 
         var clusterId = UUID.randomUUID();
 
-        server1 = new TestServer(10900, 10, 0, ignite, shouldDropConnection, null, "s1", clusterId);
-        server2 = new TestServer(10910, 10, 0, ignite, shouldDropConnection, null, "s2", clusterId);
-        server3 = new TestServer(10920, 10, 0, ignite, shouldDropConnection, null, "s3", clusterId);
+        server1 = new TestServer(10900, 10, 0, ignite, shouldDropConnection, null, "s1", clusterId, authenticationConfiguration);
+        server2 = new TestServer(10910, 10, 0, ignite, shouldDropConnection, null, "s2", clusterId, authenticationConfiguration);
+        server3 = new TestServer(10920, 10, 0, ignite, shouldDropConnection, null, "s3", clusterId, authenticationConfiguration);
     }
 }

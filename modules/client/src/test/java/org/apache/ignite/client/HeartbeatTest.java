@@ -25,16 +25,25 @@ import java.util.UUID;
 import java.util.function.Function;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests heartbeat and idle timeout behavior.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class HeartbeatTest {
+
+    @InjectConfiguration
+    private AuthenticationConfiguration authenticationConfiguration;
+
     @Test
     public void testHeartbeatLongerThanIdleTimeoutCausesDisconnect() throws Exception {
-        try (var srv = new TestServer(10800, 10, 50, new FakeIgnite())) {
+        try (var srv = new TestServer(10800, 10, 50, new FakeIgnite(), authenticationConfiguration)) {
             int srvPort = srv.port();
             var loggerFactory = new TestLoggerFactory("client");
 
@@ -54,7 +63,7 @@ public class HeartbeatTest {
 
     @Test
     public void testHeartbeatShorterThanIdleTimeoutKeepsConnectionAlive() throws Exception {
-        try (var srv = new TestServer(10800, 10, 300, new FakeIgnite())) {
+        try (var srv = new TestServer(10800, 10, 300, new FakeIgnite(), authenticationConfiguration)) {
             int srvPort = srv.port();
 
             Builder builder = IgniteClient.builder()
@@ -72,7 +81,7 @@ public class HeartbeatTest {
     @SuppressWarnings("ThrowableNotThrown")
     @Test
     public void testInvalidHeartbeatIntervalThrows() throws Exception {
-        try (var srv = new TestServer(10800, 10, 300, new FakeIgnite())) {
+        try (var srv = new TestServer(10800, 10, 300, new FakeIgnite(), authenticationConfiguration)) {
 
             Builder builder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + srv.port())
@@ -87,7 +96,17 @@ public class HeartbeatTest {
         Function<Integer, Integer> responseDelayFunc = requestCount -> requestCount > 1 ? 500 : 0;
         var loggerFactory = new TestLoggerFactory("client");
 
-        try (var srv = new TestServer(10800, 10, 300, new FakeIgnite(), x -> false, responseDelayFunc, null, UUID.randomUUID())) {
+        try (var srv = new TestServer(
+                10800,
+                10,
+                300,
+                new FakeIgnite(),
+                x -> false,
+                responseDelayFunc,
+                null,
+                UUID.randomUUID(),
+                authenticationConfiguration)
+        ) {
             int srvPort = srv.port();
 
             Builder builder = IgniteClient.builder()

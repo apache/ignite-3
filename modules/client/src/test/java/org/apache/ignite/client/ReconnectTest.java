@@ -25,23 +25,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests thin client reconnect.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class ReconnectTest {
     /** Test server. */
     private TestServer server;
 
     /** Test server 2. */
     private TestServer server2;
+
+    @InjectConfiguration
+    private static AuthenticationConfiguration authenticationConfiguration;
 
     @AfterEach
     void tearDown() throws Exception {
@@ -57,7 +65,8 @@ public class ReconnectTest {
                 10900,
                 10,
                 0,
-                ignite1);
+                ignite1,
+                authenticationConfiguration);
 
         var client = IgniteClient.builder()
                 .addresses("127.0.0.1:10900..10910", "127.0.0.1:10950..10960")
@@ -75,7 +84,8 @@ public class ReconnectTest {
                 10950,
                 10,
                 0,
-                ignite2);
+                ignite2,
+                authenticationConfiguration);
 
         assertEquals("t2", client.tables().tables().get(0).name());
     }
@@ -90,7 +100,8 @@ public class ReconnectTest {
                 10900,
                 10,
                 0,
-                ignite1);
+                ignite1,
+                authenticationConfiguration);
 
         var client = IgniteClient.builder()
                 .addresses("127.0.0.1:10900..10910", "127.0.0.1:10950..10960")
@@ -124,7 +135,8 @@ public class ReconnectTest {
                     0,
                     0,
                     new FakeIgnite(),
-                    "node3");
+                    "node3",
+                    authenticationConfiguration);
 
             if (reconnectEnabled) {
                 waitForConnections(client, 2);
@@ -164,14 +176,16 @@ public class ReconnectTest {
                 0,
                 0,
                 new FakeIgnite(),
-                "node1");
+                "node1",
+                authenticationConfiguration);
 
         server2 = AbstractClientTest.startServer(
                 10901,
                 0,
                 0,
                 new FakeIgnite(),
-                "node2");
+                "node2",
+                authenticationConfiguration);
     }
 
     private static void waitForConnections(IgniteClient client, int expectedConnections) throws InterruptedException {

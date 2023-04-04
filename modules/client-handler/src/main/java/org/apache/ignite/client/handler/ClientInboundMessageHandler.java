@@ -29,6 +29,8 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.DecoderException;
 import java.util.BitSet;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -77,17 +79,24 @@ import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginReques
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
+import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.Extension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
+import org.apache.ignite.internal.configuration.AuthenticationView;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.security.authentication.AuthenticationManager;
+import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
+import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -103,7 +112,7 @@ import org.jetbrains.annotations.Nullable;
  * Handles messages from thin clients.
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
+public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter implements ConfigurationListener<AuthenticationView> {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
 
@@ -143,11 +152,16 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** Context. */
     private ClientContext clientContext;
 
+    private ChannelHandlerContext channelHandlerContext;
+
     /** Whether the partition assignment has changed since the last server response. */
     private final AtomicBoolean partitionAssignmentChanged = new AtomicBoolean();
 
     /** Partition assignment change listener. */
     private final Consumer<IgniteTablesInternal> partitionAssignmentsChangeListener;
+
+    /** Authentication manager. */
+    private final AuthenticationManager authenticationManager;
 
     /**
      * Constructor.
@@ -161,6 +175,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
      * @param sql SQL.
      * @param clusterId Cluster ID.
      * @param metrics Metrics.
+     * @param authenticationManager Authentication manager.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
@@ -171,7 +186,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             ClusterService clusterService,
             IgniteSql sql,
             UUID clusterId,
-            ClientHandlerMetricSource metrics) {
+            ClientHandlerMetricSource metrics,
+            AuthenticationManager authenticationManager
+    ) {
         assert igniteTables != null;
         assert igniteTransactions != null;
         assert processor != null;
@@ -181,6 +198,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         assert sql != null;
         assert clusterId != null;
         assert metrics != null;
+        assert authenticationManager != null;
 
         this.igniteTables = igniteTables;
         this.igniteTransactions = igniteTransactions;
@@ -190,12 +208,19 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         this.sql = sql;
         this.clusterId = clusterId;
         this.metrics = metrics;
+        this.authenticationManager = authenticationManager;
 
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources);
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
 
         this.partitionAssignmentsChangeListener = this::onPartitionAssignmentChanged;
         igniteTables.addAssignmentsChangeListener(partitionAssignmentsChangeListener);
+    }
+
+    @Override
+    public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
+        channelHandlerContext = ctx;
+        super.channelRegistered(ctx);
     }
 
     /** {@inheritDoc} */
@@ -241,15 +266,15 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             var clientCode = unpacker.unpackInt();
             var featuresLen = unpacker.unpackBinaryHeader();
             var features = BitSet.valueOf(unpacker.readPayload(featuresLen));
+            var extensions = extractExtensions(unpacker);
 
-            clientContext = new ClientContext(clientVer, clientCode, features);
+            var userDetails = authenticationManager.authenticate(createAuthenticationRequest(extensions));
+
+            clientContext = new ClientContext(clientVer, clientCode, features, userDetails);
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Handshake [remoteAddress=" + ctx.channel().remoteAddress() + "]: " + clientContext);
             }
-
-            var extensionsLen = unpacker.unpackMapHeader();
-            unpacker.skipValues(extensionsLen);
 
             // Response.
             ProtocolVersion.LATEST_VER.pack(packer);
@@ -293,6 +318,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             metrics.sessionsRejectedIncrement();
         }
+    }
+
+    private AuthenticationRequest<?, ?> createAuthenticationRequest(Map<Extension, Object> extensions) {
+        return new UsernamePasswordRequest((String) extensions.get(Extension.USERNAME), (String) extensions.get(Extension.PASSWORD));
     }
 
     private void writeMagic(ChannelHandlerContext ctx) {
@@ -607,5 +636,47 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 + cause.getMessage(), cause);
 
         ctx.close();
+    }
+
+    @Override
+    public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<AuthenticationView> ctx) {
+        return CompletableFuture.runAsync(() -> {
+            if (clientContext != null && channelHandlerContext != null) {
+                onAuthenticationChange();
+            }
+        });
+    }
+
+    private void onAuthenticationChange() {
+        channelHandlerContext.close();
+    }
+
+    private Map<Extension, Object> extractExtensions(ClientMessageUnpacker unpacker) {
+        EnumMap<Extension, Object> extensions = new EnumMap<>(Extension.class);
+        int mapSize = unpacker.unpackMapHeader();
+        for (int i = 0; i < mapSize; i++) {
+            Extension extension = Extension.fromKey(unpacker.unpackString());
+            extensions.put(extension, unpackExtensionValue(extension, unpacker));
+        }
+        return extensions;
+    }
+
+    private Object unpackExtensionValue(Extension extension, ClientMessageUnpacker unpacker) {
+        Class<?> type = extension.valueType();
+        if (type == String.class) {
+            return unpacker.unpackString();
+        } else if (type == Integer.class) {
+            return unpacker.unpackInt();
+        } else if (type == Long.class) {
+            return unpacker.unpackLong();
+        } else if (type == Boolean.class) {
+            return unpacker.unpackBoolean();
+        } else if (type == Double.class) {
+            return unpacker.unpackDouble();
+        } else if (type == Float.class) {
+            return unpacker.unpackFloat();
+        } else {
+            throw new IllegalArgumentException("Unsupported extension type: " + type.getName());
+        }
     }
 }

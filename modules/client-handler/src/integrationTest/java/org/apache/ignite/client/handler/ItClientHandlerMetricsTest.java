@@ -23,6 +23,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.SocketException;
 import java.nio.file.Path;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -34,12 +37,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Client handler metrics tests. See also {@code org.apache.ignite.client.MetricsTest}.
  */
+@ExtendWith(ConfigurationExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItClientHandlerMetricsTest {
     private TestServer testServer;
 
     @WorkDirectory
     private Path workDir;
+
+    @InjectConfiguration
+    private AuthenticationConfiguration authenticationConfiguration;
 
     @AfterEach
     void tearDown() throws Exception {
@@ -54,8 +61,8 @@ public class ItClientHandlerMetricsTest {
                 TestSslConfig.builder()
                         .keyStorePath(ItClientHandlerTestUtils.generateKeystore(workDir))
                         .keyStorePassword("changeit")
-                        .build()
-        );
+                        .build(),
+                authenticationConfiguration);
 
         var serverModule = testServer.start(testInfo);
 
@@ -68,7 +75,7 @@ public class ItClientHandlerMetricsTest {
 
     @Test
     void testSessionsRejected(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null);
+        testServer = new TestServer(null, authenticationConfiguration);
         var serverModule = testServer.start(testInfo);
 
         // Bad MAGIC.
@@ -89,7 +96,7 @@ public class ItClientHandlerMetricsTest {
 
     @Test
     void testSessionsRejectedTimeout(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null);
+        testServer = new TestServer(null, authenticationConfiguration);
         testServer.idleTimeout(300);
         var serverModule = testServer.start(testInfo);
 
@@ -106,7 +113,7 @@ public class ItClientHandlerMetricsTest {
 
     @Test
     void testSessionsAccepted(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null);
+        testServer = new TestServer(null, authenticationConfiguration);
         var serverModule = testServer.start(testInfo);
 
         ItClientHandlerTestUtils.connectAndHandshake(serverModule);
@@ -115,7 +122,7 @@ public class ItClientHandlerMetricsTest {
 
     @Test
     void testSessionsActive(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null);
+        testServer = new TestServer(null, authenticationConfiguration);
         var serverModule = testServer.start(testInfo);
 
         try (var ignored = ItClientHandlerTestUtils.connectAndHandshakeAndGetSocket(serverModule)) {
@@ -127,7 +134,7 @@ public class ItClientHandlerMetricsTest {
 
     @Test
     void testBytesSentReceived(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null);
+        testServer = new TestServer(null, authenticationConfiguration);
         var serverModule = testServer.start(testInfo);
 
         assertEquals(0, testServer.metrics().bytesSent());

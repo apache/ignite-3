@@ -31,6 +31,9 @@ import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.KeyValueView;
@@ -42,12 +45,14 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests partition awareness.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class PartitionAwarenessTest extends AbstractClientTest {
     private static TestServer testServer2;
 
@@ -61,6 +66,9 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private String lastOpServerName;
 
+    @InjectConfiguration
+    private static AuthenticationConfiguration authenticationConfiguration;
+
     /**
      * Before all.
      */
@@ -71,7 +79,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
         server2 = new FakeIgnite("server-2");
-        testServer2 = startServer(10800, 10, 0, server2, "server-2");
+        testServer2 = startServer(10800, 10, 0, server2, "server-2", authenticationConfiguration);
         serverPort2 = testServer2.port();
 
         var clientBuilder = IgniteClient.builder()

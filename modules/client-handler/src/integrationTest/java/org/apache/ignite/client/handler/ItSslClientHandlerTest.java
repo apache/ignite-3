@@ -24,6 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.io.IOException;
 import java.net.SocketException;
 import java.nio.file.Path;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteException;
@@ -35,6 +38,7 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /** SSL client integration test. */
+@ExtendWith(ConfigurationExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItSslClientHandlerTest {
     private ClientHandlerModule serverModule;
@@ -42,6 +46,9 @@ public class ItSslClientHandlerTest {
     private TestServer testServer;
 
     private String keyStorePkcs12Path;
+
+    @InjectConfiguration
+    private AuthenticationConfiguration authenticationConfiguration;
 
     @WorkDirectory
     private Path workDir;
@@ -62,7 +69,7 @@ public class ItSslClientHandlerTest {
     @DisplayName("When SSL not configured (by default) the client can connect")
     void sslNotConfigured(TestInfo testInfo) throws IOException {
         // Given server started
-        testServer = new TestServer();
+        testServer = new TestServer(authenticationConfiguration);
         serverModule = testServer.start(testInfo);
 
         // Then
@@ -77,8 +84,8 @@ public class ItSslClientHandlerTest {
                 TestSslConfig.builder()
                         .keyStorePath(keyStorePkcs12Path)
                         .keyStorePassword("changeit")
-                        .build()
-        );
+                        .build(),
+                authenticationConfiguration);
         serverModule = testServer.start(testInfo);
 
         // Then
@@ -93,8 +100,8 @@ public class ItSslClientHandlerTest {
                 TestSslConfig.builder()
                         .keyStorePath(keyStorePkcs12Path)
                         .keyStorePassword("wrong-password")
-                        .build()
-        );
+                        .build(),
+                authenticationConfiguration);
 
         assertThrowsWithCause(() -> testServer.start(testInfo), IgniteException.class, "keystore password was incorrect");
     }

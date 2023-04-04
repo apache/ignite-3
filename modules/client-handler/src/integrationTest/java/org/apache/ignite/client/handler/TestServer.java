@@ -28,10 +28,13 @@ import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.security.authentication.AuthenticationManager;
+import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.network.ClusterService;
@@ -49,12 +52,15 @@ public class TestServer {
 
     private final TestSslConfig testSslConfig;
 
+    private final AuthenticationConfiguration authenticationConfiguration;
+
     private final ClientHandlerMetricSource metrics = new ClientHandlerMetricSource();
 
     private long idleTimeout = 5000;
 
-    TestServer(@Nullable TestSslConfig testSslConfig) {
+    TestServer(@Nullable TestSslConfig testSslConfig, AuthenticationConfiguration authenticationConfiguration) {
         this.testSslConfig = testSslConfig;
+        this.authenticationConfiguration = authenticationConfiguration;
         this.configurationManager = new ConfigurationManager(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
                 Set.of(),
@@ -66,8 +72,8 @@ public class TestServer {
         metrics.enable();
     }
 
-    TestServer() {
-        this(null);
+    TestServer(AuthenticationConfiguration authenticationConfiguration) {
+        this(null, authenticationConfiguration);
     }
 
     void idleTimeout(long idleTimeout) {
@@ -106,7 +112,9 @@ public class TestServer {
 
         var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTablesInternal.class), mock(IgniteTransactions.class),
                 registry, mock(IgniteCompute.class), clusterService, bootstrapFactory, mock(IgniteSql.class),
-                () -> CompletableFuture.completedFuture(UUID.randomUUID()), mock(MetricManager.class), metrics);
+                () -> CompletableFuture.completedFuture(UUID.randomUUID()), mock(MetricManager.class), metrics,
+                authenticationManager(authenticationConfiguration), authenticationConfiguration
+        );
 
         module.start();
 
@@ -120,5 +128,11 @@ public class TestServer {
     private ClientConnectorConfiguration clientConnectorConfig() {
         var registry = configurationManager.configurationRegistry();
         return registry.getConfiguration(ClientConnectorConfiguration.KEY);
+    }
+
+    private AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) {
+        AuthenticationManagerImpl authenticationManager = new AuthenticationManagerImpl();
+        authenticationConfiguration.listen(authenticationManager);
+        return authenticationManager;
     }
 }

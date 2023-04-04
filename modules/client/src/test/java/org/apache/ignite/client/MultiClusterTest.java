@@ -26,6 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.UUID;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.hamcrest.CoreMatchers;
@@ -33,10 +36,12 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests client behavior with multiple clusters.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class MultiClusterTest {
     private static final UUID clusterId1 = UUID.randomUUID();
 
@@ -46,10 +51,13 @@ public class MultiClusterTest {
 
     private TestServer server2;
 
+    @InjectConfiguration
+    private AuthenticationConfiguration authenticationConfiguration;
+
     @BeforeEach
     void setUp() {
-        server1 = new TestServer(10900, 10, 0, new FakeIgnite(), null, null, "s1", clusterId1);
-        server2 = new TestServer(10900, 10, 0, new FakeIgnite(), null, null, "s2", clusterId2);
+        server1 = new TestServer(10900, 10, 0, new FakeIgnite(), null, null, "s1", clusterId1, authenticationConfiguration);
+        server2 = new TestServer(10900, 10, 0, new FakeIgnite(), null, null, "s2", clusterId2, authenticationConfiguration);
     }
 
     @AfterEach
@@ -90,7 +98,7 @@ public class MultiClusterTest {
             client.tables().tables();
 
             server1.close();
-            server1 = new TestServer(10900, 10, 0, new FakeIgnite(), null, null, "s1", clusterId2);
+            server1 = new TestServer(10900, 10, 0, new FakeIgnite(), null, null, "s1", clusterId2, authenticationConfiguration);
 
             IgniteClientConnectionException ex = (IgniteClientConnectionException) assertThrowsWithCause(
                     () -> client.tables().tables(), IgniteClientConnectionException.class, "Cluster ID mismatch");

@@ -27,24 +27,32 @@ import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests client-side metrics (see also server-side metrics tests in {@link ServerMetricsTest}).
  */
+@ExtendWith(ConfigurationExtension.class)
 public class ClientMetricsTest {
     private TestServer server;
     private IgniteClient client;
 
+    @InjectConfiguration
+    private AuthenticationConfiguration authenticationConfiguration;
+
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void testConnectionMetrics(boolean gracefulDisconnect) throws Exception {
-        server = AbstractClientTest.startServer(10800, 10, 1000, new FakeIgnite());
+        server = AbstractClientTest.startServer(10800, 10, 1000, new FakeIgnite(), authenticationConfiguration);
         client = clientBuilder().build();
 
         ClientMetricSource metrics = metrics();
@@ -70,7 +78,17 @@ public class ClientMetricsTest {
     public void testConnectionsLostTimeout() throws InterruptedException {
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> requestIdx == 0;
         Function<Integer, Integer> responseDelay = idx -> idx > 1 ? 500 : 0;
-        server = new TestServer(10800, 10, 1000, new FakeIgnite(), shouldDropConnection, responseDelay, null, AbstractClientTest.clusterId);
+        server = new TestServer(
+                10800,
+                10,
+                1000,
+                new FakeIgnite(),
+                shouldDropConnection,
+                responseDelay,
+                null,
+                AbstractClientTest.clusterId,
+                authenticationConfiguration
+        );
         client = clientBuilder()
                 .connectTimeout(100)
                 .heartbeatTimeout(100)
@@ -86,7 +104,17 @@ public class ClientMetricsTest {
     public void testHandshakesFailed() {
         AtomicInteger counter = new AtomicInteger();
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> counter.incrementAndGet() < 3; // Fail 2 handshakes.
-        server = new TestServer(10800, 10, 1000, new FakeIgnite(), shouldDropConnection, null, null, AbstractClientTest.clusterId);
+        server = new TestServer(
+                10800,
+                10,
+                1000,
+                new FakeIgnite(),
+                shouldDropConnection,
+                null,
+                null,
+                AbstractClientTest.clusterId,
+                authenticationConfiguration
+        );
 
         client = clientBuilder().build();
 
@@ -98,7 +126,17 @@ public class ClientMetricsTest {
         AtomicInteger counter = new AtomicInteger();
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> false;
         Function<Integer, Integer> responseDelay = idx -> counter.incrementAndGet() == 1 ? 500 : 0;
-        server = new TestServer(10800, 10, 1000, new FakeIgnite(), shouldDropConnection, responseDelay, null, AbstractClientTest.clusterId);
+        server = new TestServer(
+                10800,
+                10,
+                1000,
+                new FakeIgnite(),
+                shouldDropConnection,
+                responseDelay,
+                null,
+                AbstractClientTest.clusterId,
+                authenticationConfiguration
+        );
         client = clientBuilder()
                 .connectTimeout(100)
                 .build();
@@ -112,7 +150,17 @@ public class ClientMetricsTest {
     public void testRequestsMetrics() throws InterruptedException {
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> requestIdx == 5;
         Function<Integer, Integer> responseDelay = idx -> idx == 4 ? 1000 : 0;
-        server = new TestServer(10800, 10, 1000, new FakeIgnite(), shouldDropConnection, responseDelay, null, AbstractClientTest.clusterId);
+        server = new TestServer(
+                10800,
+                10,
+                1000,
+                new FakeIgnite(),
+                shouldDropConnection,
+                responseDelay,
+                null,
+                AbstractClientTest.clusterId,
+                authenticationConfiguration
+        );
         client = clientBuilder().build();
 
         assertEquals(0, metrics().requestsActive());
@@ -162,7 +210,13 @@ public class ClientMetricsTest {
 
     @Test
     public void testBytesSentReceived() {
-        server = AbstractClientTest.startServer(10800, 10, 1000, new FakeIgnite());
+        server = AbstractClientTest.startServer(
+                10800,
+                10,
+                1000,
+                new FakeIgnite(),
+                authenticationConfiguration
+        );
         client = clientBuilder().build();
 
         assertEquals(15, metrics().bytesSent());
