@@ -74,6 +74,7 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.storage.TestPersistStorageConfigurationSchema;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -100,7 +101,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
                 Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
-                List.of()
+                List.of(TestPersistStorageConfigurationSchema.class)
         );
 
         DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()

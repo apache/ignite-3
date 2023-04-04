@@ -55,6 +55,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.storage.TestPersistStorageConfigurationSchema;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -91,7 +92,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
                 Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
-                List.of()
+                List.of(TestPersistStorageConfigurationSchema.class)
         );
 
         DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()

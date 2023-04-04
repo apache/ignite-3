@@ -53,6 +53,7 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.storage.TestPersistStorageConfigurationSchema;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -71,7 +72,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
             Set.of(),
             new TestConfigurationStorage(DISTRIBUTED),
             List.of(),
-            List.of()
+            List.of(TestPersistStorageConfigurationSchema.class)
     );
 
     private DistributionZoneManager distributionZoneManager;
