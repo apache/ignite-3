@@ -773,6 +773,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                             cancelFuts.add(
                                     CompletableFuture.allOf(entry.getValue().toArray(new CompletableFuture[0]))
                                             .handle((none2, t) -> {
+                                                // t is ignored in this block because it's passed to a cursor.
+
                                                 try {
                                                     exchangeSrvc.closeQuery(nodeId, ctx.queryId());
                                                 } catch (IgniteInternalCheckedException e) {
@@ -794,7 +796,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         }
 
                         var compoundCancelFut = CompletableFuture.allOf(cancelFuts.toArray(new CompletableFuture[0]));
-                        var finalStepFut = compoundCancelFut.thenRun(() -> {
+                        var finalStepFut = compoundCancelFut.whenComplete((r, e) -> {
                             queryManagerMap.remove(ctx.queryId());
 
                             try {
