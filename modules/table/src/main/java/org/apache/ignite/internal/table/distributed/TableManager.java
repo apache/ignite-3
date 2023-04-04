@@ -1134,7 +1134,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 distributionZoneConfiguration.partitions().value(), clusterNodeResolver, txManager, tableStorage,
                 txStateStorage, replicaSvc, clock);
 
-        var table = new TableImpl(internalTable, lockMgr);
+        var table = new TableImpl(internalTable, lockMgr, () -> collectTableIndexes(tblId));
 
         // TODO: IGNITE-19082 Need another way to wait for indexes
         table.addIndexesToWait(collectTableIndexes(tblId));
@@ -2365,10 +2365,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    private Collection<UUID> collectTableIndexes(UUID tableId) {
+    private Set<UUID> collectTableIndexes(UUID tableId) {
         NamedListView<? extends TableIndexView> indexes = tablesCfg.value().indexes();
 
-        List<UUID> indexIds = new ArrayList<>();
+        Set<UUID> indexIds = new HashSet<>();
 
         for (int i = 0; i < indexes.size(); i++) {
             TableIndexView indexConfig = indexes.get(i);

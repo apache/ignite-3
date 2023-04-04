@@ -39,6 +39,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
@@ -99,6 +100,9 @@ class IndexBuilder {
      */
     void startIndexBuild(TableIndexView tableIndexView, TableImpl table) {
         for (int partitionId = 0; partitionId < table.internalTable().partitions(); partitionId++) {
+            // TODO: IGNITE-19112 We only need to create the index store once
+            table.internalTable().storage().getOrCreateIndex(partitionId, tableIndexView.id());
+
             // TODO: IGNITE-19177 Add assignments check
             buildIndexTaskById.compute(
                     new BuildIndexTaskId(table.tableId(), tableIndexView.id(), partitionId),
@@ -307,7 +311,11 @@ class IndexBuilder {
                 return nextRowIdToBuildFromPreviousBatch;
             }
 
-            return table.internalTable().storage().getOrCreateIndex(partitionId, tableIndexView.id()).getNextRowIdToBuild();
+            IndexStorage index = table.internalTable().storage().getIndex(partitionId, tableIndexView.id());
+
+            assert index != null : createCommonTableIndexInfo();
+
+            return index.getNextRowIdToBuild();
         }
 
         private List<RowId> collectRowIdBatch(RowId nextRowIdToBuild) {

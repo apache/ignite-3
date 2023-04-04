@@ -29,6 +29,7 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
@@ -689,7 +690,7 @@ public class RecordBinaryViewOperationsTest {
 
         Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
-        return new TableImpl(table, new DummySchemaManagerImpl(schema), new HeapLockManager());
+        return new TableImpl(table, new DummySchemaManagerImpl(schema), new HeapLockManager(), Set::of);
     }
 
     private <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {

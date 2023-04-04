@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -52,7 +53,7 @@ public class Example {
      */
     private static List<Table> tableFactory() {
         return Collections.singletonList(
-                new TableImpl(new DummyInternalTableImpl(Mockito.mock(ReplicaService.class)), new HeapLockManager()));
+                new TableImpl(new DummyInternalTableImpl(Mockito.mock(ReplicaService.class)), new HeapLockManager(), Set::of));
     }
 
     /**

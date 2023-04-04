@@ -37,6 +37,7 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
@@ -117,7 +118,7 @@ public class InteropOperationsTest {
 
         Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
-        TABLE = new TableImpl(INT_TABLE, schemaRegistry, new HeapLockManager());
+        TABLE = new TableImpl(INT_TABLE, schemaRegistry, new HeapLockManager(), Set::of);
         KV_BIN_VIEW =  new KeyValueBinaryViewImpl(INT_TABLE, schemaRegistry);
 
         KV_VIEW = new KeyValueViewImpl<Long, Value>(INT_TABLE, schemaRegistry,
