@@ -106,10 +106,10 @@ public interface JdbcQueryEventHandler {
     CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMetaAsync(JdbcMetaPrimaryKeysRequest req);
 
     /**
-     * Commit/rollback a transaction when {@link Connection#setAutoCommit(boolean)} autocommit} is disabled.  
+     * Commit/rollback active transaction (if any) when {@link Connection#setAutoCommit(boolean)} autocommit} is disabled.
      *
      * @param connectionId An identifier of the connection on a server.
-     * @param commit {@code True} to commit, {@code false} to rollback.
+     * @param commit {@code True} to commit active transaction, {@code false} to rollback it.
      * @return Result future.
      */
     CompletableFuture<JdbcFinishTxResult> finishTxAsync(long connectionId, boolean commit);

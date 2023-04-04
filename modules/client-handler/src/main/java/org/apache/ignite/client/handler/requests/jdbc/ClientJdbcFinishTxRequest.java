@@ -23,11 +23,11 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 
 /**
- * Client jdbc table metadata request handler.
+ * Client jdbc explicit transaction complete request handler.
  */
 public class ClientJdbcFinishTxRequest {
     /**
-     * Processes remote {@code JdbcMetaTablesRequest}.
+     * Processes a remote JDBC request to complete explicit transaction.
      *
      * @param in      Client message unpacker.
      * @param out     Client message packer.
