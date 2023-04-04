@@ -51,7 +51,8 @@ public class ToStringTests
                 var path = GetSourcePath(type);
                 var code = File.ReadAllText(path);
 
-                if (code.Contains("new IgniteToStringBuilder("))
+                if (code.Contains("new IgniteToStringBuilder(", StringComparison.Ordinal) ||
+                    code.Contains("IgniteToStringBuilder.Build(", StringComparison.Ordinal))
                 {
                     continue;
                 }
