@@ -23,10 +23,15 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Peer;
@@ -63,6 +68,9 @@ class IndexBuilder {
     /** Index building executor. */
     private final ExecutorService buildIndexExecutor;
 
+    /** Tasks of building indexes by their ID. */
+    private final Map<BuildIndexTaskId, BuildIndexTask> buildIndexTaskById = new ConcurrentHashMap<>();
+
     IndexBuilder(String nodeName, IgniteSpinBusyLock busyLock, ClusterService clusterService) {
         this.busyLock = busyLock;
         this.clusterService = clusterService;
@@ -92,7 +100,32 @@ class IndexBuilder {
     void startIndexBuild(TableIndexView tableIndexView, TableImpl table) {
         for (int partitionId = 0; partitionId < table.internalTable().partitions(); partitionId++) {
             // TODO: IGNITE-19177 Add assignments check
-            buildIndexExecutor.submit(new BuildIndexTask(table, tableIndexView, partitionId, null));
+            buildIndexTaskById.compute(
+                    new BuildIndexTaskId(table.tableId(), tableIndexView.id(), partitionId),
+                    (buildIndexTaskId, previousBuildIndexTask) -> {
+                        assert previousBuildIndexTask == null : buildIndexTaskId;
+
+                        BuildIndexTask buildIndexTask = new BuildIndexTask(table, tableIndexView, buildIndexTaskId.getPartitionId(), null);
+
+                        buildIndexExecutor.submit(buildIndexTask);
+
+                        return buildIndexTask;
+                    });
+        }
+    }
+
+    /**
+     * Stops the build of the index.
+     */
+    void stopIndexBuild(TableIndexView tableIndexView, TableImpl table) {
+        for (int partitionId = 0; partitionId < table.internalTable().partitions(); partitionId++) {
+            BuildIndexTask buildIndexTask = buildIndexTaskById.remove(
+                    new BuildIndexTaskId(table.tableId(), tableIndexView.id(), partitionId)
+            );
+
+            if (buildIndexTask != null) {
+                buildIndexTask.stop();
+            }
         }
     }
 
@@ -119,6 +152,12 @@ class IndexBuilder {
          */
         private final @Nullable RowId nextRowIdToBuildFromPreviousBatch;
 
+        /** Busy lock to stop task synchronously. */
+        private final IgniteSpinBusyLock taskBusyLock = new IgniteSpinBusyLock();
+
+        /** Prevents double stopping of the task. */
+        private final AtomicBoolean taskStopGuard = new AtomicBoolean();
+
         private BuildIndexTask(
                 TableImpl table,
                 TableIndexView tableIndexView,
@@ -133,71 +172,77 @@ class IndexBuilder {
 
         @Override
         public void run() {
-            if (!busyLock.enterBusy()) {
-                return;
-            }
+            completedFuture(null)
+                    .thenCompose(unused -> inBusyLock(() -> {
+                        // At the time of creating the index, we should have already waited for the table to be created and its raft of
+                        // clients (services) to start for all partitions, so there should be no errors.
+                        RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(partitionId);
 
-            try {
-                // At the time of creating the index, we should have already waited for the table to be created and its raft of clients
-                // (services) to start for all partitions, so there should be no errors.
-                RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(partitionId);
+                        return raftGroupService
+                                // We do not check the presence of nodes in the topology on purpose, so as not to get into races on
+                                // rebalancing, it will be more convenient and reliable for us to wait for a stable topology with a
+                                // chosen leader.
+                                .refreshAndGetLeaderWithTerm()
+                                .thenComposeAsync(leaderWithTerm -> inBusyLock(() -> {
+                                    // At this point, we have a stable topology, each node of which has already applied all local updates.
+                                    if (!localNodeConsistentId().equals(leaderWithTerm.leader().consistentId())) {
+                                        // TODO: IGNITE-19053 Must handle the change of leader
+                                        // TODO: IGNITE-19053 Add a test to change the leader even at the start of the task
+                                        removeTask();
 
-                raftGroupService
-                        // We do not check the presence of nodes in the topology on purpose, so as not to get into races on
-                        // rebalancing, it will be more convenient and reliable for us to wait for a stable topology with a chosen
-                        // leader.
-                        .refreshAndGetLeaderWithTerm()
-                        .thenComposeAsync(leaderWithTerm -> {
-                            if (!busyLock.enterBusy()) {
-                                return completedFuture(null);
-                            }
+                                        return completedFuture(null);
+                                    }
 
-                            try {
-                                // At this point, we have a stable topology, each node of which has already applied all local updates.
-                                if (!localNodeConsistentId().equals(leaderWithTerm.leader().consistentId())) {
+                                    RowId nextRowIdToBuild = nextRowIdToBuild();
+
+                                    if (nextRowIdToBuild == null) {
+                                        // Index has already been built.
+                                        removeTask();
+
+                                        return completedFuture(null);
+                                    }
+
+                                    List<RowId> batchRowIds = collectRowIdBatch(nextRowIdToBuild);
+
+                                    RowId nextRowId = getNextRowIdForNextBatch(batchRowIds);
+
+                                    boolean finish = batchRowIds.size() < BUILD_INDEX_ROW_ID_BATCH_SIZE || nextRowId == null;
+
                                     // TODO: IGNITE-19053 Must handle the change of leader
-                                    // TODO: IGNITE-19053 Add a test to change the leader even at the start of the task
-                                    return completedFuture(null);
-                                }
+                                    return raftGroupService.run(createBuildIndexCommand(batchRowIds, finish))
+                                            .thenRun(() -> inBusyLock(() -> {
+                                                buildIndexTaskById.compute(
+                                                        new BuildIndexTaskId(table.tableId(), tableIndexView.id(), partitionId),
+                                                        (buildIndexTaskId, previousBuildIndexTask) -> {
+                                                            if (previousBuildIndexTask == null || finish) {
+                                                                // Index build task is in the process of stopping or has completed.
+                                                                return null;
+                                                            }
 
-                                RowId nextRowIdToBuild = nextRowIdToBuild();
+                                                            assert nextRowId != null : createCommonTableIndexInfo();
 
-                                if (nextRowIdToBuild == null) {
-                                    // Index has already been built.
-                                    return completedFuture(null);
-                                }
+                                                            BuildIndexTask buildIndexTask = new BuildIndexTask(
+                                                                    table,
+                                                                    tableIndexView,
+                                                                    partitionId,
+                                                                    nextRowId
+                                                            );
 
-                                List<RowId> batchRowIds = collectRowIdBatch(nextRowIdToBuild);
+                                                            buildIndexExecutor.submit(buildIndexTask);
 
-                                RowId nextRowId = getNextRowIdForNextBatch(batchRowIds);
+                                                            return buildIndexTask;
+                                                        });
 
-                                boolean finish = batchRowIds.size() < BUILD_INDEX_ROW_ID_BATCH_SIZE || nextRowId == null;
+                                                return completedFuture(null);
+                                            }));
+                                }), buildIndexExecutor);
+                    })).whenComplete((unused, throwable) -> {
+                        if (throwable != null) {
+                            removeTask();
 
-                                // TODO: IGNITE-19053 Must handle the change of leader
-                                return raftGroupService.run(createBuildIndexCommand(batchRowIds, finish))
-                                        .thenRun(() -> {
-                                            if (!finish) {
-                                                assert nextRowId != null : createCommonTableIndexInfo();
-
-                                                buildIndexExecutor.submit(
-                                                        new BuildIndexTask(table, tableIndexView, partitionId, nextRowId)
-                                                );
-                                            }
-                                        });
-                            } finally {
-                                busyLock.leaveBusy();
-                            }
-                        }, buildIndexExecutor)
-                        .whenComplete((unused, throwable) -> {
-                            if (throwable != null) {
-                                LOG.error("Index build error: [{}]", throwable, createCommonTableIndexInfo());
-                            }
-                        });
-            } catch (Throwable t) {
-                LOG.error("Index build error: [{}]", t, createCommonTableIndexInfo());
-            } finally {
-                busyLock.leaveBusy();
-            }
+                            LOG.error("Index build error: [{}]", throwable, createCommonTableIndexInfo());
+                        }
+                    });
         }
 
         private boolean isLocalNodeLeader(RaftGroupService raftGroupService) {
@@ -271,6 +316,51 @@ class IndexBuilder {
             }
 
             return createBatchRowIds(nextRowIdToBuild, BUILD_INDEX_ROW_ID_BATCH_SIZE);
+        }
+
+        private boolean enterBusy() {
+            if (!taskBusyLock.enterBusy()) {
+                return false;
+            }
+
+            if (!busyLock.enterBusy()) {
+                taskBusyLock.leaveBusy();
+
+                return false;
+            }
+
+            return true;
+        }
+
+        private void leaveBusy() {
+            taskBusyLock.leaveBusy();
+            busyLock.leaveBusy();
+        }
+
+        private <V> CompletableFuture<V> inBusyLock(Supplier<CompletableFuture<V>> supplier) {
+            if (!enterBusy()) {
+                removeTask();
+
+                return completedFuture(null);
+            }
+
+            try {
+                return supplier.get();
+            } finally {
+                leaveBusy();
+            }
+        }
+
+        private void stop() {
+            if (!taskStopGuard.compareAndSet(false, true)) {
+                return;
+            }
+
+            taskBusyLock.block();
+        }
+
+        private void removeTask() {
+            buildIndexTaskById.remove(new BuildIndexTaskId(table.tableId(), tableIndexView.id(), partitionId));
         }
     }
 }
