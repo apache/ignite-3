@@ -176,8 +176,31 @@ internal record IgniteToStringBuilder
 
     private static string GetTypeName(Type type)
     {
-        // TODO: Generics
-        return type.Name;
+        if (!type.IsGenericType)
+        {
+            return type.Name;
+        }
+
+        var sb = new StringBuilder(type.Name);
+        var args = type.GetGenericArguments();
+
+        sb.Append('`')
+            .Append(args.Length)
+            .Append('[');
+
+        for (var i = 0; i < args.Length; i++)
+        {
+            if (i > 0)
+            {
+                sb.Append(", ");
+            }
+
+            sb.Append(GetTypeName(args[i]));
+        }
+
+        sb.Append(']');
+
+        return sb.ToString();
     }
 
     private void AppendComma()
