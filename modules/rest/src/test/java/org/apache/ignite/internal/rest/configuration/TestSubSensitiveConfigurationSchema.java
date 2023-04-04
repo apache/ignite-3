@@ -17,24 +17,15 @@
 
 package org.apache.ignite.internal.rest.configuration;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Test root configuration schema.
+ * Test sub sensitive configuration schema.
  */
-@ConfigurationRoot(rootName = "root")
-public class TestRootConfigurationSchema {
-    /** Foo field. */
+@Config
+public class TestSubSensitiveConfigurationSchema {
+
     @Value(hasDefault = true)
-    public String foo = "foo";
-
-    /** Sub sensitive configuration schema. */
-    @ConfigValue
-    public TestSubSensitiveConfigurationSchema sensitive;
-
-    /** Sub configuration schema. */
-    @ConfigValue
-    public TestSubConfigurationSchema subCfg;
+    public String password = "";
 }
