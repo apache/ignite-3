@@ -46,10 +46,13 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.command.HybridTimestampMessage;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
+import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -127,12 +130,19 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
         RaftGroupService metaStorageService = mock(RaftGroupService.class);
 
+        HybridTimestampMessage mockTsMessage = mock(HybridTimestampMessage.class);
+        when(mockTsMessage.asHybridTimestamp()).thenReturn(new HybridTimestamp(10, 10));
+
         // Delegate directly to listener.
         lenient().doAnswer(
                 invocationClose -> {
                     Command cmd = invocationClose.getArgument(0);
 
                     long commandIndex = raftIndex.incrementAndGet();
+
+                    if (cmd instanceof MetaStorageWriteCommand) {
+                        ((MetaStorageWriteCommand) cmd).safeTime(mockTsMessage);
+                    }
 
                     CompletableFuture<Serializable> res = new CompletableFuture<>();
 
