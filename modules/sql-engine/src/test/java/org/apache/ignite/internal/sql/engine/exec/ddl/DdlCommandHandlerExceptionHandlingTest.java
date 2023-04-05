@@ -43,11 +43,14 @@ import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
+import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.storage.DataStorageManager;
+import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.storage.TestPersistStorageConfigurationSchema;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -81,7 +84,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
             Set.of(),
             new TestConfigurationStorage(DISTRIBUTED),
             List.of(),
-            List.of()
+            List.of(TestPersistStorageConfigurationSchema.class)
     );
 
     private DistributionZoneManager distributionZoneManager;
