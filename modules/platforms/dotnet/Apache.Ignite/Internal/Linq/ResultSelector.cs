@@ -246,7 +246,6 @@ internal static class ResultSelector
             il.Emit(OpCodes.Dup);
             var member = membersInitiated[memberIndex];
 
-            // TODO: collection initialization? (inline and for properties)
             if (member is PropertyInfo {SetMethod: {}} propertyInfo)
             {
                 EmitReadToStack(il, columns[columnsIndex], propertyInfo.PropertyType, columnsIndex, options);
