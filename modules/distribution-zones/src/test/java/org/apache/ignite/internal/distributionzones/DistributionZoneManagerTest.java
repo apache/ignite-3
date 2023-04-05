@@ -57,6 +57,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for distribution zone manager.
  */
 @ExtendWith(ConfigurationExtension.class)
+@SuppressWarnings("ThrowableNotThrown")
 class DistributionZoneManagerTest extends IgniteAbstractTest {
     private static final String ZONE_NAME = "zone1";
 
@@ -745,10 +746,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         String expectedFilter = "['nodeAttributes'][?(@.['region'] == 'EU')]";
 
         distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                                .filter(expectedFilter).build()
-                )
-                .get(5, TimeUnit.SECONDS);
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).filter(expectedFilter).build()
+        ).get(5, TimeUnit.SECONDS);
 
         DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
                 .get(ZONE_NAME);
@@ -783,8 +782,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         distributionZoneManager.alterZone(
                         ZONE_NAME,
                         new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                                .filter(newExpectedFilter).build())
-                .get(5, TimeUnit.SECONDS);
+                                .filter(newExpectedFilter).build()
+                ).get(5, TimeUnit.SECONDS);
 
         zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
                 .get(ZONE_NAME);
@@ -800,15 +799,14 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
     public void testCreateZoneWithNotValidFilter() {
         assertThrowsWithCause(
                 () -> distributionZoneManager.createZone(
                         new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
                                 .filter("['nodeAttributes'[?(@.['region'] == 'EU')]").build()
-                )
-                .get(5, TimeUnit.SECONDS),
-                ConfigurationValidationException.class
+                ).get(5, TimeUnit.SECONDS),
+                ConfigurationValidationException.class,
+                "Failed to parse filter ['nodeAttributes'[?(@.['region'] == 'EU')], the cause: Property must be separated by comma"
         );
     }
 
@@ -835,9 +833,9 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
                         ZONE_NAME,
                         new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
                                 .filter(notValidFilter).build()
-                        )
-                        .get(5, TimeUnit.SECONDS),
-                ConfigurationValidationException.class
+                        ).get(5, TimeUnit.SECONDS),
+                ConfigurationValidationException.class,
+                "Failed to parse filter ['nodeAttributes[?(@.['region'] == 'EU')], the cause: Property must be separated by comma"
         );
 
         distributionZoneManager.dropZone(ZONE_NAME).get(5, TimeUnit.SECONDS);

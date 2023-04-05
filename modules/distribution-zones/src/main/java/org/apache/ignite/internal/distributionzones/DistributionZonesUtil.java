@@ -46,6 +46,7 @@ import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Util class for Distribution Zones flow.
@@ -354,15 +355,19 @@ public class DistributionZonesUtil {
      * Check if a passed filter is a valid {@link JsonPath} query.
      *
      * @param filter Filter.
-     * @return {@code true} if the passed filter is a valid filter, {@code false} otherwise.
+     * @return {@code null} if the passed filter is a valid filter, string with the error message otherwise.
      */
-    public static boolean validate(String filter) {
+    public static @Nullable String validate(String filter) {
         try {
             JsonPath.compile(filter);
-        } catch (InvalidPathException ignored) {
-            return false;
+        } catch (InvalidPathException e) {
+            if (e.getMessage() != null) {
+                return e.getMessage();
+            } else {
+                return "Unknown JsonPath compilation error.";
+            }
         }
 
-        return true;
+        return null;
     }
 }

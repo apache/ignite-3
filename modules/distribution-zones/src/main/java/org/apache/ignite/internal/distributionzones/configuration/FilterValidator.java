@@ -34,8 +34,15 @@ public class FilterValidator implements Validator<ValidFilter, String> {
     public void validate(ValidFilter annotation, ValidationContext<String> ctx) {
         String filter = ctx.getNewValue();
 
-        if (!DistributionZonesUtil.validate(filter)) {
-            ctx.addIssue(new ValidationIssue(ctx.currentKey(), String.format("Failed to parse filter %s", filter)));
+        String validationResult = DistributionZonesUtil.validate(filter);
+
+        if (validationResult != null) {
+            ctx.addIssue(
+                    new ValidationIssue(
+                            ctx.currentKey(),
+                            String.format("Failed to parse filter %s, the cause: %s", filter, validationResult)
+                    )
+            );
         }
     }
 }
