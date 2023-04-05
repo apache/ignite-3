@@ -420,33 +420,4 @@ internal static class ResultSelector
     }
 
     private static long GetNextId() => Interlocked.Increment(ref _idCounter);
-
-    private static CustomProjectionCtorAndInit TestReadSEST(IReadOnlyList<ColumnMetadata> cols, ref BinaryTupleReader reader)
-    {
-        var result = new CustomProjectionCtorAndInit(reader.GetLong(0), reader.GetString(1))
-        {
-            Value = reader.GetString(2),
-            Value1 = reader.GetString(3)
-        };
-        return result;
-    }
-
-    private class CustomProjectionCtorAndInit
-    {
-        public CustomProjectionCtorAndInit()
-        {
-            // no-op
-        }
-
-        public CustomProjectionCtorAndInit(long id, string s)
-        {
-            Id = id;
-        }
-
-        public long Id { get; }
-
-        public string? Value { get; set; }
-
-        public string? Value1 { get; set; } // init
-    }
 }
