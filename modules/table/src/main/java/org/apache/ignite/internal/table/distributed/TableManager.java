@@ -251,7 +251,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * {@link TableImpl} is created during update of tablesByIdVv, we store reference to it in case of updating of tablesByIdVv fails, so we
      * can stop resources associated with the table.
      */
-    private final Map<UUID, TableImpl> tablesToStopInCaseOfError = new ConcurrentHashMap<>();
+    private final Map<UUID, TableImpl> pendingTables = new ConcurrentHashMap<>();
 
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final Function<String, ClusterNode> clusterNodeResolver;
@@ -989,10 +989,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
 
-        Map<UUID, TableImpl> tables = tablesByIdVv.latest();
-
         Stream<TableImpl> tablesToStop =
-                Stream.concat(tablesByIdVv.latest().values().stream(), tablesToStopInCaseOfError.values().stream());
+                Stream.concat(tablesByIdVv.latest().values().stream(), pendingTables.values().stream());
 
         cleanUpTablesResources(tablesToStop);
 
@@ -1149,10 +1147,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     });
         }));
 
-        tablesToStopInCaseOfError.put(tblId, table);
+        pendingTables.put(tblId, table);
 
         tablesByIdVv.get(causalityToken).thenAccept(ignored -> inBusyLock(busyLock,  ()-> {
-            tablesToStopInCaseOfError.remove(tblId);
+            pendingTables.remove(tblId);
         }));
 
         tablesByIdVv.get(causalityToken)
