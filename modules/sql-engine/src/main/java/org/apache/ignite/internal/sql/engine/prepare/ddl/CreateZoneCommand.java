@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
+import java.util.HashMap;
 import java.util.Map;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.jetbrains.annotations.Nullable;
@@ -69,8 +70,12 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         return (dataStorageOptions == null) ? Map.of() : dataStorageOptions;
     }
 
-    public void dataStorageOptions(Map<String, Object> dataStorageOptions) {
-        this.dataStorageOptions = dataStorageOptions;
+    public void addDataStorageOption(String name, Object value) {
+        if (dataStorageOptions == null) {
+            dataStorageOptions = new HashMap<>();
+        }
+
+        dataStorageOptions.put(name, value);
     }
 
     public boolean ifNotExists() {
@@ -143,5 +148,4 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
     public void dataNodesAutoAdjustScaleDown(Integer dataNodesAutoAdjustScaleDown) {
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
     }
-
 }

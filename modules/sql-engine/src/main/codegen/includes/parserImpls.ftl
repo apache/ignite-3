@@ -180,7 +180,6 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
     final SqlNodeList columnList;
     SqlNodeList optionList = null;
     SqlNodeList colocationColumns = null;
-    SqlIdentifier engine = null;
 }
 {
     <TABLE>
@@ -192,13 +191,10 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
             colocationColumns = ParenthesizedSimpleIdentifierList()
     ]
     [
-            <ENGINE> { s.add(this); } engine = SimpleIdentifier()
-    ]
-    [
         <WITH> { s.add(this); } optionList = CreateTableOptionList()
     ]
     {
-        return new IgniteSqlCreateTable(s.end(this), ifNotExists, id, engine, columnList, colocationColumns, optionList);
+        return new IgniteSqlCreateTable(s.end(this), ifNotExists, id, columnList, colocationColumns, optionList);
     }
 }
 
@@ -442,16 +438,20 @@ SqlCreate SqlCreateZone(Span s, boolean replace) :
         final boolean ifNotExists;
         final SqlIdentifier id;
         SqlNodeList optionList = null;
+        SqlIdentifier engine = null;
 }
 {
     <ZONE>
         ifNotExists = IfNotExistsOpt()
         id = CompoundIdentifier()
     [
+            <ENGINE> { s.add(this); } engine = SimpleIdentifier()
+    ]
+    [
         <WITH> { s.add(this); } optionList = CreateZoneOptionList()
     ]
     {
-        return new IgniteSqlCreateZone(s.end(this), ifNotExists, id, optionList);
+        return new IgniteSqlCreateZone(s.end(this), ifNotExists, id, optionList, engine);
     }
 }
 

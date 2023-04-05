@@ -78,7 +78,8 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createInMemoryTable() {
-        executeSql("CREATE TABLE " + TABLE_NAME + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) ENGINE aimem");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " ENGINE aimem");
+        executeSql("CREATE TABLE " + TABLE_NAME + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='ZONE_" +TABLE_NAME.toUpperCase() + "'");
     }
 
     /**
@@ -162,7 +163,8 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createPersistentTable() {
-        executeSql("CREATE TABLE " + TABLE_NAME + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) ENGINE rocksdb");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " ENGINE rocksdb");
+        executeSql("CREATE TABLE " + TABLE_NAME + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='ZONE_" + TABLE_NAME.toUpperCase() + "'");
     }
 
     @Test

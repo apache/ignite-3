@@ -35,11 +35,6 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
     /** Columns. */
     private List<ColumnDefinition> cols;
 
-    private String dataStorage;
-
-    @Nullable
-    private Map<String, Object> dataStorageOptions;
-
     private String zone;
 
     /**
@@ -91,43 +86,6 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
      */
     public void colocationColumns(List<String> colocationCols) {
         this.colocationCols = colocationCols;
-    }
-
-    /**
-     * Returns data storage.
-     */
-    public String dataStorage() {
-        return dataStorage;
-    }
-
-    /**
-     * Sets data storage.
-     *
-     * @param dataStorage Data storage.
-     */
-    public void dataStorage(String dataStorage) {
-        this.dataStorage = dataStorage;
-    }
-
-    /**
-     * Returns data storage options.
-     */
-    public Map<String, Object> dataStorageOptions() {
-        return dataStorageOptions == null ? Map.of() : dataStorageOptions;
-    }
-
-    /**
-     * Adds data storage option.
-     *
-     * @param name Option name.
-     * @param value Option value.
-     */
-    public void addDataStorageOption(String name, Object value) {
-        if (dataStorageOptions == null) {
-            dataStorageOptions = new HashMap<>();
-        }
-
-        dataStorageOptions.put(name, value);
     }
 
     /**

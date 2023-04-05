@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.
 import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN;
 import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP;
 import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_NODES_FILTER;
+import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_STORAGE_ENGINE;
 import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.PARTITIONS;
 import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.REPLICAS;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -113,7 +114,7 @@ public class DdlSqlToCommandConverter {
     private final Map<String, DdlOptionInfo<CreateTableCommand, ?>> tableOptionInfos;
 
     /** Like {@link #tableOptionInfos}, but for each data storage name. */
-    private final Map<String, Map<String, DdlOptionInfo<CreateTableCommand, ?>>> dataStorageOptionInfos;
+    private final Map<String, Map<String, DdlOptionInfo<CreateZoneCommand, ?>>> dataStorageOptionInfos;
 
     /** Mapping: Zone option ID -> DDL option info. */
     private final Map<IgniteSqlZoneOptionEnum, DdlOptionInfo<CreateZoneCommand, ?>> zoneOptionInfos;
@@ -161,7 +162,8 @@ public class DdlSqlToCommandConverter {
                 DATA_NODES_AUTO_ADJUST_SCALE_UP,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjustScaleUp),
                 DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
-                new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjustScaleDown)
+                new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjustScaleDown),
+                DATA_STORAGE_ENGINE, new DdlOptionInfo<>(String.class, null, CreateZoneCommand::dataStorage)
         );
 
         // ALTER ZONE options.
@@ -238,15 +240,12 @@ public class DdlSqlToCommandConverter {
      */
     private CreateTableCommand convertCreateTable(IgniteSqlCreateTable createTblNode, PlanningContext ctx) {
         CreateTableCommand createTblCmd = new CreateTableCommand();
-        String dataStorageName = deriveDataStorage(createTblNode.engineName(), ctx);
 
         createTblCmd.schemaName(deriveSchemaName(createTblNode.name(), ctx));
         createTblCmd.tableName(deriveObjectName(createTblNode.name(), ctx, "tableName"));
         createTblCmd.ifTableExists(createTblNode.ifNotExists());
-        createTblCmd.dataStorage(dataStorageName);
 
         if (createTblNode.createOptionList() != null) {
-            Map<String, DdlOptionInfo<CreateTableCommand, ?>> dsOptInfos = dataStorageOptionInfos.get(dataStorageName);
 
             for (SqlNode optionNode : createTblNode.createOptionList().getList()) {
                 IgniteSqlCreateTableOption option = (IgniteSqlCreateTableOption) optionNode;
@@ -256,10 +255,6 @@ public class DdlSqlToCommandConverter {
                 String optionKey = option.key().getSimple().toUpperCase();
 
                 DdlOptionInfo<CreateTableCommand, ?> tblOptionInfo = tableOptionInfos.get(optionKey);
-
-                if (tblOptionInfo == null) {
-                    tblOptionInfo = dsOptInfos.get(optionKey);
-                }
 
                 if (tblOptionInfo != null) {
                     updateCommandOption("Table", optionKey, (SqlLiteral) option.value(), tblOptionInfo, ctx.query(), createTblCmd);
@@ -510,10 +505,12 @@ public class DdlSqlToCommandConverter {
      */
     private CreateZoneCommand convertCreateZone(IgniteSqlCreateZone createZoneNode, PlanningContext ctx) {
         CreateZoneCommand createZoneCmd = new CreateZoneCommand();
+        String dataStorageName = deriveDataStorage(createZoneNode.engineName(), ctx);
 
         createZoneCmd.schemaName(deriveSchemaName(createZoneNode.name(), ctx));
         createZoneCmd.zoneName(deriveObjectName(createZoneNode.name(), ctx, "zoneName"));
         createZoneCmd.ifNotExists(createZoneNode.ifNotExists());
+        createZoneCmd.dataStorage(dataStorageName);
 
         if (createZoneNode.createOptionList() == null) {
             return createZoneCmd;
@@ -752,7 +749,7 @@ public class DdlSqlToCommandConverter {
         }
     }
 
-    private Entry<String, DdlOptionInfo<CreateTableCommand, ?>> dataStorageFieldOptionInfo(Entry<String, Class<?>> e) {
+    private Entry<String, DdlOptionInfo<CreateZoneCommand, ?>> dataStorageFieldOptionInfo(Entry<String, Class<?>> e) {
         return new SimpleEntry<>(
                 e.getKey(),
                 new DdlOptionInfo<>(e.getValue(), null, (cmd, o) -> cmd.addDataStorageOption(e.getKey(), o))

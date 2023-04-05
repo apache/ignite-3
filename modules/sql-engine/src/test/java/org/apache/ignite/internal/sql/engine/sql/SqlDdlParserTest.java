@@ -287,30 +287,6 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     @Test
-    public void createTableWithEngine() {
-        SqlNode node = parse("create table my_table(id int, val varchar) engine test_engine_name");
-
-        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
-
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
-
-        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
-        assertThat(createTable.engineName().names, is(List.of("TEST_ENGINE_NAME")));
-    }
-
-    @Test
-    public void createTableWithoutEngine() {
-        SqlNode node = parse("create table my_table(id int, val varchar)");
-
-        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
-
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
-
-        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
-        assertThat(createTable.engineName(), nullValue());
-    }
-
-    @Test
     public void createTableWithOptions() {
         String query = "create table my_table(id int) with"
                 + " replicas=2,"
