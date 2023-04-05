@@ -158,7 +158,7 @@ public class ReplExecutor {
             return;
         }
 
-        if (repl.isAutosuggestionsWidgetsEnabled()){
+        if (repl.isAutosuggestionsWidgetsEnabled()) {
             AutosuggestionWidgets autosuggestionWidgets = new AutosuggestionWidgets(reader);
             autosuggestionWidgets.enable();
         }
