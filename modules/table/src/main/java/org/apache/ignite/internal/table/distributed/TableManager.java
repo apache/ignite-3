@@ -1152,6 +1152,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tablesToStopInCaseOfError.put(tblId, table);
 
+        tablesByIdVv.get(causalityToken).thenAccept(ignored -> inBusyLock(busyLock,  ()-> {
+            tablesToStopInCaseOfError.remove(tblId);
+        }));
+
         tablesByIdVv.get(causalityToken)
                 .thenRun(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
 
