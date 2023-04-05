@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.net.ConnectException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -237,7 +238,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
                 || hasCause(e, IgniteInternalCheckedException.class, "Failed to execute query, node left")
                 || hasCause(e, SqlValidatorException.class, "Object 'TEST' not found")
                 // TODO: remove after https://issues.apache.org/jira/browse/IGNITE-18848 is implemented.
-                || hasCause(e, StorageRebalanceException.class, "process of rebalancing");
+                || hasCause(e, StorageRebalanceException.class, "process of rebalancing")
+                || hasCause(e, ConnectException.class, null);
     }
 
     private <T> T queryWithRetry(int nodeIndex, String sql, Function<ResultSet<SqlRow>, T> extractor) {
@@ -266,7 +268,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * to knock-out the follower to make it require a snapshot installation).
      */
     @Test
-    @Disabled("Enable when the IGNITE-18170 deadlock is fixed")
     void leaderFeedsFollowerWithSnapshotWithKnockoutStop() throws Exception {
         testLeaderFeedsFollowerWithSnapshot(Cluster.NodeKnockout.STOP, DEFAULT_STORAGE_ENGINE);
     }
@@ -542,7 +543,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * <p>{@link NodeKnockout#STOP} is used to knock out the follower which will accept the snapshot.
      */
     @Test
-    @Disabled("Enable when the IGNITE-18170 deadlock is resolved")
     void txSemanticsIsMaintainedWithKnockoutStop() throws Exception {
         txSemanticsIsMaintainedAfterInstallingSnapshot(Cluster.NodeKnockout.STOP);
     }
