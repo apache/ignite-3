@@ -991,11 +991,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         Map<UUID, TableImpl> tables = tablesByIdVv.latest();
 
-        cleanUpTablesResources(tables);
+        Stream<TableImpl> tablesToStop =
+                Stream.concat(tablesByIdVv.latest().values().stream(), tablesToStopInCaseOfError.values().stream());
 
-        cleanUpTablesResources(tablesToStopInCaseOfError);
-
-        tablesToStopInCaseOfError.clear();
+        cleanUpTablesResources(tablesToStop);
 
         shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS);
@@ -1010,8 +1009,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param tables Tables to stop.
      */
-    private void cleanUpTablesResources(Map<UUID, TableImpl> tables) {
-        for (TableImpl table : tables.values()) {
+    private void cleanUpTablesResources(Stream<TableImpl> tables) {
+        tables.forEach(table -> {
             table.beforeClose();
 
             List<Runnable> stopping = new ArrayList<>();
@@ -1066,7 +1065,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (throwable.get() != null) {
                 LOG.error("Unable to stop table [name={}, tableId={}]", throwable.get(), table.name(), table.tableId());
             }
-        }
+        });
     }
 
     /** {@inheritDoc} */
