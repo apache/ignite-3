@@ -24,7 +24,7 @@ using System.Reflection;
 /// <summary>
 /// Key target for <see cref="ResultSelectorCacheKey{T}"/> cached delegates. Equality logic is based on constructor and properties.
 /// </summary>
-public readonly struct MemberInitCacheTarget : IEquatable<MemberInitCacheTarget>
+internal readonly struct MemberInitCacheTarget : IEquatable<MemberInitCacheTarget>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="MemberInitCacheTarget"/> struct.
@@ -47,20 +47,8 @@ public readonly struct MemberInitCacheTarget : IEquatable<MemberInitCacheTarget>
     /// </summary>
     public IReadOnlyList<MemberInfo> PropertiesOrFields { get; }
 
-    /// <summary>
-    /// Custom equality operator.
-    /// </summary>
-    /// <param name="left">left.</param>
-    /// <param name="right">right.</param>
-    /// <returns>bool.</returns>
     public static bool operator ==(MemberInitCacheTarget left, MemberInitCacheTarget right) => left.Equals(right);
 
-    /// <summary>
-    /// Custom inequality operator.
-    /// </summary>
-    /// <param name="left">left.</param>
-    /// <param name="right">right.</param>
-    /// <returns>bool.</returns>
     public static bool operator !=(MemberInitCacheTarget left, MemberInitCacheTarget right) => !(left == right);
 
     /// <inheritdoc/>
