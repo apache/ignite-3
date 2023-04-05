@@ -744,7 +744,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * </ol>
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19091")
     public void testQueryCorrectnessAfterNodeRestart() throws InterruptedException {
         IgniteImpl ignite1 = startNode(0);
 
@@ -782,8 +781,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             res2.close();
         }
 
-        // TODO: Uncomment after IGNITE-18203
-        /*stopNode(0);
+        stopNode(0);
 
         ignite1 = startNode(0);
 
@@ -791,7 +789,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             ResultSet<SqlRow> res3 = session1.execute(null, sql);
 
             assertEquals(intRes, res3.next().intValue(0));
-        }*/
+        }
     }
 
     /**
@@ -1136,7 +1134,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17770")
     public void testCfgGap() throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(4);
 
