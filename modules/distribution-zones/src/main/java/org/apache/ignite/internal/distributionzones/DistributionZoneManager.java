@@ -58,11 +58,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -117,6 +114,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
@@ -144,6 +142,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
     /** Default number of zone partitions. */
     public static final int DEFAULT_PARTITION_COUNT = 25;
+
+    public static final int IMMEDIATE_TIMER_VALUE = 0;
 
     /** Default infinite value for the distribution zones' timers. */
     public static final int INFINITE_TIMER_VALUE = Integer.MAX_VALUE;
@@ -181,17 +181,7 @@ public class DistributionZoneManager implements IgniteComponent {
      */
     private final Map<Integer, ZoneState> zonesState;
 
-    /** Data nodes modification mutex. */
-    private final Object dataNodesMutex = new Object();
-
-    /** The last topology version which was observed by distribution zone manager. */
-    private long lastTopVer;
-
-    /**
-     * The map contains futures which are completed when zone manager observe appropriate logical topology version.
-     * Map (topology version -> future).
-     */
-    private final NavigableMap<Long, CompletableFuture<Void>> topVerFutures;
+    private final PendingComparableValuesTracker<Long> topVerTracker;
 
     /**
      * The last meta storage revision on which scale up timer was started.
@@ -270,7 +260,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 new ThreadPoolExecutor.DiscardPolicy()
         );
 
-        topVerFutures = new TreeMap<>();
+        topVerTracker = new PendingComparableValuesTracker<>(0L);
     }
 
     @TestOnly
@@ -576,13 +566,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return Future for chaining.
      */
     private CompletableFuture<Void> awaitTopologyVersion(long topVer) {
-        synchronized (dataNodesMutex) {
-            if (topVer > lastTopVer) {
-                return topVerFutures.computeIfAbsent(topVer, key -> new CompletableFuture<>());
-            } else {
-                return completedFuture(null);
-            }
-        }
+        return topVerTracker.waitFor(topVer);
     }
 
     /**
@@ -597,8 +581,8 @@ public class DistributionZoneManager implements IgniteComponent {
         DistributionZoneConfiguration zoneCfg = getZoneById(zonesConfiguration, zoneId);
 
         return completedFuture(new IgniteBiTuple<>(
-                zoneCfg.dataNodesAutoAdjustScaleUp().value() == 0,
-                zoneCfg.dataNodesAutoAdjustScaleDown().value() == 0
+                zoneCfg.dataNodesAutoAdjustScaleUp().value() == IMMEDIATE_TIMER_VALUE,
+                zoneCfg.dataNodesAutoAdjustScaleDown().value() == IMMEDIATE_TIMER_VALUE
         ));
     }
 
@@ -612,46 +596,11 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return Future for chaining.
      */
     private CompletableFuture<Void> scaleUpAwaiting(int zoneId, boolean immediateScaleUp) {
-        CompletableFuture<Void> topVerScaleUpFut = new CompletableFuture<>();
-
-        synchronized (dataNodesMutex) {
-            ZoneState zoneState = zonesState.get(zoneId);
-
-            CompletableFuture<Void> topVerScaleUpFut0 = null;
-
-            if (immediateScaleUp) {
-                if (zoneState.scaleUpRevision() < lastScaleUpRevision) {
-                    Map.Entry<Long, CompletableFuture<Void>> ceilingEntry =
-                            zoneState.revisionScaleUpFutures().ceilingEntry(lastScaleUpRevision);
-
-                    if (ceilingEntry != null) {
-                        topVerScaleUpFut0 = ceilingEntry.getValue();
-                    }
-
-                    if (topVerScaleUpFut0 == null) {
-                        topVerScaleUpFut0 = new CompletableFuture<>();
-
-                        zoneState.revisionScaleUpFutures().put(lastScaleUpRevision, topVerScaleUpFut0);
-                    }
-
-                    topVerScaleUpFut0.handle((ignored0, e) -> {
-                        if (e == null) {
-                            topVerScaleUpFut.complete(null);
-                        } else {
-                            topVerScaleUpFut.completeExceptionally(e);
-                        }
-
-                        return null;
-                    });
-                } else {
-                    topVerScaleUpFut.complete(null);
-                }
-            } else {
-                topVerScaleUpFut.complete(null);
-            }
+        if (immediateScaleUp) {
+            return zonesState.get(zoneId).scaleUpRevisionTracker().waitFor(lastScaleUpRevision);
+        } else {
+            return completedFuture(null);
         }
-
-        return topVerScaleUpFut;
     }
 
     /**
@@ -664,46 +613,11 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return Future for chaining.
      */
     private CompletableFuture<Void> scaleDownAwaiting(int zoneId, boolean immediateScaleDown) {
-        CompletableFuture<Void> topVerScaleDownFut = new CompletableFuture<>();
-
-        synchronized (dataNodesMutex) {
-            ZoneState zoneState = zonesState.get(zoneId);
-
-            CompletableFuture<Void> topVerScaleDownFut0 = null;
-
-            if (immediateScaleDown) {
-                if (zoneState.scaleDownRevision() < lastScaleDownRevision) {
-                    Map.Entry<Long, CompletableFuture<Void>> ceilingEntry =
-                            zoneState.revisionScaleDownFutures().ceilingEntry(lastScaleDownRevision);
-
-                    if (ceilingEntry != null) {
-                        topVerScaleDownFut0 = ceilingEntry.getValue();
-                    }
-
-                    if (topVerScaleDownFut0 == null) {
-                        topVerScaleDownFut0 = new CompletableFuture<>();
-
-                        zoneState.revisionScaleDownFutures().put(lastScaleDownRevision, topVerScaleDownFut0);
-                    }
-
-                    topVerScaleDownFut0.handle((ignored0, e) -> {
-                        if (e == null) {
-                            topVerScaleDownFut.complete(null);
-                        } else {
-                            topVerScaleDownFut.completeExceptionally(e);
-                        }
-
-                        return null;
-                    });
-                } else {
-                    topVerScaleDownFut.complete(null);
-                }
-            } else {
-                topVerScaleDownFut.complete(null);
-            }
+        if (immediateScaleDown) {
+            return zonesState.get(zoneId).scaleDownRevisionTracker().waitFor(lastScaleDownRevision);
+        } else {
+            return completedFuture(null);
         }
-
-        return topVerScaleDownFut;
     }
 
     /**
@@ -713,9 +627,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return future.
      */
     private CompletableFuture<Set<String>> getDataNodesFuture(int zoneId) {
-        synchronized (dataNodesMutex) {
-            return completedFuture(zonesState.get(zoneId).nodes());
-        }
+        return completedFuture(zonesState.get(zoneId).nodes());
     }
 
     /** {@inheritDoc} */
@@ -793,12 +705,7 @@ public class DistributionZoneManager implements IgniteComponent {
             }
 
             if (newScaleUp > 0) {
-                synchronized (dataNodesMutex) {
-                    zoneState.revisionScaleUpFutures().values()
-                            .forEach(fut0 -> fut0.complete(null));
-
-                    zoneState.revisionScaleUpFutures().clear();
-                }
+                zoneState.scaleUpRevisionTracker().update(lastScaleUpRevision);
             }
 
             return completedFuture(null);
@@ -840,12 +747,7 @@ public class DistributionZoneManager implements IgniteComponent {
             }
 
             if (newScaleDown > 0) {
-                synchronized (dataNodesMutex) {
-                    zoneState.revisionScaleDownFutures().values()
-                            .forEach(fut0 -> fut0.complete(null));
-
-                    zoneState.revisionScaleDownFutures().clear();
-                }
+                zoneState.scaleDownRevisionTracker().update(lastScaleDownRevision);
             }
 
             return completedFuture(null);
@@ -893,13 +795,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
             ZoneState zoneState = zonesState.remove(zoneId);
 
-            synchronized (dataNodesMutex) {
-                zoneState.revisionScaleUpFutures().values()
-                        .forEach(fut0 -> fut0.completeExceptionally(new DistributionZoneNotFoundException(zoneId)));
-
-                zoneState.revisionScaleDownFutures().values()
-                        .forEach(fut0 -> fut0.completeExceptionally(new DistributionZoneNotFoundException(zoneId)));
-            }
+            zoneState.scaleUpRevisionTracker.update(Long.MAX_VALUE);
+            zoneState.scaleDownRevisionTracker.update(Long.MAX_VALUE);
 
             return completedFuture(null);
         }
@@ -1143,39 +1040,35 @@ public class DistributionZoneManager implements IgniteComponent {
                 logicalTopology = fromBytes(topologyEntry.value());
             }
 
-            if (topVerEntry != null && topVerEntry.value() != null) {
-                synchronized (dataNodesMutex) {
-                    lastTopVer = bytesToLong(topVerEntry.value());
-                }
-            }
-
             long appliedRevision = metaStorageManager.appliedRevision();
 
-            synchronized (dataNodesMutex) {
-                zonesState.values().forEach(zoneState -> {
-                    zoneState.scaleUpRevision(appliedRevision);
+            zonesState.values().forEach(zoneState -> {
+                zoneState.scaleUpRevisionTracker.update(appliedRevision);
 
-                    zoneState.scaleDownRevision(appliedRevision);
-                });
+                zoneState.scaleDownRevisionTracker.update(appliedRevision);
+            });
 
-                lastScaleUpRevision = appliedRevision;
+            lastScaleUpRevision = appliedRevision;
 
-                lastScaleDownRevision = appliedRevision;
+            lastScaleDownRevision = appliedRevision;
 
-                zonesState.get(DEFAULT_ZONE_ID).nodes(logicalTopology);
+            zonesState.get(DEFAULT_ZONE_ID).nodes(logicalTopology);
 
-                zonesConfiguration.distributionZones().value().namedListKeys()
-                        .forEach(zoneName -> {
-                            NamedConfigurationTree<DistributionZoneConfiguration,
-                                    DistributionZoneView,
-                                    DistributionZoneChange> zones = zonesConfiguration.distributionZones();
+            zonesConfiguration.distributionZones().value().namedListKeys()
+                    .forEach(zoneName -> {
+                        NamedConfigurationTree<DistributionZoneConfiguration,
+                                DistributionZoneView,
+                                DistributionZoneChange> zones = zonesConfiguration.distributionZones();
 
-                            for (int i = 0; i < zones.value().size(); i++) {
-                                DistributionZoneView zoneView = zones.value().get(i);
+                        for (int i = 0; i < zones.value().size(); i++) {
+                            DistributionZoneView zoneView = zones.value().get(i);
 
-                                zonesState.get(zoneView.zoneId()).nodes(logicalTopology);
-                            }
-                        });
+                            zonesState.get(zoneView.zoneId()).nodes(logicalTopology);
+                        }
+                    });
+
+            if (topVerEntry != null && topVerEntry.value() != null) {
+                topVerTracker.update(bytesToLong(topVerEntry.value()));
             }
 
             executor.submit(() -> {
@@ -1263,26 +1156,17 @@ public class DistributionZoneManager implements IgniteComponent {
                     Set<String> addedNodes =
                             newLogicalTopology.stream().filter(node -> !logicalTopology.contains(node)).collect(toSet());
 
-                    synchronized (dataNodesMutex) {
-                        lastTopVer = topVer;
-
-                        //Associates topology version and scale up meta storage revision.
-                        if (!addedNodes.isEmpty()) {
-                            lastScaleUpRevision = revision;
-                        }
-
-                        //Associates topology version and scale down meta storage revision.
-                        if (!removedNodes.isEmpty()) {
-                            lastScaleDownRevision = revision;
-                        }
-
-                        //Completes futures which await corresponding topology versions.
-                        SortedMap<Long, CompletableFuture<Void>> topVerFuts = topVerFutures.headMap(topVer, true);
-
-                        topVerFuts.values().forEach(v -> v.complete(null));
-
-                        topVerFuts.clear();
+                    //Associates topology version and scale up meta storage revision.
+                    if (!addedNodes.isEmpty()) {
+                        lastScaleUpRevision = revision;
                     }
+
+                    //Associates topology version and scale down meta storage revision.
+                    if (!removedNodes.isEmpty()) {
+                        lastScaleDownRevision = revision;
+                    }
+
+                    topVerTracker.update(topVer);
 
                     logicalTopology = newLogicalTopology;
 
@@ -1358,42 +1242,18 @@ public class DistributionZoneManager implements IgniteComponent {
                         }
                     }
 
-                    synchronized (dataNodesMutex) {
-                        ZoneState zoneState = zonesState.get(zoneId);
+                    ZoneState zoneState = zonesState.get(zoneId);
 
-                        if (zoneState != null) {
-                            zoneState.nodes(newDataNodes);
+                    zoneState.nodes(newDataNodes);
 
-                            //Associates scale up meta storage revision and data nodes.
-                            if (scaleUpRevision > 0) {
-                                zoneState.scaleUpRevision(scaleUpRevision);
-                            }
+                    //Associates scale up meta storage revision and data nodes.
+                    if (scaleUpRevision > 0) {
+                        zoneState.scaleUpRevisionTracker.update(scaleUpRevision);
+                    }
 
-                            //Associates scale down meta storage revision and data nodes.
-                            if (scaleDownRevision > 0) {
-                                zoneState.scaleDownRevision(scaleDownRevision);
-                            }
-
-                            //Completes futures which await corresponding scale up meta storage revision.
-                            if (scaleUpRevision > 0) {
-                                SortedMap<Long, CompletableFuture<Void>> revisionScaleUpFuts =
-                                        zoneState.revisionScaleUpFutures().headMap(scaleUpRevision, true);
-
-                                revisionScaleUpFuts.values().forEach(v -> v.complete(null));
-
-                                revisionScaleUpFuts.clear();
-                            }
-
-                            //Completes futures which await corresponding scale down meta storage revision.
-                            if (scaleDownRevision > 0) {
-                                SortedMap<Long, CompletableFuture<Void>> revisionScaleDownFuts =
-                                        zoneState.revisionScaleDownFutures().headMap(scaleDownRevision, true);
-
-                                revisionScaleDownFuts.values().forEach(v -> v.complete(null));
-
-                                revisionScaleDownFuts.clear();
-                            }
-                        }
+                    //Associates scale down meta storage revision and data nodes.
+                    if (scaleDownRevision > 0) {
+                        zoneState.scaleDownRevisionTracker.update(scaleDownRevision);
                     }
                 } finally {
                     busyLock.leaveBusy();
@@ -1707,23 +1567,9 @@ public class DistributionZoneManager implements IgniteComponent {
         /** Data nodes. */
         private Set<String> nodes;
 
-        /** Scale up meta storage revision of current nodes value. */
-        private long scaleUpRevision;
+        private final PendingComparableValuesTracker<Long> scaleUpRevisionTracker;
 
-        /** Scale down meta storage revision of current nodes value. */
-        private long scaleDownRevision;
-
-        /**
-         * The map contains futures which are completed when zone manager observe data nodes bound to appropriate scale up revision.
-         * Map (revision -> future).
-         */
-        private final NavigableMap<Long, CompletableFuture<Void>> revisionScaleUpFutures = new ConcurrentSkipListMap();
-
-        /**
-         * The map contains futures which are completed when zone manager observe data nodes bound to appropriate scale down revision.
-         * Map (revision -> future).
-         */
-        private final NavigableMap<Long, CompletableFuture<Void>> revisionScaleDownFutures = new ConcurrentSkipListMap();
+        private final PendingComparableValuesTracker<Long> scaleDownRevisionTracker;
 
         /**
          * Constructor.
@@ -1734,6 +1580,8 @@ public class DistributionZoneManager implements IgniteComponent {
             this.executor = executor;
             topologyAugmentationMap = new ConcurrentSkipListMap<>();
             nodes = emptySet();
+            scaleUpRevisionTracker = new PendingComparableValuesTracker<>(0L);
+            scaleDownRevisionTracker = new PendingComparableValuesTracker<>(0L);
         }
 
         /**
@@ -1908,60 +1756,12 @@ public class DistributionZoneManager implements IgniteComponent {
             this.nodes = nodes;
         }
 
-        /**
-         * Get scale up meta storage revision of current nodes value.
-         *
-         * @return Scale up meta storage revision.
-         */
-        private long scaleUpRevision() {
-            return scaleUpRevision;
+        PendingComparableValuesTracker<Long> scaleUpRevisionTracker() {
+            return scaleUpRevisionTracker;
         }
 
-        /**
-         * Set scale up meta storage revision of current nodes value.
-         *
-         * @param scaleUpRevision Scale up meta storage revision.
-         */
-        private void scaleUpRevision(long scaleUpRevision) {
-            this.scaleUpRevision = scaleUpRevision;
-        }
-
-        /**
-         * Get scale down meta storage revision of current nodes value.
-         *
-         * @return Scale down meta storage revision.
-         */
-        private long scaleDownRevision() {
-            return scaleDownRevision;
-        }
-
-        /**
-         * Set scale down meta storage revision of current nodes value.
-         *
-         * @param scaleDownRevision Scale up meta storage revision.
-         */
-        private void scaleDownRevision(long scaleDownRevision) {
-            this.scaleDownRevision = scaleDownRevision;
-        }
-
-        /**
-         * The map contains futures which are completed when zone manager observe data nodes bound to appropriate scale up revision.
-         * Map (revision -> future).
-         *
-         * @return The map of futures.
-         */
-        NavigableMap<Long, CompletableFuture<Void>> revisionScaleUpFutures() {
-            return revisionScaleUpFutures;
-        }
-
-        /**
-         * The map contains futures which are completed when zone manager observe data nodes bound to appropriate scale down revision.
-         * Map (revision -> future).
-         *
-         * @return The map of futures.
-         */
-        NavigableMap<Long, CompletableFuture<Void>> revisionScaleDownFutures() {
-            return revisionScaleDownFutures;
+        PendingComparableValuesTracker<Long> scaleDownRevisionTracker() {
+            return scaleDownRevisionTracker;
         }
 
         @TestOnly
@@ -1993,17 +1793,12 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     @TestOnly
-    Object dataNodesMutex() {
-        return dataNodesMutex;
-    }
-
-    @TestOnly
     Map<Integer, ZoneState> zonesState() {
         return zonesState;
     }
 
     @TestOnly
-    NavigableMap<Long, CompletableFuture<Void>> topVerFutures() {
-        return topVerFutures;
+    PendingComparableValuesTracker<Long> topVerTracker() {
+        return topVerTracker;
     }
 }

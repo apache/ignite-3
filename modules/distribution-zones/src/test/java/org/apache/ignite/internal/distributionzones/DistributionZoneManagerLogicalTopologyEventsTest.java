@@ -310,7 +310,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         distributionZoneManager1.start();
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
+        verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
 
         assertLogicalTopVer(2L);
 
