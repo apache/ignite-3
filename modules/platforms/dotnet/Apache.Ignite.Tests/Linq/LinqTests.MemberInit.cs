@@ -119,28 +119,11 @@ public partial class LinqTests
     [Test]
     public void TestSelectMemberInitFirstOrDefaultReturnsNull()
     {
-        var res = PocoView.AsQueryable()
-            .Where(x => false)
-            .Select(x => new CustomProjectionCtorAndInit(x.Key)
-            {
-                RefProp = x.Val,
-                ValueProp = x.Key + 1,
-                RefPropInitOnly = x.Val,
-                ValuePropInitOnly = x.Key + 2,
-                RefField = x.Val,
-                ValueField = x.Key + 3
-            })
-            .ToArray();
+        var res = PocoView
+            .AsQueryable()
+            .FirstOrDefault(x => x.Key == int.MaxValue - 10_000);
 
-        Assert.AreEqual(1, res.Length);
-        var resRow = res[0];
-        Assert.AreEqual(2, resRow.Id);
-        Assert.AreEqual("v-2", resRow.RefProp);
-        Assert.AreEqual(3, resRow.ValueProp);
-        Assert.AreEqual("v-2", resRow.RefPropInitOnly);
-        Assert.AreEqual(4, resRow.ValuePropInitOnly);
-        Assert.AreEqual("v-2", resRow.RefField);
-        Assert.AreEqual(5, resRow.ValueField);
+        Assert.IsNull(res);
     }
 
     [Test]
@@ -182,11 +165,10 @@ public partial class LinqTests
     }
 
     [Test]
-    [Ignore("Does not work at the moment.")]
     public void TestSelectMemberInitFirstOrDefaultReturnsNullWithEmptyResponse()
     {
         var query = PocoView.AsQueryable()
-            .Where(poco => false);
+            .Where(poco => poco.Val == Guid.NewGuid().ToString());
 
         Assert.IsNull(query
             .Select(x => new CustomProjectionCtorAndInit(x.Key) { RefField = x.Val })
