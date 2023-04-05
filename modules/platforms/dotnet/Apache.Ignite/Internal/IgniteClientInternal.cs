@@ -19,8 +19,10 @@ namespace Apache.Ignite.Internal
 {
     using System.Collections.Generic;
     using System.Diagnostics;
+    using System.Linq;
     using System.Net;
     using System.Threading.Tasks;
+    using Common;
     using Ignite.Compute;
     using Ignite.Network;
     using Ignite.Sql;
@@ -107,5 +109,11 @@ namespace Apache.Ignite.Internal
         {
             _socket.Dispose();
         }
+
+        /// <inheritdoc/>
+        public override string ToString() =>
+            new IgniteToStringBuilder(GetType())
+                .AppendList(GetConnections().Select(c => c.Node), "Connections")
+                .Build();
     }
 }

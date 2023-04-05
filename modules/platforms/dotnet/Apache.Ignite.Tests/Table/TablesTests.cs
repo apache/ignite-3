@@ -66,5 +66,14 @@ namespace Apache.Ignite.Tests.Table
 
             Assert.IsNull(table);
         }
+
+        [Test]
+        public async Task TestToString()
+        {
+            _ = await Client.Tables.GetTablesAsync();
+
+            StringAssert.StartsWith("Tables { CachedTables = [ Table { Name = ", Client.Tables.ToString());
+            StringAssert.Contains("{ Name = TBL_STRING, Id = ", Client.Tables.ToString());
+        }
     }
 }

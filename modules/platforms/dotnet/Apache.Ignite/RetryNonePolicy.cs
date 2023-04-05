@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite
 {
+    using Internal.Common;
+
     /// <summary>
     /// Retry policy that always returns false.
     /// </summary>
@@ -32,5 +34,8 @@ namespace Apache.Ignite
         {
             return false;
         }
+
+        /// <inheritdoc />
+        public override string ToString() => IgniteToStringBuilder.Build(GetType());
     }
 }

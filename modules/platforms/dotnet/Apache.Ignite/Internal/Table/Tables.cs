@@ -39,7 +39,7 @@ namespace Apache.Ignite.Internal.Table
         private readonly Sql _sql;
 
         /** Cached tables. Caching here is required to retain schema and serializer caches in <see cref="Table"/>. */
-        private readonly ConcurrentDictionary<Guid, Table> _tables = new();
+        private readonly ConcurrentDictionary<Guid, Table> _cachedTables = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Tables"/> class.
@@ -75,7 +75,7 @@ namespace Apache.Ignite.Internal.Table
                     var id = r.ReadGuid();
                     var name = r.ReadString();
 
-                    var table = _tables.GetOrAdd(
+                    var table = _cachedTables.GetOrAdd(
                         id,
                         static (Guid id0, (string Name, Tables Tables) arg) =>
                             new Table(arg.Name, id0, arg.Tables._socket, arg.Tables._sql),
@@ -87,6 +87,12 @@ namespace Apache.Ignite.Internal.Table
                 return res;
             }
         }
+
+        /// <inheritdoc />
+        public override string ToString() =>
+            new IgniteToStringBuilder(GetType())
+                .AppendList(_cachedTables.Values, "CachedTables")
+                .Build();
 
         /// <summary>
         /// Gets the table by name.
@@ -107,7 +113,7 @@ namespace Apache.Ignite.Internal.Table
             Table? Read(MsgPackReader r) =>
                 r.TryReadNil()
                     ? null
-                    : _tables.GetOrAdd(
+                    : _cachedTables.GetOrAdd(
                         r.ReadGuid(),
                         (Guid id, (string Name, Tables Tables) arg) => new Table(arg.Name, id, arg.Tables._socket, arg.Tables._sql),
                         (name, this));
