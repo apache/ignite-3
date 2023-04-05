@@ -120,7 +120,7 @@ public class DistributionZoneConfigurationParameters {
     }
 
     /**
-     * Gets Nodes' filter.
+     * Gets nodes' filter.
      *
      * @return Nodes' filter.
      */
