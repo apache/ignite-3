@@ -27,7 +27,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -52,21 +51,14 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
-import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -438,7 +430,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 ectx,
                 ectx.rowHandler().factory(ectx.getTypeFactory(), rowType),
                 index,
-                new TestTable(rowType, schemaDescriptor),
+                new org.apache.ignite.internal.sql.engine.planner.TestTable(rowType, schemaDescriptor),
                 List.of(new PartitionWithTerm(0, -1L), new PartitionWithTerm(2, -1L)),
                 index.type() == Type.SORTED ? comp : null,
                 rangeIterable,
@@ -567,35 +559,4 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         }
     }
 
-    private static class TestTable extends AbstractPlannerTest.TestTable {
-
-        private final SchemaDescriptor schemaDesc;
-
-        public TestTable(RelDataType rowType, SchemaDescriptor schemaDescriptor) {
-            super(rowType);
-
-            schemaDesc = schemaDescriptor;
-        }
-
-        @Override
-        public IgniteDistribution distribution() {
-            return IgniteDistributions.broadcast();
-        }
-
-        @Override
-        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow binaryRow, RowFactory<RowT> factory,
-                @Nullable BitSet requiredColumns) {
-            TableDescriptor desc = descriptor();
-            Row tableRow = new Row(schemaDesc, binaryRow);
-
-            RowT row = factory.create();
-            RowHandler<RowT> handler = factory.handler();
-
-            for (int i = 0; i < desc.columnsCount(); i++) {
-                handler.set(i, row, TypeUtils.toInternal(tableRow.value(desc.columnDescriptor(i).physicalIndex())));
-            }
-
-            return row;
-        }
-    }
 }
