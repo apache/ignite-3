@@ -60,6 +60,8 @@ public class PartitionMeta {
 
     private volatile long indexTreeMetaPageId;
 
+    private volatile long gcQueueMetaPageId;
+
     private volatile int pageCount;
 
     private volatile PartitionMetaSnapshot metaSnapshot;
@@ -90,6 +92,7 @@ public class PartitionMeta {
             long indexColumnsFreeListRootPageId,
             long versionChainTreeRootPageId,
             long indexTreeMetaPageId,
+            long gcQueueMetaPageId,
             int pageCount
     ) {
         this.lastAppliedIndex = lastAppliedIndex;
@@ -99,6 +102,7 @@ public class PartitionMeta {
         this.indexColumnsFreeListRootPageId = indexColumnsFreeListRootPageId;
         this.versionChainTreeRootPageId = versionChainTreeRootPageId;
         this.indexTreeMetaPageId = indexTreeMetaPageId;
+        this.gcQueueMetaPageId = gcQueueMetaPageId;
         this.pageCount = pageCount;
 
         metaSnapshot = new PartitionMetaSnapshot(checkpointId, this);
@@ -121,6 +125,7 @@ public class PartitionMeta {
                 metaIo.getIndexColumnsFreeListRootPageId(pageAddr),
                 metaIo.getVersionChainTreeRootPageId(pageAddr),
                 metaIo.getIndexTreeMetaPageId(pageAddr),
+                metaIo.getGcQueueMetaPageId(pageAddr),
                 metaIo.getPageCount(pageAddr)
         );
     }
@@ -249,6 +254,25 @@ public class PartitionMeta {
     }
 
     /**
+     * Returns garbage collection queue meta page id.
+     */
+    public long gcQueueMetaPageId() {
+        return gcQueueMetaPageId;
+    }
+
+    /**
+     * Sets a garbage collection queue meta page id.
+     *
+     * @param checkpointId Checkpoint id.
+     * @param gcQueueMetaPageId Garbage collection queue meta page id.
+     */
+    public void gcQueueMetaPageId(@Nullable UUID checkpointId, long gcQueueMetaPageId) {
+        updateSnapshot(checkpointId);
+
+        this.gcQueueMetaPageId = gcQueueMetaPageId;
+    }
+
+    /**
      * Returns count of pages in the partition.
      */
     public int pageCount() {
@@ -289,7 +313,6 @@ public class PartitionMeta {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(PartitionMeta.class, this);
@@ -315,6 +338,8 @@ public class PartitionMeta {
 
         private final long indexTreeMetaPageId;
 
+        private final long gcQueueMetaPageId;
+
         private final int pageCount;
 
         /**
@@ -332,6 +357,7 @@ public class PartitionMeta {
             rowVersionFreeListRootPageId = partitionMeta.rowVersionFreeListRootPageId;
             indexColumnsFreeListRootPageId = partitionMeta.indexColumnsFreeListRootPageId;
             indexTreeMetaPageId = partitionMeta.indexTreeMetaPageId;
+            gcQueueMetaPageId = partitionMeta.gcQueueMetaPageId;
             pageCount = partitionMeta.pageCount;
         }
 
@@ -385,6 +411,13 @@ public class PartitionMeta {
         }
 
         /**
+         * Returns garbage collection queue meta page id.
+         */
+        public long gcQueueMetaPageId() {
+            return gcQueueMetaPageId;
+        }
+
+        /**
          * Returns count of pages in the partition.
          */
         public int pageCount() {
@@ -405,10 +438,10 @@ public class PartitionMeta {
             metaIo.setIndexColumnsFreeListRootPageId(pageAddr, indexColumnsFreeListRootPageId);
             metaIo.setRowVersionFreeListRootPageId(pageAddr, rowVersionFreeListRootPageId);
             metaIo.setIndexTreeMetaPageId(pageAddr, indexTreeMetaPageId);
+            metaIo.setGcQueueMetaPageId(pageAddr, gcQueueMetaPageId);
             metaIo.setPageCount(pageAddr, pageCount);
         }
 
-        /** {@inheritDoc} */
         @Override
         public String toString() {
             return S.toString(PartitionMetaSnapshot.class, this);

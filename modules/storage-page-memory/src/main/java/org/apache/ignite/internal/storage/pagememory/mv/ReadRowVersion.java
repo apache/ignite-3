@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionIdFromLink;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 
 import java.nio.ByteBuffer;
@@ -24,7 +25,7 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
-import org.apache.ignite.internal.pagememory.util.PageIdUtils;
+import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.jetbrains.annotations.Nullable;
 
@@ -50,7 +51,6 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<HybridTimestamp>> 
         this.partitionId = partitionId;
     }
 
-    /** {@inheritDoc} */
     @Override
     public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, Predicate<HybridTimestamp> loadValue) {
         if (readingFirstSlot) {
@@ -69,7 +69,9 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<HybridTimestamp>> 
         nextLink = readPartitionless(partitionId, pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
 
         if (!loadValue.test(timestamp)) {
-            result = new RowVersion(partitionIdFromLink(link), firstFragmentLink, timestamp, nextLink, null);
+            int valueSize = PageUtils.getInt(pageAddr, payload.offset() + RowVersion.VALUE_SIZE_OFFSET);
+
+            result = new RowVersion(partitionIdFromLink(link), firstFragmentLink, timestamp, nextLink, valueSize);
 
             return STOP_TRAVERSAL;
         }
@@ -77,11 +79,6 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<HybridTimestamp>> 
         return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
     }
 
-    private int partitionIdFromLink(long link) {
-        return PageIdUtils.partitionId(PageIdUtils.pageId(link));
-    }
-
-    /** {@inheritDoc} */
     @Override
     public void finish() {
         if (result != null) {

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anEmptyMap;
@@ -32,7 +33,7 @@ import org.junit.jupiter.api.Test;
  * Base class for testing {@link ConfigurationStorage} implementations.
  */
 public abstract class ConfigurationStorageTest {
-    private ConfigurationStorage storage;
+    protected ConfigurationStorage storage;
 
     /**
      * Returns the storage being tested.
@@ -46,7 +47,17 @@ public abstract class ConfigurationStorageTest {
     void setUp() {
         storage = getStorage();
 
-        storage.registerConfigurationListener(data -> CompletableFuture.completedFuture(null));
+        storage.registerConfigurationListener(new ConfigurationStorageListener() {
+            @Override
+            public CompletableFuture<Void> onEntriesChanged(Data changedEntries) {
+                return completedFuture(null);
+            }
+
+            @Override
+            public CompletableFuture<Void> onRevisionUpdated(long newRevision) {
+                return completedFuture(null);
+            }
+        });
     }
 
     /**

@@ -77,6 +77,9 @@ enum class client_operation {
     /** Get and delete tuple. */
     TUPLE_GET_AND_DELETE = 32,
 
+    /** Contains tuple. */
+    TUPLE_CONTAINS_KEY = 33,
+
     /** Begin transaction. */
     TX_BEGIN = 43,
 
@@ -85,6 +88,15 @@ enum class client_operation {
 
     /** Rollback transaction. */
     TX_ROLLBACK = 45,
+
+    /** Execute compute job. */
+    COMPUTE_EXECUTE = 47,
+
+    /** Get cluster nodes. */
+    CLUSTER_GET_NODES = 48,
+
+    /** Execute compute job. */
+    COMPUTE_EXECUTE_COLOCATED = 49,
 
     /** Execute SQL query. */
     SQL_EXEC = 50,

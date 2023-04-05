@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.metastorage.command.GetAllCommand.getAllCommand;
 import static org.apache.ignite.internal.metastorage.command.GetAndPutAllCommand.getAndPutAllCommand;
 import static org.apache.ignite.internal.metastorage.command.GetAndRemoveAllCommand.getAndRemoveAllCommand;
@@ -25,12 +24,15 @@ import static org.apache.ignite.internal.metastorage.command.PutAllCommand.putAl
 import static org.apache.ignite.internal.metastorage.command.RemoveAllCommand.removeAllCommand;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndPutAllCommand;
@@ -41,22 +43,21 @@ import org.apache.ignite.internal.metastorage.command.GetCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
-import org.apache.ignite.internal.metastorage.command.MultipleEntryResponse;
-import org.apache.ignite.internal.metastorage.command.PrefixCommand;
 import org.apache.ignite.internal.metastorage.command.PutAllCommand;
 import org.apache.ignite.internal.metastorage.command.PutCommand;
-import org.apache.ignite.internal.metastorage.command.RangeCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveCommand;
-import org.apache.ignite.internal.metastorage.command.SingleEntryResponse;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteUuidGenerator;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -64,14 +65,9 @@ import org.jetbrains.annotations.Nullable;
  * {@link MetaStorageService} implementation.
  */
 public class MetaStorageServiceImpl implements MetaStorageService {
-    /** IgniteUuid generator. */
-    private static final IgniteUuidGenerator uuidGenerator = new IgniteUuidGenerator(UUID.randomUUID(), 0);
+    private static final IgniteLogger LOG = Loggers.forClass(MetaStorageService.class);
 
-    /** Commands factory. */
-    private final MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
-
-    /** Meta storage raft group service. */
-    private final RaftGroupService metaStorageRaftGrpSvc;
+    private final MetaStorageServiceContext context;
 
     /** Local node. */
     private final ClusterNode localNode;
@@ -82,207 +78,184 @@ public class MetaStorageServiceImpl implements MetaStorageService {
      * @param metaStorageRaftGrpSvc Meta storage raft group service.
      * @param localNode Local node.
      */
-    public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGrpSvc, ClusterNode localNode) {
-        this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;
+    public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGrpSvc, IgniteSpinBusyLock busyLock, ClusterNode localNode) {
+        this.context = new MetaStorageServiceContext(
+                metaStorageRaftGrpSvc,
+                new MetaStorageCommandsFactory(),
+                // TODO: Extract the pool size into configuration, see https://issues.apache.org/jira/browse/IGNITE-18735
+                Executors.newFixedThreadPool(5, NamedThreadFactory.create(localNode.name(), "metastorage-publisher", LOG)),
+                busyLock
+        );
+
         this.localNode = localNode;
     }
 
     RaftGroupService raftGroupService() {
-        return metaStorageRaftGrpSvc;
+        return context.raftService();
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Entry> get(ByteArray key) {
-        GetCommand getCommand = commandsFactory.getCommand().key(key.bytes()).build();
+        GetCommand getCommand = context.commandsFactory().getCommand().key(key.bytes()).build();
 
-        return metaStorageRaftGrpSvc.run(getCommand).thenApply(MetaStorageServiceImpl::singleEntryResult);
+        return context.raftService().run(getCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Entry> get(ByteArray key, long revUpperBound) {
-        GetCommand getCommand = commandsFactory.getCommand().key(key.bytes()).revision(revUpperBound).build();
+        GetCommand getCommand = context.commandsFactory().getCommand().key(key.bytes()).revision(revUpperBound).build();
 
-        return metaStorageRaftGrpSvc.run(getCommand).thenApply(MetaStorageServiceImpl::singleEntryResult);
+        return context.raftService().run(getCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys) {
-        GetAllCommand getAllCommand = getAllCommand(commandsFactory, keys, 0);
+        GetAllCommand getAllCommand = getAllCommand(context.commandsFactory(), keys, 0);
 
-        return metaStorageRaftGrpSvc.run(getAllCommand).thenApply(MetaStorageServiceImpl::multipleEntryResult);
+        return context.raftService().<List<Entry>>run(getAllCommand)
+                .thenApply(MetaStorageServiceImpl::multipleEntryResult);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys, long revUpperBound) {
-        GetAllCommand getAllCommand = getAllCommand(commandsFactory, keys, revUpperBound);
+        GetAllCommand getAllCommand = getAllCommand(context.commandsFactory(), keys, revUpperBound);
 
-        return metaStorageRaftGrpSvc.run(getAllCommand).thenApply(MetaStorageServiceImpl::multipleEntryResult);
+        return context.raftService().<List<Entry>>run(getAllCommand)
+                .thenApply(MetaStorageServiceImpl::multipleEntryResult);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> put(ByteArray key, byte[] value) {
-        PutCommand putCommand = commandsFactory.putCommand().key(key.bytes()).value(value).build();
+        PutCommand putCommand = context.commandsFactory().putCommand().key(key.bytes()).value(value).build();
 
-        return metaStorageRaftGrpSvc.run(putCommand);
+        return context.raftService().run(putCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Entry> getAndPut(ByteArray key, byte[] value) {
-        GetAndPutCommand getAndPutCommand = commandsFactory.getAndPutCommand().key(key.bytes()).value(value).build();
+        GetAndPutCommand getAndPutCommand = context.commandsFactory().getAndPutCommand().key(key.bytes()).value(value).build();
 
-        return metaStorageRaftGrpSvc.run(getAndPutCommand).thenApply(MetaStorageServiceImpl::singleEntryResult);
+        return context.raftService().run(getAndPutCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals) {
-        PutAllCommand putAllCommand = putAllCommand(commandsFactory, vals);
+        PutAllCommand putAllCommand = putAllCommand(context.commandsFactory(), vals);
 
-        return metaStorageRaftGrpSvc.run(putAllCommand);
+        return context.raftService().run(putAllCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAndPutAll(Map<ByteArray, byte[]> vals) {
-        GetAndPutAllCommand getAndPutAllCommand = getAndPutAllCommand(commandsFactory, vals);
+        GetAndPutAllCommand getAndPutAllCommand = getAndPutAllCommand(context.commandsFactory(), vals);
 
-        return metaStorageRaftGrpSvc.run(getAndPutAllCommand).thenApply(MetaStorageServiceImpl::multipleEntryResult);
+        return context.raftService().<List<Entry>>run(getAndPutAllCommand)
+                .thenApply(MetaStorageServiceImpl::multipleEntryResult);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> remove(ByteArray key) {
-        RemoveCommand removeCommand = commandsFactory.removeCommand().key(key.bytes()).build();
+        RemoveCommand removeCommand = context.commandsFactory().removeCommand().key(key.bytes()).build();
 
-        return metaStorageRaftGrpSvc.run(removeCommand);
+        return context.raftService().run(removeCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Entry> getAndRemove(ByteArray key) {
-        GetAndRemoveCommand getAndRemoveCommand = commandsFactory.getAndRemoveCommand().key(key.bytes()).build();
+        GetAndRemoveCommand getAndRemoveCommand = context.commandsFactory().getAndRemoveCommand().key(key.bytes()).build();
 
-        return metaStorageRaftGrpSvc.run(getAndRemoveCommand).thenApply(MetaStorageServiceImpl::singleEntryResult);
+        return context.raftService().run(getAndRemoveCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> removeAll(Set<ByteArray> keys) {
-        RemoveAllCommand removeAllCommand = removeAllCommand(commandsFactory, keys);
+        RemoveAllCommand removeAllCommand = removeAllCommand(context.commandsFactory(), keys);
 
-        return metaStorageRaftGrpSvc.run(removeAllCommand);
+        return context.raftService().run(removeAllCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAndRemoveAll(Set<ByteArray> keys) {
-        GetAndRemoveAllCommand getAndRemoveAllCommand = getAndRemoveAllCommand(commandsFactory, keys);
+        GetAndRemoveAllCommand getAndRemoveAllCommand = getAndRemoveAllCommand(context.commandsFactory(), keys);
 
-        return metaStorageRaftGrpSvc.run(getAndRemoveAllCommand).thenApply(MetaStorageServiceImpl::multipleEntryResult);
+        return context.raftService().<List<Entry>>run(getAndRemoveAllCommand)
+                .thenApply(MetaStorageServiceImpl::multipleEntryResult);
     }
 
     @Override
-    public CompletableFuture<Boolean> invoke(
-            Condition condition,
-            Operation success,
-            Operation failure
-    ) {
+    public CompletableFuture<Boolean> invoke(Condition condition, Operation success, Operation failure) {
         return invoke(condition, List.of(success), List.of(failure));
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> invoke(
             Condition condition,
             Collection<Operation> success,
             Collection<Operation> failure
     ) {
-        InvokeCommand invokeCommand = commandsFactory.invokeCommand()
+        InvokeCommand invokeCommand = context.commandsFactory().invokeCommand()
                 .condition(condition)
                 .success(success)
                 .failure(failure)
                 .build();
 
-        return metaStorageRaftGrpSvc.run(invokeCommand);
+        return context.raftService().run(invokeCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<StatementResult> invoke(Iif iif) {
-        MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand()
+        MultiInvokeCommand multiInvokeCommand = context.commandsFactory().multiInvokeCommand()
                 .iif(iif)
                 .build();
 
-        return metaStorageRaftGrpSvc.run(multiInvokeCommand);
+        return context.raftService().run(multiInvokeCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound) {
+    public Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound) {
         return range(keyFrom, keyTo, revUpperBound, false);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Cursor<Entry> range(
+    public Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo) {
+        return range(keyFrom, keyTo, false);
+    }
+
+    @Override
+    public Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones) {
+        return range(keyFrom, keyTo, -1, includeTombstones);
+    }
+
+    @Override
+    public Publisher<Entry> range(
             ByteArray keyFrom,
             @Nullable ByteArray keyTo,
             long revUpperBound,
             boolean includeTombstones
     ) {
-        return new CursorImpl<>(
-                commandsFactory,
-                metaStorageRaftGrpSvc,
-                metaStorageRaftGrpSvc.run(
-                        commandsFactory.rangeCommand()
-                                .keyFrom(keyFrom.bytes())
-                                .keyTo(keyTo == null ? null : keyTo.bytes())
-                                .requesterNodeId(localNode.id())
-                                .cursorId(uuidGenerator.randomUuid())
-                                .revUpperBound(revUpperBound)
-                                .includeTombstones(includeTombstones)
-                                .batchSize(RangeCommand.DEFAULT_BATCH_SIZE)
-                                .build()
-                ),
-                MetaStorageServiceImpl::multipleEntryResultForCache
-        );
-    }
+        Function<IgniteUuid, WriteCommand> createRangeCommand = cursorId -> context.commandsFactory().createRangeCursorCommand()
+                .keyFrom(keyFrom.bytes())
+                .keyTo(keyTo == null ? null : keyTo.bytes())
+                .revUpperBound(revUpperBound)
+                .requesterNodeId(localNode.id())
+                .cursorId(cursorId)
+                .includeTombstones(includeTombstones)
+                .build();
 
-    /** {@inheritDoc} */
-    @Override
-    public Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo) {
-        return range(keyFrom, keyTo, false);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones) {
-        return range(keyFrom, keyTo, -1, includeTombstones);
+        return new CursorPublisher(context, createRangeCommand);
     }
 
     @Override
-    public Cursor<Entry> prefix(ByteArray prefix, long revUpperBound) {
-        return new CursorImpl<>(
-                commandsFactory,
-                metaStorageRaftGrpSvc,
-                metaStorageRaftGrpSvc.run(
-                        commandsFactory.prefixCommand()
-                                .prefix(prefix.bytes())
-                                .revUpperBound(revUpperBound)
-                                .requesterNodeId(localNode.id())
-                                .cursorId(uuidGenerator.randomUuid())
-                                .includeTombstones(false)
-                                .batchSize(PrefixCommand.DEFAULT_BATCH_SIZE)
-                                .build()
-                ),
-                MetaStorageServiceImpl::multipleEntryResultForCache
-        );
+    public Publisher<Entry> prefix(ByteArray prefix, long revUpperBound) {
+        Function<IgniteUuid, WriteCommand> createPrefixCommand = cursorId -> context.commandsFactory().createPrefixCursorCommand()
+                .prefix(prefix.bytes())
+                .revUpperBound(revUpperBound)
+                .requesterNodeId(localNode.id())
+                .cursorId(cursorId)
+                .includeTombstones(false)
+                .build();
+
+        return new CursorPublisher(context, createPrefixCommand);
     }
 
     // TODO: IGNITE-14734 Implement.
@@ -291,40 +264,23 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         throw new UnsupportedOperationException();
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> closeCursors(String nodeId) {
-        return metaStorageRaftGrpSvc.run(commandsFactory.cursorsCloseCommand().nodeId(nodeId).build());
+        return context.raftService().run(context.commandsFactory().closeAllCursorsCommand().nodeId(nodeId).build());
     }
 
     @Override
     public void close() {
-        metaStorageRaftGrpSvc.shutdown();
+        context.close();
     }
 
-    private static Map<ByteArray, Entry> multipleEntryResult(Object obj) {
-        MultipleEntryResponse resp = (MultipleEntryResponse) obj;
+    private static Map<ByteArray, Entry> multipleEntryResult(List<Entry> entries) {
+        Map<ByteArray, Entry> res = IgniteUtils.newHashMap(entries.size());
 
-        Map<ByteArray, Entry> res = new HashMap<>();
-
-        for (SingleEntryResponse e : resp.entries()) {
-            res.put(new ByteArray(e.key()), new EntryImpl(e.key(), e.value(), e.revision(), e.updateCounter()));
+        for (Entry e : entries) {
+            res.put(new ByteArray(e.key()), e);
         }
 
         return res;
-    }
-
-    private static List<Entry> multipleEntryResultForCache(Object obj) {
-        MultipleEntryResponse resp = (MultipleEntryResponse) obj;
-
-        return resp.entries().stream()
-                .map(MetaStorageServiceImpl::singleEntryResult)
-                .collect(toList());
-    }
-
-    private static Entry singleEntryResult(Object obj) {
-        SingleEntryResponse resp = (SingleEntryResponse) obj;
-
-        return new EntryImpl(resp.key(), resp.value(), resp.revision(), resp.updateCounter());
     }
 }

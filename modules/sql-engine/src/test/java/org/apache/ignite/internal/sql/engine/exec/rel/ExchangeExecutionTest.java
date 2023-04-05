@@ -18,15 +18,22 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
@@ -35,6 +42,8 @@ import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
+import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
+import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.framework.ClusterServiceFactory;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -43,10 +52,14 @@ import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.trait.AllNodes;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.util.NonReentrantLock;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -66,9 +79,24 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
     private static final int TARGET_FRAGMENT_ID = 1;
     private static final Comparator<Object[]> COMPARATOR = Comparator.comparingInt(o -> (Integer) o[0]);
 
+    private static final Map<String, QueryTaskExecutor> executors = new HashMap<>();
+
     private final Map<String, MailboxRegistry> mailboxes = new HashMap<>();
     private final Map<String, ExchangeService> exchangeServices = new HashMap<>();
     private final ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME));
+
+    @AfterAll
+    static void tearDown() {
+        executors.values().forEach(exec -> {
+            try {
+                exec.stop();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        executors.clear();
+    }
 
     @ParameterizedTest(name = "rowCount={0}, prefetch={1}, ordered={2}")
     @MethodSource("testArgs")
@@ -81,11 +109,11 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         for (ClusterNode node : List.of(ROOT_NODE, ANOTHER_NODE)) {
             Outbox<?> outbox = createSourceFragment(
                     queryId,
-                    idx++,
                     node,
                     serviceFactory,
-                    rowCount
+                    DataProvider.fromRow(new Object[]{idx, idx}, rowCount)
             );
+            idx++;
 
             sourceFragments.add(outbox);
         }
@@ -98,6 +126,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
 
         AsyncRootNode<Object[], Object[]> root = createRootFragment(
                 queryId,
+                -1,
                 ROOT_NODE,
                 NODE_NAMES,
                 ordered,
@@ -151,17 +180,110 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         return args.stream();
     }
 
-    private AsyncRootNode<Object[], Object[]> createRootFragment(
+    /**
+     * This test verifies that races between batches from previous request and subtree rewinding are
+     * handled properly.
+     *
+     * <p>Depending on {@link Commons#IO_BATCH_COUNT} inbox may request more than one batch. Lets assume
+     * the following sequence of events:
+     * <pre>
+     *                          Inbox                                   Outbox
+     *                            |--(1)---- request 4 batches ---------->|--[ at this point we schedule
+     *                            |                                       |  [ a task to the executor
+     *   1st batch may trigger ]--|<---------- send 1st batch -------(2)--|
+     *   rewind for subtree    ]  |                                       |
+     *                            |--(3)---- request next 4 batches ----->|--[ the task is added to the
+     *                            |             with new context          |  [ queue, the first task is still
+     *                            |                                       |  [ in progress
+     *       all these batches ]--|<-------- send rest of batches ---(4)--|
+     *      have to be ignored ]               from 1st request
+     *
+     * </pre>
+     *
+     * <p>The test verifies that batches from diagram above are ignored.
+     */
+    @Test
+    public void racesBetweenRewindAndBatchesFromPreviousRequest() {
+        UUID queryId = UUID.randomUUID();
+        String dataNode1Name = "DATA_NODE_1";
+        String dataNode2Name = "DATA_NODE_2";
+
+        ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, dataNode1Name, dataNode2Name));
+
+        TestDataProvider node1DataProvider = new TestDataProvider(3);
+        ClusterNode dataNode1 = new ClusterNode(dataNode1Name, dataNode1Name, NetworkAddress.from("127.0.0.1:10001"));
+        createSourceFragment(
+                queryId,
+                dataNode1,
+                serviceFactory,
+                node1DataProvider
+        );
+
+        TestDataProvider node2DataProvider = new TestDataProvider(3);
+        ClusterNode dataNode2 = new ClusterNode(dataNode2Name, dataNode2Name, NetworkAddress.from("127.0.0.1:10002"));
+        createSourceFragment(
+                queryId,
+                dataNode2,
+                serviceFactory,
+                node2DataProvider
+        );
+
+        RewindableAsyncRoot<Object[], Object[]> root = createRootFragment(
+                queryId,
+                1,
+                ROOT_NODE,
+                List.of(dataNode1Name, dataNode2Name),
+                false,
+                serviceFactory
+        );
+
+        try {
+            // slow down one of the node for a while to make another to fulfil the query
+            // and trigger the rewind
+            node2DataProvider.pause();
+
+            // this is arrow 1 from the sequence
+            BatchedResult<Object[]> res = await(root.requestNextAsync(2));
+
+            assertThat(res.items(), hasSize(1));
+            assertThat(res.items().get(0), equalTo(new Object[]{1, 1}));
+
+            // now slow down another node because we don't want it to send valid
+            // batch as response to rewind
+            node1DataProvider.pause();
+
+            // this is arrow 3 from the sequence
+            await(root.rewind());
+
+            // and here is arrow 4
+            node2DataProvider.resume();
+
+            res = await(root.requestNextAsync(2));
+
+            assertThat(res.items(), hasSize(1));
+            // expected value here is 10 because that is how DataProvider is implemented:
+            // after every rewind the value is multiplied by 10
+            assertThat(res.items().get(0), equalTo(new Object[]{10, 10}));
+        } finally {
+            node1DataProvider.resume();
+            node2DataProvider.resume();
+        }
+    }
+
+    private RewindableAsyncRoot<Object[], Object[]> createRootFragment(
             UUID queryId,
+            int limit,
             ClusterNode localNode,
             List<String> sourceNodeNames,
             boolean ordered,
             ClusterServiceFactory serviceFactory
     ) {
+        QueryTaskExecutor taskExecutor = getOrCreateTaskExecutor(localNode.name());
+
         ExecutionContext<Object[]> targetCtx = TestBuilders.executionContext()
                 .queryId(queryId)
                 .executor(taskExecutor)
-                .fragment(new FragmentDescription(TARGET_FRAGMENT_ID, null, null, Long2ObjectMaps.emptyMap()))
+                .fragment(new FragmentDescription(TARGET_FRAGMENT_ID, true, null, null, Long2ObjectMaps.emptyMap()))
                 .localNode(localNode)
                 .build();
 
@@ -169,7 +291,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
 
         MailboxRegistry mailboxRegistry = mailboxes.computeIfAbsent(localNode.name(), name -> new MailboxRegistryImpl());
         ExchangeService exchangeService = exchangeServices.computeIfAbsent(localNode.name(), name ->
-                createExchangeService(serviceFactory.forNode(localNode.name()), mailboxRegistry));
+                createExchangeService(taskExecutor, serviceFactory.forNode(localNode.name()), mailboxRegistry));
 
         Inbox<Object[]> inbox = new Inbox<>(
                 targetCtx, exchangeService, mailboxRegistry, sourceNodeNames, comparator, SOURCE_FRAGMENT_ID, SOURCE_FRAGMENT_ID
@@ -177,32 +299,40 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
 
         mailboxRegistry.register(inbox);
 
-        AsyncRootNode<Object[], Object[]> root = new AsyncRootNode<>(
-                inbox, Function.identity()
+        AbstractNode<Object[]> node = inbox;
+
+        if (limit > 0) {
+            node = new LimitNode<>(targetCtx, () -> 0, () -> 1);
+            node.register(List.of(inbox));
+        }
+
+        RewindableAsyncRoot<Object[], Object[]> root = new RewindableAsyncRoot<>(
+                node, Function.identity()
         );
 
-        inbox.onRegister(root);
+        node.onRegister(root);
 
         return root;
     }
 
     private Outbox<?> createSourceFragment(
             UUID queryId,
-            int rowValue,
             ClusterNode localNode,
             ClusterServiceFactory serviceFactory,
-            int rowCount
+            DataProvider<Object[]> dataProvider
     ) {
+        QueryTaskExecutor taskExecutor = getOrCreateTaskExecutor(localNode.name());
+
         ExecutionContext<Object[]> sourceCtx = TestBuilders.executionContext()
                 .queryId(queryId)
                 .executor(taskExecutor)
-                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, null, null, Long2ObjectMaps.emptyMap()))
+                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, true, null, null, Long2ObjectMaps.emptyMap()))
                 .localNode(localNode)
                 .build();
 
         MailboxRegistry mailboxRegistry = mailboxes.computeIfAbsent(localNode.name(), name -> new MailboxRegistryImpl());
         ExchangeService exchangeService = exchangeServices.computeIfAbsent(localNode.name(), name ->
-                createExchangeService(serviceFactory.forNode(localNode.name()), mailboxRegistry));
+                createExchangeService(taskExecutor, serviceFactory.forNode(localNode.name()), mailboxRegistry));
 
         Outbox<Object[]> outbox = new Outbox<>(
                 sourceCtx, exchangeService, mailboxRegistry, SOURCE_FRAGMENT_ID,
@@ -210,14 +340,18 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         );
         mailboxRegistry.register(outbox);
 
-        ScanNode<Object[]> source = new ScanNode<>(sourceCtx, DataProvider.fromRow(new Object[]{rowValue, rowValue}, rowCount));
+        ScanNode<Object[]> source = new ScanNode<>(sourceCtx, dataProvider);
 
         outbox.register(source);
 
         return outbox;
     }
 
-    private ExchangeService createExchangeService(ClusterService clusterService, MailboxRegistry mailboxRegistry) {
+    private static ExchangeService createExchangeService(
+            QueryTaskExecutor taskExecutor,
+            ClusterService clusterService,
+            MailboxRegistry mailboxRegistry
+    ) {
         MessageService messageService = new MessageServiceImpl(
                 clusterService.topologyService(),
                 clusterService.messagingService(),
@@ -234,5 +368,106 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         exchangeService.start();
 
         return exchangeService;
+    }
+
+    private static QueryTaskExecutor getOrCreateTaskExecutor(String name) {
+        return executors.computeIfAbsent(name, name0 -> {
+            var executor = new QueryTaskExecutorImpl(name0);
+
+            executor.start();
+
+            return executor;
+        });
+    }
+
+    static class RewindableAsyncRoot<InT, OutT> extends AsyncRootNode<InT, OutT> {
+        /**
+         * Constructor.
+         *
+         * @param source A source to requests rows from.
+         * @param converter A converter to convert rows from an internal format to desired output format.
+         */
+        RewindableAsyncRoot(AbstractNode<InT> source, Function<InT, OutT> converter) {
+            super(source, converter);
+        }
+
+        @Override
+        public CompletableFuture<Void> closeAsync() {
+            // do nothing
+            return CompletableFuture.completedFuture(null);
+        }
+
+        CompletableFuture<?> rewind() {
+            IgniteTestUtils.setFieldValue(this, AsyncRootNode.class, "waiting", 0);
+            IgniteTestUtils.setFieldValue(this, AsyncRootNode.class, "closed", false);
+
+            ((ArrayDeque<?>) IgniteTestUtils.getFieldValue(this, AsyncRootNode.class, "buff")).clear();
+
+            AbstractNode<?> source = (AbstractNode<?>) IgniteTestUtils.getFieldValue(this, AsyncRootNode.class, "source");
+
+            return source.context().submit(source::rewind, source::onError);
+        }
+    }
+
+    static class TestDataProvider implements DataProvider<Object[]> {
+        // Particular implementation is used to have access to the owner
+        private final NonReentrantLock lock = new NonReentrantLock();
+
+        private final int times;
+
+        private int multiplier = 1;
+
+        TestDataProvider(int times) {
+            this.times = times;
+        }
+
+        @SuppressWarnings("LockAcquiredButNotSafelyReleased")
+        void pause() {
+            lock.lock();
+        }
+
+        void resume() {
+            if (lock.getOwner() != null) {
+                lock.unlock();
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Iterator<Object[]> iterator() {
+            int multiplier = this.multiplier;
+
+            this.multiplier *= 10;
+
+            return new Iterator<>() {
+                private int counter;
+
+                /** {@inheritDoc} */
+                @Override
+                public boolean hasNext() {
+                    return counter < times;
+                }
+
+                /** {@inheritDoc} */
+                @Override
+                public Object[] next() {
+                    if (!hasNext()) {
+                        throw new NoSuchElementException();
+                    }
+
+                    lock.lock();
+
+                    int rowValue;
+                    try {
+                        rowValue = (1 + counter) * multiplier;
+                        counter++;
+                    } finally {
+                        lock.unlock();
+                    }
+
+                    return new Object[]{rowValue, rowValue};
+                }
+            };
+        }
     }
 }

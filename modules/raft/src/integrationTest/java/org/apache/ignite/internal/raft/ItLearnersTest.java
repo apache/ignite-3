@@ -92,7 +92,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
             new NetworkAddress("localhost", 5002)
     );
 
-    @InjectConfiguration("mock.retryTimeout=" + 1000)
+    @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
 
     private final List<RaftNode> nodes = new ArrayList<>(ADDRS.size());
@@ -106,7 +106,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         RaftNode(ClusterService clusterService) {
             this.clusterService = clusterService;
 
-            Path raftDir = workDir.resolve(clusterService.localConfiguration().getName());
+            Path raftDir = workDir.resolve(clusterService.nodeName());
 
             loza = new Loza(clusterService, raftConfiguration, raftDir, new HybridClockImpl());
         }

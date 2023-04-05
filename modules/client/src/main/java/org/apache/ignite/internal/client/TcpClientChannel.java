@@ -75,11 +75,17 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Minimum supported heartbeat interval. */
     private static final long MIN_RECOMMENDED_HEARTBEAT_INTERVAL = 500;
 
+    /** Config. */
+    private final ClientChannelConfiguration cfg;
+
+    /** Metrics. */
+    private final ClientMetricSource metrics;
+
     /** Protocol context. */
     private volatile ProtocolContext protocolCtx;
 
     /** Channel. */
-    private final ClientConnection sock;
+    private volatile ClientConnection sock;
 
     /** Request id. */
     private final AtomicLong reqId = new AtomicLong(1);
@@ -103,7 +109,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private final long heartbeatTimeout;
 
     /** Heartbeat timer. */
-    private final Timer heartbeatTimer;
+    private volatile Timer heartbeatTimer;
 
     /** Logger. */
     private final IgniteLogger log;
@@ -114,11 +120,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /**
      * Constructor.
      *
-     * @param cfg     Config.
-     * @param connMgr Connection multiplexer.
+     * @param cfg Config.
+     * @param metrics Metrics.
      */
-    TcpClientChannel(ClientChannelConfiguration cfg, ClientConnectionMultiplexer connMgr) {
+    private TcpClientChannel(ClientChannelConfiguration cfg, ClientMetricSource metrics) {
         validateConfiguration(cfg);
+        this.cfg = cfg;
+        this.metrics = metrics;
 
         log = ClientUtils.logger(cfg.clientConfiguration(), TcpClientChannel.class);
 
@@ -128,27 +136,69 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         connectTimeout = cfg.clientConfiguration().connectTimeout();
         heartbeatTimeout = cfg.clientConfiguration().heartbeatTimeout();
+    }
 
-        sock = connMgr.open(cfg.getAddress(), this, this);
+    private CompletableFuture<ClientChannel> initAsync(ClientConnectionMultiplexer connMgr) {
+        return connMgr
+                .openAsync(cfg.getAddress(), this, this)
+                .thenCompose(s -> {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Connection established [remoteAddress=" + s.remoteAddress() + ']');
+                    }
 
-        handshake(DEFAULT_VERSION);
+                    sock = s;
 
-        // Netty has a built-in IdleStateHandler to detect idle connections (used on the server side).
-        // However, to adjust the heartbeat interval dynamically, we have to use a timer here.
-        heartbeatTimer = initHeartbeat(cfg.clientConfiguration().heartbeatInterval());
+                    return handshakeAsync(DEFAULT_VERSION);
+                })
+                .whenComplete((res, err) -> {
+                    if (err != null) {
+                        close();
+                    }
+                })
+                .thenApplyAsync(unused -> {
+                    // Netty has a built-in IdleStateHandler to detect idle connections (used on the server side).
+                    // However, to adjust the heartbeat interval dynamically, we have to use a timer here.
+                    if (protocolCtx != null) {
+                        heartbeatTimer = initHeartbeat(cfg.clientConfiguration().heartbeatInterval());
+                    }
+
+                    return this;
+                }, asyncContinuationExecutor);
+    }
+
+    /**
+     * Creates a new channel asynchronously.
+     *
+     * @param cfg Configuration.
+     * @param connMgr Connection manager.
+     * @param metrics Metrics.
+     * @return Channel.
+     */
+    static CompletableFuture<ClientChannel> createAsync(
+            ClientChannelConfiguration cfg,
+            ClientConnectionMultiplexer connMgr,
+            ClientMetricSource metrics) {
+        //noinspection resource - returned from method.
+        return new TcpClientChannel(cfg, metrics).initAsync(connMgr);
     }
 
     /** {@inheritDoc} */
     @Override
     public void close() {
-        close(null);
+        close(null, true);
     }
 
     /**
      * Close the channel with cause.
      */
-    private void close(@Nullable Exception cause) {
+    private void close(@Nullable Exception cause, boolean graceful) {
         if (closed.compareAndSet(false, true)) {
+            if (cause != null && (cause instanceof TimeoutException || cause.getCause() instanceof TimeoutException)) {
+                metrics.connectionsLostTimeoutIncrement();
+            } else if (!graceful) {
+                metrics.connectionsLostIncrement();
+            }
+
             // Disconnect can happen before we initialize the timer.
             var timer = heartbeatTimer;
 
@@ -178,7 +228,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** {@inheritDoc} */
     @Override
     public void onDisconnected(@Nullable Exception e) {
-        close(e);
+        if (log.isDebugEnabled()) {
+            log.debug("Connection closed [remoteAddress=" + cfg.getAddress() + ']');
+        }
+
+        close(e, false);
     }
 
     /** {@inheritDoc} */
@@ -189,6 +243,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             PayloadReader<T> payloadReader
     ) {
         try {
+            if (log.isTraceEnabled()) {
+                log.trace("Sending request [opCode=" + opCode + ", remoteAddress=" + cfg.getAddress() + ']');
+            }
+
             ClientRequestFuture fut = send(opCode, payloadWriter);
 
             return receiveAsync(fut, payloadReader);
@@ -201,7 +259,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /**
-     * Constructor.
+     * Sends request.
      *
      * @param opCode        Operation code.
      * @param payloadWriter Payload writer to stream or {@code null} if request has no payload.
@@ -215,8 +273,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         ClientRequestFuture fut = new ClientRequestFuture();
-
         pendingReqs.put(id, fut);
+
+        metrics.requestsActiveIncrement();
 
         PayloadOutputChannel payloadCh = new PayloadOutputChannel(this, new ClientMessagePacker(sock.getBuffer()));
 
@@ -233,14 +292,23 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             write(req).addListener(f -> {
                 if (!f.isSuccess()) {
                     fut.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, "Failed to send request", f.cause()));
+                    pendingReqs.remove(id);
+                    metrics.requestsActiveDecrement();
+                } else {
+                    metrics.requestsSentIncrement();
                 }
             });
 
             return fut;
         } catch (Throwable t) {
+            log.warn("Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
+                    + t.getMessage(), t);
+
             // Close buffer manually on fail. Successful write closes the buffer automatically.
             payloadCh.close();
             pendingReqs.remove(id);
+
+            metrics.requestsActiveDecrement();
 
             throw IgniteException.wrap(t);
         }
@@ -267,6 +335,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             try (var in = new PayloadInputChannel(this, payload)) {
                 return payloadReader.apply(in);
             } catch (Exception e) {
+                log.error("Failed to deserialize server response [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
+
                 throw new IgniteClientConnectionException(PROTOCOL_ERR, "Failed to deserialize server response: " + e.getMessage(), e);
             }
         }, asyncContinuationExecutor);
@@ -287,6 +357,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         var type = unpacker.unpackInt();
 
         if (type != ServerMessageType.RESPONSE) {
+            log.error("Unexpected message type [remoteAddress=" + cfg.getAddress() + "]: " + type);
+
             throw new IgniteClientConnectionException(PROTOCOL_ERR, "Unexpected message type: " + type);
         }
 
@@ -295,12 +367,20 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         ClientRequestFuture pendingReq = pendingReqs.remove(resId);
 
         if (pendingReq == null) {
+            log.error("Unexpected response ID [remoteAddress=" + cfg.getAddress() + "]: " + resId);
+
             throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected response ID [%s]", resId));
         }
+
+        metrics.requestsActiveDecrement();
 
         int flags = unpacker.unpackInt();
 
         if (ResponseFlags.getPartitionAssignmentChangedFlag(flags)) {
+            if (log.isInfoEnabled()) {
+                log.info("Partition assignment change notification received [remoteAddress=" + cfg.getAddress() + "]");
+            }
+
             for (Consumer<ClientChannel> listener : assignmentChangeListeners) {
                 listener.accept(this);
             }
@@ -308,12 +388,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         if (unpacker.tryUnpackNil()) {
             pendingReq.complete(unpacker);
+            metrics.requestsCompletedIncrement();
         } else {
             IgniteException err = readError(unpacker);
-
             unpacker.close();
 
             pendingReq.completeExceptionally(err);
+            metrics.requestsFailedIncrement();
         }
     }
 
@@ -382,29 +463,46 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /** Client handshake. */
-    private void handshake(ProtocolVersion ver)
+    private CompletableFuture<Void> handshakeAsync(ProtocolVersion ver)
             throws IgniteClientConnectionException {
         ClientRequestFuture fut = new ClientRequestFuture();
         pendingReqs.put(-1L, fut);
 
-        try {
-            handshakeReq(ver);
-
-            // handshakeRes must be called even in case of timeout to release the buffer.
-            var resFut = fut.thenAccept(res -> handshakeRes(res, ver));
-
-            if (connectTimeout > 0) {
-                resFut.get(connectTimeout, TimeUnit.MILLISECONDS);
-            } else {
-                resFut.get();
+        handshakeReqAsync(ver).addListener(f -> {
+            if (!f.isSuccess()) {
+                fut.completeExceptionally(
+                        new IgniteClientConnectionException(CONNECTION_ERR, "Failed to send handshake request", f.cause()));
             }
-        } catch (Throwable e) {
-            throw IgniteException.wrap(e);
+        });
+
+        if (connectTimeout > 0) {
+            fut.orTimeout(connectTimeout, TimeUnit.MILLISECONDS);
         }
+
+        return fut
+                .thenCompose(res -> handshakeRes(res, ver))
+                .handle((res, err) -> {
+                    if (err != null) {
+                        if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
+                            metrics.handshakesFailedTimeoutIncrement();
+                            throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake timeout", err);
+                        } else {
+                            metrics.handshakesFailedIncrement();
+                        }
+
+                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", err);
+                    }
+
+                    return res;
+                });
     }
 
-    /** Send handshake request. */
-    private void handshakeReq(ProtocolVersion proposedVer) {
+    /**
+     * Send handshake request.
+     *
+     * @return Channel future.
+     */
+    private ChannelFuture handshakeReqAsync(ProtocolVersion proposedVer) {
         sock.send(Unpooled.wrappedBuffer(ClientMessageCommon.MAGIC_BYTES));
 
         var req = new ClientMessagePacker(sock.getBuffer());
@@ -417,11 +515,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         req.packBinaryHeader(0); // Features.
         req.packMapHeader(0); // Extensions.
 
-        write(req).syncUninterruptibly();
+        return write(req);
     }
 
     /** Receive and handle handshake response. */
-    private void handshakeRes(ClientMessageUnpacker unpacker, ProtocolVersion proposedVer) {
+    private CompletableFuture<Void> handshakeRes(ClientMessageUnpacker unpacker, ProtocolVersion proposedVer) {
         try (unpacker) {
             ProtocolVersion srvVer = new ProtocolVersion(unpacker.unpackShort(), unpacker.unpackShort(),
                     unpacker.unpackShort());
@@ -429,8 +527,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             if (!unpacker.tryUnpackNil()) {
                 if (!proposedVer.equals(srvVer) && supportedVers.contains(srvVer)) {
                     // Retry with server version.
-                    handshake(srvVer);
-                    return;
+                    return handshakeAsync(srvVer);
                 }
 
                 throw readError(unpacker);
@@ -451,6 +548,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             protocolCtx = new ProtocolContext(
                     srvVer, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNode, clusterId);
+
+            return CompletableFuture.completedFuture(null);
+        } catch (Exception e) {
+            log.warn("Failed to handle handshake response [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
+
+            return CompletableFuture.failedFuture(e);
         }
     }
 
@@ -530,17 +633,17 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                                 .orTimeout(heartbeatTimeout, TimeUnit.MILLISECONDS)
                                 .exceptionally(e -> {
                                     if (e instanceof TimeoutException) {
-                                        log.warn("Heartbeat timeout, closing the channel");
+                                        log.warn("Heartbeat timeout, closing the channel [remoteAddress=" + cfg.getAddress() + ']');
 
-                                        close((TimeoutException) e);
+                                        close(new IgniteClientConnectionException(CONNECTION_ERR, "Heartbeat timeout", e), false);
                                     }
 
                                     return null;
                                 });
                     }
                 }
-            } catch (Throwable ignored) {
-                // Ignore failed heartbeats.
+            } catch (Throwable e) {
+                log.warn("Failed to send heartbeat [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
             }
         }
     }

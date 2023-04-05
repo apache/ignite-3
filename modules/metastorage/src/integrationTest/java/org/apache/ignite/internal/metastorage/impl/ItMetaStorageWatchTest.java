@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -24,15 +25,12 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -40,9 +38,17 @@ import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -50,12 +56,11 @@ import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
@@ -71,65 +76,96 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Tests for Meta Storage Watches.
  */
-@ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-public class ItMetaStorageWatchTest {
-    private static class Node {
-        private final ClusterService clusterService;
+public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
-        private final RaftManager raftManager;
+    @InjectConfiguration
+    private static SecurityConfiguration securityConfiguration;
+
+    @InjectConfiguration
+    private static NodeAttributesConfiguration nodeAttributes;
+
+    private static class Node {
+        private final List<IgniteComponent> components = new ArrayList<>();
+
+        private final ClusterService clusterService;
 
         private final MetaStorageManager metaStorageManager;
 
-        private final CompletableFuture<Set<String>> metaStorageNodesFuture = new CompletableFuture<>();
+        private final ClusterManagementGroupManager cmgManager;
 
-        Node(ClusterService clusterService, RaftConfiguration raftConfiguration, Path dataPath) {
+        private final DistributedConfigurationUpdater distributedConfigurationUpdater;
+
+        Node(ClusterService clusterService, Path dataPath) {
+            var vaultManager = new VaultManager(new InMemoryVaultService());
+
+            components.add(vaultManager);
+
             this.clusterService = clusterService;
+
+            components.add(clusterService);
 
             Path basePath = dataPath.resolve(name());
 
-            this.raftManager = new Loza(
+            var raftManager = new Loza(
                     clusterService,
                     raftConfiguration,
                     basePath.resolve("raft"),
                     new HybridClockImpl()
             );
 
-            var vaultManager = mock(VaultManager.class);
+            components.add(raftManager);
 
-            when(vaultManager.get(any())).thenReturn(CompletableFuture.completedFuture(null));
-            when(vaultManager.put(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-            when(vaultManager.putAll(any())).thenReturn(CompletableFuture.completedFuture(null));
+            var clusterStateStorage = new TestClusterStateStorage();
 
-            var cmgManager = mock(ClusterManagementGroupManager.class);
+            components.add(clusterStateStorage);
 
-            when(cmgManager.metaStorageNodes()).thenReturn(metaStorageNodesFuture);
+            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+
+            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
+            distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
+
+            components.add(distributedConfigurationUpdater);
+
+            this.cmgManager = new ClusterManagementGroupManager(
+                    vaultManager,
+                    clusterService,
+                    raftManager,
+                    clusterStateStorage,
+                    logicalTopology,
+                    cmgConfiguration,
+                    distributedConfigurationUpdater,
+                    nodeAttributes
+            );
+
+            components.add(cmgManager);
 
             this.metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
                     clusterService,
                     cmgManager,
+                    new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
                     raftManager,
                     new RocksDbKeyValueStorage(name(), basePath.resolve("storage"))
             );
+
+            components.add(metaStorageManager);
         }
 
-        void start(Set<String> metaStorageNodes) {
-            clusterService.start();
-            raftManager.start();
-            metaStorageManager.start();
-
-            metaStorageNodesFuture.complete(metaStorageNodes);
+        void start() {
+            components.forEach(IgniteComponent::start);
         }
 
         String name() {
-            return clusterService.localConfiguration().getName();
+            return clusterService.nodeName();
         }
 
         void stop() throws Exception {
-            Stream<AutoCloseable> beforeNodeStop = Stream.of(metaStorageManager, raftManager, clusterService).map(c -> c::beforeNodeStop);
+            Collections.reverse(components);
 
-            Stream<AutoCloseable> nodeStop = Stream.of(metaStorageManager, raftManager, clusterService).map(c -> c::stop);
+            Stream<AutoCloseable> beforeNodeStop = components.stream().map(c -> c::beforeNodeStop);
+
+            Stream<AutoCloseable> nodeStop = components.stream().map(c -> c::stop);
 
             IgniteUtils.closeAll(Stream.concat(beforeNodeStop, nodeStop));
         }
@@ -137,11 +173,11 @@ public class ItMetaStorageWatchTest {
 
     private TestInfo testInfo;
 
-    @WorkDirectory
-    private Path workDir;
+    @InjectConfiguration
+    private static RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    private RaftConfiguration raftConfiguration;
+    private static ClusterManagementConfiguration cmgConfiguration;
 
     private final List<Node> nodes = new ArrayList<>();
 
@@ -155,27 +191,33 @@ public class ItMetaStorageWatchTest {
         IgniteUtils.closeAll(nodes.stream().map(node -> node::stop));
     }
 
-    private void startNodes(int amount) {
-        List<NetworkAddress> localAddresses = findLocalAddresses(10_000, 10_000 + nodes.size() + amount);
+    private void startCluster(int size) throws NodeStoppingException {
+        List<NetworkAddress> localAddresses = findLocalAddresses(10_000, 10_000 + nodes.size() + size);
 
         var nodeFinder = new StaticNodeFinder(localAddresses);
 
         localAddresses.stream()
                 .map(addr -> ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder))
-                .forEach(clusterService -> nodes.add(new Node(clusterService, raftConfiguration, workDir)));
+                .forEach(clusterService -> nodes.add(new Node(clusterService, workDir)));
 
-        nodes.parallelStream().forEach(node -> node.start(Set.of(nodes.get(0).name())));
+        nodes.parallelStream().forEach(Node::start);
+
+        String name = nodes.get(0).name();
+
+        nodes.get(0).cmgManager.initCluster(List.of(name), List.of(name), "test");
     }
 
     @Test
     void testExactWatch() throws Exception {
         testWatches((node, latch) -> node.metaStorageManager.registerExactWatch(new ByteArray("foo"), new WatchListener() {
             @Override
-            public void onUpdate(WatchEvent event) {
+            public CompletableFuture<Void> onUpdate(WatchEvent event) {
                 assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
                 assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(StandardCharsets.UTF_8)));
 
                 latch.countDown();
+
+                return completedFuture(null);
             }
 
             @Override
@@ -189,11 +231,13 @@ public class ItMetaStorageWatchTest {
     void testPrefixWatch() throws Exception {
         testWatches((node, latch) -> node.metaStorageManager.registerPrefixWatch(new ByteArray("fo"), new WatchListener() {
             @Override
-            public void onUpdate(WatchEvent event) {
+            public CompletableFuture<Void> onUpdate(WatchEvent event) {
                 assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
                 assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(StandardCharsets.UTF_8)));
 
                 latch.countDown();
+
+                return completedFuture(null);
             }
 
             @Override
@@ -211,11 +255,13 @@ public class ItMetaStorageWatchTest {
 
             node.metaStorageManager.registerRangeWatch(startRange, endRange, new WatchListener() {
                 @Override
-                public void onUpdate(WatchEvent event) {
+                public CompletableFuture<Void> onUpdate(WatchEvent event) {
                     assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
                     assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(StandardCharsets.UTF_8)));
 
                     latch.countDown();
+
+                    return completedFuture(null);
                 }
 
                 @Override
@@ -229,7 +275,7 @@ public class ItMetaStorageWatchTest {
     private void testWatches(BiConsumer<Node, CountDownLatch> registerWatchAction) throws Exception {
         int numNodes = 3;
 
-        startNodes(numNodes);
+        startCluster(numNodes);
 
         var latch = new CountDownLatch(numNodes);
 
@@ -256,10 +302,10 @@ public class ItMetaStorageWatchTest {
      * Tests that metastorage missed metastorage events are replayed after deploying watches.
      */
     @Test
-    void testReplayUpdates() throws InterruptedException {
+    void testReplayUpdates() throws Exception {
         int numNodes = 3;
 
-        startNodes(numNodes);
+        startCluster(numNodes);
 
         var exactLatch = new CountDownLatch(numNodes);
         var prefixLatch = new CountDownLatch(numNodes);
@@ -267,11 +313,13 @@ public class ItMetaStorageWatchTest {
         for (Node node : nodes) {
             node.metaStorageManager.registerExactWatch(new ByteArray("foo"), new WatchListener() {
                 @Override
-                public void onUpdate(WatchEvent event) {
+                public CompletableFuture<Void> onUpdate(WatchEvent event) {
                     assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
                     assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(StandardCharsets.UTF_8)));
 
                     exactLatch.countDown();
+
+                    return completedFuture(null);
                 }
 
                 @Override
@@ -282,7 +330,7 @@ public class ItMetaStorageWatchTest {
 
             node.metaStorageManager.registerPrefixWatch(new ByteArray("ba"), new WatchListener() {
                 @Override
-                public void onUpdate(WatchEvent event) {
+                public CompletableFuture<Void> onUpdate(WatchEvent event) {
                     List<String> keys = event.entryEvents().stream()
                             .map(e -> new String(e.newEntry().key(), StandardCharsets.UTF_8))
                             .collect(Collectors.toList());
@@ -295,6 +343,8 @@ public class ItMetaStorageWatchTest {
                     assertThat(values, containsInAnyOrder("one", "two"));
 
                     prefixLatch.countDown();
+
+                    return completedFuture(null);
                 }
 
                 @Override

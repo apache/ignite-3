@@ -74,6 +74,9 @@ namespace Apache.Ignite.Internal.Sql
             return new IgniteDbDataReader(resultSet);
         }
 
+        /// <inheritdoc/>
+        public override string ToString() => IgniteToStringBuilder.Build(GetType());
+
         /// <summary>
         /// Reads column value.
         /// </summary>

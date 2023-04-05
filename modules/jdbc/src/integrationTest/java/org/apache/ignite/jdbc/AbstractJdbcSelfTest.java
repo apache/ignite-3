@@ -33,7 +33,9 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -77,9 +79,15 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
     public static void beforeAllBase(TestInfo testInfo) throws Exception {
         String nodeName = testNodeName(testInfo, TEST_PORT);
 
-        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, null, WORK_DIR.resolve(nodeName));
+        CompletableFuture<Ignite> future = TestIgnitionManager.start(nodeName, null, WORK_DIR.resolve(nodeName));
 
-        IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(nodeName)
+                .metaStorageNodeNames(List.of(nodeName))
+                .clusterName("cluster")
+                .build();
+
+        IgnitionManager.init(initParameters);
 
         assertThat(future, willCompleteSuccessfully());
 

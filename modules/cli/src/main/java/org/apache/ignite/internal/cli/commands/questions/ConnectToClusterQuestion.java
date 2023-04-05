@@ -22,7 +22,7 @@ import jakarta.inject.Singleton;
 import java.util.Objects;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
-import org.apache.ignite.internal.cli.config.ConfigConstants;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.config.StateConfigProvider;
 import org.apache.ignite.internal.cli.core.flow.builder.FlowBuilder;
@@ -64,7 +64,7 @@ public class ConnectToClusterQuestion {
             return Flows.from(url);
         }
 
-        String defaultUrl = configManagerProvider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL);
+        String defaultUrl = configManagerProvider.get().getCurrentProperty(CliConfigKeys.CLUSTER_URL.value());
 
         QuestionUiComponent questionUiComponent = QuestionUiComponent.fromQuestion(
                 "You are not connected to node. Do you want to connect to the default node %s? %s ",
@@ -112,8 +112,8 @@ public class ConnectToClusterQuestion {
         if (session.info() != null) {
             return;
         }
-        String defaultUrl = configManagerProvider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL);
-        String lastConnectedUrl = stateConfigProvider.get().getProperty(ConfigConstants.LAST_CONNECTED_URL);
+        String defaultUrl = configManagerProvider.get().getCurrentProperty(CliConfigKeys.CLUSTER_URL.value());
+        String lastConnectedUrl = stateConfigProvider.get().getProperty(CliConfigKeys.LAST_CONNECTED_URL.value());
         QuestionUiComponent question;
         String clusterUrl;
         if (lastConnectedUrl != null) {
@@ -144,7 +144,7 @@ public class ConnectToClusterQuestion {
         return Flows.acceptQuestion(QuestionUiComponent.fromQuestion(
                 "Would you like to use %s as the default URL? %s ", UiElements.url(lastConnectedUrl), UiElements.yesNo()
                 ), () -> {
-                    configManagerProvider.get().setProperty(ConfigConstants.CLUSTER_URL, lastConnectedUrl);
+                    configManagerProvider.get().setProperty(CliConfigKeys.CLUSTER_URL.value(), lastConnectedUrl);
                     return "Config saved";
                 }
         );

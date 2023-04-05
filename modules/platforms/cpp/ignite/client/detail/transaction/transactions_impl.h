@@ -33,7 +33,6 @@ namespace ignite::detail {
 class transactions_impl {
 public:
     // Default
-    ~transactions_impl() = default;
     transactions_impl(transactions_impl &&) noexcept = default;
     transactions_impl &operator=(transactions_impl &&) noexcept = default;
 

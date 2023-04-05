@@ -39,9 +39,7 @@ import org.apache.ignite.internal.cli.core.call.StringCallInput;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import org.apache.ignite.internal.cli.core.exception.handler.SqlExceptionHandler;
-import org.apache.ignite.internal.cli.decorators.PlainTableDecorator;
 import org.apache.ignite.internal.cli.decorators.SqlQueryResultDecorator;
-import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import org.apache.ignite.internal.cli.sql.SqlManager;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
@@ -86,12 +84,11 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
     public Integer call() {
         try (SqlManager sqlManager = new SqlManager(jdbc)) {
             String executeCommand = execOptions.file != null ? extract(execOptions.file) : execOptions.command;
-            TableDecorator tableDecorator = plain ? new PlainTableDecorator() : new TableDecorator();
             return CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
                     .inputProvider(() -> new StringCallInput(executeCommand))
                     .output(spec.commandLine().getOut())
                     .errOutput(spec.commandLine().getErr())
-                    .decorator(new SqlQueryResultDecorator(tableDecorator))
+                    .decorator(new SqlQueryResultDecorator(plain))
                     .verbose(verbose)
                     .build().runPipeline();
         } catch (SQLException e) {

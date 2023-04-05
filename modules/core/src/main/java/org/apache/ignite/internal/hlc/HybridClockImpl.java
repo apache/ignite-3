@@ -49,11 +49,8 @@ public class HybridClockImpl implements HybridClock {
         this.latestTime = new HybridTimestamp(Clock.systemUTC().instant().toEpochMilli(), 0);
     }
 
-    /**
-     * Creates a timestamp for new event.
-     *
-     * @return The hybrid timestamp.
-     */
+    /** {@inheritDoc} */
+    @Override
     public HybridTimestamp now() {
         while (true) {
             long currentTimeMillis = Clock.systemUTC().instant().toEpochMilli();
@@ -75,12 +72,8 @@ public class HybridClockImpl implements HybridClock {
         }
     }
 
-    /**
-     * Creates a timestamp for a received event.
-     *
-     * @param requestTime Timestamp from request.
-     * @return The hybrid timestamp.
-     */
+    /** {@inheritDoc} */
+    @Override
     public HybridTimestamp update(HybridTimestamp requestTime) {
         while (true) {
             HybridTimestamp now = new HybridTimestamp(Clock.systemUTC().instant().toEpochMilli(), -1);

@@ -41,9 +41,12 @@ class SortedIndex implements ManuallyCloseable {
 
     private final ConcurrentMap<Integer, RocksDbSortedIndexStorage> storages = new ConcurrentHashMap<>();
 
-    SortedIndex(ColumnFamily indexCf, SortedIndexDescriptor descriptor) {
+    private final RocksDbMetaStorage indexMetaStorage;
+
+    SortedIndex(ColumnFamily indexCf, SortedIndexDescriptor descriptor, RocksDbMetaStorage indexMetaStorage) {
         this.descriptor = descriptor;
         this.indexCf = indexCf;
+        this.indexMetaStorage = indexMetaStorage;
     }
 
     /**
@@ -52,7 +55,7 @@ class SortedIndex implements ManuallyCloseable {
     SortedIndexStorage getOrCreateStorage(RocksDbMvPartitionStorage partitionStorage) {
         return storages.computeIfAbsent(
                 partitionStorage.partitionId(),
-                partId -> new RocksDbSortedIndexStorage(descriptor, indexCf, partitionStorage)
+                partId -> new RocksDbSortedIndexStorage(descriptor, indexCf, partitionStorage, indexMetaStorage)
         );
     }
 

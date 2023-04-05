@@ -31,11 +31,11 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.TableRow;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
@@ -328,7 +328,7 @@ public class OutgoingSnapshot {
 
         for (int i = rowVersionsN2O.size() - 1; i >= 0; i--) {
             ReadResult version = rowVersionsN2O.get(i);
-            TableRow row = version.tableRow();
+            BinaryRow row = version.binaryRow();
 
             buffers.add(row == null ? null : row.byteBuffer());
 

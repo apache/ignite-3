@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.testframework;
 
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.isWindowsOs;
 import static org.junit.jupiter.api.extension.ExtensionContext.Namespace;
 
@@ -26,9 +27,16 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.jetbrains.annotations.Nullable;
@@ -61,8 +69,8 @@ import org.junit.platform.commons.support.HierarchyTraversalMode;
  * </ol>
  *
  * <p>Temporary folders are removed after tests have finished running, but this behaviour can be controlled by setting the
- * {@link WorkDirectoryExtension#KEEP_WORK_DIR_PROPERTY} property to {@code true}, in which case the created folder can
- * be kept intact for debugging purposes.
+ * {@link WorkDirectoryExtension#KEEP_WORK_DIR_PROPERTY} property. See {@link #KEEP_WORK_DIR_PROPERTY} and {@link #ARTIFACT_DIR_PROPERTY}
+ * for more information.
  */
 public class WorkDirectoryExtension
         implements BeforeAllCallback, AfterAllCallback, BeforeEachCallback, AfterEachCallback, ParameterResolver {
@@ -70,15 +78,29 @@ public class WorkDirectoryExtension
     private static final Namespace NAMESPACE = Namespace.create(WorkDirectoryExtension.class);
 
     /**
-     * System property that, when set to {@code true}, will make the extension preserve the created directories. Default is {@code false}.
+     * System property that can be used to provide a comma-separated list of test names whose work directories should be preserved after
+     * test execution. Test name consists of test class name, a dot and a test method name. In case if work directory is injected into the
+     * static field and is shared between different tests, only test class name should be put into the list.
+     * <br>
+     * Example: {@code "FooBarTest.test1,FooBarTest.test2,StaticWorkDirectoryFieldTest,FooBarTest.test3"}.
+     * Default value is {@code null}.
      */
     public static final String KEEP_WORK_DIR_PROPERTY = "KEEP_WORK_DIR";
+
+    /**
+     * System property that denotes the directory where archived work directory of the test, kept using {@link #KEEP_WORK_DIR_PROPERTY},
+     * should be saved in. If defined, original work directory will be deleted. Default value is {@code null}.
+     */
+    public static final String ARTIFACT_DIR_PROPERTY = "ARTIFACT_DIR";
 
     /** Base path for all temporary folders in a module. */
     private static final Path BASE_PATH = getBasePath();
 
     /** Name of the work directory that will be injected into {@link BeforeAll} methods or static members. */
     private static final String STATIC_FOLDER_NAME = "static";
+
+    /** Pattern for the {@link #KEEP_WORK_DIR_PROPERTY}. */
+    private static final Pattern PATTERN = Pattern.compile("\\b\\w+(?:\\.\\w+)?(?:,\\b\\w+(?:\\.\\w+)?)*\\b");
 
     /**
      * Creates and injects a temporary directory into a static field.
@@ -99,7 +121,7 @@ public class WorkDirectoryExtension
     /** {@inheritDoc} */
     @Override
     public void afterAll(ExtensionContext context) throws Exception {
-        removeWorkDir(context);
+        cleanupWorkDir(context);
 
         Path testClassDir = getTestClassDir(context);
 
@@ -133,7 +155,7 @@ public class WorkDirectoryExtension
     /** {@inheritDoc} */
     @Override
     public void afterEach(ExtensionContext context) throws Exception {
-        removeWorkDir(context);
+        cleanupWorkDir(context);
     }
 
     /** {@inheritDoc} */
@@ -212,11 +234,77 @@ public class WorkDirectoryExtension
     /**
      * Removes a previously created work directory.
      */
-    private static void removeWorkDir(ExtensionContext context) {
+    private static void cleanupWorkDir(ExtensionContext context) {
         Path workDir = context.getStore(NAMESPACE).remove(context.getUniqueId(), Path.class);
 
-        if (workDir != null && shouldRemoveDir()) {
-            IgniteUtils.deleteIfExists(workDir);
+        String testClassName = context.getRequiredTestClass().getSimpleName();
+
+        String testName = context.getTestMethod().map(method -> testClassName + "." + method.getName()).orElse(testClassName);
+
+        if (workDir != null) {
+            if (shouldKeepWorkDir(testName)) {
+                String artifactDir = IgniteSystemProperties.getString(ARTIFACT_DIR_PROPERTY);
+
+                if (artifactDir != null) {
+                    Path artifactDirPath = Paths.get(artifactDir, testName + ".zip");
+
+                    zipDirectory(workDir, artifactDirPath);
+
+                    IgniteUtils.deleteIfExists(workDir);
+                }
+            } else {
+                IgniteUtils.deleteIfExists(workDir);
+            }
+        }
+    }
+
+    private static boolean shouldKeepWorkDir(String testName) {
+        String keepWorkDirStr = IgniteSystemProperties.getString(KEEP_WORK_DIR_PROPERTY);
+
+        Set<String> keepWorkDirForTests;
+
+        if (keepWorkDirStr != null) {
+            if (!keepWorkDirPropertyValid(keepWorkDirStr)) {
+                throw new IllegalArgumentException(KEEP_WORK_DIR_PROPERTY + " value " + keepWorkDirStr + " doesn't match pattern");
+            }
+
+            keepWorkDirForTests = Arrays.stream(keepWorkDirStr.split(",")).collect(toSet());
+        } else {
+            keepWorkDirForTests = Collections.emptySet();
+        }
+
+        return keepWorkDirForTests.contains(testName);
+    }
+
+    static boolean keepWorkDirPropertyValid(String property) {
+        return PATTERN.matcher(property).matches();
+    }
+
+    private static void zipDirectory(Path source, Path target) {
+        try {
+            Files.createDirectories(target.getParent());
+
+            Files.createFile(target);
+
+            try (var zs = new ZipOutputStream(Files.newOutputStream(target))) {
+                try (Stream<Path> filesStream = Files.walk(source)) {
+                    filesStream.filter(path -> !Files.isDirectory(path))
+                            .forEach(path -> {
+                                var zipEntry = new ZipEntry(source.relativize(path).toString());
+                                try {
+                                    zs.putNextEntry(zipEntry);
+
+                                    Files.copy(path, zs);
+
+                                    zs.closeEntry();
+                                } catch (IOException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -248,13 +336,6 @@ public class WorkDirectoryExtension
         }
 
         return fields.get(0);
-    }
-
-    /**
-     * Returns {@code true} if the extension should remove the created directories.
-     */
-    private static boolean shouldRemoveDir() {
-        return !IgniteSystemProperties.getBoolean(KEEP_WORK_DIR_PROPERTY);
     }
 
     /**

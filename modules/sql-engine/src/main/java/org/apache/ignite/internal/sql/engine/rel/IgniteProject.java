@@ -26,7 +26,6 @@ import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
@@ -37,7 +36,6 @@ import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
@@ -48,12 +46,9 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
-import org.apache.ignite.internal.sql.engine.util.RexUtils;
 
 /**
  * Relational expression that computes a set of 'select expressions' from its input relational expression.
@@ -172,17 +167,6 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
 
     /** {@inheritDoc} */
     @Override
-    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
-        // The node is rewindable if its input is rewindable.
-
-        RelTraitSet in = inputTraits.get(0);
-        RewindabilityTrait rewindability = TraitUtils.rewindability(in);
-
-        return List.of(Pair.of(nodeTraits.replace(rewindability), List.of(in)));
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
         RelTraitSet in = inputTraits.get(0);
 
@@ -201,37 +185,6 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
                 TraitUtils.collation(in), getProjects(), getInput().getRowType());
 
         return List.of(Pair.of(nodeTraits.replace(collation), List.of(in)));
-    }
-
-    /**
-     * PassThroughCorrelation.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    @Override
-    public Pair<RelTraitSet, List<RelTraitSet>> passThroughCorrelation(RelTraitSet nodeTraits,
-            List<RelTraitSet> inTraits) {
-        Set<CorrelationId> corrIds = RexUtils.extractCorrelationIds(getProjects());
-        Set<CorrelationId> traitCorrIds = TraitUtils.correlation(nodeTraits).correlationIds();
-
-        if (!traitCorrIds.containsAll(corrIds)) {
-            return null;
-        }
-
-        return Pair.of(nodeTraits, List.of(inTraits.get(0).replace(TraitUtils.correlation(nodeTraits))));
-    }
-
-    /**
-     * DeriveCorrelation.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    @Override
-    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(RelTraitSet nodeTraits,
-            List<RelTraitSet> inTraits) {
-        Set<CorrelationId> corrIds = RexUtils.extractCorrelationIds(getProjects());
-
-        corrIds.addAll(TraitUtils.correlation(inTraits.get(0)).correlationIds());
-
-        return List.of(Pair.of(nodeTraits.replace(CorrelationTrait.correlations(corrIds)), inTraits));
     }
 
     /** {@inheritDoc} */

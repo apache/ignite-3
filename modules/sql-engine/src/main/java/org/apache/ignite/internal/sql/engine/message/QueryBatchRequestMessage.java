@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.message;
 
+import org.apache.ignite.internal.sql.engine.exec.SharedState;
+import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A message to notify remote fragment (aka remote source) that more batches required to fulfil the result.
@@ -29,4 +32,8 @@ public interface QueryBatchRequestMessage extends ExecutionContextAwareMessage {
 
     /** Returns amount of batches to request. */
     int amountOfBatches();
+
+    /** Returns a state that has should be propagated to the target fragment. */
+    @Marshallable
+    @Nullable SharedState sharedState();
 }

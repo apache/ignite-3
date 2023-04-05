@@ -22,7 +22,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
-import org.apache.ignite.internal.schema.BinaryConverter;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
@@ -154,6 +154,6 @@ public class BinaryTupleRowSerializer {
     private void appendValue(BinaryTupleBuilder builder, Object value) {
         Element element = tupleSchema.element(builder.elementIndex());
 
-        BinaryConverter.appendValue(builder, element, value);
+        BinaryRowConverter.appendValue(builder, element, value);
     }
 }

@@ -30,12 +30,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Implementation of {@link LogicalTopology}.
@@ -66,15 +67,25 @@ public class LogicalTopologyImpl implements LogicalTopology {
     }
 
     @Override
-    public void putNode(ClusterNode nodeToPut) {
+    public void onNodeValidated(LogicalNode node) {
+        notifyListeners(listener -> listener.onNodeValidated(node), "onNodeValidated");
+    }
+
+    @Override
+    public void onNodeInvalidated(LogicalNode node) {
+        notifyListeners(listener -> listener.onNodeInvalidated(node), "onNodeInvalidated");
+    }
+
+    @Override
+    public void putNode(LogicalNode nodeToPut) {
         LogicalTopologySnapshot snapshot = readLogicalTopology();
 
-        Map<String, ClusterNode> mapByName = snapshot.nodes().stream()
-                .collect(toMap(ClusterNode::name, identity()));
+        Map<String, LogicalNode> mapByName = snapshot.nodes().stream()
+                .collect(toMap(LogicalNode::name, identity()));
 
         Runnable fireRemovalTask = null;
 
-        ClusterNode oldNode = mapByName.remove(nodeToPut.name());
+        LogicalNode oldNode = mapByName.remove(nodeToPut.name());
 
         if (oldNode != null) {
             if (oldNode.id().equals(nodeToPut.id())) {
@@ -86,7 +97,7 @@ public class LogicalTopologyImpl implements LogicalTopology {
             snapshot = new LogicalTopologySnapshot(snapshot.version() + 1, mapByName.values());
 
             LogicalTopologySnapshot snapshotAfterRemoval = snapshot;
-            fireRemovalTask = () -> fireDisappeared(oldNode, snapshotAfterRemoval);
+            fireRemovalTask = () -> fireNodeLeft(oldNode, snapshotAfterRemoval);
         }
 
         mapByName.put(nodeToPut.name(), nodeToPut);
@@ -100,7 +111,7 @@ public class LogicalTopologyImpl implements LogicalTopology {
         if (fireRemovalTask != null) {
             fireRemovalTask.run();
         }
-        fireAppeared(nodeToPut, snapshot);
+        fireNodeJoined(nodeToPut, snapshot);
     }
 
     private void saveSnapshotToStorage(LogicalTopologySnapshot newTopology) {
@@ -108,27 +119,27 @@ public class LogicalTopologyImpl implements LogicalTopology {
     }
 
     @Override
-    public void removeNodes(Set<ClusterNode> nodesToRemove) {
+    public void removeNodes(Set<LogicalNode> nodesToRemove) {
         LogicalTopologySnapshot snapshot = readLogicalTopology();
 
-        Map<String, ClusterNode> mapById = snapshot.nodes().stream()
-                .collect(toMap(ClusterNode::id, identity()));
+        Map<String, LogicalNode> mapById = snapshot.nodes().stream()
+                .collect(toMap(LogicalNode::id, identity()));
 
         // Removing in a well-defined order to make sure that a command produces an identical sequence of events in each CMG listener.
-        List<ClusterNode> sortedNodesToRemove = nodesToRemove.stream()
-                .sorted(comparing(ClusterNode::id))
+        List<LogicalNode> sortedNodesToRemove = nodesToRemove.stream()
+                .sorted(comparing(LogicalNode::id))
                 .collect(toList());
 
         List<Runnable> fireTasks = new ArrayList<>();
 
-        for (ClusterNode nodeToRemove : sortedNodesToRemove) {
-            ClusterNode removedNode = mapById.remove(nodeToRemove.id());
+        for (LogicalNode nodeToRemove : sortedNodesToRemove) {
+            LogicalNode removedNode = mapById.remove(nodeToRemove.id());
 
             if (removedNode != null) {
                 snapshot = new LogicalTopologySnapshot(snapshot.version() + 1, mapById.values());
 
                 LogicalTopologySnapshot finalSnapshot = snapshot;
-                fireTasks.add(() -> fireDisappeared(nodeToRemove, finalSnapshot));
+                fireTasks.add(() -> fireNodeLeft(nodeToRemove, finalSnapshot));
             }
         }
 
@@ -140,44 +151,38 @@ public class LogicalTopologyImpl implements LogicalTopology {
     }
 
     @Override
-    public boolean isNodeInLogicalTopology(ClusterNode needle) {
+    public boolean isNodeInLogicalTopology(LogicalNode needle) {
         return readLogicalTopology().nodes().stream()
                 .anyMatch(node -> node.id().equals(needle.id()));
     }
 
-    private void fireAppeared(ClusterNode appearedNode, LogicalTopologySnapshot snapshot) {
-        for (LogicalTopologyEventListener listener : listeners) {
-            try {
-                listener.onAppeared(appearedNode, snapshot);
-            } catch (Throwable e) {
-                logAndRethrowIfError(e, "Failure while notifying onAppear() listener {}", listener);
-            }
-        }
+    private void fireNodeJoined(LogicalNode appearedNode, LogicalTopologySnapshot snapshot) {
+        notifyListeners(listener -> listener.onNodeJoined(appearedNode, snapshot), "onNodeJoined");
     }
 
-    private void fireDisappeared(ClusterNode oldNode, LogicalTopologySnapshot snapshot) {
-        for (LogicalTopologyEventListener listener : listeners) {
-            try {
-                listener.onDisappeared(oldNode, snapshot);
-            } catch (Throwable e) {
-                logAndRethrowIfError(e, "Failure while notifying onDisappear() listener {}", listener);
-            }
-        }
+    private void fireNodeLeft(LogicalNode oldNode, LogicalTopologySnapshot snapshot) {
+        notifyListeners(listener -> listener.onNodeLeft(oldNode, snapshot), "onNodeLeft");
     }
 
     @Override
     public void fireTopologyLeap() {
+        LogicalTopologySnapshot logicalTopology = readLogicalTopology();
+
+        notifyListeners(listener -> listener.onTopologyLeap(logicalTopology), "onTopologyLeap");
+    }
+
+    private void notifyListeners(Consumer<LogicalTopologyEventListener> action, String methodName) {
         for (LogicalTopologyEventListener listener : listeners) {
             try {
-                listener.onTopologyLeap(readLogicalTopology());
+                action.accept(listener);
             } catch (Throwable e) {
-                logAndRethrowIfError(e, "Failure while notifying onTopologyLeap() listener {}", listener);
+                logAndRethrowIfError(e, "Failure while notifying {}() listener {}", methodName, listener);
             }
         }
     }
 
-    private static void logAndRethrowIfError(Throwable e, String logMessagePattern, LogicalTopologyEventListener listener) {
-        LOG.error(logMessagePattern, e, listener);
+    private static void logAndRethrowIfError(Throwable e, String logMessagePattern, Object... params) {
+        LOG.error(logMessagePattern, e, params);
 
         if (e instanceof Error) {
             throw (Error) e;

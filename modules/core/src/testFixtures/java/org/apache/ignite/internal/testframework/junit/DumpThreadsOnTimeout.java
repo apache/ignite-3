@@ -65,7 +65,8 @@ public class DumpThreadsOnTimeout implements TestExecutionExceptionHandler, Life
         // This is a pretty hacky and not too reliable way to determine whether this is the timeout event we are
         // interested in (meaning, a timed-out testable/lifecycle method execution), but it looks like this is the
         // best we can do.
-        return throwable instanceof TimeoutException && throwable.getMessage().contains(" timed out after ");
+        return throwable instanceof TimeoutException
+                && throwable.getMessage() != null && throwable.getMessage().contains(" timed out after ");
     }
 
     private static void dumpThreadsToStdout() {

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.table.distributed.TableMessageGroup.GROUP_TYPE;
 
+import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
@@ -151,6 +152,9 @@ public interface TableMessageGroup {
 
         /** Message type for {@link UpdateCommand}. */
         short UPDATE = 43;
+
+        /** Message type for {@link BuildIndexCommand}. */
+        short BUILD_INDEX = 44;
 
         /** Message type for {@link TablePartitionIdMessage}. */
         short TABLE_PARTITION_ID = 61;

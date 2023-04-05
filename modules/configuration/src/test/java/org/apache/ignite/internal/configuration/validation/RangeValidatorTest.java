@@ -36,23 +36,23 @@ public class RangeValidatorTest {
 
         RangeValidator validator = new RangeValidator();
 
-        validate(validator, range0, mockValidationContext(null, 0), null);
-        validate(validator, range0, mockValidationContext(null, 50), null);
-        validate(validator, range0, mockValidationContext(null, 100), null);
+        validate(validator, range0, mockValidationContext(null, 0));
+        validate(validator, range0, mockValidationContext(null, 50));
+        validate(validator, range0, mockValidationContext(null, 100));
 
         Range range1 = createRange(0L, null);
 
-        validate(validator, range1, mockValidationContext(null, 0), null);
-        validate(validator, range1, mockValidationContext(null, 50), null);
-        validate(validator, range1, mockValidationContext(null, 100), null);
-        validate(validator, range1, mockValidationContext(null, Long.MAX_VALUE), null);
+        validate(validator, range1, mockValidationContext(null, 0));
+        validate(validator, range1, mockValidationContext(null, 50));
+        validate(validator, range1, mockValidationContext(null, 100));
+        validate(validator, range1, mockValidationContext(null, Long.MAX_VALUE));
 
         Range range2 = createRange(null, 100L);
 
-        validate(validator, range2, mockValidationContext(null, 0), null);
-        validate(validator, range2, mockValidationContext(null, 50), null);
-        validate(validator, range2, mockValidationContext(null, 100), null);
-        validate(validator, range2, mockValidationContext(null, Long.MIN_VALUE), null);
+        validate(validator, range2, mockValidationContext(null, 0));
+        validate(validator, range2, mockValidationContext(null, 50));
+        validate(validator, range2, mockValidationContext(null, 100));
+        validate(validator, range2, mockValidationContext(null, Long.MIN_VALUE));
     }
 
     @Test

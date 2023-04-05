@@ -34,8 +34,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Index spool test.
  */
-public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
-    private static final IgniteLogger LOG = Loggers.forClass(AbstractBasicIntegrationTest.class);
+public class ItIndexSpoolTest extends ClusterPerClassIntegrationTest {
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterPerClassIntegrationTest.class);
 
     /**
      * After each.
@@ -48,6 +48,7 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
 
         for (Table table : CLUSTER_NODES.get(0).tables().tables()) {
             sql("DROP TABLE " + table.name());
+            sql("DROP ZONE " + "ZONE_" + table.name().toUpperCase());
         }
 
         if (LOG.isInfoEnabled()) {
@@ -92,11 +93,13 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
         }
 
         for (String name : List.of("TEST0", "TEST1")) {
-            sql(String.format("CREATE TABLE " + name + "(id INT PRIMARY KEY, jid INT, val VARCHAR) WITH replicas=2,partitions=%d", parts));
+            sql(String.format("CREATE ZONE %s with replicas=2, partitions=%d", "ZONE_" + name.toUpperCase(), parts));
+            sql(String.format("CREATE TABLE %s(id INT PRIMARY KEY, jid INT, val VARCHAR) WITH PRIMARY_ZONE='%s'",
+                    name, "ZONE_" + name.toUpperCase()));
 
             sql("CREATE INDEX " + name + "_jid_idx ON " + name + "(jid)");
 
-            // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+            // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
             waitForIndex(name + "_PK");
             waitForIndex(name + "_jid_idx");
 

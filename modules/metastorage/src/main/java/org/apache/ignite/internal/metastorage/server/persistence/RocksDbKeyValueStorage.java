@@ -36,7 +36,6 @@ import static org.apache.ignite.lang.ErrorGroups.MetaStorage.COMPACTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.STARTING_STORAGE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.MetaStorage.WATCH_EXECUTION_ERR;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -47,12 +46,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -170,17 +166,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /** Update counter. Will be incremented for each update of any particular entry. */
     private volatile long updCntr;
 
-    /** Executor for processing watch events. */
-    private final ExecutorService watchExecutor;
-
-    /**
-     * Future representing the task of polling the {@code eventQueue}. Needed for cancelling the task on storage stop.
-     */
-    @Nullable
-    private volatile Future<?> watchExecutorFuture;
-
     /** Watch processor. */
-    private final WatchProcessor watchProcessor = new WatchProcessor(this::get);
+    private final WatchProcessor watchProcessor;
 
     /** Status of the watch recovery process. */
     private enum RecoveryStatus {
@@ -196,8 +183,14 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      */
     private final AtomicReference<RecoveryStatus> recoveryStatus = new AtomicReference<>(RecoveryStatus.INITIAL);
 
-    /** Queue of update events, consumed by the {@link #watchExecutor}. */
-    private final BlockingQueue<List<Entry>> eventQueue = new LinkedBlockingQueue<>();
+    /**
+     * Buffer used to cache new events while an event replay is in progress. After replay finishes, the cache gets drained and is never
+     * used again.
+     *
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.
+     */
+    @Nullable
+    private List<List<Entry>> eventCache;
 
     /**
      * Current list of updated entries.
@@ -214,8 +207,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     public RocksDbKeyValueStorage(String nodeName, Path dbPath) {
         this.dbPath = dbPath;
 
+        this.watchProcessor = new WatchProcessor(nodeName, this::get);
+
         this.snapshotExecutor = Executors.newFixedThreadPool(2, NamedThreadFactory.create(nodeName, "metastorage-snapshot-executor", LOG));
-        this.watchExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "metastorage-watch-executor", LOG));
     }
 
     /** {@inheritDoc} */
@@ -281,16 +275,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void close() {
-        Future<?> f = watchExecutorFuture;
-
-        if (f != null) {
-            f.cancel(true);
-        }
-
-        IgniteUtils.shutdownAndAwaitTermination(watchExecutor, 10, TimeUnit.SECONDS);
+        watchProcessor.close();
 
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
 
@@ -1192,32 +1179,36 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             case PENDING:
                 // Watches have been enabled, but no event replay happened because there was no data in the
-                // storage. Since we are adding some data here, we need to start the watch processor thread.
-                recoveryStatus.set(RecoveryStatus.IN_PROGRESS);
+                // storage. We need to finish the recovery process (by simply updating the status) and process the events as usual.
+                recoveryStatus.set(RecoveryStatus.DONE);
 
-                startWatchExecutor();
+                notifyWatches();
 
-                publishWatchEvent();
+                break;
+
+            case IN_PROGRESS:
+                // Buffer the event while event replay is still in progress.
+                if (eventCache == null) {
+                    eventCache = new ArrayList<>();
+                }
+
+                eventCache.add(List.copyOf(updatedEntries));
+
+                updatedEntries.clear();
 
                 break;
 
             default:
-                publishWatchEvent();
+                notifyWatches();
 
                 break;
         }
     }
 
-    private void publishWatchEvent() {
-        List<Entry> updatedEntriesCopy = List.copyOf(updatedEntries);
+    private void notifyWatches() {
+        watchProcessor.notifyWatches(List.copyOf(updatedEntries));
 
         updatedEntries.clear();
-
-        try {
-            eventQueue.put(updatedEntriesCopy);
-        } catch (InterruptedException e) {
-            throw new MetaStorageException(WATCH_EXECUTION_ERR, "Interrupted when publishing a watch event", e);
-        }
     }
 
     private void replayUpdates(long upperRevision) {
@@ -1225,7 +1216,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         if (minWatchRevision == -1 || minWatchRevision > upperRevision) {
             // No events to replay, we can start processing more recent events from the event queue.
-            startWatchExecutor();
+            finishReplay();
+
             return;
         }
 
@@ -1250,7 +1242,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                     if (!updatedEntries.isEmpty()) {
                         var updatedEntriesCopy = List.copyOf(updatedEntries);
 
-                        watchExecutor.execute(() -> watchProcessor.notifyWatches(updatedEntriesCopy));
+                        watchProcessor.notifyWatches(updatedEntriesCopy);
 
                         updatedEntries.clear();
                     }
@@ -1265,27 +1257,28 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             // Notify about the events left after finishing the cycle above.
             if (!updatedEntries.isEmpty()) {
-                watchExecutor.execute(() -> watchProcessor.notifyWatches(updatedEntries));
+                watchProcessor.notifyWatches(updatedEntries);
             }
         }
 
-        // Events replay is finished, now we can start processing more recent events from the event queue.
-        startWatchExecutor();
+        finishReplay();
     }
 
-    private void startWatchExecutor() {
-        if (recoveryStatus.compareAndSet(RecoveryStatus.IN_PROGRESS, RecoveryStatus.DONE)) {
-            watchExecutorFuture = watchExecutor.submit(() -> {
-                while (!Thread.currentThread().isInterrupted()) {
-                    try {
-                        watchProcessor.notifyWatches(eventQueue.take());
-                    } catch (InterruptedException e) {
-                        LOG.info("Watch Executor interrupted, watches stopped");
+    private void finishReplay() {
+        // Take the lock to drain the event cache and prevent new events from being cached. Since event notification is asynchronous,
+        // this lock shouldn't be held for long.
+        rwLock.writeLock().lock();
 
-                        return;
-                    }
-                }
-            });
+        try {
+            if (eventCache != null) {
+                eventCache.forEach(watchProcessor::notifyWatches);
+
+                eventCache = null;
+            }
+
+            recoveryStatus.set(RecoveryStatus.DONE);
+        } finally {
+            rwLock.writeLock().unlock();
         }
     }
 

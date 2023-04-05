@@ -25,17 +25,19 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotUri;
@@ -70,6 +72,9 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     private final PartitionSnapshotStorage partitionSnapshotStorage;
 
     private final SnapshotUri snapshotUri;
+
+    /** Used to make sure that we execute cancellation at most once. */
+    private final AtomicBoolean cancellationGuard = new AtomicBoolean();
 
     /** Busy lock for synchronous rebalance cancellation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -150,6 +155,11 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     @Override
     public void cancel() {
+        // Cancellation from one thread must not block cancellations from other threads, hence this check.
+        if (!cancellationGuard.compareAndSet(false, true)) {
+            return;
+        }
+
         busyLock.block();
 
         LOG.info("Copier is canceled for partition [{}]", createPartitionInfo());
@@ -387,7 +397,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         ByteBuffer rowVersion = entry.rowVersions().get(i);
 
-        TableRow tableRow = rowVersion == null ? null : new TableRow(rowVersion.rewind());
+        BinaryRow binaryRow = rowVersion == null ? null : new ByteBufferRow(rowVersion.rewind());
 
         PartitionAccess partition = partitionSnapshotStorage.partition();
 
@@ -397,10 +407,10 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             assert entry.commitTableId() != null;
             assert entry.commitPartitionId() != ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
-            partition.addWrite(rowId, tableRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId());
+            partition.addWrite(rowId, binaryRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId());
         } else {
             // Writes committed version.
-            partition.addWriteCommitted(rowId, tableRow, timestamp);
+            partition.addWriteCommitted(rowId, binaryRow, timestamp);
         }
     }
 }

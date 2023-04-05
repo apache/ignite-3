@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Type;
 import java.util.Objects;
+import java.util.UUID;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.linq4j.tree.Types;
@@ -49,11 +51,14 @@ public enum IgniteMethod {
     /** See {@link ExecutionContext#rowHandler()}. */
     CONTEXT_ROW_HANDLER(ExecutionContext.class, "rowHandler"),
 
-    /** See {@link ExecutionContext#getCorrelated(int)}. */
-    CONTEXT_GET_CORRELATED_VALUE(ExecutionContext.class, "getCorrelated", int.class),
+    /** See {@link ExecutionContext#correlatedVariable(int)}. */
+    CONTEXT_GET_CORRELATED_VALUE(ExecutionContext.class, "correlatedVariable", int.class),
 
     /** See {@link ExecutionContext#nullBound()}. */
     CONTEXT_NULL_BOUND(ExecutionContext.class, "nullBound"),
+
+    /** See {@link ExecutionContext#getParameter(String, Type)}. */
+    CONTEXT_GET_PARAMETER_VALUE(ExecutionContext.class, "getParameter", String.class, Type.class),
 
     /** See {@link SingleScalar#execute(ExecutionContext, Object, Object)}. */
     SCALAR_EXECUTE(SingleScalar.class, "execute", ExecutionContext.class, Object.class, Object.class),
@@ -90,7 +95,14 @@ public enum IgniteMethod {
     GREATEST2(IgniteSqlFunctions.class, "greatest2", Object.class, Object.class),
 
     /** See {@link Objects#equals(Object, Object)}. */
-    IS_NOT_DISTINCT_FROM(Objects.class, "equals", Object.class, Object.class);
+    IS_NOT_DISTINCT_FROM(Objects.class, "equals", Object.class, Object.class),
+
+    /** See {@link UUID#randomUUID()}. */
+    RAND_UUID(UUID.class, "randomUUID"),
+
+    /** See {@link IgniteSqlFunctions#genRandomUuid()}. */
+    // TODO This function should removed when https://issues.apache.org/jira/browse/IGNITE-19103 is complete.
+    GEN_RANDOM_UUID(IgniteSqlFunctions.class, "genRandomUuid");
 
     private final Method method;
 

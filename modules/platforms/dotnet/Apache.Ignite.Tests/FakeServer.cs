@@ -66,7 +66,9 @@ namespace Apache.Ignite.Tests
 
         private bool _disposed;
 
-        private Socket? _handler;
+        private volatile Socket? _handler;
+
+        private volatile bool _dropNewConnections;
 
         public FakeServer(
             Func<int, bool>? shouldDropConnection = null,
@@ -101,6 +103,8 @@ namespace Apache.Ignite.Tests
 
         public TimeSpan HandshakeDelay { get; set; }
 
+        public TimeSpan OperationDelay { get; set; }
+
         public TimeSpan HeartbeatDelay { get; set; }
 
         public int Port => ((IPEndPoint)_listener.LocalEndPoint!).Port;
@@ -115,6 +119,14 @@ namespace Apache.Ignite.Tests
 
         public long? LastSqlTxId { get; set; }
 
+        public bool DropNewConnections
+        {
+            get => _dropNewConnections;
+            set => _dropNewConnections = value;
+        }
+
+        public bool SendInvalidMagic { get; set; }
+
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
@@ -128,6 +140,8 @@ namespace Apache.Ignite.Tests
         }
 
         public void ClearOps() => _ops?.Clear();
+
+        public void DropExistingConnection() => _handler?.Dispose();
 
         public void Dispose()
         {
@@ -424,6 +438,15 @@ namespace Apache.Ignite.Tests
             while (!_cts.IsCancellationRequested)
             {
                 using Socket handler = _listener.Accept();
+
+                if (DropNewConnections)
+                {
+                    handler.Disconnect(true);
+                    _handler = null;
+
+                    continue;
+                }
+
                 _handler = handler;
 
                 handler.NoDelay = true;
@@ -434,7 +457,7 @@ namespace Apache.Ignite.Tests
                 using var handshake = ReceiveBytes(handler, msgSize);
 
                 // Write handshake response.
-                handler.Send(ProtoCommon.MagicBytes);
+                handler.Send(SendInvalidMagic ? ProtoCommon.MagicBytes.Reverse().ToArray() : ProtoCommon.MagicBytes);
                 Thread.Sleep(HandshakeDelay);
 
                 using var handshakeBufferWriter = new PooledArrayBuffer();
@@ -462,6 +485,11 @@ namespace Apache.Ignite.Tests
                 {
                     msgSize = ReceiveMessageSize(handler);
                     using var msg = ReceiveBytes(handler, msgSize);
+
+                    if (OperationDelay > TimeSpan.Zero)
+                    {
+                        Thread.Sleep(OperationDelay);
+                    }
 
                     if (_shouldDropConnection(++requestCount))
                     {

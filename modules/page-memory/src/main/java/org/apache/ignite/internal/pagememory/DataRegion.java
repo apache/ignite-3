@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.pagememory;
 
-import org.apache.ignite.internal.configuration.storage.StorageException;
+
+import org.apache.ignite.internal.storage.StorageException;
 
 /**
  * Data region based on {@link PageMemory}.

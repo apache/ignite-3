@@ -48,11 +48,18 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         super.setUp(testInfo);
 
         // For each test case the cluster is already initialized
-        HttpResponse<String> response = client.send(
-                post("/management/v1/cluster/init",
-                        "{\"metaStorageNodes\": [\"" + nodeNames.get(0) + "\"], \"clusterName\": \"cluster\"}"),
-                BodyHandlers.ofString()
-        );
+        String requestBody = "{\n"
+                + "    \"metaStorageNodes\": [\n"
+                + "        \"" + nodeNames.get(0) + "\"\n"
+                + "    ],\n"
+                + "    \"cmgNodes\": [],\n"
+                + "    \"clusterName\": \"cluster\",\n"
+                + "    \"authConfig\": {\n"
+                + "        \"enabled\": false\n"
+                + "    }\n"
+                + "}";
+
+        HttpResponse<String> response = client.send(post("/management/v1/cluster/init", requestBody), BodyHandlers.ofString());
 
         assertThat(response.statusCode(), is(200));
         checkAllNodesStarted();

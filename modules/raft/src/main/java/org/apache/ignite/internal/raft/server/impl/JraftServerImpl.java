@@ -30,7 +30,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -72,6 +74,7 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl.StableClosureEvent;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
@@ -111,11 +114,16 @@ public class JraftServerImpl implements RaftServer {
     /** Options. */
     private final NodeOptions opts;
 
+    private final RaftGroupEventsClientListener raftGroupEventsClientListener;
+
     /** Request executor. */
     private ExecutorService requestExecutor;
 
     /** Marshaller for RAFT commands. */
     private final Marshaller commandsMarshaller;
+
+    /** Raft service event interceptor. */
+    private RaftServiceEventInterceptor serviceEventInterceptor;
 
     /** The number of parallel raft groups starts. */
     private static final int SIMULTANEOUS_GROUP_START_PARALLELISM = Math.min(Utils.cpus() * 3, 25);
@@ -127,7 +135,7 @@ public class JraftServerImpl implements RaftServer {
      * @param dataPath Data path.
      */
     public JraftServerImpl(ClusterService service, Path dataPath) {
-        this(service, dataPath, new NodeOptions());
+        this(service, dataPath, new NodeOptions(), new RaftGroupEventsClientListener());
     }
 
     /**
@@ -137,12 +145,18 @@ public class JraftServerImpl implements RaftServer {
      * @param dataPath Data path.
      * @param opts     Default node options.
      */
-    public JraftServerImpl(ClusterService service, Path dataPath, NodeOptions opts) {
+    public JraftServerImpl(
+            ClusterService service,
+            Path dataPath,
+            NodeOptions opts,
+            RaftGroupEventsClientListener raftGroupEventsClientListener
+    ) {
         this.service = service;
         this.dataPath = dataPath;
         this.nodeManager = new NodeManager();
         this.logStorageFactory = new DefaultLogStorageFactory(dataPath.resolve("log"));
         this.opts = opts;
+        this.raftGroupEventsClientListener = raftGroupEventsClientListener;
 
         // Auto-adjust options.
         this.opts.setRpcConnectTimeoutMs(this.opts.getElectionTimeoutMs() / 3);
@@ -150,7 +164,7 @@ public class JraftServerImpl implements RaftServer {
         this.opts.setSharedPools(true);
 
         if (opts.getServerName() == null) {
-            this.opts.setServerName(service.localConfiguration().getName());
+            this.opts.setServerName(service.nodeName());
         }
 
         /*
@@ -173,7 +187,8 @@ public class JraftServerImpl implements RaftServer {
 
         startGroupInProgressMonitors = Collections.unmodifiableList(monitors);
 
-        commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.localConfiguration().getSerializationRegistry());
+        commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.serializationRegistry());
+        serviceEventInterceptor = new RaftServiceEventInterceptor();
     }
 
     /** {@inheritDoc} */
@@ -220,7 +235,9 @@ public class JraftServerImpl implements RaftServer {
                 service,
                 nodeManager,
                 opts.getRaftMessagesFactory(),
-                requestExecutor
+                requestExecutor,
+                serviceEventInterceptor,
+                raftGroupEventsClientListener
         );
 
         if (opts.getfSMCallerExecutorDisruptor() == null) {
@@ -380,16 +397,17 @@ public class JraftServerImpl implements RaftServer {
             // Thread pools are shared by all raft groups.
             NodeOptions nodeOptions = opts.copy();
 
-            // TODO: IGNITE-17083 - Do not create paths for volatile stores at all when we get rid of snapshot storage on FS.
+            nodeOptions.setLogUri(nodeIdStr(nodeId));
+
             Path serverDataPath = getServerDataPath(nodeId);
 
-            try {
-                Files.createDirectories(serverDataPath);
-            } catch (IOException e) {
-                throw new IgniteInternalException(e);
+            if (!groupOptions.volatileStores()) {
+                try {
+                    Files.createDirectories(serverDataPath);
+                } catch (IOException e) {
+                    throw new IgniteInternalException(e);
+                }
             }
-
-            nodeOptions.setLogUri(nodeIdStr(nodeId));
 
             nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
 
@@ -397,7 +415,7 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setFsm(new DelegatingStateMachine(lsnr, commandsMarshaller));
 
-            nodeOptions.setRaftGrpEvtsLsnr(new RaftGroupEventsListenerAdapter(evLsnr));
+            nodeOptions.setRaftGrpEvtsLsnr(new RaftGroupEventsListenerAdapter(nodeId.groupId(), serviceEventInterceptor, evLsnr));
 
             LogStorageFactory logStorageFactory = groupOptions.getLogStorageFactory() == null
                     ? this.logStorageFactory : groupOptions.getLogStorageFactory();
@@ -438,6 +456,14 @@ public class JraftServerImpl implements RaftServer {
 
             return true;
         }
+    }
+
+    @Override
+    public CompletableFuture<Long> raftNodeReadyFuture(ReplicationGroupId groupId) {
+        RaftGroupService jraftNode = nodes.entrySet().stream().filter(entry -> entry.getKey().groupId().equals(groupId))
+                .map(Entry::getValue).findAny().get();
+
+        return jraftNode.getApplyCommittedFuture();
     }
 
     @Override

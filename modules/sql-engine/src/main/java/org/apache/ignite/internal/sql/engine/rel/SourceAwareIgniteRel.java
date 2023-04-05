@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.rel;
 /**
  * SourceAwareIgniteRel interface.
  */
-public interface SourceAwareIgniteRel extends InternalIgniteRel {
+public interface SourceAwareIgniteRel extends IgniteRel {
     long sourceId();
 
     IgniteRel clone(long sourceId);

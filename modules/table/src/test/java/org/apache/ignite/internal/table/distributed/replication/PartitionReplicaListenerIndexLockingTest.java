@@ -34,20 +34,21 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.TableRow;
-import org.apache.ignite.internal.schema.TableRowConverter;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
@@ -68,6 +69,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.Lock;
@@ -85,10 +87,12 @@ import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** There are tests for partition replica listener. */
+@ExtendWith(ConfigurationExtension.class)
 public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest {
     private static final int PART_ID = 0;
     private static final UUID TABLE_ID = new UUID(0L, 0L);
@@ -106,12 +110,11 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     private static KvMarshaller<Integer, Integer> kvMarshaller;
     private static Lazy<TableSchemaAwareIndexStorage> pkStorage;
     private static PartitionReplicaListener partitionReplicaListener;
-    private static Function<BinaryRow, BinaryTuple> binaryRow2HashKeyConverter;
-    private static Function<TableRow, BinaryTuple> tableRow2HashKeyConverter;
-    private static Function<BinaryRow, BinaryTuple> binaryRow2SortKeyConverter;
+    private static Function<BinaryRow, BinaryTuple> row2HashKeyConverter;
+    private static Function<BinaryRow, BinaryTuple> row2SortKeyConverter;
 
     @BeforeAll
-    private static void beforeAll() {
+    public static void beforeAll(@InjectConfiguration DataStorageConfiguration dsCfg) {
         RaftGroupService mockRaftClient = mock(RaftGroupService.class);
 
         when(mockRaftClient.refreshAndGetLeaderWithTerm())
@@ -125,47 +128,40 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new Column("val".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
         });
 
-        BinaryConverter hashKeyConverter = BinaryConverter.forKey(schemaDescriptor);
-        binaryRow2HashKeyConverter = hashKeyConverter::toTuple;
-
-        BinaryTupleSchema tupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
-        BinaryTupleSchema indexSchema = BinaryTupleSchema.createKeySchema(schemaDescriptor);
-
-        TableRowConverter row2HashKey = new TableRowConverter(tupleSchema, indexSchema);
-        tableRow2HashKeyConverter = row2HashKey::toTuple;
+        row2HashKeyConverter = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
         TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
                 PK_INDEX_ID,
-                new TestHashIndexStorage(null),
-                binaryRow2HashKeyConverter,
-                tableRow2HashKeyConverter
+                new TestHashIndexStorage(PART_ID, null),
+                row2HashKeyConverter
         );
         pkStorage = new Lazy<>(() -> hashIndexStorage);
 
-        IndexLocker pkLocker = new HashIndexLocker(PK_INDEX_ID, true, LOCK_MANAGER, binaryRow2HashKeyConverter);
-        IndexLocker hashIndexLocker = new HashIndexLocker(HASH_INDEX_ID, false, LOCK_MANAGER, binaryRow2HashKeyConverter);
+        IndexLocker pkLocker = new HashIndexLocker(PK_INDEX_ID, true, LOCK_MANAGER, row2HashKeyConverter);
+        IndexLocker hashIndexLocker = new HashIndexLocker(HASH_INDEX_ID, false, LOCK_MANAGER, row2HashKeyConverter);
 
-        BinaryConverter sortKeyConverter = BinaryConverter.forValue(schemaDescriptor);
-        binaryRow2SortKeyConverter = sortKeyConverter::toTuple;
+        BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
+        BinaryTupleSchema valueSchema = BinaryTupleSchema.createValueSchema(schemaDescriptor);
+        BinaryRowConverter valueExtractor = new BinaryRowConverter(rowSchema, valueSchema);
+        row2SortKeyConverter = valueExtractor::toTuple;
 
         TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(
                 SORTED_INDEX_ID,
-                new TestSortedIndexStorage(
+                new TestSortedIndexStorage(PART_ID,
                         new SortedIndexDescriptor(
                                 SORTED_INDEX_ID,
                                 List.of(new SortedIndexColumnDescriptor(
                                         "val", NativeTypes.INT32, false, true
                                 ))
                         )),
-                binaryRow2SortKeyConverter,
-                tableRow2HashKeyConverter
+                row2SortKeyConverter
         );
 
         IndexLocker sortedIndexLocker = new SortedIndexLocker(
                 SORTED_INDEX_ID,
                 LOCK_MANAGER,
                 (SortedIndexStorage) sortedIndexStorage.storage(),
-                binaryRow2SortKeyConverter
+                row2SortKeyConverter
         );
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
@@ -194,7 +190,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new StorageUpdateHandler(
                         PART_ID,
                         new TestPartitionDataStorage(TEST_MV_PARTITION_STORAGE),
-                        () -> Map.of(pkStorage.get().id(), pkStorage.get())
+                        DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get())),
+                        dsCfg
                 ),
                 peer -> true,
                 CompletableFuture.completedFuture(schemaManager)
@@ -204,7 +201,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     }
 
     @BeforeEach
-    private void beforeTest() {
+    public void beforeTest() {
         ((TestHashIndexStorage) pkStorage.get().storage()).clear();
         TEST_MV_PARTITION_STORAGE.clear();
 
@@ -286,19 +283,19 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                             hasItem(lockThat(
                                     arg.expectedLockOnUniqueHash + " on unique hash index",
                                     lock -> PK_INDEX_ID.equals(lock.lockKey().contextId())
-                                            && binaryRow2HashKeyConverter.apply(row).byteBuffer().equals(lock.lockKey().key())
+                                            && row2HashKeyConverter.apply(row).byteBuffer().equals(lock.lockKey().key())
                                             && lock.lockMode() == arg.expectedLockOnUniqueHash
                             )),
                             hasItem(lockThat(
                                     arg.expectedLockOnNonUniqueHash + " on non unique hash index",
                                     lock -> HASH_INDEX_ID.equals(lock.lockKey().contextId())
-                                            && binaryRow2HashKeyConverter.apply(row).byteBuffer().equals(lock.lockKey().key())
+                                            && row2HashKeyConverter.apply(row).byteBuffer().equals(lock.lockKey().key())
                                             && lock.lockMode() == arg.expectedLockOnNonUniqueHash
                             )),
                             hasItem(lockThat(
                                     arg.expectedLockOnSort + " on sorted index",
                                     lock -> SORTED_INDEX_ID.equals(lock.lockKey().contextId())
-                                            && binaryRow2SortKeyConverter.apply(row).byteBuffer().equals(lock.lockKey().key())
+                                            && row2SortKeyConverter.apply(row).byteBuffer().equals(lock.lockKey().key())
                                             && lock.lockMode() == arg.expectedLockOnSort
                             ))
                     )
@@ -345,17 +342,13 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         HybridTimestamp commitTs = CLOCK.now();
 
         for (Pair<BinaryRow, RowId> row : rows) {
-            TableRow tableRow = toTableRow(row.getFirst());
+            BinaryRow binaryRow = row.getFirst();
             RowId rowId = row.getSecond();
 
-            pkStorage.get().put(tableRow, rowId);
-            TEST_MV_PARTITION_STORAGE.addWrite(rowId, tableRow, txId, TABLE_ID, PART_ID);
+            pkStorage.get().put(binaryRow, rowId);
+            TEST_MV_PARTITION_STORAGE.addWrite(rowId, binaryRow, txId, TABLE_ID, PART_ID);
             TEST_MV_PARTITION_STORAGE.commitWrite(rowId, commitTs);
         }
-    }
-
-    private static TableRow toTableRow(BinaryRow binaryRow) {
-        return TableRowConverter.fromBinaryRow(binaryRow, BinaryConverter.forRow(schemaDescriptor));
     }
 
     private static BinaryRow binaryRow(Integer key, Integer value) {

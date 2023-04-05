@@ -19,7 +19,9 @@ package org.apache.ignite.internal.sql.engine.property;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Map.Entry;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -38,9 +40,36 @@ class PropertiesHolderImpl implements PropertiesHolder {
     }
 
     /** {@inheritDoc} */
-    @SuppressWarnings("unchecked")
     @Override
-    public <T> @Nullable T get(Property<T> prop) {
+    public <T> T get(Property<T> prop) {
+        T val = get0(prop);
+
+        if (val == null) {
+            throw new PropertyNotFoundException(prop);
+        }
+
+        return val;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> T getOrDefault(Property<T> prop, T defaultValue) {
+        T val = get0(prop);
+
+        if (val == null) {
+            return defaultValue;
+        }
+
+        return val;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Iterator<Entry<Property<?>, Object>> iterator() {
+        return props.entrySet().iterator();
+    }
+
+    private <T> @Nullable T get0(Property<T> prop) {
         Object val = props.get(prop);
 
         if (val == null) {
@@ -51,25 +80,5 @@ class PropertiesHolderImpl implements PropertiesHolder {
                 : format("Unexpected property value [name={}, expCls={}, actCls={}, val={}]", prop.name, prop.cls, val.getClass(), val);
 
         return (T) prop.cls.cast(val);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <T> @Nullable T getOrDefault(Property<T> prop, @Nullable T defaultValue) {
-        var val = get(prop);
-
-        return val == null ? defaultValue : val;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int size() {
-        return props.size();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Map<Property<?>, Object> toMap() {
-        return props;
     }
 }

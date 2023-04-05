@@ -27,18 +27,22 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.core.TableFunctionScan;
 import org.apache.calcite.rel.metadata.RelColumnMapping;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
+import org.apache.ignite.internal.sql.engine.prepare.Splitter;
 
 /**
  * Relational operator for table function scan.
  */
-public class IgniteTableFunctionScan extends TableFunctionScan implements InternalIgniteRel {
+public class IgniteTableFunctionScan extends TableFunctionScan implements SourceAwareIgniteRel {
     /** Default estimate row count. */
     private static final int ESTIMATE_ROW_COUNT = 100;
+
+    private final long sourceId;
 
     /**
      * Creates a TableFunctionScan.
@@ -49,7 +53,30 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Intern
             RexNode call,
             RelDataType rowType
     ) {
+        this(-1L, cluster, traits, call, rowType);
+    }
+
+    /**
+     * Creates a new Scan over function.
+     *
+     * @param sourceId An identifier of a source of rows. Will be assigned by {@link Splitter}.
+     * @param cluster Cluster that this relational expression belongs to.
+     * @param traits A set of particular properties this relation satisfies.
+     * @param call A call to a function emitting the rows to scan over.
+     * @param rowType Row type for tuples produced by this rel.
+     *
+     * @see Splitter
+     */
+    private IgniteTableFunctionScan(
+            long sourceId,
+            RelOptCluster cluster,
+            RelTraitSet traits,
+            RexNode call,
+            RelDataType rowType
+    ) {
         super(cluster, traits, List.of(), call, null, rowType, null);
+
+        this.sourceId = sourceId;
     }
 
     /**
@@ -59,12 +86,25 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Intern
      */
     public IgniteTableFunctionScan(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE));
+
+        Object srcIdObj = input.get("sourceId");
+        if (srcIdObj != null) {
+            sourceId = ((Number) srcIdObj).longValue();
+        } else {
+            sourceId = -1;
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteTableFunctionScan(cluster, getTraitSet(), getCall(), getRowType());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteRel clone(long sourceId) {
+        return new IgniteTableFunctionScan(sourceId, getCluster(), getTraitSet(), getCall(), getRowType());
     }
 
     /** {@inheritDoc} */
@@ -80,6 +120,19 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Intern
         assert nullOrEmpty(inputs);
 
         return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelWriter explainTerms(RelWriter pw) {
+        return super.explainTerms(pw)
+                .itemIf("sourceId", sourceId, sourceId != -1);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long sourceId() {
+        return sourceId;
     }
 
     /** {@inheritDoc} */

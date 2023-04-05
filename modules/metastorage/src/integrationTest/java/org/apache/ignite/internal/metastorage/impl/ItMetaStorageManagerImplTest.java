@@ -20,23 +20,27 @@ package org.apache.ignite.internal.metastorage.impl;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBeCancelledFast;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -50,9 +54,7 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -71,9 +73,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Integration tests for {@link MetaStorageManagerImpl}.
  */
-@ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-public class ItMetaStorageManagerImplTest {
+public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     private VaultManager vaultManager;
 
     private ClusterService clusterService;
@@ -85,8 +86,7 @@ public class ItMetaStorageManagerImplTest {
     private MetaStorageManagerImpl metaStorageManager;
 
     @BeforeEach
-    void setUp(TestInfo testInfo, @WorkDirectory Path workDir, @InjectConfiguration RaftConfiguration raftConfiguration)
-            throws NodeStoppingException {
+    void setUp(TestInfo testInfo, @InjectConfiguration RaftConfiguration raftConfiguration) throws NodeStoppingException {
         var addr = new NetworkAddress("localhost", 10_000);
 
         clusterService = clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
@@ -97,15 +97,15 @@ public class ItMetaStorageManagerImplTest {
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
-        when(cmgManager.metaStorageNodes())
-                .thenReturn(completedFuture(Set.of(clusterService.localConfiguration().getName())));
+        when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of(clusterService.nodeName())));
 
-        storage = new RocksDbKeyValueStorage(clusterService.localConfiguration().getName(), workDir.resolve("metastorage"));
+        storage = new RocksDbKeyValueStorage(clusterService.nodeName(), workDir.resolve("metastorage"));
 
         metaStorageManager = new MetaStorageManagerImpl(
                 vaultManager,
                 clusterService,
                 cmgManager,
+                mock(LogicalTopologyService.class),
                 raftManager,
                 storage
         );
@@ -132,7 +132,7 @@ public class ItMetaStorageManagerImplTest {
      * Tests a corner case when a prefix request contains a max unsigned byte value.
      */
     @Test
-    void testPrefixOverflow() throws NodeStoppingException {
+    void testPrefixOverflow() {
         byte[] value = "value".getBytes(StandardCharsets.UTF_8);
 
         var key1 = new ByteArray(new byte[]{1, (byte) 0xFF, 0});
@@ -157,11 +157,11 @@ public class ItMetaStorageManagerImplTest {
 
         assertThat(invokeFuture, willBe(true));
 
-        try (Cursor<Entry> cursor = metaStorageManager.prefix(new ByteArray(new byte[]{1, (byte) 0xFF}))) {
-            List<byte[]> keys = cursor.stream().map(Entry::key).collect(toList());
+        CompletableFuture<List<byte[]>> actualKeysFuture =
+                subscribeToList(metaStorageManager.prefix(new ByteArray(new byte[]{1, (byte) 0xFF})))
+                        .thenApply(entries -> entries.stream().map(Entry::key).collect(toList()));
 
-            assertThat(keys, contains(key1.bytes(), key2.bytes(), key3.bytes()));
-        }
+        assertThat(actualKeysFuture, will(contains(key1.bytes(), key2.bytes(), key3.bytes())));
     }
 
     /**
@@ -189,7 +189,7 @@ public class ItMetaStorageManagerImplTest {
         assertThat(vaultManager.get(key1), willBe(nullValue()));
         assertThat(vaultManager.get(key2), willBe(nullValue()));
 
-        metaStorageManager.registerExactWatch(key1, noOpListener());
+        metaStorageManager.registerExactWatch(key1, new NoOpListener());
 
         invokeFuture = metaStorageManager.invoke(
                 Conditions.exists(new ByteArray("foo")),
@@ -208,7 +208,9 @@ public class ItMetaStorageManagerImplTest {
         assertThat(vaultManager.get(key1).thenApply(VaultEntry::value), willBe(value));
         assertThat(vaultManager.get(key2), willBe(nullValue()));
 
-        metaStorageManager.registerExactWatch(key2, noOpListener());
+        metaStorageManager.registerExactWatch(key2, new NoOpListener());
+
+        assertThat(metaStorageManager.appliedRevision(), is(2L));
 
         byte[] newValue = "newValue".getBytes(StandardCharsets.UTF_8);
 
@@ -229,14 +231,14 @@ public class ItMetaStorageManagerImplTest {
         assertThat(vaultManager.get(key2).thenApply(VaultEntry::value), willBe(newValue));
     }
 
-    private static WatchListener noOpListener() {
-        return new WatchListener() {
-            @Override
-            public void onUpdate(WatchEvent event) {}
+    private static class NoOpListener implements WatchListener {
+        @Override
+        public CompletableFuture<Void> onUpdate(WatchEvent event) {
+            return completedFuture(null);
+        }
 
-            @Override
-            public void onError(Throwable e) {}
-        };
+        @Override
+        public void onError(Throwable e) {}
     }
 
     @Test
@@ -247,7 +249,7 @@ public class ItMetaStorageManagerImplTest {
 
         CompletableFuture<Entry> fut = svc.get(ByteArray.fromString("ignored"));
 
-        assertThat(fut, willBeCancelledFast());
+        assertThat(fut, willThrowFast(CancellationException.class));
     }
 
     @Test
@@ -256,7 +258,7 @@ public class ItMetaStorageManagerImplTest {
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
-        Set<String> msNodes = Set.of(clusterService.localConfiguration().getName());
+        Set<String> msNodes = Set.of(clusterService.nodeName());
         CompletableFuture<Set<String>> cmgFut = new CompletableFuture<>();
 
         when(cmgManager.metaStorageNodes()).thenReturn(cmgFut);
@@ -265,6 +267,7 @@ public class ItMetaStorageManagerImplTest {
                 vaultManager,
                 clusterService,
                 cmgManager,
+                mock(LogicalTopologyService.class),
                 raftManager,
                 storage
         );
@@ -275,6 +278,6 @@ public class ItMetaStorageManagerImplTest {
         // stop method.
         cmgFut.complete(msNodes);
 
-        assertThat(metaStorageManager.metaStorageServiceFuture(), willBeCancelledFast());
+        assertThat(metaStorageManager.metaStorageServiceFuture(), willThrowFast(CancellationException.class));
     }
 }

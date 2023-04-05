@@ -17,10 +17,9 @@
 
 #pragma once
 
-#include "linux_async_client.h"
-
-#include <ignite/network/end_point.h>
-#include <ignite/network/tcp_range.h>
+#include "ignite/common/end_point.h"
+#include "ignite/network/detail/linux/linux_async_client.h"
+#include "ignite/network/tcp_range.h"
 
 #include <cstdint>
 #include <memory>

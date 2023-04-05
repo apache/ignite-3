@@ -20,7 +20,6 @@ package org.apache.ignite.internal.cli.core.flow.question;
 /**
  * Factory of {@link QuestionAsker}.
  */
-//Tech Debt: IGNITE-17484
 public class QuestionAskerFactory {
     private static volatile QuestionWriterReader questionWriterReader;
 

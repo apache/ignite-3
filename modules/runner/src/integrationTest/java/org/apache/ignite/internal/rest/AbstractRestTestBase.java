@@ -36,19 +36,18 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.internal.IgniteIntegrationTest;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Base class for integration REST test.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-abstract class AbstractRestTestBase {
+abstract class AbstractRestTestBase extends IgniteIntegrationTest {
     /** Network ports of the test nodes. */
     static final int[] PORTS = {3344, 3345, 3346};
 
@@ -143,7 +142,7 @@ abstract class AbstractRestTestBase {
         );
 
         for (Map.Entry<String, String> e : nodesBootstrapCfg.entrySet()) {
-            startNodeWithoutInit(e.getKey(), name -> IgnitionManager.start(name, e.getValue(), workDir.resolve(name)));
+            startNodeWithoutInit(e.getKey(), name -> TestIgnitionManager.start(name, e.getValue(), workDir.resolve(name)));
         }
     }
 

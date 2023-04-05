@@ -87,7 +87,9 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
      * @param recoveryDescriptorProvider Recovery descriptor provider.
      */
     public RecoveryClientHandshakeManager(
-            UUID launchId, String consistentId, short connectionId,
+            UUID launchId,
+            String consistentId,
+            short connectionId,
             RecoveryDescriptorProvider recoveryDescriptorProvider) {
         this.launchId = launchId;
         this.consistentId = consistentId;
@@ -112,8 +114,12 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             this.remoteLaunchId = msg.launchId();
             this.remoteConsistentId = msg.consistentId();
 
-            this.recoveryDescriptor = recoveryDescriptorProvider.getRecoveryDescriptor(remoteConsistentId, remoteLaunchId, connectionId,
-                    false);
+            this.recoveryDescriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
+                    remoteConsistentId,
+                    remoteLaunchId,
+                    connectionId,
+                    false
+            );
 
             handshake(recoveryDescriptor);
 
@@ -199,7 +205,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         // Removes handshake handler from the pipeline as the handshake is finished
         this.ctx.pipeline().remove(this.handler);
 
-        handshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId));
+        handshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, connectionId));
     }
 
     @TestOnly

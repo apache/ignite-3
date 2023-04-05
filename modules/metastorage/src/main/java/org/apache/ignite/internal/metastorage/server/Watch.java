@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -25,8 +26,8 @@ import org.apache.ignite.internal.metastorage.WatchListener;
  * Subscription on updates of Meta Storage entries corresponding to a subset of keys, starting from a given revision number.
  */
 public class Watch {
-    /** Current revision. */
-    private volatile long targetRevision;
+    /** Minimum revision of entries that this Watch must be notified of. */
+    private final long startRevision;
 
     /** Key predicate. */
     private final Predicate<byte[]> predicate;
@@ -44,7 +45,7 @@ public class Watch {
     public Watch(long startRevision, WatchListener listener, Predicate<byte[]> predicate) {
         this.predicate = predicate;
         this.listener = listener;
-        this.targetRevision = startRevision;
+        this.startRevision = startRevision;
     }
 
     /**
@@ -53,37 +54,46 @@ public class Watch {
      * @param key Meta Storage key.
      * @param revision Revision corresponding to the given {@code key}.
      */
-    public boolean matches(byte[] key, long revision) {
-        return revision >= targetRevision && predicate.test(key);
+    boolean matches(byte[] key, long revision) {
+        return revision >= startRevision && predicate.test(key);
     }
 
     /**
      * Notifies the event listener about a Meta Storage event.
+     *
+     * @see WatchListener#onUpdate
      */
-    public void onUpdate(WatchEvent event) {
-        listener.onUpdate(event);
+    CompletableFuture<Void> onUpdate(WatchEvent event) {
+        return listener.onUpdate(event);
+    }
 
-        targetRevision = event.revision() + 1;
+    /**
+     * Notifies the event listener about a Meta Storage revision update.
+     *
+     * @see WatchListener#onRevisionUpdated
+     */
+    CompletableFuture<Void> onRevisionUpdated(long revision) {
+        return listener.onRevisionUpdated(revision);
     }
 
     /**
      * Callback that gets called if an error has occurred during the event processing.
      */
-    public void onError(Throwable e) {
+    void onError(Throwable e) {
         listener.onError(e);
     }
 
     /**
      * Returns the event listener.
      */
-    public WatchListener listener() {
+    WatchListener listener() {
         return listener;
     }
 
     /**
-     * Returns the current Meta Storage revision this Watch is listening to.
+     * Returns the minimum Meta Storage revision this Watch is listening to.
      */
-    public long targetRevision() {
-        return targetRevision;
+    long startRevision() {
+        return startRevision;
     }
 }

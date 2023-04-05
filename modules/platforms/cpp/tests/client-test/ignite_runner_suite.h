@@ -39,7 +39,20 @@ class ignite_runner_suite : public ::testing::Test {
 public:
     static constexpr std::initializer_list<std::string_view> SINGLE_NODE_ADDR = {"127.0.0.1:10942"sv};
     static constexpr std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942"sv, "127.0.0.1:10943"sv};
+
     static constexpr std::string_view TABLE_1 = "tbl1"sv;
+    static constexpr std::string_view TABLE_NAME_ALL_COLUMNS = "tbl_all_columns"sv;
+
+    inline static const std::string PLATFORM_TEST_NODE_RUNNER =
+        "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
+
+    inline static const std::string IT_THIN_CLIENT_COMPUTE_TEST =
+        "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest";
+
+    inline static const std::string NODE_NAME_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$NodeNameJob";
+    inline static const std::string CONCAT_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$ConcatJob";
+    inline static const std::string ERROR_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$IgniteExceptionJob";
+    inline static const std::string ECHO_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$EchoJob";
 
     static constexpr const char *KEY_COLUMN = "key";
     static constexpr const char *VAL_COLUMN = "val";
@@ -81,6 +94,14 @@ public:
      * @return Ignite tuple instance.
      */
     static ignite_tuple get_tuple(int64_t id) { return {{KEY_COLUMN, id}}; }
+
+    /**
+     * Get tuple for specified column values.
+     *
+     * @param val Value.
+     * @return Ignite tuple instance.
+     */
+    static ignite_tuple get_tuple(std::string val) { return {{VAL_COLUMN, std::move(val)}}; }
 
     /**
      * Clear table @c TABLE_1.

@@ -80,6 +80,18 @@ SqlDataTypeSpec IntervalType() :
     }
 }
 
+SqlTypeNameSpec UuidType(Span s) :
+{
+    final SqlIdentifier typeName;
+}
+{
+    <UUID> { s = span(); typeName = new SqlIdentifier(UuidType.NAME, s.pos()); }
+    {
+        return new IgniteSqlTypeNameSpec(typeName, s.end(this));
+    }
+}
+
+
 void TableElement(List<SqlNode> list) :
 {
     final SqlDataTypeSpec type;
@@ -627,4 +639,15 @@ SqlLiteral AlterZoneStringOptionKey() :
 }
 {
     <DATA_NODES_FILTER> { return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_NODES_FILTER, getPos()); }
+}
+
+SqlLiteral ParseDecimalLiteral():
+{
+    final BigDecimal value;
+}
+{
+  <DECIMAL> <QUOTED_STRING> {
+    value = IgniteSqlParserUtil.parseDecimal(token.image, getPos());
+    return IgniteSqlDecimalLiteral.create(value, getPos());
+  }
 }

@@ -59,8 +59,14 @@ public:
         , m_state(state::OPEN)
         , m_connection(std::move(connection)) {}
 
+    /**
+     * Destructor.
+     *
+     * It is important to rollback transaction synchronously on destruction to
+     * avoid conflicts if the same data is accessed after transaction is destructed.
+     */
     ~transaction_impl() {
-        rollback_async([](auto) {});
+        sync<void>([this](auto callback) { rollback_async(std::move(callback)); });
     }
 
     /**

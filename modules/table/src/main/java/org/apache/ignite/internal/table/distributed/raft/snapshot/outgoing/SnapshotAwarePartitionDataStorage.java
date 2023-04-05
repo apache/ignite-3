@@ -20,15 +20,20 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
+import org.apache.ignite.internal.storage.PartitionTimestampCursor;
+import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
+import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -40,6 +45,8 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     private final MvPartitionStorage partitionStorage;
     private final PartitionsSnapshots partitionsSnapshots;
     private final PartitionKey partitionKey;
+
+    private final RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
 
     /**
      * Creates a new instance.
@@ -98,17 +105,12 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
-        return partitionStorage.committedGroupConfiguration();
-    }
-
-    @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
-        partitionStorage.committedGroupConfiguration(config);
+        partitionStorage.committedGroupConfiguration(raftGroupConfigurationConverter.toBytes(config));
     }
 
     @Override
-    public @Nullable TableRow addWrite(RowId rowId, @Nullable TableRow row, UUID txId, UUID commitTableId,
+    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId,
             int commitPartitionId) throws TxIdMismatchException, StorageException {
         handleSnapshotInterference(rowId);
 
@@ -116,7 +118,7 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public @Nullable TableRow abortWrite(RowId rowId) throws StorageException {
+    public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
         handleSnapshotInterference(rowId);
 
         return partitionStorage.abortWrite(rowId);
@@ -129,6 +131,23 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
         partitionStorage.commitWrite(rowId, timestamp);
     }
 
+    @Override
+    public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
+        return partitionStorage.scanVersions(rowId);
+    }
+
+    @Override
+    public @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+        return partitionStorage.pollForVacuum(lowWatermark);
+    }
+
+    /**
+     * Handles the situation when snapshots are running concurrently with write operations.
+     * In case if a row that is going to be changed was not yet sent in an ongoing snapshot,
+     * schedule an out-of-order sending of said row.
+     *
+     * @param rowId Row id.
+     */
     private void handleSnapshotInterference(RowId rowId) {
         PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
 
@@ -137,13 +156,16 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
 
             try {
                 if (snapshot.alreadyPassed(rowId)) {
+                    // Row already sent.
                     continue;
                 }
 
                 if (!snapshot.addRowIdToSkip(rowId)) {
+                    // Already scheduled.
                     continue;
                 }
 
+                // Collect all versions of row and schedule the send operation.
                 snapshot.enqueueForSending(rowId);
             } finally {
                 snapshot.releaseMvLock();
@@ -154,8 +176,6 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     @Override
     public void close() {
         cleanupSnapshots();
-
-        partitionStorage.close();
     }
 
     private void cleanupSnapshots() {
@@ -176,5 +196,10 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     @TestOnly
     public MvPartitionStorage getStorage() {
         return partitionStorage;
+    }
+
+    @Override
+    public PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException {
+        return partitionStorage.scan(timestamp);
     }
 }

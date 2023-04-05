@@ -19,6 +19,8 @@ package org.apache.ignite.internal.cluster.management.network.messages;
 
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.network.auth.Authentication;
+import org.apache.ignite.internal.cluster.management.network.auth.BasicAuthenticationProvider;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
@@ -26,6 +28,8 @@ import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCo
 import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTopologyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.ReadValidatedNodesCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.UpdateClusterStateCommand;
 import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
@@ -98,6 +102,11 @@ public class CmgMessageGroup {
         int NODES_LEAVE = 45;
 
         /**
+         * Message type for {@link ReadValidatedNodesCommand}.
+         */
+        int READ_VALIDATED_NODES = 46;
+
+        /**
          * Message type for {@link ClusterNodeMessage}.
          */
         int CLUSTER_NODE = 60;
@@ -111,5 +120,20 @@ public class CmgMessageGroup {
          * Message type for {@link ClusterTag}.
          */
         int CLUSTER_TAG = 62;
+
+        /**
+         * Message type of {@link Authentication}.
+         */
+        int REST_AUTH = 63;
+
+        /**
+         * Message type of {@link BasicAuthenticationProvider}.
+         */
+        int BASIC_AUTH_PROVIDER = 64;
+
+        /**
+         * Message type of {@link UpdateClusterStateCommand}.
+         */
+        int UPDATE_CMG_STATE = 65;
     }
 }

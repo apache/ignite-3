@@ -20,6 +20,7 @@ package org.apache.ignite.client;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_CONNECT_TIMEOUT;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_TIMEOUT;
+import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_PERIOD;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_RETRIES;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
@@ -82,6 +83,9 @@ public interface IgniteClient extends Ignite {
         /** Reconnect throttling retries. */
         private int reconnectThrottlingRetries = DFLT_RECONNECT_THROTTLING_RETRIES;
 
+        /** Reconnect interval, in milliseconds. */
+        private long reconnectInterval = DFLT_RECONNECT_INTERVAL;
+
         /** Async continuation executor. */
         private Executor asyncContinuationExecutor;
 
@@ -96,6 +100,12 @@ public interface IgniteClient extends Ignite {
 
         /** Logger factory. */
         private @Nullable LoggerFactory loggerFactory;
+
+        /** SSL configuration. */
+        private @Nullable SslConfiguration sslConfiguration;
+
+        /** Metrics enabled flag. */
+        private boolean metricsEnabled;
 
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
@@ -136,7 +146,7 @@ public interface IgniteClient extends Ignite {
          * @param loggerFactory A factory.
          * @return This instance.
          */
-        public Builder loggerFactory(LoggerFactory loggerFactory) {
+        public Builder loggerFactory(@Nullable LoggerFactory loggerFactory) {
             this.loggerFactory = loggerFactory;
 
             return this;
@@ -209,6 +219,29 @@ public interface IgniteClient extends Ignite {
         }
 
         /**
+         * Sets the reconnect interval, in milliseconds. Set to {@code 0} to disable background reconnect.
+         *
+         * <p>Ignite balances requests across all healthy connections (when multiple endpoints are configured).
+         * Ignite also repairs connections on demand (when a request is made).
+         * However, "secondary" connections can be lost (due to network issues, or node restarts). This property controls how ofter Ignite
+         * client will check all configured endpoints and try to reconnect them in case of failure.
+         *
+         * @param reconnectInterval Reconnect interval, in milliseconds.
+         * @return This instance.
+         * @throws IllegalArgumentException When value is less than zero.
+         */
+        public Builder reconnectInterval(long reconnectInterval) {
+            if (reconnectInterval < 0) {
+                throw new IllegalArgumentException("reconnectInterval ["
+                        + reconnectInterval + "] must be a non-negative integer value.");
+            }
+
+            this.reconnectInterval = reconnectInterval;
+
+            return this;
+        }
+
+        /**
          * Sets the async continuation executor.
          *
          * <p>When <code>null</code> (default), {@link ForkJoinPool#commonPool()} is used.
@@ -261,6 +294,30 @@ public interface IgniteClient extends Ignite {
         }
 
         /**
+         * Sets the SSL configuration.
+         *
+         * @param sslConfiguration SSL configuration.
+         * @return This instance.
+         */
+        public Builder ssl(@Nullable SslConfiguration sslConfiguration) {
+            this.sslConfiguration = sslConfiguration;
+
+            return this;
+        }
+
+        /**
+         * Enables or disables JMX metrics.
+         *
+         * @param metricsEnabled Metrics enabled flag.
+         * @return This instance.
+         */
+        public Builder metricsEnabled(boolean metricsEnabled) {
+            this.metricsEnabled = metricsEnabled;
+
+            return this;
+        }
+
+        /**
          * Builds the client.
          *
          * @return Ignite client.
@@ -281,12 +338,14 @@ public interface IgniteClient extends Ignite {
                     connectTimeout,
                     reconnectThrottlingPeriod,
                     reconnectThrottlingRetries,
+                    reconnectInterval,
                     asyncContinuationExecutor,
                     heartbeatInterval,
                     heartbeatTimeout,
                     retryPolicy,
-                    loggerFactory
-            );
+                    loggerFactory,
+                    sslConfiguration,
+                    metricsEnabled);
 
             return TcpIgniteClient.startAsync(cfg);
         }

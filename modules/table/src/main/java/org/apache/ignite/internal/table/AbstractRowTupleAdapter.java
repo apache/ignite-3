@@ -34,6 +34,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Abstract row tuple adapter.
@@ -42,7 +43,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     /**
      * Underlying row. Note: Marked transient to prevent unwanted serialization of the schema and\or other context.
      */
-    protected transient Row row;
+    protected transient @Nullable Row row;
 
     /**
      * Creates Tuple adapter for row.

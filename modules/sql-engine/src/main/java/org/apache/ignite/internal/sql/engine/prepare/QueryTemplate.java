@@ -27,7 +27,6 @@ import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentMappingException;
-import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -61,14 +60,14 @@ public class QueryTemplate {
      * Map.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public ExecutionPlan map(MappingService mappingService, MappingQueryContext ctx) {
+    public ExecutionPlan map(MappingQueryContext ctx) {
         List<Fragment> fragments = Commons.transform(this.fragments, fragment -> fragment.attach(ctx.cluster()));
 
         Exception ex = null;
         RelMetadataQuery mq = first(fragments).root().getCluster().getMetadataQuery();
         for (int i = 0; i < 3; i++) {
             try {
-                return new ExecutionPlan(map(mappingService, fragments, ctx, mq));
+                return new ExecutionPlan(map(fragments, ctx, mq));
             } catch (FragmentMappingException e) {
                 if (ex == null) {
                     ex = e;
@@ -84,13 +83,13 @@ public class QueryTemplate {
     }
 
     @NotNull
-    private List<Fragment> map(MappingService mappingService, List<Fragment> fragments, MappingQueryContext ctx, RelMetadataQuery mq) {
+    private List<Fragment> map(List<Fragment> fragments, MappingQueryContext ctx, RelMetadataQuery mq) {
         List<Fragment> frgs = new ArrayList<>();
 
         RelOptCluster cluster = Commons.cluster();
 
         for (Fragment fragment : fragments) {
-            frgs.add(fragment.map(mappingService, ctx, mq).attach(cluster));
+            frgs.add(fragment.map(ctx, mq).attach(cluster));
         }
 
         return List.copyOf(frgs);
@@ -119,7 +118,7 @@ public class QueryTemplate {
                     sender = new IgniteSender(sender.getCluster(), sender.getTraitSet(),
                             sender.getInput(), sender.exchangeId(), newTargetId, sender.distribution());
 
-                    fragment0 = new Fragment(fragment0.fragmentId(), sender, fragment0.remotes());
+                    fragment0 = new Fragment(fragment0.fragmentId(), fragment0.correlated(), sender, fragment0.remotes());
                 }
             }
 

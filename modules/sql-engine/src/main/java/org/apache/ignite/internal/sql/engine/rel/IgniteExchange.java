@@ -37,7 +37,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 /**
  * Relational expression that imposes a particular distribution on its input without otherwise changing its content.
  */
-public class IgniteExchange extends Exchange implements InternalIgniteRel {
+public class IgniteExchange extends Exchange implements IgniteRel {
     /**
      * Creates an Exchange.
      *

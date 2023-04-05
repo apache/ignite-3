@@ -20,10 +20,15 @@ package org.apache.ignite.internal.client.tx;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client transactions implementation.
@@ -32,43 +37,43 @@ public class ClientTransactions implements IgniteTransactions {
     /** Channel. */
     private final ReliableChannel ch;
 
-    /** Read only flag. */
-    private final boolean readOnly;
-
     /**
      * Constructor.
      *
      * @param ch Channel.
      */
-    public ClientTransactions(ReliableChannel ch, boolean readOnly) {
+    public ClientTransactions(ReliableChannel ch) {
         this.ch = ch;
-        this.readOnly = readOnly;
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteTransactions withTimeout(long timeout) {
-        // TODO: IGNITE-16193
-        throw new UnsupportedOperationException();
+    public Transaction begin(@Nullable TransactionOptions options) {
+        return sync(beginAsync(options));
     }
 
     /** {@inheritDoc} */
     @Override
-    public Transaction begin() {
-        return sync(beginAsync());
-    }
+    public CompletableFuture<Transaction> beginAsync(@Nullable TransactionOptions options) {
+        if (options != null && options.timeoutMillis() != 0) {
+            // TODO: IGNITE-16193
+            throw new UnsupportedOperationException("Timeouts are not supported yet");
+        }
 
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Transaction> beginAsync() {
+        boolean readOnly = options != null && options.readOnly();
+
         return ch.serviceAsync(
                 ClientOp.TX_BEGIN,
                 w -> w.out().packBoolean(readOnly),
-                r -> new ClientTransaction(r.clientChannel(), r.in().unpackLong()));
+                r -> readTx(r, readOnly));
     }
 
-    @Override
-    public IgniteTransactions readOnly() {
-        return new ClientTransactions(ch, true);
+    @NotNull
+    private static ClientTransaction readTx(PayloadInputChannel r, boolean isReadOnly) {
+        ClientMessageUnpacker in = r.in();
+
+        long id = in.unpackLong();
+
+        return new ClientTransaction(r.clientChannel(), id, isReadOnly);
     }
 }

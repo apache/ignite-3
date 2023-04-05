@@ -19,7 +19,7 @@ package org.apache.ignite.internal.cli.core.repl;
 
 import jakarta.inject.Singleton;
 import java.util.Objects;
-import org.apache.ignite.internal.cli.config.ConfigConstants;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
 import picocli.CommandLine.IDefaultValueProvider;
 import picocli.CommandLine.Model.ArgSpec;
@@ -49,7 +49,7 @@ public class SessionDefaultValueProvider implements IDefaultValueProvider {
     public String defaultValue(ArgSpec argSpec) throws Exception {
         SessionInfo sessionInfo = session.info();
         if (sessionInfo != null) {
-            if (Objects.equals(argSpec.descriptionKey(), ConfigConstants.JDBC_URL)) {
+            if (Objects.equals(argSpec.descriptionKey(), CliConfigKeys.JDBC_URL)) {
                 return sessionInfo.jdbcUrl();
             }
         }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.registry;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
@@ -58,7 +59,7 @@ public class SchemaRegistryImplTest {
                 new Column[]{new Column("keyLongCol", INT64, false)},
                 new Column[]{new Column("valBytesCol", BYTES, true)});
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null, () -> INITIAL_SCHEMA_VERSION, schemaV0);
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null, () -> completedFuture(INITIAL_SCHEMA_VERSION), schemaV0);
 
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
         assertNotNull(reg.schema());
@@ -108,7 +109,7 @@ public class SchemaRegistryImplTest {
                         new Column("valStringCol", STRING, true)
                 });
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null, () -> INITIAL_SCHEMA_VERSION, schemaV1);
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null, () -> completedFuture(INITIAL_SCHEMA_VERSION), schemaV1);
 
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
         assertNotNull(reg.schema());
@@ -162,7 +163,7 @@ public class SchemaRegistryImplTest {
                         new Column("valStringCol", STRING, true)
                 });
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null, () -> INITIAL_SCHEMA_VERSION, schemaV1);
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null, () -> completedFuture(INITIAL_SCHEMA_VERSION), schemaV1);
 
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
 
@@ -230,7 +231,7 @@ public class SchemaRegistryImplTest {
                         new Column("valStringCol", STRING, true)
                 });
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null, () -> INITIAL_SCHEMA_VERSION, schemaV1);
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null, () -> completedFuture(INITIAL_SCHEMA_VERSION), schemaV1);
 
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
 
@@ -346,7 +347,7 @@ public class SchemaRegistryImplTest {
 
         Map<Integer, CompletableFuture<SchemaDescriptor>> history = schemaHistory(schemaV1, schemaV2);
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, () -> INITIAL_SCHEMA_VERSION, schemaV2);
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, () -> completedFuture(INITIAL_SCHEMA_VERSION), schemaV2);
 
         assertEquals(2, reg.lastSchemaVersion());
         assertSameSchema(schemaV2, reg.schema());
@@ -412,7 +413,7 @@ public class SchemaRegistryImplTest {
 
         Map<Integer, CompletableFuture<SchemaDescriptor>> history = schemaHistory(schemaV2, schemaV3);
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, () -> INITIAL_SCHEMA_VERSION, schemaV3);
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, () -> completedFuture(INITIAL_SCHEMA_VERSION), schemaV3);
 
         assertEquals(3, reg.lastSchemaVersion());
         assertSameSchema(schemaV3, reg.schema());
@@ -478,7 +479,7 @@ public class SchemaRegistryImplTest {
 
         Map<Integer, CompletableFuture<SchemaDescriptor>> history = schemaHistory(schemaV2, schemaV3, schemaV4);
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, () -> INITIAL_SCHEMA_VERSION, schemaV4);
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, () -> completedFuture(INITIAL_SCHEMA_VERSION), schemaV4);
 
         assertEquals(4, reg.lastSchemaVersion());
         assertSameSchema(schemaV4, reg.schema());
@@ -544,7 +545,7 @@ public class SchemaRegistryImplTest {
 
         schemaV4.columnMapping(createMapper(schemaV4).add(schemaV4.column("valBytesCol")));
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null, () -> INITIAL_SCHEMA_VERSION, schemaV1);
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null, () -> completedFuture(INITIAL_SCHEMA_VERSION), schemaV1);
 
         final Map<Long, ColumnMapper> cache = reg.mappingCache();
 

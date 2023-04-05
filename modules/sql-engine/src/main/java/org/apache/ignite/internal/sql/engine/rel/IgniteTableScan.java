@@ -116,15 +116,13 @@ public class IgniteTableScan extends ProjectableFilterableTableScan implements S
         this.sourceId = sourceId;
     }
 
-    /**
-     * Get source id.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
+    /** {@inheritDoc} */
     @Override
     public long sourceId() {
         return sourceId;
     }
 
+    /** {@inheritDoc} */
     @Override
     protected RelWriter explainTerms0(RelWriter pw) {
         return super.explainTerms0(pw)

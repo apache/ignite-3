@@ -25,7 +25,7 @@ import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
  */
 @Singleton
 public class CachedConfigManagerProvider implements ConfigManagerProvider {
-    private final ConfigManager configManager = new IniConfigManager(ConfigConstants.getConfigFile());
+    private final ConfigManager configManager = new IniConfigManager(CliConfigKeys.getConfigFile());
 
     @Override
     public ConfigManager get() {

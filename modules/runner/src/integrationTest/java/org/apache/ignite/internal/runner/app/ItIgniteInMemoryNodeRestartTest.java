@@ -36,6 +36,7 @@ import java.util.function.IntFunction;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.sql.Session;
@@ -114,10 +116,16 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
 
         CLUSTER_NODES_NAMES.add(idx, nodeName);
 
-        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
+        CompletableFuture<Ignite> future = TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
 
         if (CLUSTER_NODES.isEmpty()) {
-            IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
+            InitParameters initParameters = InitParameters.builder()
+                    .destinationNodeName(nodeName)
+                    .metaStorageNodeNames(List.of(nodeName))
+                    .clusterName("cluster")
+                    .build();
+
+            IgnitionManager.init(initParameters);
         }
 
         assertThat(future, willCompleteSuccessfully());
@@ -351,10 +359,12 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
      */
     private static void createTableWithData(Ignite ignite, String name, int replicas, int partitions) {
         try (Session session = ignite.sql().createSession()) {
+            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d",
+                    name, replicas, partitions));
             session.execute(null, "CREATE TABLE " + name
                     + " (id INT PRIMARY KEY, name VARCHAR)"
                     + " ENGINE aimem"
-                    + " WITH replicas=" + replicas + ", partitions=" + partitions);
+                    + " WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
 
             for (int i = 0; i < 100; i++) {
                 session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",

@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.cli.core.exception;
 
 import org.apache.ignite.internal.cli.core.style.component.ErrorUiComponent;
+import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * General interface of exception handler.
@@ -27,7 +27,7 @@ import org.apache.ignite.internal.logger.Loggers;
  * @param <T> exception type.
  */
 public interface ExceptionHandler<T extends Throwable> {
-    IgniteLogger LOG = Loggers.forClass(ExceptionHandler.class);
+    IgniteLogger LOG = CliLoggers.forClass(ExceptionHandler.class);
 
     ExceptionHandler<Throwable> DEFAULT = new ExceptionHandler<>() {
         @Override

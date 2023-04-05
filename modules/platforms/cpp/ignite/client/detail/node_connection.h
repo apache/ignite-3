@@ -108,11 +108,11 @@ public:
             wr(writer);
 
             buffer.write_length_header();
+        }
 
-            {
-                std::lock_guard<std::mutex> lock(m_request_handlers_mutex);
-                m_request_handlers[reqId] = std::move(handler);
-            }
+        {
+            std::lock_guard<std::mutex> lock(m_request_handlers_mutex);
+            m_request_handlers[reqId] = std::move(handler);
         }
 
         if (m_logger->is_debug_enabled()) {

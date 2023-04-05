@@ -27,6 +27,8 @@ import java.util.BitSet;
 import java.util.Iterator;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleContainer;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.table.Tuple;
@@ -55,7 +57,7 @@ import org.jetbrains.annotations.Nullable;
  * @see #unmarshalRow()
  * @see #writeReplace()
  */
-public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements Serializable {
+public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements Serializable, BinaryTupleContainer {
     // Default constructor and serialVersionUID not needed because, actually,
     // this object never get serialized, it's unconditionally substituted during serialization.
 
@@ -295,6 +297,12 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
         tuple.set(columnName, value);
 
         return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable BinaryTuple binaryTuple() {
+        return row == null ? null : row.binaryTuple();
     }
 
     /**

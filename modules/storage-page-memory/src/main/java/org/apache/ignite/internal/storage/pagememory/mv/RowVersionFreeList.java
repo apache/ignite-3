@@ -43,6 +43,8 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
 
     private final UpdateTimestampHandler updateTimestampHandler = new UpdateTimestampHandler();
 
+    private final UpdateNextLinkHandler updateNextLinkHandler = new UpdateNextLinkHandler();
+
     /**
      * Constructor.
      *
@@ -110,6 +112,17 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
     }
 
     /**
+     * Updates row version's next link.
+     *
+     * @param link Row version link.
+     * @param nextLink Next row version link to set.
+     * @throws IgniteInternalCheckedException If failed.
+     */
+    public void updateNextLink(long link, long nextLink) throws IgniteInternalCheckedException {
+        updateDataRow(link, updateNextLinkHandler, nextLink, statHolder);
+    }
+
+    /**
      * Removes a row by link.
      *
      * @param link Row link.
@@ -120,7 +133,6 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
     }
 
     private class UpdateTimestampHandler implements PageHandler<HybridTimestamp, Object> {
-        /** {@inheritDoc} */
         @Override
         public Object run(
                 int groupId,
@@ -135,6 +147,28 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
             RowVersionDataIo dataIo = (RowVersionDataIo) io;
 
             dataIo.updateTimestamp(pageAddr, itemId, pageSize(), arg);
+
+            evictionTracker.touchPage(pageId);
+
+            return true;
+        }
+    }
+
+    private class UpdateNextLinkHandler implements PageHandler<Long, Object> {
+        @Override
+        public Object run(
+                int groupId,
+                long pageId,
+                long page,
+                long pageAddr,
+                PageIo io,
+                Long nextLink,
+                int itemId,
+                IoStatisticsHolder statHolder
+        ) throws IgniteInternalCheckedException {
+            RowVersionDataIo dataIo = (RowVersionDataIo) io;
+
+            dataIo.updateNextLink(pageAddr, itemId, pageSize(), nextLink);
 
             evictionTracker.touchPage(pageId);
 

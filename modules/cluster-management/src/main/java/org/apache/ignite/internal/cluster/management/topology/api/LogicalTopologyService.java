@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.cluster.management.topology.api;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 
 /**
@@ -59,4 +61,11 @@ public interface LogicalTopologyService {
      * @return Future that, when complete, resolves into a logical topology snapshot from the point of view of the CMG leader.
      */
     CompletableFuture<LogicalTopologySnapshot> logicalTopologyOnLeader();
+
+    /**
+     * Returns a future that, when complete, resolves into a list of validated nodes (including ones present in the Logical Topology).
+     *
+     * @return Future that, when complete, resolves into a list of validated nodes (including ones present in the Logical Topology).
+     */
+    CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader();
 }

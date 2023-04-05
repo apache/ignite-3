@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.CompletableFuture.allOf;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +34,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
@@ -42,6 +42,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
+import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.lang.ErrorGroups;
@@ -52,7 +53,6 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -63,8 +63,6 @@ public class TableImpl implements Table {
     private final InternalTable tbl;
 
     private final LockManager lockManager;
-
-    // private final Supplier<List<UUID>> activeIndexIds;
 
     /** Schema registry. Should be set either in constructor or via {@link #schemaView(SchemaRegistry)} before start of using the table. */
     private volatile SchemaRegistry schemaReg;
@@ -81,12 +79,10 @@ public class TableImpl implements Table {
      *
      * @param tbl       The table.
      * @param lockManager Lock manager.
-     * @param activeIndexIds Supplier of index ids which considered active on the moment of invocation.
      */
-    public TableImpl(InternalTable tbl, LockManager lockManager, Supplier<CompletableFuture<List<UUID>>> activeIndexIds) {
+    public TableImpl(InternalTable tbl, LockManager lockManager) {
         this.tbl = tbl;
         this.lockManager = lockManager;
-        // this.activeIndexIds = activeIndexIds;
     }
 
     /**
@@ -101,8 +97,6 @@ public class TableImpl implements Table {
         this.tbl = tbl;
         this.schemaReg = schemaReg;
         this.lockManager = lockManager;
-
-        // activeIndexIds = List::of;
     }
 
     /**
@@ -110,7 +104,7 @@ public class TableImpl implements Table {
      *
      * @return Table id as UUID.
      */
-    public @NotNull UUID tableId() {
+    public UUID tableId() {
         return tbl.tableId();
     }
 
@@ -133,8 +127,7 @@ public class TableImpl implements Table {
         return tbl;
     }
 
-    /** {@inheritDoc} */
-    @Override public @NotNull String name() {
+    @Override public String name() {
         return tbl.name();
     }
 
@@ -150,7 +143,7 @@ public class TableImpl implements Table {
     /**
      * Sets a schema view for the table.
      */
-    public void schemaView(@NotNull SchemaRegistry schemaReg) {
+    public void schemaView(SchemaRegistry schemaReg) {
         assert this.schemaReg == null : "Schema registry is already set [tableName=" + name() + ']';
 
         Objects.requireNonNull(schemaReg, "Schema registry must not be null [tableName=" + name() + ']');
@@ -158,25 +151,21 @@ public class TableImpl implements Table {
         this.schemaReg = schemaReg;
     }
 
-    /** {@inheritDoc} */
     @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
         return new RecordViewImpl<>(tbl, schemaReg, recMapper);
     }
 
-    /** {@inheritDoc} */
     @Override
     public RecordView<Tuple> recordView() {
         return new RecordBinaryViewImpl(tbl, schemaReg);
     }
 
-    /** {@inheritDoc} */
     @Override
     public <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper) {
         return new KeyValueViewImpl<>(tbl, schemaReg, keyMapper, valMapper);
     }
 
-    /** {@inheritDoc} */
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
         return new KeyValueBinaryViewImpl(tbl, schemaReg);
@@ -234,20 +223,28 @@ public class TableImpl implements Table {
     }
 
     /** Returns a supplier of index storage wrapper factories for given partition. */
-    public Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexStorageAdapters(int partId) {
-        return () -> {
-            awaitIndexes();
+    public TableIndexStoragesSupplier indexStorageAdapters(int partId) {
+        return new TableIndexStoragesSupplier() {
+            @Override
+            public Map<UUID, TableSchemaAwareIndexStorage> get() {
+                awaitIndexes();
 
-            List<IndexStorageAdapterFactory> factories = new ArrayList<>(indexStorageAdapterFactories.values());
+                List<IndexStorageAdapterFactory> factories = new ArrayList<>(indexStorageAdapterFactories.values());
 
-            Map<UUID, TableSchemaAwareIndexStorage> adapters = new HashMap<>();
+                Map<UUID, TableSchemaAwareIndexStorage> adapters = new HashMap<>();
 
-            for (IndexStorageAdapterFactory factory : factories) {
-                TableSchemaAwareIndexStorage storage = factory.create(partId);
-                adapters.put(storage.id(), storage);
+                for (IndexStorageAdapterFactory factory : factories) {
+                    TableSchemaAwareIndexStorage storage = factory.create(partId);
+                    adapters.put(storage.id(), storage);
+                }
+
+                return adapters;
             }
 
-            return adapters;
+            @Override
+            public void addIndexToWaitIfAbsent(UUID indexId) {
+                addIndexesToWait(List.of(indexId));
+            }
         };
     }
 
@@ -270,18 +267,29 @@ public class TableImpl implements Table {
     }
 
     /**
+     * The future completes when the primary key index is ready to use.
+     *
+     * @return Future whcih complete when a primary index for the table is .
+     */
+    public CompletableFuture<Void> pkIndexesReadyFuture() {
+        var fut = new CompletableFuture<Void>();
+
+        pkId.whenComplete((uuid, throwable) -> fut.complete(null));
+
+        return fut;
+    }
+
+    /**
      * Register the index with given id in a table.
      *
      * @param indexId An index id os the index to register.
      * @param unique A flag indicating whether the given index unique or not.
-     * @param binaryRowResolver Function which converts given binary row to an index key.
-     * @param tableRowResolver Function which converts given table row to an index key.
+     * @param searchRowResolver Function which converts given table row to an index key.
      */
     public void registerHashIndex(
             UUID indexId,
             boolean unique,
-            Function<BinaryRow, BinaryTuple> binaryRowResolver,
-            Function<TableRow, BinaryTuple> tableRowResolver
+            Function<BinaryRow, BinaryTuple> searchRowResolver
     ) {
         indexLockerFactories.put(
                 indexId,
@@ -289,7 +297,7 @@ public class TableImpl implements Table {
                         indexId,
                         unique,
                         lockManager,
-                        binaryRowResolver
+                        searchRowResolver
                 )
         );
         indexStorageAdapterFactories.put(
@@ -297,29 +305,22 @@ public class TableImpl implements Table {
                 partitionId -> new TableSchemaAwareIndexStorage(
                         indexId,
                         tbl.storage().getOrCreateHashIndex(partitionId, indexId),
-                        binaryRowResolver,
-                        tableRowResolver
+                        searchRowResolver
                 )
         );
 
-        CompletableFuture<?> indexFuture = indexesToWait.remove(indexId);
-
-        if (indexFuture != null) {
-            indexFuture.complete(null);
-        }
+        completeWaitIndex(indexId);
     }
 
     /**
      * Register the index with given id in a table.
      *
      * @param indexId An index id os the index to register.
-     * @param binaryRowResolver Function which converts given binary row to an index key.
-     * @param tableRowResolver Function which converts given table row to an index key.
+     * @param searchRowResolver Function which converts given table row to an index key.
      */
     public void registerSortedIndex(
             UUID indexId,
-            Function<BinaryRow, BinaryTuple> binaryRowResolver,
-            Function<TableRow, BinaryTuple> tableRowResolver
+            Function<BinaryRow, BinaryTuple> searchRowResolver
     ) {
         indexLockerFactories.put(
                 indexId,
@@ -327,7 +328,7 @@ public class TableImpl implements Table {
                         indexId,
                         lockManager,
                         tbl.storage().getOrCreateSortedIndex(partitionId, indexId),
-                        binaryRowResolver
+                        searchRowResolver
                 )
         );
         indexStorageAdapterFactories.put(
@@ -335,16 +336,11 @@ public class TableImpl implements Table {
                 partitionId -> new TableSchemaAwareIndexStorage(
                         indexId,
                         tbl.storage().getOrCreateSortedIndex(partitionId, indexId),
-                        binaryRowResolver,
-                        tableRowResolver
+                        searchRowResolver
                 )
         );
 
-        CompletableFuture<?> indexFuture = indexesToWait.remove(indexId);
-
-        if (indexFuture != null) {
-            indexFuture.complete(null);
-        }
+        completeWaitIndex(indexId);
     }
 
     /**
@@ -355,33 +351,18 @@ public class TableImpl implements Table {
     public void unregisterIndex(UUID indexId) {
         indexLockerFactories.remove(indexId);
         indexStorageAdapterFactories.remove(indexId);
+
+        completeWaitIndex(indexId);
+
+        // TODO: IGNITE-19150 Also need to destroy the index storages
     }
 
     private void awaitIndexes() {
-        // TODO: replace with actual call to ids supplier
-        List<UUID> indexIds = List.of(pkId()); // activeIndexIds.get();
-
         List<CompletableFuture<?>> toWait = new ArrayList<>();
 
-        for (UUID indexId : indexIds) {
-            if (indexLockerFactories.containsKey(indexId) && indexStorageAdapterFactories.containsKey(indexId)) {
-                continue;
-            }
+        toWait.add(pkId);
 
-            CompletableFuture<?> indexFuture = indexesToWait.computeIfAbsent(indexId, k -> new CompletableFuture<>());
-
-            // there is no synchronization between modification of index*Factories collections
-            // and indexesToWait collection, thus we may run into situation, when index was
-            // registered in the between of index existence check and registering a wait future.
-            // This second check aimed to resolve this race
-            if (indexLockerFactories.containsKey(indexId) && indexStorageAdapterFactories.containsKey(indexId)) {
-                indexesToWait.remove(indexId);
-
-                continue;
-            }
-
-            toWait.add(indexFuture);
-        }
+        toWait.addAll(indexesToWait.values());
 
         allOf(toWait.toArray(CompletableFuture[]::new)).join();
     }
@@ -390,10 +371,14 @@ public class TableImpl implements Table {
      * Prepares this table for being closed.
      */
     public void beforeClose() {
-        pkId.completeExceptionally(new IgniteInternalException(
+        IgniteInternalException closeTableException = new IgniteInternalException(
                 ErrorGroups.Table.TABLE_STOPPING_ERR,
                 "Table is being stopped: tableId=" + tableId()
-        ));
+        );
+
+        pkId.completeExceptionally(closeTableException);
+
+        indexesToWait.values().forEach(future -> future.completeExceptionally(closeTableException));
     }
 
     @FunctionalInterface
@@ -406,5 +391,36 @@ public class TableImpl implements Table {
     private interface IndexStorageAdapterFactory {
         /** Creates the index decorator for given partition. */
         TableSchemaAwareIndexStorage create(int partitionId);
+    }
+
+    /**
+     * Adds indexes to wait, if not already created, before inserting data into the table.
+     *
+     * @param indexIds Indexes Index IDs.
+     */
+    // TODO: IGNITE-19082 Needs to be redone/improved
+    public void addIndexesToWait(Collection<UUID> indexIds) {
+        for (UUID indexId : indexIds) {
+            indexesToWait.compute(indexId, (indexId0, awaitIndexFuture) -> {
+                if (awaitIndexFuture != null) {
+                    return awaitIndexFuture;
+                }
+
+                if (indexStorageAdapterFactories.containsKey(indexId) && indexLockerFactories.containsKey(indexId)) {
+                    // Index is already registered and created.
+                    return null;
+                }
+
+                return new CompletableFuture<>();
+            });
+        }
+    }
+
+    private void completeWaitIndex(UUID indexId) {
+        CompletableFuture<?> indexToWaitFuture = indexesToWait.remove(indexId);
+
+        if (indexToWaitFuture != null) {
+            indexToWaitFuture.complete(null);
+        }
     }
 }

@@ -294,10 +294,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
             assert waitingLeft == 0;
 
             prepareCorrelations();
-
-            if (waitingRight == -1) {
-                rightSource().rewind();
-            }
+            rightSource().rewind();
 
             state = State.FILLING_RIGHT;
             rightSource().request(waitingRight = rightInBufferSize);
@@ -470,7 +467,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     private void prepareCorrelations() {
         for (int i = 0; i < correlationIds.size(); i++) {
             RowT row = i < leftInBuf.size() ? leftInBuf.get(i) : first(leftInBuf);
-            context().setCorrelated(row, correlationIds.get(i).getId());
+            context().correlatedVariable(row, correlationIds.get(i).getId());
         }
     }
 }

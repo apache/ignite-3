@@ -47,9 +47,7 @@ import org.apache.ignite.internal.cli.core.repl.Repl;
 import org.apache.ignite.internal.cli.core.repl.executor.RegistryCommandExecutor;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
 import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
-import org.apache.ignite.internal.cli.decorators.PlainTableDecorator;
 import org.apache.ignite.internal.cli.decorators.SqlQueryResultDecorator;
-import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import org.apache.ignite.internal.cli.sql.SqlManager;
 import org.apache.ignite.internal.cli.sql.SqlSchemaProvider;
 import org.jline.reader.impl.completer.AggregateCompleter;
@@ -100,7 +98,10 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
         try (SqlManager sqlManager = new SqlManager(jdbc)) {
             // When passing white space to this command, picocli will treat it as a positional argument
             if (execOptions == null || (execOptions.command != null && execOptions.command.isBlank())) {
-                SqlCompleter sqlCompleter = new SqlCompleter(new SqlSchemaProvider(sqlManager::getMetadata));
+                SqlSchemaProvider schemaProvider = new SqlSchemaProvider(sqlManager::getMetadata);
+                schemaProvider.initStateAsync();
+
+                SqlCompleter sqlCompleter = new SqlCompleter(schemaProvider);
                 IgniteSqlCommandCompleter sqlCommandCompleter = new IgniteSqlCommandCompleter();
                 replExecutorProvider.get().execute(Repl.builder()
                         .withPromptProvider(() -> ansi(fg(Color.GREEN).mark("sql-cli> ")))
@@ -125,12 +126,11 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
     }
 
     private CallExecutionPipeline<?, ?> createSqlExecPipeline(SqlManager sqlManager, String line) {
-        TableDecorator tableDecorator = plain ? new PlainTableDecorator() : new TableDecorator();
         return CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
                 .inputProvider(() -> new StringCallInput(line))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
-                .decorator(new SqlQueryResultDecorator(tableDecorator))
+                .decorator(new SqlQueryResultDecorator(plain))
                 .verbose(verbose)
                 .build();
     }

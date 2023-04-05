@@ -131,7 +131,29 @@ public class VersionChain extends VersionChainKey {
         return newestCommittedLink() != NULL_LINK;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Returns {@code true} if there is a link to the next version.
+     */
+    public boolean hasNextLink() {
+        return nextLink != NULL_LINK;
+    }
+
+    /**
+     * Returns {@code true} if there is a link to the head version.
+     */
+    public boolean hasHeadLink() {
+        return headLink != NULL_LINK;
+    }
+
+    /**
+     * Creates a copy of the version chain with new next link.
+     *
+     * @param nextLink New next link.
+     */
+    public VersionChain withNextLink(long nextLink) {
+        return new VersionChain(rowId, transactionId, commitTableId, commitPartitionId, headLink, nextLink);
+    }
+
     @Override
     public String toString() {
         return S.toString(VersionChain.class, this);

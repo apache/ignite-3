@@ -20,9 +20,9 @@ package org.apache.ignite.internal.cluster.management.configuration;
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
 
 /**
  * Configuration module for Cluster Management configs.
@@ -36,6 +36,6 @@ public class ClusterManagementConfigurationModule implements ConfigurationModule
 
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(ClusterManagementConfiguration.KEY);
+        return List.of(ClusterManagementConfiguration.KEY, NodeAttributesConfiguration.KEY);
     }
 }

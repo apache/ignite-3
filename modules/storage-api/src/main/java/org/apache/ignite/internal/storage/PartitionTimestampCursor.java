@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -47,5 +47,5 @@ public interface PartitionTimestampCursor extends Cursor<ReadResult> {
      * @param timestamp Commit timestamp.
      * @return Row or {@code null} if there is no row for the given timestamp.
      */
-    @Nullable TableRow committed(HybridTimestamp timestamp);
+    @Nullable BinaryRow committed(HybridTimestamp timestamp);
 }

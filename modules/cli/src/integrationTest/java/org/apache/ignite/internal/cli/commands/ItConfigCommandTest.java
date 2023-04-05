@@ -30,8 +30,10 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cli.AbstractCliTest;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -52,9 +54,15 @@ public class ItConfigCommandTest extends AbstractCliTest {
     void setup(@WorkDirectory Path workDir, TestInfo testInfo) {
         String nodeName = testNodeName(testInfo, 0);
 
-        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, null, workDir);
+        CompletableFuture<Ignite> future = TestIgnitionManager.start(nodeName, null, workDir);
 
-        IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(nodeName)
+                .metaStorageNodeNames(List.of(nodeName))
+                .clusterName("cluster")
+                .build();
+
+        IgnitionManager.init(initParameters);
 
         assertThat(future, willCompleteSuccessfully());
 
@@ -73,7 +81,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
                 "config",
                 "update",
                 "--node-url",
-                "http://localhost:" + node.restAddress().port(),
+                "http://localhost:" + node.restHttpAddress().port(),
                 "network.shutdownQuietPeriod=1"
         );
 
@@ -91,7 +99,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
                 "config",
                 "show",
                 "--node-url",
-                "http://localhost:" + node.restAddress().port()
+                "http://localhost:" + node.restHttpAddress().port()
         );
 
         assertEquals(0, exitCode);
@@ -109,7 +117,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
                 "config",
                 "update",
                 "--node-url",
-                "http://localhost:" + node.restAddress().port(),
+                "http://localhost:" + node.restHttpAddress().port(),
                 "network.foo=\"bar\""
         );
 
@@ -126,7 +134,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
                 "config",
                 "update",
                 "--node-url",
-                "http://localhost:" + node.restAddress().port(),
+                "http://localhost:" + node.restHttpAddress().port(),
                 "network.shutdownQuietPeriod=asd"
         );
 
@@ -144,7 +152,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
                 "config",
                 "show",
                 "--node-url",
-                "http://localhost:" + node.restAddress().port(),
+                "http://localhost:" + node.restHttpAddress().port(),
                 "network"
         );
 

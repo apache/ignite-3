@@ -40,11 +40,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
@@ -117,7 +117,7 @@ public abstract class AbstractTxStateStorageTest {
     }
 
     private List<ReplicationGroupId> generateEnlistedPartitions(int c) {
-        return IntStream.range(0, c).mapToObj(TestReplicationGroupId::new).collect(toList());
+        return IntStream.range(0, c).mapToObj(Integer::toString).map(TestReplicationGroupId::new).collect(toList());
     }
 
     private HybridTimestamp generateTimestamp(UUID uuid) {
@@ -521,44 +521,5 @@ public abstract class AbstractTxStateStorageTest {
         assertEquals(expLastAppliedIndex, storage.lastAppliedIndex());
         assertEquals(expPersistentIndex, storage.persistedIndex());
         assertEquals(expLastAppliedTerm, storage.lastAppliedTerm());
-    }
-
-    /**
-     * Test implementation of replication group id.
-     */
-    private static class TestReplicationGroupId implements ReplicationGroupId {
-        /** Partition id. */
-        private final int prtId;
-
-        /**
-         * The constructor.
-         *
-         * @param prtId Partition id.
-         */
-        private TestReplicationGroupId(int prtId) {
-            this.prtId = prtId;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            TestReplicationGroupId that = (TestReplicationGroupId) o;
-            return prtId == that.prtId;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(prtId);
-        }
-
-        @Override
-        public String toString() {
-            return "part_" + prtId;
-        }
     }
 }

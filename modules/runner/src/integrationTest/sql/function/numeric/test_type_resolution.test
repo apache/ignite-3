@@ -32,6 +32,8 @@ SELECT 1::TINYINT + 1::DOUBLE
 ----
 2.000000
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18677
 statement error
 SELECT 1::TINYINT + 1::VARCHAR
 
@@ -65,6 +67,8 @@ SELECT 1::SMALLINT + 1::DOUBLE
 ----
 2.000000
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18677
 statement error
 SELECT 1::SMALLINT + 1::VARCHAR
 
@@ -98,6 +102,8 @@ SELECT 1::INTEGER + 1::DOUBLE
 ----
 2.000000
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18677
 statement error
 SELECT 1::INTEGER + 1::VARCHAR
 
@@ -131,6 +137,8 @@ SELECT 1::BIGINT + 1::DOUBLE
 ----
 2.000000
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18677
 statement error
 SELECT 1::BIGINT + 1::VARCHAR
 
@@ -164,6 +172,8 @@ SELECT 1::REAL + 1::DOUBLE
 ----
 2.000000
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18677
 statement error
 SELECT 1::REAL + 1::VARCHAR
 
@@ -197,6 +207,31 @@ SELECT 1::DOUBLE + 1::DOUBLE
 ----
 2.000000
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18677
 statement error
 SELECT 1::DOUBLE + 1::VARCHAR
 
+statement ok
+SELECT 1::TINYINT + '1'
+
+query I
+SELECT c + '1' FROM (VALUES(1, '1')) t(c, d);
+----
+2
+
+query I
+SELECT '1' + c FROM (VALUES(1, '1')) t(c, d);
+----
+2
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18677
+statement ok
+SELECT c + d FROM (VALUES(1, '1')) t(c, d);
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18677
+# fails at runtime
+statement error
+SELECT 1 + 'b'

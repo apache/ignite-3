@@ -395,7 +395,14 @@ public class ConverterUtils {
                 return result;
             }
         }
-        return Expressions.convert_(operand, toType);
+
+        // IgniteCustomType: call runtime conversion routines.
+        var toCustomType = CustomTypesConversion.INSTANCE.tryConvert(operand, toType);
+        if (toCustomType != null) {
+            return toCustomType;
+        } else {
+            return Expressions.convert_(operand, toType);
+        }
     }
 
     private static boolean isA(Type fromType, Primitive primitive) {

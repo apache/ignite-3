@@ -94,7 +94,7 @@ public class NodeNameRegistryImpl implements NodeNameRegistry, AsyncSessionEvent
             return null;
         }
         try {
-            return new URL("http://" + metadata.getRestHost() + ":" + metadata.getRestPort());
+            return new URL("http://" + metadata.getRestHost() + ":" + metadata.getHttpPort());
         } catch (Exception e) {
             log.warn("Couldn't create URL: {}", e);
             return null;

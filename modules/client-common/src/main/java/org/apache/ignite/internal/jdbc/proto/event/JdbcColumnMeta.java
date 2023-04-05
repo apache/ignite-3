@@ -39,6 +39,7 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Date;
 import java.util.Objects;
+import java.util.UUID;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -362,6 +363,8 @@ public class JdbcColumnMeta extends Response {
         } else if (Void.class.getName().equals(cls)) {
             return NULL;
         } else {
+            // IgniteCustomType: All custom data types are Types.OTHER.
+            // But every custom type may have a designated name (see typeName method).
             return OTHER;
         }
     }
@@ -401,7 +404,11 @@ public class JdbcColumnMeta extends Response {
             return "DECIMAL";
         } else if (Void.class.getName().equals(cls)) {
             return "NULL";
+        } else if (UUID.class.getName().equals(cls)) {
+            return "UUID";
         } else {
+            // IgniteCustomType: JDBC spec allows database dependent type name. See DatabaseMetadata::getColumns (TYPE_NAME column);
+            // So include JDBC TYPE_NAME of your type otherwise its type name is going to be OTHER.
             return "OTHER";
         }
     }

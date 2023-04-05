@@ -43,9 +43,6 @@ import org.mockito.Mockito;
 
 /**
  * Basic table operations test.
- *
- * <p>TODO: IGNITE-14487 Add bulk operations tests. Check non-key fields in Tuple is ignored for keys. Check key fields in Tuple is
- * ignored for value or exception is thrown?
  */
 public class KeyValueBinaryViewOperationsTest {
     @Test

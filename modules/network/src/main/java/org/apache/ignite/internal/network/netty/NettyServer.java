@@ -23,6 +23,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.ssl.SslContext;
 import java.net.SocketAddress;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.network.serialization.SerializationService;
+import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.jetbrains.annotations.Nullable;
@@ -129,7 +131,12 @@ public class NettyServer {
                             // Get handshake manager for the new channel.
                             HandshakeManager manager = handshakeManager.get();
 
-                            PipelineUtils.setup(ch.pipeline(), sessionSerializationService, manager, messageListener);
+                            if (configuration.ssl().enabled()) {
+                                SslContext sslContext = SslContextProvider.createServerSslContext(configuration.ssl());
+                                PipelineUtils.setup(ch.pipeline(), sessionSerializationService, manager, messageListener, sslContext);
+                            } else {
+                                PipelineUtils.setup(ch.pipeline(), sessionSerializationService, manager, messageListener);
+                            }
 
                             manager.handshakeFuture().thenAccept(newConnectionListener);
                         }

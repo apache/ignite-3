@@ -28,6 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
@@ -52,11 +53,14 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
             @InjectConfiguration("mock {flushDelayMillis = 0, defaultRegion {size = 16536, writeBufferSize = 16536}}")
             RocksDbStorageEngineConfiguration rocksDbEngineConfig,
             @InjectConfiguration(
-                    "mock.tables.foo{ partitions = 512, dataStorage.name = " + RocksDbStorageEngine.ENGINE_NAME + "}"
+                    "mock.tables.foo{ dataStorage.name = " + RocksDbStorageEngine.ENGINE_NAME + "}"
             )
-            TablesConfiguration tablesConfig
+            TablesConfiguration tablesConfig,
+            @InjectConfiguration("mock.partitions = 512")
+            DistributionZoneConfiguration distributionZoneConfiguration
     ) {
-        initialize(new RocksDbStorageEngine(rocksDbEngineConfig, workDir), tablesConfig);
+        initialize(new RocksDbStorageEngine(rocksDbEngineConfig, workDir),
+                tablesConfig, distributionZoneConfiguration);
     }
 
     /**
@@ -64,17 +68,17 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
      */
     @Test
     void testDropPartition() throws Exception {
-        var testData = tableRow(new TestKey(1, "1"), new TestValue(10, "10"));
+        var testData = binaryRow(new TestKey(1, "1"), new TestValue(10, "10"));
 
         UUID txId = UUID.randomUUID();
 
-        MvPartitionStorage partitionStorage0 = tableStorage.getOrCreateMvPartition(PARTITION_ID_0);
+        MvPartitionStorage partitionStorage0 = getOrCreateMvPartition(PARTITION_ID_0);
 
         RowId rowId0 = new RowId(PARTITION_ID_0);
 
         partitionStorage0.runConsistently(() -> partitionStorage0.addWrite(rowId0, testData, txId, UUID.randomUUID(), 0));
 
-        MvPartitionStorage partitionStorage1 = tableStorage.getOrCreateMvPartition(PARTITION_ID_1);
+        MvPartitionStorage partitionStorage1 = getOrCreateMvPartition(PARTITION_ID_1);
 
         RowId rowId1 = new RowId(PARTITION_ID_1);
 
@@ -86,9 +90,9 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
         ((RocksDbTableStorage) tableStorage).awaitFlush(true);
 
         assertThat(tableStorage.getMvPartition(PARTITION_ID_0), is(nullValue()));
-        assertThat(tableStorage.getOrCreateMvPartition(PARTITION_ID_0).read(rowId0, HybridTimestamp.MAX_VALUE).tableRow(),
+        assertThat(getOrCreateMvPartition(PARTITION_ID_0).read(rowId0, HybridTimestamp.MAX_VALUE).binaryRow(),
                 is(nullValue()));
-        assertThat(unwrap(tableStorage.getMvPartition(PARTITION_ID_1).read(rowId1, HybridTimestamp.MAX_VALUE).tableRow()),
+        assertThat(unwrap(tableStorage.getMvPartition(PARTITION_ID_1).read(rowId1, HybridTimestamp.MAX_VALUE).binaryRow()),
                 is(equalTo(unwrap(testData))));
     }
 
@@ -97,11 +101,11 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
      */
     @Test
     void testRestart() {
-        var testData = tableRow(new TestKey(1, "1"), new TestValue(10, "10"));
+        var testData = binaryRow(new TestKey(1, "1"), new TestValue(10, "10"));
 
         UUID txId = UUID.randomUUID();
 
-        MvPartitionStorage partitionStorage0 = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        MvPartitionStorage partitionStorage0 = getOrCreateMvPartition(PARTITION_ID);
 
         RowId rowId0 = new RowId(PARTITION_ID);
 
@@ -109,14 +113,14 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
 
         tableStorage.stop();
 
-        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration());
+        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration(), tableStorage.distributionZoneConfiguration());
 
         tableStorage.start();
 
         assertThat(tableStorage.getMvPartition(PARTITION_ID), is(notNullValue()));
         assertThat(tableStorage.getMvPartition(PARTITION_ID_0), is(nullValue()));
         assertThat(tableStorage.getMvPartition(PARTITION_ID_1), is(nullValue()));
-        assertThat(unwrap(tableStorage.getMvPartition(PARTITION_ID).read(rowId0, HybridTimestamp.MAX_VALUE).tableRow()),
+        assertThat(unwrap(tableStorage.getMvPartition(PARTITION_ID).read(rowId0, HybridTimestamp.MAX_VALUE).binaryRow()),
                 is(equalTo(unwrap(testData))));
     }
 

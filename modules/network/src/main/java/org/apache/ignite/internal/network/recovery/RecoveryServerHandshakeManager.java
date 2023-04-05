@@ -61,6 +61,8 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     /** Remote node's consistent id. */
     private String remoteConsistentId;
 
+    private short remoteChannelId;
+
     /** Netty pipeline channel handler context. */
     private ChannelHandlerContext ctx;
 
@@ -88,8 +90,11 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
      * @param recoveryDescriptorProvider Recovery descriptor provider.
      */
     public RecoveryServerHandshakeManager(
-            UUID launchId, String consistentId, NetworkMessagesFactory messageFactory,
-            RecoveryDescriptorProvider recoveryDescriptorProvider) {
+            UUID launchId,
+            String consistentId,
+            NetworkMessagesFactory messageFactory,
+            RecoveryDescriptorProvider recoveryDescriptorProvider
+    ) {
         this.launchId = launchId;
         this.consistentId = consistentId;
         this.messageFactory = messageFactory;
@@ -132,9 +137,13 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
             this.remoteLaunchId = msg.launchId();
             this.remoteConsistentId = msg.consistentId();
             this.receivedCount = msg.receivedCount();
+            this.remoteChannelId = msg.connectionId();
 
-            this.recoveryDescriptor = recoveryDescriptorProvider.getRecoveryDescriptor(remoteConsistentId, remoteLaunchId,
-                    msg.connectionId(), true);
+            this.recoveryDescriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
+                    remoteConsistentId,
+                    remoteLaunchId,
+                    remoteChannelId,
+                    true);
 
             handshake(recoveryDescriptor);
 
@@ -216,7 +225,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         // Removes handshake handler from the pipeline as the handshake is finished
         this.ctx.pipeline().remove(this.handler);
 
-        handshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId));
+        handshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, remoteChannelId));
     }
 
     @TestOnly

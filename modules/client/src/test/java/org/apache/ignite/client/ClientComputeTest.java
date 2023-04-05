@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.client.AbstractClientTest.getClient;
+import static org.apache.ignite.client.AbstractClientTest.getClusterNodes;
 import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -24,19 +26,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Arrays;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterEach;
@@ -160,16 +157,6 @@ public class ClientComputeTest {
         }
     }
 
-    private IgniteClient getClient(TestServer... servers) {
-        String[] addresses = Arrays.stream(servers).map(s -> "127.0.0.1:" + s.port()).toArray(String[]::new);
-
-        return IgniteClient.builder()
-                .addresses(addresses)
-                .reconnectThrottlingPeriod(0)
-                .retryPolicy(new RetryLimitPolicy().retryLimit(3))
-                .build();
-    }
-
     private void initServers(Function<Integer, Boolean> shouldDropConnection) {
         ignite = new FakeIgnite();
         ((FakeIgniteTables) ignite.tables()).createTable(TABLE_NAME);
@@ -179,11 +166,5 @@ public class ClientComputeTest {
         server1 = new TestServer(10900, 10, 0, ignite, shouldDropConnection, null, "s1", clusterId);
         server2 = new TestServer(10910, 10, 0, ignite, shouldDropConnection, null, "s2", clusterId);
         server3 = new TestServer(10920, 10, 0, ignite, shouldDropConnection, null, "s3", clusterId);
-    }
-
-    private Set<ClusterNode> getClusterNodes(String... names) {
-        return Arrays.stream(names)
-                .map(s -> new ClusterNode("id", s, new NetworkAddress("127.0.0.1", 8080)))
-                .collect(Collectors.toSet());
     }
 }

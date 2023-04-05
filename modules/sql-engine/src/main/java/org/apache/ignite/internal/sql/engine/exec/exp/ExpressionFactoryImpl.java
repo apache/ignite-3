@@ -75,6 +75,7 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
+import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
@@ -114,7 +115,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         this.typeFactory = typeFactory;
         this.conformance = conformance;
 
-        rexBuilder = new RexBuilder(this.typeFactory);
+        rexBuilder = new IgniteRexBuilder(this.typeFactory);
         emptyType = new RelDataTypeFactory.Builder(this.typeFactory).build();
         nullType = typeFactory.createSqlType(SqlTypeName.NULL);
     }
@@ -312,8 +313,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 rowType,
                 rowFactory,
                 0,
-                Arrays.asList(new RexNode[searchBounds.size()]),
-                Arrays.asList(new RexNode[searchBounds.size()]),
+                Arrays.asList(new RexNode[rowType.getFieldCount()]),
+                Arrays.asList(new RexNode[rowType.getFieldCount()]),
                 true,
                 true
         );
@@ -497,7 +498,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         Function1<String, InputGetter> correlates = new CorrelatesBuilder(builder, ctx, hnd).build(nodes);
 
-        List<Expression> projects = RexToLixTranslator.translateProjects(program, typeFactory, conformance,
+        List<Expression> projects = RexToLixTranslator.translateProjects(program, typeFactory, rexBuilder, conformance,
                 builder, null, ctx, inputGetter, correlates);
 
         assert nodes.size() == projects.size();
@@ -526,7 +527,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         Class<? extends Scalar> clazz = biInParams ? BiScalar.class : SingleScalar.class;
 
-        return Commons.compile(clazz, Expressions.toString(List.of(decl), "\n", false));
+        String body = Expressions.toString(List.of(decl), "\n", false);
+        return Commons.compile(clazz, body);
     }
 
     private String digest(List<RexNode> nodes, RelDataType type, boolean biParam) {
@@ -720,6 +722,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** Upper row. */
         private @Nullable RowT upperRow;
 
+        /** Cached skip range flag. */
+        private Boolean skip;
+
         /** Row factory. */
         private final RowFactory<RowT> factory;
 
@@ -766,12 +771,44 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             RowT res = factory.create();
             scalar.execute(ctx, null, res);
 
+            RowHandler<RowT> hnd = ctx.rowHandler();
+
+            // Check bound for NULL values. If bound contains NULLs, the whole range should be skipped.
+            // There is special placeholder for searchable NULLs, make this replacement here too.
+            for (int i = 0; i < hnd.columnCount(res); i++) {
+                Object fldVal = hnd.get(i, res);
+
+                if (fldVal == null) {
+                    skip = Boolean.TRUE;
+                }
+
+                if (fldVal == ctx.nullBound()) {
+                    hnd.set(i, res, null);
+                }
+            }
+
             return res;
         }
 
         /** Clear cached rows. */
         void clearCache() {
             lowerRow = upperRow = null;
+            skip = null;
+        }
+
+        /** Skip this range. */
+        public boolean skip() {
+            if (skip == null) {
+                // Precalculate skip flag.
+                lower();
+                upper();
+
+                if (skip == null) {
+                    skip = Boolean.FALSE;
+                }
+            }
+
+            return skip;
         }
     }
 
@@ -791,9 +828,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         /** {@inheritDoc} */
-        @Override
-        public int size() {
-            return ranges.size();
+        @Override public boolean multiBounds() {
+            return ranges.size() > 1;
         }
 
         /** {@inheritDoc} */
@@ -802,7 +838,11 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             ranges.forEach(b -> ((RangeConditionImpl) b).clearCache());
 
             if (ranges.size() == 1) {
-                return ranges.iterator();
+                if (((RangeConditionImpl) ranges.get(0)).skip()) {
+                    return Collections.emptyIterator();
+                } else {
+                    return ranges.iterator();
+                }
             }
 
             // Sort ranges using collation comparator to produce sorted output. There should be no ranges
@@ -814,7 +854,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 sorted = true;
             }
 
-            return ranges.iterator();
+            return ranges.stream().filter(r -> !((RangeConditionImpl) r).skip()).iterator();
         }
     }
 

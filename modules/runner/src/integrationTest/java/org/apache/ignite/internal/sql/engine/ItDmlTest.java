@@ -35,13 +35,12 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /** Different DML tests. */
-public class ItDmlTest extends AbstractBasicIntegrationTest {
+public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
     @Override
     protected int nodes() {
@@ -62,16 +61,13 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
         super.tearDownBase(testInfo);
     }
 
-    @BeforeAll
-    public static void beforeTestsStarted() {
-        // IMPLICIT_PK_ENABLED hashed sys property needs
-        sql("CREATE TABLE fake_tbl (id INT PRIMARY KEY, c1 INT NOT NULL)");
-    }
-
     @Test
     public void pkConstraintConsistencyTest() {
         sql("CREATE TABLE my (id INT PRIMARY KEY, val INT)");
-        sql("INSERT INTO my VALUES (?, ?)", 0, 1);
+        assertQuery("INSERT INTO my VALUES (?, ?)")
+                .withParams(0, 1)
+                .returns(1L)
+                .check();
         assertQuery("SELECT val FROM my WHERE id = 0")
                 .returns(1)
                 .check();
@@ -82,9 +78,16 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
             assertEquals(ex.code(), Sql.DUPLICATE_KEYS_ERR);
         }
 
-        sql("DELETE FROM my WHERE id=?", 0);
+        assertQuery("DELETE FROM my WHERE id=?")
+                .withParams(0)
+                .returns(1L)
+                .check();
 
-        sql("INSERT INTO my VALUES (?, ?)", 0, 2);
+        assertQuery("INSERT INTO my VALUES (?, ?)")
+                .withParams(0, 2)
+                .returns(1L)
+                .check();
+
         assertQuery("SELECT val FROM my WHERE id = 0")
                 .returns(2)
                 .check();
@@ -551,5 +554,44 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
             this.sqlVal = sqlVal;
             this.expectedVal = expectedVal;
         }
+    }
+
+    @Test
+    public void testInsertMultipleDefaults() {
+        sql("CREATE TABLE integers(i INTEGER PRIMARY KEY, j INTEGER DEFAULT 2)");
+
+        sql("INSERT INTO integers VALUES (1, DEFAULT)");
+
+        assertQuery("SELECT i, j FROM integers").returns(1, 2).check();
+
+        sql("INSERT INTO integers VALUES (2, 3), (3, DEFAULT), (4, 4), (5, DEFAULT)");
+
+        assertQuery("SELECT i, j FROM integers ORDER BY i")
+                .returns(1, 2)
+                .returns(2, 3)
+                .returns(3, 2)
+                .returns(4, 4)
+                .returns(5, 2)
+                .check();
+    }
+
+    @Test
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void testInsertMultipleDefaultsWithImplicitPk() {
+        sql("CREATE TABLE integers(i INTEGER, j INTEGER DEFAULT 2)");
+
+        sql("INSERT INTO integers VALUES (1, DEFAULT)");
+
+        assertQuery("SELECT i, j FROM integers").returns(1, 2).check();
+
+        sql("INSERT INTO integers VALUES (2, 3), (3, DEFAULT), (4, 4), (5, DEFAULT)");
+
+        assertQuery("SELECT i, j FROM integers ORDER BY i")
+                .returns(1, 2)
+                .returns(2, 3)
+                .returns(3, 2)
+                .returns(4, 4)
+                .returns(5, 2)
+                .check();
     }
 }

@@ -17,11 +17,6 @@
 
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
-import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
-
-import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.schema.Columns;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
@@ -81,11 +76,11 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     public Row marshal(@NotNull K key) throws MarshallerException {
         assert keyClass.isInstance(key);
 
-        final RowAssembler asm = createAssembler(key, null);
+        final RowAssembler asm = createAssembler(key);
 
         keyMarsh.writeObject(key, asm);
 
-        return new Row(schema, new ByteBufferRow(asm.toBytes()));
+        return new Row(schema, asm.build());
     }
 
     /** {@inheritDoc} */
@@ -97,7 +92,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
         final RowAssembler asm = createAssembler(key, val);
         keyMarsh.writeObject(key, asm);
         valMarsh.writeObject(val, asm);
-        return new Row(schema, new ByteBufferRow(asm.toBytes()));
+        return new Row(schema, asm.build());
     }
 
     /** {@inheritDoc} */
@@ -127,6 +122,17 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     }
 
     /**
+     * Creates {@link RowAssembler} for key.
+     *
+     * @param key Key object.
+     * @return Row assembler.
+     * @throws MarshallerException If failed to read key or value object content.
+     */
+    private RowAssembler createAssembler(Object key) throws MarshallerException {
+        return ObjectStatistics.createAssembler(schema, keyMarsh, key);
+    }
+
+    /**
      * Creates {@link RowAssembler} for key-value pair.
      *
      * @param key Key object.
@@ -135,58 +141,6 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
      * @throws MarshallerException If failed to read key or value object content.
      */
     private RowAssembler createAssembler(Object key, Object val) throws MarshallerException {
-        ObjectStatistic keyStat = collectObjectStats(schema.keyColumns(), keyMarsh, key);
-        ObjectStatistic valStat = collectObjectStats(schema.valueColumns(), valMarsh, val);
-
-        return new RowAssembler(schema, keyStat.nonNullColsSize, keyStat.nonNullCols,
-                valStat.nonNullColsSize, valStat.nonNullCols);
-    }
-
-    /**
-     * Reads object fields and gather statistic.
-     *
-     * @throws MarshallerException If failed to read object content.
-     */
-    private ObjectStatistic collectObjectStats(Columns cols, Marshaller marsh, Object obj) throws MarshallerException {
-        if (obj == null || !cols.hasVarlengthColumns()) {
-            return ObjectStatistic.ZERO_VARLEN_STATISTICS;
-        }
-
-        int cnt = 0;
-        int size = 0;
-
-        for (int i = cols.firstVarlengthColumn(); i < cols.length(); i++) {
-            final Object val = marsh.value(obj, i);
-            final NativeType colType = cols.column(i).type();
-
-            if (val == null || colType.spec().fixedLength()) {
-                continue;
-            }
-
-            size += getValueSize(val, colType);
-            cnt++;
-        }
-
-        return new ObjectStatistic(cnt, size);
-    }
-
-    /**
-     * Object statistic.
-     */
-    private static class ObjectStatistic {
-        /** Cached zero statistics. */
-        static final ObjectStatistic ZERO_VARLEN_STATISTICS = new ObjectStatistic(0, 0);
-
-        /** Non-null columns of varlen type. */
-        int nonNullCols;
-
-        /** Length of all non-null columns of varlen types. */
-        int nonNullColsSize;
-
-        /** Constructor. */
-        ObjectStatistic(int nonNullCols, int nonNullColsSize) {
-            this.nonNullCols = nonNullCols;
-            this.nonNullColsSize = nonNullColsSize;
-        }
+        return ObjectStatistics.createAssembler(schema, keyMarsh, valMarsh, key, val);
     }
 }

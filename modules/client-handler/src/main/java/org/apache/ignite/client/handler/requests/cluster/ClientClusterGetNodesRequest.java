@@ -42,6 +42,8 @@ public class ClientClusterGetNodesRequest {
         out.packArrayHeader(nodes.size());
 
         for (ClusterNode node : nodes) {
+            out.packArrayHeader(4);
+
             out.packString(node.id());
             out.packString(node.name());
             out.packString(node.address().host());

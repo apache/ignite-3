@@ -34,13 +34,16 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreaded;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.Constants.GiB;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -51,6 +54,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
@@ -80,6 +84,7 @@ import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowClosure;
+import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowMapClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
@@ -2367,6 +2372,147 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         assertEquals(0L, tree.findNext(-1L, true));
     }
 
+    @Test
+    void testFindOneWithMapper() throws Exception {
+        TestTree tree = createTestTree(true);
+
+        tree.put(0L);
+
+        TreeRowMapClosure<Long, Long, String> treeRowClosure = new TreeRowMapClosure<>() {
+            @Override
+            public String map(Long treeRow) {
+                return "row" + treeRow;
+            }
+        };
+
+        assertEquals("row0", tree.findOne(0L, treeRowClosure, null));
+        assertEquals("rownull", tree.findOne(1L, treeRowClosure, null));
+    }
+
+    @Test
+    void testFindWithMapper() throws Exception {
+        TestTree tree = createTestTree(true);
+
+        tree.put(0L);
+        tree.put(1L);
+
+        TreeRowMapClosure<Long, Long, String> treeRowClosure = new TreeRowMapClosure<>() {
+            @Override
+            public String map(Long treeRow) {
+                return "row" + treeRow;
+            }
+        };
+
+        Cursor<String> cursor = tree.find(null, null, treeRowClosure, null);
+
+        assertTrue(cursor.hasNext());
+        assertEquals("row0", cursor.next());
+
+        assertTrue(cursor.hasNext());
+        assertEquals("row1", cursor.next());
+
+        assertFalse(cursor.hasNext());
+        assertThrows(NoSuchElementException.class, cursor::next);
+    }
+
+    @Test
+    void testInvokeClosureWithOnUpdateCallbackForPut() throws Exception {
+        TestTree tree = createTestTree(true);
+
+        // Checks insert.
+        CompletableFuture<Void> future0 = new CompletableFuture<>();
+
+        tree.invoke(0L, null, new InvokeClosure<>() {
+            @Override
+            public void call(@Nullable Long oldRow) {
+                assertNull(oldRow);
+            }
+
+            @Override
+            public @Nullable Long newRow() {
+                return 0L;
+            }
+
+            @Override
+            public OperationType operationType() {
+                return PUT;
+            }
+
+            @Override
+            public void onUpdate() {
+                future0.complete(null);
+            }
+        });
+
+        assertThat(future0, willCompleteSuccessfully());
+
+        assertEquals(0L, tree.findOne(0L));
+
+        // Checks replace.
+        CompletableFuture<Void> future1 = new CompletableFuture<>();
+
+        tree.invoke(0L, null, new InvokeClosure<>() {
+            @Override
+            public void call(@Nullable Long oldRow) {
+                assertEquals(0L, oldRow);
+            }
+
+            @Override
+            public @Nullable Long newRow() {
+                return 0L;
+            }
+
+            @Override
+            public OperationType operationType() {
+                return PUT;
+            }
+
+            @Override
+            public void onUpdate() {
+                future1.complete(null);
+            }
+        });
+
+        assertThat(future1, willCompleteSuccessfully());
+
+        assertEquals(0L, tree.findOne(0L));
+    }
+
+    @Test
+    void testInvokeClosureWithOnUpdateCallbackForRemove() throws Exception {
+        TestTree tree = createTestTree(true);
+
+        tree.put(0L);
+
+        CompletableFuture<Void> future = new CompletableFuture<>();
+
+        tree.invoke(0L, null, new InvokeClosure<>() {
+            @Override
+            public void call(@Nullable Long oldRow) {
+                assertEquals(0L, oldRow);
+            }
+
+            @Override
+            public @Nullable Long newRow() {
+                return null;
+            }
+
+            @Override
+            public OperationType operationType() {
+                return REMOVE;
+            }
+
+            @Override
+            public void onUpdate() {
+                future.complete(null);
+            }
+        });
+
+        assertThat(future, willCompleteSuccessfully());
+
+        assertNull(tree.findOne(0L));
+    }
+
     private void doTestRandomPutRemoveMultithreaded(boolean canGetRow) throws Exception {
         final TestTree tree = createTestTree(canGetRow);
 
@@ -2850,7 +2996,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     /**
      * {@link TreeRowClosure} implementation for the test.
      */
-    static class TestTreeFindFilteredClosure implements TreeRowClosure<Long, Long> {
+    static class TestTreeFindFilteredClosure implements TreeRowMapClosure<Long, Long, Long> {
         private final Set<Long> vals;
 
         /**

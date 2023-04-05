@@ -116,7 +116,7 @@ public class SortAggregateConverterRule {
             RelNode map = new IgniteMapSortAggregate(
                     cluster,
                     outTrait.replace(IgniteDistributions.random()),
-                    convert(input, inTrait),
+                    convert(input, inTrait.replace(IgniteDistributions.random())),
                     agg.getGroupSet(),
                     agg.getGroupSets(),
                     agg.getAggCallList(),

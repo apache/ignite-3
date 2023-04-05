@@ -11,6 +11,12 @@ CREATE TABLE test (a INTEGER, b INTEGER);
 statement ok
 INSERT INTO test VALUES (11, 22), (12, 21), (13, 22);
 
+# ORDER BY negative index
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18673
+statement error
+SELECT * FROM test ORDER BY -1
+
 # ORDER BY index out of range
 statement error
 SELECT a FROM test ORDER BY 2
@@ -24,9 +30,12 @@ SELECT a FROM test ORDER BY 'hello', a
 12
 13
 
-# ambiguous reference in union alias
-statement error
+query II
 SELECT a AS k, b FROM test UNION SELECT a, b AS k FROM test ORDER BY k
+----
+11	22
+12	21
+13	22
 
 # but works if not ambiguous
 query II
@@ -37,7 +46,7 @@ SELECT a AS k, b FROM test UNION SELECT a AS k, b FROM test ORDER BY k
 13	22
 
 # ambiguous reference in union parameter
-statement error
+statement error: Column 'B' not found in any table
 SELECT a % 2, b FROM test UNION SELECT b, a % 2 AS k ORDER BY a % 2
 
 # but works if not ambiguous
@@ -51,10 +60,16 @@ SELECT mod(a , 2) as a, b FROM test UNION SELECT a % 2 AS k, b FROM test ORDER B
 statement error
 SELECT a % 2, b FROM test UNION SELECT a % 2 AS k, b FROM test ORDER BY 3
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18673
+# update error message
 statement error
 SELECT a % 2, b FROM test UNION SELECT a % 2 AS k, b FROM test ORDER BY -1
 
+skipif ignite3
 # and union itself fails if amount of entries is wrong
+# https://issues.apache.org/jira/browse/IGNITE-18673
+# update error message
 statement error
 SELECT a % 2, b FROM test UNION SELECT a % 2 AS k FROM test ORDER BY -1
 

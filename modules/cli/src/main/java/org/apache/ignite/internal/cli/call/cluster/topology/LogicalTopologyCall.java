@@ -24,9 +24,9 @@ import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
+import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.rest.client.api.TopologyApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.invoker.Configuration;
 import org.apache.ignite.rest.client.model.ClusterNode;
 
 /**
@@ -34,6 +34,12 @@ import org.apache.ignite.rest.client.model.ClusterNode;
  */
 @Singleton
 public class LogicalTopologyCall implements Call<UrlCallInput, List<ClusterNode>> {
+    private final ApiClientFactory clientFactory;
+
+    public LogicalTopologyCall(ApiClientFactory clientFactory) {
+        this.clientFactory = clientFactory;
+    }
+
 
     /** {@inheritDoc} */
     @Override
@@ -47,6 +53,6 @@ public class LogicalTopologyCall implements Call<UrlCallInput, List<ClusterNode>
     }
 
     private List<ClusterNode> fetchLogicalTopology(String url) throws ApiException {
-        return new TopologyApi(Configuration.getDefaultApiClient().setBasePath(url)).logical();
+        return new TopologyApi(clientFactory.getClient(url)).logical();
     }
 }

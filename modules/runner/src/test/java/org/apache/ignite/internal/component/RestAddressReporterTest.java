@@ -18,16 +18,13 @@
 package org.apache.ignite.internal.component;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -39,13 +36,27 @@ class RestAddressReporterTest {
     private static final String REST_ADDRESS_FILENAME = "rest-address";
 
     @Test
-    @DisplayName("REST server network address is reported to file")
-    void networkAddressReported(@TempDir Path tmpDir) throws IOException {
+    @DisplayName("REST server network addresses is reported to file")
+    void httpAndHttpsAddressesReported(@TempDir Path tmpDir) throws IOException {
         // Given
         RestAddressReporter reporter = new RestAddressReporter(tmpDir);
 
         // When
-        reporter.writeReport(new NetworkAddress("localhost", 9999));
+        reporter.writeReport(new NetworkAddress("localhost", 9999), new NetworkAddress("localhost", 8443));
+
+        // Then there is a report
+        String restAddress = Files.readString(tmpDir.resolve(REST_ADDRESS_FILENAME));
+        assertThat(restAddress, equalTo("http://localhost:9999, https://localhost:8443"));
+    }
+
+    @Test
+    @DisplayName("REST server HTTP address is reported to file")
+    void httpAddressReported(@TempDir Path tmpDir) throws IOException {
+        // Given
+        RestAddressReporter reporter = new RestAddressReporter(tmpDir);
+
+        // When
+        reporter.writeReport(new NetworkAddress("localhost", 9999), null);
 
         // Then there is a report
         String restAddress = Files.readString(tmpDir.resolve(REST_ADDRESS_FILENAME));
@@ -53,11 +64,25 @@ class RestAddressReporterTest {
     }
 
     @Test
+    @DisplayName("REST server HTTPS address is reported to file")
+    void httpsAddressReported(@TempDir Path tmpDir) throws IOException {
+        // Given
+        RestAddressReporter reporter = new RestAddressReporter(tmpDir);
+
+        // When
+        reporter.writeReport(null, new NetworkAddress("localhost", 8443));
+
+        // Then there is a report
+        String restAddress = Files.readString(tmpDir.resolve(REST_ADDRESS_FILENAME));
+        assertThat(restAddress, equalTo("https://localhost:8443"));
+    }
+
+    @Test
     @DisplayName("File with network address is removed")
     void reportDeleted(@TempDir Path tmpDir) throws IOException {
         // Given reported address
         RestAddressReporter reporter = new RestAddressReporter(tmpDir);
-        reporter.writeReport(new NetworkAddress("localhost", 9999));
+        reporter.writeReport(new NetworkAddress("localhost", 9999), new NetworkAddress("localhost", 8443));
         // And file exists
         assertThat(Files.exists(tmpDir.resolve(REST_ADDRESS_FILENAME)), is(true));
 
@@ -70,18 +95,14 @@ class RestAddressReporterTest {
 
     @Test
     @DisplayName("If there is no report file for some reason then throw an exception")
-    void throwsExceptionWhenThereIsNoFile(@TempDir Path tmpDir) {
+    void doesNotThrowExceptionWhenThereIsNoFile(@TempDir Path tmpDir) {
         // Given
         Path path = tmpDir.resolve("nosuchpath");
         RestAddressReporter reporter = new RestAddressReporter(path);
 
         // When try to removeReport
-        IgniteException thrown = assertThrows(IgniteException.class, reporter::removeReport);
-
-        // Then exception thrown with proper message
-        assertThat(thrown.getMessage(), containsString("Unexpected error when trying to remove REST server network address file"));
-        // And it has COMMON error group
-        assertThat(thrown.groupName(), equalTo(Common.COMMON_ERR_GROUP.name()));
+        // Then nothing is thrown
+        assertDoesNotThrow(reporter::removeReport);
     }
 
     @Test
@@ -94,10 +115,11 @@ class RestAddressReporterTest {
         );
 
         // When try to write it again but with another port
-        new RestAddressReporter(tmpDir).writeReport(new NetworkAddress("localhost", 4444));
+        RestAddressReporter reporter = new RestAddressReporter(tmpDir);
+        reporter.writeReport(new NetworkAddress("localhost", 4444), new NetworkAddress("localhost", 8443));
 
         // Then file rewritten
         String restAddress = Files.readString(tmpDir.resolve(REST_ADDRESS_FILENAME));
-        assertThat(restAddress, equalTo("http://localhost:4444"));
+        assertThat(restAddress, equalTo("http://localhost:4444, https://localhost:8443"));
     }
 }

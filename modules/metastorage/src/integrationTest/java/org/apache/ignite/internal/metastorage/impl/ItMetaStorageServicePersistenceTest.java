@@ -34,6 +34,8 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.ItAbstractListenerSnapshotTest;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.TestReplicationGroupId;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterNode;
@@ -67,7 +69,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
     public void beforeFollowerStop(RaftGroupService service, RaftServer server) throws Exception {
         ClusterNode followerNode = getNode(server);
 
-        metaStorage = new MetaStorageServiceImpl(service, followerNode);
+        metaStorage = new MetaStorageServiceImpl(service, new IgniteSpinBusyLock(), followerNode);
 
         // Put some data in the metastorage
         metaStorage.put(FIRST_KEY, FIRST_VALUE).get();
@@ -78,7 +80,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
     /** {@inheritDoc} */
     @Override
-    public void afterFollowerStop(RaftGroupService service, RaftServer server) throws Exception {
+    public void afterFollowerStop(RaftGroupService service, RaftServer server, int stoppedNodeIndex) throws Exception {
         ClusterNode followerNode = getNode(server);
 
         KeyValueStorage storage = storageByName.remove(followerNode.name());
@@ -132,8 +134,8 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
     /** {@inheritDoc} */
     @Override
-    public RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath) {
-        String nodeName = service.localConfiguration().getName();
+    public RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath, int index) {
+        String nodeName = service.nodeName();
 
         KeyValueStorage storage = storageByName.computeIfAbsent(nodeName, name -> {
             var s = new RocksDbKeyValueStorage(name, listenerPersistencePath);

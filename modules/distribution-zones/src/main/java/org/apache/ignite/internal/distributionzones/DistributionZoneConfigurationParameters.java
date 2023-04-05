@@ -35,19 +35,34 @@ public class DistributionZoneConfigurationParameters {
     /** Data nodes auto adjust scale down timeout. */
     private final Integer dataNodesAutoAdjustScaleDown;
 
+    /** Number of zone replicas. */
+    private final Integer replicas;
+
+    /** Number of zone partitions. */
+    private final Integer partitions;
+
+    /** Nodes' filter. */
+    private final String filter;
+
     /**
      * The constructor.
      */
     private DistributionZoneConfigurationParameters(
             String name,
+            Integer replicas,
+            Integer partitions,
             Integer dataNodesAutoAdjust,
             Integer dataNodesAutoAdjustScaleUp,
-            Integer dataNodesAutoAdjustScaleDown
+            Integer dataNodesAutoAdjustScaleDown,
+            String filter
     ) {
         this.name = name;
+        this.replicas = replicas;
+        this.partitions = partitions;
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
+        this.filter = filter;
     }
 
     /**
@@ -87,6 +102,33 @@ public class DistributionZoneConfigurationParameters {
     }
 
     /**
+     * Gets number of zone replicas.
+     *
+     * @return Number of zone replicas.
+     */
+    public Integer replicas() {
+        return replicas;
+    }
+
+    /**
+     * Gets number of zone partitions.
+     *
+     * @return Number of zone partitions.
+     */
+    public Integer partitions() {
+        return partitions;
+    }
+
+    /**
+     * Gets nodes' filter.
+     *
+     * @return Nodes' filter.
+     */
+    public String filter() {
+        return filter;
+    }
+
+    /**
      * Builder for distribution zone configuration.
      */
     public static class Builder {
@@ -101,6 +143,15 @@ public class DistributionZoneConfigurationParameters {
 
         /** Data nodes auto adjust scale down timeout. */
         private Integer dataNodesAutoAdjustScaleDown;
+
+        /** Number of zone replicas. */
+        private Integer replicas;
+
+        /** Number of zone partitions. */
+        private Integer partitions;
+
+        /* Nodes' filter. */
+        private String filter;
 
         /**
          * Constructor.
@@ -153,6 +204,42 @@ public class DistributionZoneConfigurationParameters {
         }
 
         /**
+         * Sets the number of replicas.
+         *
+         * @param replicas Number of replicas.
+         * @return This instance.
+         */
+        public Builder replicas(int replicas) {
+            this.replicas = replicas;
+
+            return this;
+        }
+
+        /**
+         * Sets the number of partitions.
+         *
+         * @param partitions Number of partitions.
+         * @return This instance.
+         */
+        public Builder partitions(int partitions) {
+            this.partitions = partitions;
+
+            return this;
+        }
+
+        /**
+         * Sets nodes' filter.
+         *
+         * @param filter Nodes' filter.
+         * @return This instance.
+         */
+        public Builder filter(String filter) {
+            this.filter = filter;
+
+            return this;
+        }
+
+        /**
          * Builds the distribution zone configuration.
          *
          * @return Distribution zone configuration.
@@ -170,9 +257,12 @@ public class DistributionZoneConfigurationParameters {
 
             return new DistributionZoneConfigurationParameters(
                     name,
+                    replicas,
+                    partitions,
                     dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
-                    dataNodesAutoAdjustScaleDown
+                    dataNodesAutoAdjustScaleDown,
+                    filter
             );
         }
     }

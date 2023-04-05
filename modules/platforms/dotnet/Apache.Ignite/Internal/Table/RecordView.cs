@@ -77,6 +77,23 @@ namespace Apache.Ignite.Internal.Table
         public Sql Sql => _sql;
 
         /// <inheritdoc/>
+        public IQueryable<T> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
+        {
+            var executor = new IgniteQueryExecutor(_sql, transaction, options, Table.Socket.Configuration);
+            var provider = new IgniteQueryProvider(IgniteQueryParser.Instance, executor, _table.Name);
+
+            if (typeof(T).IsKeyValuePair())
+            {
+                throw new NotSupportedException(
+                    $"Can't use {typeof(KeyValuePair<,>)} for LINQ queries: " +
+                    $"it is reserved for {typeof(IKeyValueView<,>)}.{nameof(IKeyValueView<int, int>.AsQueryable)}. " +
+                    "Use a custom type instead.");
+            }
+
+            return new IgniteQueryable<T>(provider);
+        }
+
+        /// <inheritdoc/>
         public async Task<Option<T>> GetAsync(ITransaction? transaction, T key)
         {
             IgniteArgumentCheck.NotNull(key, nameof(key));
@@ -84,7 +101,16 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleGet, transaction, key, keyOnly: true).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
-            return _ser.ReadValue(resBuf, resSchema, key);
+            return _ser.ReadValue(resBuf, resSchema);
+        }
+
+        /// <inheritdoc/>
+        public async Task<bool> ContainsKeyAsync(ITransaction? transaction, T key)
+        {
+            IgniteArgumentCheck.NotNull(key, nameof(key));
+
+            using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleContainsKey, transaction, key, keyOnly: true).ConfigureAwait(false);
+            return resBuf.GetReader().ReadBoolean();
         }
 
         /// <inheritdoc/>
@@ -179,7 +205,7 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleGetAndUpsert, transaction, record).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
-            return _ser.ReadValue(resBuf, resSchema, record);
+            return _ser.ReadValue(resBuf, resSchema);
         }
 
         /// <inheritdoc/>
@@ -257,7 +283,7 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleGetAndReplace, transaction, record).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
-            return _ser.ReadValue(resBuf, resSchema, record);
+            return _ser.ReadValue(resBuf, resSchema);
         }
 
         /// <inheritdoc/>
@@ -286,7 +312,7 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleGetAndDelete, transaction, key, keyOnly: true).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
-            return _ser.ReadValue(resBuf, resSchema, key);
+            return _ser.ReadValue(resBuf, resSchema);
         }
 
         /// <inheritdoc/>
@@ -298,21 +324,10 @@ namespace Apache.Ignite.Internal.Table
             await DeleteAllAsync(transaction, records, exact: true).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public IQueryable<T> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
-        {
-            var executor = new IgniteQueryExecutor(_sql, transaction, options);
-            var provider = new IgniteQueryProvider(IgniteQueryParser.Instance, executor, _table.Name);
-
-            if (typeof(T).IsKeyValuePair())
-            {
-                throw new NotSupportedException(
-                    $"Can't use {typeof(KeyValuePair<,>)} for LINQ queries: " +
-                    $"it is reserved for {typeof(IKeyValueView<,>)}.{nameof(IKeyValueView<int, int>.AsQueryable)}. " +
-                    "Use a custom type instead.");
-            }
-
-            return new IgniteQueryable<T>(provider);
-        }
+        public override string ToString() =>
+            new IgniteToStringBuilder(GetType())
+                .Append(Table)
+                .Build();
 
         /// <summary>
         /// Deletes multiple records. If one or more keys do not exist, other records are still deleted.
@@ -324,7 +339,7 @@ namespace Apache.Ignite.Internal.Table
         /// A <see cref="Task"/> representing the asynchronous operation.
         /// The task result contains records from <paramref name="records"/> that did not exist.
         /// </returns>
-        public async Task<IList<T>> DeleteAllAsync(ITransaction? transaction, IEnumerable<T> records, bool exact) =>
+        internal async Task<IList<T>> DeleteAllAsync(ITransaction? transaction, IEnumerable<T> records, bool exact) =>
             await DeleteAllAsync(
                 transaction,
                 records,
@@ -347,7 +362,7 @@ namespace Apache.Ignite.Internal.Table
         /// A <see cref="Task"/> representing the asynchronous operation.
         /// The task result contains records from <paramref name="records"/> that did not exist.
         /// </returns>
-        public async Task<TRes> DeleteAllAsync<TRes>(
+        internal async Task<TRes> DeleteAllAsync<TRes>(
             ITransaction? transaction,
             IEnumerable<T> records,
             Func<int, TRes> resultFactory,
@@ -383,29 +398,16 @@ namespace Apache.Ignite.Internal.Table
                 addAction: addAction);
         }
 
-        /// <summary>
-        /// Determines if the table contains an entry for the specified key.
-        /// </summary>
-        /// <param name="transaction">Transaction.</param>
-        /// <param name="key">Key.</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the asynchronous operation.
-        /// The task result contains a value indicating whether a record with the specified key exists in the table.
-        /// </returns>
-        internal async Task<bool> ContainsKey(ITransaction? transaction, T key)
-        {
-            IgniteArgumentCheck.NotNull(key, nameof(key));
-
-            using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleContainsKey, transaction, key, keyOnly: true).ConfigureAwait(false);
-            return resBuf.GetReader().ReadBoolean();
-        }
-
         private async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             Transaction? tx,
             PooledArrayBuffer? request = null,
-            PreferredNode preferredNode = default) =>
-            await _table.Socket.DoOutInOpAsync(clientOp, tx, request, preferredNode).ConfigureAwait(false);
+            PreferredNode preferredNode = default)
+        {
+            var (buf, _) = await _table.Socket.DoOutInOpAndGetSocketAsync(clientOp, tx, request, preferredNode).ConfigureAwait(false);
+
+            return buf;
+        }
 
         private async Task<PooledBuffer> DoRecordOutOpAsync(
             ClientOp op,

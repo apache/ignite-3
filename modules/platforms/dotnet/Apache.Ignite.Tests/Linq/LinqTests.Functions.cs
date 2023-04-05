@@ -80,6 +80,7 @@ public partial class LinqTests
         TestOpDouble(x => Math.Tanh(x.Key / 10), 0.71629787019902447d, "select Tanh((_T0.KEY / ?)) from");
         TestOpDouble(x => Math.Atan(x.Key), 1.4601391056210009d, "select Atan(_T0.KEY) from");
         TestOpDouble(x => Math.Ceiling(x.Key / 3), 3.0d, "select Ceiling((_T0.KEY / ?)) from");
+        TestOpDouble(x => Math.Floor(x.Key / 3), 3.0d, "select Floor((_T0.KEY / ?)) from");
         TestOpDouble(x => Math.Exp(x.Key), 8103.0839275753842d, "select Exp(_T0.KEY) from");
         TestOpDouble(x => Math.Log(x.Key), 2.1972245773362196d, "select Ln(_T0.KEY) from");
         TestOpDouble(x => Math.Log10(x.Key), 0.95424250943932487d, "select Log10(_T0.KEY) from");
@@ -272,7 +273,7 @@ public partial class LinqTests
         TestOpString(
             x => Regex.Replace(x.Val!, @"V-(\d+)", "V$1", RegexOptions.IgnoreCase | RegexOptions.Multiline),
             "V9",
-            @"select regexp_replace(_T0.VAL, ?, ?, 1, 1, ?) from PUBLIC.TBL1 as _T0, Parameters=V-(\d+), V$1, im");
+            @"select regexp_replace(_T0.VAL, ?, ?, 1, 1, ?) from PUBLIC.TBL1 as _T0, Parameters = [ V-(\d+), V$1, im ]");
     }
 
     private static void TestOp<T, TRes>(IRecordView<T> view, Expression<Func<T, TRes>> expr, TRes expectedRes, string expectedQuery)

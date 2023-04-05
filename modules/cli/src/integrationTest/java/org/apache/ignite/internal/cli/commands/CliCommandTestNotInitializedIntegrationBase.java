@@ -24,17 +24,19 @@ import io.micronaut.context.ApplicationContext;
 import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import org.apache.ignite.internal.cli.IntegrationTestBase;
+import org.apache.ignite.internal.cli.CliIntegrationTestBase;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
 import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
+import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
@@ -44,7 +46,7 @@ import picocli.CommandLine;
  * Integration test base for cli commands. Setup commands, ignite cluster, and provides useful fixtures and assertions. Note: ignite cluster
  * won't be initialized. If you want to use initialized cluster use {@link CliCommandTestInitializedIntegrationBase}.
  */
-public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTestBase {
+public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationTestBase {
     /** Correct ignite jdbc url. */
     protected static final String JDBC_URL = "jdbc:ignite:thin://127.0.0.1:10800";
 
@@ -71,6 +73,9 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
 
     private int exitCode = Integer.MIN_VALUE;
 
+    @Inject
+    private Session session;
+
     /**
      * Invokes before the test will start.
      *
@@ -87,6 +92,11 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
         cmd.setDefaultValueProvider(configDefaultValueProvider);
         resetOutput();
         CommandLineContextProvider.setCmd(cmd);
+    }
+
+    @AfterEach
+    void tearDown() {
+        session.disconnect();
     }
 
     protected void resetOutput() {

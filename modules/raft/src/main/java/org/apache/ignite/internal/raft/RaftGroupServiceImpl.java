@@ -71,6 +71,7 @@ import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.ActionResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.SMErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.apache.ignite.raft.jraft.rpc.impl.SMCompactedThrowable;
@@ -360,7 +361,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> removeLearners(List<Peer> learners) {
+    public CompletableFuture<Void> removeLearners(Collection<Peer> learners) {
         Peer leader = this.leader;
 
         if (leader == null) {
@@ -378,7 +379,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> resetLearners(List<Peer> learners) {
+    public CompletableFuture<Void> resetLearners(Collection<Peer> learners) {
         Peer leader = this.leader;
 
         if (leader == null) {
@@ -461,6 +462,18 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
+    public CompletableFuture<Long> readIndex() {
+        Function<Peer, ? extends NetworkMessage> requestFactory = p -> factory.readIndexRequest()
+                .groupId(groupId)
+                .build();
+
+        Peer leader = leader();
+        Peer node = leader == null ? randomNode() : leader;
+        return this.<ReadIndexResponse>sendWithRetry(node, requestFactory)
+                .thenApply(ReadIndexResponse::index);
+    }
+
+    @Override
     public ClusterService clusterService() {
         return cluster;
     }
@@ -502,10 +515,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             NetworkMessage request = requestFactory.apply(peer);
 
-            //TODO: IGNITE-15389 org.apache.ignite.internal.metastorage.client.CursorImpl has potential deadlock inside
             resolvePeer(peer)
                     .thenCompose(node -> cluster.messagingService().invoke(node, request, configuration.responseTimeout().value()))
-                    .whenCompleteAsync((resp, err) -> {
+                    .whenComplete((resp, err) -> {
                         if (LOG.isTraceEnabled()) {
                             LOG.trace("sendWithRetry resp={} from={} to={} err={}",
                                     S.toString(resp),

@@ -72,6 +72,7 @@ import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 
 /**
@@ -158,7 +159,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
      * @return Sequence of expressions, optional condition
      */
     public static List<Expression> translateProjects(RexProgram program,
-            JavaTypeFactory typeFactory, SqlConformance conformance,
+            JavaTypeFactory typeFactory, RexBuilder rexBuilder, SqlConformance conformance,
             BlockBuilder list, PhysType outputPhysType, Expression root,
             InputGetter inputGetter, Function1<String, InputGetter> correlates) {
         List<Type> storageTypes = null;
@@ -169,9 +170,10 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 storageTypes.add(outputPhysType.getJavaFieldType(i));
             }
         }
-        return new RexToLixTranslator(program, typeFactory, root, inputGetter,
-                list, new RexBuilder(typeFactory), conformance, null)
-                .setCorrelates(correlates)
+        var rexToLixTranslator = new RexToLixTranslator(program, typeFactory, root, inputGetter,
+                list, rexBuilder, conformance, null)
+                .setCorrelates(correlates);
+        return rexToLixTranslator
                 .translateList(program.getProjectList(), storageTypes);
     }
 
@@ -214,7 +216,12 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
         Expression convert = null;
         switch (targetType.getSqlTypeName()) {
             case ANY:
-                convert = operand;
+                var toCustomType = CustomTypesConversion.INSTANCE.tryConvert(operand, targetType);
+                if (toCustomType != null) {
+                    convert = toCustomType;
+                } else {
+                    convert = operand;
+                }
                 break;
             case DATE:
                 switch (sourceType.getSqlTypeName()) {
@@ -1095,7 +1102,11 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
         }
         callOperandResultMap.put(call, operandResults);
         final Result result = implementor.implement(this, call, operandResults);
-        rexResultMap.put(call, result);
+
+        if (call.op.isDeterministic()) {
+            rexResultMap.put(call, result);
+        }
+
         return result;
     }
 
@@ -1246,10 +1257,14 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
         final Type storageType = currentStorageType != null
                 ? currentStorageType : typeFactory.getJavaClass(dynamicParam.getType());
-        final Expression valueExpression = ConverterUtils.convert(
-                Expressions.call(root, BuiltInMethod.DATA_CONTEXT_GET.method,
-                        Expressions.constant("?" + dynamicParam.getIndex())),
-                storageType);
+        final Type paramType = ((IgniteTypeFactory) typeFactory).getResultClass(dynamicParam.getType());
+
+        final Expression ctxGet = Expressions.call(root, IgniteMethod.CONTEXT_GET_PARAMETER_VALUE.method(),
+                Expressions.constant("?" + dynamicParam.getIndex()), Expressions.constant(paramType));
+
+        final Expression valueExpression = SqlTypeUtil.isDecimal(dynamicParam.getType())
+                ? ConverterUtils.convertToDecimal(ctxGet, dynamicParam.getType())
+                : ConverterUtils.convert(ctxGet, storageType);
         final ParameterExpression valueVariable =
                 Expressions.parameter(valueExpression.getType(), list.newName("value_dynamic_param"));
         list.add(Expressions.declare(Modifier.FINAL, valueVariable, valueExpression));

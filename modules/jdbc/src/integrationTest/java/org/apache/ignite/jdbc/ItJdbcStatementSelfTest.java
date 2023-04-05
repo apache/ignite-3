@@ -346,6 +346,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16960")
     public void testExecuteQueryMultipleOnlyResultSets() throws Exception {
         assertTrue(conn.getMetaData().supportsMultipleResultSets());
 

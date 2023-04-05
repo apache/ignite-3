@@ -39,17 +39,21 @@ public class NettySender {
     /** Consistent id of the remote node. */
     private final String consistentId;
 
+    private final short channelId;
+
     /**
      * Constructor.
      *
-     * @param channel      Netty channel.
-     * @param launchId     Launch id of the remote node.
+     * @param channel Netty channel.
+     * @param launchId Launch id of the remote node.
      * @param consistentId Consistent id of the remote node.
+     * @param channelId channel identifier.
      */
-    public NettySender(Channel channel, String launchId, String consistentId) {
+    public NettySender(Channel channel, String launchId, String consistentId, short channelId) {
         this.channel = channel;
         this.launchId = launchId;
         this.consistentId = consistentId;
+        this.channelId = channelId;
     }
 
     /**
@@ -78,6 +82,15 @@ public class NettySender {
      */
     public String consistentId() {
         return consistentId;
+    }
+
+    /**
+     * Returns channel identifier.
+     *
+     * @return Channel identifier.
+     */
+    public short channelId() {
+        return channelId;
     }
 
     /**

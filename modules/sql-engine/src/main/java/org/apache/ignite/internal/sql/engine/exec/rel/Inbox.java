@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.calcite.util.Util.unexpected;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
 
 import java.util.ArrayList;
@@ -32,6 +33,7 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
+import org.apache.ignite.internal.sql.engine.exec.SharedState;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox.RemoteSource.State;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -41,23 +43,15 @@ import org.jetbrains.annotations.Nullable;
  */
 public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, SingleNode<RowT> {
     private final ExchangeService exchange;
-
     private final MailboxRegistry registry;
-
     private final long exchangeId;
-
     private final long srcFragmentId;
-
+    private final Collection<String> srcNodeNames;
+    private final @Nullable Comparator<RowT> comp;
     private final Map<String, RemoteSource<RowT>> perNodeBuffers;
 
-    private final Collection<String> srcNodeNames;
-
-    private final @Nullable Comparator<RowT> comp;
-
-    private List<RemoteSource<RowT>> remoteSources;
-
+    private @Nullable List<RemoteSource<RowT>> remoteSources;
     private int requested;
-
     private boolean inLoop;
 
     /**
@@ -79,6 +73,9 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
             long srcFragmentId
     ) {
         super(ctx);
+
+        assert !nullOrEmpty(srcNodeNames);
+
         this.exchange = exchange;
         this.registry = registry;
         this.srcNodeNames = srcNodeNames;
@@ -87,7 +84,12 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         this.srcFragmentId = srcFragmentId;
         this.exchangeId = exchangeId;
 
-        perNodeBuffers = new HashMap<>();
+        Map<String, RemoteSource<RowT>> sources = new HashMap<>();
+        for (String nodeName : srcNodeNames) {
+            sources.put(nodeName, new RemoteSource<>((cnt, state) -> requestBatches(nodeName, cnt, state)));
+        }
+
+        this.perNodeBuffers = Map.copyOf(sources);
     }
 
     /** {@inheritDoc} */
@@ -133,7 +135,15 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     /** {@inheritDoc} */
     @Override
     protected void rewindInternal() {
-        throw new UnsupportedOperationException();
+        remoteSources = null;
+        requested = 0;
+        for (String nodeName : srcNodeNames) {
+            RemoteSource<?> source = perNodeBuffers.get(nodeName);
+
+            assert source != null;
+
+            source.reset(context().sharedState());
+        }
     }
 
     /**
@@ -145,7 +155,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
      * @param rows Rows.
      */
     public void onBatchReceived(String srcNodeName, int batchId, boolean last, List<RowT> rows) throws Exception {
-        RemoteSource<RowT> source = getOrCreateBuffer(srcNodeName);
+        RemoteSource<RowT> source = perNodeBuffers.get(srcNodeName);
 
         boolean waitingBefore = source.check() == State.WAITING;
 
@@ -171,7 +181,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
             remoteSources = new ArrayList<>(srcNodeNames.size());
 
             for (String nodeName : srcNodeNames) {
-                remoteSources.add(getOrCreateBuffer(nodeName));
+                remoteSources.add(perNodeBuffers.get(nodeName));
             }
         }
 
@@ -324,12 +334,8 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         }
     }
 
-    private void requestBatches(String nodeName, int cnt) throws IgniteInternalCheckedException {
-        exchange.request(nodeName, queryId(), srcFragmentId, exchangeId, cnt);
-    }
-
-    private RemoteSource<RowT> getOrCreateBuffer(String nodeName) {
-        return perNodeBuffers.computeIfAbsent(nodeName, name -> new RemoteSource<>(cnt -> requestBatches(name, cnt)));
+    private void requestBatches(String nodeName, int cnt, @Nullable SharedState state) throws IgniteInternalCheckedException {
+        exchange.request(nodeName, queryId(), srcFragmentId, exchangeId, cnt, state);
     }
 
     /**
@@ -347,7 +353,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     private void onNodeLeft0(String nodeName) throws Exception {
         checkState();
 
-        if (getOrCreateBuffer(nodeName).check() != State.END) {
+        if (perNodeBuffers.get(nodeName).check() != State.END) {
             throw new IgniteInternalCheckedException(NODE_LEFT_ERR, "Failed to execute query, node left [nodeName=" + nodeName + ']');
         }
     }
@@ -410,7 +416,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     static final class RemoteSource<RowT> {
         @FunctionalInterface
         private interface BatchRequester {
-            void request(int amountOfBatches) throws IgniteInternalCheckedException;
+            void request(int amountOfBatches, @Nullable SharedState state) throws IgniteInternalCheckedException;
         }
 
         /**
@@ -483,12 +489,42 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         private int lastRequested = -1;
         private @Nullable Batch<RowT> curr = null;
 
+        /**
+         * The state should be propagated only once per every rewind iteration.
+         *
+         * <p>Thus, the new state is set on each rewind, propagated with the next request message,
+         * and then immediately reset to null to prevent the same state from being sent once again.
+         */
+        private @Nullable SharedState sharedStateHolder = null;
+
         private RemoteSource(BatchRequester batchRequester) {
             this.batchRequester = batchRequester;
         }
 
+        /**
+         * Drops all received but not yet processed batches. Accepts the state that should be propagated
+         * to the source on the next {@link #request} invocation.
+         *
+         * @param state State to propagate to the source.
+         */
+        void reset(SharedState state) {
+            sharedStateHolder = state;
+            batches.clear();
+
+            this.lastEnqueued = lastRequested;
+            this.state = State.WAITING;
+            this.curr = null;
+        }
+
         /** A handler for batches received from remote source. */
         void onBatchReceived(int id, boolean last, List<RowT> rows) {
+            if (id <= lastEnqueued) {
+                // most probably it's a batch that was prefetched in advance,
+                // but the execution tree has been rewinded, so we just silently
+                // drop it
+                return;
+            }
+
             batches.offer(new Batch<>(id, last, rows));
 
             if (state == State.WAITING && id == lastEnqueued + 1) {
@@ -505,13 +541,17 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
             // IO_BATCH_CNT should never be less than 1, but we don't have validation
             if (IO_BATCH_CNT <= 1 && inFlightCount == 0) {
-                batchRequester.request(1);
+                batchRequester.request(1, sharedStateHolder);
+                // shared state should be send only once until next rewind
+                sharedStateHolder = null;
             } else if (IO_BATCH_CNT / 2 >= inFlightCount) {
                 int countOfBatches = IO_BATCH_CNT - inFlightCount;
 
                 lastRequested += countOfBatches;
 
-                batchRequester.request(countOfBatches);
+                batchRequester.request(countOfBatches, sharedStateHolder);
+                // shared state should be send only once until next rewind
+                sharedStateHolder = null;
             }
         }
 

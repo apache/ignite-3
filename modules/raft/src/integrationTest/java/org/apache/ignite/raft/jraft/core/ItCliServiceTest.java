@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MILLIS;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -271,6 +272,23 @@ public class ItCliServiceTest {
         sleep(1000);
         assertEquals(Collections.singletonList(learner3.getPeerId()), cliService.getLearners(groupId, conf));
         assertTrue(cliService.getAliveLearners(groupId, conf).isEmpty());
+
+        TestPeer learner4 = new TestPeer(testInfo, TestUtils.INIT_PORT + LEARNER_PORT_STEP + 4);
+        assertTrue(cluster.startLearner(learner4));
+
+        cliService.addLearners(groupId, conf, Collections.singletonList(learner4.getPeerId()));
+        sleep(1000);
+        assertEquals(1, cliService.getAliveLearners(groupId, conf).size());
+        assertTrue(cliService.learner2Follower(groupId, conf, learner4.getPeerId()).isOk());
+
+        sleep(1000);
+        List<PeerId> currentLearners = cliService.getAliveLearners(groupId, conf);
+        assertFalse(currentLearners.contains(learner4.getPeerId()));
+
+        List<PeerId> currentFollowers = cliService.getPeers(groupId, conf);
+        assertTrue(currentFollowers.contains(learner4.getPeerId()));
+
+        cluster.stop(learner4.getPeerId());
     }
 
     @Test

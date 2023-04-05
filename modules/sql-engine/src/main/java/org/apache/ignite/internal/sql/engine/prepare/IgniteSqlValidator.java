@@ -26,6 +26,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
@@ -56,6 +57,7 @@ import org.apache.calcite.sql.type.SqlOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlOperandTypeInference;
 import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SelectScope;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorImpl;
@@ -65,7 +67,9 @@ import org.apache.calcite.sql.validate.SqlValidatorTable;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.jetbrains.annotations.Nullable;
@@ -98,8 +102,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** Dynamic parameters. */
     private final Object[] parameters;
 
-    private int dynamicParameterCount;
-
     /**
      * Creates a validator.
      *
@@ -119,34 +121,18 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     public SqlNode validate(SqlNode topNode) {
-        this.dynamicParameterCount = 0;
-        try {
-            SqlNode topNodeToValidate;
-            // Calcite fails to validate a query when its top node is EXPLAIN PLAN FOR
-            // java.lang.NullPointerException: namespace for <query>
-            // at org.apache.calcite.sql.validate.SqlValidatorImpl.getNamespaceOrThrow(SqlValidatorImpl.java:1280)
-            boolean explain = topNode instanceof SqlExplain;
-            if (explain) {
-                SqlExplain explainNode = (SqlExplain) topNode;
-                topNodeToValidate = explainNode.getExplicandum();
-            } else {
-                topNodeToValidate = topNode;
-            }
+        // Calcite fails to validate a query when its top node is EXPLAIN PLAN FOR
+        // java.lang.NullPointerException: namespace for <query>
+        // at org.apache.calcite.sql.validate.SqlValidatorImpl.getNamespaceOrThrow(SqlValidatorImpl.java:1280)
+        if (topNode instanceof SqlExplain) {
+            SqlExplain explainNode = (SqlExplain) topNode;
+            SqlNode topNodeToValidate = explainNode.getExplicandum();
 
             SqlNode validatedNode = super.validate(topNodeToValidate);
-            if (parameters.length != dynamicParameterCount) {
-                throw newValidationError(topNode, IgniteResource.INSTANCE.unexpectedParameter(parameters.length, dynamicParameterCount));
-            }
-
-            if (explain) {
-                SqlExplain explainNode = (SqlExplain) topNode;
-                explainNode.setOperand(0, validatedNode);
-                return explainNode;
-            } else {
-                return validatedNode;
-            }
-        } finally {
-            this.dynamicParameterCount = 0;
+            explainNode.setOperand(0, validatedNode);
+            return explainNode;
+        } else {
+            return super.validate(topNode);
         }
     }
 
@@ -268,15 +254,10 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         } else if (n instanceof SqlDynamicParam) {
             SqlDynamicParam dynamicParam = (SqlDynamicParam) n;
             int idx = dynamicParam.getIndex();
-            // validateDynamicParam is not called by a validator we must call it ourselves.
-            validateDynamicParam(dynamicParam);
-
-            if (idx < parameters.length) {
-                Object param = parameters[idx];
-                if (parameters[idx] instanceof Integer) {
-                    if ((Integer) param < 0) {
-                        throw newValidationError(n, IgniteResource.INSTANCE.correctIntegerLimit(nodeName));
-                    }
+            Object param = parameters[idx];
+            if (param instanceof Integer) {
+                if ((Integer) param < 0) {
+                    throw newValidationError(n, IgniteResource.INSTANCE.correctIntegerLimit(nodeName));
                 }
             }
         }
@@ -307,6 +288,76 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         super.validateAggregateParams(aggCall, filter, null, orderList, scope);
     }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelDataType deriveType(SqlValidatorScope scope, SqlNode expr) {
+        RelDataType dataType = super.deriveType(scope, expr);
+
+        if (!(expr instanceof SqlCall)) {
+            return dataType;
+        }
+
+        SqlKind sqlKind = expr.getKind();
+        // See the comments below.
+        // IgniteCustomType: at the moment we allow operations, involving custom data types, that are binary comparison to fail at runtime.
+        if (!SqlKind.BINARY_COMPARISON.contains(sqlKind)) {
+            return dataType;
+        }
+        // Comparison and arithmetic operators are SqlCalls.
+        SqlCall sqlCall = (SqlCall) expr;
+        // IgniteCustomType: We only handle binary operations here.
+        var lhs = getValidatedNodeType(sqlCall.operand(0));
+        var rhs = getValidatedNodeType(sqlCall.operand(1));
+
+        if (lhs.getSqlTypeName() != SqlTypeName.ANY && rhs.getSqlTypeName() != SqlTypeName.ANY) {
+            return dataType;
+        }
+
+        // IgniteCustomType:
+        //
+        // The correct way to implement the validation error bellow would be to move these coercion rules to SqlOperandTypeChecker:
+        // 1) Implement the SqlOperandTypeChecker that prohibit arithmetic operations
+        // between types that neither support binary/unary operators nor support type coercion.
+        // 2) Specify that SqlOperandTypeChecker for every binary/unary operator defined in
+        // IgniteSqlOperatorTable
+        //
+        // This would allow to reject plans that contain type errors
+        // at the validation stage.
+        //
+        // Similar approach can also be used to handle casts between types that can not
+        // be converted into one another.
+        //
+        // And if applied to dynamic parameters with combination of a modified SqlOperandTypeChecker for
+        // a cast function this would allow to reject plans with invalid values w/o at validation stage.
+        //
+        var customTypeCoercionRules = typeFactory().getCustomTypeCoercionRules();
+        boolean canConvert;
+
+        // IgniteCustomType: To enable implicit casts to a custom data type.
+        if (SqlTypeUtil.equalSansNullability(typeFactory(), lhs, rhs)) {
+            // We can always perform binary comparison operations between instances of the same type.
+            canConvert = true;
+        } else if (lhs instanceof IgniteCustomType) {
+            canConvert = customTypeCoercionRules.needToCast(rhs, (IgniteCustomType) lhs);
+        } else if (rhs instanceof IgniteCustomType) {
+            canConvert = customTypeCoercionRules.needToCast(lhs, (IgniteCustomType) rhs);
+        } else {
+            // We should not get here because at least one operand type must be a IgniteCustomType
+            // and only custom data types must use SqlTypeName::ANY.
+            throw new AssertionError("At least one operand must be a custom data type: " + expr);
+        }
+
+        if (!canConvert) {
+            var ex = RESOURCE.invalidTypesForComparison(
+                    lhs.getFullTypeString(), sqlKind.sql, rhs.getFullTypeString());
+
+            throw SqlUtil.newContextException(expr.getParserPosition(), ex);
+        } else {
+            return dataType;
+        }
+    }
+
 
     /** {@inheritDoc} */
     @Override
@@ -492,35 +543,12 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     /** {@inheritDoc} */
     @Override
-    public void validateDynamicParam(SqlDynamicParam dynamicParam) {
-        this.dynamicParameterCount = Integer.max(dynamicParameterCount, dynamicParam.getIndex() + 1);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     protected void inferUnknownTypes(RelDataType inferredType, SqlValidatorScope scope, SqlNode node) {
-
         if (node instanceof SqlDynamicParam && inferredType.equals(unknownType)) {
             SqlDynamicParam dynamicParam = (SqlDynamicParam) node;
 
-            // We explicitly call validateDynamicParam because the validator does not call it.
-            validateDynamicParam(dynamicParam);
-
-            if (dynamicParam.getIndex() >= parameters.length) {
-                RelDataType type = typeFactory().createSqlType(SqlTypeName.NULL);
-                setValidatedNodeType(node, type);
-            } else {
-                RelDataType type;
-                // Parameter's index is always valid because otherwise validateDynamicParam throws an exception.
-                Object param = parameters[dynamicParam.getIndex()];
-                if (param == null) {
-                    type = typeFactory().createSqlType(SqlTypeName.NULL);
-                } else {
-                    type = typeFactory().toSql(typeFactory().createType(param.getClass()));
-                }
-
-                setValidatedNodeType(node, type);
-            }
+            RelDataType type = inferDynamicParamType(dynamicParam);
+            setValidatedNodeType(node, type);
         } else if (node instanceof SqlCall) {
             SqlValidatorScope newScope = scopes.get(node);
 
@@ -567,5 +595,23 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         } else {
             super.inferUnknownTypes(inferredType, scope, node);
         }
+    }
+
+    private RelDataType inferDynamicParamType(SqlDynamicParam dynamicParam) {
+        RelDataType parameterType;
+
+        Object param = parameters[dynamicParam.getIndex()];
+        // IgniteCustomType: first we must check whether dynamic parameter is a custom data type.
+        // If so call createCustomType with appropriate arguments.
+        if (param instanceof UUID) {
+            parameterType =  typeFactory().createCustomType(UuidType.NAME);
+        } else if (param != null) {
+            parameterType = typeFactory().toSql(typeFactory().createType(param.getClass()));
+        } else {
+            parameterType = typeFactory().createSqlType(SqlTypeName.NULL);
+        }
+
+        // Dynamic parameters are nullable.
+        return typeFactory().createTypeWithNullability(parameterType, true);
     }
 }

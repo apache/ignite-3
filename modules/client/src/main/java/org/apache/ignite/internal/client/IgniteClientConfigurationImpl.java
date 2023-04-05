@@ -21,6 +21,7 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.client.IgniteClientAddressFinder;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.RetryPolicy;
+import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.lang.LoggerFactory;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,6 +44,9 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     /** Reconnect throttling retries. */
     private final int reconnectThrottlingRetries;
 
+    /** Reconnect interval, in milliseconds. */
+    private final long reconnectInterval;
+
     /** Async continuation executor. */
     private final Executor asyncContinuationExecutor;
 
@@ -57,19 +61,25 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     private final LoggerFactory loggerFactory;
 
+    private final SslConfiguration sslConfiguration;
+
+    private final boolean metricsEnabled;
+
     /**
      * Constructor.
      *
      * @param addressFinder Address finder.
-     * @param addresses  Addresses.
+     * @param addresses Addresses.
      * @param connectTimeout Socket connect timeout.
      * @param reconnectThrottlingPeriod Reconnect throttling period, in milliseconds.
      * @param reconnectThrottlingRetries Reconnect throttling retries.
+     * @param reconnectInterval Reconnect throttling retries.
      * @param asyncContinuationExecutor Async continuation executor.
      * @param heartbeatInterval Heartbeat message interval.
      * @param heartbeatTimeout Heartbeat message timeout.
      * @param retryPolicy Retry policy.
      * @param loggerFactory Logger factory which will be used to create a logger instance for this this particular client when needed.
+     * @param metricsEnabled Whether metrics are enabled.
      */
     public IgniteClientConfigurationImpl(
             IgniteClientAddressFinder addressFinder,
@@ -77,12 +87,14 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             long connectTimeout,
             long reconnectThrottlingPeriod,
             int reconnectThrottlingRetries,
+            long reconnectInterval,
             Executor asyncContinuationExecutor,
             long heartbeatInterval,
             long heartbeatTimeout,
             @Nullable RetryPolicy retryPolicy,
-            @Nullable LoggerFactory loggerFactory
-    ) {
+            @Nullable LoggerFactory loggerFactory,
+            @Nullable SslConfiguration sslConfiguration,
+            boolean metricsEnabled) {
         this.addressFinder = addressFinder;
 
         //noinspection AssignmentOrReturnOfFieldWithMutableType (cloned in Builder).
@@ -91,11 +103,14 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.connectTimeout = connectTimeout;
         this.reconnectThrottlingPeriod = reconnectThrottlingPeriod;
         this.reconnectThrottlingRetries = reconnectThrottlingRetries;
+        this.reconnectInterval = reconnectInterval;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
         this.heartbeatInterval = heartbeatInterval;
         this.heartbeatTimeout = heartbeatTimeout;
         this.retryPolicy = retryPolicy;
         this.loggerFactory = loggerFactory;
+        this.sslConfiguration = sslConfiguration;
+        this.metricsEnabled = metricsEnabled;
     }
 
     /** {@inheritDoc} */
@@ -130,6 +145,12 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     /** {@inheritDoc} */
     @Override
+    public long reconnectInterval() {
+        return reconnectInterval;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public @Nullable Executor asyncContinuationExecutor() {
         return asyncContinuationExecutor;
     }
@@ -156,5 +177,17 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public @Nullable RetryPolicy retryPolicy() {
         return retryPolicy;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable SslConfiguration ssl() {
+        return sslConfiguration;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean metricsEnabled() {
+        return metricsEnabled;
     }
 }

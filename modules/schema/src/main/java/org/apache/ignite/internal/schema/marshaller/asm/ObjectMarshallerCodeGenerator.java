@@ -25,7 +25,6 @@ import com.facebook.presto.bytecode.FieldDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import java.lang.invoke.MethodHandles;
@@ -85,9 +84,10 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
             int i) {
         final ColumnAccessCodeGenerator columnAccessor = columnAccessors[i];
 
+        // We need to skip casting to the mapped type in order to check for null even for primitive types
         return BytecodeExpressions.getStatic(marshallerClass, "FIELD_HANDLER_" + columnAccessor.columnIdx(),
                 ParameterizedType.type(VarHandle.class))
-                       .invoke("get", columnAccessor.mappedType(), obj);
+                       .invoke("get", Object.class, obj);
     }
 
     /** {@inheritDoc} */
@@ -105,21 +105,11 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
                     )
                     .invoke("get", columnAccessor.mappedType(), obj);
 
-            final BytecodeExpression marshallNonNulExpr = asm.invoke(
+            block.append(asm.invoke(
                     columnAccessor.writeMethodName(),
                     RowAssembler.class,
-                    Collections.singletonList(columnAccessor.writeArgType()),
-                    fld.cast(columnAccessor.writeArgType()));
-
-            if (columns.column(i).nullable()) {
-                block.append(new BytecodeBlock().append(
-                        new IfStatement().condition(BytecodeExpressions.isNull(fld))
-                                .ifTrue(asm.invoke("appendNull", RowAssembler.class))
-                                .ifFalse(marshallNonNulExpr))
-                );
-            } else {
-                block.append(marshallNonNulExpr);
-            }
+                    Collections.singletonList(columnAccessor.mappedType()),
+                    fld.cast(columnAccessor.mappedType())));
         }
 
         return block;
@@ -152,13 +142,13 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
     /** {@inheritDoc} */
     @Override
-    public void initStaticHandlers(ClassDefinition classDef, FieldDefinition targetClassField) {
+    public void initStaticHandlers(ClassDefinition classDef) {
         final MethodDefinition init = classDef.getClassInitializer();
         final Variable lookup = init.getScope().createTempVariable(MethodHandles.Lookup.class);
+        Variable targetClassVar = init.getScope().createTempVariable(Class.class);
 
         final BytecodeBlock body = init.getBody().append(
-                BytecodeExpressions.setStatic(
-                        targetClassField,
+                targetClassVar.set(
                         BytecodeExpressions.invokeStatic(Class.class, "forName", Class.class,
                                 BytecodeExpressions.constantString(targetClass.getName()))
                 ));
@@ -169,7 +159,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
                                 MethodHandles.class,
                                 "privateLookupIn",
                                 MethodHandles.Lookup.class,
-                                BytecodeExpressions.getStatic(targetClassField),
+                                targetClassVar,
                                 BytecodeExpressions.invokeStatic(MethodHandles.class, "lookup", MethodHandles.Lookup.class))
                 ));
 
@@ -181,7 +171,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
                     BytecodeExpressions.setStatic(fld, lookup.invoke(
                             "findVarHandle",
                             VarHandle.class,
-                            BytecodeExpressions.getStatic(targetClassField),
+                            targetClassVar,
                             BytecodeExpressions.constantString(columnAccessors[i].fieldName()),
                             BytecodeExpressions.constantClass(columnAccessors[i].mappedType())
                     ))

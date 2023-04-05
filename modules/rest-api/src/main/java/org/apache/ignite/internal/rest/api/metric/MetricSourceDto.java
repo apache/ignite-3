@@ -25,12 +25,14 @@ import io.swagger.v3.oas.annotations.media.Schema;
 /**
  * REST representation of MetricSource.
  */
-@Schema(name = "MetricSource")
+@Schema(name = "MetricSource", description = "A list of metric sources provided by modules.")
 public class MetricSourceDto {
     /** Name of the metric source. */
+    @Schema(description = "Metric source name.", required = true)
     private final String name;
 
     /** Enabled. */
+    @Schema(description = "If True, the metric is tracked. Otherwise, the metric is not tracked.", required = true)
     private final boolean enabled;
 
     /**

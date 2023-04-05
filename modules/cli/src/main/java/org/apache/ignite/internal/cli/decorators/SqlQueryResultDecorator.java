@@ -29,8 +29,8 @@ public class SqlQueryResultDecorator implements Decorator<SqlQueryResult, Termin
 
     private final DefaultDecorator<String> messageDecorator = new DefaultDecorator<>();
 
-    public SqlQueryResultDecorator(TableDecorator tableDecorator) {
-        this.tableDecorator = tableDecorator;
+    public SqlQueryResultDecorator(boolean plain) {
+        this.tableDecorator = new TableDecorator(plain);
     }
 
     @Override

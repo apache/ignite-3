@@ -17,24 +17,62 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
-import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.mockValidationContext;
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.validate;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * TableValidatorImplTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class TableValidatorImplTest extends AbstractTableIndexValidatorTest {
+@ExtendWith(ConfigurationExtension.class)
+public class TableValidatorImplTest {
+    @InjectConfiguration(
+            "mock.tables.table {"
+                    + "columns.id {type.type: INT32}, "
+                    + "columns.affId {type.type: INT32}, "
+                    + "columns.id2 {type.type: STRING}, "
+                    + "primaryKey {columns: [affId, id], colocationColumns: [affId]}"
+                    + "}"
+    )
+    private TablesConfiguration tablesCfg;
+
     /** Tests that validator finds no issues in a simple valid configuration. */
     @Test
     public void testNoIssues() {
-        ValidationContext<NamedListView<TableView>> ctx = mockValidationContext(null, tablesCfg.tables().value());
+        validate0((String[]) null);
+    }
 
-        validate(TableValidatorImpl.INSTANCE, mock(TableValidator.class), ctx, null);
+    @Test
+    void testCreateTableWithSameIndexName() {
+        assertThat(
+                tablesCfg.indexes().change(indexesChange ->
+                        indexesChange.create("table", indexChange -> indexChange.convert(HashIndexChange.class))
+                ),
+                willCompleteSuccessfully()
+        );
+
+        validate0("Unable to create table. Index with the same name already exists.");
+    }
+
+    private void validate0(String @Nullable ... errorMessagePrefixes) {
+        ValidationContext<NamedListView<TableView>> validationContext = mock(ValidationContext.class);
+
+        when(validationContext.getNewValue()).then(invocation -> tablesCfg.tables().value());
+
+        when(validationContext.getNewRoot(TablesConfiguration.KEY)).then(invocation -> tablesCfg.value());
+
+        validate(TableValidatorImpl.INSTANCE, mock(TableValidator.class), validationContext, errorMessagePrefixes);
     }
 }

@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.storage.DataStorageModulesTest.createMo
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
@@ -79,9 +80,8 @@ public class DataStorageManagerTest {
                 dataStorageModules.createStorageEngines("test", mock(ConfigurationRegistry.class), workDir, null)
         );
 
-        // Checks that the current default is "aimem" even if we have one engine and it's not "aimem".
-        // TODO: IGNITE-17197 Uncomment after the ticket is resolved.
-        // assertThat("aimem", equalTo(dataStorageManager.defaultDataStorage()));
+        // Checks that the current default is "aipersist" even if we have one engine and it's not "aipersist".
+        assertThat(dataStorageManager.defaultDataStorage(), is("aipersist"));
     }
 
     @Test
@@ -96,8 +96,7 @@ public class DataStorageManagerTest {
                 dataStorageModules.createStorageEngines("test", mock(ConfigurationRegistry.class), workDir, null)
         );
 
-        // TODO: IGNITE-17197 Uncomment after the ticket is resolved.
-        // assertThat("aimem", equalTo(dataStorageManager.defaultDataStorage()));
+        assertThat(dataStorageManager.defaultDataStorage(), is("aipersist"));
 
         tablesConfig.defaultDataStorage().update(FIRST).get(1, TimeUnit.SECONDS);
         assertThat(FIRST, equalTo(dataStorageManager.defaultDataStorage()));

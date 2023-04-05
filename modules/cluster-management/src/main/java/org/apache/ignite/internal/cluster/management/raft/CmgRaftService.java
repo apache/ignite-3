@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -81,7 +83,7 @@ public class CmgRaftService implements ManuallyCloseable {
         } else {
             String nodeName = clusterService.topologyService().localMember().name();
 
-            return CompletableFuture.completedFuture(leader.consistentId().equals(nodeName));
+            return completedFuture(leader.consistentId().equals(nodeName));
         }
     }
 
@@ -118,6 +120,16 @@ public class CmgRaftService implements ManuallyCloseable {
     }
 
     /**
+     * Updates the saved {@link ClusterState}.
+     *
+     * @param clusterState Cluster state.
+     * @return Future that will be resolved when the cluster state is updated.
+     */
+    public CompletableFuture<Void> updateClusterState(ClusterState clusterState) {
+        return raftService.run(msgFactory.updateClusterStateCommand().clusterState(clusterState).build());
+    }
+
+    /**
      * Sends a {@link JoinRequestCommand}, starting the validation procedure.
      *
      * @param clusterTag Cluster tag of the joining node.
@@ -125,8 +137,8 @@ public class CmgRaftService implements ManuallyCloseable {
      *         otherwise.
      * @see ValidationManager
      */
-    public CompletableFuture<Void> startJoinCluster(ClusterTag clusterTag) {
-        ClusterNodeMessage localNodeMessage = nodeMessage(clusterService.topologyService().localMember());
+    public CompletableFuture<Void> startJoinCluster(ClusterTag clusterTag, Map<String, String> nodeAttributes) {
+        ClusterNodeMessage localNodeMessage = nodeMessage(clusterService.topologyService().localMember(), nodeAttributes);
 
         JoinRequestCommand command = msgFactory.joinRequestCommand()
                 .node(localNodeMessage)
@@ -151,10 +163,10 @@ public class CmgRaftService implements ManuallyCloseable {
      *
      * @return Future that represents the state of the operation.
      */
-    public CompletableFuture<Void> completeJoinCluster() {
+    public CompletableFuture<Void> completeJoinCluster(Map<String, String> nodeAttributes) {
         LOG.info("Node is ready to join the logical topology");
 
-        ClusterNodeMessage localNodeMessage = nodeMessage(clusterService.topologyService().localMember());
+        ClusterNodeMessage localNodeMessage = nodeMessage(clusterService.topologyService().localMember(), nodeAttributes);
 
         return raftService.run(msgFactory.joinReadyCommand().node(localNodeMessage).build())
                 .thenAccept(response -> {
@@ -194,6 +206,14 @@ public class CmgRaftService implements ManuallyCloseable {
     }
 
     /**
+     * Returns a future that, when complete, resolves into a list of validated nodes. This list includes all nodes currently present in the
+     * Logical Topology as well as nodes that only have passed the validation step.
+     */
+    public CompletableFuture<Set<ClusterNode>> validatedNodes() {
+        return raftService.run(msgFactory.readValidatedNodesCommand().build());
+    }
+
+    /**
      * Returns a set of consistent IDs of the voting nodes of the CMG.
      *
      * @return Set of consistent IDs of the voting nodes of the CMG.
@@ -208,12 +228,23 @@ public class CmgRaftService implements ManuallyCloseable {
                 .collect(toSet());
     }
 
+    private ClusterNodeMessage nodeMessage(ClusterNode node, Map<String, String> nodeAttributes) {
+        return msgFactory.clusterNodeMessage()
+                .id(node.id())
+                .name(node.name())
+                .host(node.address().host())
+                .port(node.address().port())
+                .nodeAttributes(nodeAttributes)
+                .build();
+    }
+
     private ClusterNodeMessage nodeMessage(ClusterNode node) {
         return msgFactory.clusterNodeMessage()
                 .id(node.id())
                 .name(node.name())
                 .host(node.address().host())
                 .port(node.address().port())
+                .nodeAttributes(null)
                 .build();
     }
 
@@ -225,6 +256,16 @@ public class CmgRaftService implements ManuallyCloseable {
      * @return Future that completes when the request is processed.
      */
     public CompletableFuture<Void> updateLearners(long term) {
+        List<Peer> currentLearners = raftService.learners();
+
+        if (currentLearners == null) {
+            return raftService.refreshMembers(true).thenCompose(v -> updateLearners(term));
+        }
+
+        Set<String> currentLearnerNames = currentLearners.stream()
+                .map(Peer::consistentId)
+                .collect(toSet());
+
         Set<String> currentPeers = nodeNames();
 
         Set<String> newLearners = logicalTopology.getLogicalTopology().nodes().stream()
@@ -232,9 +273,18 @@ public class CmgRaftService implements ManuallyCloseable {
                 .filter(name -> !currentPeers.contains(name))
                 .collect(toSet());
 
+        if (currentLearnerNames.equals(newLearners)) {
+            return completedFuture(null);
+        }
+
         PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(currentPeers, newLearners);
 
-        return raftService.changePeersAsync(newConfiguration, term);
+        if (newLearners.isEmpty()) {
+            // Methods for working with learners do not support empty peer lists for some reason.
+            return raftService.changePeersAsync(newConfiguration, term);
+        } else {
+            return raftService.resetLearners(newConfiguration.learners());
+        }
     }
 
     @Override

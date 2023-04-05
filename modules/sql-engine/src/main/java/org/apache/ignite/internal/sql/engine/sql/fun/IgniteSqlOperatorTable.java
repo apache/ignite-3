@@ -22,11 +22,13 @@ import org.apache.calcite.sql.SqlFunctionCategory;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.fun.SqlLibraryOperators;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
+import org.apache.calcite.sql.fun.SqlSubstringFunction;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeTransforms;
 import org.apache.calcite.sql.util.ReflectiveSqlOperatorTable;
+import org.apache.ignite.internal.sql.engine.type.UuidType;
 
 /**
  * Operator table that contains only Ignite-specific functions and operators.
@@ -97,6 +99,62 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     OperandTypes.SAME_SAME,
                     SqlFunctionCategory.SYSTEM);
 
+    /**
+     * Generic {@code SUBSTR(string, position [, length]} function.
+     * This function works exactly the same as {@link SqlSubstringFunction SUSBSTRING(string, position [, length])}.
+     */
+    public static final SqlFunction SUBSTR = new SqlFunction("SUBSTR", SqlKind.OTHER_FUNCTION,
+            ReturnTypes.ARG0_NULLABLE_VARYING, null,
+            OperandTypes.STRING_INTEGER_OPTIONAL_INTEGER,
+            SqlFunctionCategory.STRING);
+
+    /**
+     * The {@code RAND_UUID()} function, which yields a random UUID.
+     */
+    public static final SqlFunction RAND_UUID =
+            new SqlFunction(
+                    "RAND_UUID",
+                    SqlKind.OTHER_FUNCTION,
+                    ReturnTypes.explicit(new UuidType(false)),
+                    null,
+                    OperandTypes.NILADIC,
+                    SqlFunctionCategory.SYSTEM
+            ) {
+                @Override
+                public boolean isDynamicFunction() {
+                    return true;
+                }
+
+                @Override
+                public boolean isDeterministic() {
+                    return false;
+                }
+            };
+
+    /**
+     * This function is used to generate a value for implicit primary key.
+     */
+    // TODO This function should removed when https://issues.apache.org/jira/browse/IGNITE-19103 is complete.
+    public static final SqlFunction GEN_RANDOM_UUID =
+            new SqlFunction(
+                    "GEN_RANDOM_UUID",
+                    SqlKind.OTHER_FUNCTION,
+                    ReturnTypes.explicit(SqlTypeName.VARCHAR),
+                    null,
+                    OperandTypes.NILADIC,
+                    SqlFunctionCategory.SYSTEM
+            ) {
+                @Override
+                public boolean isDynamicFunction() {
+                    return true;
+                }
+
+                @Override
+                public boolean isDeterministic() {
+                    return false;
+                }
+            };
+
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
 
@@ -147,6 +205,9 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.ANY_VALUE);
         register(SqlStdOperatorTable.SINGLE_VALUE);
         register(SqlStdOperatorTable.FILTER);
+
+        register(SqlStdOperatorTable.EVERY);
+        register(SqlStdOperatorTable.SOME);
 
         // IS ... operator.
         register(SqlStdOperatorTable.IS_NULL);
@@ -202,6 +263,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.TRIM);
         register(SqlLibraryOperators.LTRIM);
         register(SqlLibraryOperators.RTRIM);
+        register(SUBSTR);
 
         // Math functions.
         register(SqlStdOperatorTable.MOD); // Arithmetic remainder.
@@ -360,5 +422,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(LEAST2);
         register(GREATEST2);
         register(NULL_BOUND);
+        register(RAND_UUID);
+        register(GEN_RANDOM_UUID);
     }
 }

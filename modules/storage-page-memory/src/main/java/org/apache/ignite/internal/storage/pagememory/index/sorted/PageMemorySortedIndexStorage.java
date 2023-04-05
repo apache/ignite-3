@@ -17,16 +17,12 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.sorted;
 
-import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
-import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -37,68 +33,52 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.index.AbstractPageMemoryIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
-import org.apache.ignite.internal.storage.util.StorageState;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of Sorted index storage using Page Memory.
  */
-public class PageMemorySortedIndexStorage implements SortedIndexStorage {
+public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage implements SortedIndexStorage {
     private static final IgniteLogger LOG = Loggers.forClass(PageMemorySortedIndexStorage.class);
 
     /** Index descriptor. */
     private final SortedIndexDescriptor descriptor;
 
-    /** Free list to store index columns. */
-    private volatile IndexColumnsFreeList freeList;
-
     /** Sorted index tree instance. */
     private volatile SortedIndexTree sortedIndexTree;
-
-    /** Partition id. */
-    private final int partitionId;
-
-    /** Lowest possible RowId according to signed long ordering. */
-    private final RowId lowestRowId;
-
-    /** Highest possible RowId according to signed long ordering. */
-    private final RowId highestRowId;
-
-    /** Busy lock. */
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-    /** Current state of the storage. */
-    private final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /**
      * Constructor.
      *
+     * @param indexMeta Index meta.
      * @param descriptor Sorted index descriptor.
      * @param freeList Free list to store index columns.
      * @param sortedIndexTree Sorted index tree instance.
+     * @param indexMetaTree Index meta tree instance.
      */
-    public PageMemorySortedIndexStorage(SortedIndexDescriptor descriptor, IndexColumnsFreeList freeList, SortedIndexTree sortedIndexTree) {
+    public PageMemorySortedIndexStorage(
+            IndexMeta indexMeta,
+            SortedIndexDescriptor descriptor,
+            IndexColumnsFreeList freeList,
+            SortedIndexTree sortedIndexTree,
+            IndexMetaTree indexMetaTree
+    ) {
+        super(indexMeta, sortedIndexTree.partitionId(), freeList, indexMetaTree);
+
         this.descriptor = descriptor;
-        this.freeList = freeList;
         this.sortedIndexTree = sortedIndexTree;
-
-        partitionId = sortedIndexTree.partitionId();
-
-        lowestRowId = RowId.lowestRowId(partitionId);
-
-        highestRowId = RowId.highestRowId(partitionId);
     }
 
     @Override
@@ -205,20 +185,8 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         );
     }
 
-    /**
-     * Closes the sorted index storage.
-     */
-    public void close() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
-            StorageState state = this.state.get();
-
-            assert state == StorageState.CLOSED : state;
-
-            return;
-        }
-
-        busyLock.block();
-
+    @Override
+    public void closeStructures() {
         sortedIndexTree.close();
     }
 
@@ -378,49 +346,6 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         }
     }
 
-    private <V> V busy(Supplier<V> supplier) {
-        if (!busyLock.enterBusy()) {
-            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
-        }
-
-        try {
-            return supplier.get();
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Prepares storage for rebalancing.
-     *
-     * @throws StorageRebalanceException If there was an error when starting the rebalance.
-     */
-    public void startRebalance() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.REBALANCE)) {
-            throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
-        }
-
-        // Changed storage states and expect all storage operations to stop soon.
-        busyLock.block();
-
-        try {
-            this.sortedIndexTree.close();
-        } finally {
-            busyLock.unblock();
-        }
-    }
-
-    /**
-     * Completes the rebalancing of the storage.
-     *
-     * @throws StorageRebalanceException If there is an error while completing the storage rebalance.
-     */
-    public void completeRebalance() {
-        if (!state.compareAndSet(StorageState.REBALANCE, StorageState.RUNNABLE)) {
-            throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
-        }
-    }
-
     /**
      * Updates the internal data structures of the storage on rebalance or cleanup.
      *
@@ -433,10 +358,6 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
         this.freeList = freeList;
         this.sortedIndexTree = sortedIndexTree;
-    }
-
-    private String createStorageInfo() {
-        return IgniteStringFormatter.format("indexId={}, partitionId={}", descriptor.id(), partitionId);
     }
 
     /**
@@ -469,32 +390,5 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
             indexRow.indexColumns().link(PageIdUtils.NULL_LINK);
         }
-    }
-
-    /**
-     * Prepares the storage for cleanup.
-     *
-     * <p>After cleanup (successful or not), method {@link #finishCleanup()} must be called.
-     */
-    public void startCleanup() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLEANUP)) {
-            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
-        }
-
-        // Changed storage states and expect all storage operations to stop soon.
-        busyLock.block();
-
-        try {
-            sortedIndexTree.close();
-        } finally {
-            busyLock.unblock();
-        }
-    }
-
-    /**
-     * Finishes cleanup up the storage.
-     */
-    public void finishCleanup() {
-        state.compareAndSet(StorageState.CLEANUP, StorageState.RUNNABLE);
     }
 }

@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -54,6 +55,8 @@ public class FakeInternalTable implements InternalTable {
     /** Table ID. */
     private final UUID tableId;
 
+    private final Function<BinaryRow, BinaryTuple> keyExtractor;
+
     /** Table data. */
     private final ConcurrentHashMap<ByteBuffer, BinaryRow> data = new ConcurrentHashMap<>();
 
@@ -64,11 +67,13 @@ public class FakeInternalTable implements InternalTable {
      * The constructor.
      *
      * @param tableName Name.
-     * @param tableId   Id.
+     * @param tableId Id.
+     * @param keyExtractor Function which converts given binary row to an index key.
      */
-    public FakeInternalTable(String tableName, UUID tableId) {
+    public FakeInternalTable(String tableName, UUID tableId, Function<BinaryRow, BinaryTuple> keyExtractor) {
         this.tableName = tableName;
         this.tableId = tableId;
+        this.keyExtractor = keyExtractor;
     }
 
     /** {@inheritDoc} */
@@ -97,10 +102,16 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
+    public int partitionId(BinaryRowEx row) {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
         onDataAccess("get", keyRow);
 
-        return CompletableFuture.completedFuture(data.get(keyRow.keySlice()));
+        return CompletableFuture.completedFuture(data.get(keyExtractor.apply(keyRow).byteBuffer()));
     }
 
     /** {@inheritDoc} */
@@ -145,7 +156,7 @@ public class FakeInternalTable implements InternalTable {
     public CompletableFuture<Void> upsert(BinaryRowEx row, @Nullable InternalTransaction tx) {
         onDataAccess("upsert", row);
 
-        data.put(row.keySlice(), row);
+        data.put(keyExtractor.apply(row).byteBuffer(), row);
 
         return CompletableFuture.completedFuture(null);
     }
@@ -225,7 +236,7 @@ public class FakeInternalTable implements InternalTable {
     public CompletableFuture<Boolean> replace(BinaryRowEx oldRow, BinaryRowEx newRow, @Nullable InternalTransaction tx) {
         var old = get(oldRow, tx).getNow(null);
 
-        if (old == null || !old.valueSlice().equals(oldRow.valueSlice())) {
+        if (old == null || !old.tupleSlice().equals(oldRow.tupleSlice())) {
             onDataAccess("replace", oldRow);
             return CompletableFuture.completedFuture(false);
         }
@@ -254,7 +265,7 @@ public class FakeInternalTable implements InternalTable {
         var old = get(keyRow, tx).getNow(null);
 
         if (old != null) {
-            data.remove(keyRow.keySlice());
+            data.remove(keyExtractor.apply(keyRow).byteBuffer());
         }
 
         onDataAccess("delete", keyRow);
@@ -268,8 +279,8 @@ public class FakeInternalTable implements InternalTable {
 
         var old = get(oldRow, tx).getNow(null);
 
-        if (old != null && old.valueSlice().equals(oldRow.valueSlice())) {
-            data.remove(oldRow.keySlice());
+        if (old != null && old.tupleSlice().equals(oldRow.tupleSlice())) {
+            data.remove(keyExtractor.apply(oldRow).byteBuffer());
             res = true;
         }
 
@@ -284,7 +295,7 @@ public class FakeInternalTable implements InternalTable {
         var old = get(row, tx).getNow(null);
 
         if (old != null) {
-            data.remove(row.keySlice());
+            data.remove(keyExtractor.apply(row).byteBuffer());
         }
 
         onDataAccess("getAndDelete", row);
@@ -372,18 +383,6 @@ public class FakeInternalTable implements InternalTable {
             @NotNull ClusterNode recipientNode
     ) {
         return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Publisher<BinaryRow> lookup(
-            int partId,
-            @Nullable InternalTransaction tx,
-            @NotNull UUID indexId,
-            BinaryTuple key,
-            @Nullable BitSet columnsToInclude
-    ) {
-        throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
     /** {@inheritDoc} */

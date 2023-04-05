@@ -45,6 +45,24 @@ public interface RaftManager extends IgniteComponent {
     ) throws NodeStoppingException;
 
     /**
+     * Starts a Raft group and a Raft service on the current node, using the given raft group service.
+     *
+     * @param nodeId Raft node ID.
+     * @param configuration Peers and Learners of the Raft group.
+     * @param lsnr Raft group listener.
+     * @param eventsLsnr Raft group events listener.
+     * @param factory Service factory.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNode(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            RaftServiceFactory<T> factory
+    ) throws NodeStoppingException;
+
+    /**
      * Stops a given local Raft node.
      *
      * @param nodeId Raft node ID.
@@ -76,5 +94,20 @@ public interface RaftManager extends IgniteComponent {
     CompletableFuture<RaftGroupService> startRaftGroupService(
             ReplicationGroupId groupId,
             PeersAndLearners configuration
+    ) throws NodeStoppingException;
+
+    /**
+     * Creates a Raft group service providing operations on a Raft group, using the given factory.
+     *
+     * @param groupId Raft group ID.
+     * @param configuration Peers and Learners of the Raft group.
+     * @param factory Factory that should be used to create raft service.
+     * @return Future that will be completed with an instance of a Raft group service.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    <T extends RaftGroupService> CompletableFuture<T> startRaftGroupService(
+            ReplicationGroupId groupId,
+            PeersAndLearners configuration,
+            RaftServiceFactory<T> factory
     ) throws NodeStoppingException;
 }

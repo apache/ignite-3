@@ -23,8 +23,10 @@ namespace Apache.Ignite.Internal.Table
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
+    using Common;
     using Ignite.Table;
     using Ignite.Transactions;
+    using Log;
     using Proto;
     using Proto.MsgPack;
     using Serialization;
@@ -49,6 +51,9 @@ namespace Apache.Ignite.Internal.Table
 
         /** */
         private readonly object _latestSchemaLock = new();
+
+        /** */
+        private readonly IIgniteLogger? _logger;
 
         /** */
         private readonly SemaphoreSlim _partitionAssignmentSemaphore = new(1);
@@ -76,6 +81,8 @@ namespace Apache.Ignite.Internal.Table
 
             Name = name;
             Id = id;
+
+            _logger = socket.Configuration.Logger.GetLogger(GetType());
 
             RecordBinaryView = new RecordView<IIgniteTuple>(
                 this,
@@ -120,6 +127,13 @@ namespace Apache.Ignite.Internal.Table
             where TK : notnull
             where TV : notnull =>
             new KeyValueView<TK, TV>(GetRecordViewInternal<KvPair<TK, TV>>());
+
+        /// <inheritdoc/>
+        public override string ToString() =>
+            new IgniteToStringBuilder(GetType())
+                .Append(Name)
+                .Append(Id)
+                .Build();
 
         /// <summary>
         /// Gets the record view for the specified type.
@@ -194,13 +208,20 @@ namespace Apache.Ignite.Internal.Table
             }
 
             var assignment = await GetPartitionAssignmentAsync().ConfigureAwait(false);
+
+            if (assignment == null || assignment.Length == 0)
+            {
+                // Happens on table drop.
+                return default;
+            }
+
             var partition = Math.Abs(colocationHash % assignment.Length);
             var nodeId = assignment[partition];
 
             return PreferredNode.FromId(nodeId);
         }
 
-        private async ValueTask<string[]> GetPartitionAssignmentAsync()
+        private async ValueTask<string[]?> GetPartitionAssignmentAsync()
         {
             var socketVer = _socket.PartitionAssignmentVersion;
             var assignment = _partitionAssignment;
@@ -331,6 +352,11 @@ namespace Apache.Ignite.Internal.Table
 
             _schemas[schemaVersion] = schema;
 
+            if (_logger?.IsEnabled(LogLevel.Debug) == true)
+            {
+                _logger.Debug($"Schema loaded [tableId={Id}, schemaVersion={schema.Version}]");
+            }
+
             lock (_latestSchemaLock)
             {
                 if (schemaVersion > _latestSchemaVersion)
@@ -346,7 +372,7 @@ namespace Apache.Ignite.Internal.Table
         /// Loads the partition assignment.
         /// </summary>
         /// <returns>Partition assignment.</returns>
-        private async Task<string[]> LoadPartitionAssignmentAsync()
+        private async Task<string[]?> LoadPartitionAssignmentAsync()
         {
             using var writer = ProtoCommon.GetMessageWriter();
             writer.MessageWriter.Write(Id);
@@ -354,10 +380,16 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.PartitionAssignmentGet, writer).ConfigureAwait(false);
             return Read();
 
-            string[] Read()
+            string[]? Read()
             {
                 var r = resBuf.GetReader();
                 var count = r.ReadArrayHeader();
+
+                if (count == 0)
+                {
+                    return null;
+                }
+
                 var res = new string[count];
 
                 for (int i = 0; i < count; i++)

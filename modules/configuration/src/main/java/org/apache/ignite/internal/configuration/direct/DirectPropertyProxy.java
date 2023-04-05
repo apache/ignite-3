@@ -76,4 +76,9 @@ public abstract class DirectPropertyProxy<VIEWT> implements ConfigurationPropert
     public final void stopListen(ConfigurationListener<VIEWT> listener) {
         throw new UnsupportedOperationException("stopListen");
     }
+
+    @Override
+    public <T extends ConfigurationProperty<VIEWT>> T directProxy() {
+        return (T) this;
+    }
 }

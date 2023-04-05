@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * ExchangeService interface.
@@ -48,9 +49,10 @@ public interface ExchangeService extends LifecycleAware {
      * @param fragmentId An identifier of the fragment to request from.
      * @param exchangeId An identifier of the exchange to request from.
      * @param amountOfBatches A count of batches to request.
+     * @param state A state to propagate to the remote source.
      */
-    void request(String nodeName, UUID queryId, long fragmentId, long exchangeId, int amountOfBatches)
-            throws IgniteInternalCheckedException;
+    void request(String nodeName, UUID queryId, long fragmentId, long exchangeId, int amountOfBatches,
+            @Nullable SharedState state) throws IgniteInternalCheckedException;
 
     /**
      * Sends cancel request.

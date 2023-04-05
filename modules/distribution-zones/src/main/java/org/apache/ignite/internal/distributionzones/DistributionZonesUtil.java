@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.Collections.emptyMap;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -24,13 +26,27 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
+import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 
+import com.jayway.jsonpath.InvalidPathException;
+import com.jayway.jsonpath.JsonPath;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
+import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Util class for Distribution Zones flow.
@@ -60,6 +76,12 @@ public class DistributionZonesUtil {
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION}. */
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY =
             new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION);
+
+    /**
+     * The initial value of trigger revision in case when it is not initialized in the meta storage.
+     * The trigger revision in the meta storage can be uninitialized for the default distribution zone.
+     */
+    private static final long INITIAL_TRIGGER_REVISION_VALUE = 0;
 
     /**
      * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}.
@@ -96,7 +118,7 @@ public class DistributionZonesUtil {
      * The key needed for processing an event about zone's creation and deletion.
      * With this key we can be sure that event was triggered only once.
      */
-    static ByteArray zonesChangeTriggerKey(int zoneId) {
+    public static ByteArray zonesChangeTriggerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONES_CHANGE_TRIGGER_KEY_PREFIX + zoneId);
     }
 
@@ -104,7 +126,7 @@ public class DistributionZonesUtil {
      * The key needed for processing an event about zone's data node propagation on scale up.
      * With this key we can be sure that event was triggered only once.
      */
-    static ByteArray zoneScaleUpChangeTriggerKey(int zoneId) {
+    public static ByteArray zoneScaleUpChangeTriggerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX + zoneId);
     }
 
@@ -112,7 +134,7 @@ public class DistributionZonesUtil {
      * The key needed for processing an event about zone's data node propagation on scale down.
      * With this key we can be sure that event was triggered only once.
      */
-    static ByteArray zoneScaleDownChangeTriggerKey(int zoneId) {
+    public static ByteArray zoneScaleDownChangeTriggerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX + zoneId);
     }
 
@@ -120,7 +142,7 @@ public class DistributionZonesUtil {
      * The key that represents logical topology nodes, needed for distribution zones. It is needed to store them in the metastore
      * to serialize data nodes changes triggered by topology changes and changes of distribution zones configurations.
      */
-    static ByteArray zonesLogicalTopologyKey() {
+    public static ByteArray zonesLogicalTopologyKey() {
         return DISTRIBUTION_ZONE_LOGICAL_TOPOLOGY_KEY;
     }
 
@@ -156,10 +178,23 @@ public class DistributionZonesUtil {
      * @return Update condition.
      */
     static CompoundCondition triggerScaleUpScaleDownKeysCondition(long scaleUpTriggerRevision, long scaleDownTriggerRevision,  int zoneId) {
-        return and(
-                value(zoneScaleUpChangeTriggerKey(zoneId)).eq(ByteUtils.longToBytes(scaleUpTriggerRevision)),
-                value(zoneScaleDownChangeTriggerKey(zoneId)).eq(ByteUtils.longToBytes(scaleDownTriggerRevision))
-        );
+        SimpleCondition scaleUpCondition;
+
+        if (scaleUpTriggerRevision != INITIAL_TRIGGER_REVISION_VALUE) {
+            scaleUpCondition = value(zoneScaleUpChangeTriggerKey(zoneId)).eq(ByteUtils.longToBytes(scaleUpTriggerRevision));
+        } else {
+            scaleUpCondition = notExists(zoneScaleUpChangeTriggerKey(zoneId));
+        }
+
+        SimpleCondition scaleDownCondition;
+
+        if (scaleDownTriggerRevision != INITIAL_TRIGGER_REVISION_VALUE) {
+            scaleDownCondition = value(zoneScaleDownChangeTriggerKey(zoneId)).eq(ByteUtils.longToBytes(scaleDownTriggerRevision));
+        } else {
+            scaleDownCondition = notExists(zoneScaleDownChangeTriggerKey(zoneId));
+        }
+
+        return and(scaleUpCondition, scaleDownCondition);
     }
 
     /**
@@ -176,6 +211,14 @@ public class DistributionZonesUtil {
                 put(zoneScaleUpChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision))
         ).yield(true);
     }
+
+    static Update updateDataNodesAndScaleDownTriggerKey(int zoneId, long revision, byte[] nodes) {
+        return ops(
+                put(zoneDataNodesKey(zoneId), nodes),
+                put(zoneScaleDownChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision))
+        ).yield(true);
+    }
+
 
     /**
      * Updates data nodes value for a zone and set {@code revision} to {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)},
@@ -225,5 +268,106 @@ public class DistributionZonesUtil {
                 put(zonesLogicalTopologyVersionKey(), ByteUtils.longToBytes(topologyVersion)),
                 put(zonesLogicalTopologyKey(), ByteUtils.toBytes(logicalTopology))
         ).yield(true);
+    }
+
+    /**
+     * Returns a set of data nodes retrieved from data nodes map, which value is more than 0.
+     *
+     * @param dataNodesMap This map has the following structure: node name is mapped to an integer,
+     *                     an integer represents counter for node joining or leaving the topology.
+     *                     Joining increases the counter, leaving decreases.
+     * @return Returns a set of data nodes retrieved from data nodes map, which value is more than 0.
+     */
+    public static Set<String> dataNodes(Map<String, Integer> dataNodesMap) {
+        return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Map.Entry::getKey).collect(Collectors.toSet());
+    }
+
+    /**
+     * Returns a map from a set of data nodes. This map has the following structure: node name is mapped to integer,
+     * integer represents how often node joined or leaved topology. In this case, set of nodes is interpreted as nodes
+     * that joined topology, so all mappings will be node -> 1.
+     *
+     * @param dataNodes Set of data nodes.
+     * @return Returns a map from a set of data nodes.
+     */
+    public static Map<String, Integer> toDataNodesMap(Set<String> dataNodes) {
+        Map<String, Integer> dataNodesMap = new HashMap<>();
+
+        dataNodes.forEach(n -> dataNodesMap.merge(n, 1, Integer::sum));
+
+        return dataNodesMap;
+    }
+
+    /**
+     * Returns data nodes from the meta storage entry or empty map if the value is null.
+     *
+     * @param dataNodesEntry Meta storage entry with data nodes.
+     * @return Data nodes.
+     */
+    static Map<String, Integer> extractDataNodes(Entry dataNodesEntry) {
+        if (!dataNodesEntry.empty()) {
+            return fromBytes(dataNodesEntry.value());
+        } else {
+            return emptyMap();
+        }
+    }
+
+    /**
+     * Returns a trigger revision from the meta storage entry or {@link INITIAL_TRIGGER_REVISION_VALUE} if the value is null.
+     *
+     * @param revisionEntry Meta storage entry with data nodes.
+     * @return Revision.
+     */
+    static long extractChangeTriggerRevision(Entry revisionEntry) {
+        if (!revisionEntry.empty()) {
+            return bytesToLong(revisionEntry.value());
+        } else {
+            return INITIAL_TRIGGER_REVISION_VALUE;
+        }
+    }
+
+    /**
+     * Finds a zone configuration from zones configuration by its id.
+     *
+     * @param dstZnsCfg Distribution zones config.
+     * @param zoneId Id of zone.
+     * @return Zone configuration with appropriate zone id.
+     */
+    public static DistributionZoneConfiguration getZoneById(DistributionZonesConfiguration dstZnsCfg, int zoneId) {
+        if (zoneId == DEFAULT_ZONE_ID) {
+            return dstZnsCfg.defaultDistributionZone();
+        }
+
+        for (UUID id : dstZnsCfg.distributionZones().internalIds()) {
+            DistributionZoneConfiguration distributionZoneConfiguration = dstZnsCfg.distributionZones().get(id);
+
+            assert distributionZoneConfiguration != null;
+
+            if (distributionZoneConfiguration.zoneId().value().equals(zoneId)) {
+                return distributionZoneConfiguration;
+            }
+        }
+
+        throw new DistributionZoneNotFoundException(zoneId);
+    }
+
+    /**
+     * Check if a passed filter is a valid {@link JsonPath} query.
+     *
+     * @param filter Filter.
+     * @return {@code null} if the passed filter is a valid filter, string with the error message otherwise.
+     */
+    public static @Nullable String validate(String filter) {
+        try {
+            JsonPath.compile(filter);
+        } catch (InvalidPathException e) {
+            if (e.getMessage() != null) {
+                return e.getMessage();
+            } else {
+                return "Unknown JsonPath compilation error.";
+            }
+        }
+
+        return null;
     }
 }

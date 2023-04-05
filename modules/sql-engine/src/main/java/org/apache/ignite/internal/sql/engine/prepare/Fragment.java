@@ -29,7 +29,6 @@ import org.apache.ignite.internal.sql.engine.metadata.ColocationMappingException
 import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentMappingException;
 import org.apache.ignite.internal.sql.engine.metadata.IgniteMdFragmentMapping;
-import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.NodeMappingException;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -37,7 +36,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -56,27 +54,32 @@ public class Fragment {
 
     private final List<IgniteReceiver> remotes;
 
+    private final boolean correlated;
+
     /**
      * Constructor.
      *
-     * @param id      Fragment id.
-     * @param root    Root node of the fragment.
+     * @param id An identifier of this fragment.
+     * @param correlated Whether some correlated variables should be set prior to fragment execution.
+     * @param root Root node of the fragment.
      * @param remotes Remote sources of the fragment.
      */
-    public Fragment(long id, IgniteRel root, List<IgniteReceiver> remotes) {
-        this(id, root, remotes, null, null);
+    public Fragment(long id, boolean correlated, IgniteRel root, List<IgniteReceiver> remotes) {
+        this(id, root, correlated, remotes, null, null);
     }
 
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    Fragment(long id, IgniteRel root, List<IgniteReceiver> remotes, @Nullable String rootSer, @Nullable FragmentMapping mapping) {
+    Fragment(long id, IgniteRel root, boolean correlated, List<IgniteReceiver> remotes,
+            @Nullable String rootSer, @Nullable FragmentMapping mapping) {
         this.id = id;
         this.root = root;
         this.remotes = List.copyOf(remotes);
         this.rootSer = rootSer != null ? rootSer : toJson(root);
         this.mapping = mapping;
+        this.correlated = correlated;
     }
 
     /**
@@ -131,6 +134,16 @@ public class Fragment {
     }
 
     /**
+     * Returns {@code true} if this fragment expecting some correlated variables being set from
+     * outside (e.g. parent fragment).
+     *
+     * @return {@code true} if correlated variables should be set prior to start the execution of this fragment.
+     */
+    public boolean correlated() {
+        return correlated;
+    }
+
+    /**
      * Get fragment remote sources.
      */
     public List<IgniteReceiver> remotes() {
@@ -151,17 +164,16 @@ public class Fragment {
      * @param ctx Planner context.
      * @param mq  Metadata query.
      */
-    Fragment map(MappingService mappingSrvc, MappingQueryContext ctx, RelMetadataQuery mq) throws FragmentMappingException {
+    Fragment map(MappingQueryContext ctx, RelMetadataQuery mq) throws FragmentMappingException {
         if (mapping != null) {
             return this;
         }
 
-        return new Fragment(id, root, remotes, rootSer, mapping(ctx, mq, nodesSource(mappingSrvc, ctx)));
+        return new Fragment(id, root, correlated, remotes, rootSer, mapping(ctx, mq, nodesSource(ctx)));
     }
 
-    @NotNull
-    private Supplier<List<String>> nodesSource(MappingService mappingSrvc, MappingQueryContext ctx) {
-        return () -> mappingSrvc.executionNodes(single(), null);
+    private Supplier<List<String>> nodesSource(MappingQueryContext ctx) {
+        return () -> ctx.mappingService().executionNodes(single(), null);
     }
 
     private boolean single() {

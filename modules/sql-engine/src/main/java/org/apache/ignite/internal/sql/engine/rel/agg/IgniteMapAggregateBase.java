@@ -27,7 +27,6 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
 
@@ -55,35 +54,12 @@ public abstract class IgniteMapAggregateBase extends IgniteAggregate implements 
 
     /** {@inheritDoc} */
     @Override
-    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(
-            RelTraitSet nodeTraits,
-            List<RelTraitSet> inputTraits
-    ) {
-        return List.of(Pair.of(nodeTraits, List.of(inputTraits.get(0))));
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
             RelTraitSet nodeTraits,
             List<RelTraitSet> inputTraits
     ) {
         RelTraitSet in = inputTraits.get(0);
 
-        if (TraitUtils.distribution(in).satisfies(IgniteDistributions.single())) {
-            return List.of();
-        }
-
         return List.of(Pair.of(nodeTraits.replace(TraitUtils.distribution(in)), List.of(in)));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(
-            RelTraitSet nodeTraits,
-            List<RelTraitSet> inTraits
-    ) {
-        return List.of(Pair.of(nodeTraits.replace(TraitUtils.correlation(inTraits.get(0))),
-                inTraits));
     }
 }

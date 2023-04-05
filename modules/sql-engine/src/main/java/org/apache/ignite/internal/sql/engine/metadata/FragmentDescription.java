@@ -26,31 +26,40 @@ import java.util.List;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class FragmentDescription implements Serializable {
-    private long fragmentId;
+    private static final long serialVersionUID = 0L;
 
-    private FragmentMapping mapping;
-
-    private ColocationGroup target;
-
-    private Long2ObjectMap<List<String>> remoteSources;
-
-    /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public FragmentDescription() {
-    }
+    private final long fragmentId;
+    private final boolean prefetch;
+    private final FragmentMapping mapping;
+    private final ColocationGroup target;
+    private final Long2ObjectMap<List<String>> remoteSources;
 
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @param fragmentId An identifier of the fragment.
+     * @param prefetch A flag denoting whether this fragment may be executed in advance.
+     * @param mapping A mapping of the described fragment.
+     * @param target A target group this fragment should stream data to.
+     * @param remoteSources A mapping of sources this fragment should receive data from.
      */
-    public FragmentDescription(long fragmentId, FragmentMapping mapping, ColocationGroup target,
-            Long2ObjectMap<List<String>> remoteSources) {
+    public FragmentDescription(
+            long fragmentId,
+            boolean prefetch,
+            FragmentMapping mapping,
+            ColocationGroup target,
+            Long2ObjectMap<List<String>> remoteSources
+    ) {
         this.fragmentId = fragmentId;
+        this.prefetch = prefetch;
         this.mapping = mapping;
         this.target = target;
         this.remoteSources = remoteSources;
+    }
+
+    /** Returns {@code true} if it's safe to execute this fragment in advance. */
+    public boolean prefetch() {
+        return prefetch;
     }
 
     /**

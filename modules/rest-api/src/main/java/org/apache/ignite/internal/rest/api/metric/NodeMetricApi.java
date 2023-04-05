@@ -23,6 +23,8 @@ import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Post;
 import io.micronaut.http.annotation.Produces;
+import io.micronaut.security.annotation.Secured;
+import io.micronaut.security.rules.SecurityRule;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -34,15 +36,16 @@ import org.apache.ignite.internal.rest.constants.MediaType;
 
 /** Node metric endpoint. */
 @Controller("/management/v1/metric/node")
+@Secured(SecurityRule.IS_AUTHENTICATED)
 @Tag(name = "nodeMetric")
 public interface NodeMetricApi {
 
     /** Enable metric source. */
-    @Operation(operationId = "enableNodeMetric")
-    @ApiResponse(responseCode = "200", description = "Metric source enabled")
-    @ApiResponse(responseCode = "500", description = "Internal error",
+    @Operation(operationId = "enableNodeMetric", description = "Enables the specified metric source.")
+    @ApiResponse(responseCode = "200", description = "Metric source enabled.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "404", description = "Metric source not found",
+    @ApiResponse(responseCode = "404", description = "Metric source not found.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.PROBLEM_JSON)
@@ -50,11 +53,11 @@ public interface NodeMetricApi {
     void enable(@Body String srcName);
 
     /** Disable metric source. */
-    @Operation(operationId = "disableNodeMetric")
-    @ApiResponse(responseCode = "200", description = "Metric source disabled")
-    @ApiResponse(responseCode = "500", description = "Internal error",
+    @Operation(operationId = "disableNodeMetric", description = "Disables the specified metric source.")
+    @ApiResponse(responseCode = "200", description = "Metric source disabled.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "404", description = "Metric source not found",
+    @ApiResponse(responseCode = "404", description = "Metric source not found.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.PROBLEM_JSON)
@@ -62,11 +65,19 @@ public interface NodeMetricApi {
     void disable(@Body String srcName);
 
     /** List metric sources. */
-    @Operation(operationId = "listNodeMetrics")
-    @ApiResponse(responseCode = "200", description = "Metric sources returned")
-    @ApiResponse(responseCode = "500", description = "Internal error",
+    @Operation(operationId = "listNodeMetricSources", description = "Gets a list of all available metric sources.")
+    @ApiResponse(responseCode = "200", description = "Returned a list of metric sources.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces(MediaType.APPLICATION_JSON)
-    @Get()
-    Collection<MetricSourceDto> list();
+    @Get("source")
+    Collection<MetricSourceDto> listMetricSources();
+
+    /** List metric sets. */
+    @Operation(operationId = "listNodeMetricSets", description = "Gets a list of all enabled metric sets.")
+    @ApiResponse(responseCode = "200", description = "Returned a list of metric sets.")
+    @ApiResponse(responseCode = "500", description = "Internal error",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @Get("set")
+    Collection<MetricSetDto> listMetricSets();
 }

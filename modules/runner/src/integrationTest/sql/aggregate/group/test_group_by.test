@@ -133,6 +133,8 @@ NULL	NULL
 
 # aliases can only be referenced in the GROUP BY as the root column: operations not allowed
 # CONTROVERSIAL: this query DOES work in SQLite
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18670
 statement error
 SELECT 1 AS k, SUM(i) FROM integers GROUP BY k+1 ORDER BY 2;
 

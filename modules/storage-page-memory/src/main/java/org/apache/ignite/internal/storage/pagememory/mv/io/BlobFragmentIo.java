@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
+import static org.apache.ignite.internal.storage.pagememory.mv.MvPageTypes.T_BLOB_FRAGMENT_IO;
 
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIo;
@@ -39,9 +40,6 @@ import org.apache.ignite.lang.IgniteStringBuilder;
  * </ul>
  */
 public class BlobFragmentIo extends PageIo {
-    /** Page IO type. */
-    public static final short T_BLOB_FRAGMENT_IO = 13;
-
     private static final int NEXT_PAGE_ID_OFF = PageIo.COMMON_HEADER_END;
 
     private static final int FRAGMENT_BYTES_OR_TOTAL_LENGTH_OFF = NEXT_PAGE_ID_OFF + Long.BYTES;

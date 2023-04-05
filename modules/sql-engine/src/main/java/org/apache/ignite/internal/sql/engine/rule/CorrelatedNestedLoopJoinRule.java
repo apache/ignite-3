@@ -41,8 +41,6 @@ import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 
 /**
  * CorrelatedNestedLoopJoinRule.
@@ -122,12 +120,7 @@ public class CorrelatedNestedLoopJoinRule extends AbstractIgniteConverterRule<Lo
 
         RelTraitSet outTraits = cluster.traitSetOf(IgniteConvention.INSTANCE);
         RelTraitSet leftInTraits = cluster.traitSetOf(IgniteConvention.INSTANCE);
-
-        CorrelationTrait corrTrait = CorrelationTrait.correlations(correlationIds);
-
-        RelTraitSet rightInTraits = cluster.traitSetOf(IgniteConvention.INSTANCE)
-                .replace(RewindabilityTrait.REWINDABLE)
-                .replace(corrTrait);
+        RelTraitSet rightInTraits = cluster.traitSetOf(IgniteConvention.INSTANCE);
 
         RelNode left = convert(rel.getLeft(), leftInTraits);
         right = convert(right, rightInTraits);

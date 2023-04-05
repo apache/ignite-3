@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import jakarta.inject.Inject;
 import java.time.Duration;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -89,11 +88,6 @@ public class ItNodeNameTest extends CliCommandTestInitializedIntegrationBase {
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputMatches("\\[name: " + nodeName + ", state: started\\]?\\s+")
         );
-    }
-
-    @AfterEach
-    void tearDown() {
-        execute("disconnect");
     }
 
     private String nodeName() {

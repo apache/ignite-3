@@ -21,6 +21,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
@@ -142,6 +143,15 @@ public class StorageUtils {
     public static void throwExceptionIfStorageNotInProgressOfRebalance(StorageState state, Supplier<String> storageInfoSupplier) {
         if (state != StorageState.REBALANCE) {
             throw new StorageRebalanceException(createStorageInProcessOfRebalanceErrorMessage(storageInfoSupplier.get()));
+        }
+    }
+
+    /**
+     * Throws a {@link StorageException} if it is the cause.
+     */
+    public static void throwStorageExceptionIfItCause(IgniteInternalCheckedException e) {
+        if (e.getCause() instanceof StorageException) {
+            throw ((StorageException) e.getCause());
         }
     }
 

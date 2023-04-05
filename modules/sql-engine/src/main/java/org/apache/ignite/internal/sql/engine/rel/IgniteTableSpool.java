@@ -32,7 +32,7 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 /**
  * Relational operator that returns the contents of a table.
  */
-public class IgniteTableSpool extends AbstractIgniteSpool implements InternalIgniteRel {
+public class IgniteTableSpool extends AbstractIgniteSpool {
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859

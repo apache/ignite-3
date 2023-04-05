@@ -17,12 +17,7 @@
 
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
-import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
-
 import java.util.Objects;
-import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
@@ -45,6 +40,9 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
     /** Key marshaller. */
     private final Marshaller keyMarsh;
 
+    /** Value marshaller. */
+    private final Marshaller valMarsh;
+
     /** Record marshaller. */
     private final Marshaller recMarsh;
 
@@ -65,6 +63,7 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
         recClass = mapper.targetType();
 
         keyMarsh = Marshaller.createMarshaller(schema.keyColumns().columns(), mapper, true);
+        valMarsh = Marshaller.createMarshaller(schema.valueColumns().columns(), mapper, false);
 
         recMarsh = Marshaller.createMarshaller(
                 ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns()),
@@ -87,7 +86,7 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
 
         recMarsh.writeObject(rec, asm);
 
-        return new Row(schema, new ByteBufferRow(asm.toBytes()));
+        return new Row(schema, asm.build());
     }
 
     /** {@inheritDoc} */
@@ -95,11 +94,11 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
     public Row marshalKey(@NotNull R rec) throws MarshallerException {
         assert recClass.isInstance(rec);
 
-        final RowAssembler asm = createAssembler(Objects.requireNonNull(rec), null);
+        final RowAssembler asm = createAssembler(Objects.requireNonNull(rec));
 
         keyMarsh.writeObject(rec, asm);
 
-        return new Row(schema, new ByteBufferRow(asm.toBytes()));
+        return new Row(schema, asm.build());
     }
 
     /** {@inheritDoc} */
@@ -114,6 +113,17 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
     }
 
     /**
+     * Creates {@link RowAssembler} for key.
+     *
+     * @param key Key object.
+     * @return Row assembler.
+     * @throws MarshallerException If failed to read key object content.
+     */
+    private RowAssembler createAssembler(Object key) throws MarshallerException {
+        return ObjectStatistics.createAssembler(schema, keyMarsh, key);
+    }
+
+    /**
      * Creates {@link RowAssembler} for key-value pair.
      *
      * @param key Key object.
@@ -122,58 +132,6 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
      * @throws MarshallerException If failed to read key or value object content.
      */
     private RowAssembler createAssembler(Object key, Object val) throws MarshallerException {
-        ObjectStatistic keyStat = collectObjectStats(schema.keyColumns(), recMarsh, key);
-        ObjectStatistic valStat = collectObjectStats(schema.valueColumns(), recMarsh, val);
-
-        return new RowAssembler(schema, keyStat.nonNullColsSize, keyStat.nonNullCols,
-                valStat.nonNullColsSize, valStat.nonNullCols);
-    }
-
-    /**
-     * Reads mapped object fields and gather statistic.
-     *
-     * @throws MarshallerException If failed to read object content.
-     */
-    private ObjectStatistic collectObjectStats(Columns cols, Marshaller marsh, Object obj) throws MarshallerException {
-        if (obj == null || !cols.hasVarlengthColumns()) {
-            return ObjectStatistic.ZERO_VARLEN_STATISTICS;
-        }
-
-        int cnt = 0;
-        int size = 0;
-
-        for (int i = cols.firstVarlengthColumn(); i < cols.length(); i++) {
-            final Column column = cols.column(i);
-            final Object val = marsh.value(obj, column.schemaIndex());
-
-            if (val == null || column.type().spec().fixedLength()) {
-                continue;
-            }
-
-            size += getValueSize(val, column.type());
-            cnt++;
-        }
-
-        return new ObjectStatistic(cnt, size);
-    }
-
-    /**
-     * Object statistic.
-     */
-    private static class ObjectStatistic {
-        /** Cached zero statistics. */
-        static final ObjectStatistic ZERO_VARLEN_STATISTICS = new ObjectStatistic(0, 0);
-
-        /** Non-null columns of varlen type. */
-        int nonNullCols;
-
-        /** Length of all non-null columns of varlen types. */
-        int nonNullColsSize;
-
-        /** Constructor. */
-        ObjectStatistic(int nonNullCols, int nonNullColsSize) {
-            this.nonNullCols = nonNullCols;
-            this.nonNullColsSize = nonNullColsSize;
-        }
+        return ObjectStatistics.createAssembler(schema, keyMarsh, valMarsh, key, val);
     }
 }

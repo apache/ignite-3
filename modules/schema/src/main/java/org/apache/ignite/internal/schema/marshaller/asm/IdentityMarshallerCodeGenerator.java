@@ -48,7 +48,7 @@ class IdentityMarshallerCodeGenerator implements MarshallerCodeGenerator {
     /** {@inheritDoc} */
     @Override
     public BytecodeNode marshallObject(ParameterizedType marshallerClass, Variable asm, Variable obj) {
-        return asm.invoke(columnAccessor.writeMethodName(), RowAssembler.class, obj.cast(columnAccessor.writeArgType()));
+        return asm.invoke(columnAccessor.writeMethodName(), RowAssembler.class, obj.cast(columnAccessor.mappedType()));
     }
 
     /** {@inheritDoc} */

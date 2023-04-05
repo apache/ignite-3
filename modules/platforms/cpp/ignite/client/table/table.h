@@ -18,6 +18,7 @@
 #pragma once
 
 #include "ignite/client/table/ignite_tuple.h"
+#include "ignite/client/table/key_value_view.h"
 #include "ignite/client/table/record_view.h"
 #include "ignite/common/config.h"
 
@@ -37,12 +38,12 @@ class tables_impl;
  * Table view.
  */
 class table {
+    friend class detail::table_impl;
     friend class detail::tables_impl;
 
 public:
     // Default
     table() = default;
-    ~table() = default;
     table(table &&) noexcept = default;
     table &operator=(table &&) noexcept = default;
 
@@ -55,14 +56,34 @@ public:
      *
      * @return Table name.
      */
-    [[nodiscard]] IGNITE_API const std::string &name() const noexcept;
+    [[nodiscard]] IGNITE_API const std::string &get_name() const noexcept;
 
     /**
      * Gets the record binary view.
      *
      * @return Record binary view.
      */
-    [[nodiscard]] IGNITE_API record_view<ignite_tuple> record_binary_view() const noexcept;
+    [[nodiscard]] IGNITE_API record_view<ignite_tuple> get_record_binary_view() const noexcept;
+
+    /**
+     * Gets the record view for the type.
+     *
+     * Template functions @c convert_to_tuple() and @c convert_from_tuple() should be specialized for the type T.
+     * @see See type_mapping.h for details.
+     *
+     * @return Record view.
+     */
+    template<typename T>
+    [[nodiscard]] record_view<T> get_record_view() const noexcept {
+        return record_view<T>{get_record_binary_view()};
+    }
+
+    /**
+     * Gets the key-value binary view.
+     *
+     * @return Record binary view.
+     */
+    [[nodiscard]] IGNITE_API key_value_view<ignite_tuple, ignite_tuple> get_key_value_binary_view() const noexcept;
 
 private:
     /**

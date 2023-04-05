@@ -37,19 +37,23 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -508,32 +512,41 @@ public class IgniteUtils {
      */
     public static boolean deleteIfExists(Path path) {
         try {
-            Files.walkFileTree(path, new SimpleFileVisitor<>() {
-                @Override
-                public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-                    if (exc != null) {
-                        throw exc;
-                    }
-
-                    Files.delete(dir);
-
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    Files.delete(file);
-
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-
+            deleteIfExistsThrowable(path);
             return true;
         } catch (NoSuchFileException e) {
             return true;
         } catch (IOException e) {
             return false;
         }
+    }
+
+    /**
+     * Deletes a file or a directory with all sub-directories and files.
+     *
+     * @param path File or directory to delete.
+     * @throws IOException if an I/O error is thrown by a visitor method
+     */
+    public static void deleteIfExistsThrowable(Path path) throws IOException {
+        Files.walkFileTree(path, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                if (exc != null) {
+                    throw exc;
+                }
+
+                Files.delete(dir);
+
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                Files.delete(file);
+
+                return FileVisitResult.CONTINUE;
+            }
+        });
     }
 
     /**
@@ -943,5 +956,103 @@ public class IgniteUtils {
      */
     public static ObjectName makeMbeanName(String group, String name) throws MalformedObjectNameException {
         return new ObjectName(String.format("%s:group=%s,name=%s", JMX_MBEAN_PACKAGE, group, name));
+    }
+
+    /**
+     * Filter the collection using the given predicate.
+     *
+     * @param collection Collection.
+     * @param predicate Predicate.
+     * @return Filtered list.
+     */
+    public static <T> List<T> filter(Collection<T> collection, Predicate<T> predicate) {
+        List<T> result = new ArrayList<>();
+
+        for (T e : collection) {
+            if (predicate.test(e)) {
+                result.add(e);
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Find any element in given collection.
+     *
+     * @param collection Collection.
+     * @return Optional containing element (if present).
+     */
+    public static <T> Optional<T> findAny(Collection<T> collection) {
+        return findAny(collection, null);
+    }
+
+    /**
+     * Find any element in given collection for which the predicate returns {@code true}.
+     *
+     * @param collection Collection.
+     * @param predicate Predicate.
+     * @return Optional containing element (if present).
+     */
+    public static <T> Optional<T> findAny(Collection<T> collection, @Nullable Predicate<T> predicate) {
+        if (!collection.isEmpty()) {
+            for (Iterator<T> it = collection.iterator(); it.hasNext(); ) {
+                T t = it.next();
+
+                if (predicate == null || predicate.test(t)) {
+                    return Optional.ofNullable(t);
+                }
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    /**
+     * Retries operation until it succeeds or fails with exception that is different than the given.
+     *
+     * @param operation Operation.
+     * @param stopRetryCondition Condition that accepts the exception if one has been thrown, and defines whether retries should be stopped.
+     * @param executor Executor to make retry in.
+     * @return Future that is completed when operation is successful or failed with other exception than the given.
+     */
+    public static <T> CompletableFuture<T> retryOperationUntilSuccess(
+            Supplier<CompletableFuture<T>> operation,
+            Function<Throwable, Boolean> stopRetryCondition,
+            Executor executor
+    ) {
+        CompletableFuture<T> fut = new CompletableFuture<>();
+
+        retryOperationUntilSuccess(operation, stopRetryCondition, fut, executor);
+
+        return fut;
+    }
+
+    /**
+     * Retries operation until it succeeds or fails with exception that is different than the given.
+     *
+     * @param operation Operation.
+     * @param stopRetryCondition Condition that accepts the exception if one has been thrown, and defines whether retries should be stopped.
+     * @param executor Executor to make retry in.
+     * @param fut Future that is completed when operation is successful or failed with other exception than the given.
+     */
+    public static <T> void retryOperationUntilSuccess(
+            Supplier<CompletableFuture<T>> operation,
+            Function<Throwable, Boolean> stopRetryCondition,
+            CompletableFuture<T> fut,
+            Executor executor
+    ) {
+        operation.get()
+                .whenComplete((res, e) -> {
+                    if (e == null) {
+                        fut.complete(res);
+                    } else {
+                        if (stopRetryCondition.apply(e)) {
+                            fut.completeExceptionally(e);
+                        } else {
+                            executor.execute(() -> retryOperationUntilSuccess(operation, stopRetryCondition, fut, executor));
+                        }
+                    }
+                });
     }
 }

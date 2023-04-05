@@ -17,466 +17,515 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import static org.apache.ignite.internal.util.ArrayUtils.concat;
-import static org.apache.ignite.internal.util.CollectionUtils.first;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static java.util.function.Predicate.not;
 
-import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.List;
-import java.util.UUID;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
-import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.rel.SingleRel;
-import org.apache.calcite.rel.core.Aggregate;
-import org.apache.calcite.rel.core.AggregateCall;
-import org.apache.calcite.rel.core.Join;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.sql.SqlExplainLevel;
-import org.apache.calcite.sql.fun.SqlAvgAggFunction;
-import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
-import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelNode;
+import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
+import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
+import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
+import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedAggregateBase;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedSortAggregate;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapAggregateBase;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceAggregateBase;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
-import org.apache.ignite.internal.util.Pair;
-import org.hamcrest.core.IsInstanceOf;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * AggregatePlannerTest.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * This test verifies that optimizer provides expected output for queries defined in {@link TestCase TestCase}.
+ *
+ * <p>Note: This test validates the best plan provided by optimizer, thus should not disable any rules.
+ *
+ * <p>See {@link AbstractAggregatePlannerTest base class} for more details.
  */
 public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     /**
-     * SingleWithoutIndex.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @throws Exception If failed.
-     */
-    @ParameterizedTest
-    @EnumSource
-    public void singleWithoutIndex(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createBroadcastTable("TEST").addIndex("val0_val1", 1, 2);
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable(tbl);
-
-        String sql = "SELECT AVG(val0) FROM test GROUP BY grp0";
-
-        IgniteRel phys = physicalPlan(
-                sql,
-                publicSchema,
-                algo.rulesToDisable
-        );
-
-        IgniteColocatedAggregateBase agg = findFirstNode(phys, byClass(algo.colocated));
-
-        assertNotNull(agg, "Invalid plan\n" + RelOptUtil.toString(phys));
-
-        assertThat(
-                "Invalid plan\n" + RelOptUtil.toString(phys),
-                first(agg.getAggCallList()).getAggregation(),
-                IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
-
-        if (algo == AggregateAlgorithm.SORT) {
-            assertNotNull(findFirstNode(phys, byClass(IgniteSort.class)));
-        }
-    }
-
-    /**
-     * SingleWithIndex.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @throws Exception If failed.
-     */
-    @ParameterizedTest
-    @EnumSource
-    public void singleWithIndex(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createBroadcastTable("TEST").addIndex("grp0_grp1", 3, 4);
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable(tbl);
-
-        String sql = "SELECT AVG(val0) FILTER(WHERE val1 > 10) FROM test GROUP BY grp0";
-
-        IgniteRel phys = physicalPlan(
-                sql,
-                publicSchema,
-                algo.rulesToDisable
-        );
-
-        IgniteColocatedAggregateBase agg = findFirstNode(phys, byClass(algo.colocated));
-
-        assertNotNull(agg, "Invalid plan\n" + RelOptUtil.toString(phys));
-
-        assertThat(
-                "Invalid plan\n" + RelOptUtil.toString(phys),
-                first(agg.getAggCallList()).getAggregation(),
-                IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
-
-        if (algo == AggregateAlgorithm.SORT) {
-            assertNotNull(findFirstNode(phys, byClass(IgniteIndexScan.class)));
-        }
-    }
-
-    /**
-     * MapReduceGroupBy.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @throws Exception If failed.
-     */
-    @ParameterizedTest
-    @EnumSource
-    public void mapReduceGroupBy(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createAffinityTable("TEST");
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable(tbl);
-
-        String sql = "SELECT AVG(val0) FILTER (WHERE val1 > 10) FROM test GROUP BY grp1, grp0";
-
-        IgniteRel phys = physicalPlan(
-                sql,
-                publicSchema,
-                algo.rulesToDisable
-        );
-
-        IgniteMapAggregateBase mapAgg = findFirstNode(phys, byClass(algo.map));
-        IgniteReduceAggregateBase rdcAgg = findFirstNode(phys, byClass(algo.reduce));
-
-        assertNotNull(rdcAgg, "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES));
-        assertNotNull(mapAgg, "Invalid plan\n" + RelOptUtil.toString(phys));
-
-        assertThat(
-                "Invalid plan\n" + RelOptUtil.toString(phys),
-                first(rdcAgg.getAggregateCalls()).getAggregation(),
-                IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
-
-        assertThat(
-                "Invalid plan\n" + RelOptUtil.toString(phys),
-                first(mapAgg.getAggCallList()).getAggregation(),
-                IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
-
-        if (algo == AggregateAlgorithm.SORT) {
-            assertNotNull(findFirstNode(phys, byClass(IgniteSort.class)));
-        }
-    }
-
-    /**
-     * Test that aggregate has single distribution output even if parent node accept random distribution inputs.
-     *
-     * @throws Exception If failed.
-     */
-    @ParameterizedTest
-    @EnumSource
-    public void distribution(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createAffinityTable("TEST").addIndex("grp0", 3);
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable(tbl);
-
-        String sql = "SELECT AVG(val0), grp0 FROM TEST GROUP BY grp0 UNION ALL SELECT val0, grp0 FROM test";
-
-        IgniteRel phys = physicalPlan(
-                sql,
-                publicSchema,
-                concat(algo.rulesToDisable, "MapReduceSortAggregateConverterRule",
-                        "MapReduceHashAggregateConverterRule")
-        );
-
-        IgniteColocatedAggregateBase singleAgg = findFirstNode(phys, byClass(algo.colocated));
-
-        assertEquals(IgniteDistributions.single(), TraitUtils.distribution(singleAgg));
-
-        phys = physicalPlan(
-                sql,
-                publicSchema,
-                concat(algo.rulesToDisable, "SortSingleAggregateConverterRule",
-                        "HashSingleAggregateConverterRule")
-        );
-
-        IgniteReduceAggregateBase rdcAgg = findFirstNode(phys, byClass(algo.reduce));
-
-        assertEquals(IgniteDistributions.single(), TraitUtils.distribution(rdcAgg));
-    }
-
-    /**
-     * ExpandDistinctAggregates.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @throws Exception If failed.
-     */
-    @ParameterizedTest
-    @EnumSource
-    public void expandDistinctAggregates(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createAffinityTable("TEST")
-                .addIndex("idx_val0", 3, 1, 0)
-                .addIndex("idx_val1", 3, 2, 0);
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable(tbl);
-
-        String sql = "SELECT "
-                + "/*+ EXPAND_DISTINCT_AGG */ "
-                + "SUM(DISTINCT val0), AVG(DISTINCT val1) FROM test GROUP BY grp0";
-
-        IgniteRel phys = physicalPlan(
-                sql,
-                publicSchema,
-                algo.rulesToDisable);
-
-        // Plan must not contain distinct accumulators.
-        assertFalse(
-                findNodes(phys, byClass(IgniteAggregate.class)).stream()
-                        .anyMatch(n -> ((Aggregate) n).getAggCallList().stream()
-                                .anyMatch(AggregateCall::isDistinct)
-                        ),
-                "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES)
-        );
-
-        assertNotNull(
-                findFirstNode(phys, byClass(Join.class)),
-                "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES)
-        );
-
-        // Check the first aggregation step is SELECT DISTINCT (doesn't contain any accumulators)
-        assertTrue(
-                findNodes(phys, byClass(algo.reduce)).stream()
-                        .allMatch(n -> ((IgniteReduceAggregateBase) n).getAggregateCalls().isEmpty()),
-                "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES)
-        );
-
-        assertTrue(
-                findNodes(phys, byClass(algo.map)).stream()
-                        .allMatch(n -> ((Aggregate) n).getAggCallList().isEmpty()),
-                "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES)
-        );
-
-        // Check the second aggregation step contains accumulators.
-        assertTrue(
-                findNodes(phys, byClass(algo.colocated)).stream()
-                        .noneMatch(n -> ((Aggregate) n).getAggCallList().isEmpty()),
-                "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES)
-        );
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideAlgoAndDistribution")
-    public void singleSumTypes(AggregateAlgorithm algo, IgniteDistribution distr) throws Exception {
-        IgniteSchema schema = createSchema(
-                createTable(
-                        "TEST", distr,
-                        "ID", Integer.class,
-                        "GRP", Integer.class,
-                        "VAL_TINYINT", Byte.class,
-                        "VAL_SMALLINT", Short.class,
-                        "VAL_INT", Integer.class,
-                        "VAL_BIGINT", Long.class,
-                        "VAL_DECIMAL", BigDecimal.class,
-                        "VAL_FLOAT", Float.class,
-                        "VAL_DOUBLE", Double.class
-                )
-        );
-
-        String sql = "SELECT "
-                + "SUM(VAL_TINYINT), "
-                + "SUM(VAL_SMALLINT), "
-                + "SUM(VAL_INT), "
-                + "SUM(VAL_BIGINT), "
-                + "SUM(VAL_DECIMAL), "
-                + "SUM(VAL_FLOAT), "
-                + "SUM(VAL_DOUBLE) "
-                + "FROM test GROUP BY grp";
-
-        IgniteRel phys = physicalPlan(
-                sql,
-                schema,
-                algo.rulesToDisable
-        );
-
-        checkSplitAndSerialization(phys, schema);
-
-        Class<? extends SingleRel> cls = distr == IgniteDistributions.broadcast() ? algo.colocated : algo.reduce;
-
-        SingleRel agg = findFirstNode(phys, byClass(cls));
-
-        assertNotNull(agg, "Invalid plan\n" + RelOptUtil.toString(phys));
-
-        RelDataType rowTypes = agg.getRowType();
-
-        RelDataTypeFactory tf = phys.getCluster().getTypeFactory();
-
-        assertEquals(tf.createJavaType(Long.class), rowTypes.getFieldList().get(1).getType());
-        assertEquals(tf.createJavaType(Long.class), rowTypes.getFieldList().get(2).getType());
-        assertEquals(tf.createJavaType(Long.class), rowTypes.getFieldList().get(3).getType());
-        assertEquals(tf.createJavaType(BigDecimal.class), rowTypes.getFieldList().get(4).getType());
-        assertEquals(tf.createJavaType(BigDecimal.class), rowTypes.getFieldList().get(5).getType());
-        assertEquals(tf.createJavaType(Double.class), rowTypes.getFieldList().get(6).getType());
-        assertEquals(tf.createJavaType(Double.class), rowTypes.getFieldList().get(7).getType());
-    }
-
-    @ParameterizedTest
-    @EnumSource(AggregateAlgorithm.class)
-    public void colocated(AggregateAlgorithm algo) throws Exception {
-        IgniteSchema schema = createSchema(
-                createTable(
-                        "EMP", IgniteDistributions.affinity(1, UUID.randomUUID(), DEFAULT_ZONE_ID),
-                        "EMPID", Integer.class,
-                        "DEPTID", Integer.class,
-                        "NAME", String.class,
-                        "SALARY", Integer.class
-                ).addIndex("DEPTID", 1),
-                createTable(
-                        "DEPT", IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID),
-                        "DEPTID", Integer.class,
-                        "NAME", String.class
-                ).addIndex("DEPTID", 0)
-        );
-
-        String sql = "SELECT SUM(SALARY) FROM emp GROUP BY deptid";
-
-        assertPlan(sql, schema, hasChildThat(isInstanceOf(algo.colocated)
-                        .and(hasDistribution(IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)))),
-                algo.rulesToDisable);
-
-        sql = "SELECT dept.deptid, agg.cnt "
-                + "FROM dept "
-                + "JOIN (SELECT deptid, COUNT(*) AS cnt FROM emp GROUP BY deptid) AS agg ON dept.deptid = agg.deptid";
-
-        assertPlan(sql, schema, hasChildThat(isInstanceOf(Join.class)
-                        .and(input(0, hasDistribution(IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID))))
-                        .and(input(1, hasDistribution(IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID))))),
-                algo.rulesToDisable);
-    }
-
-    /**
-     * Check that map aggregate does not contain distinct accumulator and can be planned at all.
-     *
-     * @throws Exception If failed.
+     * Parent class requires all test cases being verified by {@link #assertPlan(TestCase, Predicate, String...)}.
+     * Lets just make such call with predicate that returns true for any input.
      */
     @Test
-    public void mapAggregateWithoutDistinctAcc() throws Exception {
-        TestTable tbl = createAffinityTable("TEST");
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable(tbl);
-
-        checkDistinctInMapAggNode("SELECT COUNT(*) FROM test", publicSchema);
-        checkDistinctInMapAggNode("SELECT COUNT(DISTINCT val0) FROM test", publicSchema);
-        checkDistinctInMapAggNode("SELECT AVG(DISTINCT val0) FROM test", publicSchema);
-        checkDistinctInMapAggNode("SELECT SUM(DISTINCT val0) FROM test", publicSchema);
-        checkDistinctInMapAggNode("SELECT MIN(DISTINCT val0) FROM test", publicSchema);
-        checkDistinctInMapAggNode("SELECT MAX(DISTINCT val0) FROM test", publicSchema);
-
-        checkDistinctInMapAggNode("SELECT COUNT(DISTINCT val0) FROM test GROUP BY val1, grp0", publicSchema);
-        checkDistinctInMapAggNode("SELECT val1, COUNT(DISTINCT val0) as v1 FROM test GROUP BY val1", publicSchema);
-        checkDistinctInMapAggNode("SELECT AVG(DISTINCT val0) FROM test GROUP BY val1", publicSchema);
-        checkDistinctInMapAggNode("SELECT SUM(DISTINCT val0) FROM test GROUP BY val1", publicSchema);
-        checkDistinctInMapAggNode("SELECT MIN(DISTINCT val0) FROM test GROUP BY val1", publicSchema);
-        checkDistinctInMapAggNode("SELECT MAX(DISTINCT val0) FROM test GROUP BY val1", publicSchema);
-        checkDistinctInMapAggNode("SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)", publicSchema);
+    public void disabledTests() throws Exception {
+        //TODO: https://issues.apache.org/jira/browse/IGNITE-18871 Wrong collation derived.
+        assertPlan(TestCase.CASE_18_3, alwaysTrue());
+        assertPlan(TestCase.CASE_18_3A, alwaysTrue());
     }
 
     /**
-     * Check that plan does not contain distinct accumulators on map nodes with additional expectations.
-     *
-     * @param sql Request string.
-     * @param publicSchema Schema.
-     * @throws Exception If failed.
+     * Validates a plan for simple query with aggregate.
      */
-    private void checkDistinctInMapAggNode(String sql, IgniteSchema publicSchema) throws Exception {
-        List<Pair<String[], Predicate<IgniteRel>>> disabledRules = List.of(
-                new Pair<>(new String[]{"ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule",
-                        "MapReduceSortAggregateConverterRule"}, node -> !findNodes(node, byClass(IgniteMapAggregateBase.class)).isEmpty()),
-                new Pair<>(new String[]{"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
-                        "ColocatedHashAggregateConverterRule"}, node -> true),
-                new Pair<>(new String[]{"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
-                        "ColocatedSortAggregateConverterRule"}, node -> true)
-        );
-
-        for (Pair<String[], Predicate<IgniteRel>> rules : disabledRules) {
-            IgniteRel phys = physicalPlan(sql, publicSchema, rules.getFirst());
-
-            assertTrue(rules.getSecond().test(phys), "[" + sql + "] Failed with disabled rules: " + Arrays.toString(rules.getFirst()));
-
-            assertFalse(findNodes(phys, byClass(IgniteMapAggregateBase.class)).stream()
-                            .anyMatch(n -> ((Aggregate) n).getAggCallList().stream()
-                                    .anyMatch(AggregateCall::isDistinct)
-                            ),
-                    "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES));
-        }
+    @Test
+    protected void simpleAggregate() throws Exception {
+        checkSimpleAggSingle(TestCase.CASE_1);
+        checkSimpleAggHash(TestCase.CASE_1A);
     }
 
-    private static Stream<Arguments> provideAlgoAndDistribution() {
-        return Stream.of(
-                Arguments.of(AggregateAlgorithm.SORT, IgniteDistributions.broadcast()),
-                Arguments.of(AggregateAlgorithm.SORT, IgniteDistributions.random()),
-                Arguments.of(AggregateAlgorithm.HASH, IgniteDistributions.broadcast()),
-                Arguments.of(AggregateAlgorithm.HASH, IgniteDistributions.random())
+    /**
+     * Validates a plan for simple query with DISTINCT aggregates.
+     *
+     * @see #minMaxDistinctAggregate()
+     */
+    @Test
+    public void distinctAggregate() throws Exception {
+        checkDistinctAggSingle(TestCase.CASE_2_1);
+        checkDistinctAggSingle(TestCase.CASE_2_2);
+        checkDistinctAggSingle(TestCase.CASE_2_3);
+
+        checkDistinctAggHash(TestCase.CASE_2_1A);
+        checkDistinctAggHash(TestCase.CASE_2_2A);
+        checkDistinctAggHash(TestCase.CASE_2_3A);
+    }
+
+    /**
+     * Validates a plan for a query with min/max distinct aggregate.
+     *
+     * <p>NB: DISTINCT make no sense for MIN/MAX, thus expected plan is the same as in {@link #simpleAggregate()} ()}
+     */
+    @Test
+    public void minMaxDistinctAggregate() throws Exception {
+        checkSimpleAggSingle(TestCase.CASE_3_1);
+        checkSimpleAggSingle(TestCase.CASE_3_2);
+
+        checkSimpleAggHash(TestCase.CASE_3_1A);
+        checkSimpleAggHash(TestCase.CASE_3_2A);
+    }
+
+    /**
+     * Validates a plan for a query with aggregate and groups.
+     */
+    @Test
+    public void simpleAggregateWithGroupBy() throws Exception {
+        checkSimpleAggWithGroupBySingle(TestCase.CASE_5);
+        checkSimpleAggWithGroupBySingle(TestCase.CASE_6);
+
+        checkSimpleAggWithGroupByHash(TestCase.CASE_5A);
+        checkSimpleAggWithGroupByHash(TestCase.CASE_6A);
+    }
+
+    /**
+     * Validates a plan for a query with DISTINCT aggregates and groups.
+     *
+     * @see #minMaxDistinctAggregateWithGroupBy()
+     */
+    @Test
+    public void distinctAggregateWithGroups() throws Exception {
+        checkDistinctAggWithGroupBySingle(TestCase.CASE_7_1);
+        checkDistinctAggWithGroupBySingle(TestCase.CASE_7_2);
+        checkDistinctAggWithGroupBySingle(TestCase.CASE_7_3);
+        checkDistinctAggWithGroupBySingle(TestCase.CASE_7_4);
+
+        checkDistinctAggWithGroupByHash(TestCase.CASE_7_1A);
+        checkDistinctAggWithGroupByHash(TestCase.CASE_7_2A);
+        checkDistinctAggWithGroupByHash(TestCase.CASE_7_3A);
+        checkDistinctAggWithGroupByHash(TestCase.CASE_7_4A);
+    }
+
+    /**
+     * Validates a plan for a query with min/max distinct aggregates and groups.
+     *
+     * <p>NB: DISTINCT make no sense for MIN/MAX, thus expected plan is the same as in {@link #simpleAggregateWithGroupBy()}
+     */
+    @Test
+    public void minMaxDistinctAggregateWithGroupBy() throws Exception {
+        checkSimpleAggWithGroupBySingle(TestCase.CASE_8_1);
+        checkSimpleAggWithGroupBySingle(TestCase.CASE_8_2);
+
+        checkSimpleAggWithGroupByHash(TestCase.CASE_8_1A);
+        checkSimpleAggWithGroupByHash(TestCase.CASE_8_2A);
+    }
+
+    /**
+     * Validates a plan uses an index for a query with aggregate if grouped by index prefix.
+     *
+     * <p>NB: GROUP BY columns order permutation shouldn't affect the plan.
+     */
+    @Test
+    public void aggregateWithGroupByIndexPrefixColumns() throws Exception {
+        checkAggWithGroupByIndexColumnsSingle(TestCase.CASE_9);
+        checkAggWithGroupByIndexColumnsSingle(TestCase.CASE_10);
+        checkAggWithGroupByIndexColumnsSingle(TestCase.CASE_11);
+
+        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_9A);
+        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_10A);
+        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_11A);
+    }
+
+    /**
+     * Validates a plan for a query with DISTINCT and without aggregation function.
+     */
+    @Test
+    public void distinctWithoutAggregate() throws Exception {
+        checkGroupWithNoAggregateSingle(TestCase.CASE_12);
+
+        assertPlan(TestCase.CASE_12A,
+                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
+                        .and(not(hasAggregate()))
+                        .and(hasGroups())
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                        .and(not(hasAggregate()))
+                                        .and(hasGroups())
+                                        .and(input(isTableScan("TEST")))
+                                ))
+                        ))
+                )
         );
     }
 
-    enum AggregateAlgorithm {
-        SORT(
-                IgniteColocatedSortAggregate.class,
-                IgniteMapSortAggregate.class,
-                IgniteReduceSortAggregate.class,
-                "ColocatedHashAggregateConverterRule", "MapReduceHashAggregateConverterRule"
-        ),
+    /**
+     * Validates a plan uses index for a query with DISTINCT and without aggregation functions.
+     */
+    @Test
+    public void distinctWithoutAggregateUseIndex() throws Exception {
+        assertPlan(TestCase.CASE_13,
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
+                        .and(not(hasAggregate()))
+                        .and(hasGroups())
+                        .and(input(isIndexScan("TEST", "grp0_grp1")))
+                ));
 
-        HASH(
-                IgniteColocatedHashAggregate.class,
-                IgniteMapHashAggregate.class,
-                IgniteReduceHashAggregate.class,
-                "ColocatedSortAggregateConverterRule", "MapReduceSortAggregateConverterRule"
+        assertPlan(TestCase.CASE_13A,
+                nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
+                        .and(not(hasAggregate()))
+                        .and(hasGroups())
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                        .and(not(hasAggregate()))
+                                        .and(hasGroups())
+                                        .and(input(isIndexScan("TEST", "grp0_grp1")))
+                                ))
+                        ))
+                ));
+    }
+
+    /**
+     * Validates a plan for a query which WHERE clause contains a sub-query with aggregate.
+     */
+    @Test
+    public void subqueryWithAggregateInWhereClause() throws Exception {
+        checkSimpleAggSingle(TestCase.CASE_14);
+        checkSimpleAggHash(TestCase.CASE_14A);
+    }
+
+    /**
+     * Validates a plan for a query with DISTINCT aggregate in WHERE clause.
+     */
+    @Test
+    public void distinctAggregateInWhereClause() throws Exception {
+        checkGroupWithNoAggregateSingle(TestCase.CASE_15);
+
+        assertPlan(TestCase.CASE_15A,
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(not(hasAggregate()))
+                        .and(hasGroups())
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isTableScan("TEST")))
+                        ))
+                ));
+    }
+
+    /**
+     * Validates a plan with merge-sort utilizes index if collation fits.
+     */
+    @Test
+    public void noSortAppendingWithCorrectCollation() throws Exception {
+        String[] additionalRulesToDisable = {"NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", "CorrelateToNestedLoopRule"};
+
+        assertPlan(TestCase.CASE_16,
+                not(nodeOrAnyChild(isInstanceOf(IgniteSort.class)))
+                        .and(nodeOrAnyChild(input(1, isInstanceOf(IgniteColocatedSortAggregate.class))
+                                .and(input(isIndexScan("TEST", "val0")))
+                        )),
+                additionalRulesToDisable);
+
+        assertPlan(TestCase.CASE_16A,
+                nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                        .and(input(isIndexScan("TEST", "val0")))
+                                ))
+                        ))
+                ),
+                additionalRulesToDisable);
+    }
+
+    /**
+     * Validates a plan for a sub-query with order and limit.
+     */
+    @Test
+    public void emptyCollationPassThroughLimit() throws Exception {
+        assertPlan(TestCase.CASE_17,
+                hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
+                        .and(input(1, isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(input(isInstanceOf(IgniteLimit.class)
+                                        .and(input(isInstanceOf(IgniteSort.class)
+                                                .and(input(isTableScan("TEST")))
+                                        ))
+                                ))
+                        ))
+                ));
+
+        assertPlan(TestCase.CASE_17A,
+                hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
+                        .and(input(1, isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(input(isInstanceOf(IgniteLimit.class)
+                                        .and(input(isInstanceOf(IgniteExchange.class)
+                                                .and(input(isInstanceOf(IgniteSort.class)
+                                                        .and(input(isTableScan("TEST")))
+                                                ))
+                                        ))
+                                ))
+                        ))
+                ));
+    }
+
+    /**
+     * Validates a plan for a query with aggregate and with groups and sorting by the same column set.
+     */
+    @Test
+    public void groupsWithOrderByGroupColumns() throws Exception {
+        checkGroupsWithOrderByGroupColumnsSingle(TestCase.CASE_18_1, TraitUtils.createCollation(List.of(0, 1)));
+        checkGroupsWithOrderByGroupColumnsSingle(TestCase.CASE_18_2, TraitUtils.createCollation(List.of(1, 0)));
+        // checkGroupsWithOrderByGroupColumnsSingle(TestCase.CASE_18_3, TraitUtils.createCollation(List.of(0, 1)));
+
+        checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_1A, TraitUtils.createCollation(List.of(0, 1)));
+        checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_2A, TraitUtils.createCollation(List.of(1, 0)));
+        // checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_3A, TraitUtils.createCollation(List.of(0, 1)));
+    }
+
+    /**
+     * Validates a plan for a query with aggregate and with sorting by subset of group columns.
+     */
+    @Test
+    public void aggregateWithOrderByGroupColumns() throws Exception {
+        checkGroupsWithOrderByGroupColumnsSingle(TestCase.CASE_19_1, TraitUtils.createCollation(List.of(0, 1)));
+        checkGroupsWithOrderByGroupColumnsSingle(TestCase.CASE_19_2, TraitUtils.createCollation(List.of(1, 0)));
+
+        checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_19_1A, TraitUtils.createCollation(List.of(0, 1)));
+        checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_19_2A, TraitUtils.createCollation(List.of(1, 0)));
+    }
+
+    /**
+     * Validates a plan for a query with aggregate and with group by subset of order by columns.
+     */
+    @Test
+    public void aggregateWithGroupBySubsetOrderByColumns() throws Exception {
+        assertPlan(TestCase.CASE_20,
+                isInstanceOf(IgniteSort.class)
+                        .and(s -> s.collation().equals(TraitUtils.createCollation(List.of(0, 1, 2))))
+                        .and(nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(input(isTableScan("TEST")))
+                        ))
         );
 
-        public final Class<? extends IgniteColocatedAggregateBase> colocated;
+        assertPlan(TestCase.CASE_20A,
+                isInstanceOf(IgniteSort.class)
+                        .and(s -> s.collation().equals(TraitUtils.createCollation(List.of(0, 1, 2))))
+                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(input(isInstanceOf(IgniteExchange.class)
+                                        .and(input(isTableScan("TEST")))
+                                ))
+                        ))
+        );
+    }
 
-        public final Class<? extends IgniteMapAggregateBase> map;
 
-        public final Class<? extends IgniteReduceAggregateBase> reduce;
+    /**
+     * Validates a plan for a query with aggregate and groups, and EXPAND_DISTINCT_AGG hint.
+     */
+    @Test
+    public void expandDistinctAggregates() throws Exception {
+        Predicate<? extends RelNode> subtreePredicate = nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
+                // Check the second aggregation step contains accumulators.
+                // Plan must not contain distinct accumulators.
+                .and(hasAggregate())
+                .and(not(hasDistinctAggregate()))
+                // Check the first aggregation step is SELECT DISTINCT (doesn't contain any accumulators)
+                .and(input(isInstanceOf(IgniteColocatedSortAggregate.class)
+                        .and(not(hasAggregate()))
+                        .and(hasGroups())
+                ))
+        );
 
-        public final String[] rulesToDisable;
+        assertPlan(TestCase.CASE_21, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
+                .and(input(0, subtreePredicate))
+                .and(input(1, subtreePredicate))
+        ));
 
-        AggregateAlgorithm(
-                Class<? extends IgniteColocatedAggregateBase> colocated,
-                Class<? extends IgniteMapAggregateBase> map,
-                Class<? extends IgniteReduceAggregateBase> reduce,
-                String... rulesToDisable) {
-            this.colocated = colocated;
-            this.map = map;
-            this.reduce = reduce;
-            this.rulesToDisable = rulesToDisable;
-        }
+        subtreePredicate = nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
+                // Check the second aggregation step contains accumulators.
+                // Plan must not contain distinct accumulators.
+                .and(hasAggregate())
+                .and(not(hasDistinctAggregate()))
+                // Check the first aggregation step is SELECT DISTINCT (doesn't contain any accumulators)
+                .and(input(isInstanceOf(IgniteReduceSortAggregate.class)
+                        .and(not(hasAggregate()))
+                        .and(hasGroups())
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                        .and(not(hasAggregate()))
+                                        .and(hasGroups())
+                                ))
+                        ))
+                ))
+        );
+
+        assertPlan(TestCase.CASE_21A, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
+                .and(input(0, subtreePredicate))
+                .and(input(1, subtreePredicate))
+        ));
+    }
+
+    private void checkSimpleAggSingle(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasAggregate())
+                        .and(input(isTableScan("TEST")))
+                )
+        );
+    }
+
+    private void checkSimpleAggHash(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                        .and(hasAggregate())
+                                        .and(hasGroups())
+                                        .and(input(isTableScan("TEST")))
+                                ))
+                        ))
+                )
+        );
+    }
+
+    private void checkSimpleAggWithGroupBySingle(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasAggregate())
+                        .and(hasGroups())
+                        .and(input(isTableScan("TEST")))
+                )
+        );
+    }
+
+    private void checkSimpleAggWithGroupByHash(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                        .and(hasAggregate())
+                                        .and(hasGroups())
+                                        .and(input(isTableScan("TEST")))
+                                ))
+                        ))
+                )
+        );
+    }
+
+    private void checkDistinctAggSingle(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasAggregate())
+                        .and(not(hasDistinctAggregate()))
+                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(hasGroups())
+                                .and(input(isTableScan("TEST")))
+                        ))
+        );
+    }
+
+    private void checkDistinctAggHash(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasAggregate())
+                        .and(not(hasDistinctAggregate()))
+                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(hasGroups())
+                                .and(input(isInstanceOf(IgniteExchange.class)
+                                        .and(input(isTableScan("TEST")))
+                                ))
+                        ))
+        );
+    }
+
+    private void checkDistinctAggWithGroupBySingle(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasDistinctAggregate())
+                        .and(hasGroups())
+                        .and(input(isTableScan("TEST")))
+                )
+        );
+    }
+
+    private void checkDistinctAggWithGroupByHash(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasDistinctAggregate())
+                        .and(hasGroups())
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isTableScan("TEST")))
+                        ))
+                )
+        );
+    }
+
+    private void checkAggWithGroupByIndexColumnsSingle(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
+                        .and(hasAggregate())
+                        .and(input(isIndexScan("TEST", "grp0_grp1")))
+                )
+        );
+    }
+
+    private void checkAggWithGroupByIndexColumnsHash(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                        .and(hasAggregate())
+                                        .and(input(isIndexScan("TEST", "grp0_grp1")))
+                                ))
+                        ))
+                )
+        );
+    }
+
+    private void checkGroupWithNoAggregateSingle(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(not(hasAggregate()))
+                        .and(hasGroups())
+                        .and(input(isTableScan("TEST")))
+                ));
+    }
+
+    private void checkGroupsWithOrderByGroupColumnsSingle(TestCase testCase, RelCollation collation) throws Exception {
+        assertPlan(testCase,
+                isInstanceOf(IgniteColocatedSortAggregate.class)
+                        .and(input(isInstanceOf(IgniteSort.class)
+                                .and(s -> s.collation().equals(collation))
+                                .and(input(isTableScan("TEST")))
+                        ))
+        );
+    }
+
+    private void checkGroupsWithOrderByGroupColumnsHash(TestCase testCase, RelCollation collation) throws Exception {
+        assertPlan(testCase,
+                isInstanceOf(IgniteColocatedSortAggregate.class)
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteSort.class)
+                                        .and(s -> s.collation().equals(collation))
+                                        .and(input(isTableScan("TEST")))
+                                ))
+                        ))
+        );
     }
 }

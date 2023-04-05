@@ -33,7 +33,7 @@ public interface RaftGroupEventsListener {
      *
      * @param configuration New Raft group configuration.
      */
-    void onNewPeersConfigurationApplied(PeersAndLearners configuration);
+    default void onNewPeersConfigurationApplied(PeersAndLearners configuration) {}
 
     /**
      * Invoked on the leader if membership reconfiguration failed, because of {@link Status}.
@@ -42,22 +42,10 @@ public interface RaftGroupEventsListener {
      * @param configuration Configuration that failed to be applied.
      * @param term Raft term of the current leader.
      */
-    void onReconfigurationError(Status status, PeersAndLearners configuration, long term);
+    default void onReconfigurationError(Status status, PeersAndLearners configuration, long term) {}
 
     /**
      * No-op raft group events listener.
      */
-    RaftGroupEventsListener noopLsnr = new RaftGroupEventsListener() {
-        /** {@inheritDoc} */
-        @Override
-        public void onLeaderElected(long term) { }
-
-        /** {@inheritDoc} */
-        @Override
-        public void onNewPeersConfigurationApplied(PeersAndLearners configuration) { }
-
-        /** {@inheritDoc} */
-        @Override
-        public void onReconfigurationError(Status status, PeersAndLearners configuration, long term) {}
-    };
+    RaftGroupEventsListener noopLsnr = term -> {};
 }

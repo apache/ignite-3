@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage;
 
+import java.io.Serializable;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -29,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  *     <li>revision - a number which denotes a version of whole meta storage. Each change increments the revision.</li>
  * </ul>
  */
-public interface Entry {
+public interface Entry extends Serializable {
     /**
      * Returns a key.
      *

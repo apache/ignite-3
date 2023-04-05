@@ -25,12 +25,8 @@ dependencies {
     annotationProcessor libs.micronaut.inject.annotation.processor
 
     implementation project(':ignite-core')
-    implementation project(':ignite-configuration')
     implementation project(':ignite-configuration-api')
-    implementation project(':ignite-rest-api')
     implementation libs.jetbrains.annotations
-    implementation libs.micronaut.http.core
-    implementation libs.micronaut.http.server.core
     implementation libs.auto.service.annotations
 
     annotationProcessor libs.auto.service
@@ -39,13 +35,13 @@ dependencies {
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
     testImplementation project(':ignite-core')
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
 
     integrationTestAnnotationProcessor project(":ignite-configuration-annotation-processor")
     integrationTestAnnotationProcessor libs.auto.service
     integrationTestImplementation project(':ignite-core')
-    integrationTestImplementation(testFixtures(project(':ignite-configuration')))
+    integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation libs.auto.service.annotations
 }
 

@@ -21,20 +21,23 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
+import org.apache.ignite.internal.storage.PartitionTimestampCursor;
+import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
  * Provides access to MV (multi-version) data of a partition.
  *
- * <p>Methods writing to MV storage ({@link #addWrite(RowId, TableRow, UUID, UUID, int)}, {@link #abortWrite(RowId)}
+ * <p>Methods writing to MV storage ({@link #addWrite(RowId, BinaryRow, UUID, UUID, int)}, {@link #abortWrite(RowId)}
  * and {@link #commitWrite(RowId, HybridTimestamp)}) and TX data storage MUST be invoked under a lock acquired using
  * {@link #acquirePartitionSnapshotsReadLock()}.
  *
@@ -99,19 +102,10 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException;
 
     /**
-     * Committed RAFT group configuration corresponding to the write command with the highest index applied to the storage.
-     * {@code null} if it was never saved.
-     *
-     * @see MvPartitionStorage#committedGroupConfiguration()
-     */
-    @Nullable
-    RaftGroupConfiguration committedGroupConfiguration();
-
-    /**
      * Updates RAFT group configuration.
      *
      * @param config Configuration to save.
-     * @see MvPartitionStorage#committedGroupConfiguration(RaftGroupConfiguration)
+     * @see MvPartitionStorage#committedGroupConfiguration(byte[])
      */
     void committedGroupConfiguration(RaftGroupConfiguration config);
 
@@ -133,9 +127,9 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      *     exists before this call
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data to the storage.
-     * @see MvPartitionStorage#addWrite(RowId, TableRow, UUID, UUID, int)
+     * @see MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, UUID, int)
      */
-    @Nullable TableRow addWrite(RowId rowId, @Nullable TableRow row, UUID txId, UUID commitTableId, int commitPartitionId)
+    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
             throws TxIdMismatchException, StorageException;
 
     /**
@@ -148,7 +142,7 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @throws StorageException If failed to write data to the storage.
      * @see MvPartitionStorage#abortWrite(RowId)
      */
-    @Nullable TableRow abortWrite(RowId rowId) throws StorageException;
+    @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException;
 
     /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.
@@ -163,6 +157,24 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException;
 
     /**
+     * Scans all versions of a single row.
+     *
+     * <p>{@link ReadResult#newestCommitTimestamp()} is NOT filled by this method for intents having preceding committed
+     * versions.
+     *
+     * @param rowId Row id.
+     * @return Cursor of results including both rows data and transaction-related context. The versions are ordered from newest to oldest.
+     */
+    Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException;
+
+    /**
+     * Tries to garbage collect the oldest stale entry of the partition.
+     *
+     * @see MvPartitionStorage#pollForVacuum(HybridTimestamp)
+     */
+    @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark);
+
+    /**
      * Returns the underlying {@link MvPartitionStorage}. Only for tests!
      *
      * @return Underlying {@link MvPartitionStorage}.
@@ -175,4 +187,14 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      */
     @Override
     void close();
+
+    /**
+     * Scans the partition and returns a cursor of values at the given timestamp. This cursor filters out committed tombstones, but not
+     * tombstones in the write-intent state.
+     *
+     * @param timestamp Timestamp. Can't be {@code null}.
+     * @return Cursor.
+     * @throws StorageException If failed to read data from the storage.
+     */
+    PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException;
 }

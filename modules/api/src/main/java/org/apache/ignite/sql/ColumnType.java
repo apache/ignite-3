@@ -53,7 +53,7 @@ public enum ColumnType {
     /** 64-bit double-precision floating-point number. */
     DOUBLE,
 
-    /** A decimal floating-point number. */
+    /** Arbitrary-precision signed decimal number. */
     DECIMAL,
 
     /** Timezone-free date. */

@@ -92,6 +92,8 @@ public class ConnectionTest extends AbstractClientTest {
     }
 
     private static void testConnection(String... addrs) throws Exception {
-        AbstractClientTest.startClient(addrs).close();
+        IgniteClient c = AbstractClientTest.startClient(addrs);
+
+        c.close();
     }
 }

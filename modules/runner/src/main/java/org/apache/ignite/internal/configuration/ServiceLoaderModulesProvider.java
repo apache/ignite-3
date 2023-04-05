@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.jetbrains.annotations.Nullable;
 
 /**

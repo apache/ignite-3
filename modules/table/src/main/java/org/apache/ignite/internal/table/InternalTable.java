@@ -67,6 +67,14 @@ public interface InternalTable extends ManuallyCloseable {
     String name();
 
     /**
+     * Extracts an identifier of a partition from a given row.
+     *
+     * @param row A row to extract partition from.
+     * @return An identifier of a partition the row belongs to.
+     */
+    int partitionId(BinaryRowEx row);
+
+    /**
      * Asynchronously gets a row with same key columns values as given one from the table.
      *
      * @param keyRow Row with key columns set.
@@ -357,27 +365,6 @@ public interface InternalTable extends ManuallyCloseable {
             int partId,
             @NotNull HybridTimestamp readTimestamp,
             @NotNull ClusterNode recipientNode,
-            @NotNull UUID indexId,
-            BinaryTuple key,
-            @Nullable BitSet columnsToInclude
-    );
-
-    /**
-     * Lookup rows corresponding to the given key given partition index, providing {@link Publisher}
-     * that reactively notifies about partition rows.
-     *
-     * @param partId The partition.
-     * @param tx The transaction.
-     * @param indexId Index id.
-     * @param key Key to search.
-     * @param columnsToInclude Row projection.
-     * @return {@link Publisher} that reactively notifies about partition rows.
-     * @deprecated IGNITE-17952 Use {@link #lookup(int, UUID, PrimaryReplica, UUID, BinaryTuple, BitSet)} instead.
-     */
-    @Deprecated
-    Publisher<BinaryRow> lookup(
-            int partId,
-            @Nullable InternalTransaction tx,
             @NotNull UUID indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude

@@ -21,11 +21,14 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -67,5 +70,14 @@ class LogicalTopologyServiceImplTest {
         doReturn(snapshotFuture).when(cmgManager).logicalTopology();
 
         assertThat(logicalTopologyService.logicalTopologyOnLeader(), is(snapshotFuture));
+    }
+
+    @Test
+    void delegatesValidatedNodesOnLeader() {
+        CompletableFuture<Set<ClusterNode>> snapshotFuture = new CompletableFuture<>();
+
+        when(cmgManager.validatedNodes()).thenReturn(snapshotFuture);
+
+        assertThat(logicalTopologyService.validatedNodesOnLeader(), is(snapshotFuture));
     }
 }

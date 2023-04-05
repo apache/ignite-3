@@ -30,6 +30,7 @@ import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.core.Spool;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
 import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
@@ -38,7 +39,7 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 /**
  * Relational operator that returns the sorted contents of a table and allow to lookup rows by specified bounds.
  */
-public class IgniteSortedIndexSpool extends AbstractIgniteSpool implements InternalIgniteRel {
+public class IgniteSortedIndexSpool extends AbstractIgniteSpool implements IgniteRel {
     private final RelCollation collation;
 
     /** Index search conditions. */
@@ -88,6 +89,14 @@ public class IgniteSortedIndexSpool extends AbstractIgniteSpool implements Inter
     @Override
     public <T> T accept(IgniteRelVisitor<T> visitor) {
         return visitor.visit(this);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelNode accept(RexShuttle shuttle) {
+        shuttle.apply(condition);
+
+        return super.accept(shuttle);
     }
 
     /**

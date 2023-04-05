@@ -48,6 +48,9 @@ public class TablesConfigurationSchema {
     /** Default data storage for tables. */
     @ExistingDataStorage
     @Value(hasDefault = true)
-    // TODO: IGNITE-17197 Set "aimem" after the ticket is resolved.
-    public String defaultDataStorage = "rocksdb";
+    public String defaultDataStorage = "aipersist";
+
+    /** Number of garbage collector threads. */
+    @Value(hasDefault = true)
+    public int gcThreads = Runtime.getRuntime().availableProcessors();
 }

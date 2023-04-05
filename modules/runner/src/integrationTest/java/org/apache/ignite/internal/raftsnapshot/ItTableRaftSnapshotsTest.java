@@ -19,15 +19,18 @@ package org.apache.ignite.internal.raftsnapshot;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest.waitForIndex;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.net.ConnectException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,30 +45,34 @@ import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.Cluster.NodeKnockout;
+import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.jul.NoOpHandler;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NetworkMessage;
@@ -80,13 +87,13 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotExecutorImpl;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -94,9 +101,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Tests how RAFT snapshots installation works for table partitions.
  */
 @SuppressWarnings("resource")
-@ExtendWith(WorkDirectoryExtension.class)
 @Timeout(90)
-class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
+class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItTableRaftSnapshotsTest.class);
 
     /**
@@ -131,14 +137,24 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
 
     private Cluster cluster;
 
+    private Logger replicatorLogger;
+
+    private @Nullable Handler replicaLoggerHandler;
+
     @BeforeEach
     void createCluster(TestInfo testInfo) {
         cluster = new Cluster(testInfo, workDir, NODE_BOOTSTRAP_CFG);
+
+        replicatorLogger = Logger.getLogger(Replicator.class.getName());
     }
 
     @AfterEach
     @Timeout(60)
     void shutdownCluster() {
+        if (replicaLoggerHandler != null) {
+            replicatorLogger.removeHandler(replicaLoggerHandler);
+        }
+
         cluster.shutdown();
     }
 
@@ -153,11 +169,10 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Executes the given action, retrying it up to a few times if a transient failure occurs (like node unavailability).
+     * Executes the given action, retrying it up to a few times if a transient failure occurs (like node unavailability) or
+     * until {@code shouldStop} returns {@code true}, in that case this method throws {@link UnableToRetry} exception.
      */
-    private static <T> T withRetry(Supplier<T> action) {
-        // TODO: IGNITE-18423 remove this retry machinery when the networking bug is fixed as replication timeout seems to be caused by it.
-
+    private static <T> T withRetry(Supplier<T> action, Predicate<RuntimeException> shouldStop) {
         int maxAttempts = 4;
         int sleepMillis = 500;
 
@@ -165,6 +180,9 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
             try {
                 return action.get();
             } catch (RuntimeException e) {
+                if (shouldStop.test(e)) {
+                    throw new UnableToRetry(e);
+                }
                 if (attempt < maxAttempts && isTransientFailure(e)) {
                     LOG.warn("Attempt " + attempt + " failed, going to retry", e);
                 } else {
@@ -186,15 +204,48 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
         throw new AssertionError("Should not reach here");
     }
 
+    /**
+     * Executes the given UPDATE/INSERT statement until it succeed or receives duplicate key error.
+     */
+    private void executeDmlWithRetry(int nodeIndex, String statement) {
+        // We should retry a DML statement until we either succeed or receive a duplicate key error.
+        // The number of attempts is bounded because we know that node is going to recover.
+        Predicate<RuntimeException> stopOnDuplicateKeyError = (e) -> {
+            if (e instanceof IgniteException) {
+                IgniteException ie = (IgniteException) e;
+                return ie.code() == Sql.DUPLICATE_KEYS_ERR;
+            } else {
+                return false;
+            }
+        };
+
+        try {
+            withRetry(() -> {
+                cluster.doInSession(nodeIndex, session -> {
+                    executeUpdate(statement, session);
+                });
+                return null;
+            }, stopOnDuplicateKeyError);
+
+        } catch (UnableToRetry ignore) {
+            // Duplicate key exception was caught.
+        }
+    }
+
     private static boolean isTransientFailure(RuntimeException e) {
         return hasCause(e, ReplicationTimeoutException.class, null)
                 || hasCause(e, IgniteInternalException.class, "Failed to send message to node")
                 || hasCause(e, IgniteInternalCheckedException.class, "Failed to execute query, node left")
-                || hasCause(e, SqlValidatorException.class, "Object 'TEST' not found");
+                || hasCause(e, SqlValidatorException.class, "Object 'TEST' not found")
+                // TODO: remove after https://issues.apache.org/jira/browse/IGNITE-18848 is implemented.
+                || hasCause(e, StorageRebalanceException.class, "process of rebalancing")
+                || hasCause(e, ConnectException.class, null);
     }
 
     private <T> T queryWithRetry(int nodeIndex, String sql, Function<ResultSet<SqlRow>, T> extractor) {
-        return withRetry(() -> cluster.query(nodeIndex, sql, extractor));
+        Predicate<RuntimeException> retryForever = (e) -> false;
+        // TODO: IGNITE-18423 remove this retry machinery when the networking bug is fixed as replication timeout seems to be caused by it.
+        return withRetry(() -> cluster.query(nodeIndex, sql, extractor), retryForever);
     }
 
     /**
@@ -217,7 +268,6 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
      * to knock-out the follower to make it require a snapshot installation).
      */
     @Test
-    @Disabled("Enable when the IGNITE-18170 deadlock is fixed")
     void leaderFeedsFollowerWithSnapshotWithKnockoutStop() throws Exception {
         testLeaderFeedsFollowerWithSnapshot(Cluster.NodeKnockout.STOP, DEFAULT_STORAGE_ENGINE);
     }
@@ -304,20 +354,22 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
 
         cluster.knockOutNode(2, knockout);
 
-        cluster.doInSession(0, session -> {
-            executeUpdate("insert into test(key, value) values (1, 'one')", session);
-        });
+        executeDmlWithRetry(0, "insert into test(key, value) values (1, 'one')");
 
         // Make sure AppendEntries from leader to follower is impossible, making the leader to use InstallSnapshot.
         causeLogTruncationOnSolePartitionLeader();
     }
 
     private void createTestTableWith3Replicas(String storageEngine) throws InterruptedException {
+        String zoneSql = "create zone test_zone with partitions=1, replicas=3;";
         String sql = "create table test (key int primary key, value varchar(20))"
                 + (DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? "" : " engine " + storageEngine)
-                + " with partitions=1, replicas=3";
+                + " with primary_zone='TEST_ZONE'";
+
+        waitForIndex("test_PK");
 
         cluster.doInSession(0, session -> {
+            executeUpdate(zoneSql, session);
             executeUpdate(sql, session);
         });
 
@@ -325,7 +377,7 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
     }
 
     private void waitForTableToStart() throws InterruptedException {
-        // TODO: IGNITE-18203 - remove this wait because when a table creation query is executed, the table must be fully ready.
+        // TODO: IGNITE-18733 - remove this wait because when a table creation query is executed, the table must be fully ready.
 
         BooleanSupplier tableStarted = () -> {
             int numberOfStartedRaftNodes = cluster.runningNodes()
@@ -415,8 +467,6 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
     private void reanimateNodeAndWaitForSnapshotInstalled(int nodeIndex, NodeKnockout knockout) throws InterruptedException {
         CountDownLatch snapshotInstalledLatch = new CountDownLatch(1);
 
-        Logger replicatorLogger = Logger.getLogger(Replicator.class.getName());
-
         var handler = new NoOpHandler() {
             @Override
             public void publish(LogRecord record) {
@@ -493,7 +543,6 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
      * <p>{@link NodeKnockout#STOP} is used to knock out the follower which will accept the snapshot.
      */
     @Test
-    @Disabled("Enable when the IGNITE-18170 deadlock is resolved")
     void txSemanticsIsMaintainedWithKnockoutStop() throws Exception {
         txSemanticsIsMaintainedAfterInstallingSnapshot(Cluster.NodeKnockout.STOP);
     }
@@ -567,6 +616,7 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
     void entriesKeepAppendedAfterSnapshotInstallation() throws Exception {
         feedNode2WithSnapshotOfOneRow(DEFAULT_KNOCKOUT);
 
+        // this should be possibly replaced with executeDmlWithRetry.
         cluster.doInSession(0, session -> {
             executeUpdate("insert into test(key, value) values (2, 'two')", session);
         });
@@ -666,14 +716,26 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
     private BiPredicate<String, NetworkMessage> dropFirstSnapshotMetaResponse() {
         AtomicBoolean sentSnapshotMetaResponse = new AtomicBoolean(false);
 
-        return dropFirstSnapshotMetaResponse(
-                sentSnapshotMetaResponse);
+        return dropFirstSnapshotMetaResponse(sentSnapshotMetaResponse);
     }
 
     private BiPredicate<String, NetworkMessage> dropFirstSnapshotMetaResponse(AtomicBoolean sentSnapshotMetaResponse) {
         return (targetConsistentId, message) -> {
             if (Objects.equals(targetConsistentId, cluster.node(2).name()) && message instanceof SnapshotMetaResponse) {
                 return sentSnapshotMetaResponse.compareAndSet(false, true);
+            } else {
+                return false;
+            }
+        };
+    }
+
+    private BiPredicate<String, NetworkMessage> dropSnapshotMetaResponse(CompletableFuture<Void> sentFirstSnapshotMetaResponse) {
+        return (targetConsistentId, message) -> {
+            if (Objects.equals(targetConsistentId, cluster.node(2).name()) && message instanceof SnapshotMetaResponse) {
+                sentFirstSnapshotMetaResponse.complete(null);
+
+                // Always drop.
+                return true;
             } else {
                 return false;
             }
@@ -730,6 +792,131 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
             reanimateNode2AndWaitForSnapshotInstalled(DEFAULT_KNOCKOUT);
         } finally {
             snapshotExecutorLogger.removeHandler(snapshotInstallFailedDueToIdenticalRetryHandler);
+        }
+    }
+
+    @Test
+    void testChangeLeaderOnInstallSnapshotInMiddle() throws Exception {
+        CompletableFuture<Void> sentSnapshotMetaResponseFormNode1Future = new CompletableFuture<>();
+
+        prepareClusterForInstallingSnapshotToNode2(NodeKnockout.PARTITION_NETWORK, DEFAULT_STORAGE_ENGINE, cluster -> {
+            // Let's hang the InstallSnapshot in the "middle" from the leader with index 1.
+            cluster.node(1).dropMessages(dropSnapshotMetaResponse(sentSnapshotMetaResponseFormNode1Future));
+        });
+
+        // Change the leader and truncate its log so that InstallSnapshot occurs instead of AppendEntries.
+        transferLeadershipOnSolePartitionTo(1);
+
+        causeLogTruncationOnSolePartitionLeader();
+
+        CompletableFuture<Void> installSnapshotSuccessfulFuture = new CompletableFuture<>();
+
+        listenForSnapshotInstalledSuccessFromLogger(0, 2, installSnapshotSuccessfulFuture);
+
+        // Return node 2.
+        cluster.reanimateNode(2, NodeKnockout.PARTITION_NETWORK);
+
+        // Waiting for the InstallSnapshot from node 2 to hang in the "middle".
+        assertThat(sentSnapshotMetaResponseFormNode1Future, willSucceedIn(1, TimeUnit.MINUTES));
+
+        // Change the leader to node 0.
+        transferLeadershipOnSolePartitionTo(0);
+
+        // Waiting for the InstallSnapshot successfully from node 0 to node 2.
+        assertThat(installSnapshotSuccessfulFuture, willSucceedIn(1, TimeUnit.MINUTES));
+
+        // Make sure the rebalancing is complete.
+        List<IgniteBiTuple<Integer, String>> rows = queryWithRetry(2, "select * from test", ItTableRaftSnapshotsTest::readRows);
+
+        assertThat(rows, is(List.of(new IgniteBiTuple<>(1, "one"))));
+    }
+
+    /**
+     * Adds a listener for the {@link #replicatorLogger} to hear the success of the snapshot installation.
+     */
+    private void listenForSnapshotInstalledSuccessFromLogger(
+            int nodeIndexFrom,
+            int nodeIndexTo,
+            CompletableFuture<Void> snapshotInstallSuccessfullyFuture
+    ) {
+        String regexp = "Node .+" + nodeIndexFrom + " received InstallSnapshotResponse from .+_" + nodeIndexTo + " .+ success=true";
+
+        replicaLoggerHandler = new NoOpHandler() {
+            @Override
+            public void publish(LogRecord record) {
+                if (record.getMessage().matches(regexp)) {
+                    snapshotInstallSuccessfullyFuture.complete(null);
+
+                    replicatorLogger.removeHandler(this);
+                    replicaLoggerHandler = null;
+                }
+            }
+        };
+
+        replicatorLogger.addHandler(replicaLoggerHandler);
+    }
+
+    /**
+     * This tests the following schenario.
+     *
+     * <ol>
+     *     <li>
+     *         A snapshot installation is started from Node A that is a leader because A does not have enough RAFT log to feed a follower
+     *         with AppendEntries
+     *     </li>
+     *     <li>It is cancelled in the middle</li>
+     *     <li>Node B is elected as a leader; B has enough log to feed the follower with AppendEntries</li>
+     *     <li>The follower gets data from the leader using AppendEntries, not using InstallSnapshot</li>>
+     * </ol>
+     */
+    @Test
+    void testChangeLeaderDuringSnapshotInstallationToLeaderWithEnoughLog() throws Exception {
+        CompletableFuture<Void> sentSnapshotMetaResponseFormNode0Future = new CompletableFuture<>();
+
+        prepareClusterForInstallingSnapshotToNode2(NodeKnockout.PARTITION_NETWORK, DEFAULT_STORAGE_ENGINE, cluster -> {
+            // Let's hang the InstallSnapshot in the "middle" from the leader with index 0.
+            cluster.node(0).dropMessages(dropSnapshotMetaResponse(sentSnapshotMetaResponseFormNode0Future));
+        });
+
+        CompletableFuture<Void> installSnapshotSuccessfulFuture = new CompletableFuture<>();
+
+        listenForSnapshotInstalledSuccessFromLogger(1, 2, installSnapshotSuccessfulFuture);
+
+        // Return node 2.
+        cluster.reanimateNode(2, NodeKnockout.PARTITION_NETWORK);
+
+        // Waiting for the InstallSnapshot from node 2 to hang in the "middle".
+        assertThat(sentSnapshotMetaResponseFormNode0Future, willSucceedIn(1, TimeUnit.MINUTES));
+
+        // Change the leader to node 1.
+        transferLeadershipOnSolePartitionTo(1);
+
+        boolean replicated = waitForCondition(() -> {
+            List<IgniteBiTuple<Integer, String>> rows = queryWithRetry(2, "select * from test", ItTableRaftSnapshotsTest::readRows);
+            return rows.size() == 1;
+        }, 20_000);
+
+        assertTrue(replicated, "Data has not been replicated to node 2 in time");
+
+        // No snapshot must be installed.
+        assertFalse(installSnapshotSuccessfulFuture.isDone());
+
+        // Make sure the rebalancing is complete.
+        List<IgniteBiTuple<Integer, String>> rows = queryWithRetry(2, "select * from test", ItTableRaftSnapshotsTest::readRows);
+
+        assertThat(rows, is(List.of(new IgniteBiTuple<>(1, "one"))));
+    }
+
+    /**
+     * This exception is thrown to indicate that an operation can not possibly succeed after some error condition.
+     * For example there is no reason to retry an operation that inserts a certain key after receiving a duplicate key error.
+     */
+    private static final class UnableToRetry extends RuntimeException {
+
+        private static final long serialVersionUID = -504618429083573198L;
+
+        private UnableToRetry(Throwable cause) {
+            super(cause);
         }
     }
 }

@@ -18,11 +18,13 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.raft.server.impl.RaftServiceEventInterceptor;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.raft.messages.TestMessageGroup;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
+import org.apache.ignite.raft.messages.TestMessageGroup;
 
 /**
  * RPC server configured for integration tests.
@@ -35,12 +37,14 @@ public class TestIgniteRpcServer extends IgniteRpcServer {
      * @param requestExecutor Requests executor.
      */
     public TestIgniteRpcServer(ClusterService clusterService, NodeManager nodeManager, NodeOptions nodeOptions,
-        ExecutorService requestExecutor) {
+            ExecutorService requestExecutor) {
         super(
-            clusterService,
-            nodeManager,
-            nodeOptions.getRaftMessagesFactory(),
-            requestExecutor
+                clusterService,
+                nodeManager,
+                nodeOptions.getRaftMessagesFactory(),
+                requestExecutor,
+                new RaftServiceEventInterceptor(),
+                new RaftGroupEventsClientListener()
         );
 
         clusterService.messagingService().addMessageHandler(TestMessageGroup.class, new RpcMessageHandler());

@@ -34,6 +34,7 @@ import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -76,17 +77,12 @@ public class FakeIgnite implements Ignite {
     public IgniteTransactions transactions() {
         return new IgniteTransactions() {
             @Override
-            public IgniteTransactions withTimeout(long timeout) {
-                throw new UnsupportedOperationException();
+            public Transaction begin(TransactionOptions options) {
+                return beginAsync(options).join();
             }
 
             @Override
-            public Transaction begin() {
-                return beginAsync().join();
-            }
-
-            @Override
-            public CompletableFuture<Transaction> beginAsync() {
+            public CompletableFuture<Transaction> beginAsync(TransactionOptions options) {
                 return CompletableFuture.completedFuture(new InternalTransaction() {
                     private final UUID id = UUID.randomUUID();
 
@@ -155,12 +151,6 @@ public class FakeIgnite implements Ignite {
                         return null;
                     }
                 });
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public IgniteTransactions readOnly() {
-                throw new UnsupportedOperationException();
             }
         };
     }

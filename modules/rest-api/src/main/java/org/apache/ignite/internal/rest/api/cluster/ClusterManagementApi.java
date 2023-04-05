@@ -23,6 +23,8 @@ import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Post;
 import io.micronaut.http.annotation.Produces;
+import io.micronaut.security.annotation.Secured;
+import io.micronaut.security.rules.SecurityRule;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -36,18 +38,19 @@ import org.apache.ignite.internal.rest.constants.MediaType;
  * Cluster management controller.
  */
 @Controller("/management/v1/cluster")
+@Secured(SecurityRule.IS_AUTHENTICATED)
 @Tag(name = "clusterManagement")
 public interface ClusterManagementApi {
     /**
      * Returns cluster state.
      */
     @Get("state")
-    @Operation(operationId = "clusterState")
-    @ApiResponse(responseCode = "200", description = "Return cluster state",
+    @Operation(operationId = "clusterState", description = "Returns current cluster status.")
+    @ApiResponse(responseCode = "200", description = "Cluster status returned.",
             content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ClusterStateDto.class)))
-    @ApiResponse(responseCode = "404", description = "Cluster state not found, it means that the cluster is not initialized",
+    @ApiResponse(responseCode = "404", description = "Cluster status not found. Most likely, the cluster is not initialized.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "500", description = "Internal error",
+    @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces({
             MediaType.APPLICATION_JSON,
@@ -61,11 +64,11 @@ public interface ClusterManagementApi {
      * @return Completable future that will be completed when cluster is initialized.
      */
     @Post("init")
-    @Operation(operationId = "init")
-    @ApiResponse(responseCode = "200", description = "Cluster initialized")
-    @ApiResponse(responseCode = "500", description = "Internal error",
+    @Operation(operationId = "init", description = "Initializes a new cluster.")
+    @ApiResponse(responseCode = "200", description = "Cluster initialized.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "400", description = "Incorrect configuration",
+    @ApiResponse(responseCode = "400", description = "Incorrect configuration.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.APPLICATION_JSON)
     CompletableFuture<Void> init(@Body InitCommand initCommand);

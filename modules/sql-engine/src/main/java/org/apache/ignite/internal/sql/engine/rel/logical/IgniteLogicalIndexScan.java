@@ -29,7 +29,7 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.AbstractIndexScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -51,7 +51,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             @Nullable RexNode cond,
             @Nullable ImmutableBitSet requiredColumns
     ) {
-        InternalIgniteTable tbl = table.unwrap(InternalIgniteTable.class);
+        IgniteTable tbl = table.unwrap(IgniteTable.class);
         IgniteTypeFactory typeFactory = Commons.typeFactory(cluster);
         IgniteIndex index = tbl.getIndex(idxName);
         RelCollation collation = TraitUtils.createCollation(index.columns(), index.collations(), tbl.descriptor());
@@ -122,7 +122,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
 
     private static @Nullable List<SearchBounds> buildSortedIndexConditions(
             RelOptCluster cluster,
-            InternalIgniteTable table,
+            IgniteTable table,
             RelCollation collation,
             @Nullable RexNode cond,
             @Nullable ImmutableBitSet requiredColumns
@@ -142,7 +142,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
 
     private static List<SearchBounds> buildHashIndexConditions(
             RelOptCluster cluster,
-            InternalIgniteTable table,
+            IgniteTable table,
             RelCollation collation,
             RexNode cond,
             @Nullable ImmutableBitSet requiredColumns

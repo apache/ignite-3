@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
@@ -29,7 +30,6 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.OperationTimeoutException;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.Nullable;
 
@@ -228,71 +228,71 @@ public interface MetaStorageService extends ManuallyCloseable {
      * number.
      *
      * @param keyFrom Start key of range (inclusive). Couldn't be {@code null}.
-     * @param keyTo End key of range (exclusive). Could be {@code null}.
+     * @param keyTo End key of range (exclusive). {@code null} represents an unbound range.
      * @param revUpperBound The upper bound for entry revision. {@code -1} means latest revision.
-     * @return Cursor built upon entries corresponding to the given range and revision.
+     * @return  Publisher that will provide entries corresponding to the given range and revision.
      * @throws OperationTimeoutException If the operation is timed out.
      * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
      * @see ByteArray
      * @see Entry
      */
-    Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound);
+    Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound);
 
     /**
      * Retrieves entries for the given key range in lexicographic order. Entries will be filtered out by upper bound of given revision
      * number.
      *
      * @param keyFrom Start key of range (inclusive). Couldn't be {@code null}.
-     * @param keyTo End key of range (exclusive). Could be {@code null}.
+     * @param keyTo End key of range (exclusive). {@code null} represents an unbound range.
      * @param revUpperBound The upper bound for entry revision. {@code -1} means latest revision.
      * @param includeTombstones Whether to include tombstone entries.
-     * @return Cursor built upon entries corresponding to the given range and revision.
+     * @return  Publisher that will provide entries corresponding to the given range and revision.
      * @throws OperationTimeoutException If the operation is timed out.
      * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
      * @see ByteArray
      * @see Entry
      */
-    Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound, boolean includeTombstones);
+    Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound, boolean includeTombstones);
 
     /**
      * Retrieves entries for the given key range in lexicographic order. Short cut for {@link #range(ByteArray, ByteArray, long)} where
      * {@code revUpperBound == -1}.
      *
      * @param keyFrom Start key of range (inclusive). Couldn't be {@code null}.
-     * @param keyTo End key of range (exclusive). Could be {@code null}.
-     * @return Cursor built upon entries corresponding to the given range and revision.
+     * @param keyTo End key of range (exclusive). {@code null} represents an unbound range.
+     * @return  Publisher that will provide entries corresponding to the given range.
      * @throws OperationTimeoutException If the operation is timed out.
      * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
      * @see ByteArray
      * @see Entry
      */
-    Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo);
+    Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo);
 
     /**
      * Retrieves entries for the given key range in lexicographic order. Short cut for {@link #range(ByteArray, ByteArray, long, boolean)}
      * where {@code revUpperBound == -1}.
      *
      * @param keyFrom Start key of range (inclusive). Couldn't be {@code null}.
-     * @param keyTo End key of range (exclusive). Could be {@code null}.
+     * @param keyTo End key of range (exclusive). {@code null} represents an unbound range.
      * @param includeTombstones Whether to include tombstone entries.
-     * @return Cursor built upon entries corresponding to the given range and revision.
+     * @return Publisher that will provide entries corresponding to the given range.
      * @throws OperationTimeoutException If the operation is timed out.
      * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
      * @see ByteArray
      * @see Entry
      */
-    Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones);
+    Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones);
 
     /**
      * Retrieves entries for keys starting with the given prefix in lexicographic order.
      *
      * @param prefix Key prefix.
      * @param revUpperBound The upper bound for entry revision. {@code -1} means latest revision.
-     * @return Cursor built upon entries corresponding to the given key prefix and revision.
+     * @return Publisher that will provide entries corresponding to the given prefix and revision.
      * @throws OperationTimeoutException If the operation is timed out.
      * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
      */
-    Cursor<Entry> prefix(ByteArray prefix, long revUpperBound);
+    Publisher<Entry> prefix(ByteArray prefix, long revUpperBound);
 
     /**
      * Compacts meta storage (removes all tombstone entries and old entries except of entries with latest revision).

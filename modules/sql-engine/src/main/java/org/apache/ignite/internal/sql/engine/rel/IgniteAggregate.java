@@ -37,7 +37,7 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
  * IgniteAggregate.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public abstract class IgniteAggregate extends Aggregate implements InternalIgniteRel {
+public abstract class IgniteAggregate extends Aggregate implements IgniteRel {
     /** {@inheritDoc} */
     protected IgniteAggregate(
             RelOptCluster cluster,

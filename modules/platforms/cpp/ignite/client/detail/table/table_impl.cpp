@@ -15,185 +15,20 @@
  * limitations under the License.
  */
 
-#include "ignite/client/detail/table/table_impl.h"
+#include "table_impl.h"
+
 #include "ignite/client/detail/transaction/transaction_impl.h"
 #include "ignite/client/detail/utils.h"
+#include "ignite/client/table/table.h"
 
 #include "ignite/common/bits.h"
 #include "ignite/common/ignite_error.h"
 #include "ignite/protocol/bitset_span.h"
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/writer.h"
-#include "ignite/schema/binary_tuple_builder.h"
-#include "ignite/schema/binary_tuple_parser.h"
+#include "ignite/tuple/binary_tuple_parser.h"
 
 namespace ignite::detail {
-
-/**
- * Claim space for the column.
- *
- * @param builder Binary tuple builder.
- * @param typ Column type.
- * @param index Tuple field index.
- * @param tuple Tuple.
- */
-void claim_column(binary_tuple_builder &builder, ignite_type typ, std::int32_t index, const ignite_tuple &tuple) {
-    switch (typ) {
-        case ignite_type::INT8:
-            builder.claim_int8(tuple.get<std::int8_t>(index));
-            break;
-        case ignite_type::INT16:
-            builder.claim_int16(tuple.get<std::int16_t>(index));
-            break;
-        case ignite_type::INT32:
-            builder.claim_int32(tuple.get<std::int32_t>(index));
-            break;
-        case ignite_type::INT64:
-            builder.claim_int64(tuple.get<std::int64_t>(index));
-            break;
-        case ignite_type::FLOAT:
-            builder.claim_float(tuple.get<float>(index));
-            break;
-        case ignite_type::DOUBLE:
-            builder.claim_double(tuple.get<double>(index));
-            break;
-        case ignite_type::UUID:
-            builder.claim_uuid(tuple.get<uuid>(index));
-            break;
-        case ignite_type::STRING:
-            builder.claim(SizeT(tuple.get<std::string>(index).size()));
-            break;
-        case ignite_type::BINARY:
-            builder.claim(SizeT(tuple.get<std::vector<std::byte>>(index).size()));
-            break;
-        default:
-            // TODO: IGNITE-18035 Support other types
-            throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
-    }
-}
-
-/**
- * Append column value to binary tuple.
- *
- * @param builder Binary tuple builder.
- * @param typ Column type.
- * @param index Tuple field index.
- * @param tuple Tuple.
- */
-void append_column(binary_tuple_builder &builder, ignite_type typ, std::int32_t index, const ignite_tuple &tuple) {
-    switch (typ) {
-        case ignite_type::INT8:
-            builder.append_int8(tuple.get<std::int8_t>(index));
-            break;
-        case ignite_type::INT16:
-            builder.append_int16(tuple.get<std::int16_t>(index));
-            break;
-        case ignite_type::INT32:
-            builder.append_int32(tuple.get<std::int32_t>(index));
-            break;
-        case ignite_type::INT64:
-            builder.append_int64(tuple.get<std::int64_t>(index));
-            break;
-        case ignite_type::FLOAT:
-            builder.append_float(tuple.get<float>(index));
-            break;
-        case ignite_type::DOUBLE:
-            builder.append_double(tuple.get<double>(index));
-            break;
-        case ignite_type::UUID:
-            builder.append_uuid(tuple.get<uuid>(index));
-            break;
-        case ignite_type::STRING: {
-            const auto &str = tuple.get<std::string>(index);
-            bytes_view view{reinterpret_cast<const std::byte *>(str.data()), str.size()};
-            builder.append(typ, view);
-            break;
-        }
-        case ignite_type::BINARY:
-            builder.append(typ, tuple.get<std::vector<std::byte>>(index));
-            break;
-        default:
-            // TODO: IGNITE-18035 Support other types
-            throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
-    }
-}
-
-/**
- * Serialize tuple using table schema.
- *
- * @param sch Schema.
- * @param tuple Tuple.
- * @param key_only Should only key fields be serialized.
- * @param no_value No value bitset.
- * @return Serialized binary tuple.
- */
-std::vector<std::byte> pack_tuple(
-    const schema &sch, const ignite_tuple &tuple, bool key_only, protocol::bitset_span &no_value) {
-    auto count = std::int32_t(key_only ? sch.key_column_count : sch.columns.size());
-    binary_tuple_builder builder{count};
-
-    builder.start();
-
-    for (std::int32_t i = 0; i < count; ++i) {
-        const auto &col = sch.columns[i];
-        auto col_idx = tuple.column_ordinal(col.name);
-
-        if (col_idx >= 0)
-            claim_column(builder, col.type, col_idx, tuple);
-        else
-            builder.claim(std::nullopt);
-    }
-
-    builder.layout();
-    for (std::int32_t i = 0; i < count; ++i) {
-        const auto &col = sch.columns[i];
-        auto col_idx = tuple.column_ordinal(col.name);
-
-        if (col_idx >= 0)
-            append_column(builder, col.type, col_idx, tuple);
-        else {
-            builder.append(std::nullopt);
-            no_value.set(std::size_t(i));
-        }
-    }
-
-    return builder.build();
-}
-
-/**
- * Write tuple using table schema and writer.
- *
- * @param writer Writer.
- * @param sch Schema.
- * @param tuple Tuple.
- * @param key_only Should only key fields be written or not.
- */
-void write_tuple(protocol::writer &writer, const schema &sch, const ignite_tuple &tuple, bool key_only) {
-    const std::size_t count = key_only ? sch.key_column_count : sch.columns.size();
-    const std::size_t bytes_num = bytes_for_bits(count);
-
-    auto no_value_bytes = reinterpret_cast<std::byte *>(alloca(bytes_num));
-    protocol::bitset_span no_value(no_value_bytes, bytes_num);
-
-    auto tuple_data = pack_tuple(sch, tuple, key_only, no_value);
-
-    writer.write_bitset(no_value.data());
-    writer.write_binary(tuple_data);
-}
-
-/**
- * Write tuples using table schema and writer.
- *
- * @param writer Writer.
- * @param sch Schema.
- * @param tuples Tuples.
- * @param key_only Should only key fields be written or not.
- */
-void write_tuples(protocol::writer &writer, const schema &sch, const std::vector<ignite_tuple> &tuples, bool key_only) {
-    writer.write(std::int32_t(tuples.size()));
-    for (auto &tuple : tuples)
-        write_tuple(writer, sch, tuple, key_only);
-}
 
 /**
  * Write table operation header.
@@ -218,23 +53,18 @@ void write_table_operation_header(protocol::writer &writer, uuid id, transaction
  *
  * @param reader Reader.
  * @param sch Schema.
- * @param key Key.
  * @return Tuple.
  */
-ignite_tuple read_tuple(protocol::reader &reader, const schema *sch, const ignite_tuple &key) {
+ignite_tuple read_tuple(protocol::reader &reader, const schema *sch) {
     auto tuple_data = reader.read_binary();
 
     auto columns_cnt = std::int32_t(sch->columns.size());
     ignite_tuple res(columns_cnt);
-    binary_tuple_parser parser(columns_cnt - sch->key_column_count, tuple_data);
+    binary_tuple_parser parser(columns_cnt, tuple_data);
 
     for (std::int32_t i = 0; i < columns_cnt; ++i) {
         auto &column = sch->columns[i];
-        if (i < sch->key_column_count) {
-            res.set(column.name, key.get(column.name));
-        } else {
-            res.set(column.name, read_next_column(parser, column.type));
-        }
+        res.set(column.name, read_next_column(parser, column.type, column.scale));
     }
     return res;
 }
@@ -256,7 +86,7 @@ ignite_tuple read_tuple(protocol::reader &reader, const schema *sch, bool key_on
 
     for (std::int32_t i = 0; i < columns_cnt; ++i) {
         auto &column = sch->columns[i];
-        res.set(column.name, read_next_column(parser, column.type));
+        res.set(column.name, read_next_column(parser, column.type, column.scale));
     }
     return res;
 }
@@ -367,11 +197,28 @@ void table_impl::get_async(
                 if (!sch)
                     return std::nullopt;
 
-                return read_tuple(reader, sch.get(), *key);
+                return read_tuple(reader, sch.get());
             };
 
             self->m_connection->perform_request<std::optional<ignite_tuple>>(
                 client_operation::TUPLE_GET, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
+        });
+}
+
+void table_impl::contains_async(transaction *tx, const ignite_tuple &key, ignite_callback<bool> callback) {
+
+    with_latest_schema_async<bool>(std::move(callback),
+        [self = shared_from_this(), key = std::make_shared<ignite_tuple>(key), tx0 = to_impl(tx)](
+            const schema &sch, auto callback) mutable {
+            auto writer_func = [self, key, &sch, &tx0](protocol::writer &writer) {
+                write_table_operation_header(writer, self->m_id, tx0.get(), sch);
+                write_tuple(writer, sch, *key, true);
+            };
+
+            auto reader_func = [](protocol::reader &reader) -> bool { return reader.read_bool(); };
+
+            self->m_connection->perform_request<bool>(client_operation::TUPLE_CONTAINS_KEY, tx0.get(), writer_func,
+                std::move(reader_func), std::move(callback));
         });
 }
 
@@ -441,7 +288,7 @@ void table_impl::get_and_upsert_async(
                 if (!sch)
                     return std::nullopt;
 
-                return read_tuple(reader, sch.get(), *record);
+                return read_tuple(reader, sch.get());
             };
 
             self->m_connection->perform_request<std::optional<ignite_tuple>>(client_operation::TUPLE_GET_AND_UPSERT,
@@ -537,7 +384,7 @@ void table_impl::get_and_replace_async(
                 if (!sch)
                     return std::nullopt;
 
-                return read_tuple(reader, sch.get(), *record);
+                return read_tuple(reader, sch.get());
             };
 
             self->m_connection->perform_request<std::optional<ignite_tuple>>(client_operation::TUPLE_GET_AND_REPLACE,
@@ -593,7 +440,7 @@ void table_impl::get_and_remove_async(
                 if (!sch)
                     return std::nullopt;
 
-                return read_tuple(reader, sch.get(), *record);
+                return read_tuple(reader, sch.get());
             };
 
             self->m_connection->perform_request<std::optional<ignite_tuple>>(client_operation::TUPLE_GET_AND_DELETE,
@@ -639,6 +486,10 @@ void table_impl::remove_all_exact_async(
             self->m_connection->perform_request<std::vector<ignite_tuple>>(client_operation::TUPLE_DELETE_ALL_EXACT,
                 tx0.get(), writer_func, std::move(reader_func), std::move(callback));
         });
+}
+
+std::shared_ptr<table_impl> table_impl::from_facade(table &tb) {
+    return tb.m_impl;
 }
 
 } // namespace ignite::detail

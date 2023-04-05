@@ -38,7 +38,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.Convention;
-import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelTrait;
@@ -52,7 +51,6 @@ import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.Spool;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
@@ -63,10 +61,8 @@ import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
-import org.apache.ignite.internal.sql.engine.rel.IgniteGateway;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
-import org.apache.ignite.internal.sql.engine.rel.IgniteTableSpool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
@@ -124,10 +120,6 @@ public class TraitUtils {
 
         RelTraitDef converter = fromTrait.getTraitDef();
 
-        if (converter == ConventionTraitDef.INSTANCE) {
-            return convertConvention(planner, (Convention) toTrait, rel);
-        }
-
         if (rel.getConvention() != IgniteConvention.INSTANCE) {
             return null;
         }
@@ -136,23 +128,9 @@ public class TraitUtils {
             return convertCollation(planner, (RelCollation) toTrait, rel);
         } else if (converter == DistributionTraitDef.INSTANCE) {
             return convertDistribution(planner, (IgniteDistribution) toTrait, rel);
-        } else if (converter == RewindabilityTraitDef.INSTANCE) {
-            return convertRewindability((RewindabilityTrait) toTrait, rel);
         } else {
             return convertOther(planner, converter, toTrait, rel);
         }
-    }
-
-    private static RelNode convertConvention(RelOptPlanner planner, Convention toTrait, RelNode rel) {
-        Convention fromTrait = rel.getConvention();
-
-        if (fromTrait.satisfies(toTrait)) {
-            return rel;
-        }
-
-        RelTraitSet traits = rel.getTraitSet().replace(toTrait);
-
-        return new IgniteGateway(fromTrait.getName(), rel.getCluster(), traits, rel);
     }
 
     /**
@@ -190,39 +168,13 @@ public class TraitUtils {
         } else {
             return new IgniteExchange(
                     rel.getCluster(),
-                    traits
-                            .replace(RewindabilityTrait.ONE_WAY)
-                            .replace(CorrelationTrait.UNCORRELATED),
+                    traits,
                     RelOptRule.convert(
                             rel,
                             rel.getTraitSet()
-                                    .replace(CorrelationTrait.UNCORRELATED)
                     ),
                     toTrait);
         }
-    }
-
-    /**
-     * Convert rewindability. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    @Nullable
-    public static RelNode convertRewindability(RewindabilityTrait toTrait, RelNode rel) {
-        RewindabilityTrait fromTrait = rewindability(rel);
-
-        if (fromTrait.satisfies(toTrait)) {
-            return rel;
-        }
-
-        RelTraitSet traits = rel.getTraitSet()
-                .replace(toTrait)
-                .replace(CorrelationTrait.UNCORRELATED);
-
-        return new IgniteTableSpool(
-                rel.getCluster(),
-                traits,
-                Spool.Type.LAZY,
-                RelOptRule.convert(rel, rel.getTraitSet().replace(CorrelationTrait.UNCORRELATED)))
-                ;
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -287,38 +239,6 @@ public class TraitUtils {
      */
     public static RelCollation collation(RelTraitSet traits) {
         return traits.getTrait(RelCollationTraitDef.INSTANCE);
-    }
-
-    /**
-     * Rewindability. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static RewindabilityTrait rewindability(RelNode rel) {
-        return rel instanceof IgniteRel
-                ? ((IgniteRel) rel).rewindability()
-                : rewindability(rel.getTraitSet());
-    }
-
-    /**
-     * Rewindability. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static RewindabilityTrait rewindability(RelTraitSet traits) {
-        return traits.getTrait(RewindabilityTraitDef.INSTANCE);
-    }
-
-    /**
-     * Correlation. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static CorrelationTrait correlation(RelNode rel) {
-        return rel instanceof IgniteRel
-                ? ((IgniteRel) rel).correlation()
-                : correlation(rel.getTraitSet());
-    }
-
-    /**
-     * Correlation. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static CorrelationTrait correlation(RelTraitSet traits) {
-        return traits.getTrait(CorrelationTraitDef.INSTANCE);
     }
 
     /**
@@ -388,17 +308,14 @@ public class TraitUtils {
         List<RelTraitSet> inTraits = Collections.nCopies(rel.getInputs().size(),
                 rel.getCluster().traitSetOf(convention));
 
-        var context = new PropagationContext(Set.of(Pair.of(requiredTraits, inTraits)))
+        PropagationContext context = new PropagationContext(Set.of(Pair.of(requiredTraits, inTraits)))
                 .propagate((in, outs) -> singletonListFromNullable(rel.passThroughCollation(in, outs)));
 
         if (distributionEnabled(rel)) {
             context = context.propagate((in, outs) -> singletonListFromNullable(rel.passThroughDistribution(in, outs)));
         }
 
-        List<Pair<RelTraitSet, List<RelTraitSet>>> traits = context
-                .propagate((in, outs) -> singletonListFromNullable(rel.passThroughRewindability(in, outs)))
-                .propagate((in, outs) -> singletonListFromNullable(rel.passThroughCorrelation(in, outs)))
-                .combinations();
+        List<Pair<RelTraitSet, List<RelTraitSet>>> traits = context.combinations();
 
         assert traits.size() <= 1;
 
@@ -429,17 +346,14 @@ public class TraitUtils {
             return List.of();
         }
 
-        var context = new PropagationContext(combinations)
+        PropagationContext context = new PropagationContext(combinations)
                 .propagate(rel::deriveCollation);
 
         if (distributionEnabled(rel)) {
             context = context.propagate(rel::deriveDistribution);
         }
 
-        return context
-                .propagate(rel::deriveRewindability)
-                .propagate(rel::deriveCorrelation)
-                .nodes(rel::createNode);
+        return context.nodes(rel::createNode);
     }
 
     /**

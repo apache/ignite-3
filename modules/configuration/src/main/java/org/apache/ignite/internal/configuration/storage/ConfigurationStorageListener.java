@@ -22,7 +22,6 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Configuration storage listener for changes.
  */
-@FunctionalInterface
 public interface ConfigurationStorageListener {
     /**
      * Method called when entries in storage change.
@@ -31,4 +30,12 @@ public interface ConfigurationStorageListener {
      * @return Completable future that signifies the completion of all custom user listeners execution.
      */
     CompletableFuture<Void> onEntriesChanged(Data changedEntries);
+
+    /**
+     * Method called when a revision of the underlying storage changed, but no entries were changed.
+     *
+     * @param newRevision New storage revision.
+     * @return Completable future that signifies the completion of all custom user listeners execution.
+     */
+    CompletableFuture<Void> onRevisionUpdated(long newRevision);
 }

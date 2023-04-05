@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 
 import java.util.List;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.junit.jupiter.api.Test;
 
 /**

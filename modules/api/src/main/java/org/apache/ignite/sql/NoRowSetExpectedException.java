@@ -22,7 +22,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_NO_RESULT_SET_ERR;
 import java.util.UUID;
 
 /**
- * Exception is thrown when the query doesn't intend to return any rows. E.g. DML or DDL queries.
+ * Exception is thrown when a query doesn't intend to return any rows (e.g. a DML or a DDL query).
  */
 public class NoRowSetExpectedException extends SqlException {
     /**
@@ -33,11 +33,11 @@ public class NoRowSetExpectedException extends SqlException {
     }
 
     /**
-     * Creates a new exception with the given trace id, error code, detail message and cause.
+     * Creates an exception with the given trace ID, error code, detailed message, and cause.
      *
-     * @param traceId Unique identifier of this exception.
+     * @param traceId Unique identifier of the exception.
      * @param code Full error code.
-     * @param message Detail message.
+     * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
     public NoRowSetExpectedException(UUID traceId, int code, String message, Throwable cause) {

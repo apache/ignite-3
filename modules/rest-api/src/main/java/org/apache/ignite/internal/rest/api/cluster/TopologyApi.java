@@ -20,6 +20,8 @@ package org.apache.ignite.internal.rest.api.cluster;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Produces;
+import io.micronaut.security.annotation.Secured;
+import io.micronaut.security.rules.SecurityRule;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -34,15 +36,16 @@ import org.apache.ignite.internal.rest.constants.MediaType;
  * Cluster topology endpoint.
  */
 @Controller("/management/v1/cluster/topology")
+@Secured(SecurityRule.IS_AUTHENTICATED)
 @Tag(name = "topology")
 public interface TopologyApi {
     /**
      * Cluster physical topology.
      */
     @Get("physical")
-    @Operation(operationId = "physical")
-    @ApiResponse(responseCode = "200", description = "Physical topology returned")
-    @ApiResponse(responseCode = "500", description = "Internal error",
+    @Operation(operationId = "physical", description = "Gets information about physical cluster topology.")
+    @ApiResponse(responseCode = "200", description = "Physical topology returned.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces(MediaType.APPLICATION_JSON)
     Collection<ClusterNodeDto> physicalTopology();
@@ -51,9 +54,9 @@ public interface TopologyApi {
      * Cluster logical topology.
      */
     @Get("logical")
-    @Operation(operationId = "logical")
-    @ApiResponse(responseCode = "200", description = "Logical topology returned")
-    @ApiResponse(responseCode = "404", description = "Logical topology not found, it means that the cluster is not initialized",
+    @Operation(operationId = "logical", description = "Gets information about logical cluster topology.")
+    @ApiResponse(responseCode = "200", description = "Logical topology returned.")
+    @ApiResponse(responseCode = "404", description = "Logical topology not found. Most likely, the cluster is not initialized.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "500", description = "Internal error",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))

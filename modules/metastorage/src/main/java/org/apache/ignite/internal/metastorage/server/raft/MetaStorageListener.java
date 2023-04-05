@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.metastorage.server.raft;
 
-import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_CLOSING_ERR;
 
+import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,14 +31,12 @@ import java.util.function.Consumer;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetCommand;
-import org.apache.ignite.internal.metastorage.command.MultipleEntryResponse;
-import org.apache.ignite.internal.metastorage.command.PrefixCommand;
-import org.apache.ignite.internal.metastorage.command.RangeCommand;
-import org.apache.ignite.internal.metastorage.command.SingleEntryResponse;
-import org.apache.ignite.internal.metastorage.command.cursor.CursorCloseCommand;
-import org.apache.ignite.internal.metastorage.command.cursor.CursorHasNextCommand;
-import org.apache.ignite.internal.metastorage.command.cursor.CursorNextCommand;
-import org.apache.ignite.internal.metastorage.command.cursor.CursorsCloseCommand;
+import org.apache.ignite.internal.metastorage.command.cursor.CloseAllCursorsCommand;
+import org.apache.ignite.internal.metastorage.command.cursor.CloseCursorCommand;
+import org.apache.ignite.internal.metastorage.command.cursor.CreatePrefixCursorCommand;
+import org.apache.ignite.internal.metastorage.command.cursor.CreateRangeCursorCommand;
+import org.apache.ignite.internal.metastorage.command.cursor.NextBatchCommand;
+import org.apache.ignite.internal.metastorage.command.response.BatchResponse;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.raft.ReadCommand;
@@ -48,7 +45,6 @@ import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteUuid;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Meta storage listener.
@@ -74,7 +70,6 @@ public class MetaStorageListener implements RaftGroupListener {
         this.cursors = new ConcurrentHashMap<>();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onRead(Iterator<CommandClosure<ReadCommand>> iter) {
         while (iter.hasNext()) {
@@ -93,9 +88,7 @@ public class MetaStorageListener implements RaftGroupListener {
                     e = storage.get(getCmd.key());
                 }
 
-                SingleEntryResponse resp = new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter());
-
-                clo.result(resp);
+                clo.result(e);
             } else if (command instanceof GetAllCommand) {
                 GetAllCommand getAllCmd = (GetAllCommand) command;
 
@@ -107,26 +100,13 @@ public class MetaStorageListener implements RaftGroupListener {
                     entries = storage.getAll(getAllCmd.keys());
                 }
 
-                List<SingleEntryResponse> res = new ArrayList<>(entries.size());
-
-                for (Entry e : entries) {
-                    res.add(new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter()));
-                }
-
-                clo.result(new MultipleEntryResponse(res));
-            } else if (command instanceof CursorHasNextCommand) {
-                CursorHasNextCommand cursorHasNextCmd = (CursorHasNextCommand) command;
-
-                CursorMeta cursorDesc = cursors.get(cursorHasNextCmd.cursorId());
-
-                clo.result(cursorDesc != null && cursorDesc.cursor().hasNext());
+                clo.result((Serializable) entries);
             } else {
                 assert false : "Command was not found [cmd=" + command + ']';
             }
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iter) {
         while (iter.hasNext()) {
@@ -138,8 +118,8 @@ public class MetaStorageListener implements RaftGroupListener {
 
             WriteCommand command = clo.command();
 
-            if (command instanceof RangeCommand) {
-                RangeCommand rangeCmd = (RangeCommand) command;
+            if (command instanceof CreateRangeCursorCommand) {
+                var rangeCmd = (CreateRangeCursorCommand) command;
 
                 IgniteUuid cursorId = rangeCmd.cursorId();
 
@@ -147,13 +127,13 @@ public class MetaStorageListener implements RaftGroupListener {
                         ? storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo(), rangeCmd.revUpperBound(), rangeCmd.includeTombstones())
                         : storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo(), rangeCmd.includeTombstones());
 
-                var cursorMeta = new CursorMeta(cursor, rangeCmd.requesterNodeId(), rangeCmd.batchSize());
+                var cursorMeta = new CursorMeta(cursor, rangeCmd.requesterNodeId());
 
                 cursors.put(cursorId, cursorMeta);
 
                 clo.result(cursorId);
-            } else if (command instanceof PrefixCommand) {
-                var prefixCmd = (PrefixCommand) command;
+            } else if (command instanceof CreatePrefixCursorCommand) {
+                var prefixCmd = (CreatePrefixCursorCommand) command;
 
                 IgniteUuid cursorId = prefixCmd.cursorId();
 
@@ -161,61 +141,55 @@ public class MetaStorageListener implements RaftGroupListener {
                         ? storage.prefix(prefixCmd.prefix(), prefixCmd.includeTombstones())
                         : storage.prefix(prefixCmd.prefix(), prefixCmd.revUpperBound(), prefixCmd.includeTombstones());
 
-                var cursorMeta = new CursorMeta(cursor, prefixCmd.requesterNodeId(), prefixCmd.batchSize());
+                var cursorMeta = new CursorMeta(cursor, prefixCmd.requesterNodeId());
 
                 cursors.put(cursorId, cursorMeta);
 
                 clo.result(cursorId);
-            } else if (command instanceof CursorNextCommand) {
-                CursorNextCommand cursorNextCmd = (CursorNextCommand) command;
+            } else if (command instanceof NextBatchCommand) {
+                var nextBatchCommand = (NextBatchCommand) command;
 
-                CursorMeta cursorDesc = cursors.get(cursorNextCmd.cursorId());
+                CursorMeta cursorMeta = cursors.get(nextBatchCommand.cursorId());
 
-                if (cursorDesc == null) {
+                if (cursorMeta == null) {
                     clo.result(new NoSuchElementException("Corresponding cursor on the server side is not found."));
 
                     return;
                 }
 
                 try {
-                    int batchSize = requireNonNull(cursorDesc.batchSize());
+                    var resp = new ArrayList<Entry>(nextBatchCommand.batchSize());
 
-                    var resp = new ArrayList<SingleEntryResponse>(batchSize);
+                    Cursor<Entry> cursor = cursorMeta.cursor();
 
-                    Cursor<Entry> cursor = cursorDesc.cursor();
-
-                    for (int i = 0; i < batchSize && cursor.hasNext(); i++) {
-                        Entry e = cursor.next();
-
-                        resp.add(new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter()));
+                    for (int i = 0; i < nextBatchCommand.batchSize() && cursor.hasNext(); i++) {
+                        resp.add(cursor.next());
                     }
 
-                    clo.result(new MultipleEntryResponse(resp));
-                } catch (NoSuchElementException e) {
+                    if (!cursor.hasNext()) {
+                        closeCursor(nextBatchCommand.cursorId());
+                    }
+
+                    clo.result(new BatchResponse(resp, cursor.hasNext()));
+                } catch (Exception e) {
                     clo.result(e);
                 }
-            } else if (command instanceof CursorCloseCommand) {
-                CursorCloseCommand cursorCloseCmd = (CursorCloseCommand) command;
-
-                CursorMeta cursorDesc = cursors.remove(cursorCloseCmd.cursorId());
-
-                if (cursorDesc == null) {
-                    clo.result(null);
-
-                    return;
-                }
+            } else if (command instanceof CloseCursorCommand) {
+                var closeCursorCommand = (CloseCursorCommand) command;
 
                 try {
-                    cursorDesc.cursor().close();
-                } catch (Exception e) {
-                    throw new MetaStorageException(CURSOR_CLOSING_ERR, e);
-                }
+                    closeCursor(closeCursorCommand.cursorId());
 
-                clo.result(null);
-            } else if (command instanceof CursorsCloseCommand) {
-                CursorsCloseCommand cursorsCloseCmd = (CursorsCloseCommand) command;
+                    clo.result(null);
+                } catch (Exception e) {
+                    clo.result(new MetaStorageException(CURSOR_CLOSING_ERR, e));
+                }
+            } else if (command instanceof CloseAllCursorsCommand) {
+                var cursorsCloseCmd = (CloseAllCursorsCommand) command;
 
                 Iterator<CursorMeta> cursorsIter = cursors.values().iterator();
+
+                Exception ocurredException = null;
 
                 while (cursorsIter.hasNext()) {
                     CursorMeta cursorDesc = cursorsIter.next();
@@ -224,7 +198,11 @@ public class MetaStorageListener implements RaftGroupListener {
                         try {
                             cursorDesc.cursor().close();
                         } catch (Exception e) {
-                            throw new MetaStorageException(CURSOR_CLOSING_ERR, e);
+                            if (ocurredException == null) {
+                                ocurredException = e;
+                            } else {
+                                ocurredException.addSuppressed(e);
+                            }
                         }
 
                         cursorsIter.remove();
@@ -232,14 +210,21 @@ public class MetaStorageListener implements RaftGroupListener {
 
                 }
 
-                clo.result(null);
+                clo.result(ocurredException == null ? null : new MetaStorageException(CURSOR_CLOSING_ERR, ocurredException));
             } else {
                 assert false : "Command was not found [cmd=" + command + ']';
             }
         }
     }
 
-    /** {@inheritDoc} */
+    private void closeCursor(IgniteUuid cursorId) {
+        CursorMeta cursorMeta = cursors.remove(cursorId);
+
+        if (cursorMeta != null) {
+            cursorMeta.cursor().close();
+        }
+    }
+
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
         storage.snapshot(path).whenComplete((unused, throwable) -> {
@@ -247,14 +232,12 @@ public class MetaStorageListener implements RaftGroupListener {
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean onSnapshotLoad(Path path) {
         storage.restoreSnapshot(path);
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onShutdown() {
     }
@@ -269,20 +252,15 @@ public class MetaStorageListener implements RaftGroupListener {
         /** Id of the node that creates cursor. */
         private final String requesterNodeId;
 
-        /** Maximum size of the batch that is sent in single response message. */
-        private final @Nullable Integer batchSize;
-
         /**
          * The constructor.
          *
          * @param cursor          Cursor.
          * @param requesterNodeId Id of the node that creates cursor.
-         * @param batchSize       Batch size.
          */
-        CursorMeta(Cursor<Entry> cursor, String requesterNodeId, @Nullable Integer batchSize) {
+        CursorMeta(Cursor<Entry> cursor, String requesterNodeId) {
             this.cursor = cursor;
             this.requesterNodeId = requesterNodeId;
-            this.batchSize = batchSize;
         }
 
         /**
@@ -297,13 +275,6 @@ public class MetaStorageListener implements RaftGroupListener {
          */
         String requesterNodeId() {
             return requesterNodeId;
-        }
-
-        /**
-         * Returns maximum size of the batch that is sent in single response message.
-         */
-        @Nullable Integer batchSize() {
-            return batchSize;
         }
     }
 }

@@ -43,8 +43,8 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
-import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
@@ -60,10 +60,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -187,7 +185,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertNotNull(plan);
 
@@ -265,7 +263,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertNotNull(plan);
 
@@ -348,7 +346,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertEquals(3, plan.fragments().size());
     }
@@ -429,74 +427,11 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertNotNull(plan);
 
         assertEquals(3, plan.fragments().size());
-    }
-
-    /** Tests bounds merge. */
-    @Test
-    public void testBoundsMerge() throws Exception {
-        IgniteTypeFactory typeFactory = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
-
-        TestTable tbl = new TestTable(
-                new RelDataTypeFactory.Builder(typeFactory)
-                        .add("C1", typeFactory.createJavaType(Integer.class))
-                        .add("C2", typeFactory.createJavaType(Integer.class))
-                        .add("C3", typeFactory.createJavaType(Integer.class))
-                        .add("C4", typeFactory.createJavaType(Integer.class))
-                        .build(), "TEST") {
-            @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-                return ColocationGroup.forNodes(select(NODES, 0));
-            }
-
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.hash(List.of(0));
-            }
-        };
-
-        tbl.addIndex("C1C2C3", 0, 1, 2);
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable(tbl);
-
-        assertBounds("SELECT * FROM TEST WHERE C1 > ? AND C1 >= 1", List.of(10), publicSchema,
-                range("$GREATEST2(?0, 1)", "$NULL_BOUND()", true, false)
-        );
-
-        assertBounds("SELECT * FROM TEST WHERE C1 > ? AND C1 >= ? AND C1 > ?", List.of(10, 10, 10), publicSchema,
-                range("$GREATEST2($GREATEST2(?0, ?1), ?2)", "$NULL_BOUND()", true, false)
-        );
-
-        assertBounds("SELECT * FROM TEST WHERE C1 > ? AND C1 >= 1 AND C1 < ? AND C1 < ?", List.of(10, 10, 10), publicSchema,
-                range("$GREATEST2(?0, 1)", "$LEAST2(?1, ?2)", true, false)
-        );
-
-        assertBounds("SELECT * FROM TEST WHERE C1 < ? AND C1 BETWEEN 1 AND 10 ", List.of(10), publicSchema,
-                range(1, "$LEAST2(?0, 10)", true, true)
-        );
-
-        assertBounds("SELECT * FROM TEST WHERE C1 NOT IN (1, 2) AND C1 >= ?", List.of(10), publicSchema,
-                range("?0", "$NULL_BOUND()", true, false)
-        );
-
-        tbl.addIndex(RelCollations.of(TraitUtils.createFieldCollation(3, ColumnCollation.DESC_NULLS_LAST),
-                TraitUtils.createFieldCollation(2, ColumnCollation.ASC_NULLS_FIRST)), "C4");
-
-        assertBounds("SELECT * FROM TEST WHERE C4 > ? AND C4 >= 1 AND C4 < ? AND C4 < ?", List.of(10, 10, 10), publicSchema,
-                range("$LEAST2(?1, ?2)", "$GREATEST2(?0, 1)", false, true)
-        );
-    }
-
-    /** String representation of LEAST or GREATEST operator converted to CASE. */
-    private String leastOrGreatest(boolean least, String val0, String val1, String type) {
-        return "CASE(OR(IS NULL(" + val0 + "), IS NULL(" + val1 + ")), null:" + type + ", " + (least ? '<' : '>')
-                + '(' + val0 + ", " + val1 + "), " + val0 + ", " + val1 + ')';
     }
 
     @Test
@@ -574,7 +509,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertEquals(3, plan.fragments().size());
     }
@@ -651,7 +586,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertNotNull(plan);
 
@@ -797,7 +732,6 @@ public class PlannerTest extends AbstractPlannerTest {
             RelTraitSet desired = rel.getCluster().traitSet()
                     .replace(IgniteConvention.INSTANCE)
                     .replace(IgniteDistributions.single())
-                    .replace(CorrelationTrait.UNCORRELATED)
                     .simplify();
 
             IgniteRel phys = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
@@ -806,7 +740,7 @@ public class PlannerTest extends AbstractPlannerTest {
             assertEquals(
                     "IgniteProject(DEPTNO=[$3], DEPTNO0=[$2])\n"
                             + "  IgniteCorrelatedNestedLoopJoin(condition=[=(CAST(+($3, $2)):INTEGER, 2)], joinType=[inner], "
-                            + "variablesSet=[[$cor2]], correlationVariables=[[$cor2]])\n"
+                            + "variablesSet=[[$cor2]])\n"
                             + "    IgniteTableScan(table=[[PUBLIC, EMP]])\n"
                             + "    IgniteTableScan(table=[[PUBLIC, DEPT]], filters=[=(CAST(+($t0, $cor2.DEPTNO)):INTEGER, 2)])\n",
                     RelOptUtil.toString(phys),
@@ -962,6 +896,15 @@ public class PlannerTest extends AbstractPlannerTest {
         assertPlan(sql, Collections.singleton(publicSchema), hintCheck, hintStrategies, List.of());
     }
 
+    @Test
+    public void testMinusDateSerialization() throws Exception {
+        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
+
+        IgniteRel phys = physicalPlan("SELECT (DATE '2021-03-01' - DATE '2021-01-01') MONTHS", publicSchema);
+
+        checkSplitAndSerialization(phys, publicSchema);
+    }
+
     /**
      * IntermediateMapping.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -971,7 +914,8 @@ public class PlannerTest extends AbstractPlannerTest {
         return single ? select(NODES, 0) : select(NODES, 0, 1, 2, 3);
     }
 
-    private static MappingQueryContext mapContext(String locNodeId) {
-        return new MappingQueryContext(locNodeId);
+    private static MappingQueryContext mapContext(String locNodeName,
+            MappingService mappingService) {
+        return new MappingQueryContext(locNodeName, mappingService);
     }
 }

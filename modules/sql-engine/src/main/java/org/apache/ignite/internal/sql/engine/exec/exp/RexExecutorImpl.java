@@ -98,8 +98,9 @@ public class RexExecutorImpl implements RexExecutor {
 
         final SqlConformance conformance = SqlConformanceEnum.DEFAULT;
         final RexProgram program = programBuilder.getProgram();
+
         final List<Expression> expressions =
-                RexToLixTranslator.translateProjects(program, javaTypeFactory,
+                RexToLixTranslator.translateProjects(program,  javaTypeFactory, rexBuilder,
                         conformance, blockBuilder, null, root_, getter, null);
 
         blockBuilder.add(

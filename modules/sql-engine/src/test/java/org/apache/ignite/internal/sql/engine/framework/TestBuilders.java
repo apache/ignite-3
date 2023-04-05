@@ -36,6 +36,7 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
+import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
@@ -92,6 +93,17 @@ public class TestBuilders {
          * @return An instance of table builder.
          */
         ClusterTableBuilder addTable();
+
+        /**
+         * When specified the given factory is used to create instances of
+         * {@link ClusterTableBuilder#defaultDataProvider(DataProvider) default data providers} for tables
+         * that have no {@link ClusterTableBuilder#defaultDataProvider(DataProvider) default data provider} set.
+         *
+         * <p>Note: when a table has default data provider this method has no effect.
+         *
+         * @return {@code this} for chaining.
+         */
+        ClusterBuilder defaultDataProviderFactory(DataProviderFactory dataProviderFactory);
 
         /**
          * Builds the cluster object.
@@ -157,7 +169,7 @@ public class TestBuilders {
     }
 
     private static class ExecutionContextBuilderImpl implements ExecutionContextBuilder {
-        private FragmentDescription description = new FragmentDescription(0, null, null, Long2ObjectMaps.emptyMap());
+        private FragmentDescription description = new FragmentDescription(0, true, null, null, Long2ObjectMaps.emptyMap());
 
         private UUID queryId = null;
         private QueryTaskExecutor executor = null;
@@ -206,13 +218,15 @@ public class TestBuilders {
                     node.name(),
                     description,
                     ArrayRowHandler.INSTANCE,
-                    Map.of()
+                    Map.of(),
+                    TxAttributes.fromTx(new NoOpTransaction(node.name()))
             );
         }
     }
 
     private static class ClusterBuilderImpl implements ClusterBuilder {
         private final List<ClusterTableBuilderImpl> tableBuilders = new ArrayList<>();
+        private DataProviderFactory dataProviderFactory;
         private List<String> nodeNames;
 
         /** {@inheritDoc} */
@@ -234,6 +248,13 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
+        public ClusterBuilder defaultDataProviderFactory(DataProviderFactory dataProviderFactory) {
+            this.dataProviderFactory = dataProviderFactory;
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public TestCluster build() {
             var clusterService = new ClusterServiceFactory(nodeNames);
 
@@ -246,7 +267,7 @@ public class TestBuilders {
                     .map(ClusterTableBuilderImpl::build)
                     .collect(Collectors.toMap(TestTable::name, Function.identity()));
 
-            var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", tableMap, null));
+            var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", tableMap, null, -1));
 
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> new TestNode(name, clusterService.forNode(name), schemaManager))
@@ -268,7 +289,11 @@ public class TestBuilders {
 
         private void injectDataProvidersIfNeeded(ClusterTableBuilderImpl tableBuilder) {
             if (tableBuilder.defaultDataProvider == null) {
-                return;
+                if (dataProviderFactory != null) {
+                    tableBuilder.defaultDataProvider = dataProviderFactory.createDataProvider(tableBuilder.name, tableBuilder.columns);
+                } else {
+                    return;
+                }
             }
 
             Set<String> nodesWithoutDataProvider = new HashSet<>(nodeNames);
@@ -285,8 +310,23 @@ public class TestBuilders {
         /** {@inheritDoc} */
         @Override
         public TestTable build() {
+            if (distribution == null) {
+                throw new IllegalArgumentException("Distribution is not specified");
+            }
+
+            if (name == null) {
+                throw new IllegalArgumentException("Name is not specified");
+            }
+
+            if (columns.isEmpty()) {
+                throw new IllegalArgumentException("Table must contain at least one column");
+            }
+
             return new TestTable(
-                    new TableDescriptorImpl(columns, distribution), name, dataProviders, size
+                    new TableDescriptorImpl(columns, distribution),
+                    Objects.requireNonNull(name),
+                    dataProviders,
+                    size
             );
         }
 
@@ -333,6 +373,23 @@ public class TestBuilders {
                     new TableDescriptorImpl(columns, distribution), name, dataProviders, size
             );
         }
+    }
+
+    /**
+     * A factory that creates {@link DataProvider data providers}.
+     */
+    @FunctionalInterface
+    public interface DataProviderFactory {
+
+        /**
+         * Creates a {@link DataProvider} for the given table.
+         *
+         * @param tableName  a table name.
+         * @param columns  a list of columns.
+         *
+         * @return  an instance of {@link DataProvider}.
+         */
+        DataProvider<Object[]> createDataProvider(String tableName, List<ColumnDescriptor> columns);
     }
 
     private abstract static class AbstractTableBuilderImpl<ChildT> implements TableBuilderBase<ChildT> {

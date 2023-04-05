@@ -20,14 +20,13 @@ package org.apache.ignite.internal.schema.configuration;
 import static com.github.npathai.hamcrestopt.OptionalMatchers.isPresent;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 
 import java.util.Optional;
 import java.util.ServiceLoader;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultConfigurationSchema;
@@ -55,8 +54,8 @@ class SchemaDistributedConfigurationModuleTest {
     }
 
     @Test
-    void providesNoInternalSchemaExtensions() {
-        assertThat(module.internalSchemaExtensions(), is(empty()));
+    void providesInternalSchemaExtensions() {
+        assertThat(module.internalSchemaExtensions(), hasItem(ExtendedTableConfigurationSchema.class));
     }
 
     @Test

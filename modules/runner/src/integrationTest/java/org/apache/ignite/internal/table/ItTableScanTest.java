@@ -48,7 +48,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -56,7 +55,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -76,7 +75,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests to check a scan internal command.
  */
-public class ItTableScanTest extends AbstractBasicIntegrationTest {
+public class ItTableScanTest extends ClusterPerClassIntegrationTest {
     /** Table name. */
     private static final String TABLE_NAME = "test";
 
@@ -99,7 +98,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
     public void beforeTest() throws InterruptedException {
         TableImpl table = getOrCreateTable();
 
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
         waitForIndex(SORTED_IDX);
 
         loadData(table);
@@ -722,8 +721,10 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
      * @return Ignite table.
      */
     private static TableImpl getOrCreateTable() {
+        sql("CREATE ZONE IF NOT EXISTS ZONE1 WITH REPLICAS=1, PARTITIONS=1;");
+
         sql("CREATE TABLE IF NOT EXISTS " + TABLE_NAME
-                + " (key INTEGER PRIMARY KEY, valInt INTEGER NOT NULL, valStr VARCHAR NOT NULL) WITH REPLICAS=1, PARTITIONS=1;");
+                + " (key INTEGER PRIMARY KEY, valInt INTEGER NOT NULL, valStr VARCHAR NOT NULL) WITH PRIMARY_ZONE='ZONE1';");
 
         sql("CREATE INDEX IF NOT EXISTS " + SORTED_IDX + " ON " + TABLE_NAME + " USING TREE (valInt)");
 
@@ -747,13 +748,13 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
      * @return Entire row.
      */
     private static Row createKeyValueRow(int id) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA);
 
         rowBuilder.appendInt(id);
         rowBuilder.appendInt(id);
         rowBuilder.appendString("StrNew_" + id);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
+        return new Row(SCHEMA, rowBuilder.build());
     }
 
     /**
@@ -763,13 +764,13 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
      * @return Entire row.
      */
     private static Row createOldKeyValueRow(int id) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA);
 
         rowBuilder.appendInt(id);
         rowBuilder.appendInt(id);
         rowBuilder.appendString("Str_" + id);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
+        return new Row(SCHEMA, rowBuilder.build());
     }
 
     /**
@@ -779,11 +780,11 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
      * @return Key row.
      */
     private static Row createKeyRow(int id) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
+        RowAssembler rowBuilder = RowAssembler.keyAssembler(SCHEMA);
 
         rowBuilder.appendInt(id);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
+        return new Row(SCHEMA, rowBuilder.build());
     }
 
     /**

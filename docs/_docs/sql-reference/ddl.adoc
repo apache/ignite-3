@@ -72,6 +72,7 @@ Parameters:
 
 ** `Replicas` - sets the number of partition copies, including the master copy.
 ** `Partitions` - sets the number of table partitions.
+** `PRIMARY_ZONE` - sets the link:distribution-zones[Distriburion Zone].
 ** Other parameters, depending on the database engine.
 
 
@@ -297,6 +298,23 @@ Drop Person table if the one exists:
 ----
 DROP TABLE IF EXISTS "Person";
 ----
+
+== DESCRIBE TABLE
+
+Returns information about the distribution zones of the table.
+
+[.diagram-container]
+Diagram(
+NonTerminal('DESCRIBE TABLE'),
+Optional('IF NOT EXISTS'),
+NonTerminal('qualified_table_name'),
+End({type:'complex'})
+)
+
+Parameters:
+
+- `IF EXISTS` - do not throw an error if a table with the same name does not exist.
+- `qualified_table_name` - the name of the table. Can be schema-qualified.
 
 == CREATE INDEX
 

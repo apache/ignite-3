@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cluster.management;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static org.apache.ignite.security.AuthenticationConfig.disabled;
 
 import java.util.Collection;
 import java.util.List;
@@ -27,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.cluster.management.network.auth.Authentication;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
@@ -38,12 +40,15 @@ import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.security.AuthenticationConfig;
 
 /**
  * Class for performing cluster initialization.
  */
 public class ClusterInitializer {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterInitializer.class);
+
+    private static final int INIT_MESSAGE_SEND_TIMEOUT_MILLIS = 10_000;
 
     private final ClusterService clusterService;
 
@@ -68,6 +73,25 @@ public class ClusterInitializer {
             Collection<String> cmgNodeNames,
             String clusterName
     ) {
+        return initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, disabled());
+    }
+
+    /**
+     * Initializes the cluster that this node is present in.
+     *
+     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage. Cannot be empty.
+     * @param cmgNodeNames Names of nodes that will host the Cluster Management Group. Can be empty, in which case {@code
+     * metaStorageNodeNames} will be used instead.
+     * @param clusterName Human-readable name of the cluster.
+     * @param authenticationConfig REST authentication configuration.
+     * @return Future that represents the state of the operation.
+     */
+    public CompletableFuture<Void> initCluster(
+            Collection<String> metaStorageNodeNames,
+            Collection<String> cmgNodeNames,
+            String clusterName,
+            AuthenticationConfig authenticationConfig
+    ) {
         if (metaStorageNodeNames.isEmpty()) {
             throw new IllegalArgumentException("Meta Storage node names list must not be empty");
         }
@@ -82,6 +106,10 @@ public class ClusterInitializer {
 
         if (clusterName.isBlank()) {
             throw new IllegalArgumentException("Cluster name must not be empty");
+        }
+
+        if (authenticationConfig == null) {
+            throw new IllegalArgumentException("Rest auth config must not be null");
         }
 
         try {
@@ -104,6 +132,7 @@ public class ClusterInitializer {
                     .metaStorageNodes(msNodeNameSet)
                     .cmgNodes(cmgNodeNameSet)
                     .clusterName(clusterName)
+                    .restAuthToApply(Authentication.authentication(msgFactory, authenticationConfig))
                     .build();
 
             return invokeMessage(cmgNodes, initMessage)
@@ -165,7 +194,7 @@ public class ClusterInitializer {
     private CompletableFuture<Void> invokeMessage(Collection<ClusterNode> nodes, NetworkMessage message) {
         return allOf(nodes, node ->
                 clusterService.messagingService()
-                        .invoke(node, message, 10000)
+                        .invoke(node, message, INIT_MESSAGE_SEND_TIMEOUT_MILLIS)
                         .thenAccept(response -> {
                             if (response instanceof InitErrorMessage) {
                                 var errorResponse = (InitErrorMessage) response;

@@ -378,6 +378,7 @@ public class FSMCallerImpl implements FSMCaller {
             if (task.committedIndex > maxCommittedIndex) {
                 maxCommittedIndex = task.committedIndex;
             }
+            task.reset();
         }
         else {
             if (maxCommittedIndex >= 0) {
@@ -438,6 +439,7 @@ public class FSMCallerImpl implements FSMCaller {
             }
             finally {
                 this.nodeMetrics.recordLatency(task.type.metricName(), Utils.monotonicMs() - startMs);
+                task.reset();
             }
         }
         try {

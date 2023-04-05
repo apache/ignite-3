@@ -201,7 +201,7 @@ template<typename C, typename T>
     auto part4 = static_cast<std::uint16_t>(lsb >> 48);
     uint64_t part5 = lsb & 0x0000FFFFFFFFFFFFU;
 
-    std::ios_base::fmtflags savedFlags = os.flags();
+    std::ios_base::fmtflags saved_flags = os.flags();
 
     // clang-format off
     os  << std::hex 
@@ -212,7 +212,7 @@ template<typename C, typename T>
         << std::setfill<C>('0') << std::setw(12) << part5;
     // clang-format on
 
-    os.flags(savedFlags);
+    os.flags(saved_flags);
 
     return os;
 }
@@ -226,9 +226,9 @@ template<typename C, typename T>
  */
 template<typename C, typename T>
 ::std::basic_istream<C, T> &operator>>(std::basic_istream<C, T> &is, uuid &result) {
-    uint64_t parts[5];
+    std::uint64_t parts[5];
 
-    std::ios_base::fmtflags savedFlags = is.flags();
+    std::ios_base::fmtflags saved_flags = is.flags();
 
     is >> std::hex;
 
@@ -237,13 +237,14 @@ template<typename C, typename T>
 
         is >> parts[i] >> delim;
 
-        if (delim != static_cast<C>('-'))
+        if (delim != static_cast<C>('-')) {
             return is;
+        }
     }
 
     is >> parts[4];
 
-    is.flags(savedFlags);
+    is.flags(saved_flags);
 
     result =
         uuid(std::int64_t((parts[0] << 32) | (parts[1] << 16) | parts[2]), std::int64_t((parts[3] << 48) | parts[4]));

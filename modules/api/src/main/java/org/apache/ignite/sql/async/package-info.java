@@ -16,7 +16,7 @@
  */
 
 /**
- * Contain part of SQL API for SQL query execution in asynchronous way.
+ * SQL API for asynchronous SQL query execution.
  */
 
 package org.apache.ignite.sql.async;

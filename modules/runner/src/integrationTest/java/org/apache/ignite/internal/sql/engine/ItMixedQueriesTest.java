@@ -27,13 +27,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Group of tests that still has not been sorted out. It’s better to avoid extending this class with new tests.
  */
-public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
+public class ItMixedQueriesTest extends ClusterPerClassIntegrationTest {
     /**
      * Before all.
      */
@@ -208,7 +207,6 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
      * Verifies that table modification events are passed to a calcite schema modification listener.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
     public void testIgniteSchemaAwaresAlterTableCommand() {
         String selectAllQry = "select * from test_tbl";
 
@@ -297,7 +295,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         sql("create index idx_asc on test_tbl (c1)");
         sql("create index idx_desc on test_tbl (c1 desc)");
 
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
         waitForIndex("idx_asc");
         waitForIndex("idx_desc");
 

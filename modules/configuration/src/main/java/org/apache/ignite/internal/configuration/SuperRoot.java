@@ -79,6 +79,8 @@ public final class SuperRoot extends InnerNode {
     public void addRoot(RootKey<?, ?> rootKey, InnerNode root) {
         assert !roots.containsKey(rootKey.key()) : rootKey.key() + " : " + roots;
 
+        assertMutability();
+
         roots.put(rootKey.key(), new RootInnerNode(rootKey, root));
     }
 
@@ -128,6 +130,8 @@ public final class SuperRoot extends InnerNode {
             ConfigurationSource src,
             boolean includeInternal
     ) throws NoSuchElementException {
+        assertMutability();
+
         RootInnerNode root = roots.get(key);
 
         if (root == null) {

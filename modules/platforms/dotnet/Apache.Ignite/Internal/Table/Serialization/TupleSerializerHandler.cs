@@ -58,30 +58,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <inheritdoc/>
-        public IIgniteTuple ReadValuePart(ref MsgPackReader reader, Schema schema, IIgniteTuple key)
-        {
-            var columns = schema.Columns;
-            var tuple = new IgniteTuple(columns.Count);
-            var tupleReader = new BinaryTupleReader(reader.ReadBinary(), schema.ValueColumnCount);
-
-            for (var i = 0; i < columns.Count; i++)
-            {
-                var column = columns[i];
-
-                if (i < schema.KeyColumnCount)
-                {
-                    tuple[column.Name] = key[column.Name];
-                }
-                else
-                {
-                    tuple[column.Name] = tupleReader.GetObject(i - schema.KeyColumnCount, column.Type, column.Scale);
-                }
-            }
-
-            return tuple;
-        }
-
-        /// <inheritdoc/>
         public void Write(ref BinaryTupleBuilder tupleBuilder, IIgniteTuple record, Schema schema, int columnCount, Span<byte> noValueSet)
         {
             for (var index = 0; index < columnCount; index++)

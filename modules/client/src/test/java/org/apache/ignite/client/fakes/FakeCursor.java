@@ -23,12 +23,11 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.SqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
- * Fake {@link SqlCursor}.
+ * Fake {@link AsyncSqlCursor}.
  */
 public class FakeCursor implements AsyncSqlCursor<List<Object>> {
     private final Random random;

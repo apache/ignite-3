@@ -18,14 +18,16 @@
 package org.apache.ignite.internal.client.tx;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Client transaction.
@@ -40,15 +42,19 @@ public class ClientTransaction implements Transaction {
     /** The future used on repeated commit/rollback. */
     private final AtomicReference<CompletableFuture<Void>> finishFut = new AtomicReference<>();
 
+    /** Read-only flag. */
+    private final boolean isReadOnly;
+
     /**
      * Constructor.
      *
      * @param ch Channel that the transaction belongs to.
      * @param id Transaction id.
      */
-    public ClientTransaction(ClientChannel ch, long id) {
+    public ClientTransaction(ClientChannel ch, long id, boolean isReadOnly) {
         this.ch = ch;
         this.id = id;
+        this.isReadOnly = isReadOnly;
     }
 
     /**
@@ -112,14 +118,23 @@ public class ClientTransaction implements Transaction {
     /** {@inheritDoc} */
     @Override
     public boolean isReadOnly() {
-        // TODO: IGNITE-17929 Add read-only support to ClientTransactions
-        return false;
+        return isReadOnly;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public HybridTimestamp readTimestamp() {
-        // TODO: IGNITE-17929 Add read-only support to ClientTransactions
-        return null;
+    /**
+     * Gets the internal transaction from the given public transaction. Throws an exception if the given transaction is
+     * not an instance of {@link ClientTransaction}.
+     *
+     * @param tx Public transaction.
+     * @return Internal transaction.
+     */
+    public static ClientTransaction get(@NotNull Transaction tx) {
+        if (!(tx instanceof ClientTransaction)) {
+            throw new IgniteException(UNEXPECTED_ERR, "Unsupported transaction implementation: '"
+                    + tx.getClass()
+                    + "'. Use IgniteClient.transactions() to start transactions.");
+        }
+
+        return (ClientTransaction) tx;
     }
 }

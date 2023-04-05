@@ -22,7 +22,6 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeType;
@@ -139,7 +138,7 @@ public class SortedIndexDescriptor implements IndexDescriptor {
     }
 
     private static List<SortedIndexColumnDescriptor> extractIndexColumnsConfiguration(UUID indexId, TablesView tablesConfig) {
-        TableIndexView indexConfig = ConfigurationUtil.getByInternalId(tablesConfig.indexes(), indexId);
+        TableIndexView indexConfig = tablesConfig.indexes().get(indexId);
 
         if (indexConfig == null) {
             throw new StorageException(String.format("Index configuration for \"%s\" could not be found", indexId));
@@ -152,7 +151,7 @@ public class SortedIndexDescriptor implements IndexDescriptor {
             ));
         }
 
-        TableView tableConfig = ConfigurationUtil.getByInternalId(tablesConfig.tables(), indexConfig.tableId());
+        TableView tableConfig = tablesConfig.tables().get(indexConfig.tableId());
 
         if (tableConfig == null) {
             throw new StorageException(String.format("Table configuration for \"%s\" could not be found", indexConfig.tableId()));
@@ -160,13 +159,13 @@ public class SortedIndexDescriptor implements IndexDescriptor {
 
         NamedListView<? extends IndexColumnView> indexColumns = ((SortedIndexView) indexConfig).columns();
 
-        return indexColumns.namedListKeys().stream()
-                .map(columnName -> {
+        return indexColumns.stream()
+                .map(indexColumnView -> {
+                    String columnName = indexColumnView.name();
+
                     ColumnView columnView = tableConfig.columns().get(columnName);
 
                     assert columnView != null : "Incorrect index column configuration. " + columnName + " column does not exist";
-
-                    IndexColumnView indexColumnView = indexColumns.get(columnName);
 
                     return new SortedIndexColumnDescriptor(columnView, indexColumnView);
                 })

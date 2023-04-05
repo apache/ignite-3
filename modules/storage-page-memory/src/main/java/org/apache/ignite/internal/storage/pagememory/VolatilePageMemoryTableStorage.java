@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
@@ -32,6 +33,7 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 import org.apache.ignite.internal.storage.pagememory.mv.VolatilePageMemoryMvPartitionStorage;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
@@ -52,10 +54,11 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     public VolatilePageMemoryTableStorage(
             TableConfiguration tableCfg,
             TablesConfiguration tablesCfg,
+            DistributionZoneConfiguration distributionZoneConfiguration,
             VolatilePageMemoryDataRegion dataRegion,
             GradualTaskExecutor destructionExecutor
     ) {
-        super(tableCfg, tablesCfg);
+        super(tableCfg, tablesCfg, distributionZoneConfiguration);
 
         this.dataRegion = dataRegion;
         this.destructionExecutor = destructionExecutor;
@@ -72,11 +75,14 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
         IndexMetaTree indexMetaTree = createIndexMetaTree(partitionId, tableCfg.value());
 
+        GcQueue gcQueue = createGarbageCollectionTree(partitionId, tableCfg.value());
+
         return new VolatilePageMemoryMvPartitionStorage(
                 this,
                 partitionId,
                 versionChainTree,
                 indexMetaTree,
+                gcQueue,
                 destructionExecutor
         );
     }
@@ -88,6 +94,28 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
         try {
             return new IndexMetaTree(
+                    grpId,
+                    tableCfgView.name(),
+                    partitionId,
+                    dataRegion.pageMemory(),
+                    PageLockListenerNoOp.INSTANCE,
+                    new AtomicLong(),
+                    metaPageId,
+                    dataRegion.reuseList(),
+                    true
+            );
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(e);
+        }
+    }
+
+    private GcQueue createGarbageCollectionTree(int partitionId, TableView tableCfgView) {
+        int grpId = tableCfgView.tableId();
+
+        long metaPageId = dataRegion.pageMemory().allocatePage(grpId, partitionId, FLAG_AUX);
+
+        try {
+            return new GcQueue(
                     grpId,
                     tableCfgView.name(),
                     partitionId,
@@ -156,7 +184,8 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
         volatilePartitionStorage.updateDataStructures(
                 createVersionChainTree(partitionId, tableView),
-                createIndexMetaTree(partitionId, tableView)
+                createIndexMetaTree(partitionId, tableView),
+                createGarbageCollectionTree(partitionId, tableView)
         );
 
         return completedFuture(null);

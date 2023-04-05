@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
@@ -40,6 +39,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -247,11 +247,6 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             public boolean isReadOnly() {
                 return false;
             }
-
-            @Override
-            public HybridTimestamp readTimestamp() {
-                return null;
-            }
         };
 
         var ex = assertThrows(IgniteException.class, () -> kvView().put(tx, 1, "1"));
@@ -281,7 +276,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         KeyValueView<Integer, String> kvView = kvView();
         kvView.put(null, 1, "1");
 
-        Transaction tx = client().transactions().readOnly().begin();
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
         assertEquals("1", kvView.get(tx, 1));
 
         // Update data in a different tx.
@@ -293,7 +288,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertEquals("1", kvView.get(tx, 1));
 
         // New tx sees new data
-        Transaction tx3 = client().transactions().readOnly().begin();
+        Transaction tx3 = client().transactions().begin(new TransactionOptions().readOnly(true));
         assertEquals("2", kvView.get(tx3, 1));
     }
 
@@ -302,7 +297,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         KeyValueView<Integer, String> kvView = kvView();
         kvView.put(null, 1, "1");
 
-        Transaction tx = client().transactions().readOnly().begin();
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
         var ex = assertThrows(TransactionException.class, () -> kvView.put(tx, 1, "2"));
 
         assertThat(ex.getMessage(), containsString("Failed to enlist read-write operation into read-only transaction"));
@@ -315,7 +310,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         KeyValueView<Integer, String> kvView = kvView();
         kvView.put(null, 10, "1");
 
-        Transaction tx = client().transactions().readOnly().begin();
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
         assertEquals("1", kvView.get(tx, 10));
 
         if (commit) {
@@ -323,6 +318,24 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         } else {
             tx.rollback();
         }
+    }
+
+    @Test
+    void testReadOnlyTxAttributes() {
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
+
+        assertTrue(tx.isReadOnly());
+
+        tx.rollback();
+    }
+
+    @Test
+    void testReadWriteTxAttributes() {
+        Transaction tx = client().transactions().begin();
+
+        assertFalse(tx.isReadOnly());
+
+        tx.rollback();
     }
 
     private KeyValueView<Integer, String> kvView() {

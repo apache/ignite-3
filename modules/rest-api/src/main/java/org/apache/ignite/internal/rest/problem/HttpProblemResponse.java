@@ -17,29 +17,30 @@
 
 package org.apache.ignite.internal.rest.problem;
 
-import io.micronaut.http.HttpResponse;
+import io.micronaut.http.HttpResponseFactory;
 import io.micronaut.http.HttpStatus;
+import io.micronaut.http.MutableHttpResponse;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.api.Problem.ProblemBuilder;
 
 /**
- * Creates {@link HttpResponse} from {@link Problem}.
+ * Creates {@link MutableHttpResponse} from {@link Problem}.
  */
 public final class HttpProblemResponse {
     private HttpProblemResponse() {
     }
 
     /**
-     * Create {@link HttpResponse} from {@link Problem}.
+     * Create {@link MutableHttpResponse} from {@link Problem}.
      */
-    public static HttpResponse<Problem> from(Problem problem) {
-        return HttpResponse.status(HttpStatus.valueOf(problem.status())).body(problem);
+    public static MutableHttpResponse<Problem> from(Problem problem) {
+        return HttpResponseFactory.INSTANCE.status(HttpStatus.valueOf(problem.status())).body(problem);
     }
 
     /**
-     * Create {@link HttpResponse} from {@link ProblemBuilder}.
+     * Create {@link MutableHttpResponse} from {@link ProblemBuilder}.
      */
-    public static HttpResponse<? extends Problem> from(ProblemBuilder problemBuilder) {
+    public static MutableHttpResponse<? extends Problem> from(ProblemBuilder problemBuilder) {
         return from(problemBuilder.build());
     }
 }

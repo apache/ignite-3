@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration;
 
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -31,7 +32,6 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.intellij.lang.annotations.Language;
 
 /**
  * Configuration manager is responsible for handling configuration lifecycle and provides configuration API.
@@ -84,12 +84,12 @@ public class ConfigurationManager implements IgniteComponent {
     /**
      * Bootstrap configuration manager with customer user cfg.
      *
-     * @param hoconStr Customer configuration in hocon format.
+     * @param configPath Customer configuration in hocon format.
      * @throws InterruptedException If thread is interrupted during bootstrap.
      * @throws ExecutionException   If configuration update failed for some reason.
      */
-    public void bootstrap(@Language("HOCON") String hoconStr) throws InterruptedException, ExecutionException {
-        ConfigObject hoconCfg = ConfigFactory.parseString(hoconStr).root();
+    public void bootstrap(Path configPath) throws InterruptedException, ExecutionException {
+        ConfigObject hoconCfg = ConfigFactory.parseFile(configPath.toFile()).root();
 
         registry.change(HoconConverter.hoconSource(hoconCfg)).get();
     }

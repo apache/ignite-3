@@ -18,6 +18,7 @@
 #pragma once
 
 #include <ignite/client/detail/cluster_connection.h>
+#include <ignite/client/detail/compute/compute_impl.h>
 #include <ignite/client/detail/sql/sql_impl.h>
 #include <ignite/client/detail/table/tables_impl.h>
 #include <ignite/client/detail/transaction/transactions_impl.h>
@@ -52,6 +53,7 @@ public:
         , m_connection(cluster_connection::create(m_configuration))
         , m_tables(std::make_shared<tables_impl>(m_connection))
         , m_sql(std::make_shared<sql_impl>(m_connection))
+        , m_compute(std::make_shared<compute_impl>(m_connection, m_tables))
         , m_transactions(std::make_shared<transactions_impl>(m_connection)) {}
 
     /**
@@ -94,11 +96,26 @@ public:
     [[nodiscard]] std::shared_ptr<sql_impl> get_sql_impl() const { return m_sql; }
 
     /**
+     * Get Compute management API implementation.
+     *
+     * @return Compute management API implementation.
+     */
+    [[nodiscard]] std::shared_ptr<compute_impl> get_compute_impl() const { return m_compute; }
+
+    /**
      * Get transactions management API implementation.
      *
      * @return Transactions management API implementation.
      */
     [[nodiscard]] std::shared_ptr<transactions_impl> get_transactions_impl() const { return m_transactions; }
+
+    /**
+     * Gets the cluster nodes asynchronously.
+     * NOTE: Temporary API to enable Compute until we have proper Cluster API.
+     *
+     * @param callback Callback called with the list of cluster nodes upon success.
+     */
+    void get_cluster_nodes_async(ignite_callback<std::vector<cluster_node>> callback);
 
 private:
     /** Configuration. */
@@ -112,6 +129,9 @@ private:
 
     /** SQL. */
     std::shared_ptr<sql_impl> m_sql;
+
+    /** Compute. */
+    std::shared_ptr<compute_impl> m_compute;
 
     /** Transactions. */
     std::shared_ptr<transactions_impl> m_transactions;

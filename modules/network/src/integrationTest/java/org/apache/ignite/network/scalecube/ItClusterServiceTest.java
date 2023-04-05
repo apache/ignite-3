@@ -82,8 +82,8 @@ public class ItClusterServiceTest {
         assertTrue(waitForCondition(() -> service2.topologyService().allMembers().size() == 2, 1000));
         try {
             assertThat(service1.topologyService().localMember().nodeMetadata(), is(nullValue()));
-            var meta1 = new NodeMetadata("foo", 123);
-            var meta2 = new NodeMetadata("bar", 456);
+            var meta1 = new NodeMetadata("foo", 123, 321);
+            var meta2 = new NodeMetadata("bar", 456, 654);
             service1.updateMetadata(meta1);
             service2.updateMetadata(meta2);
             checkLocalMeta(service1, meta1);

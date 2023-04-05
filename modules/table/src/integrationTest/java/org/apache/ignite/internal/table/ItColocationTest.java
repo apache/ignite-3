@@ -183,7 +183,7 @@ public class ItColocationTest {
             groupRafts.put(new TablePartitionId(tblId, i), r);
         }
 
-        when(replicaService.invoke(any(), any())).thenAnswer(invocation -> {
+        when(replicaService.invoke(any(ClusterNode.class), any())).thenAnswer(invocation -> {
             ReplicaRequest request = invocation.getArgument(1);
             var commitPartId = new TablePartitionId(UUID.randomUUID(), 0);
 

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 
@@ -64,5 +65,10 @@ public class ConfigurationTreeWrapper<VIEWT, CHANGET> implements ConfigurationTr
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> change(Consumer<CHANGET> change) {
         return configTree.change(change);
+    }
+
+    @Override
+    public <T extends ConfigurationProperty<VIEWT>> T directProxy() {
+        throw new UnsupportedOperationException();
     }
 }

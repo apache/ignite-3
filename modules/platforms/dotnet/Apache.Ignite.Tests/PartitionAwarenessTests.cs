@@ -68,14 +68,9 @@ public class PartitionAwarenessTests
     {
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
-        var (defaultServer, _) = GetServerPair();
 
         // Warm up.
         await recordView.UpsertAsync(null, 1);
-
-        Assert.AreEqual(
-            new[] { ClientOp.TableGet, ClientOp.SchemasGet, ClientOp.PartitionAssignmentGet },
-            defaultServer.ClientOps.Take(3));
 
         // Check.
         await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server2, _server1);
@@ -85,22 +80,20 @@ public class PartitionAwarenessTests
     }
 
     [Test]
-    public async Task TestPutWithTxUsesDefaultNode()
+    public async Task TestPutWithTxUsesTxNode()
     {
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
+
         var tx = await client.Transactions.BeginAsync();
-        var (defaultServer, secondaryServer) = GetServerPair();
+        var txServer = new[] { _server1, _server2 }.Single(x => x.ClientOps.Contains(ClientOp.TxBegin));
 
-        // Second server.
-        await recordView.UpsertAsync(tx, 1);
-        await recordView.UpsertAsync(tx, 3);
+        for (int i = 0; i < 10; i++)
+        {
+            await recordView.UpsertAsync(tx, i);
+        }
 
-        Assert.AreEqual(
-            new[] { ClientOp.TableGet, ClientOp.TxBegin, ClientOp.SchemasGet, ClientOp.TupleUpsert, ClientOp.TupleUpsert },
-            defaultServer.ClientOps);
-
-        CollectionAssert.IsEmpty(secondaryServer.ClientOps);
+        Assert.AreEqual(Enumerable.Repeat(ClientOp.TupleUpsert, 10), txServer.ClientOps.TakeLast(10));
     }
 
     [Test]
@@ -108,7 +101,6 @@ public class PartitionAwarenessTests
     {
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
-        var (defaultServer, _) = GetServerPair();
 
         // Check default assignment.
         await recordView.UpsertAsync(null, 1);
@@ -123,7 +115,9 @@ public class PartitionAwarenessTests
         }
 
         // First request on default node receives update flag.
-        await AssertOpOnNode(() => client.Tables.GetTablesAsync(), ClientOp.TablesGet, defaultServer);
+        // Make two requests because balancing uses round-robin node.
+        await client.Tables.GetTablesAsync();
+        await client.Tables.GetTablesAsync();
 
         // Second request loads and uses new assignment.
         await AssertOpOnNode(() => recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server1, allowExtraOps: true);
@@ -375,13 +369,11 @@ public class PartitionAwarenessTests
             }
         };
 
-        return await IgniteClient.StartAsync(cfg);
-    }
+        var client = await IgniteClient.StartAsync(cfg);
 
-    private (FakeServer Default, FakeServer Secondary) GetServerPair()
-    {
-        // Any server can be primary due to round-robin balancing in ClientFailoverSocket.
-        return _server1.ClientOps.Count > 0 ? (_server1, _server2) : (_server2, _server1);
+        TestUtils.WaitForCondition(() => client.GetConnections().Count == 2);
+
+        return client;
     }
 
     // ReSharper disable NotAccessedPositionalProperty.Local

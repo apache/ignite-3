@@ -38,11 +38,5 @@ public class ClusterManagementConfigurationSchema {
      */
     @Value(hasDefault = true)
     @Range(min = 0)
-    // TODO: IGNITE-18630 - change this to a sensible default.
-    public long failoverTimeout = 0;
-
-    /** Maximum amount of time a validated node that has not yet completed the join is allowed to remain validated (ms). */
-    @Value(hasDefault = true)
-    @Range(min = 1)
-    public long incompleteJoinTimeout = TimeUnit.HOURS.toMillis(1);
+    public long failoverTimeout = TimeUnit.SECONDS.toMillis(30);
 }

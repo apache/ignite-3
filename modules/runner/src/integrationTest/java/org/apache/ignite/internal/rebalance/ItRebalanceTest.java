@@ -35,6 +35,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -48,9 +49,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
@@ -58,13 +57,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Test suite for the rebalance.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public class ItRebalanceTest extends BaseIgniteAbstractTest {
+public class ItRebalanceTest extends IgniteIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceTest.class);
 
     @WorkDirectory
@@ -220,7 +217,7 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
     }
 
     private void waitForTableToStart() throws InterruptedException {
-        // TODO: IGNITE-18203 - remove this wait because when a table creation query is executed, the table must be fully ready.
+        // TODO: IGNITE-18733 - remove this wait because when a table creation query is executed, the table must be fully ready.
 
         BooleanSupplier tableStarted = () -> {
             int numberOfStartedRaftNodes = cluster.runningNodes()

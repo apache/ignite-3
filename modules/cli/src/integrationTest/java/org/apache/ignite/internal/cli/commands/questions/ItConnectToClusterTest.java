@@ -29,7 +29,7 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
-import org.apache.ignite.internal.cli.config.ConfigConstants;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.TestStateConfigHelper;
 import org.apache.ignite.internal.cli.config.TestStateConfigProvider;
 import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
@@ -134,7 +134,7 @@ class ItConnectToClusterTest extends CliCommandTestInitializedIntegrationBase {
         // And prompt is changed to connect
         String promptAfter = Ansi.OFF.string(promptProvider.getPrompt());
         assertThat(promptAfter).isEqualTo("[" + nodeName() + "]> ");
-        assertThat(configManagerProvider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL))
+        assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.CLUSTER_URL.value()))
                 .isEqualTo("http://localhost:10300");
     }
 
