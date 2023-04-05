@@ -162,7 +162,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
             String query = "select \"KEY\", \"TIME\", \"DATETIME\", \"TIMESTAMP\" from TBL_ALL_COLUMNS_SQL ORDER BY KEY";
 
-            res = node.sql().createSession().execute(null, query);
+            res = ses.execute(null, query);
 
             assertEquals(ins, res.next().timestampValue(3));
         }
