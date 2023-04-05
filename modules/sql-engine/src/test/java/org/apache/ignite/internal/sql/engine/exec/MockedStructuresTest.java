@@ -159,7 +159,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TablesConfiguration tblsCfg;
 
-    @InjectConfiguration("mock.distributionZones.zone123{}")
+    @InjectConfiguration("mock.distributionZones.zone123{dataStorage.name = unknown, zoneId = 1}")
     private DistributionZonesConfiguration dstZnsCfg;
 
     TableManager tblManager;
@@ -428,7 +428,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 IgniteException.class,
                 () -> readFirst(queryProc.queryAsync(
                         "PUBLIC",
-                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with %s='%s'", method + 6, method, method)
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with primary_zone='zone123', %s='%s'", method + 6, method, method)
                 ))
         );
 
@@ -483,6 +483,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
             return ret;
         });
+
+        when(distributionZoneManager.getZoneId(any())).thenReturn(1);
 
         when(cs.topologyService()).thenAnswer(invocation -> {
             TopologyService ret = mock(TopologyService.class);
