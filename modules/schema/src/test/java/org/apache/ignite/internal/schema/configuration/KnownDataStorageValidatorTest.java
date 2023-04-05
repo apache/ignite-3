@@ -39,6 +39,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public class KnownDataStorageValidatorTest {
     @InjectConfiguration(
+            value = "mock.name = unknown",
             polymorphicExtensions = {
                 TestDataStorageConfigurationSchema.class
             }
