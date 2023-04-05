@@ -22,7 +22,7 @@ using System.Collections.Generic;
 using System.Reflection;
 
 /// <summary>
-/// Key target for <see cref="ResultSelectorCacheKey"/> cached delegates. Equality logic is based on constructor and properties.
+/// Key target for <see cref="ResultSelectorCacheKey{T}"/> cached delegates. Equality logic is based on constructor and properties.
 /// </summary>
 public readonly struct MemberInitCacheTarget : IEquatable<MemberInitCacheTarget>
 {
