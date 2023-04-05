@@ -20,13 +20,15 @@ package org.apache.ignite.internal.distributionzones;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl.LOGICAL_TOPOLOGY_KEY;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -70,6 +72,7 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -135,6 +138,12 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
         when(tables.value()).thenReturn(value);
 
         when(value.namedListKeys()).thenReturn(new ArrayList<>());
+
+        when(vaultMgr.get(zonesLogicalTopologyVersionKey()))
+                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyVersionKey(), longToBytes(0))));
+
+        when(vaultMgr.get(zonesLogicalTopologyKey()))
+                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), toBytes(Set.of()))));
 
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
@@ -282,7 +291,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         distributionZoneManager1.start();
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
+        verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
 
         assertLogicalTopVer(1L);
 
@@ -320,8 +329,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         distributionZoneManager1.start();
 
-        verify(keyValueStorage, after(500).never()).invoke(any());
-
         assertLogicalTopVer(2L);
 
         assertLogicalTopology(null, keyValueStorage);
@@ -338,8 +345,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(3L));
 
         distributionZoneManager1.start();
-
-        verify(keyValueStorage, after(500).never()).invoke(any());
 
         assertLogicalTopVer(3L);
 

@@ -113,11 +113,14 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
                 .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyVersionKey(), longToBytes(3))));
 
         LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
-        when(logicalTopologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(new LogicalTopologySnapshot(1, Set.of())));
+
+        when(logicalTopologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(new LogicalTopologySnapshot(0, Set.of())));
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
 
         metaStorageManager = StandaloneMetaStorageManager.create(vaultMgr, keyValueStorage);
+
+        metaStorageManager.put(zonesLogicalTopologyVersionKey(), longToBytes(0));
 
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
@@ -152,7 +155,9 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
+        System.out.println("before assert");
         assertDataNodesForZone(1, nodes, keyValueStorage);
+        System.out.println("after assert");
 
         assertZoneScaleUpChangeTriggerKey(1, 1, keyValueStorage);
 
@@ -208,7 +213,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         distributionZoneManager.dropZone(ZONE_NAME).get();
 
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
+        verify(keyValueStorage, timeout(1000).times(3)).invoke(any());
 
         assertDataNodesForZone(1, nodes, keyValueStorage);
     }

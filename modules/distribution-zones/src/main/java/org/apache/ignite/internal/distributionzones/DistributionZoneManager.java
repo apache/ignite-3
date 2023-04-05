@@ -560,15 +560,13 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return The data nodes future.
      */
     public CompletableFuture<Set<String>> topologyVersionedDataNodes(int zoneId, long topVer) {
-        CompletableFuture<Void> topVerFut = awaitTopologyVersion(topVer);
+        CompletableFuture<IgniteBiTuple<Boolean, Boolean>> timerValuesFut = awaitTopologyVersion(topVer)
+                .thenCompose(ignored -> getImmediateTimers(zoneId));
 
-        CompletableFuture<IgniteBiTuple<Boolean, Boolean>> timerValuesFut = getImmediateTimers(zoneId, topVerFut);
-
-        CompletableFuture<Void> topVerScaleUpFut = scaleUpAwaiting(zoneId, timerValuesFut);
-
-        CompletableFuture<Void> topVerScaleDownFut = scaleDownAwaiting(zoneId, timerValuesFut);
-
-        return getDataNodesFuture(zoneId, topVerScaleUpFut, topVerScaleDownFut);
+        return allOf(timerValuesFut.thenCompose(timerValues -> scaleUpAwaiting(zoneId, timerValues.get1())),
+                timerValuesFut.thenCompose(timerValues -> scaleDownAwaiting(zoneId, timerValues.get2()))
+        )
+                .thenCompose(ignored -> getDataNodesFuture(zoneId));
     }
 
     /**
@@ -593,22 +591,15 @@ public class DistributionZoneManager implements IgniteComponent {
      * True if it equals to zero and false if it greater than zero. Zero means that data nodes changing must be scheduled immediate.
      *
      * @param zoneId Zone id.
-     * @param topVerFut Future for chaining.
-     * @return Future.
+     * @return Future with the result.
      */
-    private CompletableFuture<IgniteBiTuple<Boolean, Boolean>> getImmediateTimers(int zoneId, CompletableFuture<Void> topVerFut) {
-        CompletableFuture<IgniteBiTuple<Boolean, Boolean>> timerValuesFut = new CompletableFuture<>();
+    private CompletableFuture<IgniteBiTuple<Boolean, Boolean>> getImmediateTimers(int zoneId) {
+        DistributionZoneConfiguration zoneCfg = getZoneById(zonesConfiguration, zoneId);
 
-        topVerFut.thenAccept(ignored -> {
-            DistributionZoneConfiguration zoneCfg = getZoneById(zonesConfiguration, zoneId);
-
-            timerValuesFut.complete(new IgniteBiTuple<>(
-                    zoneCfg.dataNodesAutoAdjustScaleUp().value() == 0,
-                    zoneCfg.dataNodesAutoAdjustScaleDown().value() == 0
-            ));
-        });
-
-        return timerValuesFut;
+        return completedFuture(new IgniteBiTuple<>(
+                zoneCfg.dataNodesAutoAdjustScaleUp().value() == 0,
+                zoneCfg.dataNodesAutoAdjustScaleDown().value() == 0
+        ));
     }
 
     /**
@@ -617,55 +608,48 @@ public class DistributionZoneManager implements IgniteComponent {
      * to the data nodes into the meta storage.
      *
      * @param zoneId Zone id.
-     * @param timerValuesFut Future for chaining.
+     * @param immediateScaleUp True in case of immediate scale up.
      * @return Future for chaining.
      */
-    private CompletableFuture<Void> scaleUpAwaiting(
-            int zoneId,
-            CompletableFuture<IgniteBiTuple<Boolean, Boolean>> timerValuesFut
-    ) {
+    private CompletableFuture<Void> scaleUpAwaiting(int zoneId, boolean immediateScaleUp) {
         CompletableFuture<Void> topVerScaleUpFut = new CompletableFuture<>();
 
-        timerValuesFut.thenAccept(timerValues -> {
-            boolean immediateScaleUp = timerValues.get1();
+        synchronized (dataNodesMutex) {
+            ZoneState zoneState = zonesState.get(zoneId);
 
-            synchronized (dataNodesMutex) {
-                ZoneState zoneState = zonesState.get(zoneId);
+            CompletableFuture<Void> topVerScaleUpFut0 = null;
 
-                CompletableFuture<Void> topVerScaleUpFut0 = null;
+            if (immediateScaleUp) {
+                if (zoneState.scaleUpRevision() < lastScaleUpRevision) {
+                    Map.Entry<Long, CompletableFuture<Void>> ceilingEntry =
+                            zoneState.revisionScaleUpFutures().ceilingEntry(lastScaleUpRevision);
 
-                if (immediateScaleUp) {
-                    if (zoneState.scaleUpRevision() < lastScaleUpRevision) {
-                        Map.Entry<Long, CompletableFuture<Void>> ceilingEntry =
-                                zoneState.revisionScaleUpFutures().ceilingEntry(lastScaleUpRevision);
-
-                        if (ceilingEntry != null) {
-                            topVerScaleUpFut0 = ceilingEntry.getValue();
-                        }
-
-                        if (topVerScaleUpFut0 == null) {
-                            topVerScaleUpFut0 = new CompletableFuture<>();
-
-                            zoneState.revisionScaleUpFutures().put(lastScaleUpRevision, topVerScaleUpFut0);
-                        }
-
-                        topVerScaleUpFut0.handle((ignored0, e) -> {
-                            if (e == null) {
-                                topVerScaleUpFut.complete(null);
-                            } else {
-                                topVerScaleUpFut.completeExceptionally(e);
-                            }
-
-                            return null;
-                        });
-                    } else {
-                        topVerScaleUpFut.complete(null);
+                    if (ceilingEntry != null) {
+                        topVerScaleUpFut0 = ceilingEntry.getValue();
                     }
+
+                    if (topVerScaleUpFut0 == null) {
+                        topVerScaleUpFut0 = new CompletableFuture<>();
+
+                        zoneState.revisionScaleUpFutures().put(lastScaleUpRevision, topVerScaleUpFut0);
+                    }
+
+                    topVerScaleUpFut0.handle((ignored0, e) -> {
+                        if (e == null) {
+                            topVerScaleUpFut.complete(null);
+                        } else {
+                            topVerScaleUpFut.completeExceptionally(e);
+                        }
+
+                        return null;
+                    });
                 } else {
                     topVerScaleUpFut.complete(null);
                 }
+            } else {
+                topVerScaleUpFut.complete(null);
             }
-        });
+        }
 
         return topVerScaleUpFut;
     }
@@ -676,55 +660,48 @@ public class DistributionZoneManager implements IgniteComponent {
      * to the data nodes into the meta storage.
      *
      * @param zoneId Zone id.
-     * @param timerValuesFut Future for chaining.
+     * @param immediateScaleDown True in case of immediate scale down.
      * @return Future for chaining.
      */
-    private CompletableFuture<Void> scaleDownAwaiting(
-            int zoneId,
-            CompletableFuture<IgniteBiTuple<Boolean, Boolean>> timerValuesFut
-    ) {
+    private CompletableFuture<Void> scaleDownAwaiting(int zoneId, boolean immediateScaleDown) {
         CompletableFuture<Void> topVerScaleDownFut = new CompletableFuture<>();
 
-        timerValuesFut.thenAccept(timerValues -> {
-            boolean immediateScaleDown = timerValues.get2();
+        synchronized (dataNodesMutex) {
+            ZoneState zoneState = zonesState.get(zoneId);
 
-            synchronized (dataNodesMutex) {
-                ZoneState zoneState = zonesState.get(zoneId);
+            CompletableFuture<Void> topVerScaleDownFut0 = null;
 
-                CompletableFuture<Void> topVerScaleDownFut0 = null;
+            if (immediateScaleDown) {
+                if (zoneState.scaleDownRevision() < lastScaleDownRevision) {
+                    Map.Entry<Long, CompletableFuture<Void>> ceilingEntry =
+                            zoneState.revisionScaleDownFutures().ceilingEntry(lastScaleDownRevision);
 
-                if (immediateScaleDown) {
-                    if (zoneState.scaleDownRevision() < lastScaleDownRevision) {
-                        Map.Entry<Long, CompletableFuture<Void>> ceilingEntry =
-                                zoneState.revisionScaleDownFutures().ceilingEntry(lastScaleDownRevision);
-
-                        if (ceilingEntry != null) {
-                            topVerScaleDownFut0 = ceilingEntry.getValue();
-                        }
-
-                        if (topVerScaleDownFut0 == null) {
-                            topVerScaleDownFut0 = new CompletableFuture<>();
-
-                            zoneState.revisionScaleDownFutures().put(lastScaleDownRevision, topVerScaleDownFut0);
-                        }
-
-                        topVerScaleDownFut0.handle((ignored0, e) -> {
-                            if (e == null) {
-                                topVerScaleDownFut.complete(null);
-                            } else {
-                                topVerScaleDownFut.completeExceptionally(e);
-                            }
-
-                            return null;
-                        });
-                    } else {
-                        topVerScaleDownFut.complete(null);
+                    if (ceilingEntry != null) {
+                        topVerScaleDownFut0 = ceilingEntry.getValue();
                     }
+
+                    if (topVerScaleDownFut0 == null) {
+                        topVerScaleDownFut0 = new CompletableFuture<>();
+
+                        zoneState.revisionScaleDownFutures().put(lastScaleDownRevision, topVerScaleDownFut0);
+                    }
+
+                    topVerScaleDownFut0.handle((ignored0, e) -> {
+                        if (e == null) {
+                            topVerScaleDownFut.complete(null);
+                        } else {
+                            topVerScaleDownFut.completeExceptionally(e);
+                        }
+
+                        return null;
+                    });
                 } else {
                     topVerScaleDownFut.complete(null);
                 }
+            } else {
+                topVerScaleDownFut.complete(null);
             }
-        });
+        }
 
         return topVerScaleDownFut;
     }
@@ -733,30 +710,12 @@ public class DistributionZoneManager implements IgniteComponent {
      * Returns the future with data nodes of the specified zone.
      *
      * @param zoneId Zone id.
-     * @param topVerScaleUpFut Future for chaining.
-     * @param topVerScaleDownFut Future for chaining.
      * @return future.
      */
-    private CompletableFuture<Set<String>> getDataNodesFuture(
-            int zoneId,
-            CompletableFuture<Void> topVerScaleUpFut,
-            CompletableFuture<Void> topVerScaleDownFut
-    ) {
-        CompletableFuture<Set<String>> dataNodesFut = new CompletableFuture<>();
-
-        allOf(topVerScaleUpFut, topVerScaleDownFut).handle((ignored, e) -> {
-            if (e != null) {
-                dataNodesFut.completeExceptionally(e);
-            } else {
-                synchronized (dataNodesMutex) {
-                    dataNodesFut.complete(zonesState.get(zoneId).nodes());
-                }
-            }
-
-            return null;
-        });
-
-        return dataNodesFut;
+    private CompletableFuture<Set<String>> getDataNodesFuture(int zoneId) {
+        synchronized (dataNodesMutex) {
+            return completedFuture(zonesState.get(zoneId).nodes());
+        }
     }
 
     /** {@inheritDoc} */
@@ -1176,80 +1135,77 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            CompletableFuture<VaultEntry> topologyFut = vaultMgr.get(zonesLogicalTopologyKey());
+            VaultEntry topologyEntry = vaultMgr.get(zonesLogicalTopologyKey()).join();
 
-            CompletableFuture<VaultEntry> topVerFut = vaultMgr.get(zonesLogicalTopologyVersionKey());
+            VaultEntry topVerEntry = vaultMgr.get(zonesLogicalTopologyVersionKey()).join();
 
-            allOf(topologyFut, topVerFut)
-                    .thenAccept(ignored -> {
-                        if (!busyLock.enterBusy()) {
-                            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
-                        }
+            if (topologyEntry != null && topologyEntry.value() != null) {
+                logicalTopology = fromBytes(topologyEntry.value());
+            }
 
-                        try {
-                            VaultEntry topVerEntry = topVerFut.join();
+            if (topVerEntry != null && topVerEntry.value() != null) {
+                synchronized (dataNodesMutex) {
+                    lastTopVer = bytesToLong(topVerEntry.value());
+                }
+            }
 
-                            if (topVerEntry.value() != null) {
-                                synchronized (dataNodesMutex) {
-                                    lastTopVer = bytesToLong(topVerEntry.value());
-                                }
+            long appliedRevision = metaStorageManager.appliedRevision();
+
+            synchronized (dataNodesMutex) {
+                zonesState.values().forEach(zoneState -> {
+                    zoneState.scaleUpRevision(appliedRevision);
+
+                    zoneState.scaleDownRevision(appliedRevision);
+                });
+
+                lastScaleUpRevision = appliedRevision;
+
+                lastScaleDownRevision = appliedRevision;
+
+                zonesState.get(DEFAULT_ZONE_ID).nodes(logicalTopology);
+
+                zonesConfiguration.distributionZones().value().namedListKeys()
+                        .forEach(zoneName -> {
+                            NamedConfigurationTree<DistributionZoneConfiguration,
+                                    DistributionZoneView,
+                                    DistributionZoneChange> zones = zonesConfiguration.distributionZones();
+
+                            for (int i = 0; i < zones.value().size(); i++) {
+                                DistributionZoneView zoneView = zones.value().get(i);
+
+                                zonesState.get(zoneView.zoneId()).nodes(logicalTopology);
                             }
+                        });
+            }
 
-                            VaultEntry topologyEntry = topologyFut.join();
+            executor.submit(() -> {
+                if (!busyLock.enterBusy()) {
+                    throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+                }
 
-                            long appliedRevision = metaStorageManager.appliedRevision();
+                try {
+                    if (topologyEntry.value() != null) {
+                        // init keys and data nodes for default zone
+                        saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+                                DEFAULT_ZONE_ID,
+                                appliedRevision,
+                                logicalTopology
+                        );
 
-                            if (topologyEntry.value() != null) {
-                                logicalTopology = fromBytes(topologyEntry.value());
+                        zonesConfiguration.distributionZones().value().forEach(zone -> {
+                            int zoneId = zone.zoneId();
 
-                                // init keys and data nodes for default zone
-                                saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                                        DEFAULT_ZONE_ID,
-                                        appliedRevision,
-                                        logicalTopology
-                                );
-
-                                zonesConfiguration.distributionZones().value().forEach(zone -> {
-                                    int zoneId = zone.zoneId();
-
-                                    saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                                            zoneId,
-                                            appliedRevision,
-                                            logicalTopology
-                                    );
-                                });
-
-                                synchronized (dataNodesMutex) {
-                                    zonesState.values().forEach(zoneState -> {
-                                        zoneState.scaleUpRevision(appliedRevision);
-
-                                        zoneState.scaleDownRevision(appliedRevision);
-                                    });
-
-                                    lastScaleUpRevision = appliedRevision;
-
-                                    lastScaleDownRevision = appliedRevision;
-
-                                    zonesState.get(DEFAULT_ZONE_ID).nodes(logicalTopology);
-
-                                    zonesConfiguration.distributionZones().value().namedListKeys()
-                                            .forEach(zoneName -> {
-                                                NamedConfigurationTree<DistributionZoneConfiguration,
-                                                        DistributionZoneView,
-                                                        DistributionZoneChange> zones = zonesConfiguration.distributionZones();
-
-                                                for (int i = 0; i < zones.value().size(); i++) {
-                                                    DistributionZoneView zoneView = zones.value().get(i);
-
-                                                    zonesState.get(zoneView.zoneId()).nodes(logicalTopology);
-                                                }
-                                            });
-                                }
-                            }
-                        } finally {
-                            busyLock.leaveBusy();
-                        }
-                    });
+                            saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+                                    zoneId,
+                                    appliedRevision,
+                                    logicalTopology
+                            );
+                        });
+                    }
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            });
         } finally {
             busyLock.leaveBusy();
         }

@@ -114,7 +114,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
     void setUp() throws Exception {
         vaultManager = mock(VaultManager.class);
 
-        when(vaultManager.get(zonesLogicalTopologyKey())).thenReturn(completedFuture(null));
+        when(vaultManager.get(zonesLogicalTopologyKey())).thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), null)));
 
         when(vaultManager.get(zonesLogicalTopologyVersionKey()))
                 .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyVersionKey(), longToBytes(0))));
