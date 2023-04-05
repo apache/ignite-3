@@ -48,7 +48,7 @@ public readonly struct MemberInitCacheTarget : IEquatable<MemberInitCacheTarget>
     public IReadOnlyList<MemberInfo> PropertiesOrFields { get; }
 
     /// <summary>
-    /// Test.
+    /// Custom equality operator.
     /// </summary>
     /// <param name="left">left.</param>
     /// <param name="right">right.</param>
@@ -56,7 +56,7 @@ public readonly struct MemberInitCacheTarget : IEquatable<MemberInitCacheTarget>
     public static bool operator ==(MemberInitCacheTarget left, MemberInitCacheTarget right) => left.Equals(right);
 
     /// <summary>
-    /// Test.
+    /// Custom inequality operator.
     /// </summary>
     /// <param name="left">left.</param>
     /// <param name="right">right.</param>
