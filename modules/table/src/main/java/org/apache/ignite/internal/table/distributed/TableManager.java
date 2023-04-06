@@ -249,7 +249,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /**
      * {@link TableImpl} is created during update of tablesByIdVv, we store reference to it in case of updating of tablesByIdVv fails, so we
-     * can stop resources associated with the table.
+     * can stop resources associated with the table or to clean up table resources on {@code TableManager#stop()}.
      */
     private final Map<UUID, TableImpl> pendingTables = new ConcurrentHashMap<>();
 
@@ -527,7 +527,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             return failedFuture(new NodeStoppingException());
         }
-
 
         try {
             return createTableLocally(
@@ -990,7 +989,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
 
         Stream<TableImpl> tablesToStop =
-                Stream.concat(tablesByIdVv.latest().values().stream(), pendingTables.values().stream());
+                Stream.concat(tablesByIdVv.latest().entrySet().stream(), pendingTables.entrySet().stream()).
+                        map(Map.Entry::getValue);
 
         cleanUpTablesResources(tablesToStop);
 
