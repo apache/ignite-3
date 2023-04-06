@@ -58,12 +58,14 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -76,6 +78,7 @@ import org.apache.ignite.network.DefaultMessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.StaticNodeFinder;
+import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -106,7 +109,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
 
         private final ClusterService clusterService;
 
-        private final RaftManager raftManager;
+        private final Loza raftManager;
 
         private final ClusterStateStorage clusterStateStorage = new TestClusterStateStorage();
 
@@ -406,6 +409,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
 
         assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
 
+        // Try putting data from both nodes, because any of them can be a leader.
         assertThat(
                 firstNode.metaStorageManager.put(ByteArray.fromString("test-key"), new byte[]{0, 1, 2, 3}),
                 willCompleteSuccessfully()
@@ -416,6 +420,96 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
             HybridTimestamp sf2 = secondNodeTime.currentSafeTime();
 
             return sf1.equals(sf2);
-        }, TimeUnit.SECONDS.toMillis(2)));
+        }, TimeUnit.SECONDS.toMillis(1)));
+
+        assertThat(
+                secondNode.metaStorageManager.put(ByteArray.fromString("test-key-2"), new byte[]{0, 1, 2, 3}),
+                willCompleteSuccessfully()
+        );
+
+        assertTrue(waitForCondition(() -> {
+            HybridTimestamp sf1 = firstNodeTime.currentSafeTime();
+            HybridTimestamp sf2 = secondNodeTime.currentSafeTime();
+
+            return sf1.equals(sf2);
+        }, TimeUnit.SECONDS.toMillis(1)));
+    }
+
+    /**
+     * Tests that safe time is propagated after leader was changed.
+     */
+    @Test
+    void testSafeTimePropagationLeaderTransferred(TestInfo testInfo) throws Exception {
+        Node firstNode = startNode(testInfo);
+        Node secondNode = startNode(testInfo);
+
+        List<String> followers = List.of(firstNode.name(), secondNode.name());
+
+        firstNode.cmgManager.initCluster(followers, List.of(firstNode.name()), "test");
+
+        ClusterTimeImpl firstNodeTime = (ClusterTimeImpl) firstNode.metaStorageManager.clusterTime();
+        ClusterTimeImpl secondNodeTime = (ClusterTimeImpl) secondNode.metaStorageManager.clusterTime();
+
+        assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
+
+        assertThat(
+                firstNode.metaStorageManager.put(ByteArray.fromString("test-key"), new byte[]{0, 1, 2, 3}),
+                willCompleteSuccessfully()
+        );
+
+        assertTrue(waitForCondition(() -> {
+            HybridTimestamp sf1 = firstNodeTime.currentSafeTime();
+            HybridTimestamp sf2 = secondNodeTime.currentSafeTime();
+
+            return sf1.equals(sf2);
+        }, TimeUnit.SECONDS.toMillis(1)));
+
+        // Change leader and check if propagation still works.
+        Node prevLeader = transferLeadership(firstNode, secondNode);
+
+        assertThat(
+                prevLeader.metaStorageManager.put(ByteArray.fromString("test-key-2"), new byte[]{0, 1, 2, 3}),
+                willCompleteSuccessfully()
+        );
+
+        assertTrue(waitForCondition(() -> {
+            HybridTimestamp sf1 = firstNodeTime.currentSafeTime();
+            HybridTimestamp sf2 = secondNodeTime.currentSafeTime();
+
+            return sf1.equals(sf2);
+        }, TimeUnit.SECONDS.toMillis(1)));
+    }
+
+    private Node transferLeadership(Node firstNode, Node secondNode) {
+        RaftGroupService svc1 = getMetastorageService(firstNode);
+        RaftGroupService svc2 = getMetastorageService(secondNode);
+
+        boolean leaderFirst = false;
+
+        RaftGroupService leader;
+        RaftGroupService notLeader;
+
+        if (svc1.getRaftNode().isLeader()) {
+            leader = svc1;
+            notLeader = svc2;
+
+            leaderFirst = true;
+        } else {
+            leader = svc2;
+            notLeader = svc1;
+        }
+
+        leader.getRaftNode().transferLeadershipTo(notLeader.getServerId());
+
+        return leaderFirst ? secondNode : firstNode;
+    }
+
+    private RaftGroupService getMetastorageService(Node node) {
+        JraftServerImpl server1 = (JraftServerImpl) node.raftManager.server();
+
+        RaftNodeId nodeId = server1.localNodes().stream()
+                .filter(id -> MetastorageGroupId.INSTANCE.equals(id.groupId())).findFirst().get();
+
+        return server1.raftGroupService(nodeId);
     }
 }

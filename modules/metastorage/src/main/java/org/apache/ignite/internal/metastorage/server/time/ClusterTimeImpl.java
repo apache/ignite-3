@@ -96,10 +96,21 @@ public class ClusterTimeImpl implements ClusterTime {
         return safeTime.waitFor(time);
     }
 
-    public void updateSafeTime(HybridTimestamp ts) {
-        this.safeTime.update(ts);
+    /**
+     * Updates the internal safe time.
+     *
+     * @param newValue New safe time value.
+     */
+    public void updateSafeTime(HybridTimestamp newValue) {
+        this.safeTime.update(newValue);
     }
 
+    /**
+     * Updates hybrid logical clock using {@code ts}. Selects the maximum between current system time,
+     * hybrid clock's latest time and {@code ts} adding 1 logical tick to the result.
+     *
+     * @param ts Timestamp.
+     */
     public void adjust(HybridTimestamp ts) {
         this.clock.update(ts);
     }

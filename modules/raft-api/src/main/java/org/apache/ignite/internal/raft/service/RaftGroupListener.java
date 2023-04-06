@@ -85,6 +85,8 @@ public interface RaftGroupListener {
 
     /**
      * Invoked before submitting a command to a raft group.
+     * If a command must be changed before saving to raft log,
+     * this is a place to do it.
      *
      * @param command The command.
      */
