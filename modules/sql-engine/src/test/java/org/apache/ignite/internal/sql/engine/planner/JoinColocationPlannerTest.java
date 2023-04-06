@@ -38,6 +38,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.table.AbstractTestTable;
+import org.apache.ignite.internal.sql.engine.table.TestSortedIndex;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.junit.jupiter.api.Test;
 
@@ -50,7 +52,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void joinSameTableSimpleAff() throws Exception {
-        TestTable tbl = createTable(
+        AbstractTestTable tbl = createTable(
                 "TEST_TBL",
                 IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID),
                 "ID", Integer.class,
@@ -82,7 +84,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void joinSameTableComplexAff() throws Exception {
-        TestTable tbl = createTable(
+        AbstractTestTable tbl = createTable(
                 "TEST_TBL",
                 IgniteDistributions.affinity(ImmutableIntList.of(0, 1), UUID.randomUUID(), DEFAULT_ZONE_ID),
                 "ID1", Integer.class,
@@ -117,7 +119,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void joinComplexToSimpleAff() throws Exception {
-        TestTable complexTbl = createTable(
+        AbstractTestTable complexTbl = createTable(
                 "COMPLEX_TBL",
                 2 * DEFAULT_TBL_SIZE,
                 IgniteDistributions.affinity(ImmutableIntList.of(0, 1), UUID.randomUUID(), DEFAULT_ZONE_ID),
@@ -128,7 +130,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
 
         complexTbl.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(ImmutableIntList.of(0, 1)), "PK", complexTbl)));
 
-        TestTable simpleTbl = createTable(
+        AbstractTestTable simpleTbl = createTable(
                 "SIMPLE_TBL",
                 DEFAULT_TBL_SIZE,
                 IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID),
@@ -161,7 +163,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         assertThat(invalidPlanMsg, exchanges.get(0).getInput(0), instanceOf(IgniteSort.class));
         assertThat(invalidPlanMsg, exchanges.get(0).getInput(0).getInput(0), instanceOf(IgniteTableScan.class));
         assertThat(invalidPlanMsg, exchanges.get(0).getInput(0).getInput(0)
-                .getTable().unwrap(TestTable.class), equalTo(simpleTbl));
+                .getTable().unwrap(AbstractTestTable.class), equalTo(simpleTbl));
     }
 
     /**
@@ -171,7 +173,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void joinComplexToComplexAffWithDifferentOrder() throws Exception {
-        TestTable complexTblDirect = createTable(
+        AbstractTestTable complexTblDirect = createTable(
                 "COMPLEX_TBL_DIRECT",
                 2 * DEFAULT_TBL_SIZE,
                 IgniteDistributions.affinity(ImmutableIntList.of(0, 1), UUID.randomUUID(), DEFAULT_ZONE_ID),
@@ -183,7 +185,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         complexTblDirect.addIndex(new IgniteIndex(
                 TestSortedIndex.create(RelCollations.of(ImmutableIntList.of(0, 1)), "PK", complexTblDirect)));
 
-        TestTable complexTblIndirect = createTable(
+        AbstractTestTable complexTblIndirect = createTable(
                 "COMPLEX_TBL_INDIRECT",
                 DEFAULT_TBL_SIZE,
                 IgniteDistributions.affinity(ImmutableIntList.of(1, 0), UUID.randomUUID(), DEFAULT_ZONE_ID),
@@ -216,6 +218,6 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         assertThat(invalidPlanMsg, exchanges, hasSize(1));
         assertThat(invalidPlanMsg, exchanges.get(0).getInput(0), instanceOf(IgniteIndexScan.class));
         assertThat(invalidPlanMsg, exchanges.get(0).getInput(0)
-                .getTable().unwrap(TestTable.class), equalTo(complexTblIndirect));
+                .getTable().unwrap(AbstractTestTable.class), equalTo(complexTblIndirect));
     }
 }
