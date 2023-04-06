@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.planner;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
+import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
@@ -30,6 +31,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -149,6 +151,30 @@ public class DmlPlannerTest extends AbstractPlannerTest {
                 IgniteDistributions.single(),
                 IgniteDistributions.hash(List.of(0, 1)),
                 IgniteDistributions.affinity(0, new UUID(1, 1), "0")
+        );
+    }
+
+    /**
+     * Test for check basic dml operators when table doesn't exist.
+     */
+    @ParameterizedTest
+    @MethodSource("basicStatements")
+    public void testDmlQueriesOnNonExistingTable(String query) {
+        //noinspection ThrowableNotThrown
+        IgniteTestUtils.assertThrowsWithCause(
+                () -> physicalPlan(query, createSchema()),
+                SqlValidatorException.class,
+                "Object 'TEST' not found"
+        );
+    }
+
+    private static Stream<String> basicStatements() {
+        return Stream.of(
+                "SELECT * FROM test",
+                "INSERT INTO test VALUES(1)",
+                "UPDATE test SET ID=1",
+                "DELETE FROM test",
+                "MERGE INTO test USING test ON test.a = test.a WHEN MATCHED THEN UPDATE SET test.a = test.b"
         );
     }
 

@@ -172,10 +172,12 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         SqlIdentifier alias = call.getAlias() != null ? call.getAlias() :
                 new SqlIdentifier(deriveAlias(targetTable, 0), SqlParserPos.ZERO);
 
-        table.unwrap(IgniteTable.class).descriptor().selectForUpdateRowType((IgniteTypeFactory) typeFactory)
-                .getFieldNames().stream()
-                .map(name -> alias.plus(name, SqlParserPos.ZERO))
-                .forEach(selectList::add);
+        if (table != null) {
+            table.unwrap(IgniteTable.class).descriptor().selectForUpdateRowType((IgniteTypeFactory) typeFactory)
+                    .getFieldNames().stream()
+                    .map(name -> alias.plus(name, SqlParserPos.ZERO))
+                    .forEach(selectList::add);
+        }
 
         int ordinal = 0;
         // Force unique aliases to avoid a duplicate for Y with SET X=Y
@@ -210,10 +212,12 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         final SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
         final SqlValidatorTable table = getCatalogReader().getTable(((SqlIdentifier) call.getTargetTable()).names);
 
-        table.unwrap(IgniteTable.class).descriptor().deleteRowType((IgniteTypeFactory) typeFactory)
-                .getFieldNames().stream()
-                .map(name -> new SqlIdentifier(name, SqlParserPos.ZERO))
-                .forEach(selectList::add);
+        if (table != null) {
+            table.unwrap(IgniteTable.class).descriptor().deleteRowType((IgniteTypeFactory) typeFactory)
+                    .getFieldNames().stream()
+                    .map(name -> new SqlIdentifier(name, SqlParserPos.ZERO))
+                    .forEach(selectList::add);
+        }
 
         SqlNode sourceTable = call.getTargetTable();
 
