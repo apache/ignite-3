@@ -354,7 +354,8 @@ public class ClientTable implements Table {
     }
 
     private <T> T readSchemaAndApply(Function<ClientMessageUnpacker, T> reader, PayloadInputChannel r) {
-        // TODO: Schedule background schema update with atomic CAS.
+        // TODO: Schedule background schema update.
+        // TODO: Somehow prevent multiple requests for the same schema version - a concurrent map of futures?
         int latestSchemaVer = r.in().tryUnpackInt(-1);
 
         return reader.apply(r.in());
