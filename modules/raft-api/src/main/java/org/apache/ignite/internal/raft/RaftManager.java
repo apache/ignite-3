@@ -63,6 +63,24 @@ public interface RaftManager extends IgniteComponent {
     ) throws NodeStoppingException;
 
     /**
+     * Starts a Raft group and a Raft service on the current node.
+     *
+     * @param nodeId Raft node ID.
+     * @param configuration Peers and Learners of the Raft group.
+     * @param lsnr Raft group listener.
+     * @param eventsLsnr Raft group events listener.
+     * @param createOwnFsmCallerExecutorDisruptor Create own striped disruptor for FSMCaller service.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    CompletableFuture<RaftGroupService> startRaftGroupNode(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            boolean createOwnFsmCallerExecutorDisruptor
+    ) throws NodeStoppingException;
+
+    /**
      * Stops a given local Raft node.
      *
      * @param nodeId Raft node ID.

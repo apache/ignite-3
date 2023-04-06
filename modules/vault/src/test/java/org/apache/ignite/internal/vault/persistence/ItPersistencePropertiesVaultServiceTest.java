@@ -55,7 +55,9 @@ class ItPersistencePropertiesVaultServiceTest {
                 new ByteArray("key" + 3), fromString("value" + 3)
         );
 
-        var service = new PersistentVaultService(vaultDir);
+        String nodeName = "test";
+
+        var service = new PersistentVaultService(nodeName, vaultDir);
 
         try {
             service.start();
@@ -65,7 +67,7 @@ class ItPersistencePropertiesVaultServiceTest {
             service.close();
         }
 
-        service = new PersistentVaultService(vaultDir);
+        service = new PersistentVaultService(nodeName, vaultDir);
 
         try {
             service.start();
@@ -78,7 +80,7 @@ class ItPersistencePropertiesVaultServiceTest {
             service.close();
         }
 
-        service = new PersistentVaultService(vaultDir);
+        service = new PersistentVaultService(nodeName, vaultDir);
 
         try {
             service.start();

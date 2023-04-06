@@ -157,7 +157,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                         configuration,
                         new MetaStorageListener(storage),
-                        new MetaStorageRaftGroupEventsListener(busyLock, clusterService, logicalTopologyService, metaStorageSvcFut)
+                        new MetaStorageRaftGroupEventsListener(busyLock, clusterService, logicalTopologyService, metaStorageSvcFut),
+                        true
                 );
             } else {
                 PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageNodes, Set.of(thisNodeName));
@@ -170,7 +171,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                         configuration,
                         new MetaStorageLearnerListener(storage),
-                        RaftGroupEventsListener.noopLsnr
+                        RaftGroupEventsListener.noopLsnr,
+                        true
                 );
             }
         } catch (NodeStoppingException e) {

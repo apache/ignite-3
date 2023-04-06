@@ -381,6 +381,18 @@ public class JraftServerImpl implements RaftServer {
             RaftGroupListener lsnr,
             RaftGroupOptions groupOptions
     ) {
+        return startRaftNode(nodeId, configuration, evLsnr, lsnr, groupOptions, false);
+    }
+
+    @Override
+    public boolean startRaftNode(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupEventsListener evLsnr,
+            RaftGroupListener lsnr,
+            RaftGroupOptions groupOptions,
+            boolean createOwnFsmCallerExecutorDisruptor
+    ) {
         assert nodeId.peer().consistentId().equals(service.topologyService().localMember().name());
 
         // fast track to check if node with the same ID is already created.
@@ -396,6 +408,10 @@ public class JraftServerImpl implements RaftServer {
 
             // Thread pools are shared by all raft groups.
             NodeOptions nodeOptions = opts.copy();
+
+            if (createOwnFsmCallerExecutorDisruptor) {
+                nodeOptions.setfSMCallerExecutorDisruptor(null);
+            }
 
             nodeOptions.setLogUri(nodeIdStr(nodeId));
 

@@ -77,6 +77,26 @@ public interface RaftServer extends IgniteComponent {
     );
 
     /**
+     * Starts a Raft group bound to this cluster node.
+     *
+     * @param nodeId Raft node ID.
+     * @param configuration Raft configuration.
+     * @param evLsnr Listener for group membership and other events.
+     * @param lsnr Listener for state machine events.
+     * @param groupOptions Options to apply to the group.
+     * @param createOwnFsmCallerExecutorDisruptor Create own striped disruptor for FSMCaller service.
+     * @return {@code True} if a group was successfully started, {@code False} when the group with given name is already exists.
+     */
+    boolean startRaftNode(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupEventsListener evLsnr,
+            RaftGroupListener lsnr,
+            RaftGroupOptions groupOptions,
+            boolean createOwnFsmCallerExecutorDisruptor
+    );
+
+    /**
      * Returns a future, which complete when the raft node is ready and committed updates are applied.
      *
      * @param groupId Raft group ID.
