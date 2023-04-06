@@ -31,16 +31,14 @@ import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NodeFinderType;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterLocalConfiguration;
+import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializationRegistryInitializer;
@@ -77,7 +75,7 @@ public class ClusterServiceTestUtils {
      * @param nodeFinder               Node finder.
      */
     public static ClusterService clusterService(TestInfo testInfo, int port, NodeFinder nodeFinder) {
-        var ctx = new ClusterLocalConfiguration(testNodeName(testInfo, port), defaultSerializationRegistry());
+        String nodeName = testNodeName(testInfo, port);
 
         ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
                 Collections.singleton(NetworkConfiguration.KEY),
@@ -89,28 +87,20 @@ public class ClusterServiceTestUtils {
 
         NetworkConfiguration networkConfiguration = nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
 
-        var bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, ctx.getName());
+        var bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, nodeName);
 
-        ClusterService clusterSvc = SERVICE_FACTORY.createClusterService(ctx, networkConfiguration, bootstrapFactory);
+        MessageSerializationRegistry serializationRegistry = defaultSerializationRegistry();
+
+        ClusterService clusterSvc = SERVICE_FACTORY.createClusterService(
+                nodeName,
+                networkConfiguration,
+                bootstrapFactory,
+                serializationRegistry
+        );
 
         assert nodeFinder instanceof StaticNodeFinder : "Only StaticNodeFinder is supported at the moment";
 
-        return new ClusterService() {
-            @Override
-            public TopologyService topologyService() {
-                return clusterSvc.topologyService();
-            }
-
-            @Override
-            public MessagingService messagingService() {
-                return clusterSvc.messagingService();
-            }
-
-            @Override
-            public ClusterLocalConfiguration localConfiguration() {
-                return clusterSvc.localConfiguration();
-            }
-
+        return new AbstractClusterService(nodeName, clusterSvc.topologyService(), clusterSvc.messagingService(), serializationRegistry) {
             @Override
             public boolean isStopped() {
                 return clusterSvc.isStopped();

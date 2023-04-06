@@ -29,6 +29,8 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 
+import com.jayway.jsonpath.InvalidPathException;
+import com.jayway.jsonpath.JsonPath;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -44,6 +46,7 @@ import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Util class for Distribution Zones flow.
@@ -388,5 +391,25 @@ public class DistributionZonesUtil {
         }
 
         throw new DistributionZoneNotFoundException(zoneId);
+    }
+
+    /**
+     * Check if a passed filter is a valid {@link JsonPath} query.
+     *
+     * @param filter Filter.
+     * @return {@code null} if the passed filter is a valid filter, string with the error message otherwise.
+     */
+    public static @Nullable String validate(String filter) {
+        try {
+            JsonPath.compile(filter);
+        } catch (InvalidPathException e) {
+            if (e.getMessage() != null) {
+                return e.getMessage();
+            } else {
+                return "Unknown JsonPath compilation error.";
+            }
+        }
+
+        return null;
     }
 }

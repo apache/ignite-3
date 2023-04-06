@@ -58,7 +58,6 @@ import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
@@ -164,17 +163,16 @@ public class ItTruncateSuffixAndRestartTest {
 
             assertThat(networkConfiguration.port().update(port(i)), willCompleteSuccessfully());
 
-            var clusterLocalConfiguration = new ClusterLocalConfiguration(nodeName, defaultSerializationRegistry());
-
-            var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, clusterLocalConfiguration.getName());
+            var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, nodeName);
 
             nettyBootstrapFactory.start();
             cleanup.add(nettyBootstrapFactory::stop);
 
             clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(
-                    clusterLocalConfiguration,
+                    nodeName,
                     networkConfiguration,
-                    nettyBootstrapFactory
+                    nettyBootstrapFactory,
+                    defaultSerializationRegistry()
             );
 
             clusterSvc.start();

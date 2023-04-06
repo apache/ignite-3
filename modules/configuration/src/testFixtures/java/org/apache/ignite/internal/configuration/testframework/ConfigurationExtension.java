@@ -296,6 +296,8 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
             root.setInjectedNameFieldValue(annotation.name());
         }
 
+        superRoot.makeImmutable();
+
         // Reference to the super root is required to make DynamicConfigurationChanger#change method atomic.
         var superRootRef = new AtomicReference<>(superRoot);
 

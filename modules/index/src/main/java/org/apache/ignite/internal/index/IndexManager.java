@@ -572,8 +572,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         /** {@inheritDoc} */
         @Override
         public @NotNull CompletableFuture<?> onRename(
-                String oldName,
-                String newName,
                 ConfigurationNotificationEvent<TableIndexView> ctx
         ) {
             return failedFuture(new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-16196"));

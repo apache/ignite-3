@@ -23,11 +23,15 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.internal.cli.logger.CliLoggers;
+import org.apache.ignite.internal.logger.IgniteLogger;
 
 /**
  * Loader of {@link SqlSchema}.
  */
 public class SqlSchemaLoader {
+    private static final IgniteLogger LOG = CliLoggers.forClass(SqlSchemaLoader.class);
+
     private final MetadataSupplier metadataSupplier;
 
     public SqlSchemaLoader(MetadataSupplier metadataSupplier) {
@@ -50,7 +54,7 @@ public class SqlSchemaLoader {
                 tables.put(tableName, loadColumns(tableSchema, tableName));
             }
         } catch (SQLException e) {
-            //TODO: https://issues.apache.org/jira/browse/IGNITE-17090
+            LOG.error("Error during sql schema load", e);
         }
         return new SqlSchema(schema);
     }
@@ -64,7 +68,7 @@ public class SqlSchemaLoader {
                 columns.add(rs.getString("COLUMN_NAME"));
             }
         } catch (SQLException e) {
-            //TODO: https://issues.apache.org/jira/browse/IGNITE-17090
+            LOG.error("Error during sql schema load", e);
         }
         return columns;
     }

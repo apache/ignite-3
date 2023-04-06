@@ -47,7 +47,6 @@ import org.apache.ignite.internal.network.serialization.UserObjectSerializationC
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.AbstractClusterService;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.DefaultMessagingService;
 import org.apache.ignite.network.NettyBootstrapFactory;
@@ -55,6 +54,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.NodeFinderFactory;
 import org.apache.ignite.network.NodeMetadata;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
  * Cluster service factory that uses ScaleCube for messaging and topology services.
@@ -69,15 +69,15 @@ public class ScaleCubeClusterServiceFactory {
     /**
      * Creates a new {@link ClusterService} using the provided context. The created network will not be in the "started" state.
      *
-     * @param context               Cluster context.
      * @param networkConfiguration  Network configuration.
      * @param nettyBootstrapFactory Bootstrap factory.
      * @return New cluster service.
      */
     public ClusterService createClusterService(
-            ClusterLocalConfiguration context,
+            String consistentId,
             NetworkConfiguration networkConfiguration,
-            NettyBootstrapFactory nettyBootstrapFactory
+            NettyBootstrapFactory nettyBootstrapFactory,
+            MessageSerializationRegistry serializationRegistry
     ) {
         var messageFactory = new NetworkMessagesFactory();
 
@@ -92,7 +92,7 @@ public class ScaleCubeClusterServiceFactory {
                 userObjectSerialization.marshaller()
         );
 
-        return new AbstractClusterService(context, topologyService, messagingService) {
+        return new AbstractClusterService(consistentId, topologyService, messagingService, serializationRegistry) {
 
             private volatile ClusterImpl cluster;
 
@@ -103,9 +103,7 @@ public class ScaleCubeClusterServiceFactory {
             /** {@inheritDoc} */
             @Override
             public void start() {
-                String consistentId = context.getName();
-
-                var serializationService = new SerializationService(context.getSerializationRegistry(), userObjectSerialization);
+                var serializationService = new SerializationService(serializationRegistry, userObjectSerialization);
 
                 UUID launchId = UUID.randomUUID();
 

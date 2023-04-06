@@ -312,6 +312,10 @@ public class DistributionZoneManager implements IgniteComponent {
                             zoneChange.changeReplicas(distributionZoneCfg.replicas());
                         }
 
+                        if (distributionZoneCfg.filter() != null) {
+                            zoneChange.changeFilter(distributionZoneCfg.filter());
+                        }
+
                         if (distributionZoneCfg.dataNodesAutoAdjust() == null) {
                             zoneChange.changeDataNodesAutoAdjust(INFINITE_TIMER_VALUE);
                         } else {
@@ -677,12 +681,12 @@ public class DistributionZoneManager implements IgniteComponent {
      */
     private ConfigurationListener<Integer> onUpdateScaleUp() {
         return ctx -> {
-            int zoneId = ctx.config(DistributionZoneConfiguration.class).zoneId().value();
-
             if (ctx.oldValue() == null) {
                 // zone creation, already handled in a separate listener.
                 return completedFuture(null);
             }
+
+            int zoneId = ctx.newValue(DistributionZoneView.class).zoneId();
 
             int newScaleUp = ctx.newValue().intValue();
 
@@ -719,12 +723,12 @@ public class DistributionZoneManager implements IgniteComponent {
      */
     private ConfigurationListener<Integer> onUpdateScaleDown() {
         return ctx -> {
-            int zoneId = ctx.config(DistributionZoneConfiguration.class).zoneId().value();
-
             if (ctx.oldValue() == null) {
                 // zone creation, already handled in a separate listener.
                 return completedFuture(null);
             }
+
+            int zoneId = ctx.newValue(DistributionZoneView.class).zoneId();
 
             int newScaleDown = ctx.newValue().intValue();
 
@@ -880,6 +884,10 @@ public class DistributionZoneManager implements IgniteComponent {
 
         if (distributionZoneCfg.partitions() != null) {
             zoneChange.changePartitions(distributionZoneCfg.partitions());
+        }
+
+        if (distributionZoneCfg.filter() != null) {
+            zoneChange.changeFilter(distributionZoneCfg.filter());
         }
 
         if (distributionZoneCfg.dataNodesAutoAdjust() != null) {

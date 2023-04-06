@@ -92,7 +92,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -528,13 +527,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             return ret;
         });
 
-        when(cs.localConfiguration()).thenAnswer(invocation -> {
-            ClusterLocalConfiguration ret = mock(ClusterLocalConfiguration.class);
-
-            when(ret.getName()).thenReturn("node1");
-
-            return ret;
-        });
+        when(cs.nodeName()).thenAnswer(invocation -> "node1");
 
         when(cs.topologyService()).thenAnswer(invocation -> {
             TopologyService ret = mock(TopologyService.class);

@@ -49,11 +49,11 @@ public interface DeploymentCodeApi {
     /**
      * Deploy unit REST method.
      */
-    @Operation(operationId = "deployUnit", description = "Deploy provided unit to the cluster.")
+    @Operation(operationId = "deployUnit", description = "Deploys provided unit to the cluster.")
     @ApiResponse(responseCode = "200", description = "Unit deployed successfully.",
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(type = "boolean"))
     )
-    @ApiResponse(responseCode = "409", description = "Unit with same identifier and version already deployed.",
+    @ApiResponse(responseCode = "409", description = "Unit with same identifier and version is already deployed.",
             content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
     )
     @ApiResponse(responseCode = "500", description = "Internal error.",
@@ -66,21 +66,21 @@ public interface DeploymentCodeApi {
     })
     @Post("units")
     CompletableFuture<Boolean> deploy(
-            @Schema(name = "unitId", required = true) String unitId,
-            @Schema(name = "unitVersion") String unitVersion,
-            @Schema(name = "unitContent", required = true) CompletedFileUpload unitContent);
+            @Schema(name = "unitId", description = "The ID of the deployment unit.", required = true) String unitId,
+            @Schema(name = "unitVersion",  description = "The version of the deployment unit.") String unitVersion,
+            @Schema(name = "unitContent",  description = "The code to deploy.", required = true) CompletedFileUpload unitContent);
 
     /**
      * Undeploy unit REST method.
      */
-    @Operation(operationId = "undeployUnit", description = "Undeploy unit with provided unitId and unitVersion.")
+    @Operation(operationId = "undeployUnit", description = "Undeploys the unit with provided unitId and unitVersion.")
     @ApiResponse(responseCode = "200",
             description = "Unit undeployed successfully.",
             //DO NOT Remove redundant parameter. It will BREAK generated spec.
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = Void.class))
     )
     @ApiResponse(responseCode = "404",
-            description = "Unit with provided identifier and version doesn't exist.",
+            description = "Unit with provided identifier and version does not exist.",
             content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
     )
     @ApiResponse(responseCode = "500",
@@ -94,20 +94,21 @@ public interface DeploymentCodeApi {
     })
     @Delete("units/{unitId}/{unitVersion}")
     CompletableFuture<Void> undeploy(
-            @PathVariable("unitId") @Schema(name = "unitId", required = true) String unitId,
-            @PathVariable("unitVersion") @Schema(name = "unitVersion", required = true) String unitVersion);
+            @PathVariable("unitId") @Schema(name = "unitId", description = "The ID of the deployment unit.", required = true) String unitId,
+            @PathVariable("unitVersion") @Schema(name = "unitVersion",
+                    description = "The version of the deployment unit.", required = true) String unitVersion);
 
     /**
      * Undeploy latest unit REST method.
      */
-    @Operation(operationId = "undeployLatestUnit", description = "Undeploy latest unit with provided unitId.")
+    @Operation(operationId = "undeployLatestUnit", description = "Undeploys the latest unit with the provided unitId.")
     @ApiResponse(responseCode = "200",
             description = "Unit undeployed successfully.",
             //DO NOT Remove redundant parameter. It will BREAK generated spec.
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = Void.class))
     )
     @ApiResponse(responseCode = "404",
-            description = "Unit with provided identifier and version doesn't exist.",
+            description = "Unit with provided identifier and version does not exist.",
             content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
     )
     @ApiResponse(responseCode = "500",
@@ -121,7 +122,8 @@ public interface DeploymentCodeApi {
     })
     @Delete("units/{unitId}")
     CompletableFuture<Void> undeploy(
-            @PathVariable("unitId") @Schema(name = "unitId", required = true) String unitId);
+            @PathVariable("unitId") @Schema(name = "unitId",
+                    description = "The ID of the deployment unit.", required = true) String unitId);
 
     /**
      * All units status REST method.
@@ -146,13 +148,13 @@ public interface DeploymentCodeApi {
     /**
      * Versions of unit REST method.
      */
-    @Operation(operationId = "versions", description = "All versions of unit with provided unit identifier.")
+    @Operation(operationId = "versions", description = "Returns all versions of the unit with the provided unit identifier.")
     @ApiResponse(responseCode = "200",
             description = "Versions returned successfully.",
             content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = String.class)))
     )
     @ApiResponse(responseCode = "404",
-            description = "Unit with provided identifier doesn't exist.",
+            description = "Unit with the provided identifier does not exist.",
             content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
     )
     @ApiResponse(responseCode = "500", description = "Internal error.",
@@ -164,18 +166,19 @@ public interface DeploymentCodeApi {
     })
     @Get("units/{unitId}/versions")
     CompletableFuture<Collection<String>> versions(
-            @PathVariable("unitId") @Schema(name = "unitId", required = true) String unitId);
+            @PathVariable("unitId") @Schema(name = "unitId",
+                    description = "The ID of the deployment unit.", required = true) String unitId);
 
     /**
      * Unit status REST method.
      */
-    @Operation(operationId = "status", description = "Status of unit with provided identifier.")
+    @Operation(operationId = "status", description = "Returns the status of the unit with the provided identifier.")
     @ApiResponse(responseCode = "200",
             description = "Status returned successfully.",
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = UnitStatusDto.class))
     )
     @ApiResponse(responseCode = "404",
-            description = "Unit with provided identifier doesn't exist.",
+            description = "Unit with provided identifier does not exist.",
             content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
     )
     @ApiResponse(responseCode = "500",
@@ -189,12 +192,13 @@ public interface DeploymentCodeApi {
     })
     @Get("units/{unitId}/status")
     CompletableFuture<UnitStatusDto> status(
-            @PathVariable("unitId") @Schema(name = "unitId", required = true) String unitId);
+            @PathVariable("unitId") @Schema(name = "unitId",
+                    description = "The ID of the deployment unit.", required = true) String unitId);
 
     /**
      * Find unit by node consistent id.
      */
-    @Operation(operationId = "byConsistentId", description = "Status of units which deployed on node.")
+    @Operation(operationId = "byConsistentId", description = "Returns the status of units that are deployed on the node.")
     @ApiResponse(responseCode = "200",
             description = "All statuses returned successfully.",
             content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = UnitStatusDto.class)))
@@ -210,5 +214,6 @@ public interface DeploymentCodeApi {
     })
     @Get("units/consistentId/{consistentId}")
     CompletableFuture<Collection<UnitStatusDto>> findByConsistentId(
-            @PathVariable("consistentId") @Schema(name = "consistentId", required = true) String consistentId);
+            @PathVariable("consistentId") @Schema(name = "consistentId",
+                    description = "The consistent deployment unit identifier.", required = true) String consistentId);
 }
