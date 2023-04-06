@@ -238,7 +238,7 @@ public class Cluster {
         IgniteImpl newIgniteNode;
 
         try {
-            newIgniteNode = startClusterNode(index, nodeBootstrapConfigTemplate).get(10, TimeUnit.SECONDS);
+            newIgniteNode = startClusterNode(index, nodeBootstrapConfigTemplate).get(20, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 

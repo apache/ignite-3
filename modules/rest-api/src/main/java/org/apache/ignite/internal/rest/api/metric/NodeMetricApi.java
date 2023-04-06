@@ -41,7 +41,7 @@ import org.apache.ignite.internal.rest.constants.MediaType;
 public interface NodeMetricApi {
 
     /** Enable metric source. */
-    @Operation(operationId = "enableNodeMetric", description = "Enables a specific metric source.")
+    @Operation(operationId = "enableNodeMetric", description = "Enables the specified metric source.")
     @ApiResponse(responseCode = "200", description = "Metric source enabled.")
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
@@ -53,7 +53,7 @@ public interface NodeMetricApi {
     void enable(@Body String srcName);
 
     /** Disable metric source. */
-    @Operation(operationId = "disableNodeMetric", description = "Disables a specific metric source.")
+    @Operation(operationId = "disableNodeMetric", description = "Disables the specified metric source.")
     @ApiResponse(responseCode = "200", description = "Metric source disabled.")
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
@@ -65,7 +65,7 @@ public interface NodeMetricApi {
     void disable(@Body String srcName);
 
     /** List metric sources. */
-    @Operation(operationId = "listNodeMetricSources", description = "Provides a list of all available metric sources.")
+    @Operation(operationId = "listNodeMetricSources", description = "Gets a list of all available metric sources.")
     @ApiResponse(responseCode = "200", description = "Returned a list of metric sources.")
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
@@ -74,7 +74,7 @@ public interface NodeMetricApi {
     Collection<MetricSourceDto> listMetricSources();
 
     /** List metric sets. */
-    @Operation(operationId = "listNodeMetricSets", description = "Provides a list of all enabled metric sets.")
+    @Operation(operationId = "listNodeMetricSets", description = "Gets a list of all enabled metric sets.")
     @ApiResponse(responseCode = "200", description = "Returned a list of metric sets.")
     @ApiResponse(responseCode = "500", description = "Internal error",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))

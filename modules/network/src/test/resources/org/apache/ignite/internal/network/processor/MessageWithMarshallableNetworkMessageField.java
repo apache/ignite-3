@@ -15,27 +15,15 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite
-{
-    using Internal.Common;
+package org.apache.ignite.internal.network.processor;
 
-    /// <summary>
-    /// Retry policy that always returns false.
-    /// </summary>
-    public sealed class RetryNonePolicy : IRetryPolicy
-    {
-        /// <summary>
-        /// Singleton instance.
-        /// </summary>
-        public static readonly RetryNonePolicy Instance = new();
+import org.apache.ignite.internal.network.message.ScaleCubeMessage;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
 
-        /// <inheritdoc />
-        public bool ShouldRetry(IRetryPolicyContext context)
-        {
-            return false;
-        }
-
-        /// <inheritdoc />
-        public override string ToString() => IgniteToStringBuilder.Build(GetType());
-    }
+@Transferable(1)
+public interface MessageWithMarshallableNetworkMessageField extends NetworkMessage {
+    @Marshallable
+    ScaleCubeMessage msgField();
 }

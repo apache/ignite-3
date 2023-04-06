@@ -156,6 +156,12 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         return new IgniteQueryable<KeyValuePair<TK, TV>>(provider);
     }
 
+    /// <inheritdoc/>
+    public override string ToString() =>
+        new IgniteToStringBuilder(GetType())
+            .Append(_recordView.Table, "Table")
+            .Build();
+
     private static KvPair<TK, TV> ToKv(KeyValuePair<TK, TV> x)
     {
         IgniteArgumentCheck.NotNull(x.Key, "key");

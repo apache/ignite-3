@@ -15,27 +15,20 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite
-{
-    using Internal.Common;
+package org.apache.ignite.internal.distributionzones.configuration;
 
-    /// <summary>
-    /// Retry policy that always returns false.
-    /// </summary>
-    public sealed class RetryNonePolicy : IRetryPolicy
-    {
-        /// <summary>
-        /// Singleton instance.
-        /// </summary>
-        public static readonly RetryNonePolicy Instance = new();
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 
-        /// <inheritdoc />
-        public bool ShouldRetry(IRetryPolicyContext context)
-        {
-            return false;
-        }
-
-        /// <inheritdoc />
-        public override string ToString() => IgniteToStringBuilder.Build(GetType());
-    }
+/**
+ * An annotation to check that the {@link DistributionZoneConfigurationSchema#filter} is a correct filter, that could be parsed.
+ *
+ * <p>Can be applied to a {@link ConfigValue}.
+ */
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface ValidFilter {
 }

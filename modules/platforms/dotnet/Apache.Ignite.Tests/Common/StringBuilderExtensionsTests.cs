@@ -15,19 +15,38 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal;
+namespace Apache.Ignite.Tests.Common;
 
-using System;
+using System.Text;
+using Internal.Common;
+using NUnit.Framework;
 
 /// <summary>
-/// Retry policy context.
+/// Tests for <see cref="StringBuilderExtensions"/>.
 /// </summary>
-/// <param name="Configuration">Client configuration.</param>
-/// <param name="Operation">Operation.</param>
-/// <param name="Iteration">Current iteration.</param>
-/// <param name="Exception">Exception that caused current retry iteration.</param>
-internal sealed record RetryPolicyContext(
-    IgniteClientConfiguration Configuration,
-    ClientOperationType Operation,
-    int Iteration,
-    Exception Exception) : IRetryPolicyContext;
+public class StringBuilderExtensionsTests
+{
+    [Test]
+    [TestCase("abc", "abc")]
+    [TestCase(" abc ", " abc")]
+    [TestCase("  abc  ", "  abc")]
+    public void TestTrimEnd(string input, string expected)
+    {
+        var sb = new StringBuilder(input);
+        sb.TrimEnd();
+
+        Assert.AreEqual(expected, sb.ToString());
+    }
+
+    [Test]
+    [TestCase("abc", "abc def")]
+    [TestCase("abc ", "abc def")]
+    [TestCase("abc  ", "abc  def")]
+    public void TestAppendWithSpace(string input, string expected)
+    {
+        var sb = new StringBuilder(input);
+        sb.AppendWithSpace("def");
+
+        Assert.AreEqual(expected, sb.ToString());
+    }
+}

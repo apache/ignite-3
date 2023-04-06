@@ -230,6 +230,15 @@ namespace Apache.Ignite.Internal.Sql
             return EnumerateRows().GetAsyncEnumerator(cancellationToken);
         }
 
+        /// <inheritdoc/>
+        public override string ToString() =>
+            new IgniteToStringBuilder(GetType())
+                .Append(HasRowSet)
+                .Append(AffectedRows)
+                .Append(WasApplied)
+                .Append(Metadata)
+                .Build();
+
         /// <summary>
         /// Enumerates ResultSet pages.
         /// </summary>
