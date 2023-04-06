@@ -32,6 +32,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ClientUtils;
+import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -315,7 +316,7 @@ public class ClientTable implements Table {
                 .thenCompose(schema ->
                         ch.serviceAsync(opCode,
                                 w -> writer.accept(schema, w),
-                                r -> reader.apply(r.in())));
+                                r -> readSchemaAndApply(reader, r)));
     }
 
     /**
@@ -346,10 +347,17 @@ public class ClientTable implements Table {
 
                     return ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
-                            r -> reader.apply(r.in()),
+                            r -> readSchemaAndApply(reader, r),
                             null,
                             preferredNodeId);
                 });
+    }
+
+    private <T> T readSchemaAndApply(Function<ClientMessageUnpacker, T> reader, PayloadInputChannel r) {
+        // TODO: Schedule background schema update with atomic CAS.
+        int latestSchemaVer = r.in().tryUnpackInt(-1);
+
+        return reader.apply(r.in());
     }
 
     private <T> @Nullable Object readSchemaAndReadData(

@@ -50,6 +50,9 @@ public class ClientTupleInsertRequest {
         var tx = readTx(in, resources);
         var tuple = readTuple(in, table, false);
 
-        return table.recordView().insertAsync(tx, tuple).thenAccept(out::packBoolean);
+        return table.recordView().insertAsync(tx, tuple).thenAccept(success -> {
+            out.packInt(table.schemaView().lastSchemaVersion());
+            out.packBoolean(success);
+        });
     }
 }

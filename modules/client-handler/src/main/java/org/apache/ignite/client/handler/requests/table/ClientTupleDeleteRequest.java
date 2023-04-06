@@ -50,6 +50,9 @@ public class ClientTupleDeleteRequest {
         var tx = readTx(in, resources);
         var tuple = readTuple(in, table, true);
 
-        return table.recordView().deleteAsync(tx, tuple).thenAccept(out::packBoolean);
+        return table.recordView().deleteAsync(tx, tuple).thenAccept(success -> {
+            out.packInt(table.schemaView().lastSchemaVersion());
+            out.packBoolean(success);
+        });
     }
 }
