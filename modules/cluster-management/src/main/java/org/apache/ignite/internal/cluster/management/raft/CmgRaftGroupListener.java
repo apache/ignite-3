@@ -181,8 +181,16 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                 .filter(n -> n.name().equals(node.name()))
                 .findAny();
 
-        // Remove the previous node from the Logical Topology in case we haven't received the disappeared event yet.
-        previousVersion.ifPresent(n -> logicalTopology.removeNodes(Set.of(n)));
+        if (previousVersion.isPresent()) {
+            LogicalNode previousNode = previousVersion.get();
+
+            if (previousNode.id().equals(node.id())) {
+                return ValidationResult.successfulResult();
+            } else {
+                // Remove the previous node from the Logical Topology in case we haven't received the disappeared event yet.
+                logicalTopology.removeNodes(Set.of(previousNode));
+            }
+        }
 
         LogicalNode logicalNode = new LogicalNode(node, command.node().nodeAttributes());
 
@@ -199,10 +207,6 @@ public class CmgRaftGroupListener implements RaftGroupListener {
             validationManager.completeValidation(logicalNode);
 
             logicalTopology.putNode(logicalNode);
-
-            if (LOG.isInfoEnabled()) {
-                LOG.info("Node added to the logical topology [node={}]", node.name());
-            }
 
             return null;
         } else {

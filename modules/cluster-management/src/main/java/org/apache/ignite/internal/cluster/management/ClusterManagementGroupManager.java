@@ -19,6 +19,8 @@ package org.apache.ignite.internal.cluster.management;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
@@ -26,7 +28,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 import static org.apache.ignite.security.AuthenticationConfig.disabled;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,9 +39,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalState;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributeView;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.network.CmgMessageHandlerFactory;
 import org.apache.ignite.internal.cluster.management.network.auth.Authentication;
@@ -389,13 +390,19 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     // Send the ClusterStateMessage to all members of the physical topology. We do not wait for the send operation
                     // because being unable to send ClusterState messages should not fail the CMG service startup.
                     // TODO: IGNITE-18275 - use RAFT replication instead of message sending
-                    sendClusterState(service, topologyService.allMembers());
+                    ClusterNode thisNode = topologyService.localMember();
 
-                    LOG.info("onLeaderElected callback executed successfully");
+                    Collection<ClusterNode> otherNodes = topologyService.allMembers().stream()
+                            .filter(node -> !thisNode.equals(node))
+                            .collect(toList());
+
+                    sendClusterState(service, otherNodes);
                 })
                 .whenComplete((v, e) -> {
                     if (e != null) {
                         LOG.warn("Error when executing onLeaderElected callback", e);
+                    } else {
+                        LOG.info("onLeaderElected callback executed successfully");
                     }
                 });
 
@@ -676,7 +683,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     // Only send the ClusterStateMessage to nodes not already present in the Logical Topology.
                     Collection<ClusterNode> recipients = nodes.stream()
                             .filter(node -> !topology.nodes().contains(node))
-                            .collect(Collectors.toList());
+                            .collect(toList());
 
                     if (recipients.isEmpty()) {
                         return completedFuture(null);
@@ -897,13 +904,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      * @return A map of node's attributes.
      */
     private Map<String, String> mapNodeAttributes() {
-        Map<String, String> attributes = new HashMap<>();
-
-        nodeAttributes.nodeAttributes().value().namedListKeys().forEach(
-                key -> attributes.put(key, nodeAttributes.nodeAttributes().get(key).attribute().value())
-        );
-
-        return attributes;
+        return nodeAttributes.nodeAttributes().value().stream()
+                .collect(toMap(NodeAttributeView::name, NodeAttributeView::attribute));
     }
 
     @TestOnly
