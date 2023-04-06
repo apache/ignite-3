@@ -64,7 +64,6 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Tests for synchronous SQL API.
  */
-@Disabled
 @SuppressWarnings("ThrowableNotThrown")
 public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     private static final int ROW_COUNT = 16;
@@ -95,6 +94,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     }
 
 
+    @Disabled
     @Test
     public void ddl() {
         IgniteSql sql = igniteSql();
@@ -178,6 +178,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         );
     }
 
+    @Disabled
     @Test
     public void dml() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
@@ -287,6 +288,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         assertEquals(txManagerInternal.finished(), states.size());
     }
 
+    @Disabled
     @Test
     public void batch() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
