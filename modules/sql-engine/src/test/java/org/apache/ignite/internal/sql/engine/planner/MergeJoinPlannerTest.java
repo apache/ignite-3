@@ -31,6 +31,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.table.AbstractTestTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.junit.jupiter.api.Test;
 
@@ -1593,7 +1594,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft1() throws Exception {
-        TestTable left = createTable("LEFT_T", IgniteDistributions.single(),
+        AbstractTestTable left = createTable("LEFT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         left.addIndex(
@@ -1637,7 +1638,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft2() throws Exception {
-        TestTable left = createTable("LEFT_T", IgniteDistributions.single(),
+        AbstractTestTable left = createTable("LEFT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         left.addIndex(
@@ -1681,7 +1682,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft3() throws Exception {
-        TestTable left = createTable("LEFT_T", IgniteDistributions.single(),
+        AbstractTestTable left = createTable("LEFT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         left.addIndex(
@@ -1725,7 +1726,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft4() throws Exception {
-        TestTable left = createTable("LEFT_T", IgniteDistributions.single(),
+        AbstractTestTable left = createTable("LEFT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         left.addIndex(
@@ -1769,7 +1770,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft5() throws Exception {
-        TestTable left = createTable("LEFT_T", IgniteDistributions.single(),
+        AbstractTestTable left = createTable("LEFT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         left.addIndex(
@@ -1813,7 +1814,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft6() throws Exception {
-        TestTable left = createTable("LEFT_T", IgniteDistributions.single(),
+        AbstractTestTable left = createTable("LEFT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         left.addIndex(
@@ -1857,7 +1858,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft7() throws Exception {
-        TestTable left = createTable("LEFT_T", IgniteDistributions.single(),
+        AbstractTestTable left = createTable("LEFT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         left.addIndex(
@@ -1902,7 +1903,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft8() throws Exception {
-        TestTable left = createTable("LEFT_T", IgniteDistributions.single(),
+        AbstractTestTable left = createTable("LEFT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         left.addIndex(
@@ -1948,7 +1949,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft9() throws Exception {
-        TestTable left = createTable("LEFT_T", IgniteDistributions.single(),
+        AbstractTestTable left = createTable("LEFT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         left.addIndex(
@@ -1999,7 +2000,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft10() throws Exception {
-        TestTable left = createTable("LEFT_T", IgniteDistributions.single(),
+        AbstractTestTable left = createTable("LEFT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         left.addIndex(
@@ -2044,7 +2045,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft11() throws Exception {
-        TestTable left = createTable("LEFT_T", IgniteDistributions.single(),
+        AbstractTestTable left = createTable("LEFT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         left.addIndex(
@@ -2097,7 +2098,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft12() throws Exception {
-        TestTable left = createTable("LEFT_T", IgniteDistributions.single(),
+        AbstractTestTable left = createTable("LEFT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         left.addIndex(
@@ -2145,7 +2146,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft13() throws Exception {
-        TestTable left = createTable("LEFT_T", IgniteDistributions.single(),
+        AbstractTestTable left = createTable("LEFT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         left.addIndex(
@@ -2199,7 +2200,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight1() throws Exception {
-        TestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
+        AbstractTestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         right.addIndex(
@@ -2243,7 +2244,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight2() throws Exception {
-        TestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
+        AbstractTestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         right.addIndex(
@@ -2287,7 +2288,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight3() throws Exception {
-        TestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
+        AbstractTestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         right.addIndex(
@@ -2331,7 +2332,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight4() throws Exception {
-        TestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
+        AbstractTestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         right.addIndex(
@@ -2375,7 +2376,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight5() throws Exception {
-        TestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
+        AbstractTestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         right.addIndex(
@@ -2419,7 +2420,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight6() throws Exception {
-        TestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
+        AbstractTestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         right.addIndex(
@@ -2464,7 +2465,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight7() throws Exception {
-        TestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
+        AbstractTestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         right.addIndex(
@@ -2509,7 +2510,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight8() throws Exception {
-        TestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
+        AbstractTestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         right.addIndex(
@@ -2554,7 +2555,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight9() throws Exception {
-        TestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
+        AbstractTestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         right.addIndex(
@@ -2599,7 +2600,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight10() throws Exception {
-        TestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
+        AbstractTestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         right.addIndex(
@@ -2652,7 +2653,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDeriveMixed1() throws Exception {
-        TestTable left = createTable("LEFT_T", IgniteDistributions.single(),
+        AbstractTestTable left = createTable("LEFT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         left.addIndex(
@@ -2663,7 +2664,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                 "idx"
         );
 
-        TestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
+        AbstractTestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         right.addIndex(
@@ -2704,7 +2705,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDeriveMixed2() throws Exception {
-        TestTable left = createTable("LEFT_T", IgniteDistributions.single(),
+        AbstractTestTable left = createTable("LEFT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         left.addIndex(
@@ -2715,7 +2716,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                 "idx"
         );
 
-        TestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
+        AbstractTestTable right = createTable("RIGHT_T", IgniteDistributions.single(),
                 "C1", Integer.class, "C2", Integer.class, "C3", Integer.class);
 
         right.addIndex(
@@ -2771,7 +2772,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     private IgniteSort sortOnTopOfScan(IgniteRel root, String tableName) {
         List<IgniteSort> sortNodes = findNodes(root, byClass(IgniteSort.class)
                 .and(node -> node.getInputs().size() == 1 && node.getInput(0) instanceof IgniteTableScan
-                        && node.getInput(0).getTable().unwrap(TestTable.class).name().equals(tableName)));
+                        && node.getInput(0).getTable().unwrap(AbstractTestTable.class).name().equals(tableName)));
 
         if (sortNodes.size() > 1) {
             throw new AssertionError("Unexpected count of sort nodes: exp<=1, act=" + sortNodes.size());
