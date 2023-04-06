@@ -93,6 +93,8 @@ dependencies {
         exclude group: 'org.ow2.asm', module: 'asm'
     }
     testImplementation libs.auto.service.annotations
+    testImplementation libs.archunit.core
+    testImplementation libs.archunit.junit5
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
     integrationTestAnnotationProcessor libs.auto.service
