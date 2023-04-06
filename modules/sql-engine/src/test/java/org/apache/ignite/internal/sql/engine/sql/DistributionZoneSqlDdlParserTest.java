@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
@@ -346,10 +347,11 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
                 name + "=" + expVal,
                 IgniteSqlZoneOption.class,
                 opt -> {
-                    if (name == opt.key().symbolValue(IgniteSqlZoneOptionEnum.class)) {
-                        if (opt.value() instanceof SqlLiteral) {
-                            return Objects.equals(expVal, ((SqlLiteral) opt.value()).getValueAs(expVal.getClass()));
-                        }
+                    if (IgniteSqlZoneOptionEnum.valueOf(opt.key().getSimple().toUpperCase()) != null) {
+                        // TODO: KKK need to fix
+//                        if (opt.value() instanceof SqlIdentifier) {
+//                            return Objects.equals(expVal, ((SqlIdentifier) opt.value()).getValueAs(expVal.getClass()));
+//                        }
                     }
 
                     return false;

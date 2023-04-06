@@ -473,23 +473,13 @@ SqlNodeList CreateZoneOptionList() :
 void CreateZoneOption(List<SqlNode> list) :
 {
     final Span s;
-    final SqlLiteral key;
+    final SqlIdentifier key;
     final SqlNode val;
 }
 {
-    (
-        (
-            key = CreateNumericZoneOptionKey() { s = span(); }
-            <EQ>
-            val = NumericLiteral()
-        )
-        |
-        (
-            key = CreateStringZoneOptionKey() { s = span(); }
-            <EQ>
-            val = StringLiteral()
-        )
-    )
+    key = SimpleIdentifier() { s = span(); }
+    <EQ>
+    val = Literal()
     {
         list.add(new IgniteSqlZoneOption(key, val, s.end(this)));
     }
@@ -529,6 +519,8 @@ SqlLiteral CreateStringZoneOptionKey() :
 {
 }
 {
+    <ENGINE> { return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_STORAGE_ENGINE, getPos()); }
+|
     <AFFINITY_FUNCTION> { return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.AFFINITY_FUNCTION, getPos()); }
 |
     <DATA_NODES_FILTER> { return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_NODES_FILTER, getPos()); }
@@ -587,23 +579,13 @@ SqlNodeList AlterZoneOptions() :
 void AlterZoneOption(List<SqlNode> list) :
 {
     final Span s;
-    final SqlLiteral key;
+    final SqlIdentifier key;
     final SqlNode val;
 }
 {
-  (
-    (
-        key = AlterZoneNumericOptionKey() { s = span(); }
-        <EQ>
-        val = NumericLiteral()
-    )
-    |
-    (
-        key = AlterZoneStringOptionKey() { s = span(); }
-        <EQ>
-        val = StringLiteral()
-    )
-  )
+  key = SimpleIdentifier() { s = span(); }
+  <EQ>
+  val = Literal()
   {
       list.add(new IgniteSqlZoneOption(key, val, s.end(this)));
   }

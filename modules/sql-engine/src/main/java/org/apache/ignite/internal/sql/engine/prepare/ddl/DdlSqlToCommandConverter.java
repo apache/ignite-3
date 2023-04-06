@@ -516,21 +516,31 @@ public class DdlSqlToCommandConverter {
             return createZoneCmd;
         }
 
-        Set<IgniteSqlZoneOptionEnum> knownOptionNames = EnumSet.allOf(IgniteSqlZoneOptionEnum.class);
+        Map<String, DdlOptionInfo<CreateZoneCommand, ?>> dsOptInfos = dataStorageOptionInfos.get(dataStorageName);
+
+        Set<String> knownOptionNames = EnumSet.allOf(IgniteSqlZoneOptionEnum.class).stream().map(Enum::name).collect(Collectors.toSet());
 
         for (SqlNode optionNode : createZoneNode.createOptionList().getList()) {
             IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
-            IgniteSqlZoneOptionEnum optionName = option.key().symbolValue(IgniteSqlZoneOptionEnum.class);
+
+            assert option.key().isSimple() : option.key();
+
+            String optionName = option.key().getSimple().toUpperCase();
+
+            DdlOptionInfo<CreateZoneCommand, ?> zoneOptionInfo;
 
             if (!knownOptionNames.remove(optionName)) {
-                throw new IgniteException(QUERY_VALIDATION_ERR,
-                        String.format("Duplicate DDL command option has been specified [option=%s, query=%s]", optionName, ctx.query()));
+                zoneOptionInfo = dsOptInfos.get(optionName);
+            } else {
+                zoneOptionInfo = zoneOptionInfos.get(IgniteSqlZoneOptionEnum.valueOf(optionName));
+
             }
 
-            DdlOptionInfo<CreateZoneCommand, ?> zoneOptionInfo = zoneOptionInfos.get(optionName);
-
-            assert zoneOptionInfo != null : optionName;
-            assert option.value() instanceof SqlLiteral : option.value();
+            // TODO: KKK can be not unknown, but duplicate
+            if (zoneOptionInfo == null) {
+                throw new IgniteException(
+                        QUERY_VALIDATION_ERR, String.format("Unexpected zone option [option=%s, query=%s]", optionName, ctx.query()));
+            }
 
             updateCommandOption("Zone", optionName, (SqlLiteral) option.value(), zoneOptionInfo, ctx.query(), createZoneCmd);
         }
@@ -552,18 +562,19 @@ public class DdlSqlToCommandConverter {
         alterZoneCmd.zoneName(deriveObjectName(alterZoneSet.name(), ctx, "zoneName"));
         alterZoneCmd.ifExists(alterZoneSet.ifExists());
 
-        Set<IgniteSqlZoneOptionEnum> knownOptionNames = EnumSet.allOf(IgniteSqlZoneOptionEnum.class);
+        Set<String> knownOptionNames = EnumSet.allOf(IgniteSqlZoneOptionEnum.class).stream().map(Enum::name).collect(Collectors.toSet());
 
         for (SqlNode optionNode : alterZoneSet.alterOptionsList().getList()) {
             IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
-            IgniteSqlZoneOptionEnum optionName = option.key().symbolValue(IgniteSqlZoneOptionEnum.class);
+            String optionName = option.key().getSimple().toUpperCase();
 
+            // TODO: KKK can be not duplicate, but unknown
             if (!knownOptionNames.remove(optionName)) {
                 throw new IgniteException(QUERY_VALIDATION_ERR,
                         String.format("Duplicate DDL command option has been specified [option=%s, query=%s]", optionName, ctx.query()));
             }
 
-            DdlOptionInfo<AlterZoneSetCommand, ?> zoneOptionInfo = alterZoneOptionInfos.get(optionName);
+            DdlOptionInfo<AlterZoneSetCommand, ?> zoneOptionInfo = alterZoneOptionInfos.get(IgniteSqlZoneOptionEnum.valueOf(optionName));
 
             assert zoneOptionInfo != null : optionName;
             assert option.value() instanceof SqlLiteral : option.value();
