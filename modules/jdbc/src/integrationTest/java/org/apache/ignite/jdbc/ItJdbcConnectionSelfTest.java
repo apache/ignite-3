@@ -554,7 +554,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
                 conn.setAutoCommit(false);
                 conn.rollback();
                 assertEquals(rowsCount, selectRowsCount.get());
-
+            } finally {
                 conn.setAutoCommit(true);
                 stmt.executeUpdate("drop table if exists digits");
             }
