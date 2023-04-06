@@ -49,6 +49,7 @@ import org.jline.reader.MaskingCallback;
 import org.jline.reader.Parser;
 import org.jline.reader.impl.DefaultParser;
 import org.jline.terminal.Terminal;
+import org.jline.widget.AutosuggestionWidgets;
 import org.jline.widget.TailTipWidgets;
 import picocli.CommandLine;
 import picocli.CommandLine.IDefaultValueProvider;
@@ -125,9 +126,8 @@ public class ReplExecutor {
             }
 
             RegistryCommandExecutor executor = new RegistryCommandExecutor(parser, picocliCommands.getCmd());
-            TailTipWidgets widgets = repl.isTailTipWidgetsEnabled() ? createWidgets(registry, reader) : null;
 
-            QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader, widgets));
+            setupWidgets(repl, registry, reader);
 
             repl.onStart();
 
@@ -149,6 +149,21 @@ public class ReplExecutor {
         } catch (Throwable t) {
             exceptionHandlers.handleException(System.err::println, t);
         }
+    }
+
+    private static void setupWidgets(Repl repl, SystemRegistryImpl registry, LineReader reader) {
+        if (repl.isTailTipWidgetsEnabled()) {
+            TailTipWidgets widgets = createWidgets(registry, reader);
+            QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader, widgets));
+            return;
+        }
+
+        if (repl.isAutosuggestionsWidgetsEnabled()) {
+            AutosuggestionWidgets autosuggestionWidgets = new AutosuggestionWidgets(reader);
+            autosuggestionWidgets.enable();
+        }
+
+        QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader));
     }
 
     private LineReader createReader(Completer completer) {
