@@ -32,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
@@ -112,13 +111,13 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
         assertThatZoneOptionPresent(optList, IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST, 1);
 
         expectUnparsed(createZone, "CREATE ZONE \"TEST_ZONE\" WITH "
-                + "REPLICAS = 2, "
-                + "PARTITIONS = 3, "
-                + "DATA_NODES_FILTER = '(\"US\" || \"EU\") && \"SSD\"', "
-                + "AFFINITY_FUNCTION = 'test_Affinity', "
-                + "DATA_NODES_AUTO_ADJUST = 1, "
-                + "DATA_NODES_AUTO_ADJUST_SCALE_UP = 2, "
-                + "DATA_NODES_AUTO_ADJUST_SCALE_DOWN = 3");
+                + "\"REPLICAS\" = 2, "
+                + "\"PARTITIONS\" = 3, "
+                + "\"DATA_NODES_FILTER\" = '(\"US\" || \"EU\") && \"SSD\"', "
+                + "\"AFFINITY_FUNCTION\" = 'test_Affinity', "
+                + "\"DATA_NODES_AUTO_ADJUST\" = 1, "
+                + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = 2, "
+                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = 3");
     }
 
     /**
@@ -214,7 +213,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
         IgniteSqlAlterZoneSet alterZoneSet = parseAlterZoneSet("alter zone a.test_zone set replicas=2");
         assertFalse(alterZoneSet.ifExists());
 
-        String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET REPLICAS = 2";
+        String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET \"REPLICAS\" = 2";
         expectUnparsed(alterZoneSet, expectedStmt);
     }
 
@@ -226,7 +225,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
         IgniteSqlAlterZoneSet alterZoneSet = parseAlterZoneSet("alter zone if exists a.test_zone set replicas=2");
         assertTrue(alterZoneSet.ifExists());
 
-        String expectedStmt = "ALTER ZONE IF EXISTS \"A\".\"TEST_ZONE\" SET REPLICAS = 2";
+        String expectedStmt = "ALTER ZONE IF EXISTS \"A\".\"TEST_ZONE\" SET \"REPLICAS\" = 2";
         expectUnparsed(alterZoneSet, expectedStmt);
     }
 
@@ -255,11 +254,11 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
         assertThatZoneOptionPresent(optList, IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST, 1);
 
         String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET "
-                + "REPLICAS = 2, "
-                + "DATA_NODES_FILTER = '(\"US\" || \"EU\") && \"SSD\"', "
-                + "DATA_NODES_AUTO_ADJUST = 1, "
-                + "DATA_NODES_AUTO_ADJUST_SCALE_UP = 2, "
-                + "DATA_NODES_AUTO_ADJUST_SCALE_DOWN = 3";
+                + "\"REPLICAS\" = 2, "
+                + "\"DATA_NODES_FILTER\" = '(\"US\" || \"EU\") && \"SSD\"', "
+                + "\"DATA_NODES_AUTO_ADJUST\" = 1, "
+                + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = 2, "
+                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = 3";
         expectUnparsed(alterZoneSet, expectedStmt);
     }
 
@@ -347,11 +346,10 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
                 name + "=" + expVal,
                 IgniteSqlZoneOption.class,
                 opt -> {
-                    if (IgniteSqlZoneOptionEnum.valueOf(opt.key().getSimple().toUpperCase()) != null) {
-                        // TODO: KKK need to fix
-//                        if (opt.value() instanceof SqlIdentifier) {
-//                            return Objects.equals(expVal, ((SqlIdentifier) opt.value()).getValueAs(expVal.getClass()));
-//                        }
+                    if (name.name().equals(opt.key().getSimple())) {
+                        if (opt.value() instanceof SqlLiteral) {
+                            return Objects.equals(expVal, ((SqlLiteral) opt.value()).getValueAs(expVal.getClass()));
+                        }
                     }
 
                     return false;
