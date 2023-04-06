@@ -328,17 +328,9 @@ public class ClientTableCommon {
      */
     @NotNull
     public static SchemaDescriptor readSchema(ClientMessageUnpacker unpacker, TableImpl table) {
-        var schemaVer = unpacker.unpackInt();
-        SchemaDescriptor latestSchema = table.schemaView().schema();
+        var schemaId = unpacker.unpackInt();
 
-        if (schemaVer == latestSchema.version()) {
-            return latestSchema;
-        }
-
-        // TODO: Client is using an old schema version. Return a flag.
-        // TODO: This is needed only for write operations. For read operations, we return the result with the latest schema anyway?
-        // Or raise a flag in any case? Will it be easier for client implementations?
-        return table.schemaView().schema(schemaVer);
+        return table.schemaView().schema(schemaId);
     }
 
     /**
