@@ -38,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.table.AbstractTestTable;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
@@ -99,14 +100,14 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
     }
 
     @NotNull
-    private static TestTable createTestTable(String name, Object... cols) {
+    private static AbstractTestTable createTestTable(String name, Object... cols) {
         RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(TYPE_FACTORY);
 
         for (int i = 0; i < cols.length; i += 2) {
             b.add((String) cols[i], TYPE_FACTORY.createJavaType((Class<?>) cols[i + 1]));
         }
 
-        return new TestTable(name, b.build(), DEFAULT_TBL_SIZE) {
+        return new AbstractTestTable(name, b.build(), DEFAULT_TBL_SIZE) {
             @Override
             public RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet bitSet) {
                 try {

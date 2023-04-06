@@ -39,6 +39,7 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.table.AbstractTestTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
@@ -58,7 +59,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
     private IgniteSchema publicSchema;
 
-    private TestTable tbl;
+    private AbstractTestTable tbl;
 
     @BeforeAll
     public static void init() {
@@ -69,7 +70,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     public void beforeEach() {
         IgniteTypeFactory typeFactory = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
-        tbl = new TestTable(
+        tbl = new AbstractTestTable(
                 new RelDataTypeFactory.Builder(typeFactory)
                         .add("C1", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.INTEGER), true))
                         .add("C2", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.VARCHAR), true))
