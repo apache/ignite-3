@@ -64,7 +64,7 @@ public class ReplManager {
                                 .build())
                 .withOnStart(question::askQuestionOnReplStart)
                 .withHistoryFileName("history")
-                .withTailTipWidgets()
+                .withAutosuggestionsWidgets()
                 .build());
     }
 }
