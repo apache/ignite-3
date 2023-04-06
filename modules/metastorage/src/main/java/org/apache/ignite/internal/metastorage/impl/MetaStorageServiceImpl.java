@@ -276,7 +276,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     }
 
     /**
-     * Sends safe time sync message. Should be called only on the leader node.
+     * Sends idle safe time sync message. Should be called only on the leader node.
      *
      * @param safeTime New safe time.
      * @return Future that will be completed when message is sent.

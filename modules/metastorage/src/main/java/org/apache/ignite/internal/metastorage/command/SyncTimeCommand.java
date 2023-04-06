@@ -21,7 +21,7 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Command that initiates safe time synchronization.
+ * Command that initiates idle safe time synchronization.
  */
 @Transferable(MetastorageCommandsMessageGroup.SYNC_TIME)
 public interface SyncTimeCommand extends WriteCommand {
