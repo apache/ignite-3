@@ -115,7 +115,7 @@ public class MessageImplGenerator {
             boolean isMarshallable = getter.getAnnotation(Marshallable.class) != null;
             boolean isNetworkMessage = typeUtils.isSubType(getterType, NetworkMessage.class);
 
-            if (isMarshallable && isMessage) {
+            if (isMarshallable && isNetworkMessage) {
                 String error =
                         "Failed to process " + message.className() + ": " + getterName + " is both NetworkMessage and @Marshallable";
 
