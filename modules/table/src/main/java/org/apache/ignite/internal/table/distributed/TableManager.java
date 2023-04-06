@@ -72,6 +72,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
@@ -988,9 +989,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
 
-        Stream<TableImpl> tablesToStop =
-                Stream.concat(tablesByIdVv.latest().entrySet().stream(), pendingTables.entrySet().stream()).distinct().
-                        map(Map.Entry::getValue);
+        Map<UUID, TableImpl> tablesToStop = Stream.concat(tablesByIdVv.latest().entrySet().stream(), pendingTables.entrySet().stream()).
+                collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v1));
 
         cleanUpTablesResources(tablesToStop);
 
@@ -1007,8 +1007,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param tables Tables to stop.
      */
-    private void cleanUpTablesResources(Stream<TableImpl> tables) {
-        tables.forEach(table -> {
+    private void cleanUpTablesResources(Map<UUID, TableImpl> tables) {
+        for (TableImpl table : tables.values()) {
             table.beforeClose();
 
             List<Runnable> stopping = new ArrayList<>();
@@ -1063,7 +1063,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (throwable.get() != null) {
                 LOG.error("Unable to stop table [name={}, tableId={}]", throwable.get(), table.name(), table.tableId());
             }
-        });
+        }
     }
 
     /** {@inheritDoc} */
