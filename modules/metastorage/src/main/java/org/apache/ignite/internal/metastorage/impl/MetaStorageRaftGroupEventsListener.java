@@ -146,6 +146,7 @@ public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListen
         CompletableFuture<Void> apply(MetaStorageServiceImpl service, long term);
     }
 
+    @FunctionalInterface
     private interface OnStatusAction {
         CompletableFuture<Void> apply(MetaStorageServiceImpl service, long term, boolean isLeader);
     }
