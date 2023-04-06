@@ -19,13 +19,13 @@ package org.apache.ignite.raft.jraft;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
-import org.apache.ignite.raft.jraft.util.StringUtils;
+import org.apache.ignite.raft.jraft.util.StringUtils;import org.jetbrains.annotations.Nullable;
 
 /**
  * A raft group service.
@@ -65,21 +65,33 @@ public class RaftGroupService {
      */
     private NodeManager nodeManager;
 
+    /** Configuration own striped disruptor for FSMCaller service of raft node, {@code null} means use shared disruptor. */
+    private final @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig;
+
     /**
      * @param groupId Group Id.
      * @param serverId Server id.
      * @param nodeOptions Node options.
      * @param rpcServer RPC server.
      * @param nodeManager Node manager.
+     * @param ownFsmCallerExecutorDisruptorConfig Configuration own striped disruptor for FSMCaller service of raft node, {@code null}
+     *      means use shared disruptor.
      */
-    public RaftGroupService(final String groupId, final PeerId serverId, final NodeOptions nodeOptions,
-        final RpcServer rpcServer, final NodeManager nodeManager) {
+    public RaftGroupService(
+            final String groupId,
+            final PeerId serverId,
+            final NodeOptions nodeOptions,
+            final RpcServer rpcServer,
+            final NodeManager nodeManager,
+            @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
+    ) {
         super();
         this.groupId = groupId;
         this.serverId = serverId;
         this.nodeOptions = nodeOptions;
         this.rpcServer = rpcServer;
         this.nodeManager = nodeManager;
+        this.ownFsmCallerExecutorDisruptorConfig = ownFsmCallerExecutorDisruptorConfig;
     }
 
     public synchronized Node getRaftNode() {
@@ -102,7 +114,7 @@ public class RaftGroupService {
 
         assert this.nodeOptions.getRpcClient() != null;
 
-        this.node = new NodeImpl(groupId, serverId);
+        this.node = new NodeImpl(groupId, serverId, ownFsmCallerExecutorDisruptorConfig);
 
         if (!this.node.init(this.nodeOptions)) {
             LOG.warn("Stopping partially started node [groupId={}, serverId={}]", groupId, serverId);

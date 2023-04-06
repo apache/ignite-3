@@ -236,7 +236,7 @@ public class Loza implements RaftManager {
         }
 
         try {
-            return startRaftGroupNodeInternal(nodeId, configuration, lsnr, eventsLsnr, groupOptions, raftServiceFactory, false);
+            return startRaftGroupNodeInternal(nodeId, configuration, lsnr, eventsLsnr, groupOptions, raftServiceFactory, null);
         } finally {
             busyLock.leaveBusy();
         }
@@ -248,8 +248,10 @@ public class Loza implements RaftManager {
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
-            boolean createOwnFsmCallerExecutorDisruptor
+            RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
     ) throws NodeStoppingException {
+        assert ownFsmCallerExecutorDisruptorConfig != null;
+
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
@@ -262,7 +264,7 @@ public class Loza implements RaftManager {
                     eventsLsnr,
                     RaftGroupOptions.defaults(),
                     null,
-                    createOwnFsmCallerExecutorDisruptor
+                    ownFsmCallerExecutorDisruptorConfig
             );
         } finally {
             busyLock.leaveBusy();
@@ -309,20 +311,32 @@ public class Loza implements RaftManager {
             RaftGroupEventsListener raftGrpEvtsLsnr,
             RaftGroupOptions groupOptions,
             @Nullable RaftServiceFactory<T> raftServiceFactory,
-            boolean createOwnFsmCallerExecutorDisruptor
+            @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
     ) {
         if (LOG.isInfoEnabled()) {
             LOG.info("Start new raft node={} with initial configuration={}", nodeId, configuration);
         }
 
-        boolean started = raftServer.startRaftNode(
-                nodeId,
-                configuration,
-                raftGrpEvtsLsnr,
-                lsnr,
-                groupOptions,
-                createOwnFsmCallerExecutorDisruptor
-        );
+        boolean started;
+
+        if (ownFsmCallerExecutorDisruptorConfig == null) {
+            started = raftServer.startRaftNode(
+                    nodeId,
+                    configuration,
+                    raftGrpEvtsLsnr,
+                    lsnr,
+                    groupOptions
+            );
+        } else {
+            started = raftServer.startRaftNode(
+                    nodeId,
+                    configuration,
+                    raftGrpEvtsLsnr,
+                    lsnr,
+                    groupOptions,
+                    ownFsmCallerExecutorDisruptorConfig
+            );
+        }
 
         if (!started) {
             throw new IgniteInternalException(IgniteStringFormatter.format(

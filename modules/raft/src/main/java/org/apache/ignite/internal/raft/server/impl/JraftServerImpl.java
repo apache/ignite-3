@@ -40,6 +40,7 @@ import java.util.function.BiPredicate;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
@@ -381,7 +382,7 @@ public class JraftServerImpl implements RaftServer {
             RaftGroupListener lsnr,
             RaftGroupOptions groupOptions
     ) {
-        return startRaftNode(nodeId, configuration, evLsnr, lsnr, groupOptions, false);
+        return startRaftNode0(nodeId, configuration, evLsnr, lsnr, groupOptions, null);
     }
 
     @Override
@@ -391,7 +392,20 @@ public class JraftServerImpl implements RaftServer {
             RaftGroupEventsListener evLsnr,
             RaftGroupListener lsnr,
             RaftGroupOptions groupOptions,
-            boolean createOwnFsmCallerExecutorDisruptor
+            RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
+    ) {
+        assert ownFsmCallerExecutorDisruptorConfig != null;
+
+        return startRaftNode0(nodeId, configuration, evLsnr, lsnr, groupOptions, ownFsmCallerExecutorDisruptorConfig);
+    }
+
+    private boolean startRaftNode0(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupEventsListener evLsnr,
+            RaftGroupListener lsnr,
+            RaftGroupOptions groupOptions,
+            @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
     ) {
         assert nodeId.peer().consistentId().equals(service.topologyService().localMember().name());
 
@@ -408,10 +422,6 @@ public class JraftServerImpl implements RaftServer {
 
             // Thread pools are shared by all raft groups.
             NodeOptions nodeOptions = opts.copy();
-
-            if (createOwnFsmCallerExecutorDisruptor) {
-                nodeOptions.setfSMCallerExecutorDisruptor(null);
-            }
 
             nodeOptions.setLogUri(nodeIdStr(nodeId));
 
@@ -463,7 +473,8 @@ public class JraftServerImpl implements RaftServer {
                     PeerId.fromPeer(nodeId.peer()),
                     nodeOptions,
                     rpcServer,
-                    nodeManager
+                    nodeManager,
+                    ownFsmCallerExecutorDisruptorConfig
             );
 
             server.start();

@@ -40,7 +40,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.FSMCaller.LastAppliedLogIndexListener;
@@ -123,7 +123,7 @@ import org.apache.ignite.raft.jraft.util.ThreadHelper;
 import org.apache.ignite.raft.jraft.util.ThreadId;
 import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.LongHeldDetectingReadWriteLock;
+import org.apache.ignite.raft.jraft.util.concurrent.LongHeldDetectingReadWriteLock;import org.jetbrains.annotations.Nullable;
 
 /**
  * The raft replica node implementation.
@@ -224,6 +224,9 @@ public class NodeImpl implements Node, RaftServerService {
      * The number of elections time out for current node
      */
     private volatile int electionTimeoutCounter;
+
+    /** Configuration own striped disruptor for FSMCaller service of raft node, {@code null} means use shared disruptor. */
+    private final @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig;
 
     private static class NodeReadWriteLock extends LongHeldDetectingReadWriteLock {
         static final long MAX_BLOCKING_MS_TO_REPORT = SystemPropertyUtil.getLong(
@@ -549,7 +552,11 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
 
-    public NodeImpl(final String groupId, final PeerId serverId) {
+    public NodeImpl(
+            final String groupId,
+            final PeerId serverId,
+            @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
+    ) {
         super();
         if (groupId != null) {
             Utils.verifyGroupId(groupId);
@@ -562,6 +569,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.confCtx = new ConfigurationCtx(this);
         this.wakingCandidate = null;
         this.applyCommittedFuture = new CompletableFuture<>();
+        this.ownFsmCallerExecutorDisruptorConfig = ownFsmCallerExecutorDisruptorConfig;
     }
 
     public HybridClock clock() {
@@ -1266,6 +1274,15 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new FSMCallerImpl.ApplyTask(),
                 opts.getStripes()));
+        } else if (ownFsmCallerExecutorDisruptorConfig != null) {
+            opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.ApplyTask>(
+                NamedThreadFactory.threadPrefix(
+                        opts.getServerName(),
+                        "JRaft-FSMCaller-Disruptor-" + ownFsmCallerExecutorDisruptorConfig.getThreadPostfix()
+                ),
+                opts.getRaftOptions().getDisruptorBufferSize(),
+                () -> new FSMCallerImpl.ApplyTask(),
+                ownFsmCallerExecutorDisruptorConfig.getStripes()));
         }
 
         if (opts.getNodeApplyDisruptor() == null) {
@@ -3150,7 +3167,7 @@ public class NodeImpl implements Node, RaftServerService {
             ExecutorServiceHelper.shutdownAndAwaitTermination(opts.getClientExecutor());
             opts.setClientExecutor(null);
         }
-        if (opts.getfSMCallerExecutorDisruptor() != null && !opts.isSharedPools()) {
+        if (opts.getfSMCallerExecutorDisruptor() != null && (!opts.isSharedPools() || ownFsmCallerExecutorDisruptorConfig != null)) {
             opts.getfSMCallerExecutorDisruptor().shutdown();
             opts.setfSMCallerExecutorDisruptor(null);
         }
