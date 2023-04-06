@@ -42,6 +42,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.table.AbstractTestTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.junit.jupiter.api.BeforeAll;
@@ -60,7 +61,7 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
     @BeforeAll
     public static void init() {
         publicSchema = createSchema(
-                new TestTable(
+                new AbstractTestTable(
                         "HUGE",
                         new RelDataTypeFactory.Builder(TYPE_FACTORY)
                                 .add("ID", TYPE_FACTORY.createJavaType(Integer.class))
@@ -70,7 +71,7 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
                         return IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID);
                     }
                 },
-                new TestTable(
+                new AbstractTestTable(
                         "SMALL",
                         new RelDataTypeFactory.Builder(TYPE_FACTORY)
                                 .add("ID", TYPE_FACTORY.createJavaType(Integer.class))
@@ -157,11 +158,11 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
 
         assertEquals(2, rightSchemaWithName.size());
 
-        assertEquals(rightSchemaWithName.get(1), "SMALL");
+        assertEquals("SMALL", rightSchemaWithName.get(1));
 
         List<String> leftSchemaWithName = leftScan.getTable().getQualifiedName();
 
-        assertEquals(leftSchemaWithName.get(1), "HUGE");
+        assertEquals("HUGE", leftSchemaWithName.get(1));
 
         assertEquals(JoinRelType.INNER, join.getJoinType());
 
@@ -193,11 +194,11 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
 
         assertEquals(2, rightSchemaWithName.size());
         // no commute
-        assertEquals(rightSchemaWithName.get(1), "HUGE");
+        assertEquals("HUGE", rightSchemaWithName.get(1));
 
         leftSchemaWithName = leftScan.getTable().getQualifiedName();
 
-        assertEquals(leftSchemaWithName.get(1), "SMALL");
+        assertEquals("SMALL", leftSchemaWithName.get(1));
 
         // no commute
         assertEquals(JoinRelType.INNER, join.getJoinType());
