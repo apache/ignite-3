@@ -15,29 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.rpc;
+package org.apache.ignite.internal.network.processor;
 
+import org.apache.ignite.internal.network.message.ScaleCubeMessage;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.internal.raft.Command;
-import org.apache.ignite.raft.jraft.RaftMessageGroup;
 
-/**
- * Submit an action to a replication group.
- */
-@Transferable(RaftMessageGroup.RpcActionMessageGroup.ACTION_REQUEST)
-public interface ActionRequest extends Message {
-    /**
-     * @return Group id.
-     */
-    String groupId();
-
-    /**
-     * @return Action's command.
-     */
-    Command command();
-
-    /**
-     * @return {@code True} for linearizable reading.
-     */
-    boolean readOnlySafe();
+@Transferable(1)
+public interface MessageWithMarshallableNetworkMessageField extends NetworkMessage {
+    @Marshallable
+    ScaleCubeMessage msgField();
 }
