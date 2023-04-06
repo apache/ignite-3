@@ -87,6 +87,8 @@ import org.jetbrains.annotations.Nullable;
  * Ignite table implementation.
  */
 public class IgniteTableImpl extends AbstractTable implements IgniteTable, UpdateableTable {
+    public static final int STATS_CLI_UPDATE_THRESHOLD = 200;
+
     private static final IgniteLogger LOG = Loggers.forClass(IgniteTableImpl.class);
 
     private static final TableMessagesFactory MESSAGES_FACTORY = new TableMessagesFactory();
@@ -531,8 +533,6 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
     }
 
     private class StatisticsImpl implements Statistic {
-        private static final int STATS_CLI_UPDATE_THRESHOLD = 200;
-
         AtomicInteger statReqCnt = new AtomicInteger();
 
         private volatile long localRowCnt;
@@ -540,25 +540,33 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         /** {@inheritDoc} */
         @Override
         public Double getRowCount() {
-            if (statReqCnt.getAndIncrement() % STATS_CLI_UPDATE_THRESHOLD == 0) {
+            int prevCnt = statReqCnt.getAndIncrement();
+
+            if (prevCnt % STATS_CLI_UPDATE_THRESHOLD == 0) {
                 int parts = table.storage().distributionZoneConfiguration().partitions().value();
 
                 long size = 0L;
+                boolean noCache = false;
 
                 for (int p = 0; p < parts; ++p) {
                     @Nullable MvPartitionStorage part = table.storage().getMvPartition(p);
 
-                    if (part == null)
+                    if (part == null) {
                         continue;
+                    }
 
                     try {
                         size += part.rowsCount();
                     } catch (StorageRebalanceException ignore) {
-                        // No-op.
+                        noCache = true;
                     }
                 }
 
-                localRowCnt = size;
+                if (noCache) {
+                    statReqCnt.set(prevCnt);
+                } else {
+                    localRowCnt = size;
+                }
             }
 
             // Forbid zero result, to prevent zero cost for table and index scans.

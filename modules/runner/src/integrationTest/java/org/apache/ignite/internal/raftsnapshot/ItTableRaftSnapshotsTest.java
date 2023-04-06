@@ -20,12 +20,14 @@ package org.apache.ignite.internal.raftsnapshot;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest.waitForIndex;
+import static org.apache.ignite.internal.sql.engine.schema.IgniteTableImpl.STATS_CLI_UPDATE_THRESHOLD;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -882,6 +884,47 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         List<IgniteBiTuple<Integer, String>> rows = queryWithRetry(2, "select * from test", ItTableRaftSnapshotsTest::readRows);
 
         assertThat(rows, is(List.of(new IgniteBiTuple<>(1, "one"))));
+    }
+
+    /**
+     * Test ensures that SQL planner ignores storage rebalance exception.
+     */
+    @Test
+    public void testSqlPlanningDuringRebalance() throws InterruptedException {
+        cluster.startAndInit(3);
+
+        createTestTableWith3Replicas(DEFAULT_STORAGE_ENGINE);
+
+        transferLeadershipOnSolePartitionTo(0);
+
+        int rowsCnt = 5_000;
+
+        cluster.doInSession(0, session -> {
+            executeUpdate("insert into test(key, value) select x, x::VARCHAR from TABLE(system_range(1, " + rowsCnt + "))", session);
+        });
+
+        cluster.knockOutNode(2, NodeKnockout.STOP);
+
+        causeLogTruncationOnSolePartitionLeader();
+
+        cluster.reanimateNode(2, NodeKnockout.STOP);
+
+        cluster.doInSession(2, session -> {
+            String query = "select count(*) from test";
+
+            // Ensures that planner ignores storage rebalance exception.
+            for (int i = 0; i < STATS_CLI_UPDATE_THRESHOLD; i++) {
+                session.execute(null, "EXPLAIN PLAN FOR " + query);
+            }
+
+            ResultSet<SqlRow> res = session.execute(null, query);
+
+            assertTrue(res.hasNext());
+
+            SqlRow rs = res.next();
+
+            assertEquals(rowsCnt, rs.longValue(0));
+        });
     }
 
     /**
