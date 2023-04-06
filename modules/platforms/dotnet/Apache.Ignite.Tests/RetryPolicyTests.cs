@@ -267,6 +267,15 @@ namespace Apache.Ignite.Tests
             Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await table!.RecordBinaryView.UpsertAsync(null, new IgniteTuple()));
         }
 
+        [Test]
+        public void TestToString()
+        {
+            Assert.AreEqual("RetryReadPolicy { RetryLimit = 3 }", new RetryReadPolicy { RetryLimit = 3 }.ToString());
+            Assert.AreEqual("RetryLimitPolicy { RetryLimit = 4 }", new RetryLimitPolicy { RetryLimit = 4 }.ToString());
+            Assert.AreEqual("TestRetryPolicy { RetryLimit = 5 }", new TestRetryPolicy { RetryLimit = 5 }.ToString());
+            Assert.AreEqual("RetryNonePolicy { }", new RetryNonePolicy().ToString());
+        }
+
         private class TestRetryPolicy : RetryLimitPolicy
         {
             private readonly List<IRetryPolicyContext> _invocations = new();

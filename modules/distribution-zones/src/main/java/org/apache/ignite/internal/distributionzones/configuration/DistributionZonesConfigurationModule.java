@@ -20,15 +20,23 @@ package org.apache.ignite.internal.distributionzones.configuration;
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.validation.Validator;
 
 /**
  * Configuration module for distribution zones configs.
  */
 @AutoService(ConfigurationModule.class)
 public class DistributionZonesConfigurationModule implements ConfigurationModule {
+    /** {@inheritDoc} */
+    @Override
+    public Set<Validator<?, ?>> validators() {
+        return Set.of(FilterValidator.INSTANCE);
+    }
+
     /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {

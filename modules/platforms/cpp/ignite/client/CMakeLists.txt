@@ -44,6 +44,8 @@ set(PUBLIC_HEADERS
     ignite_client.h
     ignite_client_configuration.h
     ignite_logger.h
+    primitive.h
+    type_mapping.h
     compute/compute.h
     network/cluster_node.h
     sql/sql.h

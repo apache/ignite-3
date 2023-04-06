@@ -280,6 +280,10 @@ public class DistributionZoneManager implements IgniteComponent {
                             zoneChange.changeReplicas(distributionZoneCfg.replicas());
                         }
 
+                        if (distributionZoneCfg.filter() != null) {
+                            zoneChange.changeFilter(distributionZoneCfg.filter());
+                        }
+
                         if (distributionZoneCfg.dataNodesAutoAdjust() == null) {
                             zoneChange.changeDataNodesAutoAdjust(INFINITE_TIMER_VALUE);
                         } else {
@@ -740,6 +744,10 @@ public class DistributionZoneManager implements IgniteComponent {
 
         if (distributionZoneCfg.partitions() != null) {
             zoneChange.changePartitions(distributionZoneCfg.partitions());
+        }
+
+        if (distributionZoneCfg.filter() != null) {
+            zoneChange.changeFilter(distributionZoneCfg.filter());
         }
 
         if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
