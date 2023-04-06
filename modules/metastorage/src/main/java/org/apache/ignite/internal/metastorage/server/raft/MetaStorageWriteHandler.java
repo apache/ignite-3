@@ -77,6 +77,7 @@ class MetaStorageWriteHandler {
         WriteCommand command = clo.command();
 
         if (command instanceof MetaStorageWriteCommand) {
+            // Every MetaStorageWriteCommand holds safe time that we should set as the cluster time.
             clusterTime.updateSafeTime(((MetaStorageWriteCommand) command).safeTime().asHybridTimestamp());
         }
 
@@ -255,6 +256,8 @@ class MetaStorageWriteHandler {
 
     void beforeApply(Command command) {
         if (command instanceof MetaStorageWriteCommand) {
+            // Initiator sends us a timestamp to adjust to.
+            // Alter command by setting safe time based on the adjusted clock.
             clusterTime.adjust(((MetaStorageWriteCommand) command).initiatorTime().asHybridTimestamp());
 
             ((MetaStorageWriteCommand) command).safeTime(hybridTimestamp(clusterTime.now()));

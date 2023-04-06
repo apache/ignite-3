@@ -96,7 +96,7 @@ public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListen
 
                     clusterTime.startLeaderTimer(service);
                 } else {
-                    fut = CompletableFuture.completedFuture(null);
+                    fut = completedFuture(null);
 
                     clusterTime.stopLeaderTimer();
                 }
@@ -178,7 +178,7 @@ public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListen
     }
 
     private CompletableFuture<Void> executeIfLeaderImpl(OnLeaderAction action) {
-        return executeWithStatus((service, term, isLeader) -> action.apply(service, term));
+        return executeWithStatus((service, term, isLeader) -> isLeader ? action.apply(service, term) : completedFuture(null));
     }
 
     private CompletableFuture<Void> executeWithStatus(OnStatusAction action) {

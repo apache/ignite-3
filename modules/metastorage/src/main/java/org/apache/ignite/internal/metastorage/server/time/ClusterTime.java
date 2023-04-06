@@ -26,8 +26,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 public interface ClusterTime {
     /**
      * Returns current cluster time.
-     *
-     * @return Current cluster time.
      */
     HybridTimestamp now();
 

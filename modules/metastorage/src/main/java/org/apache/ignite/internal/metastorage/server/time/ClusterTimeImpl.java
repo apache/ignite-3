@@ -18,18 +18,10 @@
 package org.apache.ignite.internal.metastorage.server.time;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -38,9 +30,6 @@ import org.jetbrains.annotations.TestOnly;
  * Cluster time implementation with additional methods to adjust time and update safe time.
  */
 public class ClusterTimeImpl implements ClusterTime {
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(ClusterTimeImpl.class);
-
     private final IgniteSpinBusyLock busyLock;
 
     private volatile @Nullable LeaderTimer leaderTimer;
@@ -85,16 +74,16 @@ public class ClusterTimeImpl implements ClusterTime {
     }
 
     /**
-     * Stops sync time scheduler.
+     * Stops sync time scheduler if it exists.
      */
     public void stopLeaderTimer() {
         LeaderTimer timer = leaderTimer;
 
-        assert timer != null;
+        if (timer != null) {
+            timer.stop();
 
-        timer.stop();
-
-        leaderTimer = null;
+            leaderTimer = null;
+        }
     }
 
     @Override
@@ -119,10 +108,6 @@ public class ClusterTimeImpl implements ClusterTime {
 
         private final MetaStorageServiceImpl service;
 
-        /** Scheduled executor for cluster time sync. */
-        private final ScheduledExecutorService scheduledClusterTimeSyncExecutor =
-                Executors.newScheduledThreadPool(1, new NamedThreadFactory("scheduled-cluster-time-sync-thread", LOG));
-
         private LeaderTimer(MetaStorageServiceImpl service) {
             this.service = service;
         }
@@ -132,17 +117,7 @@ public class ClusterTimeImpl implements ClusterTime {
         }
 
         private void schedule() {
-            try {
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-19199 Only propagate safe time when ms is idle
-                scheduledClusterTimeSyncExecutor.scheduleAtFixedRate(
-                        this::disseminateTime,
-                        0,
-                        1,
-                        TimeUnit.SECONDS
-                );
-            } catch (RejectedExecutionException ignored) {
-                // Scheduler was stopped, it is ok.
-            }
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19199 Only propagate safe time when ms is idle
         }
 
         void disseminateTime() {
@@ -161,7 +136,7 @@ public class ClusterTimeImpl implements ClusterTime {
         }
 
         void stop() {
-            IgniteUtils.shutdownAndAwaitTermination(scheduledClusterTimeSyncExecutor, 1, TimeUnit.SECONDS);
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19199 Stop safe time propagation
         }
     }
 

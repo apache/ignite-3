@@ -125,6 +125,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      * @param logicalTopologyService Logical topology service.
      * @param raftMgr Raft manager.
      * @param storage Storage. This component owns this resource and will manage its lifecycle.
+     * @param clock A hybrid logical clock.
      */
     public MetaStorageManagerImpl(
             VaultManager vaultMgr,
@@ -237,6 +238,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         busyLock.block();
+
+        clusterTime.stopLeaderTimer();
 
         cancelOrConsume(metaStorageSvcFut, MetaStorageServiceImpl::close);
 
