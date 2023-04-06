@@ -32,73 +32,35 @@ import static org.junit.jupiter.api.Assertions.fail;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Flow.Publisher;
-import java.util.function.BiFunction;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.apache.calcite.config.CalciteConnectionConfig;
-import org.apache.calcite.plan.RelOptCluster;
-import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.AbstractRelNode;
-import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelDistribution;
-import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.RelReferentialConstraint;
 import org.apache.calcite.rel.RelVisitor;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.HintStrategyTable;
-import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.rel.type.RelDataTypeImpl;
-import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.schema.ColumnStrategy;
-import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.Statistic;
-import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlExplainLevel;
-import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.type.BasicSqlType;
-import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.index.ColumnCollation;
-import org.apache.ignite.internal.index.Index;
-import org.apache.ignite.internal.index.IndexDescriptor;
-import org.apache.ignite.internal.index.SortedIndex;
-import org.apache.ignite.internal.index.SortedIndexDescriptor;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.Cloner;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.Splitter;
@@ -106,25 +68,16 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
-import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
-import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
-import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
-import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.sql.engine.table.AbstractTestTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.internal.utils.PrimaryReplica;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -403,8 +356,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         };
     }
 
-    protected static TestTable createTable(IgniteSchema schema, String name, RelDataType type, IgniteDistribution distr) {
-        TestTable table = createTable(name, type, DEFAULT_TBL_SIZE, distr);
+    protected static AbstractTestTable createTable(IgniteSchema schema, String name, RelDataType type, IgniteDistribution distr) {
+        AbstractTestTable table = createTable(name, type, DEFAULT_TBL_SIZE, distr);
 
         schema.addTable(table);
 
@@ -420,10 +373,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * @param fields List of the required fields. Every odd item should be a string representing a column name, every
      *               even item should be a class representing column's type.
      *               E.g. {@code createTable("MY_TABLE", distribution, "ID", Integer.class, "VAL", String.class)}.
-     * @return Instance of the {@link TestTable}.
+     * @return Instance of the {@link AbstractTestTable}.
      */
-    protected static TestTable createTable(IgniteSchema schema, String name, IgniteDistribution distr, Object... fields) {
-        TestTable tbl = createTable(name, DEFAULT_TBL_SIZE, distr, fields);
+    protected static AbstractTestTable createTable(IgniteSchema schema, String name, IgniteDistribution distr, Object... fields) {
+        AbstractTestTable tbl = createTable(name, DEFAULT_TBL_SIZE, distr, fields);
 
         schema.addTable(tbl);
 
@@ -438,9 +391,9 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * @param fields List of the required fields. Every odd item should be a string representing a column name, every
      *               even item should be a class representing column's type.
      *               E.g. {@code createTable("MY_TABLE", distribution, "ID", Integer.class, "VAL", String.class)}.
-     * @return Instance of the {@link TestTable}.
+     * @return Instance of the {@link AbstractTestTable}.
      */
-    protected static TestTable createTable(String name, IgniteDistribution distr, Object... fields) {
+    protected static AbstractTestTable createTable(String name, IgniteDistribution distr, Object... fields) {
         return createTable(name, DEFAULT_TBL_SIZE, distr, fields);
     }
 
@@ -453,9 +406,9 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * @param fields List of the required fields. Every odd item should be a string representing a column name, every
      *               even item should be a class representing column's type.
      *               E.g. {@code createTable("MY_TABLE", 500, distribution, "ID", Integer.class, "VAL", String.class)}.
-     * @return Instance of the {@link TestTable}.
+     * @return Instance of the {@link AbstractTestTable}.
      */
-    protected static TestTable createTable(String name, int size, IgniteDistribution distr, Object... fields) {
+    protected static AbstractTestTable createTable(String name, int size, IgniteDistribution distr, Object... fields) {
         if (ArrayUtils.nullOrEmpty(fields) || fields.length % 2 != 0) {
             throw new IllegalArgumentException("'fields' should be non-null array with even number of elements");
         }
@@ -469,8 +422,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         return createTable(name, b.build(), size, distr);
     }
 
-    protected static TestTable createTable(String name, RelDataType type, int size, IgniteDistribution distr) {
-        return new TestTable(name, type, size) {
+    protected static AbstractTestTable createTable(String name, RelDataType type, int size, IgniteDistribution distr) {
+        return new AbstractTestTable(name, type, size) {
             @Override
             public IgniteDistribution distribution() {
                 return distr;
@@ -766,553 +719,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
 
         rel.getInputs().forEach(this::clearHints);
-    }
-
-    /** Test table. */
-    public abstract static class TestTable implements IgniteTable {
-        private final String name;
-
-        private final RelProtoDataType protoType;
-
-        private final Map<String, IgniteIndex> indexes = new HashMap<>();
-
-        private final double rowCnt;
-
-        private final TableDescriptor desc;
-
-        private final UUID id = UUID.randomUUID();
-
-        /** Constructor. */
-        public TestTable(RelDataType type) {
-            this(type, 100.0);
-        }
-
-        /** Constructor. */
-        public TestTable(RelDataType type, String name) {
-            this(name, type, 100.0);
-        }
-
-        /** Constructor. */
-        public TestTable(RelDataType type, double rowCnt) {
-            this(UUID.randomUUID().toString(), type, rowCnt);
-        }
-
-        /** Constructor. */
-        public TestTable(String name, RelDataType type, double rowCnt) {
-            protoType = RelDataTypeImpl.proto(type);
-            this.rowCnt = rowCnt;
-            this.name = name;
-
-            desc = new TestTableDescriptor(this::distribution, type);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public UUID id() {
-            return id;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public int version() {
-            return 0;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public IgniteLogicalTableScan toRel(
-                RelOptCluster cluster,
-                RelOptTable relOptTbl,
-                List<RelHint> hints,
-                @Nullable List<RexNode> proj,
-                @Nullable RexNode cond,
-                @Nullable ImmutableBitSet requiredColumns
-        ) {
-            return IgniteLogicalTableScan.create(cluster, cluster.traitSet(), hints, relOptTbl, proj, cond, requiredColumns);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public IgniteLogicalIndexScan toRel(
-                RelOptCluster cluster,
-                RelOptTable relOptTbl,
-                String idxName,
-                @Nullable List<RexNode> proj,
-                @Nullable RexNode cond,
-                @Nullable ImmutableBitSet requiredColumns
-        ) {
-            return IgniteLogicalIndexScan.create(cluster, cluster.traitSet(), relOptTbl, idxName, proj, cond, requiredColumns);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet bitSet) {
-            RelDataType rowType = protoType.apply(typeFactory);
-
-            if (bitSet != null) {
-                RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(typeFactory);
-                for (int i = bitSet.nextSetBit(0); i != -1; i = bitSet.nextSetBit(i + 1)) {
-                    b.add(rowType.getFieldList().get(i));
-                }
-                rowType = b.build();
-            }
-
-            return rowType;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Statistic getStatistic() {
-            return new Statistic() {
-                /** {@inheritDoc} */
-                @Override
-                public Double getRowCount() {
-                    return rowCnt;
-                }
-
-                /** {@inheritDoc} */
-                @Override
-                public boolean isKey(ImmutableBitSet cols) {
-                    return false;
-                }
-
-                /** {@inheritDoc} */
-                @Override
-                public List<ImmutableBitSet> getKeys() {
-                    throw new AssertionError();
-                }
-
-                /** {@inheritDoc} */
-                @Override
-                public List<RelReferentialConstraint> getReferentialConstraints() {
-                    throw new AssertionError();
-                }
-
-                /** {@inheritDoc} */
-                @Override
-                public List<RelCollation> getCollations() {
-                    return Collections.emptyList();
-                }
-
-                /** {@inheritDoc} */
-                @Override
-                public RelDistribution getDistribution() {
-                    throw new AssertionError();
-                }
-            };
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Schema.TableType getJdbcTableType() {
-            throw new AssertionError();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean isRolledUp(String col) {
-            return false;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean rolledUpColumnValidInsideAgg(
-                String column,
-                SqlCall call,
-                SqlNode parent,
-                CalciteConnectionConfig config
-        ) {
-            throw new AssertionError();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-            throw new AssertionError();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public IgniteDistribution distribution() {
-            throw new AssertionError();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public TableDescriptor descriptor() {
-            return desc;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Map<String, IgniteIndex> indexes() {
-            return Collections.unmodifiableMap(indexes);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void addIndex(IgniteIndex idxTbl) {
-            indexes.put(idxTbl.name(), idxTbl);
-        }
-
-        /**
-         * AddIndex.
-         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-         */
-        public TestTable addIndex(RelCollation collation, String name) {
-            indexes.put(name, new IgniteIndex(TestSortedIndex.create(collation, name, this)));
-
-            return this;
-        }
-
-        /**
-         * AddIndex.
-         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-         */
-        public TestTable addIndex(String name, int... keys) {
-            addIndex(TraitUtils.createCollation(Arrays.stream(keys).boxed().collect(Collectors.toList())), name);
-
-            return this;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public IgniteIndex getIndex(String idxName) {
-            return indexes.get(idxName);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void removeIndex(String idxName) {
-            throw new AssertionError();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public String name() {
-            return name;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public InternalTable table() {
-            throw new AssertionError();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory,
-                @Nullable BitSet requiredColumns) {
-            throw new AssertionError();
-        }
-    }
-
-    /**
-     * TestTableDescriptor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    static class TestTableDescriptor implements TableDescriptor {
-        private final Supplier<IgniteDistribution> distributionSupp;
-
-        private final RelDataType rowType;
-
-        /**
-         * Constructor.
-         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-         */
-        TestTableDescriptor(Supplier<IgniteDistribution> distribution, RelDataType rowType) {
-            this.distributionSupp = distribution;
-            this.rowType = rowType;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public IgniteDistribution distribution() {
-            return distributionSupp.get();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public RelDataType rowType(IgniteTypeFactory factory, ImmutableBitSet usedColumns) {
-            return rowType;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean isUpdateAllowed(RelOptTable tbl, int colIdx) {
-            return true;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public ColumnDescriptor columnDescriptor(String fieldName) {
-            RelDataTypeField field = rowType.getField(fieldName, false, false);
-
-            NativeType nativeType = field.getType() instanceof BasicSqlType ? IgniteTypeFactory.relDataTypeToNative(field.getType()) : null;
-
-            return new TestColumnDescriptor(field.getIndex(), fieldName, nativeType);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public ColumnDescriptor columnDescriptor(int idx) {
-            RelDataTypeField field = rowType.getFieldList().get(idx);
-
-            NativeType nativeType = field.getType() instanceof BasicSqlType ? IgniteTypeFactory.relDataTypeToNative(field.getType()) : null;
-
-            return new TestColumnDescriptor(field.getIndex(), field.getName(), nativeType);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public int columnsCount() {
-            return rowType.getFieldCount();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean isGeneratedAlways(RelOptTable table, int idxColumn) {
-            throw new AssertionError();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public ColumnStrategy generationStrategy(RelOptTable table, int idxColumn) {
-            throw new AssertionError();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public RexNode newColumnDefaultValue(RelOptTable table, int idxColumn, InitializerContext context) {
-            throw new AssertionError();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public BiFunction<InitializerContext, RelNode, RelNode> postExpressionConversionHook() {
-            throw new AssertionError();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public RexNode newAttributeInitializer(RelDataType type, SqlFunction constructor, int idxAttribute,
-                List<RexNode> constructorArgs, InitializerContext context) {
-            throw new AssertionError();
-        }
-    }
-
-    static class TestColumnDescriptor implements ColumnDescriptor {
-        private final int idx;
-
-        private final String name;
-
-        private final NativeType physicalType;
-
-        TestColumnDescriptor(int idx, String name, NativeType physicalType) {
-            this.idx = idx;
-            this.name = name;
-            this.physicalType = physicalType;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean nullable() {
-            return true;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean key() {
-            return false;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public DefaultValueStrategy defaultStrategy() {
-            return DefaultValueStrategy.DEFAULT_NULL;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public String name() {
-            return name;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public int logicalIndex() {
-            return idx;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public int physicalIndex() {
-            return idx;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public NativeType physicalType() {
-            if (physicalType == null) {
-                throw new AssertionError();
-            }
-
-            return physicalType;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Object defaultValue() {
-            throw new AssertionError();
-        }
-    }
-
-    static class TestSortedIndex implements SortedIndex {
-        private final UUID id = UUID.randomUUID();
-
-        private final UUID tableId = UUID.randomUUID();
-
-        private final SortedIndexDescriptor descriptor;
-
-        public static TestSortedIndex create(RelCollation collation, String name, IgniteTable table) {
-            List<String> columns = new ArrayList<>();
-            List<ColumnCollation> collations = new ArrayList<>();
-            TableDescriptor tableDescriptor = table.descriptor();
-
-            for (var fieldCollation : collation.getFieldCollations()) {
-                columns.add(tableDescriptor.columnDescriptor(fieldCollation.getFieldIndex()).name());
-                collations.add(ColumnCollation.get(
-                        !fieldCollation.getDirection().isDescending(),
-                        fieldCollation.nullDirection == NullDirection.FIRST
-                ));
-            }
-
-            var descriptor = new SortedIndexDescriptor(name, columns, collations);
-
-            return new TestSortedIndex(descriptor);
-        }
-
-        public TestSortedIndex(SortedIndexDescriptor descriptor) {
-            this.descriptor = descriptor;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public UUID id() {
-            return id;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public String name() {
-            return descriptor.name();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public UUID tableId() {
-            return tableId;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public SortedIndexDescriptor descriptor() {
-            return descriptor;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Publisher<BinaryRow> lookup(int partId, UUID txId, PrimaryReplica recipient, BinaryTuple key,
-                @Nullable BitSet columns) {
-            throw new AssertionError("Should not be called");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipient, BinaryTuple key, BitSet columns) {
-            throw new AssertionError("Should not be called");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Publisher<BinaryRow> scan(int partId, HybridTimestamp timestamp, ClusterNode recipient,
-                @Nullable BinaryTuplePrefix leftBound, @Nullable BinaryTuplePrefix rightBound, int flags, BitSet columnsToInclude) {
-            throw new AssertionError("Should not be called");
-        }
-
-        @Override
-        public Publisher<BinaryRow> scan(int partId, UUID txId, PrimaryReplica recipient, @Nullable BinaryTuplePrefix leftBound,
-                @Nullable BinaryTuplePrefix rightBound, int flags, @Nullable BitSet columnsToInclude) {
-            throw new AssertionError("Should not be called");
-        }
-    }
-
-    /** Test Hash index implementation. */
-    public static class TestHashIndex implements Index<IndexDescriptor> {
-        private final UUID id = UUID.randomUUID();
-
-        private UUID tableId = UUID.randomUUID();
-
-        private final IndexDescriptor descriptor;
-
-        /** Create index. */
-        public static TestHashIndex create(List<String> indexedColumns, String name, UUID tableId) {
-            var descriptor = new IndexDescriptor(name, indexedColumns);
-
-            TestHashIndex idx = new TestHashIndex(descriptor);
-
-            idx.tableId = tableId;
-
-            return idx;
-        }
-
-        /** Create index. */
-        public static TestHashIndex create(List<String> indexedColumns, String name) {
-            var descriptor = new IndexDescriptor(name, indexedColumns);
-
-            return new TestHashIndex(descriptor);
-        }
-
-        TestHashIndex(IndexDescriptor descriptor) {
-            this.descriptor = descriptor;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public UUID id() {
-            return id;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public String name() {
-            return descriptor.name();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public UUID tableId() {
-            return tableId;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public IndexDescriptor descriptor() {
-            return descriptor;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Publisher<BinaryRow> lookup(int partId, UUID txId, PrimaryReplica recipient, BinaryTuple key,
-                @Nullable BitSet columns) {
-            throw new AssertionError("Should not be called");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipient, BinaryTuple key, BitSet columns) {
-            throw new AssertionError("Should not be called");
-        }
     }
 
     Predicate<SearchBounds> empty() {

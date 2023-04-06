@@ -41,8 +41,8 @@ import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
-import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.table.AbstractTestTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -113,7 +113,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
         }
     }
 
-    private static class TestTable extends AbstractPlannerTest.TestTable {
+    private static class TestTable extends AbstractTestTable {
         private static final Object[] res = {1, "2", 3};
 
         public TestTable(RelDataType rowType) {
