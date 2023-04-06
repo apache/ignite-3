@@ -570,7 +570,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return Future for chaining.
      */
     private CompletableFuture<Void> awaitTopologyVersion(long topVer) {
-        return topVerTracker.waitFor(topVer);
+        return inBusyLock(busyLock, () -> topVerTracker.waitFor(topVer));
     }
 
     /**
@@ -582,12 +582,14 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return Future with the result.
      */
     private CompletableFuture<IgniteBiTuple<Boolean, Boolean>> getImmediateTimers(int zoneId) {
-        DistributionZoneConfiguration zoneCfg = getZoneById(zonesConfiguration, zoneId);
+        return inBusyLock(busyLock, () -> {
+            DistributionZoneConfiguration zoneCfg = getZoneById(zonesConfiguration, zoneId);
 
-        return completedFuture(new IgniteBiTuple<>(
-                zoneCfg.dataNodesAutoAdjustScaleUp().value() == IMMEDIATE_TIMER_VALUE,
-                zoneCfg.dataNodesAutoAdjustScaleDown().value() == IMMEDIATE_TIMER_VALUE
-        ));
+            return completedFuture(new IgniteBiTuple<>(
+                    zoneCfg.dataNodesAutoAdjustScaleUp().value() == IMMEDIATE_TIMER_VALUE,
+                    zoneCfg.dataNodesAutoAdjustScaleDown().value() == IMMEDIATE_TIMER_VALUE
+            ));
+        });
     }
 
     /**
@@ -600,11 +602,13 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return Future for chaining.
      */
     private CompletableFuture<Void> scaleUpAwaiting(int zoneId, boolean immediateScaleUp) {
-        if (immediateScaleUp) {
-            return zonesState.get(zoneId).scaleUpRevisionTracker().waitFor(lastScaleUpRevision);
-        } else {
-            return completedFuture(null);
-        }
+        return inBusyLock(busyLock, () -> {
+            if (immediateScaleUp) {
+                return zonesState.get(zoneId).scaleUpRevisionTracker().waitFor(lastScaleUpRevision);
+            } else {
+                return completedFuture(null);
+            }
+        });
     }
 
     /**
@@ -617,11 +621,13 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return Future for chaining.
      */
     private CompletableFuture<Void> scaleDownAwaiting(int zoneId, boolean immediateScaleDown) {
-        if (immediateScaleDown) {
-            return zonesState.get(zoneId).scaleDownRevisionTracker().waitFor(lastScaleDownRevision);
-        } else {
-            return completedFuture(null);
-        }
+        return inBusyLock(busyLock, () -> {
+            if (immediateScaleDown) {
+                return zonesState.get(zoneId).scaleDownRevisionTracker().waitFor(lastScaleDownRevision);
+            } else {
+                return completedFuture(null);
+            }
+        });
     }
 
     /**
@@ -631,7 +637,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return future.
      */
     private CompletableFuture<Set<String>> getDataNodesFuture(int zoneId) {
-        return completedFuture(zonesState.get(zoneId).nodes());
+        return inBusyLock(busyLock, () -> completedFuture(zonesState.get(zoneId).nodes()));
     }
 
     /** {@inheritDoc} */
