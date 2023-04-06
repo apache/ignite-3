@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.annotations.WithSetter;
 
@@ -29,7 +31,9 @@ public interface MetaStorageWriteCommand extends WriteCommand {
 
     /**
      * This is a dirty hack. This time is set by the leader node to disseminate new safe time across
-     * followers and learners.
+     * followers and learners. Leader of the ms group reads {@link #initiatorTime()}, adjusts its clock
+     * and sets safeTime as {@link HybridClock#now()} as safeTime here. This must be done before
+     * command is saved into the Raft log (see {@link org.apache.ignite.internal.raft.service.RaftGroupListener#onBeforeApply(Command)}.
      */
     @WithSetter
     HybridTimestampMessage safeTime();

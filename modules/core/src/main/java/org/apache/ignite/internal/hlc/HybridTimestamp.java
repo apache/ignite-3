@@ -62,7 +62,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     }
 
     /**
-     * Compares hybrid timestamps.
+     * Finds maximum hybrid timestamp.
      *
      * @param times Times for comparing. Must not be {@code null} or empty.
      * @return The highest hybrid timestamp.
