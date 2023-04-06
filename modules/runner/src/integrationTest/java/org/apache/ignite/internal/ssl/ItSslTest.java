@@ -67,7 +67,7 @@ public class ItSslTest extends IgniteIntegrationTest {
     private Cluster cluster;
 
     @WorkDirectory
-    private static Path workDir;
+    private static Path WORK_DIR;
 
     @BeforeAll
     void beforeAll() {
