@@ -25,6 +25,6 @@ import org.apache.ignite.lang.IgniteException;
  */
 public class AuthenticationException extends IgniteException {
     public AuthenticationException(String message) {
-        super(Authentication.UNKNOWN_AUTHENTICATION_ERR, message);
+        super(Authentication.COMMON_AUTHENTICATION_ERR, message);
     }
 }

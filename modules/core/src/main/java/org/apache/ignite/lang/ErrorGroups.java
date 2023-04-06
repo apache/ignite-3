@@ -435,6 +435,6 @@ public class ErrorGroups {
         public static final ErrorGroup AUTHENTICATION_ERR_GROUP = ErrorGroup.newGroup("AUTHENTICATION", 15);
 
         /** General authentication error. */
-        public static final int UNKNOWN_AUTHENTICATION_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode(1);
+        public static final int COMMON_AUTHENTICATION_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode(1);
     }
 }

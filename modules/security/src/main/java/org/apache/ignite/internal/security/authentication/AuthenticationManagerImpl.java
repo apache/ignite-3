@@ -41,7 +41,9 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
     private static final IgniteLogger LOG = Loggers.forClass(AuthenticationManagerImpl.class);
 
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
+
     private final List<Authenticator> authenticators = new ArrayList<>();
+
     private boolean authEnabled = false;
 
     @Override
