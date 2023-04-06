@@ -782,6 +782,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             ZoneState zoneState = new ZoneState(executor);
 
+            System.out.println("zonesState.putIfAbsent " + zoneId);
             zonesState.putIfAbsent(zoneId, zoneState);
 
             saveDataNodesAndUpdateTriggerKeysInMetaStorage(zoneId, ctx.storageRevision(), logicalTopology);
@@ -1251,6 +1252,13 @@ public class DistributionZoneManager implements IgniteComponent {
                     }
 
                     ZoneState zoneState = zonesState.get(zoneId);
+
+                    if (zoneState == null) {
+                        //The zone has been dropped so no need to update zoneState.
+                        return completedFuture(null);
+                    }
+
+                    assert newDataNodes != null : "Data nodes was not initialized.";
 
                     zoneState.nodes(newDataNodes);
 
