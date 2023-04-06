@@ -328,9 +328,15 @@ public class ClientTableCommon {
      */
     @NotNull
     public static SchemaDescriptor readSchema(ClientMessageUnpacker unpacker, TableImpl table) {
-        var schemaId = unpacker.unpackInt();
+        var schemaVer = unpacker.unpackInt();
+        SchemaDescriptor latestSchema = table.schemaView().schema();
 
-        return table.schemaView().schema(schemaId);
+        if (schemaVer == latestSchema.version()) {
+            return latestSchema;
+        }
+
+        // TODO: Client is using an old schema version. Return a flag.
+        return table.schemaView().schema(schemaVer);
     }
 
     /**
