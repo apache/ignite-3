@@ -989,7 +989,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
 
         Stream<TableImpl> tablesToStop =
-                Stream.concat(tablesByIdVv.latest().entrySet().stream(), pendingTables.entrySet().stream()).
+                Stream.concat(tablesByIdVv.latest().entrySet().stream(), pendingTables.entrySet().stream()).distinct().
                         map(Map.Entry::getValue);
 
         cleanUpTablesResources(tablesToStop);
