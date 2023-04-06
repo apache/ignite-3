@@ -316,7 +316,7 @@ public class ClientTable implements Table {
                 .thenCompose(schema ->
                         ch.serviceAsync(opCode,
                                 w -> writer.accept(schema, w),
-                                r -> readSchemaAndApply(reader, r)));
+                                r -> readSchemaAndApply(r, reader)));
     }
 
     /**
@@ -347,16 +347,20 @@ public class ClientTable implements Table {
 
                     return ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
-                            r -> readSchemaAndApply(reader, r),
+                            r -> readSchemaAndApply(r, reader),
                             null,
                             preferredNodeId);
                 });
     }
 
-    private <T> T readSchemaAndApply(Function<ClientMessageUnpacker, T> reader, PayloadInputChannel r) {
-        // TODO: Schedule background schema update.
-        // TODO: Somehow prevent multiple requests for the same schema version - a concurrent map of futures?
-        int latestSchemaVer = r.in().tryUnpackInt(-1);
+    private <T> T readSchemaAndApply(PayloadInputChannel r, Function<ClientMessageUnpacker, T> reader) {
+        int latestServerSchemaVer = r.in().tryUnpackInt(-1);
+
+        if (latestSchemaVer < latestServerSchemaVer)
+        {
+            // TODO: Prevent multiple requests for the same schema version - a ConcurrentMap of futures?
+            loadSchema(latestServerSchemaVer);
+        }
 
         return reader.apply(r.in());
     }
