@@ -17,35 +17,32 @@
 
 package org.apache.ignite.internal.distributionzones.configuration;
 
-import com.google.auto.service.AutoService;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
-import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.validation.ValidationContext;
+import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 
 /**
- * Configuration module for distribution zones configs.
+ * Validator for a filter of a distribution zone.
  */
-@AutoService(ConfigurationModule.class)
-public class DistributionZonesConfigurationModule implements ConfigurationModule {
-    /** {@inheritDoc} */
-    @Override
-    public Set<Validator<?, ?>> validators() {
-        return Set.of(FilterValidator.INSTANCE);
-    }
+public class FilterValidator implements Validator<ValidFilter, String> {
+    /** Static instance. */
+    public static final FilterValidator INSTANCE = new FilterValidator();
 
     /** {@inheritDoc} */
     @Override
-    public ConfigurationType type() {
-        return ConfigurationType.DISTRIBUTED;
-    }
+    public void validate(ValidFilter annotation, ValidationContext<String> ctx) {
+        String filter = ctx.getNewValue();
 
-    /** {@inheritDoc} */
-    @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(DistributionZonesConfiguration.KEY);
+        String validationResult = DistributionZonesUtil.validate(filter);
+
+        if (validationResult != null) {
+            ctx.addIssue(
+                    new ValidationIssue(
+                            ctx.currentKey(),
+                            String.format("Failed to parse filter %s, the cause: %s", filter, validationResult)
+                    )
+            );
+        }
     }
 }

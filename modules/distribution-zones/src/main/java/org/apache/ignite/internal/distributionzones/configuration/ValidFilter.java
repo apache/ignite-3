@@ -15,29 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.rpc;
+package org.apache.ignite.internal.distributionzones.configuration;
 
-import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.internal.raft.Command;
-import org.apache.ignite.raft.jraft.RaftMessageGroup;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 
 /**
- * Submit an action to a replication group.
+ * An annotation to check that the {@link DistributionZoneConfigurationSchema#filter} is a correct filter, that could be parsed.
+ *
+ * <p>Can be applied to a {@link ConfigValue}.
  */
-@Transferable(RaftMessageGroup.RpcActionMessageGroup.ACTION_REQUEST)
-public interface ActionRequest extends Message {
-    /**
-     * @return Group id.
-     */
-    String groupId();
-
-    /**
-     * @return Action's command.
-     */
-    Command command();
-
-    /**
-     * @return {@code True} for linearizable reading.
-     */
-    boolean readOnlySafe();
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface ValidFilter {
 }
