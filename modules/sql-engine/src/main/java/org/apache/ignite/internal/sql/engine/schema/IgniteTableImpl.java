@@ -74,6 +74,7 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
@@ -547,8 +548,13 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
                 for (int p = 0; p < parts; ++p) {
                     @Nullable MvPartitionStorage part = table.storage().getMvPartition(p);
 
-                    if (part != null) {
+                    if (part == null)
+                        continue;
+
+                    try {
                         size += part.rowsCount();
+                    } catch (StorageRebalanceException ignore) {
+                        // No-op.
                     }
                 }
 
