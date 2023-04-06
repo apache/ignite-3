@@ -96,6 +96,10 @@ public class LogicalTopologyImpl implements LogicalTopology {
             // This is an update. First simulate disappearance, then appearance will be fired.
             snapshot = new LogicalTopologySnapshot(snapshot.version() + 1, mapByName.values());
 
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Node removed from logical topology [node={}, topology={}]", nodeToPut, snapshot);
+            }
+
             LogicalTopologySnapshot snapshotAfterRemoval = snapshot;
             fireRemovalTask = () -> fireNodeLeft(oldNode, snapshotAfterRemoval);
         }
@@ -103,6 +107,10 @@ public class LogicalTopologyImpl implements LogicalTopology {
         mapByName.put(nodeToPut.name(), nodeToPut);
 
         snapshot = new LogicalTopologySnapshot(snapshot.version() + 1, mapByName.values());
+
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Node added to logical topology [node={}, topology={}]", nodeToPut, snapshot);
+        }
 
         // Only save to storage once per call so that our writes to storage are atomic and we don't end up in a situation
         // when different CMG listener instances produce different sequences of topology snapshots.
@@ -137,6 +145,10 @@ public class LogicalTopologyImpl implements LogicalTopology {
 
             if (removedNode != null) {
                 snapshot = new LogicalTopologySnapshot(snapshot.version() + 1, mapById.values());
+
+                if (LOG.isInfoEnabled()) {
+                    LOG.info("Node removed from logical topology [node={}, topology={}]", removedNode, snapshot);
+                }
 
                 LogicalTopologySnapshot finalSnapshot = snapshot;
                 fireTasks.add(() -> fireNodeLeft(nodeToRemove, finalSnapshot));

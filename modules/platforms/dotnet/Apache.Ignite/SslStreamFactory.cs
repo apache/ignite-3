@@ -35,7 +35,7 @@ public sealed class SslStreamFactory : ISslStreamFactory
     /// <inheritdoc />
     public async Task<SslStream?> CreateAsync(Stream stream, string targetHost)
     {
-        IgniteArgumentCheck.NotNull(stream, "stream");
+        IgniteArgumentCheck.NotNull(stream);
 
         var sslStream = new SslStream(stream, false, null, null);
 
@@ -46,4 +46,10 @@ public sealed class SslStreamFactory : ISslStreamFactory
 
         return sslStream;
     }
+
+    /// <inheritdoc />
+    public override string ToString() =>
+        new IgniteToStringBuilder(GetType())
+            .Append(SslClientAuthenticationOptions)
+            .Build();
 }

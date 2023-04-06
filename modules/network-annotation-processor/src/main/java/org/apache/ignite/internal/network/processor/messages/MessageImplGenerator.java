@@ -48,6 +48,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
+import org.apache.ignite.internal.network.processor.ProcessingException;
 import org.apache.ignite.internal.network.processor.TypeUtils;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
@@ -103,7 +104,8 @@ public class MessageImplGenerator {
 
         // create a field and a getter implementation for every getter in the message interface
         for (ExecutableElement getter : getters) {
-            var getterReturnType = TypeName.get(getter.getReturnType());
+            TypeMirror getterType = getter.getReturnType();
+            TypeName getterReturnType = TypeName.get(getterType);
 
             String getterName = getter.getSimpleName().toString();
 
@@ -112,6 +114,15 @@ public class MessageImplGenerator {
                     .addModifiers(Modifier.PRIVATE);
 
             boolean isMarshallable = getter.getAnnotation(Marshallable.class) != null;
+            boolean isNetworkMessage = typeUtils.isSubType(getterType, NetworkMessage.class);
+
+            if (isMarshallable && isNetworkMessage) {
+                String error =
+                        "Failed to process " + message.className() + ": " + getterName + " is both NetworkMessage and @Marshallable";
+
+                throw new ProcessingException(error);
+            }
+
             boolean generateSetter = getter.getAnnotation(WithSetter.class) != null;
 
             if (!isMarshallable && !generateSetter) {

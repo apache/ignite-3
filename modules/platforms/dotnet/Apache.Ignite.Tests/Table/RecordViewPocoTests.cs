@@ -795,6 +795,12 @@ namespace Apache.Ignite.Tests.Table
             Assert.IsFalse(await PocoView.ContainsKeyAsync(null, GetPoco(-128)));
         }
 
+        [Test]
+        public void TestToString()
+        {
+            StringAssert.StartsWith("RecordView`1[Poco] { Table = Table { Name = TBL1, Id =", PocoView.ToString());
+        }
+
         // ReSharper disable once NotAccessedPositionalProperty.Local
         private record UnsupportedByteType(byte Int8);
     }
