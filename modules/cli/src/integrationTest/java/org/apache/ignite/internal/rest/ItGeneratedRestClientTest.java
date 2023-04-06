@@ -417,7 +417,7 @@ public class ItGeneratedRestClientTest {
 
     private File emptyFile() {
         try {
-            return Files.createTempFile(workDir, "empty", "file").toFile();
+            return Files.createTempFile(WORK_DIR, "empty", "file").toFile();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -428,7 +428,7 @@ public class ItGeneratedRestClientTest {
 
         clusterNodeNames.add(nodeName);
 
-        return TestIgnitionManager.start(nodeName, buildConfig(index), workDir.resolve(nodeName));
+        return TestIgnitionManager.start(nodeName, buildConfig(index), WORK_DIR.resolve(nodeName));
     }
 }
 

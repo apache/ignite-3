@@ -94,7 +94,7 @@ public class ItSslTest extends IgniteIntegrationTest {
 
         @BeforeAll
         void setUp(TestInfo testInfo) {
-            cluster = new Cluster(testInfo, workDir, sslDisabledBoostrapConfig);
+            cluster = new Cluster(testInfo, WORK_DIR, sslDisabledBoostrapConfig);
             cluster.startAndInit(2);
         }
 
@@ -194,7 +194,7 @@ public class ItSslTest extends IgniteIntegrationTest {
 
         @BeforeAll
         void setUp(TestInfo testInfo) {
-            cluster = new Cluster(testInfo, workDir, sslEnabledBoostrapConfig);
+            cluster = new Cluster(testInfo, WORK_DIR, sslEnabledBoostrapConfig);
             cluster.startAndInit(2);
         }
 
@@ -268,7 +268,7 @@ public class ItSslTest extends IgniteIntegrationTest {
 
         @BeforeAll
         void setUp(TestInfo testInfo) {
-            cluster = new Cluster(testInfo, workDir, sslEnabledWithCipherBoostrapConfig);
+            cluster = new Cluster(testInfo, WORK_DIR, sslEnabledWithCipherBoostrapConfig);
             cluster.startAndInit(2);
         }
 
@@ -412,7 +412,7 @@ public class ItSslTest extends IgniteIntegrationTest {
 
         @BeforeAll
         void setUp(TestInfo testInfo) {
-            cluster = new Cluster(testInfo, workDir, sslEnabledBoostrapConfig);
+            cluster = new Cluster(testInfo, WORK_DIR, sslEnabledBoostrapConfig);
             cluster.startAndInit(2);
         }
 
@@ -507,7 +507,7 @@ public class ItSslTest extends IgniteIntegrationTest {
     @Test
     @DisplayName("Cluster is not initialized when nodes are configured with incompatible ciphers")
     void incompatibleCiphersNodes(TestInfo testInfo) {
-        Cluster cluster = new Cluster(testInfo, workDir);
+        Cluster cluster = new Cluster(testInfo, WORK_DIR);
 
         String sslEnabledWithCipher1BoostrapConfig = createBoostrapConfig("TLS_AES_256_GCM_SHA384");
         String sslEnabledWithCipher2BoostrapConfig = createBoostrapConfig("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384");
