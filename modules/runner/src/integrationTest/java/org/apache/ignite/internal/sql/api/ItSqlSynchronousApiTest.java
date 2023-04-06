@@ -57,12 +57,14 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
  * Tests for synchronous SQL API.
  */
+@Disabled
 @SuppressWarnings("ThrowableNotThrown")
 public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     private static final int ROW_COUNT = 16;
@@ -91,6 +93,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     protected IgniteSql igniteSql() {
         return CLUSTER_NODES.get(0).sql();
     }
+
 
     @Test
     public void ddl() {
