@@ -95,7 +95,6 @@ public class DataStorageManager implements IgniteComponent {
      *      UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} and there is only one engine, then it will be the default, otherwise
      *      there will be no default.
      */
-    // TODO: IGNITE-16835 Remove it.
     public Consumer<DataStorageChange> defaultTableDataStorageConsumer(String defaultDataStorageView) {
         return tableDataStorageChange -> {
             if (!defaultDataStorageView.equals(UNKNOWN_DATA_STORAGE)) {

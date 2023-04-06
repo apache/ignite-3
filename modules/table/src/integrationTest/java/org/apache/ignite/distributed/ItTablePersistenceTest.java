@@ -82,6 +82,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -375,8 +376,12 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
 
-                    StorageUpdateHandler storageUpdateHandler =
-                            new StorageUpdateHandler(0, partitionDataStorage, Map::of, tableCfg.dataStorage());
+                    StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
+                            0,
+                            partitionDataStorage,
+                            DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
+                            tableCfg.dataStorage()
+                    );
 
                     PartitionListener listener = new PartitionListener(
                             partitionDataStorage,

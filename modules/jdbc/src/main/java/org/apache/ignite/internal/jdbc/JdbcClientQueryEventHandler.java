@@ -82,8 +82,12 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcBatchExecuteResult> batchAsync(JdbcBatchExecuteRequest req) {
-        return client.sendRequestAsync(ClientOp.JDBC_EXEC_BATCH, w -> req.writeBinary(w.out()), r -> {
+    public CompletableFuture<JdbcBatchExecuteResult> batchAsync(long connectionId, JdbcBatchExecuteRequest req) {
+        return client.sendRequestAsync(ClientOp.JDBC_EXEC_BATCH, w -> {
+            w.out().packLong(connectionId);
+
+            req.writeBinary(w.out());
+        }, r -> {
             JdbcBatchExecuteResult res = new JdbcBatchExecuteResult();
 
             res.readBinary(r.in());
@@ -94,9 +98,12 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcBatchExecuteResult> batchPrepStatementAsync(
-            JdbcBatchPreparedStmntRequest req) {
-        return client.sendRequestAsync(ClientOp.JDBC_SQL_EXEC_PS_BATCH, w -> req.writeBinary(w.out()), r -> {
+    public CompletableFuture<JdbcBatchExecuteResult> batchPrepStatementAsync(long connectionId, JdbcBatchPreparedStmntRequest req) {
+        return client.sendRequestAsync(ClientOp.JDBC_SQL_EXEC_PS_BATCH, w -> {
+            w.out().packLong(connectionId);
+
+            req.writeBinary(w.out());
+        }, r -> {
             JdbcBatchExecuteResult res = new JdbcBatchExecuteResult();
 
             res.readBinary(r.in());

@@ -29,7 +29,7 @@ public interface Ignition {
     /**
      * Starts an Ignite node with a bootstrap configuration from a HOCON file.
      *
-     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
+     * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
      * @param nodeName Name of the node. Must not be {@code null}.
@@ -44,7 +44,7 @@ public interface Ignition {
      * Starts an Ignite node with a bootstrap configuration from a HOCON file, with an optional class loader for further usage by
      * {@link java.util.ServiceLoader}.
      *
-     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
+     * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
      * @param nodeName Name of the node. Must not be {@code null}.
@@ -52,7 +52,7 @@ public interface Ignition {
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @param serviceLoaderClassLoader The class loader to be used to load provider-configuration files and provider classes, or {@code
      * null} if the system class loader (or, failing that, the bootstrap class loader) is to be used
-     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     * @return CompletableFuture that resolves to an Ignite node after all components are started and the cluster initialization is
      *         complete.
      */
     CompletableFuture<Ignite> start(
@@ -66,22 +66,22 @@ public interface Ignition {
      * Stops the node with given {@code name}. It's possible to stop both already started node or node that is currently starting. Has no
      * effect if node with specified name doesn't exist.
      *
-     * @param nodeName Node name to stop.
+     * @param nodeName Name of the node to stop.
      */
     void stop(String nodeName);
 
     /**
      * Initializes the cluster that the given node is present in.
      *
-     * <p>Initializing a cluster implies propagating information about the nodes that will host the Meta Storage and CMG Raft groups
-     * to all nodes in the cluster. After the operation succeeds, nodes will be able to finish the start procedure and begin
+     * <p>Cluster initialization propagates information about those nodes that will host the Meta Storage and CMG Raft groups
+     * to all nodes in the cluster. After the operation succeeds, nodes can finish the start procedure and begin
      * accepting incoming requests.
      *
-     * <p>Meta Storage is responsible for storing cluster-wide meta information needed for internal purposes and proper functioning of the
+     * <p>Meta Storage is responsible for storing cluster-wide meta information required for internal purposes and proper functioning of the
      * cluster.
      *
-     * <p>Cluster Management Group (a.k.a. CMG) is a Raft group responsible for managing parts of the cluster lifecycle, such as
-     * validating incoming nodes and maintaining the logical topology.
+     * <p>Cluster Management Group (CMG) is a Raft group responsible for managing parts of the cluster lifecycle, such as
+     * validating incoming nodes and maintaining logical topology.
      *
      * @param parameters initialization parameters.
      * @throws IgniteException If the given node has not been started or has been stopped.

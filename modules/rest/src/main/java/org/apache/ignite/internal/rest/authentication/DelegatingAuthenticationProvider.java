@@ -107,8 +107,8 @@ public class DelegatingAuthenticationProvider implements AuthenticationProvider,
 
     private static List<Authenticator> providersFromAuthView(AuthenticationView view) {
         NamedListView<? extends AuthenticationProviderView> providers = view.providers();
-        return providers.namedListKeys().stream()
-                .map(providers::get)
+
+        return providers.stream()
                 .map(AuthenticatorFactory::create)
                 .collect(Collectors.toList());
     }

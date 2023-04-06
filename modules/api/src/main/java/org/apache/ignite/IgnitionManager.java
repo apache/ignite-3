@@ -24,7 +24,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Service loader based implementation of an entry point for handling grid lifecycle.
+ * Service loader-based implementation of an entry point for handling the grid lifecycle.
  */
 public class IgnitionManager {
     /**
@@ -36,9 +36,9 @@ public class IgnitionManager {
     private static Ignition ignition;
 
     /**
-     * Starts an Ignite node with a bootstrap configuration from a HOCON file.
+     * Starts an Ignite node with a bootstrap configuration from an input stream with a HOCON configuration file.
      *
-     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
+     * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
      * @param nodeName Name of the node. Must not be {@code null}.
@@ -54,7 +54,7 @@ public class IgnitionManager {
     /**
      * Starts an Ignite node with a bootstrap configuration from a HOCON file.
      *
-     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
+     * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
      * @param nodeName Name of the node. Must not be {@code null}.
@@ -73,22 +73,22 @@ public class IgnitionManager {
     }
 
     /**
-     * Stops the node with given {@code nodeName}. It's possible to stop both already started node or node that is currently starting.
-     * Has no effect if node with specified name doesn't exist.
+     * Stops the node identified by {@code nodeName}. It is possible to stop both running nodes and the node that are currently starting.
+     * No action is taken if the specified node doesn't exist.
      *
-     * @param nodeName Node name to stop.
+     * @param nodeName Name of the node to stop.
      */
     public static void stop(String nodeName) {
         stop(nodeName, Thread.currentThread().getContextClassLoader());
     }
 
     /**
-     * Stops the node with given {@code nodeName}. It's possible to stop both already started node or node that is currently starting.
-     * Has no effect if node with specified name doesn't exist.
+     * Stops the node identified by {@code nodeName}. It is possible to stop both running nodes and the node that are currently starting.
+     * No action is taken if the specified node doesn't exist.
      *
-     * @param nodeName Node name to stop.
-     * @param clsLdr The class loader to be used to load provider-configuration files and provider classes, or {@code null} if the system
-     *               class loader (or, failing that, the bootstrap class loader) is to be used
+     * @param nodeName Name of the node to stop.
+     * @param clsLdr Class loader to be used to load provider-configuration files and provider classes; {@code null} if the system
+     *               class loader (or, failing that, the bootstrap class loader) is to be used.
      */
     public static void stop(String nodeName, @Nullable ClassLoader clsLdr) {
         Ignition ignition = loadIgnitionService(clsLdr);
@@ -97,7 +97,7 @@ public class IgnitionManager {
     }
 
     /**
-     * Initializes the cluster that this node is present in.
+     * Initializes the cluster the specified node belongs to.
      *
      * @param parameters initialization parameters.
      * @throws IgniteException If the given node has not been started or has been stopped.

@@ -54,7 +54,7 @@ public interface NodeConfigurationApi {
     @ApiResponse(responseCode = "200",
             content = @Content(mediaType = MediaType.TEXT_PLAIN,
                     schema = @Schema(type = "string")),
-            description = "Whole node configuration.")
+            description = "Full node configuration.")
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "400", description = "Incorrect configuration.",

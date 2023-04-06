@@ -48,6 +48,7 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
+import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
@@ -165,6 +166,8 @@ public class PartitionListener implements RaftGroupListener {
                     handleTxCleanupCommand((TxCleanupCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof SafeTimeSyncCommand) {
                     handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof BuildIndexCommand) {
+                    handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
@@ -421,5 +424,34 @@ public class PartitionListener implements RaftGroupListener {
     @TestOnly
     public MvPartitionStorage getMvStorage() {
         return storage.getStorage();
+    }
+
+    /**
+     * Handler for the {@link BuildIndexCommand}.
+     *
+     * @param cmd Command.
+     * @param commandIndex RAFT index of the command.
+     * @param commandTerm RAFT term of the command.
+     */
+    void handleBuildIndexCommand(BuildIndexCommand cmd, long commandIndex, long commandTerm) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        storage.runConsistently(() -> {
+            storageUpdateHandler.buildIndex(cmd.indexId(), cmd.rowIds(), cmd.finish());
+
+            storage.lastApplied(commandIndex, commandTerm);
+
+            return null;
+        });
+
+        if (cmd.finish()) {
+            LOG.info(
+                    "Finish building the index: [tableId={}, partitionId={}, indexId={}]",
+                    cmd.tablePartitionId().tableId(), cmd.tablePartitionId().partitionId(), cmd.indexId()
+            );
+        }
     }
 }

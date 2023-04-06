@@ -240,6 +240,13 @@ public class ItUuidTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    public void testCoalesce() {
+        assertQuery(format("SELECT COALESCE(NULL, '{}'::UUID)", UUID_1)).returns(UUID_1).check();
+
+        assertQuery(format("SELECT COALESCE('{}'::UUID, NULL)", UUID_1)).returns(UUID_1).check();
+    }
+
+    @Test
     public void testTypeCoercionInDml() {
         sql("INSERT INTO t (id, uuid_key) VALUES (1, ?)",  UUID_1.toString());
 

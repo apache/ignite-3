@@ -17,7 +17,6 @@
 
 package org.apache.ignite.raft.jraft.rpc;
 
-import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
@@ -25,7 +24,7 @@ import org.apache.ignite.raft.jraft.RaftMessageGroup;
 /**
  * Submit an action to a replication group.
  */
-@Transferable(value = RaftMessageGroup.RpcActionMessageGroup.ACTION_REQUEST)
+@Transferable(RaftMessageGroup.RpcActionMessageGroup.ACTION_REQUEST)
 public interface ActionRequest extends Message {
     /**
      * @return Group id.
@@ -35,7 +34,6 @@ public interface ActionRequest extends Message {
     /**
      * @return Action's command.
      */
-    @Marshallable
     Command command();
 
     /**

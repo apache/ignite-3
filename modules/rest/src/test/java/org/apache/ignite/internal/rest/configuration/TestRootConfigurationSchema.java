@@ -30,6 +30,10 @@ public class TestRootConfigurationSchema {
     @Value(hasDefault = true)
     public String foo = "foo";
 
+    /** Sub sensitive configuration schema. */
+    @ConfigValue
+    public TestSubSensitiveConfigurationSchema sensitive;
+
     /** Sub configuration schema. */
     @ConfigValue
     public TestSubConfigurationSchema subCfg;

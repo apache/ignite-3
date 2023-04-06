@@ -26,8 +26,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -64,6 +66,8 @@ public class MockNode {
 
     private final SecurityConfiguration securityConfiguration;
 
+    private final NodeAttributesConfiguration nodeAttributes;
+
     private final List<IgniteComponent> components = new ArrayList<>();
 
     private CompletableFuture<Void> startFuture;
@@ -78,7 +82,8 @@ public class MockNode {
             Path workDir,
             RaftConfiguration raftConfiguration,
             ClusterManagementConfiguration cmgConfiguration,
-            SecurityConfiguration securityConfiguration
+            SecurityConfiguration securityConfiguration,
+            NodeAttributesConfiguration nodeAttributes
     ) {
         this.testInfo = testInfo;
         this.nodeFinder = nodeFinder;
@@ -86,6 +91,7 @@ public class MockNode {
         this.raftConfiguration = raftConfiguration;
         this.cmgConfiguration = cmgConfiguration;
         this.securityConfiguration = securityConfiguration;
+        this.nodeAttributes = nodeAttributes;
 
         try {
             init(addr.port());
@@ -117,7 +123,9 @@ public class MockNode {
                 clusterStateStorage,
                 logicalTopologyService,
                 cmgConfiguration,
-                distributedConfigurationUpdater);
+                distributedConfigurationUpdater,
+                nodeAttributes
+        );
 
         components.add(vaultManager);
         components.add(clusterService);
@@ -203,7 +211,7 @@ public class MockNode {
         return clusterService;
     }
 
-    CompletableFuture<Set<ClusterNode>> logicalTopologyNodes() {
+    CompletableFuture<Set<LogicalNode>> logicalTopologyNodes() {
         return clusterManager().logicalTopology().thenApply(LogicalTopologySnapshot::nodes);
     }
 

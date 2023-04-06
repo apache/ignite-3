@@ -29,7 +29,7 @@ import java.lang.annotation.Target;
  * annotation are Ignite node configuration, cache configuration, because nodes and caches can be added dynamically. Every field annotated
  * with this annotation will produce a {@code NamedListConfiguration} field in generated configuration class.
  *
- * <h1 class="header">Example</h1>
+ * <h2 class="header">Example</h2>
  * <pre><code>
  * {@literal @}Config(value = "local", root = true)
  * public class LocalConfigurationSchema {

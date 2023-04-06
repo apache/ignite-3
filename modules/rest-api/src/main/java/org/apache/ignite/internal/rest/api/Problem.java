@@ -58,11 +58,11 @@ public class Problem {
     private final String node;
 
     /** Unique identifier that will help to trace the error in the log (optional). */
-    @Schema(description = "Unique issue identifier. Thid identifier can be used to find logs related to the issue")
+    @Schema(description = "Unique issue identifier. This identifier can be used to find logs related to the issue.")
     private final UUID traceId;
 
     /** List of parameters that did not pass the validation (optional). */
-    @Schema(description = "Parameters that did not pass validation.")
+    @Schema(description = "A list of parameters that did not pass validation and the reason for it.")
     private final Collection<InvalidParam> invalidParams;
 
     /** Constructor. */

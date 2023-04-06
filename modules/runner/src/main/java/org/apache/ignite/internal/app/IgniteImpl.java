@@ -45,6 +45,7 @@ import org.apache.ignite.internal.catalog.CatalogServiceImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -127,7 +128,6 @@ import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.DefaultMessagingService;
@@ -286,7 +286,7 @@ public class IgniteImpl implements Ignite {
     IgniteImpl(String name, Path configPath, Path workDir, @Nullable ClassLoader serviceProviderClassLoader) {
         this.name = name;
 
-        longJvmPauseDetector = new LongJvmPauseDetector(name, Loggers.forClass(LongJvmPauseDetector.class));
+        longJvmPauseDetector = new LongJvmPauseDetector(name);
 
         lifecycleManager = new LifecycleManager(name);
 
@@ -310,14 +310,13 @@ public class IgniteImpl implements Ignite {
 
         MessageSerializationRegistry serializationRegistry = createSerializationRegistry(serviceProviderClassLoader);
 
-        var clusterLocalConfiguration = new ClusterLocalConfiguration(name, serializationRegistry);
-
-        nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, clusterLocalConfiguration.getName());
+        nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
 
         clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
-                clusterLocalConfiguration,
+                name,
                 networkConfiguration,
-                nettyBootstrapFactory
+                nettyBootstrapFactory,
+                serializationRegistry
         );
 
         computeComponent = new ComputeComponentImpl(
@@ -367,7 +366,9 @@ public class IgniteImpl implements Ignite {
                 clusterStateStorage,
                 logicalTopology,
                 nodeConfigRegistry.getConfiguration(ClusterManagementConfiguration.KEY),
-                distributedConfigurationUpdater);
+                distributedConfigurationUpdater,
+                nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY)
+        );
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
 
@@ -489,7 +490,7 @@ public class IgniteImpl implements Ignite {
                 topologyAwareRaftGroupServiceFactory0
         );
 
-        indexManager = new IndexManager(tablesConfiguration, schemaManager, distributedTblMgr);
+        indexManager = new IndexManager(name, tablesConfiguration, schemaManager, distributedTblMgr, clusterSvc);
 
         catalogManager = new CatalogServiceImpl(metaStorageMgr);
 

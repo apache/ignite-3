@@ -48,6 +48,8 @@ import org.apache.ignite.security.AuthenticationConfig;
 public class ClusterInitializer {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterInitializer.class);
 
+    private static final int INIT_MESSAGE_SEND_TIMEOUT_MILLIS = 10_000;
+
     private final ClusterService clusterService;
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
@@ -192,7 +194,7 @@ public class ClusterInitializer {
     private CompletableFuture<Void> invokeMessage(Collection<ClusterNode> nodes, NetworkMessage message) {
         return allOf(nodes, node ->
                 clusterService.messagingService()
-                        .invoke(node, message, 10000)
+                        .invoke(node, message, INIT_MESSAGE_SEND_TIMEOUT_MILLIS)
                         .thenAccept(response -> {
                             if (response instanceof InitErrorMessage) {
                                 var errorResponse = (InitErrorMessage) response;

@@ -103,6 +103,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
@@ -336,7 +337,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new StorageUpdateHandler(
                         partId,
                         partitionDataStorage,
-                        () -> Map.of(pkStorage.get().id(), pkStorage.get()),
+                        DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get())),
                         dsCfg
                 ),
                 peer -> localNode.name().equals(peer.consistentId()),

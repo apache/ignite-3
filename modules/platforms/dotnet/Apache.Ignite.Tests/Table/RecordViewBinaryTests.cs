@@ -597,5 +597,11 @@ namespace Apache.Ignite.Tests.Table
             Assert.IsTrue(await TupleView.ContainsKeyAsync(null, tuple));
             Assert.IsFalse(await TupleView.ContainsKeyAsync(null, GetTuple(-128)));
         }
+
+        [Test]
+        public void TestToString()
+        {
+            StringAssert.StartsWith("RecordView`1[IIgniteTuple] { Table = Table { Name = TBL1, Id =", TupleView.ToString());
+        }
     }
 }

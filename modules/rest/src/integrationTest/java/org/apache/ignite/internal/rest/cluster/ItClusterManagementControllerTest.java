@@ -88,7 +88,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
     void testInitEnabledAuthEmptyProviders() {
         String givenInvalidBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
-                + "    \"" + cluster.get(0).clusterService().localConfiguration().getName() + "\""
+                + "    \"" + cluster.get(0).clusterService().nodeName() + "\""
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
@@ -111,7 +111,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
     void testInitEnabledAuthEmptyLogin() {
         String givenInvalidBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
-                + "    \"" + cluster.get(0).clusterService().localConfiguration().getName() + "\""
+                + "    \"" + cluster.get(0).clusterService().nodeName() + "\""
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
@@ -141,7 +141,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
     void testInitEnabledAuthEmptyPassword() {
         String givenInvalidBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
-                + "    \"" + cluster.get(0).clusterService().localConfiguration().getName() + "\""
+                + "    \"" + cluster.get(0).clusterService().nodeName() + "\""
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
@@ -171,7 +171,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
     void testInitEnabledAuthEmptyType() {
         String givenInvalidBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
-                + "    \"" + cluster.get(0).clusterService().localConfiguration().getName() + "\""
+                + "    \"" + cluster.get(0).clusterService().nodeName() + "\""
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
@@ -201,7 +201,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
     void testInitEnabledAuthEmptyName() {
         String givenInvalidBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
-                + "    \"" + cluster.get(0).clusterService().localConfiguration().getName() + "\""
+                + "    \"" + cluster.get(0).clusterService().nodeName() + "\""
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
@@ -243,7 +243,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
         // Given cluster initialized
         String givenFirstRequestBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
-                + "        \"" + cluster.get(0).clusterService().localConfiguration().getName() + "\"\n"
+                + "        \"" + cluster.get(0).clusterService().nodeName() + "\"\n"
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
@@ -265,14 +265,14 @@ public class ItClusterManagementControllerTest extends RestTestBase {
                 client.toBlocking().retrieve("state", ClusterStateDto.class);
 
         // Then cluster state is valid
-        assertThat(state.msNodes(), is(equalTo(List.of(cluster.get(0).clusterService().localConfiguration().getName()))));
-        assertThat(state.cmgNodes(), is(equalTo(List.of(cluster.get(0).clusterService().localConfiguration().getName()))));
+        assertThat(state.msNodes(), is(equalTo(List.of(cluster.get(0).clusterService().nodeName()))));
+        assertThat(state.cmgNodes(), is(equalTo(List.of(cluster.get(0).clusterService().nodeName()))));
         assertThat(state.clusterTag().clusterName(), is(equalTo("cluster")));
 
         // Given second request with different node name
         String givenSecondRequestBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
-                + "        \"" + cluster.get(1).clusterService().localConfiguration().getName() + "\"\n"
+                + "        \"" + cluster.get(1).clusterService().nodeName() + "\"\n"
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"

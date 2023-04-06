@@ -47,6 +47,7 @@ public interface JdbcQueryEventHandler {
     /**
      * {@link JdbcQueryExecuteRequest} command handler.
      *
+     * @param connectionId Identifier of the connection.
      * @param req Execute query request.
      * @return Result future.
      */
@@ -55,19 +56,20 @@ public interface JdbcQueryEventHandler {
     /**
      * {@link JdbcBatchExecuteRequest} command handler.
      *
+     * @param connectionId Identifier of the connection.
      * @param req Batch query request.
      * @return Result future.
      */
-    CompletableFuture<JdbcBatchExecuteResult> batchAsync(JdbcBatchExecuteRequest req);
+    CompletableFuture<JdbcBatchExecuteResult> batchAsync(long connectionId, JdbcBatchExecuteRequest req);
 
     /**
      * {@link JdbcBatchPreparedStmntRequest} command handler.
      *
+     * @param connectionId The identifier of the connection.
      * @param req Batch query request.
      * @return Result future.
      */
-    CompletableFuture<JdbcBatchExecuteResult> batchPrepStatementAsync(
-            JdbcBatchPreparedStmntRequest req);
+    CompletableFuture<JdbcBatchExecuteResult> batchPrepStatementAsync(long connectionId, JdbcBatchPreparedStmntRequest req);
 
     /**
      * {@link JdbcMetaTablesRequest} command handler.

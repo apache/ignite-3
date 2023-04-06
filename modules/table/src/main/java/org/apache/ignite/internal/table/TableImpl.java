@@ -42,6 +42,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
+import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.lang.ErrorGroups;
@@ -222,20 +223,28 @@ public class TableImpl implements Table {
     }
 
     /** Returns a supplier of index storage wrapper factories for given partition. */
-    public Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexStorageAdapters(int partId) {
-        return () -> {
-            awaitIndexes();
+    public TableIndexStoragesSupplier indexStorageAdapters(int partId) {
+        return new TableIndexStoragesSupplier() {
+            @Override
+            public Map<UUID, TableSchemaAwareIndexStorage> get() {
+                awaitIndexes();
 
-            List<IndexStorageAdapterFactory> factories = new ArrayList<>(indexStorageAdapterFactories.values());
+                List<IndexStorageAdapterFactory> factories = new ArrayList<>(indexStorageAdapterFactories.values());
 
-            Map<UUID, TableSchemaAwareIndexStorage> adapters = new HashMap<>();
+                Map<UUID, TableSchemaAwareIndexStorage> adapters = new HashMap<>();
 
-            for (IndexStorageAdapterFactory factory : factories) {
-                TableSchemaAwareIndexStorage storage = factory.create(partId);
-                adapters.put(storage.id(), storage);
+                for (IndexStorageAdapterFactory factory : factories) {
+                    TableSchemaAwareIndexStorage storage = factory.create(partId);
+                    adapters.put(storage.id(), storage);
+                }
+
+                return adapters;
             }
 
-            return adapters;
+            @Override
+            public void addIndexToWaitIfAbsent(UUID indexId) {
+                addIndexesToWait(List.of(indexId));
+            }
         };
     }
 
@@ -385,14 +394,25 @@ public class TableImpl implements Table {
     }
 
     /**
-     * Adds indexes to wait before inserting data into the table.
+     * Adds indexes to wait, if not already created, before inserting data into the table.
      *
      * @param indexIds Indexes Index IDs.
      */
     // TODO: IGNITE-19082 Needs to be redone/improved
     public void addIndexesToWait(Collection<UUID> indexIds) {
         for (UUID indexId : indexIds) {
-            indexesToWait.computeIfAbsent(indexId, uuid -> new CompletableFuture<>());
+            indexesToWait.compute(indexId, (indexId0, awaitIndexFuture) -> {
+                if (awaitIndexFuture != null) {
+                    return awaitIndexFuture;
+                }
+
+                if (indexStorageAdapterFactories.containsKey(indexId) && indexLockerFactories.containsKey(indexId)) {
+                    // Index is already registered and created.
+                    return null;
+                }
+
+                return new CompletableFuture<>();
+            });
         }
     }
 
