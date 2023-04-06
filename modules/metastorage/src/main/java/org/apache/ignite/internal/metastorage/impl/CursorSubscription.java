@@ -126,6 +126,8 @@ class CursorSubscription implements Subscription {
                     demand--;
                 } else {
                     if (cachedResponse.hasNextBatch()) {
+                        assert !entries.isEmpty();
+
                         byte[] lastProcessedKey = entries.get(entries.size() - 1).key();
 
                         requestNextBatch(lastProcessedKey);

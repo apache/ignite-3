@@ -60,8 +60,7 @@ class MetaStorageWriteHandler {
     }
 
     /**
-     * Tries to process a {@link WriteCommand}, returning {@code true} if the command has been successfully processed or {@code false} if
-     * the command requires external processing.
+     * Processes a given {@link WriteCommand}.
      */
     void handleWriteCommand(CommandClosure<WriteCommand> clo) {
         WriteCommand command = clo.command();

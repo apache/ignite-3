@@ -150,10 +150,14 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             }
         };
 
-        if (command instanceof ReadCommand) {
-            listener.onRead(singleton((CommandClosure<ReadCommand>) closure).iterator());
-        } else {
-            listener.onWrite(singleton((CommandClosure<WriteCommand>) closure).iterator());
+        try {
+            if (command instanceof ReadCommand) {
+                listener.onRead(singleton((CommandClosure<ReadCommand>) closure).iterator());
+            } else {
+                listener.onWrite(singleton((CommandClosure<WriteCommand>) closure).iterator());
+            }
+        } catch (Throwable e) {
+            future.completeExceptionally(e);
         }
 
         return future;

@@ -769,6 +769,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo, long revUpperBound) {
+        //
         rwLock.readLock().lock();
 
         try {
@@ -833,7 +834,16 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                         return EntryImpl.empty(key);
                     }
 
-                    return doGetValue(key, targetRevision);
+                    // This is not a correct approach for using locks in terms of compaction correctness (we should block compaction for the
+                    // whole iteration duration). However, compaction is not fully implemented yet, so this lock is taken for consistency
+                    // sake. This part must be rewritten in the future.
+                    rwLock.readLock().lock();
+
+                    try {
+                        return doGetValue(key, targetRevision);
+                    } finally {
+                        rwLock.readLock().unlock();
+                    }
                 }
 
                 @Override

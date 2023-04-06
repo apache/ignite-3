@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetCommand;
 import org.apache.ignite.internal.metastorage.command.GetPrefixCommand;
@@ -71,41 +72,37 @@ public class MetaStorageListener implements RaftGroupListener {
                 if (command instanceof GetCommand) {
                     GetCommand getCmd = (GetCommand) command;
 
-                    Entry e;
-
-                    if (getCmd.revision() != 0) {
-                        e = storage.get(getCmd.key(), getCmd.revision());
-                    } else {
-                        e = storage.get(getCmd.key());
-                    }
+                    Entry e = getCmd.revision() == MetaStorageManager.LATEST_REVISION
+                            ? storage.get(getCmd.key())
+                            : storage.get(getCmd.key(), getCmd.revision());
 
                     clo.result(e);
                 } else if (command instanceof GetAllCommand) {
                     GetAllCommand getAllCmd = (GetAllCommand) command;
 
-                    Collection<Entry> entries;
-
-                    if (getAllCmd.revision() != 0) {
-                        entries = storage.getAll(getAllCmd.keys(), getAllCmd.revision());
-                    } else {
-                        entries = storage.getAll(getAllCmd.keys());
-                    }
+                    Collection<Entry> entries = getAllCmd.revision() == MetaStorageManager.LATEST_REVISION
+                            ? storage.getAll(getAllCmd.keys())
+                            : storage.getAll(getAllCmd.keys(), getAllCmd.revision());
 
                     clo.result((Serializable) entries);
                 } else if (command instanceof GetRangeCommand) {
                     var rangeCmd = (GetRangeCommand) command;
 
-                    byte[] keyFrom = rangeCmd.previousKey() == null
+                    byte[] previousKey = rangeCmd.previousKey();
+
+                    byte[] keyFrom = previousKey == null
                             ? rangeCmd.keyFrom()
-                            : requireNonNull(storage.nextKey(rangeCmd.previousKey()));
+                            : requireNonNull(storage.nextKey(previousKey));
 
                     clo.result(handlePaginationCommand(keyFrom, rangeCmd.keyTo(), rangeCmd));
                 } else if (command instanceof GetPrefixCommand) {
                     var prefixCmd = (GetPrefixCommand) command;
 
-                    byte[] keyFrom = prefixCmd.previousKey() == null
+                    byte[] previousKey = prefixCmd.previousKey();
+
+                    byte[] keyFrom = previousKey == null
                             ? prefixCmd.prefix()
-                            : requireNonNull(storage.nextKey(prefixCmd.previousKey()));
+                            : requireNonNull(storage.nextKey(previousKey));
 
                     byte[] keyTo = storage.nextKey(prefixCmd.prefix());
 
@@ -120,7 +117,9 @@ public class MetaStorageListener implements RaftGroupListener {
     }
 
     private BatchResponse handlePaginationCommand(byte[] keyFrom, byte @Nullable [] keyTo, PaginationCommand command) {
-        Cursor<Entry> cursor = command.revUpperBound() == -1
+        assert command.batchSize() > 0 : command.batchSize();
+
+        Cursor<Entry> cursor = command.revUpperBound() == MetaStorageManager.LATEST_REVISION
                 ? storage.range(keyFrom, keyTo)
                 : storage.range(keyFrom, keyTo, command.revUpperBound());
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.jetbrains.annotations.Nullable;
 
@@ -25,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface PaginationCommand extends ReadCommand {
     /**
-     * Returns the upper bound for entry revision. {@code -1} means latest revision.
+     * Returns the upper bound for entry revision or {@link MetaStorageManager#LATEST_REVISION} for no revision bound.
      */
     long revUpperBound();
 

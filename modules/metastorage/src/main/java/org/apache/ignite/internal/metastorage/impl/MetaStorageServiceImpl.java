@@ -65,6 +65,9 @@ import org.jetbrains.annotations.Nullable;
 public class MetaStorageServiceImpl implements MetaStorageService {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageService.class);
 
+    /** Default batch size that is requested from the remote server. */
+    public static final int BATCH_SIZE = 1000;
+
     private final MetaStorageServiceContext context;
 
     /**
@@ -231,6 +234,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .revUpperBound(revUpperBound)
                 .includeTombstones(includeTombstones)
                 .previousKey(prevKey)
+                .batchSize(BATCH_SIZE)
                 .build();
 
         return new CursorPublisher(context, getRangeCommand);
@@ -243,6 +247,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .revUpperBound(revUpperBound)
                 .includeTombstones(false)
                 .previousKey(prevKey)
+                .batchSize(BATCH_SIZE)
                 .build();
 
         return new CursorPublisher(context, getPrefixCommand);

@@ -15,16 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command;
+package org.apache.ignite.internal.metastorage.impl;
 
-import org.apache.ignite.network.annotations.Transferable;
+import java.nio.file.Path;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 
 /**
- * Range command for MetaStorageCommandListener that retrieves entries for the given key prefix in lexicographic order. Entries will be
- * filtered out by upper bound of given revision number.
+ * {@link MetaStorageRangeTest} implementation using {@link SimpleInMemoryKeyValueStorage}.
  */
-@Transferable(MetastorageCommandsMessageGroup.GET_PREFIX)
-public interface GetPrefixCommand extends PaginationCommand {
-    /** Returns the prefix that all returned keys should start with. */
-    byte[] prefix();
+public class MetaStorageInMemoryRangeTest extends MetaStorageRangeTest {
+    @Override
+    KeyValueStorage getStorage(Path path) {
+        return new SimpleInMemoryKeyValueStorage("test");
+    }
 }
