@@ -113,7 +113,7 @@ public class MessageImplGenerator {
                     .addModifiers(Modifier.PRIVATE);
 
             boolean isMarshallable = getter.getAnnotation(Marshallable.class) != null;
-            boolean isMessage = typeUtils.isSubType(getterType, NetworkMessage.class);
+            boolean isNetworkMessage = typeUtils.isSubType(getterType, NetworkMessage.class);
 
             if (isMarshallable && isMessage) {
                 String error =
