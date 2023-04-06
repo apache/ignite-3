@@ -95,7 +95,7 @@ public class ItGeneratedRestClientTest {
     private static final int BASE_REST_PORT = 10300;
 
     @WorkDirectory
-    private static Path workDir;
+    private static Path WORK_DIR;
 
     private final List<String> clusterNodeNames = new ArrayList<>();
 
