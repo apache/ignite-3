@@ -146,7 +146,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         CompletableFuture<RaftGroupService> raftServiceFuture;
 
         try {
-            RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig = new RaftNodeDisruptorConfiguration("metastore", 1);
+            RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig = new RaftNodeDisruptorConfiguration("metastorage", 1);
 
             // We need to configure the replication protocol differently whether this node is a synchronous or asynchronous replica.
             if (metaStorageNodes.contains(thisNodeName)) {

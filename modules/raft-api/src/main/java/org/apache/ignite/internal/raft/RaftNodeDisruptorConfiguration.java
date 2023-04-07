@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.raft;
 
 /**
- * Raft node thread pools configuration.
+ * Raft node disruptor configuration.
  */
 public class RaftNodeDisruptorConfiguration {
     private final String threadPostfix;

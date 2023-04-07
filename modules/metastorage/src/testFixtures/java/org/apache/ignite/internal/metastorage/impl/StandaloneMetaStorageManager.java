@@ -125,8 +125,8 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                     any(),
                     any(),
                     listenerCaptor.capture(),
-                    any())
-            ).thenReturn(completedFuture(raftGroupService));
+                    any()
+            )).thenReturn(completedFuture(raftGroupService));
 
             when(raftManager.startRaftGroupNode(
                     any(),
