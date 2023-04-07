@@ -158,7 +158,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
         when(vaultMgr.get(zonesLogicalTopologyKey())).thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), null)));
 
         when(vaultMgr.get(zonesLogicalTopologyVersionKey()))
-                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyVersionKey(), longToBytes(3))));
+                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyVersionKey(), longToBytes(0))));
 
         when(vaultMgr.put(any(), any())).thenReturn(completedFuture(null));
 
@@ -208,7 +208,6 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
                 DEFAULT_ZONE_NAME,
                 new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                         .dataNodesAutoAdjustScaleUp(0)
-                        .dataNodesAutoAdjustScaleDown(Integer.MAX_VALUE)
                         .build()
         ).get();
 
@@ -338,16 +337,16 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     }
 
     private void watchListenerOnUpdate(Set<String> nodes, long rev) {
-        byte[] newLogicalTopology = toBytes(nodes);
+        byte[] newTopology = toBytes(nodes);
         byte[] newTopVer = longToBytes(1L);
 
-        Entry newEntry0 = new EntryImpl(zonesLogicalTopologyKey().bytes(), newLogicalTopology, rev, 1);
-        Entry newEntry1 = new EntryImpl(zonesLogicalTopologyVersionKey().bytes(), newTopVer, rev, 1);
+        Entry topology = new EntryImpl(zonesLogicalTopologyKey().bytes(), newTopology, rev, 1);
+        Entry topVer = new EntryImpl(zonesLogicalTopologyVersionKey().bytes(), newTopVer, rev, 1);
 
-        EntryEvent entryEvent0 = new EntryEvent(null, newEntry0);
-        EntryEvent entryEvent1 = new EntryEvent(null, newEntry1);
+        EntryEvent topologyEvent = new EntryEvent(null, topology);
+        EntryEvent topVerEvent = new EntryEvent(null, topVer);
 
-        WatchEvent evt = new WatchEvent(List.of(entryEvent0, entryEvent1), rev);
+        WatchEvent evt = new WatchEvent(List.of(topologyEvent, topVerEvent), rev);
 
         topologyWatchListener.onUpdate(evt);
     }

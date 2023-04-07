@@ -603,7 +603,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 saveToVaultFuture = vaultMgr.putAll(batch);
             }
 
-            System.out.println("saveUpdatedEntriesToVault " + watchEvent);
             return saveToVaultFuture.thenRun(() -> appliedRevision = watchEvent.revision());
         } finally {
             busyLock.leaveBusy();

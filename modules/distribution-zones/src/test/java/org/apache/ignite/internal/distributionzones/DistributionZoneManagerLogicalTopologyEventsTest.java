@@ -32,8 +32,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
@@ -291,8 +289,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         distributionZoneManager1.start();
 
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
-
         assertLogicalTopVer(1L);
 
         assertLogicalTopology(clusterNodes, keyValueStorage);
@@ -309,8 +305,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(1L));
 
         distributionZoneManager1.start();
-
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
 
         assertLogicalTopVer(2L);
 

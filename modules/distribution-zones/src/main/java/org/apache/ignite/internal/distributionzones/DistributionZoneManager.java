@@ -143,6 +143,8 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Default number of zone partitions. */
     public static final int DEFAULT_PARTITION_COUNT = 25;
 
+    /** Value for the distribution zones' timers which means that data nodes changing for distribution zone will be
+     * started without waiting. */
     public static final int IMMEDIATE_TIMER_VALUE = 0;
 
     /** Default infinite value for the distribution zones' timers. */
@@ -181,6 +183,7 @@ public class DistributionZoneManager implements IgniteComponent {
      */
     private final Map<Integer, ZoneState> zonesState;
 
+    /** The tracker for last topology version which was observed by distribution zone manager. */
     private final PendingComparableValuesTracker<Long> topVerTracker;
 
     /**
@@ -547,7 +550,9 @@ public class DistributionZoneManager implements IgniteComponent {
      * If the {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleDown} equals to 0 than wait for writing data nodes
      * triggered by stopped nodes and corresponding to the passed topology version or greater topology version
      * to the data nodes into the meta storage.
-     * After waiting it returns the future with data nodes of the specified zone.
+     * After waiting it completes the future with data nodes of the specified zone.
+     * This method must be invoked in a change configuration closure to guarantee that the zone is exists and values of scaleUp/scaleDown
+     * timers are up to date.
      *
      * @param zoneId Zone id.
      * @param topVer Topology version.
@@ -778,6 +783,13 @@ public class DistributionZoneManager implements IgniteComponent {
         metaStorageManager.unregisterWatch(topologyWatchListener);
         metaStorageManager.unregisterWatch(dataNodesWatchListener);
 
+        topVerTracker.update(Long.MAX_VALUE);
+
+        zonesState.values().forEach(zoneState -> {
+            zoneState.scaleUpRevisionTracker().update(Long.MAX_VALUE);
+            zoneState.scaleDownRevisionTracker().update(Long.MAX_VALUE);
+        });
+
         shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
 
@@ -788,7 +800,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
             ZoneState zoneState = new ZoneState(executor);
 
-            System.out.println("zonesState.putIfAbsent " + zoneId);
             zonesState.putIfAbsent(zoneId, zoneState);
 
             saveDataNodesAndUpdateTriggerKeysInMetaStorage(zoneId, ctx.storageRevision(), logicalTopology);
@@ -1589,8 +1600,10 @@ public class DistributionZoneManager implements IgniteComponent {
         /** Data nodes. */
         private Set<String> nodes;
 
+        /** The tracker for scale up meta storage revision of current data nodes value which was observed by distribution zone manager. */
         private final PendingComparableValuesTracker<Long> scaleUpRevisionTracker;
 
+        /** The tracker for scale down meta storage revision of current data nodes value which was observed by distribution zone manager. */
         private final PendingComparableValuesTracker<Long> scaleDownRevisionTracker;
 
         /**
@@ -1778,10 +1791,20 @@ public class DistributionZoneManager implements IgniteComponent {
             this.nodes = nodes;
         }
 
+        /**
+         * The tracker for scale up meta storage revision of current data nodes value which was observed by distribution zone manager.
+         *
+         * @return The tracker.
+         */
         PendingComparableValuesTracker<Long> scaleUpRevisionTracker() {
             return scaleUpRevisionTracker;
         }
 
+        /**
+         * The tracker for scale down meta storage revision of current data nodes value which was observed by distribution zone manager.
+         *
+         * @return The tracker.
+         */
         PendingComparableValuesTracker<Long> scaleDownRevisionTracker() {
             return scaleDownRevisionTracker;
         }

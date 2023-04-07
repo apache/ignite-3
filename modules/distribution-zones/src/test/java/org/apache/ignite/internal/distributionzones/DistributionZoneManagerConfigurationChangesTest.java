@@ -36,8 +36,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -110,7 +108,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
                 .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), toBytes(nodes))));
 
         when(vaultMgr.get(zonesLogicalTopologyVersionKey()))
-                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyVersionKey(), longToBytes(3))));
+                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyVersionKey(), longToBytes(0))));
 
         LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
 
@@ -155,9 +153,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
-        System.out.println("before assert");
         assertDataNodesForZone(1, nodes, keyValueStorage);
-        System.out.println("after assert");
 
         assertZoneScaleUpChangeTriggerKey(1, 1, keyValueStorage);
 
@@ -196,8 +192,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
-
         assertZonesChangeTriggerKey(100, 1, keyValueStorage);
 
         assertDataNodesForZone(1, null, keyValueStorage);
@@ -212,8 +206,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         keyValueStorage.put(zonesChangeTriggerKey(1).bytes(), longToBytes(100));
 
         distributionZoneManager.dropZone(ZONE_NAME).get();
-
-        verify(keyValueStorage, timeout(1000).times(3)).invoke(any());
 
         assertDataNodesForZone(1, nodes, keyValueStorage);
     }
