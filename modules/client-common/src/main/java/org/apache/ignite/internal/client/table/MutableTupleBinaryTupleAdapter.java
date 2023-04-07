@@ -26,6 +26,7 @@ import java.util.Iterator;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 
@@ -33,7 +34,7 @@ import org.jetbrains.annotations.NotNull;
  * {@link org.apache.ignite.table.Tuple} implementation over {@link org.apache.ignite.internal.binarytuple.BinaryTupleReader},
  * with mutable fallback.
  */
-public final class MutableTupleBinaryTupleAdapter implements Tuple {
+public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     // TODO: SchemaAware?
     // TODO: This class should be in client, not client-common: we need to deal with ClientSchema.
     // BUT at the same time, this might be needed on the server side to wrap BinaryTuple.
@@ -58,31 +59,47 @@ public final class MutableTupleBinaryTupleAdapter implements Tuple {
     /** {@inheritDoc} */
     @Override
     public int columnCount() {
-        return tuple != null ? tuple.columnCount() : super.columnCount();
+        return tuple != null ? tuple.columnCount() : schemaColumnCount();
     }
 
     /** {@inheritDoc} */
     @Override
     public String columnName(int columnIndex) {
-        return tuple != null ? tuple.columnName(columnIndex) : super.columnName(columnIndex);
+        return tuple != null ? tuple.columnName(columnIndex) : schemaColumnName(columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public int columnIndex(@NotNull String columnName) {
-        return tuple != null ? tuple.columnIndex(columnName) : super.columnIndex(columnName);
+        return tuple != null ? tuple.columnIndex(columnName) : schemaColumnIndex(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public <T> T valueOrDefault(@NotNull String columnName, T defaultValue) {
-        return tuple != null ? tuple.valueOrDefault(columnName, defaultValue) : super.valueOrDefault(columnName, defaultValue);
+        if (tuple != null) {
+            return tuple.valueOrDefault(columnName, defaultValue);
+        }
+
+        var idx = schemaColumnIndex(columnName);
+
+        return idx < 0 ? defaultValue : value(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public <T> T value(@NotNull String columnName) {
-        return tuple != null ? tuple.value(columnName) : super.value(columnName);
+        if (tuple != null) {
+            return tuple.value(columnName);
+        }
+
+        var idx = schemaColumnIndex(columnName);
+
+        if (idx < 0) {
+            throw new IllegalArgumentException("Column not found: " + columnName);
+        }
+
+        return value(idx);
     }
 
     /** {@inheritDoc} */
@@ -272,4 +289,12 @@ public final class MutableTupleBinaryTupleAdapter implements Tuple {
 
         return this;
     }
+
+    protected abstract int schemaColumnCount();
+
+    protected abstract String schemaColumnName(int index);
+
+    protected abstract int schemaColumnIndex(@NotNull String columnName);
+
+    protected abstract int validateColumnIndex(int columnIndex, ColumnType type);
 }
