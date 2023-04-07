@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.logging.Handler;
@@ -186,7 +187,7 @@ class ItClusterCommandTest extends AbstractCliTest {
                 .map(Matchers::containsString)
                 .collect(collectingAndThen(toList(), (List<Matcher<? super String>> matchers) -> allOf(matchers)));
 
-        await().untilAsserted(() -> {
+        await().timeout(Duration.ofSeconds(10)).untilAsserted(() -> {
             out.reset();
             err.reset();
 
