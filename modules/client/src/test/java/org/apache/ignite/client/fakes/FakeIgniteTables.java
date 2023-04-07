@@ -20,7 +20,6 @@ package org.apache.ignite.client.fakes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -239,8 +238,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
         return new TableImpl(
                 new FakeInternalTable(name, id, keyExtractor),
                 schemaReg,
-                new HeapLockManager(),
-                Set::of
+                new HeapLockManager()
         );
     }
 

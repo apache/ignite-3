@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
-import java.util.Set;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
@@ -169,7 +168,7 @@ public class SchemaValidationTest {
     }
 
     private static TableImpl createTableImpl(SchemaDescriptor schema) {
-        return new TableImpl(createTable(schema), new DummySchemaManagerImpl(schema), new HeapLockManager(), Set::of);
+        return new TableImpl(createTable(schema), new DummySchemaManagerImpl(schema), new HeapLockManager());
     }
 
     /**

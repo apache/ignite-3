@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -75,21 +74,15 @@ public class TableImpl implements Table {
     private final Map<UUID, IndexStorageAdapterFactory> indexStorageAdapterFactories = new ConcurrentHashMap<>();
     private final Map<UUID, IndexLockerFactory> indexLockerFactories = new ConcurrentHashMap<>();
 
-    /** Supplier of existing table indexes. */
-    // TODO: IGNITE-19082 Needs to be redone/improved
-    private final Supplier<Set<UUID>> existsIndexIdsSupplier;
-
     /**
      * Constructor.
      *
      * @param tbl       The table.
      * @param lockManager Lock manager.
-     * @param existsIndexIdsSupplier Supplier of existing table indexes.
      */
-    public TableImpl(InternalTable tbl, LockManager lockManager, Supplier<Set<UUID>> existsIndexIdsSupplier) {
+    public TableImpl(InternalTable tbl, LockManager lockManager) {
         this.tbl = tbl;
         this.lockManager = lockManager;
-        this.existsIndexIdsSupplier = existsIndexIdsSupplier;
     }
 
     /**
@@ -98,14 +91,12 @@ public class TableImpl implements Table {
      * @param tbl The table.
      * @param schemaReg Table schema registry.
      * @param lockManager Lock manager.
-     * @param existsIndexIdsSupplier Supplier of existing table indexes.
      */
     @TestOnly
-    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, LockManager lockManager, Supplier<Set<UUID>> existsIndexIdsSupplier) {
+    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, LockManager lockManager) {
         this.tbl = tbl;
         this.schemaReg = schemaReg;
         this.lockManager = lockManager;
-        this.existsIndexIdsSupplier = existsIndexIdsSupplier;
     }
 
     /**
@@ -411,13 +402,7 @@ public class TableImpl implements Table {
      */
     // TODO: IGNITE-19082 Needs to be redone/improved
     public void addIndexesToWait(Collection<UUID> indexIds) {
-        Set<UUID> existsTableIndexIds = existsIndexIdsSupplier.get();
-
         for (UUID indexId : indexIds) {
-            if (!existsTableIndexIds.contains(indexId)) {
-                continue;
-            }
-
             indexesToWait.compute(indexId, (indexId0, awaitIndexFuture) -> {
                 if (awaitIndexFuture != null) {
                     return awaitIndexFuture;

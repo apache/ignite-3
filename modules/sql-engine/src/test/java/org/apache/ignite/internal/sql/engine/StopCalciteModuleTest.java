@@ -39,7 +39,6 @@ import java.lang.management.ThreadMXBean;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -250,7 +249,7 @@ public class StopCalciteModuleTest {
         );
 
         when(tableManager.tableAsync(anyLong(), eq(tblId)))
-                .thenReturn(completedFuture(new TableImpl(tbl, schemaReg, new HeapLockManager(), Set::of)));
+                .thenReturn(completedFuture(new TableImpl(tbl, schemaReg, new HeapLockManager())));
         when(tbl.tableId()).thenReturn(tblId);
         when(tbl.primaryReplicas()).thenReturn(List.of(new PrimaryReplica(localNode, -1L)));
 

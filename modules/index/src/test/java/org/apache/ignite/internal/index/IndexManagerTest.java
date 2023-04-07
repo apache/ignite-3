@@ -35,7 +35,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -87,7 +86,7 @@ public class IndexManagerTest {
 
             Mockito.doReturn(inv.getArgument(1)).when(tbl).tableId();
 
-            return completedFuture(new TableImpl(tbl, new HeapLockManager(), Set::of));
+            return completedFuture(new TableImpl(tbl, new HeapLockManager()));
         });
 
         SchemaManager schManager = mock(SchemaManager.class);

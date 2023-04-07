@@ -710,6 +710,6 @@ public class KeyValueViewOperationsSimpleSchemaTest {
 
         Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
-        return new TableImpl(table, new DummySchemaManagerImpl(schema), new HeapLockManager(), Set::of);
+        return new TableImpl(table, new DummySchemaManagerImpl(schema), new HeapLockManager());
     }
 }
