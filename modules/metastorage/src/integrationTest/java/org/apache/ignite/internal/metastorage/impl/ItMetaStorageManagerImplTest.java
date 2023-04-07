@@ -43,6 +43,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -91,7 +92,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         clusterService = clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
 
-        HybridClockImpl clock = new HybridClockImpl();
+        HybridClock clock = new HybridClockImpl();
         raftManager = new Loza(clusterService, raftConfiguration, workDir.resolve("loza"), clock);
 
         vaultManager = new VaultManager(new InMemoryVaultService());

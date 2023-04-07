@@ -86,8 +86,8 @@ public interface MetastorageCommandsMessageGroup {
     short CLOSE_ALL_CURSORS = 64;
 
     /** Message type for {@link HybridTimestampMessage}. */
-    short HYBRID_TS = 65;
+    short HYBRID_TS = 70;
 
     /** Message type for {@link SyncTimeCommand}. */
-    short SYNC_TIME = 66;
+    short SYNC_TIME = 71;
 }

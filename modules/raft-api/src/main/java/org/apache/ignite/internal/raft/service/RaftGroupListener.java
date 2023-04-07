@@ -84,7 +84,7 @@ public interface RaftGroupListener {
     void onShutdown();
 
     /**
-     * Invoked before submitting a command to a raft group.
+     * Invoked on a leader before submitting a command to a raft group.
      * If a command must be changed before saving to raft log,
      * this is a place to do it.
      *

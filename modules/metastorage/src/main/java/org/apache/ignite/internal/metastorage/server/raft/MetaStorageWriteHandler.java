@@ -76,10 +76,7 @@ class MetaStorageWriteHandler {
     boolean handleWriteCommand(CommandClosure<WriteCommand> clo) {
         WriteCommand command = clo.command();
 
-        if (command instanceof MetaStorageWriteCommand) {
-            // Every MetaStorageWriteCommand holds safe time that we should set as the cluster time.
-            clusterTime.updateSafeTime(((MetaStorageWriteCommand) command).safeTime().asHybridTimestamp());
-        }
+        boolean canHandle = true;
 
         if (command instanceof PutCommand) {
             PutCommand putCmd = (PutCommand) command;
@@ -142,10 +139,15 @@ class MetaStorageWriteHandler {
 
             clo.result(null);
         } else {
-            return false;
+            canHandle = false;
         }
 
-        return true;
+        if (command instanceof MetaStorageWriteCommand) {
+            // Every MetaStorageWriteCommand holds safe time that we should set as the cluster time.
+            clusterTime.updateSafeTime(((MetaStorageWriteCommand) command).safeTime().asHybridTimestamp());
+        }
+
+        return canHandle;
     }
 
     private static If toIf(Iif iif) {
