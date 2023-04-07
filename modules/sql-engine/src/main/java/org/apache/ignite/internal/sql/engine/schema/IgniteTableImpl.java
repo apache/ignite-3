@@ -87,8 +87,6 @@ import org.jetbrains.annotations.Nullable;
  * Ignite table implementation.
  */
 public class IgniteTableImpl extends AbstractTable implements IgniteTable, UpdateableTable {
-    public static final int STATS_CLI_UPDATE_THRESHOLD = 200;
-
     private static final IgniteLogger LOG = Loggers.forClass(IgniteTableImpl.class);
 
     private static final TableMessagesFactory MESSAGES_FACTORY = new TableMessagesFactory();
@@ -533,6 +531,8 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
     }
 
     private class StatisticsImpl implements Statistic {
+        private static final int STATS_CLI_UPDATE_THRESHOLD = 200;
+
         AtomicInteger statReqCnt = new AtomicInteger();
 
         private volatile long localRowCnt;
