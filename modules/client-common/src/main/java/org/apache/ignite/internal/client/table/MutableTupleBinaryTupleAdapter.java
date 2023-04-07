@@ -28,6 +28,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link org.apache.ignite.table.Tuple} implementation over {@link org.apache.ignite.internal.binarytuple.BinaryTupleReader},
@@ -41,10 +42,10 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     // TODO: See MutableRowTupleAdapter.
     // TODO: Should this class replace ClientTuple completely?
     /** Underlying BinaryTuple. */
-    private final BinaryTupleReader binaryTuple;
+    private BinaryTupleReader binaryTuple;
 
     /** Tuple with overwritten data. */
-    private Tuple tuple;
+    private @Nullable Tuple tuple;
 
     /**
      * Constructor.
@@ -334,6 +335,13 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     /** {@inheritDoc} */
     @Override
     public Tuple set(@NotNull String columnName, Object value) {
+        if (tuple == null) {
+            tuple = Tuple.create(this);
+
+            //noinspection DataFlowIssue
+            binaryTuple = null;
+        }
+
         tuple.set(columnName, value);
 
         return this;
