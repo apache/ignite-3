@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils.unsupportedTypeException;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -29,6 +31,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link org.apache.ignite.table.Tuple} implementation over {@link org.apache.ignite.internal.binarytuple.BinaryTupleReader},
@@ -105,7 +108,11 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     /** {@inheritDoc} */
     @Override
     public <T> T value(int columnIndex) {
-        return tuple != null ? tuple.value(columnIndex) : super.value(columnIndex);
+        if (tuple != null) {
+            return tuple.value(columnIndex);
+        }
+
+        return (T)object(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -297,4 +304,74 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     protected abstract int schemaColumnIndex(@NotNull String columnName);
 
     protected abstract int validateColumnIndex(int columnIndex, ColumnType type);
+
+    protected abstract ColumnType schemaColumnType(int columnIndex);
+
+    protected abstract int schemaDecimalScale(int columnIndex);
+
+    private Object object(int columnIndex) {
+        var type = schemaColumnType(columnIndex);
+
+        switch (type) {
+            case BOOLEAN:
+                return binaryTuple.byteValue(columnIndex) != 0;
+
+            case INT8:
+                return binaryTuple.byteValue(columnIndex);
+
+            case INT16:
+                return binaryTuple.shortValue(columnIndex);
+
+            case INT32:
+                return binaryTuple.intValue(columnIndex);
+
+            case INT64:
+                return binaryTuple.longValue(columnIndex);
+
+            case FLOAT:
+                return binaryTuple.floatValue(columnIndex);
+
+            case DOUBLE:
+                return binaryTuple.doubleValue(columnIndex);
+
+            case DECIMAL:
+                return binaryTuple.decimalValue(columnIndex, schemaDecimalScale(columnIndex));
+
+            case DATE:
+                return binaryTuple.dateValue(columnIndex);
+
+            case TIME:
+                return binaryTuple.timeValue(columnIndex);
+
+            case DATETIME:
+                return binaryTuple.dateTimeValue(columnIndex);
+
+            case TIMESTAMP:
+                return binaryTuple.timestampValue(columnIndex);
+
+            case UUID:
+                return binaryTuple.uuidValue(columnIndex);
+
+            case BITMASK:
+                return binaryTuple.bitmaskValue(columnIndex);
+
+            case STRING:
+                return binaryTuple.stringValue(columnIndex);
+
+            case BYTE_ARRAY:
+                return binaryTuple.bytesValue(columnIndex);
+
+            case PERIOD:
+                return binaryTuple.periodValue(columnIndex);
+
+            case DURATION:
+                return binaryTuple.durationValue(columnIndex);
+
+            case NUMBER:
+                return binaryTuple.numberValue(columnIndex);
+
+            default:
+                throw new IllegalStateException("Unsupported type: " + type);
+        }
+    }
 }
