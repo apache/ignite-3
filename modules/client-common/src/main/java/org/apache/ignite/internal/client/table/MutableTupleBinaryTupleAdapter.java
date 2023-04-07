@@ -140,121 +140,121 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     /** {@inheritDoc} */
     @Override
     public short shortValue(@NotNull String columnName) {
-        return tuple != null ? tuple.shortValue(columnName) : super.shortValue(columnName);
+        return tuple != null ? tuple.shortValue(columnName) : binaryTuple.shortValue(schemaColumnIndex(columnName, ColumnType.INT16));
     }
 
     /** {@inheritDoc} */
     @Override
     public short shortValue(int columnIndex) {
-        return tuple != null ? tuple.shortValue(columnIndex) : super.shortValue(columnIndex);
+        return tuple != null ? tuple.shortValue(columnIndex) : binaryTuple.shortValue(validateColumnIndex(columnIndex, ColumnType.INT16));
     }
 
     /** {@inheritDoc} */
     @Override
     public int intValue(@NotNull String columnName) {
-        return tuple != null ? tuple.intValue(columnName) : super.intValue(columnName);
+        return tuple != null ? tuple.intValue(columnName) : binaryTuple.intValue(schemaColumnIndex(columnName, ColumnType.INT32));
     }
 
     /** {@inheritDoc} */
     @Override
     public int intValue(int columnIndex) {
-        return tuple != null ? tuple.intValue(columnIndex) : super.intValue(columnIndex);
+        return tuple != null ? tuple.intValue(columnIndex) : binaryTuple.intValue(validateColumnIndex(columnIndex, ColumnType.INT32));
     }
 
     /** {@inheritDoc} */
     @Override
     public long longValue(@NotNull String columnName) {
-        return tuple != null ? tuple.longValue(columnName) : super.longValue(columnName);
+        return tuple != null ? tuple.longValue(columnName) : binaryTuple.longValue(schemaColumnIndex(columnName, ColumnType.INT64));
     }
 
     /** {@inheritDoc} */
     @Override
     public long longValue(int columnIndex) {
-        return tuple != null ? tuple.longValue(columnIndex) : super.longValue(columnIndex);
+        return tuple != null ? tuple.longValue(columnIndex) : binaryTuple.longValue(validateColumnIndex(columnIndex, ColumnType.INT64));
     }
 
     /** {@inheritDoc} */
     @Override
     public float floatValue(@NotNull String columnName) {
-        return tuple != null ? tuple.floatValue(columnName) : super.floatValue(columnName);
+        return tuple != null ? tuple.floatValue(columnName) : binaryTuple.floatValue(schemaColumnIndex(columnName, ColumnType.FLOAT));
     }
 
     /** {@inheritDoc} */
     @Override
     public float floatValue(int columnIndex) {
-        return tuple != null ? tuple.floatValue(columnIndex) : super.floatValue(columnIndex);
+        return tuple != null ? tuple.floatValue(columnIndex) : binaryTuple.floatValue(validateColumnIndex(columnIndex, ColumnType.FLOAT));
     }
 
     /** {@inheritDoc} */
     @Override
     public double doubleValue(@NotNull String columnName) {
-        return tuple != null ? tuple.doubleValue(columnName) : super.doubleValue(columnName);
+        return tuple != null ? tuple.doubleValue(columnName) : binaryTuple.doubleValue(schemaColumnIndex(columnName, ColumnType.DOUBLE));
     }
 
     /** {@inheritDoc} */
     @Override
     public double doubleValue(int columnIndex) {
-        return tuple != null ? tuple.doubleValue(columnIndex) : super.doubleValue(columnIndex);
+        return tuple != null ? tuple.doubleValue(columnIndex) : binaryTuple.doubleValue(validateColumnIndex(columnIndex, ColumnType.DOUBLE));
     }
 
     /** {@inheritDoc} */
     @Override
     public String stringValue(@NotNull String columnName) {
-        return tuple != null ? tuple.stringValue(columnName) : super.stringValue(columnName);
+        return tuple != null ? tuple.stringValue(columnName) : binaryTuple.stringValue(schemaColumnIndex(columnName, ColumnType.STRING));
     }
 
     /** {@inheritDoc} */
     @Override
     public String stringValue(int columnIndex) {
-        return tuple != null ? tuple.stringValue(columnIndex) : super.stringValue(columnIndex);
+        return tuple != null ? tuple.stringValue(columnIndex) : binaryTuple.stringValue(validateColumnIndex(columnIndex, ColumnType.STRING));
     }
 
     /** {@inheritDoc} */
     @Override
     public UUID uuidValue(@NotNull String columnName) {
-        return tuple != null ? tuple.uuidValue(columnName) : super.uuidValue(columnName);
+        return tuple != null ? tuple.uuidValue(columnName) : binaryTuple.uuidValue(schemaColumnIndex(columnName, ColumnType.UUID));
     }
 
     /** {@inheritDoc} */
     @Override
     public UUID uuidValue(int columnIndex) {
-        return tuple != null ? tuple.uuidValue(columnIndex) : super.uuidValue(columnIndex);
+        return tuple != null ? tuple.uuidValue(columnIndex) : binaryTuple.uuidValue(validateColumnIndex(columnIndex, ColumnType.UUID));
     }
 
     /** {@inheritDoc} */
     @Override
     public BitSet bitmaskValue(@NotNull String columnName) {
-        return tuple != null ? tuple.bitmaskValue(columnName) : super.bitmaskValue(columnName);
+        return tuple != null ? tuple.bitmaskValue(columnName) : binaryTuple.bitmaskValue(schemaColumnIndex(columnName, ColumnType.BITMASK));
     }
 
     /** {@inheritDoc} */
     @Override
     public BitSet bitmaskValue(int columnIndex) {
-        return tuple != null ? tuple.bitmaskValue(columnIndex) : super.bitmaskValue(columnIndex);
+        return tuple != null ? tuple.bitmaskValue(columnIndex) : binaryTuple.bitmaskValue(validateColumnIndex(columnIndex, ColumnType.BITMASK));
     }
 
     /** {@inheritDoc} */
     @Override
     public LocalDate dateValue(String columnName) {
-        return tuple != null ? tuple.dateValue(columnName) : super.dateValue(columnName);
+        return tuple != null ? tuple.dateValue(columnName) : binaryTuple.dateValue(schemaColumnIndex(columnName, ColumnType.DATE));
     }
 
     /** {@inheritDoc} */
     @Override
     public LocalDate dateValue(int columnIndex) {
-        return tuple != null ? tuple.dateValue(columnIndex) : super.dateValue(columnIndex);
+        return tuple != null ? tuple.dateValue(columnIndex) : binaryTuple.dateValue(validateColumnIndex(columnIndex, ColumnType.DATE));
     }
 
     /** {@inheritDoc} */
     @Override
     public LocalTime timeValue(String columnName) {
-        return tuple != null ? tuple.timeValue(columnName) : super.timeValue(columnName);
+        return tuple != null ? tuple.timeValue(columnName) : binaryTuple.timeValue(schemaColumnIndex(columnName, ColumnType.TIME));
     }
 
     /** {@inheritDoc} */
     @Override
     public LocalTime timeValue(int columnIndex) {
-        return tuple != null ? tuple.timeValue(columnIndex) : super.timeValue(columnIndex);
+        return tuple != null ? tuple.timeValue(columnIndex) : binaryTuple.timeValue(validateColumnIndex(columnIndex, ColumnType.TIME));
     }
 
     /** {@inheritDoc} */
