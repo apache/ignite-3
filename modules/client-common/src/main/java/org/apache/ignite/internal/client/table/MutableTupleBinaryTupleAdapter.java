@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils.unsupportedTypeException;
-
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -118,25 +116,25 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     /** {@inheritDoc} */
     @Override
     public BinaryObject binaryObjectValue(@NotNull String columnName) {
-        return tuple != null ? tuple.binaryObjectValue(columnName) : super.binaryObjectValue(columnName);
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public BinaryObject binaryObjectValue(int columnIndex) {
-        return super.binaryObjectValue(columnIndex);
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public byte byteValue(@NotNull String columnName) {
-        return tuple != null ? tuple.byteValue(columnName) : super.byteValue(columnName);
+        return tuple != null ? tuple.byteValue(columnName) : binaryTuple.byteValue(schemaColumnIndex(columnName, ColumnType.INT8));
     }
 
     /** {@inheritDoc} */
     @Override
     public byte byteValue(int columnIndex) {
-        return tuple != null ? tuple.byteValue(columnIndex) : super.byteValue(columnIndex);
+        return tuple != null ? tuple.byteValue(columnIndex) : binaryTuple.byteValue(validateColumnIndex(columnIndex, ColumnType.INT8));
     }
 
     /** {@inheritDoc} */
@@ -302,6 +300,8 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     protected abstract String schemaColumnName(int index);
 
     protected abstract int schemaColumnIndex(@NotNull String columnName);
+
+    protected abstract int schemaColumnIndex(@NotNull String columnName, ColumnType type);
 
     protected abstract int validateColumnIndex(int columnIndex, ColumnType type);
 
