@@ -95,7 +95,7 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.rest.RestFactory;
-import org.apache.ignite.internal.rest.authentication.AuthProviderFactory;
+import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
 import org.apache.ignite.internal.rest.cluster.ClusterManagementRestFactory;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
@@ -104,6 +104,8 @@ import org.apache.ignite.internal.rest.metrics.MetricRestFactory;
 import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.security.authentication.AuthenticationManager;
+import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -271,6 +273,8 @@ public class IgniteImpl implements Ignite {
 
     private final DistributedConfigurationUpdater distributedConfigurationUpdater;
     private final CatalogManager catalogManager;
+
+    private final AuthenticationManager authenticationManager;
 
     /**
      * The Constructor.
@@ -530,19 +534,26 @@ public class IgniteImpl implements Ignite {
                 nodeConfigRegistry.getConfiguration(DeploymentConfiguration.KEY),
                 cmgMgr);
 
+        authenticationManager = createAuthenticationManager();
         restComponent = createRestComponent(name);
     }
 
-    private RestComponent createRestComponent(String name) {
+    private AuthenticationManager createAuthenticationManager() {
         AuthenticationConfiguration authConfiguration = clusterCfgMgr.configurationRegistry()
                 .getConfiguration(SecurityConfiguration.KEY)
                 .authentication();
 
+        AuthenticationManager manager = new AuthenticationManagerImpl();
+        authConfiguration.listen(manager);
+        return manager;
+    }
+
+    private RestComponent createRestComponent(String name) {
         Supplier<RestFactory> presentationsFactory = () -> new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
         Supplier<RestFactory> clusterManagementRestFactory = () -> new ClusterManagementRestFactory(clusterSvc, cmgMgr);
         Supplier<RestFactory> nodeManagementRestFactory = () -> new NodeManagementRestFactory(lifecycleManager, () -> name);
         Supplier<RestFactory> nodeMetricRestFactory = () -> new MetricRestFactory(metricManager);
-        Supplier<RestFactory> authProviderFactory = () -> new AuthProviderFactory(authConfiguration);
+        Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
         Supplier<RestFactory> deploymentCodeRestFactory = () -> new CodeDeploymentRestFactory(deploymentManager);
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
         return new RestComponent(
