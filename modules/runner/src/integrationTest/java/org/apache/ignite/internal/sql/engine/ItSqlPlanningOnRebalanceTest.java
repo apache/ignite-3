@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
-import static org.apache.ignite.internal.sql.engine.schema.IgniteTableImpl.STATS_CLI_UPDATE_THRESHOLD;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -40,7 +39,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.raft.jraft.RaftGroupService;
@@ -103,7 +101,7 @@ public class ItSqlPlanningOnRebalanceTest extends IgniteIntegrationTest {
             String query = "select count(*) from test";
 
             // Ensures that planner ignores storage rebalance exception.
-            for (int i = 0; i < STATS_CLI_UPDATE_THRESHOLD; i++) {
+            for (int i = 0; i < 200; i++) {
                 session.execute(null, "EXPLAIN PLAN FOR " + query);
             }
 
