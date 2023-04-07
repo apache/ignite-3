@@ -34,6 +34,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndPutAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndPutCommand;
@@ -91,9 +92,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     @Override
     public CompletableFuture<Entry> get(ByteArray key) {
-        GetCommand getCommand = context.commandsFactory().getCommand().key(key.bytes()).build();
-
-        return context.raftService().run(getCommand);
+        return get(key, MetaStorageManager.LATEST_REVISION);
     }
 
     @Override
@@ -105,10 +104,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys) {
-        GetAllCommand getAllCommand = getAllCommand(context.commandsFactory(), keys, 0);
-
-        return context.raftService().<List<Entry>>run(getAllCommand)
-                .thenApply(MetaStorageServiceImpl::multipleEntryResult);
+        return getAll(keys, MetaStorageManager.LATEST_REVISION);
     }
 
     @Override
@@ -218,7 +214,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     @Override
     public Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones) {
-        return range(keyFrom, keyTo, -1, includeTombstones);
+        return range(keyFrom, keyTo, MetaStorageManager.LATEST_REVISION, includeTombstones);
     }
 
     @Override

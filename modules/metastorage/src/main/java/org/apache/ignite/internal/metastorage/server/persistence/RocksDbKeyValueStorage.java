@@ -769,7 +769,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo, long revUpperBound) {
-        //
         rwLock.readLock().lock();
 
         try {

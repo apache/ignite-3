@@ -541,7 +541,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     @Override
     public Publisher<Entry> prefix(ByteArray keyPrefix) {
-        return prefix(keyPrefix, -1);
+        return prefix(keyPrefix, MetaStorageManager.LATEST_REVISION);
     }
 
     @Override
