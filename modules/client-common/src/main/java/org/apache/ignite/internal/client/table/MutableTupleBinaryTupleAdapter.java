@@ -22,14 +22,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
-import java.util.Iterator;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link org.apache.ignite.table.Tuple} implementation over {@link org.apache.ignite.internal.binarytuple.BinaryTupleReader},
@@ -331,12 +329,6 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
         return tuple != null
                 ? tuple.timestampValue(columnIndex)
                 : binaryTuple.timestampValue(validateColumnIndex(columnIndex, ColumnType.TIMESTAMP));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull Iterator<Object> iterator() {
-        return tuple != null ? tuple.iterator() : super.iterator();
     }
 
     /** {@inheritDoc} */
