@@ -22,7 +22,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
@@ -511,4 +513,29 @@ public interface Tuple extends Iterable<Object> {
      * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     Instant timestampValue(int columnIndex);
+
+    /** {@inheritDoc} */
+    @Override
+    default Iterator<Object> iterator() {
+        return new Iterator<>() {
+            /** Current column index. */
+            private int cur;
+
+            /** {@inheritDoc} */
+            @Override
+            public boolean hasNext() {
+                return cur < columnCount();
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public Object next() {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
+
+                return value(cur++);
+            }
+        };
+    }
 }

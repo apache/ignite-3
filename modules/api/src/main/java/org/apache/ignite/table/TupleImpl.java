@@ -337,28 +337,6 @@ class TupleImpl implements Tuple, Serializable {
     }
 
     /** {@inheritDoc} */
-    @NotNull
-    @Override
-    public Iterator<Object> iterator() {
-        return new Iterator<>() {
-            /** Current column index. */
-            private int cur = 0;
-
-            /** {@inheritDoc} */
-            @Override
-            public boolean hasNext() {
-                return cur < colValues.size();
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public Object next() {
-                return hasNext() ? colValues.get(cur++) : null;
-            }
-        };
-    }
-
-    /** {@inheritDoc} */
     @Override
     public int hashCode() {
         return Tuple.hashCode(this);

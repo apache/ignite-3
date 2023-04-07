@@ -333,28 +333,6 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
-    @NotNull
-    @Override
-    public Iterator<Object> iterator() {
-        return new Iterator<>() {
-            /** Current column index. */
-            private int cur;
-
-            /** {@inheritDoc} */
-            @Override
-            public boolean hasNext() {
-                return cur < row.schema().length();
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public Object next() {
-                return hasNext() ? value(cur++) : null;
-            }
-        };
-    }
-
-    /** {@inheritDoc} */
     @Override
     public int hashCode() {
         return Tuple.hashCode(this);
