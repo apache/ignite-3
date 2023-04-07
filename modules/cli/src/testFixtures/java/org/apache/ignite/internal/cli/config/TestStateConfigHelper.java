@@ -18,15 +18,14 @@
 package org.apache.ignite.internal.cli.config;
 
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
-import org.apache.ignite.internal.cli.config.Config;
-import org.apache.ignite.internal.cli.config.StateConfig;
 
 /**
  * Test factory for application state config.
  */
 public class TestStateConfigHelper {
-    public static final String EMPTY = "empty.ini";
-    public static final String LAST_CONNECTED_DEFAULT = "last_connected_default.ini";
+    private static final String EMPTY = "empty.ini";
+    private static final String LAST_CONNECTED_DEFAULT = "last_connected_default.ini";
+    private static final String LAST_CONNECTED_SSL_DEFAULT = "last_connected_ssl_default.ini";
 
     public static Config createEmptyConfig() {
         return createConfig(EMPTY);
@@ -34,6 +33,10 @@ public class TestStateConfigHelper {
 
     public static Config createLastConnectedDefault() {
         return createConfig(LAST_CONNECTED_DEFAULT);
+    }
+
+    public static Config createLastConnectedSslDefault() {
+        return createConfig(LAST_CONNECTED_SSL_DEFAULT);
     }
 
     private static Config createConfig(String resource) {

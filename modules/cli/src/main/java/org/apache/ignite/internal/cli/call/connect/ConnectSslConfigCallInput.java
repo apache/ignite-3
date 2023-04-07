@@ -19,18 +19,22 @@ package org.apache.ignite.internal.cli.call.connect;
 
 import org.apache.ignite.internal.cli.core.call.CallInput;
 
-/**
- * Input for connect call to Ignite 3 node.
- */
-public class ConnectCallInput implements CallInput {
-    private final String nodeUrl;
+/** Input for the {@link ConnectSslConfigCall} call. */
+class ConnectSslConfigCallInput implements CallInput {
+    private final String url;
 
-    public ConnectCallInput(String nodeUrl) {
-        this.nodeUrl = nodeUrl;
+    private final SslConfig config;
+
+    ConnectSslConfigCallInput(String url, SslConfig config) {
+        this.url = url;
+        this.config = config;
     }
 
-    public String getNodeUrl() {
-        return nodeUrl;
+    String getUrl() {
+        return url;
     }
 
+    SslConfig getConfig() {
+        return config;
+    }
 }
