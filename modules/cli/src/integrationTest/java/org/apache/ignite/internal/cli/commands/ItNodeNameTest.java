@@ -21,7 +21,6 @@ import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import jakarta.inject.Inject;
-import java.time.Duration;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -43,7 +42,7 @@ public class ItNodeNameTest extends CliCommandTestInitializedIntegrationBase {
         execute("connect");
         resetOutput();
         // wait to pulling node names
-        await().timeout(Duration.ofSeconds(10)).until(() -> !nodeNameRegistry.names().isEmpty());
+        await().until(() -> !nodeNameRegistry.names().isEmpty());
     }
 
     @Test
