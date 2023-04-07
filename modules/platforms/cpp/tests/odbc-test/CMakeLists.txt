@@ -21,8 +21,6 @@ set(TARGET ${PROJECT_NAME})
 
 find_package(ODBC REQUIRED)
 
-include_directories(SYSTEM ${ODBC_INCLUDE_DIRS})
-
 set(SOURCES
     connection_info_test.cpp
 )
@@ -36,3 +34,5 @@ endif()
 
 set(TEST_TARGET IgniteOdbcTest)
 add_test(NAME ${TEST_TARGET} COMMAND ${TARGET})
+
+target_include_directories(${TARGET} SYSTEM INTERFACE ${ODBC_INCLUDE_DIRS})

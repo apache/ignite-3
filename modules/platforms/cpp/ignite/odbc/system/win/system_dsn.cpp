@@ -76,7 +76,7 @@ bool DisplayConnectionWindow(void* windowParent, Configuration& config)
 bool RegisterDsn(const Configuration& config, LPCSTR driver)
 {
     using namespace ignite::odbc::config;
-    using ignite::common::LexicalCast;
+    using ignite::LexicalCast;
 
     typedef Configuration::ArgumentMap ArgMap;
 

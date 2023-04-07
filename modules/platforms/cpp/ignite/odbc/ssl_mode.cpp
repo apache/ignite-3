@@ -27,9 +27,9 @@ namespace ignite
         {
             SslMode::Type SslMode::FromString(const std::string& val, Type dflt)
             {
-                std::string lowerVal = common::ToLower(val);
+                std::string lowerVal = ToLower(val);
 
-                common::StripSurroundingWhitespaces(lowerVal);
+                StripSurroundingWhitespaces(lowerVal);
 
                 if (lowerVal == "disable")
                     return SslMode::DISABLE;

@@ -176,7 +176,7 @@ namespace ignite
                         if (precision == -1)
                             return false;
 
-                        value = common::LexicalCast<std::string>(precision);
+                        value = LexicalCast<std::string>(precision);
 
                         return true;
                     }
@@ -187,7 +187,7 @@ namespace ignite
                         if (scale == -1)
                             return false;
 
-                        value = common::LexicalCast<std::string>(scale);
+                        value = LexicalCast<std::string>(scale);
 
                         return true;
                     }

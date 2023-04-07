@@ -275,7 +275,7 @@ namespace ignite
 
             int32_t newLen = static_cast<int32_t>(len + sizeof(OdbcProtocolHeader));
 
-            common::FixedSizeArray<int8_t> msg(newLen);
+            FixedSizeArray<int8_t> msg(newLen);
 
             OdbcProtocolHeader *hdr = reinterpret_cast<OdbcProtocolHeader*>(msg.GetData());
 
@@ -292,7 +292,7 @@ namespace ignite
                 throw OdbcError(SqlState::S08S01_LINK_FAILURE, "Can not send message due to connection failure");
 
 #ifdef PER_BYTE_DEBUG
-            LOG_MSG("message sent: (" <<  msg.GetSize() << " bytes)" << common::HexDump(msg.GetData(), msg.GetSize()));
+            LOG_MSG("message sent: (" <<  msg.GetSize() << " bytes)" << HexDump(msg.GetData(), msg.GetSize()));
 #endif //PER_BYTE_DEBUG
 
             return true;
@@ -361,7 +361,7 @@ namespace ignite
                 throw OdbcError(SqlState::S08S01_LINK_FAILURE, "Can not receive message body");
 
 #ifdef PER_BYTE_DEBUG
-            LOG_MSG("Message received: " << common::HexDump(&msg[0], msg.size()));
+            LOG_MSG("Message received: " << HexDump(&msg[0], msg.size()));
 #endif //PER_BYTE_DEBUG
 
             return true;

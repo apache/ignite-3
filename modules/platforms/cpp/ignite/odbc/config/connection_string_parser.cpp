@@ -97,8 +97,8 @@ namespace ignite
                         const char* value_begin = connect_str.data() + attr_eq_pos + 1;
                         const char* value_end = connect_str.data() + connect_str.size();
 
-                        std::string key = common::StripSurroundingWhitespaces(key_begin, key_end);
-                        std::string value = common::StripSurroundingWhitespaces(value_begin, value_end);
+                        std::string key = StripSurroundingWhitespaces(key_begin, key_end);
+                        std::string value = StripSurroundingWhitespaces(value_begin, value_end);
 
                         if (value[0] == '{' && value[value.size() - 1] == '}')
                             value = value.substr(1, value.size() - 2);
@@ -136,7 +136,7 @@ namespace ignite
             void ConnectionStringParser::HandleAttributePair(const std::string &key, const std::string &value,
                 diagnostic::DiagnosticRecordStorage* diag)
             {
-                std::string lKey = common::ToLower(key);
+                std::string lKey = ToLower(key);
 
                 if (lKey == Key::dsn)
                 {
@@ -171,7 +171,7 @@ namespace ignite
                         return;
                     }
 
-                    if (!common::AllDigits(value))
+                    if (!AllDigits(value))
                     {
                         if (diag)
                         {
@@ -275,7 +275,7 @@ namespace ignite
                 }
                 else if (lKey == Key::pageSize)
                 {
-                    if (!common::AllDigits(value))
+                    if (!AllDigits(value))
                     {
                         if (diag)
                         {
@@ -486,7 +486,7 @@ namespace ignite
 
             ConnectionStringParser::BoolParseResult::Type ConnectionStringParser::StringToBool(const std::string& value)
             {
-                std::string lower = common::ToLower(value);
+                std::string lower = ToLower(value);
 
                 if (lower == "true")
                     return BoolParseResult::AI_TRUE;

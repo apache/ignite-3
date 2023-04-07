@@ -34,9 +34,9 @@ namespace ignite
     {
         EngineMode::Type EngineMode::FromString(const std::string &val, Type dflt)
         {
-            std::string lowerVal = common::ToLower(val);
+            std::string lowerVal = ToLower(val);
 
-            common::StripSurroundingWhitespaces(lowerVal);
+            StripSurroundingWhitespaces(lowerVal);
 
             if (lowerVal == "h2")
                 return EngineMode::H2;

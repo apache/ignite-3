@@ -30,7 +30,7 @@ namespace ignite
             odbcVersion(SQL_OV_ODBC3),
             odbcNts(SQL_TRUE)
         {
-            srand(common::GetRandSeed());
+            srand(GetRandSeed());
         }
 
         Environment::~Environment()

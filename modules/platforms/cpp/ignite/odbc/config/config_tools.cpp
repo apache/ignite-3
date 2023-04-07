@@ -72,7 +72,7 @@ namespace ignite
                     const char* addrBegin = parsedAddr.data() + addrBeginPos;
                     const char* addrEnd = parsedAddr.data() + parsedAddr.size();
 
-                    std::string addr = common::StripSurroundingWhitespaces(addrBegin, addrEnd);
+                    std::string addr = StripSurroundingWhitespaces(addrBegin, addrEnd);
 
                     if (!addr.empty())
                     {
@@ -201,9 +201,9 @@ namespace ignite
 
             uint16_t ParsePort(const std::string& value, diagnostic::DiagnosticRecordStorage* diag)
             {
-                std::string port = common::StripSurroundingWhitespaces(value.begin(), value.end());
+                std::string port = StripSurroundingWhitespaces(value.begin(), value.end());
 
-                if (!common::AllDigits(port))
+                if (!AllDigits(port))
                 {
                     std::stringstream stream;
 

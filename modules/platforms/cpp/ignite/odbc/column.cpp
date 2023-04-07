@@ -264,7 +264,7 @@ namespace ignite
 
                 case IGNITE_TYPE_DECIMAL:
                 {
-                    common::Decimal res;
+                    big_decimal res;
 
                     utility::ReadDecimal(reader, res);
 
@@ -470,7 +470,7 @@ namespace ignite
 
                 case IGNITE_TYPE_DECIMAL:
                 {
-                    common::Decimal res;
+                    big_decimal res;
 
                     utility::ReadDecimal(reader, res);
 
@@ -483,7 +483,7 @@ namespace ignite
 
                 case IGNITE_TYPE_DATE:
                 {
-                    Date date = reader.ReadDate();
+                    ignite_date date = reader.ReadDate();
 
                     convRes = dataBuf.PutDate(date);
 
@@ -492,7 +492,7 @@ namespace ignite
 
                 case IGNITE_TYPE_TIMESTAMP:
                 {
-                    Timestamp ts = reader.ReadTimestamp();
+                    ignite_timestamp ts = reader.ReadTimestamp();
 
                     convRes = dataBuf.PutTimestamp(ts);
 
@@ -501,7 +501,7 @@ namespace ignite
 
                 case IGNITE_TYPE_TIME:
                 {
-                    Time time = reader.ReadTime();
+                    ignite_time time = reader.ReadTime();
 
                     convRes = dataBuf.PutTime(time);
 

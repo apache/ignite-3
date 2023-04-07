@@ -304,7 +304,7 @@ namespace ignite
 
                     int rowPos = posY + 2 * INTERVAL;
 
-                    std::string tmp = common::LexicalCast<std::string>(config.GetPageSize());
+                    std::string tmp = LexicalCast<std::string>(config.GetPageSize());
                     const char* val = tmp.c_str();
                     pageSizeLabel = CreateLabel(labelPosX, rowPos, LABEL_WIDTH,
                         ROW_HEIGHT, "Page size:", ChildId::PAGE_SIZE_LABEL);
@@ -545,8 +545,8 @@ namespace ignite
                     schemaEdit->GetText(schemaStr);
                     protocolVersionComboBox->GetText(versionStr);
 
-                    common::StripSurroundingWhitespaces(addressStr);
-                    common::StripSurroundingWhitespaces(dsnStr);
+                    StripSurroundingWhitespaces(addressStr);
+                    StripSurroundingWhitespaces(dsnStr);
                     // Stripping of whitespaces off the schema skipped intentionally
 
                     LOG_MSG("Retrieving arguments:");
@@ -625,7 +625,7 @@ namespace ignite
 
                     pageSizeEdit->GetText(pageSizeStr);
 
-                    int32_t pageSize = common::LexicalCast<int32_t>(pageSizeStr);
+                    int32_t pageSize = LexicalCast<int32_t>(pageSizeStr);
 
                     if (pageSize <= 0)
                         pageSize = config.GetPageSize();

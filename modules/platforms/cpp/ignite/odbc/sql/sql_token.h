@@ -138,7 +138,7 @@ namespace ignite
             {
                 std::string str(ToString());
 
-                common::IntoLower(str);
+                IntoLower(str);
 
                 return str;
             }

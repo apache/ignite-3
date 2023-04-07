@@ -35,7 +35,7 @@ namespace ignite
         void ThrowLastSetupError()
         {
             DWORD code;
-            common::FixedSizeArray<char> msg(BUFFER_SIZE);
+            FixedSizeArray<char> msg(BUFFER_SIZE);
 
             SQLInstallerError(1, &code, msg.GetData(), msg.GetSize(), NULL);
 
@@ -58,7 +58,7 @@ namespace ignite
 
             SettableValue<std::string> val(dflt);
 
-            common::FixedSizeArray<char> buf(BUFFER_SIZE);
+            FixedSizeArray<char> buf(BUFFER_SIZE);
 
             int ret = SQLGetPrivateProfileString(dsn, key.c_str(), unique, buf.GetData(), buf.GetSize(), CONFIG_FILE);
 
@@ -84,7 +84,7 @@ namespace ignite
             SettableValue<int32_t> res(dflt);
 
             if (str.IsSet())
-                res.SetValue(common::LexicalCast<int, std::string>(str.GetValue()));
+                res.SetValue(LexicalCast<int, std::string>(str.GetValue()));
 
             return res;
         }

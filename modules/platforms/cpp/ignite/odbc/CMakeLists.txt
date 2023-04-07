@@ -21,8 +21,6 @@ set(TARGET ${PROJECT_NAME})
 
 find_package(ODBC REQUIRED)
 
-include_directories(SYSTEM ${ODBC_INCLUDE_DIRS})
-
 set(SOURCES
     app/application_data_buffer.cpp
     app/parameter.cpp
@@ -86,10 +84,10 @@ add_library(${TARGET} SHARED ${SOURCES})
 
 set_target_properties(${TARGET} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
 
-target_link_libraries(${TARGET} ${ODBC_LIBRARIES})
+target_link_libraries(${TARGET} ignite-common ignite-schema ignite-network ignite-protocol ${ODBC_LIBRARIES})
 
 if (WIN32)
-    target_link_libraries(${TARGET} ignite-common-objlib ignite-binary-objlib ignite-network-objlib odbccp32 shlwapi)
+    target_link_libraries(${TARGET} odbccp32 shlwapi)
 
     remove_definitions(-DUNICODE=1)
 
@@ -98,10 +96,10 @@ if (WIN32)
     if (MSVC_VERSION GREATER_EQUAL 1900)
         target_link_libraries(${TARGET} legacy_stdio_definitions)
     endif()
-                
+
     set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME "ignite.odbc")
 else()
-    target_link_libraries(${TARGET} ignite-common ignite-binary ignite-network odbcinst)
+    target_link_libraries(${TARGET} odbcinst)
 endif()
 
 if (WIN32 AND ${ENABLE_ODBC_MSI})
@@ -156,7 +154,7 @@ if (WIN32 AND ${ENABLE_ODBC_MSI})
     )
 endif()
 
-target_include_directories(${TARGET} INTERFACE include)
+target_include_directories(${TARGET} SYSTEM INTERFACE ${ODBC_INCLUDE_DIRS})
 
 install(TARGETS ${TARGET} 
     RUNTIME DESTINATION bin

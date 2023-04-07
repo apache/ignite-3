@@ -472,14 +472,14 @@ namespace ignite
             void Configuration::AddToMap(ArgumentMap& map, const std::string& key, const SettableValue<uint16_t>& value)
             {
                 if (value.IsSet())
-                    map[key] = common::LexicalCast<std::string>(value.GetValue());
+                    map[key] = LexicalCast<std::string>(value.GetValue());
             }
 
             template<>
             void Configuration::AddToMap(ArgumentMap& map, const std::string& key, const SettableValue<int32_t>& value)
             {
                 if (value.IsSet())
-                    map[key] = common::LexicalCast<std::string>(value.GetValue());
+                    map[key] = LexicalCast<std::string>(value.GetValue());
             }
 
             template<>

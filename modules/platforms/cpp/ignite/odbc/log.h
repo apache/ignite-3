@@ -112,7 +112,7 @@ namespace ignite
             IGNITE_NO_COPY_ASSIGNMENT(Logger);
 
             /** Mutex for writes synchronization. */
-            ignite::common::concurrent::CriticalSection mutex;
+            ignite::concurrent::CriticalSection mutex;
 
             /** File stream. */
             std::ofstream stream;

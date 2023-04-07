@@ -102,22 +102,22 @@ namespace ignite
             std::string errMessage;
         };
 
-        typedef common::Unexpected<OdbcError> OdbcUnexpected;
+        typedef Unexpected<OdbcError> OdbcUnexpected;
 
         /**
          * Expected specialization for OdbcError.
          */
         template<typename R>
-        struct OdbcExpected : common::Expected<R, OdbcError>
+        struct OdbcExpected : Expected<R, OdbcError>
         {
             OdbcExpected(const R& res)
-                : common::Expected<R, OdbcError>(res)
+                : Expected<R, OdbcError>(res)
             {
                 // No-op.
             }
 
             OdbcExpected(const OdbcError& err)
-                : common::Expected<R, OdbcError>(OdbcUnexpected(err))
+                : Expected<R, OdbcError>(OdbcUnexpected(err))
             {
                 // No-op.
             }

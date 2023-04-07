@@ -340,7 +340,7 @@ namespace ignite
              * @param paramNum - Parameter index.
              * @param dataType - Data type.
              * @param paramSize - Size of the parameter.
-             * @param decimalDigits - Decimal digits.
+             * @param decimalDigits - big_decimal digits.
              * @param nullable - Nullability flag.
              */
             void DescribeParam(int16_t paramNum, int16_t* dataType,
@@ -658,7 +658,7 @@ namespace ignite
              * @param paramNum - Parameter index.
              * @param dataType - Data type.
              * @param paramSize - Size of the parameter.
-             * @param decimalDigits - Decimal digits.
+             * @param decimalDigits - big_decimal digits.
              * @param nullable - Nullability flag.
              * @return Operation result.
              */

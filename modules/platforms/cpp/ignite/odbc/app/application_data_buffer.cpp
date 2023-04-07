@@ -15,23 +15,21 @@
  * limitations under the License.
  */
 
+#include <ignite/odbc/log.h>
+#include <ignite/odbc/utility.h>
+#include <ignite/odbc/app/application_data_buffer.h>
+#include <ignite/odbc/system/odbc_constants.h>
+
+#include <ignite/common/bits.h>
+
 #include <algorithm>
 #include <string>
 #include <sstream>
 
-#include "ignite/common/bits.h"
-
-#include "ignite/impl/binary/binary_utils.h"
-
-#include "../log.h"
-#include "../utility.h"
-#include "application_data_buffer.h"
-#include "ignite/odbc/system/odbc_constants.h"
-
 namespace
 {
     // Just copy bytes currently.
-    // Only works for ASCII character set.
+    // Only works for the ASCII character set.
     ignite::odbc::app::ConversionResult::Type StringToWstring(const char* str, int64_t strLen, SQLWCHAR* wstr, int64_t wstrLen)
     {
         using namespace ignite::odbc;
@@ -66,13 +64,11 @@ namespace ignite
     {
         namespace app
         {
-            using impl::binary::BinaryUtils;
-
             ApplicationDataBuffer::ApplicationDataBuffer() :
                 type(type_traits::OdbcNativeType::AI_UNSUPPORTED),
-                buffer(0),
+                buffer(nullptr),
                 buflen(0),
-                reslen(0),
+                reslen(nullptr),
                 byteOffset(0),
                 elementOffset(0)
             {
@@ -89,34 +85,6 @@ namespace ignite
                 elementOffset(0)
             {
                 // No-op.
-            }
-
-            ApplicationDataBuffer::ApplicationDataBuffer(const ApplicationDataBuffer& other) :
-                type(other.type),
-                buffer(other.buffer),
-                buflen(other.buflen),
-                reslen(other.reslen),
-                byteOffset(other.byteOffset),
-                elementOffset(other.elementOffset)
-            {
-                // No-op.
-            }
-
-            ApplicationDataBuffer::~ApplicationDataBuffer()
-            {
-                // No-op.
-            }
-
-            ApplicationDataBuffer & ApplicationDataBuffer::operator=(const ApplicationDataBuffer & other)
-            {
-                type = other.type;
-                buffer = other.buffer;
-                buflen = other.buflen;
-                reslen = other.reslen;
-                byteOffset = other.byteOffset;
-                elementOffset = other.elementOffset;
-
-                return *this;
             }
 
             template<typename T>
@@ -201,7 +169,7 @@ namespace ignite
 
                             uint64_t uval = static_cast<uint64_t>(value < 0 ? -value : value);
 
-                            out->precision = common::bits::DigitLength(uval);
+                            out->precision = bits::DigitLength(uval);
                             out->scale = 0;
                             out->sign = value < 0 ? 0 : 1;
 
@@ -231,17 +199,17 @@ namespace ignite
 
                     case OdbcNativeType::AI_TDATE:
                     {
-                        return PutDate(Date(static_cast<int64_t>(value)));
+                        return PutDate(ignite_date(static_cast<int64_t>(value)));
                     }
 
                     case OdbcNativeType::AI_TTIMESTAMP:
                     {
-                        return PutTimestamp(Timestamp(static_cast<int64_t>(value)));
+                        return PutTimestamp(ignite_timestamp(static_cast<int64_t>(value)));
                     }
 
                     case OdbcNativeType::AI_TTIME:
                     {
-                        return PutTime(Time(static_cast<int64_t>(value)));
+                        return PutTime(ignite_time(static_cast<int64_t>(value)));
                     }
 
                     default:
@@ -251,20 +219,20 @@ namespace ignite
                 return ConversionResult::AI_UNSUPPORTED_CONVERSION;
             }
 
-            template<typename Tbuf, typename Tin>
-            ConversionResult::Type ApplicationDataBuffer::PutNumToNumBuffer(Tin value)
+            template<typename TBuf, typename TIn>
+            ConversionResult::Type ApplicationDataBuffer::PutNumToNumBuffer(TIn value)
             {
                 void* dataPtr = GetData();
                 SqlLen* resLenPtr = GetResLen();
 
                 if (dataPtr)
                 {
-                    Tbuf* out = reinterpret_cast<Tbuf*>(dataPtr);
-                    *out = static_cast<Tbuf>(value);
+                    TBuf* out = reinterpret_cast<TBuf*>(dataPtr);
+                    *out = static_cast<TBuf>(value);
                 }
 
                 if (resLenPtr)
-                    *resLenPtr = static_cast<SqlLen>(sizeof(Tbuf));
+                    *resLenPtr = static_cast<SqlLen>(sizeof(TBuf));
 
                 return ConversionResult::AI_SUCCESS;
             }
@@ -572,7 +540,7 @@ namespace ignite
                 return ConversionResult::AI_SUCCESS;
             }
 
-            ConversionResult::Type ApplicationDataBuffer::PutDecimal(const common::Decimal& value)
+            ConversionResult::Type ApplicationDataBuffer::PutDecimal(const big_decimal& value)
             {
                 using namespace type_traits;
 
@@ -620,12 +588,12 @@ namespace ignite
                         SQL_NUMERIC_STRUCT* numeric =
                             reinterpret_cast<SQL_NUMERIC_STRUCT*>(GetData());
 
-                        common::Decimal zeroScaled;
+                        big_decimal zeroScaled;
                         value.SetScale(0, zeroScaled);
 
-                        common::FixedSizeArray<int8_t> bytesBuffer;
+                        FixedSizeArray<int8_t> bytesBuffer;
 
-                        const common::BigInteger& unscaled = zeroScaled.GetUnscaledValue();
+                        const BigInteger& unscaled = zeroScaled.GetUnscaledValue();
 
                         unscaled.MagnitudeToBytes(bytesBuffer);
 
@@ -660,13 +628,13 @@ namespace ignite
                 return ConversionResult::AI_UNSUPPORTED_CONVERSION;
             }
 
-            ConversionResult::Type ApplicationDataBuffer::PutDate(const Date& value)
+            ConversionResult::Type ApplicationDataBuffer::PutDate(const ignite_date& value)
             {
                 using namespace type_traits;
 
                 tm tmTime;
 
-                common::DateToCTm(value, tmTime);
+                DateToCTm(value, tmTime);
 
                 SqlLen* resLenPtr = GetResLen();
                 void* dataPtr = GetData();
@@ -780,13 +748,13 @@ namespace ignite
                 return ConversionResult::AI_UNSUPPORTED_CONVERSION;
             }
 
-            ConversionResult::Type ApplicationDataBuffer::PutTimestamp(const Timestamp& value)
+            ConversionResult::Type ApplicationDataBuffer::PutTimestamp(const ignite_timestamp& value)
             {
                 using namespace type_traits;
 
                 tm tmTime;
 
-                common::TimestampToCTm(value, tmTime);
+                TimestampToCTm(value, tmTime);
 
                 SqlLen* resLenPtr = GetResLen();
                 void* dataPtr = GetData();
@@ -902,13 +870,13 @@ namespace ignite
                 return ConversionResult::AI_UNSUPPORTED_CONVERSION;
             }
 
-            ConversionResult::Type ApplicationDataBuffer::PutTime(const Time& value)
+            ConversionResult::Type ApplicationDataBuffer::PutTime(const ignite_time& value)
             {
                 using namespace type_traits;
 
                 tm tmTime;
 
-                common::TimeToCTm(value, tmTime);
+                TimeToCTm(value, tmTime);
 
                 SqlLen* resLenPtr = GetResLen();
                 void* dataPtr = GetData();
@@ -1307,7 +1275,7 @@ namespace ignite
                         const SQL_NUMERIC_STRUCT* numeric =
                             reinterpret_cast<const SQL_NUMERIC_STRUCT*>(GetData());
 
-                        common::Decimal dec(reinterpret_cast<const int8_t*>(numeric->val),
+                        big_decimal dec(reinterpret_cast<const int8_t*>(numeric->val),
                             SQL_MAX_NUMERIC_LEN, numeric->scale, numeric->sign ? 1 : -1, false);
 
                         res = static_cast<T>(dec.ToInt64());
@@ -1322,7 +1290,7 @@ namespace ignite
                 return res;
             }
 
-            Date ApplicationDataBuffer::GetDate() const
+            ignite_date ApplicationDataBuffer::GetDate() const
             {
                 using namespace type_traits;
 
@@ -1393,10 +1361,10 @@ namespace ignite
                         break;
                 }
 
-                return common::CTmToDate(tmTime);
+                return CTmToDate(tmTime);
             }
 
-            Timestamp ApplicationDataBuffer::GetTimestamp() const
+            ignite_timestamp ApplicationDataBuffer::GetTimestamp() const
             {
                 using namespace type_traits;
 
@@ -1471,10 +1439,10 @@ namespace ignite
                         break;
                 }
 
-                return common::CTmToTimestamp(tmTime, nanos);
+                return CTmToTimestamp(tmTime, nanos);
             }
 
-            Time ApplicationDataBuffer::GetTime() const
+            ignite_time ApplicationDataBuffer::GetTime() const
             {
                 using namespace type_traits;
 
@@ -1529,10 +1497,10 @@ namespace ignite
                         break;
                 }
 
-                return common::CTmToTime(tmTime);
+                return CTmToTime(tmTime);
             }
 
-            void ApplicationDataBuffer::GetDecimal(common::Decimal& val) const
+            void ApplicationDataBuffer::GetDecimal(big_decimal& val) const
             {
                 using namespace type_traits;
 
@@ -1590,7 +1558,7 @@ namespace ignite
                         const SQL_NUMERIC_STRUCT* numeric =
                             reinterpret_cast<const SQL_NUMERIC_STRUCT*>(GetData());
 
-                        common::Decimal dec(reinterpret_cast<const int8_t*>(numeric->val),
+                        big_decimal dec(reinterpret_cast<const int8_t*>(numeric->val),
                             SQL_MAX_NUMERIC_LEN, numeric->scale, numeric->sign ? 1 : -1, false);
 
                         val.Swap(dec);

@@ -37,7 +37,7 @@ namespace ignite
     {
         NestedTxMode::Type NestedTxMode::FromString(const std::string& str, Type dflt)
         {
-            std::string lower = common::ToLower(str);
+            std::string lower = ToLower(str);
 
             if (lower == "commit")
                 return AI_COMMIT;

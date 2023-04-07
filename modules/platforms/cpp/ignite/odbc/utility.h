@@ -37,7 +37,7 @@ namespace ignite
     namespace utility
     {
         /** Using common version of the util. */
-        using common::IntoLower;
+        using IntoLower;
 
         template<typename T>
         T* GetPointerWithOffset(T* ptr, size_t offset)
@@ -81,17 +81,17 @@ namespace ignite
          * Read decimal value using reader.
          *
          * @param reader Reader.
-         * @param decimal Decimal value.
+         * @param decimal big_decimal value.
          */
-        void ReadDecimal(impl::binary::BinaryReaderImpl& reader, common::Decimal& decimal);
+        void ReadDecimal(impl::binary::BinaryReaderImpl& reader, big_decimal& decimal);
 
         /**
          * Write decimal value using writer.
          *
          * @param writer Writer.
-         * @param decimal Decimal value.
+         * @param decimal big_decimal value.
          */
-        void WriteDecimal(impl::binary::BinaryWriterImpl& writer, const common::Decimal& decimal);
+        void WriteDecimal(impl::binary::BinaryWriterImpl& writer, const big_decimal& decimal);
 
         /**
          * Convert SQL string buffer to std::string.

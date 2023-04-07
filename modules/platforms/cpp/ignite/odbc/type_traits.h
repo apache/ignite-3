@@ -288,7 +288,7 @@ namespace ignite
              * Get SQL type decimal digits.
              *
              * @param type SQL type.
-             * @return Decimal digits.
+             * @return big_decimal digits.
              */
             int32_t SqlTypeDecimalDigits(int16_t type);
 
@@ -296,7 +296,7 @@ namespace ignite
              * Get binary type decimal digits.
              *
              * @param type Binary type.
-             * @return Decimal digits.
+             * @return big_decimal digits.
              */
             int32_t BinaryTypeDecimalDigits(int8_t type);
 

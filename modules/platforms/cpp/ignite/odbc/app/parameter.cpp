@@ -198,7 +198,7 @@ namespace ignite
 
                     case SQL_DECIMAL:
                     {
-                        common::Decimal dec;
+                        big_decimal dec;
                         buf.GetDecimal(dec);
 
                         utility::WriteDecimal(writer, dec);
