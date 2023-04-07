@@ -15,18 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.ssl;
-
-import org.apache.ignite.internal.NodeConfig;
-import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
+package org.apache.ignite.internal.security.authentication;
 
 /**
- * Integration test base for SSL tests.
+ * Represents a request to authenticate.
+ *
+ * @param <T> The type of the identity
+ * @param <S> The type of the secret
  */
-public class CliSslNotInitializedIntegrationTestBase extends CliCommandTestNotInitializedIntegrationBase {
+public interface AuthenticationRequest<T, S> {
 
-    @Override
-    protected String nodeBootstrapConfigTemplate() {
-        return NodeConfig.REST_SSL_BOOTSTRAP_CONFIG;
-    }
+    /**
+     * Returns the token in the request.
+     */
+    T getIdentity();
+
+    /**
+     * Returns the secret in the request.
+     */
+    S getSecret();
 }

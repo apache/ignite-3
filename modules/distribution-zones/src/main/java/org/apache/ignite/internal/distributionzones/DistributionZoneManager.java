@@ -186,7 +186,7 @@ public class DistributionZoneManager implements IgniteComponent {
      */
     private final Map<Integer, ZoneState> zonesState;
 
-    /** The tracker for last topology version which was observed by distribution zone manager. */
+    /** The tracker for the last topology version which was observed by distribution zone manager. */
     private final PendingComparableValuesTracker<Long> topVerTracker;
 
     /**
@@ -586,7 +586,7 @@ public class DistributionZoneManager implements IgniteComponent {
     /**
      * Transforms {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleUp}
      * and {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleDown} values to boolean values.
-     * True if it equals to zero and false if it greater than zero. Zero means that data nodes changing must be scheduled immediate.
+     * True if it equals to zero and false if it greater than zero. Zero means that data nodes changing must be started immediate.
      *
      * @param zoneId Zone id.
      * @return Future with the result.
@@ -1083,71 +1083,51 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            VaultEntry topologyEntry = vaultMgr.get(zonesLogicalTopologyKey()).join();
-
-            VaultEntry topVerEntry = vaultMgr.get(zonesLogicalTopologyVersionKey()).join();
-
-            if (topologyEntry != null && topologyEntry.value() != null) {
-                logicalTopology = fromBytes(topologyEntry.value());
-            }
-
             long appliedRevision = metaStorageManager.appliedRevision();
-
-            zonesState.values().forEach(zoneState -> {
-                zoneState.scaleUpRevisionTracker.update(appliedRevision);
-
-                zoneState.scaleDownRevisionTracker.update(appliedRevision);
-            });
 
             lastScaleUpRevision = appliedRevision;
 
             lastScaleDownRevision = appliedRevision;
 
-            zonesState.get(DEFAULT_ZONE_ID).nodes(logicalTopology);
-
-            zonesConfiguration.distributionZones().value().namedListKeys()
-                    .forEach(zoneName -> {
-                        NamedConfigurationTree<DistributionZoneConfiguration,
-                                DistributionZoneView,
-                                DistributionZoneChange> zones = zonesConfiguration.distributionZones();
-
-                        for (int i = 0; i < zones.value().size(); i++) {
-                            DistributionZoneView zoneView = zones.value().get(i);
-
-                            zonesState.get(zoneView.zoneId()).nodes(logicalTopology);
-                        }
-                    });
+            VaultEntry topVerEntry = vaultMgr.get(zonesLogicalTopologyVersionKey()).join();
 
             if (topVerEntry != null && topVerEntry.value() != null) {
                 topVerTracker.update(bytesToLong(topVerEntry.value()));
             }
 
-            if (!busyLock.enterBusy()) {
-                throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
-            }
+            VaultEntry topologyEntry = vaultMgr.get(zonesLogicalTopologyKey()).join();
 
-            try {
-                if (topVerEntry != null && topologyEntry.value() != null) {
-                    // init keys and data nodes for default zone
+            if (topologyEntry != null && topologyEntry.value() != null) {
+                logicalTopology = fromBytes(topologyEntry.value());
+
+                // init keys and data nodes for default zone
+                saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+                        DEFAULT_ZONE_ID,
+                        appliedRevision,
+                        logicalTopology
+                );
+
+                zonesConfiguration.distributionZones().value().forEach(zone -> {
+                    int zoneId = zone.zoneId();
+
                     saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                            DEFAULT_ZONE_ID,
+                            zoneId,
                             appliedRevision,
                             logicalTopology
                     );
-
-                    zonesConfiguration.distributionZones().value().forEach(zone -> {
-                        int zoneId = zone.zoneId();
-
-                        saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                                zoneId,
-                                appliedRevision,
-                                logicalTopology
-                        );
-                    });
-                }
-            } finally {
-                busyLock.leaveBusy();
+                });
             }
+
+            zonesState.values().forEach(zoneState -> {
+                zoneState.scaleUpRevisionTracker().update(lastScaleUpRevision);
+
+                zoneState.scaleDownRevisionTracker().update(lastScaleDownRevision);
+
+                zoneState.nodes(logicalTopology);
+            });
+
+            assert topologyEntry == null || topologyEntry.value() == null || logicalTopology.equals(fromBytes(topologyEntry.value()))
+                    : "DistributionZoneManager.logicalTopology was changed after initialization from the vault manager.";
         } finally {
             busyLock.leaveBusy();
         }
@@ -1624,10 +1604,10 @@ public class DistributionZoneManager implements IgniteComponent {
         /** Data nodes. */
         private volatile Set<String> nodes;
 
-        /** The tracker for scale up meta storage revision of current data nodes value which was observed by distribution zone manager. */
+        /** The tracker for scale up meta storage revision of current data nodes value. */
         private final PendingComparableValuesTracker<Long> scaleUpRevisionTracker;
 
-        /** The tracker for scale down meta storage revision of current data nodes value which was observed by distribution zone manager. */
+        /** The tracker for scale down meta storage revision of current data nodes value. */
         private final PendingComparableValuesTracker<Long> scaleDownRevisionTracker;
 
         /**
@@ -1816,7 +1796,7 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         /**
-         * The tracker for scale up meta storage revision of current data nodes value which was observed by distribution zone manager.
+         * The tracker for scale up meta storage revision of current data nodes value.
          *
          * @return The tracker.
          */
@@ -1825,7 +1805,7 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         /**
-         * The tracker for scale down meta storage revision of current data nodes value which was observed by distribution zone manager.
+         * The tracker for scale down meta storage revision of current data nodes value.
          *
          * @return The tracker.
          */

@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.ssl;
+package org.apache.ignite.internal.security.authentication;
 
-import org.apache.ignite.internal.NodeConfig;
-import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
+import org.apache.ignite.internal.security.exception.AuthenticationException;
 
 /**
- * Integration test base for SSL tests.
+ * General interface for all authenticators.
  */
-public class CliSslNotInitializedIntegrationTestBase extends CliCommandTestNotInitializedIntegrationBase {
+public interface Authenticator {
 
-    @Override
-    protected String nodeBootstrapConfigTemplate() {
-        return NodeConfig.REST_SSL_BOOTSTRAP_CONFIG;
-    }
+    /**
+     * Authenticates a user with the given request.
+     * If a successful authentication is returned, the object must be an instance of {@link UserDetails}.
+     */
+    UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) throws AuthenticationException;
 }

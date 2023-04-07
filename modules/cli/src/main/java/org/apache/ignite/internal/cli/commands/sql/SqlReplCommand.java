@@ -109,6 +109,7 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
                         .withCommandClass(SqlReplTopLevelCliCommand.class)
                         .withCallExecutionPipelineProvider(provider(sqlManager))
                         .withHistoryFileName("sqlhistory")
+                        .withAutosuggestionsWidgets()
                         .build());
             } else {
                 String executeCommand = execOptions.file != null ? extract(execOptions.file) : execOptions.command;
