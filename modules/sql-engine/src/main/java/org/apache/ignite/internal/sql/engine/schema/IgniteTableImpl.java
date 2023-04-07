@@ -567,6 +567,8 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
                 } else {
                     localRowCnt = size;
                 }
+
+                return Math.max(10_000.0, size);
             }
 
             // Forbid zero result, to prevent zero cost for table and index scans.
