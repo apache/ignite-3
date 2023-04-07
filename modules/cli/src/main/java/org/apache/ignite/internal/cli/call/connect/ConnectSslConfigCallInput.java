@@ -15,18 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.ssl;
+package org.apache.ignite.internal.cli.call.connect;
 
-import org.apache.ignite.internal.NodeConfig;
-import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
+import org.apache.ignite.internal.cli.core.call.CallInput;
 
-/**
- * Integration test base for SSL tests.
- */
-public class CliSslNotInitializedIntegrationTestBase extends CliCommandTestNotInitializedIntegrationBase {
+/** Input for the {@link ConnectSslConfigCall} call. */
+class ConnectSslConfigCallInput implements CallInput {
+    private final String url;
 
-    @Override
-    protected String nodeBootstrapConfigTemplate() {
-        return NodeConfig.REST_SSL_BOOTSTRAP_CONFIG;
+    private final SslConfig config;
+
+    ConnectSslConfigCallInput(String url, SslConfig config) {
+        this.url = url;
+        this.config = config;
+    }
+
+    String getUrl() {
+        return url;
+    }
+
+    SslConfig getConfig() {
+        return config;
     }
 }

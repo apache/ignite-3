@@ -15,18 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.ssl;
+package org.apache.ignite.internal.security.exception;
 
-import org.apache.ignite.internal.NodeConfig;
-import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
+import org.apache.ignite.lang.ErrorGroups.Authentication;
+import org.apache.ignite.lang.IgniteException;
 
 /**
- * Integration test base for SSL tests.
+ * The general authentication exception.
  */
-public class CliSslNotInitializedIntegrationTestBase extends CliCommandTestNotInitializedIntegrationBase {
-
-    @Override
-    protected String nodeBootstrapConfigTemplate() {
-        return NodeConfig.REST_SSL_BOOTSTRAP_CONFIG;
+public class AuthenticationException extends IgniteException {
+    public AuthenticationException(String message) {
+        super(Authentication.COMMON_AUTHENTICATION_ERR, message);
     }
 }

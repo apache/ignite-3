@@ -43,7 +43,8 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
 import org.apache.ignite.internal.rest.api.cluster.ClusterStateDto;
-import org.apache.ignite.internal.rest.authentication.AuthProviderFactory;
+import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
+import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -303,8 +304,14 @@ public class ItClusterManagementControllerTest extends RestTestBase {
 
     @Factory
     @Bean
-    @Replaces(AuthProviderFactory.class)
-    public AuthProviderFactory authProviderFactory() {
-        return new AuthProviderFactory(authenticationConfiguration);
+    @Replaces(AuthenticationProviderFactory.class)
+    public AuthenticationProviderFactory authProviderFactory() {
+        return new AuthenticationProviderFactory(authenticationManager());
+    }
+
+    private AuthenticationManagerImpl authenticationManager() {
+        AuthenticationManagerImpl manager = new AuthenticationManagerImpl();
+        authenticationConfiguration.listen(manager);
+        return manager;
     }
 }

@@ -15,18 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.ssl;
-
-import org.apache.ignite.internal.NodeConfig;
-import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
+package org.apache.ignite.internal.security.authentication;
 
 /**
- * Integration test base for SSL tests.
+ * Represents the user details.
  */
-public class CliSslNotInitializedIntegrationTestBase extends CliCommandTestNotInitializedIntegrationBase {
+public class UserDetails {
 
-    @Override
-    protected String nodeBootstrapConfigTemplate() {
-        return NodeConfig.REST_SSL_BOOTSTRAP_CONFIG;
+    private final String username;
+
+    public UserDetails(String username) {
+        this.username = username;
+    }
+
+    public String username() {
+        return username;
     }
 }
