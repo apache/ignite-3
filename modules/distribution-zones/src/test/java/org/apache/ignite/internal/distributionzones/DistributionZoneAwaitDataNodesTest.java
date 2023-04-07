@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesDataNodesPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -48,7 +49,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -62,6 +62,7 @@ import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfigurationSchema;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneWasRemovedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -580,6 +581,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         topologyWatchListenerOnUpdate(nodes0, 1, 1);
 
+        assertFalse(dataNodesFut.isDone());
+
         dataNodesWatchListenerOnUpdate(zoneId, nodes0, true, 1, 2);
 
         dataNodesFut.get(3, SECONDS);
@@ -590,7 +593,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         topologyWatchListenerOnUpdate(nodes1, 2, 2);
 
-        dataNodesFut.get(3, SECONDS);
+        assertEquals(nodes0, dataNodesFut.get(3, SECONDS));
     }
 
     /**
@@ -644,9 +647,9 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         topologyWatchListenerOnUpdate(nodes0, 1, 1);
 
-        dataNodesWatchListenerOnUpdate(zoneId1, nodes0, true, 1, 2);
-
         dataNodesFut.get(3, SECONDS);
+
+        dataNodesWatchListenerOnUpdate(zoneId1, nodes0, true, 1, 2);
 
         CompletableFuture<Set<String>> dataNodesFut1Zone0 = distributionZoneManager.topologyVersionedDataNodes(zoneId0, 2);
         CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.topologyVersionedDataNodes(zoneId1, 2);
@@ -660,6 +663,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         assertTrue(waitForCondition(dataNodesFut1Zone0::isDone, 3000));
         assertTrue(waitForCondition(dataNodesFut1Zone2::isDone, 3000));
+        assertFalse(dataNodesFut1.isDone());
 
         dataNodesWatchListenerOnUpdate(zoneId1, nodes1, false, 3, 4);
 
@@ -671,7 +675,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         topologyWatchListenerOnUpdate(nodes2, 3, 5);
 
-        dataNodesFut2.get(3, SECONDS);
+        assertEquals(nodes1, dataNodesFut2.get(3, SECONDS));
     }
 
     /**
@@ -741,7 +745,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         int zoneId = distributionZoneManager.getZoneId("zone0");
 
-        CompletableFuture<Set<String>> dataNodesFut = distributionZoneManager.topologyVersionedDataNodes(zoneId, 5);
+        CompletableFuture<Set<String>> dataNodesFut0 = distributionZoneManager.topologyVersionedDataNodes(zoneId, 5);
 
         CompletableFuture<Void> topVerFut5 = distributionZoneManager.topVerTracker().waitFor(5L);
 
@@ -762,9 +766,9 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         assertTrue(waitForCondition(revisionDownFut10::isDone, 3_000));
 
-        assertEquals(Set.of("node0", "node1"), dataNodesFut.get(3, SECONDS));
+        assertEquals(Set.of("node0", "node1"), dataNodesFut0.get(3, SECONDS));
 
-        dataNodesFut = distributionZoneManager.topologyVersionedDataNodes(zoneId, 106);
+        CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.topologyVersionedDataNodes(zoneId, 106);
 
         CompletableFuture<Void> topVerFut106 = distributionZoneManager.topVerTracker().waitFor(106L);
 
@@ -780,13 +784,14 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         assertFalse(revisionDownFut12.isDone());
         assertFalse(revisionUpFut12.isDone());
+        assertFalse(dataNodesFut1.isDone());
 
         distributionZoneManager.dropZone("zone0").get();
 
         assertTrue(waitForCondition(revisionDownFut12::isDone, 3_000));
         assertTrue(waitForCondition(revisionUpFut12::isDone, 3_000));
 
-        assertTrue(dataNodesFut.isCompletedExceptionally());
+        assertThrowsWithCause(() -> dataNodesFut1.get(3, SECONDS), DistributionZoneWasRemovedException.class);
     }
 
     /**
@@ -812,6 +817,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
         dataNodesFut = distributionZoneManager.topologyVersionedDataNodes(DEFAULT_ZONE_ID, 2);
 
         topologyWatchListenerOnUpdate(nodes1, 2, 3);
+
+        assertFalse(dataNodesFut.isDone());
 
         //need to create new zone to fix assert invariant which is broken in this test environment.
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder("zone0")
