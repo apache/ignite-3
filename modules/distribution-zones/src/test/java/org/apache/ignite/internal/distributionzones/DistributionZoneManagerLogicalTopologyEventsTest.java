@@ -28,111 +28,24 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.after;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.Set;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
-import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.NetworkAddress;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests reactions to topology changes in accordance with distribution zones logic.
  */
-@ExtendWith(ConfigurationExtension.class)
-public class DistributionZoneManagerLogicalTopologyEventsTest {
+public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistributionZoneManagerTest {
     private static final LogicalNode NODE_1 = new LogicalNode("1", "name1", new NetworkAddress("localhost", 123));
 
     private static final LogicalNode NODE_2 = new LogicalNode("2", "name2", new NetworkAddress("localhost", 123));
-
-    @InjectConfiguration
-    private TablesConfiguration tablesConfiguration;
-
-    @InjectConfiguration
-    private DistributionZonesConfiguration distributionZonesConfiguration;
-
-    private ClusterManagementGroupManager cmgManager;
-
-    private DistributionZoneManager distributionZoneManager;
-
-    private SimpleInMemoryKeyValueStorage keyValueStorage;
-
-    private LogicalTopology topology;
-
-    private ClusterStateStorage clusterStateStorage;
-
-    private final List<IgniteComponent> components = new ArrayList<>();
-
-    @BeforeEach
-    void setUp() {
-        VaultManager vaultMgr = new VaultManager(new InMemoryVaultService());
-
-        components.add(vaultMgr);
-
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
-
-        MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(vaultMgr, keyValueStorage);
-
-        components.add(metaStorageManager);
-
-        cmgManager = mock(ClusterManagementGroupManager.class);
-
-        clusterStateStorage = new TestClusterStateStorage();
-
-        components.add(clusterStateStorage);
-
-        topology = new LogicalTopologyImpl(clusterStateStorage);
-
-        distributionZoneManager = new DistributionZoneManager(
-                distributionZonesConfiguration,
-                tablesConfiguration,
-                metaStorageManager,
-                new LogicalTopologyServiceImpl(topology, cmgManager),
-                vaultMgr,
-                "test"
-        );
-
-        // Not adding 'distributionZoneManager' on purpose, it's started manually.
-        components.forEach(IgniteComponent::start);
-    }
-
-    @AfterEach
-    public void tearDown() throws Exception {
-        components.add(distributionZoneManager);
-
-        Collections.reverse(components);
-
-        IgniteUtils.closeAll(components.stream().map(c -> c::beforeNodeStop));
-        IgniteUtils.closeAll(components.stream().map(c -> c::stop));
-    }
 
     @Test
     void testMetaStorageKeysInitializedOnStartWhenTopVerEmpty() throws Exception {
@@ -340,12 +253,10 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
         assertLogicalTopVer(11L);
     }
 
-    private LogicalTopologySnapshot mockCmgLocalNodes(long version, Set<LogicalNode> clusterNodes) {
+    private void mockCmgLocalNodes(long version, Set<LogicalNode> clusterNodes) {
         LogicalTopologySnapshot logicalTopologySnapshot = new LogicalTopologySnapshot(version, clusterNodes);
 
         when(cmgManager.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));
-
-        return logicalTopologySnapshot;
     }
 
     private void assertLogicalTopVer(long topVer) throws InterruptedException {

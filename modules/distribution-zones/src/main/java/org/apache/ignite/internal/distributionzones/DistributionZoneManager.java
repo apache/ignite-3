@@ -195,6 +195,9 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Watch listener. Needed to unregister it on {@link DistributionZoneManager#stop()}. */
     private final WatchListener watchListener;
 
+    // TODO: This is a temporary solution until https://issues.apache.org/jira/browse/IGNITE-19104 is resolved.
+    private final CompletableFuture<Void> startFuture = new CompletableFuture<>();
+
     /**
      * Creates a new distribution zone manager.
      *
@@ -544,6 +547,11 @@ public class DistributionZoneManager implements IgniteComponent {
         }
     }
 
+    @TestOnly
+    public CompletableFuture<Void> startFuture() {
+        return startFuture;
+    }
+
     /**
      * Creates configuration listener for updates of scale up value.
      *
@@ -881,6 +889,8 @@ public class DistributionZoneManager implements IgniteComponent {
                             }
                         });
                     } else {
+                        startFuture.complete(null);
+
                         return CompletableFuture.<Void>completedFuture(null);
                     }
                 } finally {
@@ -981,6 +991,8 @@ public class DistributionZoneManager implements IgniteComponent {
                     DistributionZoneView defaultZoneView = zonesConfiguration.value().defaultDistributionZone();
 
                     scheduleTimers(defaultZoneView, addedNodes, removedNodes, revision);
+
+                    startFuture.complete(null);
 
                     return completedFuture(null);
                 } finally {
@@ -1245,7 +1257,7 @@ public class DistributionZoneManager implements IgniteComponent {
                             } else {
                                 LOG.debug("Updating data nodes for a zone has not succeeded [zoneId = {}]", zoneId);
 
-                                return saveDataNodesToMetaStorageOnScaleUp(zoneId, revision);
+                                return saveDataNodesToMetaStorageOnScaleDown(zoneId, revision);
                             }
 
                             return completedFuture(null);

@@ -134,9 +134,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         metaStorageManager.deployWatches();
 
-        // This a is hacky way to wait for all Meta Storage invokes that happen on DistributionZoneManager start
-        // (see "initLogicalTopologyAndVersionInMetaStorageOnStart" and "saveDataNodesAndUpdateTriggerKeysInMetaStorage").
-        verify(keyValueStorage, timeout(1_000).times(2)).invoke(any());
+        assertThat(distributionZoneManager.startFuture(), willCompleteSuccessfully());
 
         clearInvocations(keyValueStorage);
     }
