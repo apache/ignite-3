@@ -19,8 +19,6 @@ package org.apache.ignite.lang;
 
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaMethod;
-import com.tngtech.archunit.core.importer.ImportOption;
-import com.tngtech.archunit.core.importer.ImportOption.OnlyIncludeTests;
 import com.tngtech.archunit.core.importer.Location;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -68,7 +66,6 @@ public class DisabledTestsHasTicketArchTest {
 
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-//                        if ()
                         return FileVisitResult.CONTINUE;
                     }
 
