@@ -23,6 +23,9 @@ import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.core.importer.Location;
 import java.util.regex.Pattern;
 
+/**
+ * Provide the ability to evaluate every class location, to determine if the class should be treated as a test class.
+ */
 public class IgniteTestImportOption implements ImportOption {
     private final Pattern integrationTestPattern = Pattern.compile(".*/build/classes/([^/]+/)integrationTest/.*");
 
