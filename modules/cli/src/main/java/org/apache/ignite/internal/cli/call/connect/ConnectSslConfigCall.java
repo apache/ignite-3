@@ -48,21 +48,25 @@ public class ConnectSslConfigCall implements Call<ConnectSslConfigCallInput, Str
     @Override
     public CallOutput<String> execute(ConnectSslConfigCallInput input) {
         try {
-            SslConfig config = input.getConfig();
-            ApiClientSettings settings = ApiClientSettings.builder()
-                    .basePath(input.getUrl())
-                    .keyStorePath(config.keyStorePath())
-                    .keyStorePassword(config.keyStorePassword())
-                    .trustStorePath(config.trustStorePath())
-                    .trustStorePassword(config.trustStorePassword())
-                    .build();
-            ApiClient client = ApiClientFactory.buildClient(settings);
-            new NodeConfigurationApi(client).getNodeConfiguration();
-            saveConfig(config);
+            checkConnection(input);
+            saveConfig(input.getConfig());
             return connectCall.execute(new UrlCallInput(input.getUrl()));
         } catch (ApiException e) {
             return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getUrl()));
         }
+    }
+
+    private static void checkConnection(ConnectSslConfigCallInput input) throws ApiException {
+        SslConfig config = input.getConfig();
+        ApiClientSettings settings = ApiClientSettings.builder()
+                .basePath(input.getUrl())
+                .keyStorePath(config.keyStorePath())
+                .keyStorePassword(config.keyStorePassword())
+                .trustStorePath(config.trustStorePath())
+                .trustStorePassword(config.trustStorePassword())
+                .build();
+        ApiClient client = ApiClientFactory.buildClient(settings);
+        new NodeConfigurationApi(client).getNodeConfiguration();
     }
 
     private void saveConfig(SslConfig config) {
