@@ -542,6 +542,9 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
             // IO_BATCH_CNT should never be less than 1, but we don't have validation
             if (IO_BATCH_CNT <= 1 && inFlightCount == 0) {
                 batchRequester.request(1, sharedStateHolder);
+
+                lastRequested++;
+
                 // shared state should be send only once until next rewind
                 sharedStateHolder = null;
             } else if (IO_BATCH_CNT / 2 >= inFlightCount) {
