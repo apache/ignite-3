@@ -38,6 +38,8 @@ public class TestConfigManagerHelper {
 
     private static final String CLUSTER_URL_NON_DEFAULT = "cluster_url_non_default.ini";
 
+    private static final String CLUSTER_URL_SSL = "cluster_url_ssl.ini";
+
     public static File createEmptyConfig() {
         return copyResourceToTempFile(EMPTY);
     }
@@ -60,6 +62,10 @@ public class TestConfigManagerHelper {
 
     public static File createClusterUrlNonDefault() {
         return copyResourceToTempFile(CLUSTER_URL_NON_DEFAULT);
+    }
+
+    public static File createClusterUrlSsl() {
+        return copyResourceToTempFile(CLUSTER_URL_SSL);
     }
 
     /**

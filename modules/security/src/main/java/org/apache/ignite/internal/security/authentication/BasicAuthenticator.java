@@ -15,10 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.authentication;
-
-import io.micronaut.security.authentication.AuthenticationRequest;
-import io.micronaut.security.authentication.AuthenticationResponse;
+package org.apache.ignite.internal.security.authentication;
 
 /** Implementation of basic authenticator. */
 class BasicAuthenticator implements Authenticator {
@@ -33,11 +30,11 @@ class BasicAuthenticator implements Authenticator {
     }
 
     @Override
-    public AuthenticationResponse authenticate(AuthenticationRequest<?, ?> authenticationRequest) {
-        if (authenticationRequest.getIdentity().equals(login) && authenticationRequest.getSecret().equals(password)) {
-            return AuthenticationResponse.success((String) authenticationRequest.getIdentity());
+    public UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) {
+        if (login.equals(authenticationRequest.getIdentity()) && password.equals(authenticationRequest.getSecret())) {
+            return new UserDetails(login);
         } else {
-            return AuthenticationResponse.failure();
+            return null;
         }
     }
 }

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cluster.management.topology.api;
 
 import java.util.Collections;
 import java.util.Map;
-import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 
@@ -79,10 +78,9 @@ public class LogicalNode extends ClusterNode {
         return nodeAttributes;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        // TODO: S.toString for inherited classes do not work properly https://issues.apache.org/jira/browse/IGNITE-19183
-        return S.toString(LogicalNode.class, this);
-    }
+    // TODO: S.toString for inherited classes do not work properly https://issues.apache.org/jira/browse/IGNITE-19183
+    //    @Override
+    //    public String toString() {
+    //        return S.toString(LogicalNode.class, this);
+    //    }
 }
