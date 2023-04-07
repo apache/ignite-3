@@ -362,9 +362,7 @@ public class TableImpl implements Table {
 
         toWait.add(pkId);
 
-        Map<UUID, CompletableFuture<?>> uuidCompletableFutureMap = Map.copyOf(indexesToWait);
-
-        toWait.addAll(uuidCompletableFutureMap.values());
+        toWait.addAll(indexesToWait.values());
 
         allOf(toWait.toArray(CompletableFuture[]::new)).join();
     }

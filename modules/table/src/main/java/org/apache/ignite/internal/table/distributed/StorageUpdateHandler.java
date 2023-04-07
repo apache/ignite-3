@@ -427,11 +427,6 @@ public class StorageUpdateHandler {
 
         TableSchemaAwareIndexStorage index = indexes.get().get(indexId);
 
-        // TODO: IGNITE-19082 Presumably due to the drop of the index, we need to fix it
-        if (index == null) {
-            return;
-        }
-
         RowId lastRowId = null;
 
         for (UUID rowUuid : rowUuids) {
