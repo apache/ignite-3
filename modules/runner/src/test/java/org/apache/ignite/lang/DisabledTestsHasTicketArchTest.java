@@ -19,6 +19,8 @@ package org.apache.ignite.lang;
 
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaMethod;
+import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.core.importer.ImportOption.OnlyIncludeTests;
 import com.tngtech.archunit.core.importer.Location;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -29,7 +31,12 @@ import com.tngtech.archunit.lang.ConditionEvent;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
+import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Set;
 import org.junit.jupiter.api.Disabled;
 
@@ -38,6 +45,7 @@ import org.junit.jupiter.api.Disabled;
  */
 @AnalyzeClasses(
         packages = "org.apache.ignite",
+        importOptions = IgniteTestImportOption.class,
         locations = DisabledTestsHasTicketArchTest.RootLocationProvider.class)
 public class DisabledTestsHasTicketArchTest {
     static class RootLocationProvider implements LocationProvider {
@@ -45,6 +53,38 @@ public class DisabledTestsHasTicketArchTest {
         public Set<Location> get(Class<?> testClass) {
             // ignite-3/modules
             Path modulesRoot = Path.of("").toAbsolutePath().getParent();
+
+            try {
+                Files.walkFileTree(modulesRoot, new FileVisitor<>() {
+                    @Override
+                    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                        if (dir.toAbsolutePath().toString().contains("build")) {
+                            System.out.println("Classes dir");
+                            System.out.println(dir.toAbsolutePath());
+                            System.out.println("-------");
+                        }
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+//                        if ()
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
 
             return Set.of(Location.of(modulesRoot));
         }
@@ -66,7 +106,7 @@ public class DisabledTestsHasTicketArchTest {
             .should(new ArchCondition<>("test method have mention of IGNITE ticket") {
                 @Override
                 public void check(JavaMethod javaMethod, ConditionEvents events) {
-                    checkAnnotation(javaMethod.getName(), javaMethod.getAnnotationOfType(Disabled.class), events);
+                    checkAnnotation(javaMethod.getFullName(), javaMethod.getAnnotationOfType(Disabled.class), events);
                 }
             });
 
@@ -79,7 +119,7 @@ public class DisabledTestsHasTicketArchTest {
 
         ConditionEvent event = SimpleConditionEvent.violated(
                 name,
-                name + " disabled but does not have a reference to ticket");
+                name + " disabled but does not have a reference to a ticket");
 
         events.add(event);
     }
