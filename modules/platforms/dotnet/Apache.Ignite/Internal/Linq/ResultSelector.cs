@@ -80,7 +80,7 @@ internal static class ResultSelector
         if (selectorExpression is MemberInitExpression memberInitExpression)
         {
             var ctorInfo = memberInitExpression.NewExpression.Constructor!;
-            var cacheTarget = new MemberInitCacheTarget(ctorInfo, memberInitExpression.Bindings.Select(b => b.Member).ToList());
+            var cacheTarget = new MemberInitCacheTarget(ctorInfo, memberInitExpression.Bindings);
             var ctorCacheKey = new ResultSelectorCacheKey<MemberInitCacheTarget>(cacheTarget, columns, options);
             return (RowReader<T>)MemberInitCache.GetOrAdd(
                     ctorCacheKey,
@@ -221,9 +221,9 @@ internal static class ResultSelector
 
         var il = method.GetILGenerator();
         var ctorParams = target.CtorInfo.GetParameters();
-        var membersInitiated = target.PropertiesOrFields;
+        var memberBindings = target.MemberBindings;
 
-        if (ctorParams.Length + membersInitiated.Count != columns.Count)
+        if (ctorParams.Length + memberBindings.Count != columns.Count)
         {
             throw new InvalidOperationException("Constructor parameter count + initialized members parameter count" +
                                                 " does not match column count, can't emit row reader.");
@@ -241,10 +241,10 @@ internal static class ResultSelector
         il.Emit(OpCodes.Newobj, target.CtorInfo);
 
         // initialize the members
-        for (int memberIndex = 0; memberIndex < membersInitiated.Count; memberIndex++, columnsIndex++)
+        for (int memberIndex = 0; memberIndex < memberBindings.Count; memberIndex++, columnsIndex++)
         {
             il.Emit(OpCodes.Dup);
-            var member = membersInitiated[memberIndex];
+            var member = memberBindings[memberIndex].Member;
 
             if (member is PropertyInfo {SetMethod: {}} propertyInfo)
             {

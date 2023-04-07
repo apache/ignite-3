@@ -17,12 +17,13 @@
 
 namespace Apache.Ignite.Tests.Linq;
 
+using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
-using Ignite.Sql;
 using Internal.Linq;
-using Internal.Sql;
 using NUnit.Framework;
 
 /// <summary>
@@ -33,8 +34,8 @@ public class MemberInitCacheTargetTest
     [Test]
     public void TestTargetsWithSameCtorAreEqual()
     {
-        var target1 = new MemberInitCacheTarget(GetCtor(), ImmutableList<MemberInfo>.Empty);
-        var target2 = new MemberInitCacheTarget(GetCtor(), ImmutableList<MemberInfo>.Empty);
+        var target1 = new MemberInitCacheTarget(GetCtor(), ImmutableList<MemberBinding>.Empty);
+        var target2 = new MemberInitCacheTarget(GetCtor(), ImmutableList<MemberBinding>.Empty);
 
         Assert.AreEqual(target1, target2);
         Assert.AreEqual(target1.GetHashCode(), target2.GetHashCode());
@@ -44,8 +45,8 @@ public class MemberInitCacheTargetTest
     [Test]
     public void TestTargetsWithTheSameMembersAreEqual()
     {
-        var target1 = new MemberInitCacheTarget(GetCtor(), GetProperties());
-        var target2 = new MemberInitCacheTarget(GetCtor(), GetProperties());
+        var target1 = new MemberInitCacheTarget(GetCtor(), GetBindings());
+        var target2 = new MemberInitCacheTarget(GetCtor(), GetBindings());
 
         Assert.AreEqual(target1, target2);
         Assert.AreEqual(target1.GetHashCode(), target2.GetHashCode());
@@ -55,8 +56,8 @@ public class MemberInitCacheTargetTest
     [Test]
     public void TestTargetsWithDifferentCtorAreNotEqual()
     {
-        var target1 = new MemberInitCacheTarget(GetCtor(), ImmutableList<MemberInfo>.Empty);
-        var target2 = new MemberInitCacheTarget(GetCtor(1), ImmutableList<MemberInfo>.Empty);
+        var target1 = new MemberInitCacheTarget(GetCtor(), ImmutableList<MemberBinding>.Empty);
+        var target2 = new MemberInitCacheTarget(GetCtor(1), ImmutableList<MemberBinding>.Empty);
 
         Assert.AreNotEqual(target1, target2);
         Assert.AreNotEqual(target1.GetHashCode(), target2.GetHashCode());
@@ -66,8 +67,8 @@ public class MemberInitCacheTargetTest
     [Test]
     public void TestTargetsWithDifferentMembersAreNotEqual()
     {
-        var target1 = new MemberInitCacheTarget(GetCtor(), GetProperties().Take(1).ToArray());
-        var target2 = new MemberInitCacheTarget(GetCtor(), GetProperties().TakeLast(1).ToArray());
+        var target1 = new MemberInitCacheTarget(GetCtor(), GetBindings().Take(1).ToArray());
+        var target2 = new MemberInitCacheTarget(GetCtor(), GetBindings().TakeLast(1).ToArray());
 
         Assert.AreNotEqual(target1, target2);
         Assert.AreNotEqual(target1.GetHashCode(), target2.GetHashCode());
@@ -77,38 +78,26 @@ public class MemberInitCacheTargetTest
     [Test]
     public void TestTargetsWithSameMembersDifferentOrderAreNotEqual()
     {
-        var target1 = new MemberInitCacheTarget(GetCtor(), GetProperties());
-        var target2 = new MemberInitCacheTarget(GetCtor(), GetProperties().Reverse().ToArray());
+        var target1 = new MemberInitCacheTarget(GetCtor(), GetBindings());
+        var target2 = new MemberInitCacheTarget(GetCtor(), GetBindings().Reverse().ToArray());
 
         Assert.AreNotEqual(target1, target2);
         Assert.AreNotEqual(target1.GetHashCode(), target2.GetHashCode());
         Assert.IsFalse(target1 == target2);
     }
 
-    private static PropertyInfo[] GetProperties() => typeof(TestClass).GetProperties();
+    private static IReadOnlyList<MemberBinding> GetBindings()
+    {
+        Expression<Func<TestClass, object>> x = tc => new TestClass
+        {
+            I1 = tc.I1,
+            I2 = tc.I2
+        };
+
+        return ((MemberInitExpression)x.Body).Bindings;
+    }
 
     private static ConstructorInfo GetCtor(int i = 0) => typeof(TestClass).GetConstructors().Skip(i).First();
-
-    private static ColumnMetadata[] GetColumns()
-    {
-        return new[]
-        {
-            new ColumnMetadata(
-                Name: "c1",
-                Type: SqlColumnType.Date,
-                Precision: 1,
-                Scale: 2,
-                Nullable: true,
-                Origin: null),
-            new ColumnMetadata(
-                Name: "c2",
-                Type: SqlColumnType.Float,
-                Precision: 4,
-                Scale: 6,
-                Nullable: false,
-                Origin: null)
-        };
-    }
 
     private class TestClass
     {

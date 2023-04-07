@@ -117,16 +117,6 @@ public partial class LinqTests
     }
 
     [Test]
-    public void TestSelectMemberInitFirstOrDefaultReturnsNull()
-    {
-        var res = PocoView
-            .AsQueryable()
-            .FirstOrDefault(x => x.Key == int.MaxValue - 10_000);
-
-        Assert.IsNull(res);
-    }
-
-    [Test]
     [SuppressMessage("ReSharper", "ReturnValueOfPureMethodIsNotUsed", Justification = "Reviewed")]
     public void TestSelectMemberInitSingleWithMultipleRowsThrows()
     {

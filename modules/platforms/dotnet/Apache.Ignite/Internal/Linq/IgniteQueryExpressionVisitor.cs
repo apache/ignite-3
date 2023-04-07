@@ -305,9 +305,8 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             first = false;
         }
 
-        for (var i = 0; i < expression.Bindings.Count; i++)
+        foreach (var memberBinding in expression.Bindings)
         {
-            var arg = (MemberAssignment)expression.Bindings[i]; // todo
             if (!first)
             {
                 if (_useStar)
@@ -316,6 +315,11 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
                 }
 
                 ResultBuilder.TrimEnd().Append(", ");
+            }
+
+            if (memberBinding is not MemberAssignment arg)
+            {
+                throw new NotSupportedException($"{memberBinding.BindingType} binding type is not supported");
             }
 
             first = false;

@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Linq;
 
 using System;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Reflection;
 
 /// <summary>
@@ -30,11 +31,11 @@ internal readonly struct MemberInitCacheTarget : IEquatable<MemberInitCacheTarge
     /// Initializes a new instance of the <see cref="MemberInitCacheTarget"/> struct.
     /// </summary>
     /// <param name="ctorInfo">Target constructor info.</param>
-    /// <param name="propertiesOrFields">Target properties of field infos.</param>
-    public MemberInitCacheTarget(ConstructorInfo ctorInfo, IReadOnlyList<MemberInfo> propertiesOrFields)
+    /// <param name="memberBindings">Target properties of field infos.</param>
+    public MemberInitCacheTarget(ConstructorInfo ctorInfo, IReadOnlyList<MemberBinding> memberBindings)
     {
         CtorInfo = ctorInfo;
-        PropertiesOrFields = propertiesOrFields;
+        MemberBindings = memberBindings;
     }
 
     /// <summary>
@@ -45,7 +46,7 @@ internal readonly struct MemberInitCacheTarget : IEquatable<MemberInitCacheTarge
     /// <summary>
     /// Gets properties or fields infos.
     /// </summary>
-    public IReadOnlyList<MemberInfo> PropertiesOrFields { get; }
+    public IReadOnlyList<MemberBinding> MemberBindings { get; }
 
     public static bool operator ==(MemberInitCacheTarget left, MemberInitCacheTarget right) => left.Equals(right);
 
@@ -59,14 +60,16 @@ internal readonly struct MemberInitCacheTarget : IEquatable<MemberInitCacheTarge
             return false;
         }
 
-        if (PropertiesOrFields.Count != other.PropertiesOrFields.Count)
+        if (MemberBindings.Count != other.MemberBindings.Count)
         {
             return false;
         }
 
-        for (var i = 0; i < PropertiesOrFields.Count; i++)
+        for (var i = 0; i < MemberBindings.Count; i++)
         {
-            if (PropertiesOrFields[i] != other.PropertiesOrFields[i])
+            var leftMember = MemberBindings[i].Member;
+            var rightMember = other.MemberBindings[i].Member;
+            if (leftMember != rightMember)
             {
                 return false;
             }
@@ -85,9 +88,9 @@ internal readonly struct MemberInitCacheTarget : IEquatable<MemberInitCacheTarge
 
         hash.Add(CtorInfo);
 
-        foreach (var propertyOrField in PropertiesOrFields)
+        foreach (var propertyOrField in MemberBindings)
         {
-            hash.Add(propertyOrField);
+            hash.Add(propertyOrField.Member);
         }
 
         return hash.ToHashCode();
