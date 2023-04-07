@@ -800,8 +800,15 @@ public class DistributionZoneManager implements IgniteComponent {
                     ops().yield(false)
             );
 
-            metaStorageManager.invoke(iff).thenAccept(res -> {
-                if (res.getAsBoolean()) {
+            metaStorageManager.invoke(iff).whenComplete((res, e) -> {
+                if (e != null) {
+                    LOG.error(
+                            "Failed to update distribution zones' logical topology and version keys [topology = {}, version = {}]",
+                            e,
+                            Arrays.toString(topologyFromCmg.toArray()),
+                            newTopology.version()
+                    );
+                } else if (res.getAsBoolean()) {
                     LOG.debug(
                             "Distribution zones' logical topology and version keys were updated [topology = {}, version = {}]",
                             Arrays.toString(topologyFromCmg.toArray()),

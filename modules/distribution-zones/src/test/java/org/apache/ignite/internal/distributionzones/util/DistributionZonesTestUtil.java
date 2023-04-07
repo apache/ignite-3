@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -181,7 +182,15 @@ public class DistributionZonesTestUtil {
                 ? null
                 : toBytes(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
 
-        assertTrue(waitForCondition(() -> Arrays.equals(keyValueStorage.get(zonesLogicalTopologyKey().bytes()).value(), nodes), 1000));
+        byte[] key = zonesLogicalTopologyKey().bytes();
+
+        boolean success = waitForCondition(() -> Arrays.equals(keyValueStorage.get(key).value(), nodes), 1000);
+
+        if (!success) {
+            byte[] storageValue = keyValueStorage.get(key).value();
+
+            assertThat(storageValue == null ? null : fromBytes(storageValue), is(clusterNodes));
+        }
     }
 
     /**
