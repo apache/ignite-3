@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.cli.commands.questions;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.io.IOException;
+import org.apache.ignite.internal.NodeConfig;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.TestStateConfigHelper;
@@ -28,17 +30,28 @@ import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-class ItConnectToClusterTest extends ItConnectToClusterTestBase {
+class ItConnectToSslClusterTest extends ItConnectToClusterTestBase {
+    @Override
+    protected String nodeBootstrapConfigTemplate() {
+        return NodeConfig.REST_SSL_BOOTSTRAP_CONFIG;
+    }
 
     @Test
-    @DisplayName("Should connect to last connected cluster url")
+    @DisplayName("Should connect to last connected cluster HTTPS url")
     void connectOnStart() throws IOException {
         // Given prompt before connect
         String promptBefore = getPrompt();
         assertThat(promptBefore).isEqualTo("[disconnected]> ");
 
+        // And default URL is HTTPS
+        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createClusterUrlSsl());
+
+        // And trust store is configured
+        configManagerProvider.configManager.setProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value(), NodeConfig.resolvedTruststorePath);
+        configManagerProvider.configManager.setProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value(), NodeConfig.trustStorePassword);
+
         // And last connected URL is equal to the default URL
-        stateConfigProvider.config = TestStateConfigHelper.createLastConnectedDefault();
+        stateConfigProvider.config = TestStateConfigHelper.createLastConnectedSslDefault();
 
         // And answer to the first question is "y"
         bindAnswers("y");
@@ -49,7 +62,7 @@ class ItConnectToClusterTest extends ItConnectToClusterTestBase {
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10300")
+                () -> assertOutputContains("Connected to https://localhost:10400")
         );
         // And prompt is changed to connect
         String promptAfter = getPrompt();
@@ -57,70 +70,39 @@ class ItConnectToClusterTest extends ItConnectToClusterTestBase {
     }
 
     @Test
-    @DisplayName("Should connect to last connected cluster url and ask for save")
-    void connectOnStartAndSave() throws IOException {
+    @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url")
+    void connectOnStartAskSsl() throws IOException {
         // Given prompt before connect
         String promptBefore = getPrompt();
         assertThat(promptBefore).isEqualTo("[disconnected]> ");
 
-        // And last connected URL is not equal to the default URL
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createClusterUrlNonDefault());
-        stateConfigProvider.config = TestStateConfigHelper.createLastConnectedDefault();
+        // And default URL is HTTPS
+        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createClusterUrlSsl());
 
-        // And answer to both questions is "y"
-        bindAnswers("y", "y");
+        // And trust store is not configured
 
-        // When asked the questions
+        // And last connected URL is equal to the default URL
+        stateConfigProvider.config = TestStateConfigHelper.createLastConnectedSslDefault();
+
+        // And answer to the reconnect question is "y", to the SSL configuration question is "y",
+        // trust store path and password are provided and key store is not configured
+        bindAnswers("y", "y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n");
+
+        // When asked the question
         question.askQuestionOnReplStart();
 
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10300"),
-                () -> assertOutputContains("Config saved")
+                () -> assertOutputContains("Connected to https://localhost:10400")
         );
         // And prompt is changed to connect
         String promptAfter = getPrompt();
         assertThat(promptAfter).isEqualTo("[" + nodeName() + "]> ");
-        assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.CLUSTER_URL.value()))
-                .isEqualTo("http://localhost:10300");
+
+        assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
+                .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath));
+        assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value()))
+                .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword));
     }
-
-    @Test
-    @DisplayName("Should ask to connect to different URL")
-    void connectToAnotherUrl() throws IOException {
-        // Given prompt before connect
-        String promptBefore = getPrompt();
-        assertThat(promptBefore).isEqualTo("[disconnected]> ");
-
-        // And connected
-        execute("connect");
-
-        // And output is
-        assertAll(
-                this::assertErrOutputIsEmpty,
-                () -> assertOutputIs("Connected to http://localhost:10300" + System.lineSeparator())
-        );
-
-        // And answer is "y"
-        bindAnswers("y");
-
-        // And disconnect
-        resetOutput();
-        execute("disconnect");
-
-        // When connect to different URL
-        resetOutput();
-        execute("connect", "http://localhost:10301");
-
-        // Then
-        assertAll(
-                this::assertErrOutputIsEmpty,
-                () -> assertOutputIs("Connected to http://localhost:10301" + System.lineSeparator())
-        );
-        // And prompt is changed to another node
-        String promptAfter = getPrompt();
-        assertThat(promptAfter).isEqualTo("[" + CLUSTER_NODES.get(1).name() + "]> ");
-    }
-
 }

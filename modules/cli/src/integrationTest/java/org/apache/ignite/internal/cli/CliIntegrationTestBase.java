@@ -33,17 +33,14 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.testframework.IntegrationTestBase;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Integration test base. Setups ignite cluster per test class and provides useful fixtures and assertions.
  */
-@ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @MicronautTest(rebuildContext = true)
 public class CliIntegrationTestBase extends IntegrationTestBase {

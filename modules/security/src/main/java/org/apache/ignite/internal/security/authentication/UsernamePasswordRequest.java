@@ -15,18 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.ssl;
+package org.apache.ignite.internal.security.authentication;
 
-import org.apache.ignite.internal.NodeConfig;
-import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Integration test base for SSL tests.
+ * Represents a request to authenticate using a username and a password.
  */
-public class CliSslNotInitializedIntegrationTestBase extends CliCommandTestNotInitializedIntegrationBase {
+public class UsernamePasswordRequest implements AuthenticationRequest<String, String> {
 
+    private final String login;
+
+    private final String password;
+
+    public UsernamePasswordRequest() {
+        login = null;
+        password = null;
+    }
+
+    public UsernamePasswordRequest(String login, String password) {
+        this.login = login;
+        this.password = password;
+    }
+
+    @Nullable
     @Override
-    protected String nodeBootstrapConfigTemplate() {
-        return NodeConfig.REST_SSL_BOOTSTRAP_CONFIG;
+    public String getIdentity() {
+        return login;
+    }
+
+    @Nullable
+    @Override
+    public String getSecret() {
+        return password;
     }
 }

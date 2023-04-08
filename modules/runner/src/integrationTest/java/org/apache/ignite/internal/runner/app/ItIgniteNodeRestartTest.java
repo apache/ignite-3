@@ -782,8 +782,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             res2.close();
         }
 
-        // TODO: Uncomment after IGNITE-18203
-        /*stopNode(0);
+        stopNode(0);
 
         ignite1 = startNode(0);
 
@@ -791,7 +790,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             ResultSet<SqlRow> res3 = session1.execute(null, sql);
 
             assertEquals(intRes, res3.next().intValue(0));
-        }*/
+        }
     }
 
     /**
