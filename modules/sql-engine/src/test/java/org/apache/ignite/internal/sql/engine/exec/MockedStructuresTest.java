@@ -77,6 +77,7 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
 import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
@@ -159,7 +160,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TablesConfiguration tblsCfg;
 
-    @InjectConfiguration("mock.distributionZones.zone123{dataStorage.name = unknown, zoneId = 1}")
+    @InjectConfiguration("mock.distributionZones.zone123{dataStorage.name = rocksdb, zoneId = 1}")
     private DistributionZonesConfiguration dstZnsCfg;
 
     TableManager tblManager;
@@ -275,7 +276,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         queryProc.start();
 
-        dstZnsCfg.defaultDataStorage().update(ENGINE_NAME).get(1, TimeUnit.SECONDS);
+        dstZnsCfg.defaultDistributionZone().change(ch -> ch.changeDataStorage(d -> d.convert(RocksDbDataStorageChange.class))).get(1, TimeUnit.SECONDS);
 
         rocksDbEngineConfig.regions()
                 .change(c -> c.create("test_region", rocksDbDataRegionChange -> {}))
