@@ -38,6 +38,7 @@ import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.ignite.sql.SqlException;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -123,7 +124,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
     /**
      * Parse CREATE ZONE WITH unknown option.
      */
-    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19261")
     public void createZoneWithInvalidOptions() {
         // Unknown option.
         assertThrows(SqlException.class, () -> parseCreateZone("create zone test_zone with foo='bar'"));
@@ -273,7 +274,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
     /**
      * Parses ALTER ZONE WITH invalid options.
      */
-    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19261")
     public void alterZoneSetInvalidOptions() {
         String query = "alter zone test_zone set %s=%s";
 

@@ -519,6 +519,7 @@ public class DdlSqlToCommandConverter {
         Map<String, DdlOptionInfo<CreateZoneCommand, ?>> dsOptInfos = dataStorageOptionInfos.get(dataStorageName);
 
         Set<String> knownOptionNames = EnumSet.allOf(IgniteSqlZoneOptionEnum.class).stream().map(Enum::name).collect(Collectors.toSet());
+        Set<String> remainingKnownOptions = new HashSet<>(knownOptionNames);
 
         for (SqlNode optionNode : createZoneNode.createOptionList().getList()) {
             IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
@@ -529,14 +530,15 @@ public class DdlSqlToCommandConverter {
 
             DdlOptionInfo<CreateZoneCommand, ?> zoneOptionInfo;
 
-            if (!knownOptionNames.remove(optionName)) {
-                zoneOptionInfo = dsOptInfos.get(optionName);
-            } else {
+            if (remainingKnownOptions.remove(optionName)) {
                 zoneOptionInfo = zoneOptionInfos.get(IgniteSqlZoneOptionEnum.valueOf(optionName));
-
+            } else if (knownOptionNames.contains(optionName)) {
+                throw new IgniteException(QUERY_VALIDATION_ERR,
+                        String.format("Duplicate DDL command option has been specified [option=%s, query=%s]", optionName, ctx.query()));
+            } else {
+                zoneOptionInfo = dsOptInfos.get(optionName);
             }
 
-            // TODO: KKK can be not unknown, but duplicate
             if (zoneOptionInfo == null) {
                 throw new IgniteException(
                         QUERY_VALIDATION_ERR, String.format("Unexpected zone option [option=%s, query=%s]", optionName, ctx.query()));
@@ -563,13 +565,16 @@ public class DdlSqlToCommandConverter {
         alterZoneCmd.ifExists(alterZoneSet.ifExists());
 
         Set<String> knownOptionNames = EnumSet.allOf(IgniteSqlZoneOptionEnum.class).stream().map(Enum::name).collect(Collectors.toSet());
+        Set<String> remainingKnownOptions = new HashSet<>(knownOptionNames);
 
         for (SqlNode optionNode : alterZoneSet.alterOptionsList().getList()) {
             IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
             String optionName = option.key().getSimple().toUpperCase();
 
-            // TODO: KKK can be not duplicate, but unknown
-            if (!knownOptionNames.remove(optionName)) {
+            if (!knownOptionNames.contains(optionName)) {
+                throw new IgniteException(QUERY_VALIDATION_ERR,
+                        String.format("Unexpected DDL command option [option=%s, query=%s]", optionName, ctx.query()));
+            } else if (!remainingKnownOptions.remove(optionName)) {
                 throw new IgniteException(QUERY_VALIDATION_ERR,
                         String.format("Duplicate DDL command option has been specified [option=%s, query=%s]", optionName, ctx.query()));
             }
