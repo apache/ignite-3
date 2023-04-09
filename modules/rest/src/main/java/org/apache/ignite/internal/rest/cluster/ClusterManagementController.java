@@ -147,7 +147,7 @@ public class ClusterManagementController implements ClusterManagementApi {
             BasicAuthenticationProviderConfigDto basicAuthenticationProviderConfigDto = (BasicAuthenticationProviderConfigDto) configDto;
             return new BasicAuthenticationProviderConfig(
                     basicAuthenticationProviderConfigDto.name(),
-                    basicAuthenticationProviderConfigDto.login(),
+                    basicAuthenticationProviderConfigDto.username(),
                     basicAuthenticationProviderConfigDto.password()
             );
         } else {

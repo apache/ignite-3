@@ -59,10 +59,10 @@ public enum Options {
             Constants.AUTHENTICATION_ENABLED_OPTION_SHORT,
             Constants.AUTHENTICATION_ENABLED_OPTION_DESC
     ),
-    BASIC_AUTHENTICATION_LOGIN(
-            Constants.BASIC_AUTHENTICATION_LOGIN_OPTION,
-            Constants.BASIC_AUTHENTICATION_LOGIN_OPTION_SHORT,
-            Constants.BASIC_AUTHENTICATION_LOGIN_OPTION_DESC
+    BASIC_AUTHENTICATION_USERNAME(
+            Constants.BASIC_AUTHENTICATION_USERNAME_OPTION,
+            Constants.BASIC_AUTHENTICATION_USERNAME_OPTION_SHORT,
+            Constants.BASIC_AUTHENTICATION_USERNAME_OPTION_DESC
     ),
     BASIC_AUTHENTICATION_PASSWORD(
             Constants.BASIC_AUTHENTICATION_PASSWORD_OPTION,
@@ -251,11 +251,11 @@ public enum Options {
 
         public static final String AUTHENTICATION_ENABLED_OPTION_DESC = "Authentication enabled flag";
 
-        public static final String BASIC_AUTHENTICATION_LOGIN_OPTION = "--basic-auth-login";
+        public static final String BASIC_AUTHENTICATION_USERNAME_OPTION = "--basic-auth-username";
 
-        public static final String BASIC_AUTHENTICATION_LOGIN_OPTION_SHORT = "-bl";
+        public static final String BASIC_AUTHENTICATION_USERNAME_OPTION_SHORT = "-bu";
 
-        public static final String BASIC_AUTHENTICATION_LOGIN_OPTION_DESC = "Login which will be used for basic authentication";
+        public static final String BASIC_AUTHENTICATION_USERNAME_OPTION_DESC = "Username which will be used for basic authentication";
 
         public static final String BASIC_AUTHENTICATION_PASSWORD_OPTION = "--basic-auth-password";
 

@@ -35,8 +35,8 @@ public class BasicAuthenticationProviderConfigDto implements AuthenticationProvi
     @Schema(description = "Provider name.")
     private final String name;
 
-    @Schema(description = "Login.")
-    private final String login;
+    @Schema(description = "Username.")
+    private final String username;
 
     @Schema(description = "Password.")
     private final String password;
@@ -45,14 +45,14 @@ public class BasicAuthenticationProviderConfigDto implements AuthenticationProvi
     @JsonCreator
     public BasicAuthenticationProviderConfigDto(
             @JsonProperty("name") String name,
-            @JsonProperty("login") String login,
+            @JsonProperty("username") String username,
             @JsonProperty("password") String password) {
         if (StringUtils.nullOrBlank(name)) {
             throw new IllegalArgumentException("Name must not be empty.");
         }
 
-        if (StringUtils.nullOrBlank(login)) {
-            throw new IllegalArgumentException("Login must not be empty.");
+        if (StringUtils.nullOrBlank(username)) {
+            throw new IllegalArgumentException("Username must not be empty.");
         }
 
         if (StringUtils.nullOrBlank(password)) {
@@ -60,13 +60,13 @@ public class BasicAuthenticationProviderConfigDto implements AuthenticationProvi
         }
 
         this.name = name;
-        this.login = login;
+        this.username = username;
         this.password = password;
     }
 
     @JsonProperty
-    public String login() {
-        return login;
+    public String username() {
+        return username;
     }
 
     @JsonProperty
