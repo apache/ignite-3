@@ -22,6 +22,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
+import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -75,13 +76,17 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     /** {@inheritDoc} */
     @Override
     public String columnName(int columnIndex) {
-        return tuple != null ? tuple.columnName(columnIndex) : schemaColumnName(columnIndex);
+        return tuple != null
+                ? tuple.columnName(columnIndex)
+                : schemaColumnName0(columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public int columnIndex(@NotNull String columnName) {
-        return tuple != null ? tuple.columnIndex(columnName) : schemaColumnIndex(columnName, null);
+        return tuple != null
+                ? tuple.columnIndex(columnName)
+                : schemaColumnIndex(columnName, null) - schemaOffset;
     }
 
     /** {@inheritDoc} */
@@ -91,9 +96,9 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
             return tuple.valueOrDefault(columnName, defaultValue);
         }
 
-        var idx = schemaColumnIndex(columnName, null);
+        var internalIndex = schemaColumnIndex(columnName, null);
 
-        return idx < 0 ? defaultValue : value(idx);
+        return internalIndex < 0 || internalIndex >= schemaSize ? defaultValue : value(internalIndex);
     }
 
     /** {@inheritDoc} */
@@ -103,13 +108,13 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
             return tuple.value(columnName);
         }
 
-        var idx = schemaColumnIndex(columnName, null);
+        var internalIndex = schemaColumnIndex(columnName, null);
 
-        if (idx < 0) {
+        if (internalIndex < 0 || internalIndex >= schemaSize) {
             throw new IllegalArgumentException("Column not found: columnName=" + columnName);
         }
 
-        return value(idx);
+        return value(internalIndex);
     }
 
     /** {@inheritDoc} */
@@ -119,7 +124,10 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
             return tuple.value(columnIndex);
         }
 
-        return (T)object(columnIndex);
+        Objects.checkIndex(columnIndex, schemaSize - schemaOffset);
+
+        int internalIndex = columnIndex + schemaOffset;
+        return (T)object(internalIndex);
     }
 
     /** {@inheritDoc} */
@@ -357,7 +365,13 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
         return this;
     }
 
-    protected abstract String schemaColumnName(int index);
+    protected abstract String schemaColumnName(int internalIndex);
+
+    private String schemaColumnName0(int publicIndex) {
+        Objects.checkIndex(publicIndex, schemaSize - schemaOffset);
+
+        return schemaColumnName(publicIndex + schemaOffset);
+    }
 
     protected abstract int schemaColumnIndex(@NotNull String columnName, @Nullable ColumnType type);
 
