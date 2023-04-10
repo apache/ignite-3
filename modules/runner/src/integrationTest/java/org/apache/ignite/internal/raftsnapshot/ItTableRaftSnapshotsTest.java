@@ -166,7 +166,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * until {@code shouldStop} returns {@code true}, in that case this method throws {@link UnableToRetry} exception.
      */
     private static <T> T withRetry(Supplier<T> action, Predicate<RuntimeException> shouldStop) {
-        int maxAttempts = 4;
+        int maxAttempts = 5;
         int sleepMillis = 500;
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -177,8 +177,10 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
                     throw new UnableToRetry(e);
                 }
                 if (attempt < maxAttempts && isTransientFailure(e)) {
-                    LOG.warn("Attempt " + attempt + " failed, going to retry", e);
+                    LOG.warn("Attempt {} failed, going to retry", e, attempt);
                 } else {
+                    LOG.error("Attempt {} failed, not going to retry anymore, rethrowing", e, attempt);
+
                     throw e;
                 }
             }
