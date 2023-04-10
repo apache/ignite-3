@@ -351,7 +351,7 @@ public class ClientTupleTest {
 
     private static Tuple getTuple() {
         var binTupleBuf = new BinaryTupleBuilder(SCHEMA.columns().length, false)
-                .appendFloat(3L)
+                .appendLong(3L)
                 .appendString("Shirt")
                 .build();
 
