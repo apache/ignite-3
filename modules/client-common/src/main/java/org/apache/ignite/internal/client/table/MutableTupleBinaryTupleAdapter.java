@@ -365,7 +365,11 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
 
     protected abstract int schemaDecimalScale(int columnIndex);
 
-    private Object object(int columnIndex) {
+    private @Nullable Object object(int columnIndex) {
+        if (binaryTuple.hasNullValue(columnIndex)) {
+            return null;
+        }
+
         var type = schemaColumnType(columnIndex);
 
         switch (type) {
