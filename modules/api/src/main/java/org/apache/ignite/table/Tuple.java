@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Tuple represents an arbitrary set of columns whose values are accessible by column name.
@@ -212,7 +213,7 @@ public interface Tuple extends Iterable<Object> {
      * @param value      Value to set.
      * @return {@code this} for chaining.
      */
-    Tuple set(@NotNull String columnName, Object value);
+    Tuple set(@NotNull String columnName, @Nullable Object value);
 
     /**
      * Gets a column value for the given column name.

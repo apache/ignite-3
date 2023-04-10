@@ -35,6 +35,7 @@ import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Simple tuple implementation.
@@ -100,7 +101,7 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
-    public Tuple set(@NotNull String columnName, Object val) {
+    public Tuple set(@NotNull String columnName, @Nullable Object val) {
         String columnName0 = IgniteNameUtils.parseSimpleName(columnName);
 
         int idx = colMapping.computeIfAbsent(Objects.requireNonNull(columnName0), name -> colMapping.size());

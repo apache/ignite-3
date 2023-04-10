@@ -291,7 +291,7 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
 
     /** {@inheritDoc} */
     @Override
-    public Tuple set(@NotNull String columnName, Object value) {
+    public Tuple set(@NotNull String columnName, @Nullable Object value) {
         unmarshalRow();
 
         tuple.set(columnName, value);

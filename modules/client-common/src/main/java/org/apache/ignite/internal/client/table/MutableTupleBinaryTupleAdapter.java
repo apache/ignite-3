@@ -357,7 +357,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public Tuple set(@NotNull String columnName, Object value) {
+    public Tuple set(@NotNull String columnName, @Nullable Object value) {
         if (tuple == null) {
             tuple = Tuple.create(this);
 
