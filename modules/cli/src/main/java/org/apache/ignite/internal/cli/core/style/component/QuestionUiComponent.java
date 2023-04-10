@@ -20,7 +20,9 @@ package org.apache.ignite.internal.cli.core.style.component;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.ansi;
 
 import org.apache.ignite.internal.cli.core.style.element.UiElement;
+import org.apache.ignite.internal.cli.core.style.element.UiElements;
 import org.apache.ignite.internal.cli.core.style.element.UiString;
+import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
  * UI component that represents a question.
@@ -44,6 +46,10 @@ public class QuestionUiComponent implements UiComponent {
 
     public static QuestionUiComponent fromQuestion(String question, UiElement... questionUiElements) {
         return builder().question(question, questionUiElements).build();
+    }
+
+    public static QuestionUiComponent fromYesNoQuestion(String question, UiElement... questionUiElements) {
+        return fromQuestion(question + " %s ", ArrayUtils.concat(questionUiElements, UiElements.yesNo()));
     }
 
     /** Builder. */

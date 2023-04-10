@@ -20,73 +20,21 @@ package org.apache.ignite.internal.cli.commands.questions;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import jakarta.inject.Inject;
-import java.io.FileDescriptor;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
-import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.TestStateConfigHelper;
-import org.apache.ignite.internal.cli.config.TestStateConfigProvider;
 import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
-import org.apache.ignite.internal.cli.core.flow.question.JlineQuestionWriterReader;
-import org.apache.ignite.internal.cli.core.flow.question.QuestionAskerFactory;
-import org.apache.ignite.internal.cli.core.repl.prompt.PromptProvider;
-import org.jline.reader.impl.LineReaderImpl;
-import org.jline.terminal.Terminal;
-import org.jline.terminal.impl.DumbTerminal;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
-import picocli.CommandLine.Help.Ansi;
 
-class ItConnectToClusterTest extends CliCommandTestInitializedIntegrationBase {
-    @Inject
-    private PromptProvider promptProvider;
-
-    @Inject
-    private TestStateConfigProvider stateConfigProvider;
-
-    @Inject
-    private ConnectToClusterQuestion question;
-
-    private Terminal terminal;
-    private Path input;
-
-    @Override
-    protected Class<?> getCommandClass() {
-        return TopLevelCliReplCommand.class;
-    }
-
-    @Override
-    @BeforeEach
-    public void setUp(TestInfo testInfo) throws Exception {
-        super.setUp(testInfo);
-
-        input = Files.createTempFile("input", "");
-        input.toFile().deleteOnExit();
-        terminal = new DumbTerminal(Files.newInputStream(input), new FileOutputStream(FileDescriptor.out));
-        LineReaderImpl reader = new LineReaderImpl(terminal);
-        QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader));
-    }
-
-    @AfterEach
-    public void cleanUp() throws IOException {
-        terminal.input().close();
-        terminal.close();
-    }
+class ItConnectToClusterTest extends ItConnectToClusterTestBase {
 
     @Test
     @DisplayName("Should connect to last connected cluster url")
     void connectOnStart() throws IOException {
         // Given prompt before connect
-        String promptBefore = Ansi.OFF.string(promptProvider.getPrompt());
+        String promptBefore = getPrompt();
         assertThat(promptBefore).isEqualTo("[disconnected]> ");
 
         // And last connected URL is equal to the default URL
@@ -104,7 +52,7 @@ class ItConnectToClusterTest extends CliCommandTestInitializedIntegrationBase {
                 () -> assertOutputContains("Connected to http://localhost:10300")
         );
         // And prompt is changed to connect
-        String promptAfter = Ansi.OFF.string(promptProvider.getPrompt());
+        String promptAfter = getPrompt();
         assertThat(promptAfter).isEqualTo("[" + nodeName() + "]> ");
     }
 
@@ -112,7 +60,7 @@ class ItConnectToClusterTest extends CliCommandTestInitializedIntegrationBase {
     @DisplayName("Should connect to last connected cluster url and ask for save")
     void connectOnStartAndSave() throws IOException {
         // Given prompt before connect
-        String promptBefore = Ansi.OFF.string(promptProvider.getPrompt());
+        String promptBefore = getPrompt();
         assertThat(promptBefore).isEqualTo("[disconnected]> ");
 
         // And last connected URL is not equal to the default URL
@@ -132,7 +80,7 @@ class ItConnectToClusterTest extends CliCommandTestInitializedIntegrationBase {
                 () -> assertOutputContains("Config saved")
         );
         // And prompt is changed to connect
-        String promptAfter = Ansi.OFF.string(promptProvider.getPrompt());
+        String promptAfter = getPrompt();
         assertThat(promptAfter).isEqualTo("[" + nodeName() + "]> ");
         assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.CLUSTER_URL.value()))
                 .isEqualTo("http://localhost:10300");
@@ -142,7 +90,7 @@ class ItConnectToClusterTest extends CliCommandTestInitializedIntegrationBase {
     @DisplayName("Should ask to connect to different URL")
     void connectToAnotherUrl() throws IOException {
         // Given prompt before connect
-        String promptBefore = Ansi.OFF.string(promptProvider.getPrompt());
+        String promptBefore = getPrompt();
         assertThat(promptBefore).isEqualTo("[disconnected]> ");
 
         // And connected
@@ -171,15 +119,8 @@ class ItConnectToClusterTest extends CliCommandTestInitializedIntegrationBase {
                 () -> assertOutputIs("Connected to http://localhost:10301" + System.lineSeparator())
         );
         // And prompt is changed to another node
-        String promptAfter = Ansi.OFF.string(promptProvider.getPrompt());
+        String promptAfter = getPrompt();
         assertThat(promptAfter).isEqualTo("[" + CLUSTER_NODES.get(1).name() + "]> ");
     }
 
-    private String nodeName() {
-        return CLUSTER_NODES.get(0).name();
-    }
-
-    private void bindAnswers(String... answers) throws IOException {
-        Files.writeString(input, String.join("\n", answers) + "\n");
-    }
 }
