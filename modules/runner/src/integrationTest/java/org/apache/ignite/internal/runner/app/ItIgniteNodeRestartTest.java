@@ -262,7 +262,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         var nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
                 modules.local().validators(),
-                new LocalFileConfigurationStorage(configFile),
+                new LocalFileConfigurationStorage(configFile, modules.local().rootKeys(), modules.local().internalSchemaExtensions(),
+                        modules.local().polymorphicSchemaExtensions()),
                 modules.local().internalSchemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
         );

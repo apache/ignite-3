@@ -352,7 +352,7 @@ public class HoconConverterTest {
     private static String asHoconStr(List<String> basePath, String... path) {
         List<String> fullPath = Stream.concat(basePath.stream(), Arrays.stream(path)).collect(Collectors.toList());
 
-        ConfigValue hoconCfg = HoconConverter.represent(registry, fullPath);
+        ConfigValue hoconCfg = HoconConverter.represent(registry.superRoot(), fullPath);
 
         return hoconCfg.render(ConfigRenderOptions.concise().setJson(false));
     }

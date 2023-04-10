@@ -106,7 +106,7 @@ public class ConfigurationFlattener {
          * @param oldInnerNodesStack Old nodes stack for recursion.
          * @param resMap Map with the result.
          */
-        FlattenerVisitor(Deque<InnerNode> oldInnerNodesStack, Map<String, Serializable> resMap) {
+        private FlattenerVisitor(Deque<InnerNode> oldInnerNodesStack, Map<String, Serializable> resMap) {
             this.oldInnerNodesStack = oldInnerNodesStack;
             this.resMap = resMap;
         }

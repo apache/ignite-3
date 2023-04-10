@@ -20,10 +20,16 @@ package org.apache.ignite.internal.configuration.hocon;
 import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.impl.ConfigImpl;
+import java.io.Serializable;
 import java.util.List;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
+import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
+import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -45,6 +51,26 @@ public class HoconConverter {
         Object res = registry.represent(path, new ConverterToMapVisitor(false));
 
         return ConfigImpl.fromAnyRef(res, null);
+    }
+
+    /**
+     * TBD.
+     */
+    public static <T> T represent(SuperRoot superRoot, ConfigurationVisitor<T> visitor) throws IllegalArgumentException {
+        Object node;
+        try {
+            node = ConfigurationUtil.find(List.of(), superRoot, false);
+        } catch (KeyNotFoundException e) {
+            throw new IllegalArgumentException(e.getMessage());
+        }
+
+        if (node instanceof TraversableTreeNode) {
+            return ((TraversableTreeNode) node).accept(null, visitor);
+        }
+
+        assert node == null || node instanceof Serializable;
+
+        return visitor.visitLeafNode(null, (Serializable) node);
     }
 
     /**

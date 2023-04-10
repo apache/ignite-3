@@ -606,7 +606,9 @@ public class ItRebalanceDistributedTest {
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY),
                     Set.of(),
-                    new LocalFileConfigurationStorage(configPath),
+                    new LocalFileConfigurationStorage(configPath, List.of(NetworkConfiguration.KEY,
+                            RestConfiguration.KEY,
+                            ClientConnectorConfiguration.KEY)),
                     List.of(),
                     List.of()
             );

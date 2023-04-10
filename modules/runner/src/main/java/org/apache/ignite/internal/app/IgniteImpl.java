@@ -301,7 +301,9 @@ public class IgniteImpl implements Ignite {
         nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
                 modules.local().validators(),
-                new LocalFileConfigurationStorage(configPath),
+                new LocalFileConfigurationStorage(configPath, modules.local().rootKeys(),
+                        modules.local().internalSchemaExtensions(),
+                        modules.local().polymorphicSchemaExtensions()),
                 modules.local().internalSchemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
         );
