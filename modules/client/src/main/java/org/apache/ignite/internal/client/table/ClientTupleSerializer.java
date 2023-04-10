@@ -256,6 +256,7 @@ public class ClientTupleSerializer {
         var keyColCnt = schema.keyColumnCount();
         var colCnt = schema.columns().length;
 
+        // TODO: ClientTuple2
         var keyTuple = new ClientTuple(schema, 0, keyColCnt - 1);
         var valTuple = new ClientTuple(schema, keyColCnt, schema.columns().length - 1);
 
