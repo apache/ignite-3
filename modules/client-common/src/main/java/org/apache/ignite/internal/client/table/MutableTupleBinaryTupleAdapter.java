@@ -52,8 +52,12 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
      *
      * @param binaryTuple Binary tuple.
      */
-    public MutableTupleBinaryTupleAdapter(BinaryTupleReader binaryTuple) {
+    public MutableTupleBinaryTupleAdapter(@Nullable BinaryTupleReader binaryTuple) {
         this.binaryTuple = binaryTuple;
+
+        if (binaryTuple == null) {
+            tuple = Tuple.create();
+        }
     }
 
     /** {@inheritDoc} */
