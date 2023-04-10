@@ -18,28 +18,35 @@
 package org.apache.ignite.internal.client.table;
 
 import java.util.Objects;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientColumnTypeConverter;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Client tuple. Wraps {@link BinaryTupleReader} and allows mutability.
+ */
 public class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
     private final ClientSchema schema;
 
-    public ClientTuple2(ClientSchema schema) {
-        super(null); // TODO: Accept BinaryTuple here.
+    private final int columnCount;
+
+    public ClientTuple2(ClientSchema schema, BinaryTupleReader tuple, int columnCount) {
+        super(tuple);
 
         this.schema = schema;
+        this.columnCount = columnCount;
     }
 
     @Override
     protected int schemaColumnCount() {
-        return schema.columns().length;
+        return columnCount;
     }
 
     @Override
     protected String schemaColumnName(int index) {
-        Objects.checkIndex(index, schema.columns().length);
+        Objects.checkIndex(index, columnCount);
 
         return schema.columns()[index].name();
     }
@@ -65,7 +72,7 @@ public class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
 
     @Override
     protected int validateSchemaColumnIndex(int columnIndex, ColumnType type) {
-        Objects.checkIndex(columnIndex, schema.columns().length);
+        Objects.checkIndex(columnIndex, columnCount);
         ClientColumn column = schema.columns()[columnIndex];
 
         var actualType = ClientColumnTypeConverter.ordinalToColumnType(column.type());
@@ -80,7 +87,7 @@ public class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
 
     @Override
     protected ColumnType schemaColumnType(int columnIndex) {
-        Objects.checkIndex(columnIndex, schema.columns().length);
+        Objects.checkIndex(columnIndex, columnCount);
         ClientColumn column = schema.columns()[columnIndex];
 
         return ClientColumnTypeConverter.ordinalToColumnType(column.type());
@@ -88,7 +95,7 @@ public class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
 
     @Override
     protected int schemaDecimalScale(int columnIndex) {
-        Objects.checkIndex(columnIndex, schema.columns().length);
+        Objects.checkIndex(columnIndex, columnCount);
         ClientColumn column = schema.columns()[columnIndex];
 
         return column.scale();
