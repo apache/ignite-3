@@ -88,7 +88,7 @@ public class ClientTupleTest {
     @Test
     public void testValueThrowsWhenColumnIsNotPresent() {
         var ex = assertThrows(ColumnNotFoundException.class, () -> getTuple().value("x"));
-        assertThat(ex.getMessage(), containsString("Column does not exist [name=\"X\"]"));
+        assertThat(ex.getMessage(), containsString("Column does not exist [name=\"x\"]"));
 
         var ex2 = assertThrows(IndexOutOfBoundsException.class, () -> getTuple().value(100));
         assertThat(ex2.getMessage(), containsString("Index 100 out of bounds for length 2"));
