@@ -3976,7 +3976,7 @@ public class ItNodeTest {
 
         clusterService.start();
 
-        var service = new RaftGroupService(groupId, peer.getPeerId(), nodeOptions, rpcServer, nodeManager, null) {
+        var service = new RaftGroupService(groupId, peer.getPeerId(), nodeOptions, rpcServer, nodeManager) {
             @Override public synchronized void shutdown() {
                 rpcServer.shutdown();
 

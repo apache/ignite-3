@@ -184,6 +184,8 @@ public class PartitionListener implements RaftGroupListener {
                         t,
                         clo.index(), clo.index(), command
                 );
+
+                throw t;
             } finally {
                 storage.releasePartitionSnapshotsReadLock();
             }

@@ -85,7 +85,7 @@ public interface RaftServer extends IgniteComponent {
      * @param evLsnr Listener for group membership and other events.
      * @param lsnr Listener for state machine events.
      * @param groupOptions Options to apply to the group.
-     * @param ownFsmCallerExecutorDisruptorConfig Configuration own (not shared) striped disruptor for FSMCaller service of raft node.
+     * @param ownFsmCallerExecutorDisruptorConfig Configuration of own (not shared) striped disruptor for FSMCaller service of raft node.
      * @return {@code True} if a group was successfully started, {@code False} when the group with given name is already exists.
      */
     boolean startRaftNode(

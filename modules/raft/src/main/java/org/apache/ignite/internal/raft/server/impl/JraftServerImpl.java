@@ -468,14 +468,26 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setRpcClient(client);
 
-            var server = new RaftGroupService(
-                    nodeId.groupId().toString(),
-                    PeerId.fromPeer(nodeId.peer()),
-                    nodeOptions,
-                    rpcServer,
-                    nodeManager,
-                    ownFsmCallerExecutorDisruptorConfig
-            );
+            RaftGroupService server;
+
+            if (ownFsmCallerExecutorDisruptorConfig == null) {
+                server = new RaftGroupService(
+                        nodeId.groupId().toString(),
+                        PeerId.fromPeer(nodeId.peer()),
+                        nodeOptions,
+                        rpcServer,
+                        nodeManager
+                );
+            } else {
+                server = new RaftGroupService(
+                        nodeId.groupId().toString(),
+                        PeerId.fromPeer(nodeId.peer()),
+                        nodeOptions,
+                        rpcServer,
+                        nodeManager,
+                        ownFsmCallerExecutorDisruptorConfig
+                );
+            }
 
             server.start();
 

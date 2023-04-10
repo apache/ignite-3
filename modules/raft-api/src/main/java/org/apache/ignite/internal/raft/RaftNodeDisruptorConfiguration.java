@@ -28,7 +28,7 @@ public class RaftNodeDisruptorConfiguration {
     /**
      * Constructor.
      *
-     * @param threadPostfix Postfix the name of the disruptor threads.
+     * @param threadPostfix Disruptor threads' name postfix.
      * @param stripes Number of disruptor stripes.
      */
     public RaftNodeDisruptorConfiguration(String threadPostfix, int stripes) {
@@ -37,7 +37,7 @@ public class RaftNodeDisruptorConfiguration {
     }
 
     /**
-     * Return postfix the name of the disruptor threads.
+     * Return disruptor threads' name postfix.
      */
     public String getThreadPostfix() {
         return threadPostfix;

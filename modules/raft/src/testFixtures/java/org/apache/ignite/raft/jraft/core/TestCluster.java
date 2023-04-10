@@ -271,7 +271,7 @@ public class TestCluster {
                 optsClo.accept(nodeOptions);
 
             RaftGroupService server = new RaftGroupService(this.name, peer.getPeerId(),
-                nodeOptions, rpcServer, nodeManager, null) {
+                nodeOptions, rpcServer, nodeManager) {
                 @Override public synchronized void shutdown() {
                     // This stop order is consistent with JRaftServerImpl
                     rpcServer.shutdown();

@@ -227,7 +227,7 @@ public class NodeImpl implements Node, RaftServerService {
      */
     private volatile int electionTimeoutCounter;
 
-    /** Configuration own striped disruptor for FSMCaller service of raft node, {@code null} means use shared disruptor. */
+    /** Configuration of own striped disruptor for FSMCaller service of raft node, {@code null} means use shared disruptor. */
     private final @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig;
 
     private static class NodeReadWriteLock extends LongHeldDetectingReadWriteLock {
@@ -556,8 +556,7 @@ public class NodeImpl implements Node, RaftServerService {
 
     public NodeImpl(
             final String groupId,
-            final PeerId serverId,
-            @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
+            final PeerId serverId
     ) {
         super();
         if (groupId != null) {
@@ -571,8 +570,31 @@ public class NodeImpl implements Node, RaftServerService {
         this.confCtx = new ConfigurationCtx(this);
         this.wakingCandidate = null;
         this.applyCommittedFuture = new CompletableFuture<>();
-        this.ownFsmCallerExecutorDisruptorConfig = ownFsmCallerExecutorDisruptorConfig;
+        this.ownFsmCallerExecutorDisruptorConfig = null;
     }
+
+        public NodeImpl(
+                final String groupId,
+                final PeerId serverId,
+                final RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
+        ) {
+            super();
+
+            assert ownFsmCallerExecutorDisruptorConfig != null;
+
+            if (groupId != null) {
+                Utils.verifyGroupId(groupId);
+            }
+            this.groupId = groupId;
+            this.serverId = serverId != null ? serverId.copy() : null;
+            this.state = State.STATE_UNINITIALIZED;
+            this.currTerm = 0;
+            updateLastLeaderTimestamp(Utils.monotonicMs());
+            this.confCtx = new ConfigurationCtx(this);
+            this.wakingCandidate = null;
+            this.applyCommittedFuture = new CompletableFuture<>();
+            this.ownFsmCallerExecutorDisruptorConfig = ownFsmCallerExecutorDisruptorConfig;
+        }
 
     public HybridClock clock() {
         return clock;
