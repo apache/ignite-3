@@ -202,7 +202,7 @@ public interface Tuple extends Iterable<Object> {
      * @param <T>          Default value type.
      * @return Column value if the tuple contains a column with the specified name. Otherwise, {@code defaultValue}.
      */
-    <T> T valueOrDefault(@NotNull String columnName, T defaultValue);
+    @Nullable <T> T valueOrDefault(@NotNull String columnName, T defaultValue);
 
     /**
      * Sets a column value.
@@ -226,7 +226,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IllegalArgumentException If no column with the given name exists.
      */
-    <T> T value(@NotNull String columnName) throws IllegalArgumentException;
+    @Nullable <T> T value(@NotNull String columnName) throws IllegalArgumentException;
 
     /**
      * Gets a column value for the given column index.
@@ -236,7 +236,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
-    <T> T value(int columnIndex);
+    @Nullable <T> T value(int columnIndex);
 
     /**
      * Gets a binary object column.

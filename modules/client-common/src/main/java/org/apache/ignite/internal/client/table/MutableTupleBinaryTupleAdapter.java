@@ -37,12 +37,6 @@ import org.jetbrains.annotations.Nullable;
  * with mutable fallback.
  */
 public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
-    // TODO: SchemaAware?
-    // TODO: This class should be in client, not client-common: we need to deal with ClientSchema.
-    // BUT at the same time, this might be needed on the server side to wrap BinaryTuple.
-    // So we might abstract schema access somehow?
-    // TODO: See MutableRowTupleAdapter.
-    // TODO: Should this class replace ClientTuple completely?
     /** Underlying BinaryTuple. */
     private BinaryTupleReader binaryTuple;
 
@@ -383,6 +377,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
             return true;
         }
 
+        //noinspection SimplifiableIfStatement
         if (obj instanceof Tuple) {
             return Tuple.equals(this, (Tuple) obj);
         }
