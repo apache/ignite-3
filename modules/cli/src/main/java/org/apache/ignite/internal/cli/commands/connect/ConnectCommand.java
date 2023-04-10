@@ -23,10 +23,10 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL
 import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.ReplManager;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
-import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 
@@ -50,7 +50,7 @@ public class ConnectCommand extends BaseCommand implements Runnable {
     @Override
     public void run() {
         int exitCode = CallExecutionPipeline.builder(connectCall)
-                .inputProvider(() -> new ConnectCallInput(nodeNameOrUrl.stringUrl()))
+                .inputProvider(() -> new UrlCallInput(nodeNameOrUrl.stringUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)

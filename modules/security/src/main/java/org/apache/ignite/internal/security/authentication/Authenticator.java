@@ -15,22 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.connect;
+package org.apache.ignite.internal.security.authentication;
 
-import org.apache.ignite.internal.cli.core.call.CallInput;
+import org.apache.ignite.internal.security.exception.AuthenticationException;
 
 /**
- * Input for connect call to Ignite 3 node.
+ * General interface for all authenticators.
  */
-public class ConnectCallInput implements CallInput {
-    private final String nodeUrl;
+public interface Authenticator {
 
-    public ConnectCallInput(String nodeUrl) {
-        this.nodeUrl = nodeUrl;
-    }
-
-    public String getNodeUrl() {
-        return nodeUrl;
-    }
-
+    /**
+     * Authenticates a user with the given request.
+     * If a successful authentication is returned, the object must be an instance of {@link UserDetails}.
+     */
+    UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) throws AuthenticationException;
 }

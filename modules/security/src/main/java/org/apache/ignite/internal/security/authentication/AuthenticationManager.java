@@ -15,20 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.authentication;
+package org.apache.ignite.internal.security.authentication;
 
-import io.micronaut.security.authentication.Authentication;
-import io.micronaut.security.authentication.AuthenticationRequest;
-import io.micronaut.security.authentication.AuthenticationResponse;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
+import org.apache.ignite.internal.configuration.AuthenticationView;
 
 /**
- * General interface for all authenticators.
+ * Authentication manager.
  */
-interface Authenticator {
-
-    /**
-     * Authenticates a user with the given request.
-     * If a successful authentication is returned, the object must be an instance of {@link Authentication}.
-     */
-    AuthenticationResponse authenticate(AuthenticationRequest<?, ?> authenticationRequest);
+public interface AuthenticationManager extends Authenticator, ConfigurationListener<AuthenticationView> {
 }

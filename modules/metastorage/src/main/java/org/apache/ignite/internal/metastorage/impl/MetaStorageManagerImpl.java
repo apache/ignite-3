@@ -57,6 +57,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -153,6 +154,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         CompletableFuture<RaftGroupService> raftServiceFuture;
 
         try {
+            RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig = new RaftNodeDisruptorConfiguration("metastorage", 1);
+
             // We need to configure the replication protocol differently whether this node is a synchronous or asynchronous replica.
             if (metaStorageNodes.contains(thisNodeName)) {
                 PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageNodes);
@@ -164,14 +167,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 raftServiceFuture = raftMgr.startRaftGroupNode(
                         new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                         configuration,
-                        new MetaStorageListener(storage, clusterTime),
-                        new MetaStorageRaftGroupEventsListener(
-                                busyLock,
-                                clusterService,
-                                logicalTopologyService,
-                                metaStorageSvcFut,
-                                clusterTime
-                        )
+                        new MetaStorageListener(storage),
+                        new MetaStorageRaftGroupEventsListener(busyLock, clusterService, logicalTopologyService, metaStorageSvcFut),
+                        ownFsmCallerExecutorDisruptorConfig
                 );
             } else {
                 PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageNodes, Set.of(thisNodeName));
@@ -183,8 +181,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 raftServiceFuture = raftMgr.startRaftGroupNode(
                         new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                         configuration,
-                        new MetaStorageLearnerListener(storage, clusterTime),
-                        RaftGroupEventsListener.noopLsnr
+                        new MetaStorageLearnerListener(storage),
+                        RaftGroupEventsListener.noopLsnr,
+                        ownFsmCallerExecutorDisruptorConfig
                 );
             }
         } catch (NodeStoppingException e) {
