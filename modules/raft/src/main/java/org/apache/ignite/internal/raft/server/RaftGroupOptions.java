@@ -39,7 +39,7 @@ public class RaftGroupOptions {
     /** Raft meta storage factory. */
     private RaftMetaStorageFactory raftMetaStorageFactory;
 
-    /** Configuration own striped disruptor for FSMCaller service of raft node, {@code null} means use shared disruptor. */
+    /** Configuration of own striped disruptor for FSMCaller service of raft node, {@code null} means use shared disruptor. */
     private @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig;
 
     /**
@@ -133,14 +133,14 @@ public class RaftGroupOptions {
     }
 
     /**
-     * Returns configuration own striped disruptor for FSMCaller service of raft node, {@code null} means use shared disruptor.
+     * Returns configuration of own striped disruptor for FSMCaller service of raft node, {@code null} means use shared disruptor.
      */
     public @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig() {
         return ownFsmCallerExecutorDisruptorConfig;
     }
 
     /**
-     * Sets configuration own striped disruptor for FSMCaller service of raft node.
+     * Sets configuration of own striped disruptor for FSMCaller service of raft node.
      */
     public RaftGroupOptions ownFsmCallerExecutorDisruptorConfig(RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig) {
         this.ownFsmCallerExecutorDisruptorConfig = ownFsmCallerExecutorDisruptorConfig;

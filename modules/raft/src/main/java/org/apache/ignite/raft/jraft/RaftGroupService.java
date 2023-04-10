@@ -87,34 +87,31 @@ public class RaftGroupService {
         this(groupId, serverId, nodeOptions, rpcServer, nodeManager, null);
     }
 
-        /**
-         * @param groupId Group Id.
-         * @param serverId Server id.
-         * @param nodeOptions Node options.
-         * @param rpcServer RPC server.
-         * @param nodeManager Node manager.
-         * @param ownFsmCallerExecutorDisruptorConfig Configuration own striped disruptor for FSMCaller service of raft node, {@code null}
-         *      means use shared disruptor.
-         */
-        public RaftGroupService(
-                final String groupId,
-                final PeerId serverId,
-                final NodeOptions nodeOptions,
-                final RpcServer rpcServer,
-                final NodeManager nodeManager,
-                @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
-        ) {
-            super();
-
-            assert ownFsmCallerExecutorDisruptorConfig != null;
-
-            this.groupId = groupId;
-            this.serverId = serverId;
-            this.nodeOptions = nodeOptions;
-            this.rpcServer = rpcServer;
-            this.nodeManager = nodeManager;
-            this.ownFsmCallerExecutorDisruptorConfig = ownFsmCallerExecutorDisruptorConfig;
-        }
+    /**
+     * @param groupId Group Id.
+     * @param serverId Server id.
+     * @param nodeOptions Node options.
+     * @param rpcServer RPC server.
+     * @param nodeManager Node manager.
+     * @param ownFsmCallerExecutorDisruptorConfig Configuration own striped disruptor for FSMCaller service of raft node, {@code null}
+     *      means use shared disruptor.
+     */
+    public RaftGroupService(
+            final String groupId,
+            final PeerId serverId,
+            final NodeOptions nodeOptions,
+            final RpcServer rpcServer,
+            final NodeManager nodeManager,
+            @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
+    ) {
+        super();
+        this.groupId = groupId;
+        this.serverId = serverId;
+        this.nodeOptions = nodeOptions;
+        this.rpcServer = rpcServer;
+        this.nodeManager = nodeManager;
+        this.ownFsmCallerExecutorDisruptorConfig = ownFsmCallerExecutorDisruptorConfig;
+    }
 
     public synchronized Node getRaftNode() {
         return this.node;
