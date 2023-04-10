@@ -21,20 +21,19 @@ import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
 import io.micronaut.security.authentication.AuthenticationProvider;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.rest.RestFactory;
+import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 
 /**
  * Factory that creates beans that are needed for authentication.
  */
 @Factory
-public class AuthProviderFactory implements RestFactory {
+public class AuthenticationProviderFactory implements RestFactory {
 
-    private DelegatingAuthenticationProvider authenticationProvider;
+    private AuthenticationManager authenticator;
 
-    public AuthProviderFactory(AuthenticationConfiguration configuration) {
-        this.authenticationProvider = new DelegatingAuthenticationProvider();
-        configuration.listen(this.authenticationProvider);
+    public AuthenticationProviderFactory(AuthenticationManager authenticator) {
+        this.authenticator = authenticator;
     }
 
     /**
@@ -45,11 +44,11 @@ public class AuthProviderFactory implements RestFactory {
     @Bean
     @Singleton
     public DelegatingAuthenticationProvider authenticationProvider() {
-        return authenticationProvider;
+        return new DelegatingAuthenticationProvider(authenticator);
     }
 
     @Override
     public void cleanResources() {
-        authenticationProvider = null;
+        authenticator = null;
     }
 }

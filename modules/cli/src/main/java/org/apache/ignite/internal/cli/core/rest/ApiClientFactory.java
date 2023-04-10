@@ -76,7 +76,7 @@ public class ApiClientFactory {
      * @return created API client.
      */
     public ApiClient getClient(String path) {
-        ApiClient apiClient = clientMap.computeIfAbsent(settings(path), this::buildClient);
+        ApiClient apiClient = clientMap.computeIfAbsent(settings(path), ApiClientFactory::buildClient);
         CliLoggers.addApiClient(path, apiClient);
         return apiClient;
     }
@@ -95,11 +95,17 @@ public class ApiClientFactory {
     }
 
 
-    private ApiClient buildClient(ApiClientSettings settings) {
+    /**
+     * Builds {@link ApiClient} using provided settings.
+     *
+     * @param settings Settings.
+     * @return Created client.
+     */
+    public static ApiClient buildClient(ApiClientSettings settings) {
         try {
             Builder builder = new Builder();
 
-            if (!nullOrBlank(settings.keyStorePath()) || !nullOrBlank(settings.keyStorePassword())) {
+            if (!nullOrBlank(settings.trustStorePath()) || !nullOrBlank(settings.trustStorePassword())) {
                 applySslSettings(builder, settings);
             }
 
@@ -118,7 +124,7 @@ public class ApiClientFactory {
         }
     }
 
-    private Builder applySslSettings(Builder builder, ApiClientSettings settings) throws UnrecoverableKeyException,
+    private static Builder applySslSettings(Builder builder, ApiClientSettings settings) throws UnrecoverableKeyException,
             CertificateException,
             NoSuchAlgorithmException,
             KeyStoreException,
@@ -137,7 +143,7 @@ public class ApiClientFactory {
                 .hostnameVerifier(OkHostnameVerifier.INSTANCE);
     }
 
-    private KeyManagerFactory keyManagerFactory(ApiClientSettings settings)
+    private static KeyManagerFactory keyManagerFactory(ApiClientSettings settings)
             throws NoSuchAlgorithmException, KeyStoreException, UnrecoverableKeyException, CertificateException, IOException {
         KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
 
@@ -152,7 +158,7 @@ public class ApiClientFactory {
         return keyManagerFactory;
     }
 
-    private TrustManagerFactory trustManagerFactory(ApiClientSettings settings)
+    private static TrustManagerFactory trustManagerFactory(ApiClientSettings settings)
             throws NoSuchAlgorithmException, KeyStoreException, CertificateException, IOException {
         TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
 
@@ -168,7 +174,7 @@ public class ApiClientFactory {
     }
 
     @Nullable
-    private Interceptor authInterceptor(ApiClientSettings settings) {
+    private static Interceptor authInterceptor(ApiClientSettings settings) {
         if (!nullOrBlank(settings.basicAuthLogin()) && !nullOrBlank(settings.basicAuthPassword())) {
             return new BasicAuthenticationInterceptor(settings.basicAuthLogin(), settings.basicAuthPassword());
         } else {
