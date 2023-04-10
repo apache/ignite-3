@@ -252,24 +252,15 @@ public class ClientTupleSerializer {
         return new ClientTuple2(schema, binTuple, keyColCnt, colCnt);
     }
 
-    static IgniteBiTuple<Tuple, Tuple> readKvTuple(ClientSchema schema, ClientMessageUnpacker in) {
+    private static IgniteBiTuple<Tuple, Tuple> readKvTuple(ClientSchema schema, ClientMessageUnpacker in) {
         var keyColCnt = schema.keyColumnCount();
         var colCnt = schema.columns().length;
 
-        // TODO: ClientTuple2
-        var keyTuple = new ClientTuple(schema, 0, keyColCnt - 1);
-        var valTuple = new ClientTuple(schema, keyColCnt, schema.columns().length - 1);
+        var binTuple = new BinaryTupleReader(colCnt, in.readBinary());
+        var keyTuple2 = new ClientTuple2(schema, binTuple, 0, keyColCnt);
+        var valTuple2 = new ClientTuple2(schema, binTuple, keyColCnt, colCnt);
 
-        var binTuple = new BinaryTupleReader(colCnt, in.readBinaryUnsafe());
-
-        for (var i = 0; i < colCnt; i++) {
-            ClientColumn col = schema.columns()[i];
-            var targetTuple = i < keyColCnt ? keyTuple : valTuple;
-
-            ClientBinaryTupleUtils.readAndSetColumnValue(binTuple, i, targetTuple, col.name(), col.type(), col.scale());
-        }
-
-        return new IgniteBiTuple<>(keyTuple, valTuple);
+        return new IgniteBiTuple<>(keyTuple2, valTuple2);
     }
 
     /**
