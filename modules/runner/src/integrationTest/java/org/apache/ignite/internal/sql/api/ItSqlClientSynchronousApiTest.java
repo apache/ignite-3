@@ -24,7 +24,6 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -50,7 +49,6 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
         return client.sql();
     }
 
-    @Disabled
     @Override
     @Test
     public void dml() {
