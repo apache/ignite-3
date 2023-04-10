@@ -62,9 +62,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
 
         sql(IgniteStringFormatter.format("CREATE INDEX {} ON {} (i1)", INDEX_NAME, TABLE_NAME));
 
-        // TODO: IGNITE-18733
-        waitForIndex(INDEX_NAME);
-
+        // TODO: IGNITE-19150 We are waiting for schema synchronization to avoid races to create and destroy indexes
         waitForIndexBuild(TABLE_NAME, INDEX_NAME);
 
         assertQuery(IgniteStringFormatter.format("SELECT * FROM {} WHERE i1 > 0", TABLE_NAME))

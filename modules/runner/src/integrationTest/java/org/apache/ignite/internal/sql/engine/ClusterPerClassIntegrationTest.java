@@ -494,14 +494,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
             InternalTable internalTable = tableImpl.internalTable();
 
-            UUID indexId = ((IgniteImpl) clusterNode).clusterConfiguration()
-                    .getConfiguration(TablesConfiguration.KEY)
-                    .indexes()
-                    .get(indexName.toUpperCase())
-                    .id()
-                    .value();
+            assertTrue(
+                    waitForCondition(() -> getIndexConfiguration(clusterNode, indexName) != null, 10, 10_000),
+                    String.format("node=%s, tableName=%s, indexName=%s", clusterNode.name(), tableName, indexName)
+            );
 
-            assertNotNull(indexId, "table=" + tableName + ", index=" + indexName);
+            UUID indexId = getIndexConfiguration(clusterNode, indexName).id().value();
 
             for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
                 RaftGroupService raftGroupService = internalTable.partitionRaftGroupService(partitionId);
