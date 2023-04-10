@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for the {@link LocalFileConfigurationStorage}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-19152")
 public class LocalFileConfigurationStorageTest extends ConfigurationStorageTest {
 
     private static final String CONFIG_NAME = "ignite-config.conf";

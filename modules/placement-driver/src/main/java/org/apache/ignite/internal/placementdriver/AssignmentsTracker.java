@@ -41,6 +41,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -152,12 +153,12 @@ public class AssignmentsTracker {
     private class AssignmentsCfgListener implements ConfigurationListener<byte[]> {
         @Override
         public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
-            ExtendedTableConfiguration tblCfg = assignmentsCtx.config(ExtendedTableConfiguration.class);
+            ExtendedTableView tblCfg = assignmentsCtx.newValue(ExtendedTableView.class);
 
             DistributionZoneView distributionZoneView =
-                    getZoneById(distributionZonesConfiguration, tblCfg.zoneId().value()).value();
+                    getZoneById(distributionZonesConfiguration, tblCfg.zoneId()).value();
 
-            UUID tblId = tblCfg.id().value();
+            UUID tblId = tblCfg.id();
 
             LOG.debug("Table assignments configuration update for placement driver [revision={}, tblId={}]",
                     assignmentsCtx.storageRevision(), tblId);

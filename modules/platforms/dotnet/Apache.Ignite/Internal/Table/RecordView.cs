@@ -323,6 +323,12 @@ namespace Apache.Ignite.Internal.Table
         public async Task<IList<T>> DeleteAllExactAsync(ITransaction? transaction, IEnumerable<T> records) =>
             await DeleteAllAsync(transaction, records, exact: true).ConfigureAwait(false);
 
+        /// <inheritdoc/>
+        public override string ToString() =>
+            new IgniteToStringBuilder(GetType())
+                .Append(Table)
+                .Build();
+
         /// <summary>
         /// Deletes multiple records. If one or more keys do not exist, other records are still deleted.
         /// </summary>

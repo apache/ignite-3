@@ -15,22 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.connect;
+package org.apache.ignite.internal.security.authentication;
 
-import org.apache.ignite.internal.cli.core.call.CallInput;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
+import org.apache.ignite.internal.configuration.AuthenticationView;
 
 /**
- * Input for connect call to Ignite 3 node.
+ * Authentication manager.
  */
-public class ConnectCallInput implements CallInput {
-    private final String nodeUrl;
-
-    public ConnectCallInput(String nodeUrl) {
-        this.nodeUrl = nodeUrl;
-    }
-
-    public String getNodeUrl() {
-        return nodeUrl;
-    }
-
+public interface AuthenticationManager extends Authenticator, ConfigurationListener<AuthenticationView> {
 }

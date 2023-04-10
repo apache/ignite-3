@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.distributionzones;
 
 import java.util.function.Consumer;
-import javax.xml.crypto.Data;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneChange;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange;
 import org.jetbrains.annotations.Nullable;
 
@@ -47,6 +45,9 @@ public class DistributionZoneConfigurationParameters {
 
     private final Consumer<DataStorageChange> dataStorageChangeConsumer;
 
+    /** Nodes' filter. */
+    private final String filter;
+
     /**
      * The constructor.
      */
@@ -57,6 +58,7 @@ public class DistributionZoneConfigurationParameters {
             Integer dataNodesAutoAdjust,
             Integer dataNodesAutoAdjustScaleUp,
             Integer dataNodesAutoAdjustScaleDown,
+            String filter,
             Consumer<DataStorageChange> dataStorageChangeConsumer
     ) {
         this.name = name;
@@ -65,6 +67,7 @@ public class DistributionZoneConfigurationParameters {
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
+        this.filter = filter;
         this.dataStorageChangeConsumer = dataStorageChangeConsumer;
     }
 
@@ -104,7 +107,6 @@ public class DistributionZoneConfigurationParameters {
         return dataNodesAutoAdjustScaleDown;
     }
 
-
     /**
      * Gets number of zone replicas.
      *
@@ -125,6 +127,15 @@ public class DistributionZoneConfigurationParameters {
 
     public Consumer<DataStorageChange> dataStorageChangeConsumer() {
         return dataStorageChangeConsumer;
+    }
+
+    /**
+     * Gets nodes' filter.
+     *
+     * @return Nodes' filter.
+     */
+    public String filter() {
+        return filter;
     }
 
     /**
@@ -150,6 +161,9 @@ public class DistributionZoneConfigurationParameters {
         private Integer partitions;
 
         private Consumer<DataStorageChange> dataStorageChangeConsumer;
+
+        /* Nodes' filter. */
+        private String filter;
 
         /**
          * Constructor.
@@ -231,6 +245,17 @@ public class DistributionZoneConfigurationParameters {
             return this;
         }
 
+        /**
+         * Sets nodes' filter.
+         *
+         * @param filter Nodes' filter.
+         * @return This instance.
+         */
+        public Builder filter(String filter) {
+            this.filter = filter;
+
+            return this;
+        }
 
         /**
          * Builds the distribution zone configuration.
@@ -255,6 +280,7 @@ public class DistributionZoneConfigurationParameters {
                     dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
+                    filter,
                     dataStorageChangeConsumer
             );
         }

@@ -55,7 +55,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ClusterState'
         "404":
-          description: "Cluster state not found. Most likely, the cluster is not initialized."
+          description: "Cluster status not found. Most likely, the cluster is not\
+            \ initialized."
           content:
             application/problem+json:
               schema:
@@ -126,7 +127,7 @@ paths:
       parameters: []
       responses:
         "200":
-          description: Get cluster configuration
+          description: Received cluster configuration.
           content:
             text/plain:
               schema:
@@ -236,7 +237,7 @@ paths:
       parameters: []
       responses:
         "200":
-          description: Whole node configuration.
+          description: Full node configuration.
           content:
             text/plain:
               schema:
@@ -343,7 +344,7 @@ paths:
     post:
       tags:
       - deployment
-      description: Deploy provided unit to the cluster.
+      description: Deploys provided unit to the cluster.
       operationId: deployUnit
       parameters: []
       requestBody:
@@ -359,12 +360,15 @@ paths:
                   required:
                   - "true"
                   type: string
+                  description: The ID of the deployment unit.
                 unitVersion:
                   type: string
+                  description: The version of the deployment unit.
                 unitContent:
                   required:
                   - "true"
                   type: string
+                  description: The code to deploy.
                   format: binary
         required: true
       responses:
@@ -375,7 +379,7 @@ paths:
               schema:
                 type: boolean
         "409":
-          description: Unit with same identifier and version already deployed.
+          description: Unit with same identifier and version is already deployed.
           content:
             application/problem+json:
               schema:
@@ -390,7 +394,7 @@ paths:
     get:
       tags:
       - deployment
-      description: Status of units which deployed on node.
+      description: Returns the status of units that are deployed on the node.
       operationId: byConsistentId
       parameters:
       - name: consistentId
@@ -400,6 +404,7 @@ paths:
           required:
           - "true"
           type: string
+          description: The consistent deployment unit identifier.
       responses:
         "200":
           description: All statuses returned successfully.
@@ -419,7 +424,7 @@ paths:
     delete:
       tags:
       - deployment
-      description: Undeploy latest unit with provided unitId.
+      description: Undeploys the latest unit with the provided unitId.
       operationId: undeployLatestUnit
       parameters:
       - name: unitId
@@ -429,6 +434,7 @@ paths:
           required:
           - "true"
           type: string
+          description: The ID of the deployment unit.
       responses:
         "200":
           description: Unit undeployed successfully.
@@ -437,7 +443,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Void'
         "404":
-          description: Unit with provided identifier and version doesn't exist.
+          description: Unit with provided identifier and version does not exist.
           content:
             application/problem+json:
               schema:
@@ -452,7 +458,7 @@ paths:
     get:
       tags:
       - deployment
-      description: Status of unit with provided identifier.
+      description: Returns the status of the unit with the provided identifier.
       operationId: status
       parameters:
       - name: unitId
@@ -462,6 +468,7 @@ paths:
           required:
           - "true"
           type: string
+          description: The ID of the deployment unit.
       responses:
         "200":
           description: Status returned successfully.
@@ -470,7 +477,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UnitStatus'
         "404":
-          description: Unit with provided identifier doesn't exist.
+          description: Unit with provided identifier does not exist.
           content:
             application/problem+json:
               schema:
@@ -485,7 +492,7 @@ paths:
     get:
       tags:
       - deployment
-      description: All versions of unit with provided unit identifier.
+      description: Returns all versions of the unit with the provided unit identifier.
       operationId: versions
       parameters:
       - name: unitId
@@ -495,6 +502,7 @@ paths:
           required:
           - "true"
           type: string
+          description: The ID of the deployment unit.
       responses:
         "200":
           description: Versions returned successfully.
@@ -505,7 +513,7 @@ paths:
                 items:
                   type: string
         "404":
-          description: Unit with provided identifier doesn't exist.
+          description: Unit with the provided identifier does not exist.
           content:
             application/problem+json:
               schema:
@@ -520,7 +528,7 @@ paths:
     delete:
       tags:
       - deployment
-      description: Undeploy unit with provided unitId and unitVersion.
+      description: Undeploys the unit with provided unitId and unitVersion.
       operationId: undeployUnit
       parameters:
       - name: unitId
@@ -530,6 +538,7 @@ paths:
           required:
           - "true"
           type: string
+          description: The ID of the deployment unit.
       - name: unitVersion
         in: path
         required: true
@@ -537,6 +546,7 @@ paths:
           required:
           - "true"
           type: string
+          description: The version of the deployment unit.
       responses:
         "200":
           description: Unit undeployed successfully.
@@ -545,7 +555,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Void'
         "404":
-          description: Unit with provided identifier and version doesn't exist.
+          description: Unit with provided identifier and version does not exist.
           content:
             application/problem+json:
               schema:
@@ -560,7 +570,7 @@ paths:
     post:
       tags:
       - nodeMetric
-      description: Disables a specific metric source.
+      description: Disables the specified metric source.
       operationId: disableNodeMetric
       parameters: []
       requestBody:
@@ -588,7 +598,7 @@ paths:
     post:
       tags:
       - nodeMetric
-      description: Enables a specific metric source.
+      description: Enables the specified metric source.
       operationId: enableNodeMetric
       parameters: []
       requestBody:
@@ -616,7 +626,7 @@ paths:
     get:
       tags:
       - nodeMetric
-      description: Provides a list of all enabled metric sets.
+      description: Gets a list of all enabled metric sets.
       operationId: listNodeMetricSets
       parameters: []
       responses:
@@ -638,7 +648,7 @@ paths:
     get:
       tags:
       - nodeMetric
-      description: Provides a list of all available metric sources.
+      description: Gets a list of all available metric sources.
       operationId: listNodeMetricSources
       parameters: []
       responses:
@@ -703,7 +713,7 @@ components:
       properties:
         enabled:
           type: boolean
-          description: If Security is enabled.
+          description: "If True, security is enabled. Otherwise it is not."
         providers:
           type: array
           description: A list of authentication providers.
@@ -712,7 +722,7 @@ components:
       description: REST representation of AuthenticationConfig.
     AuthenticationProviderConfig:
       type: object
-      description: Authentication provider configuration
+      description: Configuration for the authentication provider.
       discriminator:
         propertyName: type
         mapping:
@@ -733,7 +743,7 @@ components:
           description: Provider name.
         type:
           type: string
-      description: REST representation of BasicAuthenticationProviderConfig.
+      description: Configuration for basic authentication.
     ClusterNode:
       type: object
       properties:
@@ -798,7 +808,7 @@ components:
           description: The name of the cluster.
         authenticationConfig:
           $ref: '#/components/schemas/AuthenticationConfig'
-      description: Cluster initialization data.
+      description: Cluster initialization configuration.
     InvalidParam:
       type: object
       properties:
@@ -837,7 +847,7 @@ components:
           required:
           - "true"
           type: array
-          description: List of metrics.
+          description: A list of metrics.
           items:
             $ref: '#/components/schemas/Metric'
       description: REST representation of MetricSet.
@@ -858,13 +868,13 @@ components:
           type: boolean
           description: "If True, the metric is tracked. Otherwise, the metric is not\
             \ tracked."
-      description: Metric sources provided by modules.
+      description: A list of metric sources provided by modules.
     NetworkAddress:
       type: object
       properties:
         host:
           type: string
-          description: Name of the host node is on.
+          description: Name of the host node runs on.
         port:
           type: integer
           description: Port the node runs on.
@@ -918,12 +928,13 @@ components:
           description: Name of the node the issue happened on.
         traceId:
           type: string
-          description: Unique issue identifier. Thid identifier can be used to find
-            logs related to the issue
+          description: Unique issue identifier. This identifier can be used to find
+            logs related to the issue.
           format: uuid
         invalidParams:
           type: array
-          description: Parameters that did not pass validation.
+          description: A list of parameters that did not pass validation and the reason
+            for it.
           items:
             $ref: '#/components/schemas/InvalidParam'
       description: Extended description of the problem with the request.
@@ -949,8 +960,8 @@ components:
             type: array
             items:
               type: string
-          description: Returns map from existing unit version to list of nodes consistent
-            ids where unit deployed.
+          description: Returns the map of existing unit versions mapped to the list
+            of node consistent ids where these units are deployed.
       description: Unit status.
     Void:
       type: object

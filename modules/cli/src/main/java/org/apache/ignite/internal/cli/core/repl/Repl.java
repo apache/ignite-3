@@ -51,6 +51,8 @@ public class Repl {
 
     private final boolean tailTipWidgetsEnabled;
 
+    private final boolean autosuggestionsWidgetsEnabled;
+
     private final Runnable onStart;
 
     /**
@@ -76,6 +78,7 @@ public class Repl {
             Completer completer,
             String historyFileName,
             boolean tailTipWidgetsEnabled,
+            boolean autosuggestionsWidgetsEnabled,
             Runnable onStart
     ) {
         this.promptProvider = promptProvider;
@@ -87,6 +90,7 @@ public class Repl {
         this.completer = completer;
         this.historyFileName = historyFileName;
         this.tailTipWidgetsEnabled = tailTipWidgetsEnabled;
+        this.autosuggestionsWidgetsEnabled = autosuggestionsWidgetsEnabled;
         this.onStart = onStart;
     }
 
@@ -151,6 +155,10 @@ public class Repl {
 
     public boolean isTailTipWidgetsEnabled() {
         return tailTipWidgetsEnabled;
+    }
+
+    public boolean isAutosuggestionsWidgetsEnabled() {
+        return autosuggestionsWidgetsEnabled;
     }
 
     public void onStart() {

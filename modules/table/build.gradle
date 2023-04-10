@@ -53,6 +53,7 @@ dependencies {
     testImplementation project(':ignite-raft')
     testImplementation project(':ignite-schema')
     testImplementation project(':ignite-page-memory')
+    testImplementation project(':ignite-storage-rocksdb')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-schema')))
     testImplementation(testFixtures(project(':ignite-configuration')))

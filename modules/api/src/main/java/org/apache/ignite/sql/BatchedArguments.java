@@ -22,7 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Represents query arguments for batch query execution.
+ * Arguments for batch query execution.
  *
  * <p>TODO: replace inheritance with delegation.
  * TODO: add arguments length validation.
@@ -67,7 +67,7 @@ public class BatchedArguments extends ArrayList<List<Object>> implements List<Li
     }
 
     /**
-     * Appends arguments to the batch.
+     * Appends arguments to a batch.
      *
      * @param args Arguments.
      * @return {@code this} for chaining.

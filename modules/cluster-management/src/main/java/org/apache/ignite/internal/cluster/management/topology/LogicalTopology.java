@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.cluster.management.topology;
 
 import java.util.Set;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Used to manage logical topology information available locally on the current node.
@@ -37,33 +37,33 @@ public interface LogicalTopology {
      *
      * @param node The validated node.
      */
-    void onNodeValidated(ClusterNode node);
+    void onNodeValidated(LogicalNode node);
 
     /**
      * Callback that gets called if a node has passed validation but left before joining the cluster.
      *
      * @param node Node that left the cluster.
      */
-    void onNodeInvalidated(ClusterNode node);
+    void onNodeInvalidated(LogicalNode node);
 
     /**
      * Puts a given node as a part of the logical topology.
      *
      * @param node Node to put.
      */
-    void putNode(ClusterNode node);
+    void putNode(LogicalNode node);
 
     /**
      * Removes given nodes from the logical topology.
      *
      * @param nodes Nodes to remove.
      */
-    void removeNodes(Set<ClusterNode> nodes);
+    void removeNodes(Set<LogicalNode> nodes);
 
     /**
      * Returns {@code true} if a given node is present in the logical topology or {@code false} otherwise.
      */
-    boolean isNodeInLogicalTopology(ClusterNode node);
+    boolean isNodeInLogicalTopology(LogicalNode node);
 
     /**
      * Adds a listener for logical topology events.

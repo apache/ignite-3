@@ -28,7 +28,7 @@ import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Ignite Transactions facade that allows to perform distributed transactions when working with tables.
+ * The Ignite Transactions facade that supports distributed transactions when working with tables.
  * This interface provides the ability to perform transactions in both synchronous and asynchronous ways.
  * <pre><code>
  *     // Synchronous transactional API to update the balance.
@@ -81,16 +81,16 @@ public interface IgniteTransactions {
     Transaction begin(@Nullable TransactionOptions options);
 
     /**
-     * Begins an async transaction.
+     * Begins a transaction.
      *
-     * @return The future holding the started transaction.
+     * @return Started transaction.
      */
     default CompletableFuture<Transaction> beginAsync() {
         return beginAsync(null);
     }
 
     /**
-     * Begins an async transaction.
+     * Begins an asynchronous transaction.
      *
      * @param options Transaction options.
      * @return The future holding the started transaction.
@@ -209,9 +209,9 @@ public interface IgniteTransactions {
      *
      * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed.
      *
-     * @param clo The closure.
+     * @param clo Closure.
      * @param <T> Closure result type.
-     * @return The result.
+     * @return Result.
      *
      * @throws TransactionException If a transaction can't be finished successfully.
      */

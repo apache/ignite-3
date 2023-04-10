@@ -194,6 +194,7 @@ data: {
       "CYCLE"
       "DATA"
       "DATE"
+      "DATE_DIFF"
       "DAY"
       "DEALLOCATE"
       "DEC"
@@ -510,7 +511,7 @@ data: {
       "TEMPORARY"
 #     "THEN"
 #     "TIME"
-#     "TIMESTAMP"
+      "TIMESTAMP"
       "TIMEZONE_HOUR"
       "TIMEZONE_MINUTE"
       "TINYINT"
@@ -594,7 +595,7 @@ data: {
 
     # List of methods for parsing builtin function calls.
     # Return type of method implementation should be "SqlNode".
-    # Example: "DateFunctionCall()".
+    # Example: "DateTimeConstructorCall()".
     builtinFunctionCallMethods: [
   #     "DateFunctionCall()"
    #    "DateaddFunctionCall()"
@@ -671,6 +672,7 @@ data: {
     includeCompoundIdentifier: true
     includeBraces: true
     includeAdditionalDeclarations: false
+    includeParsingStringLiteralAsArrayLiteral: false
   }
 }
 

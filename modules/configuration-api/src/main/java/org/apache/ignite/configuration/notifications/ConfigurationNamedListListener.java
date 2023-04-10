@@ -40,14 +40,12 @@ public interface ConfigurationNamedListListener<VIEWT> extends ConfigurationList
     /**
      * Called when a named list element is renamed. Semantically equivalent to {@link #onUpdate(ConfigurationNotificationEvent)} with the
      * difference that the content of the element might have not been changed. No separate {@link #onUpdate(ConfigurationNotificationEvent)}
-     * call is performed when {@link #onRename(String, String, ConfigurationNotificationEvent)} is already invoked.
+     * call is performed when {@link #onRename(ConfigurationNotificationEvent)} is already invoked.
      *
-     * @param oldName Name, previously assigned to the element.
-     * @param newName New name of the element.
-     * @param ctx     Notification context.
+     * @param ctx Notification context.
      * @return Future that signifies the end of the listener execution.
      */
-    default CompletableFuture<?> onRename(String oldName, String newName, ConfigurationNotificationEvent<VIEWT> ctx) {
+    default CompletableFuture<?> onRename(ConfigurationNotificationEvent<VIEWT> ctx) {
         return completedFuture(null);
     }
 

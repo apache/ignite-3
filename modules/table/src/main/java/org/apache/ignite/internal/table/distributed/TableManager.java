@@ -72,6 +72,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
@@ -121,6 +122,7 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -248,9 +250,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /**
      * {@link TableImpl} is created during update of tablesByIdVv, we store reference to it in case of updating of tablesByIdVv fails, so we
-     * can stop resources associated with the table.
+     * can stop resources associated with the table or to clean up table resources on {@code TableManager#stop()}.
      */
-    private final Map<UUID, TableImpl> tablesToStopInCaseOfError = new ConcurrentHashMap<>();
+    private final Map<UUID, TableImpl> pendingTables = new ConcurrentHashMap<>();
 
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final Function<String, ClusterNode> clusterNodeResolver;
@@ -381,12 +383,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
-        registry.accept(token -> {
-            tablesToStopInCaseOfError.clear();
-
-            return completedFuture(null);
-        });
-
         txStateStorageScheduledPool = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "tx-state-storage-scheduled-pool", LOG));
 
@@ -451,7 +447,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
 
             @Override
-            public CompletableFuture<?> onRename(String oldName, String newName, ConfigurationNotificationEvent<TableView> ctx) {
+            public CompletableFuture<?> onRename(ConfigurationNotificationEvent<TableView> ctx) {
                 // TODO: IGNITE-15485 Support table rename operation.
 
                 return completedFuture(null);
@@ -533,7 +529,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return failedFuture(new NodeStoppingException());
         }
 
-
         try {
             return createTableLocally(
                     ctx.storageRevision(),
@@ -591,7 +586,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         try {
             if (replicasCtx.oldValue() != null && replicasCtx.oldValue() > 0) {
-                DistributionZoneView zoneCfg = replicasCtx.config(DistributionZoneConfiguration.class).value();
+                DistributionZoneView zoneCfg = replicasCtx.newValue(DistributionZoneView.class);
 
                 List<TableConfiguration> tblsCfg = new ArrayList<>();
 
@@ -666,10 +661,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param assignmentsCtx Change assignment event.
      */
     private CompletableFuture<?> updateAssignmentInternal(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
-        ExtendedTableConfiguration tblCfg = assignmentsCtx.config(ExtendedTableConfiguration.class);
-        UUID tblId = tblCfg.id().value();
+        ExtendedTableView tblCfg = assignmentsCtx.newValue(ExtendedTableView.class);
 
-        DistributionZoneConfiguration dstCfg = getZoneById(distributionZonesConfiguration, tblCfg.zoneId().value());
+        UUID tblId = tblCfg.id();
+
+        DistributionZoneConfiguration dstCfg = getZoneById(distributionZonesConfiguration, tblCfg.zoneId());
+
+        DataStorageConfiguration dsCfg = dstCfg.dataStorage();
 
         long causalityToken = assignmentsCtx.storageRevision();
 
@@ -733,7 +731,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     partId,
                                     storage,
                                     table.indexStorageAdapters(partId),
-                                    dstCfg.dataStorage()
+                                    dsCfg
                             );
 
                             mvGc.addStorage(replicaGrpId, storageUpdateHandler);
@@ -993,13 +991,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
 
-        Map<UUID, TableImpl> tables = tablesByIdVv.latest();
+        Map<UUID, TableImpl> tablesToStop = Stream.concat(tablesByIdVv.latest().entrySet().stream(), pendingTables.entrySet().stream())
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v1));
 
-        cleanUpTablesResources(tables);
-
-        cleanUpTablesResources(tablesToStopInCaseOfError);
-
-        tablesToStopInCaseOfError.clear();
+        cleanUpTablesResources(tablesToStop);
 
         shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS);
@@ -1154,7 +1149,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     });
         }));
 
-        tablesToStopInCaseOfError.put(tblId, table);
+        pendingTables.put(tblId, table);
+
+        tablesByIdVv.get(causalityToken).thenAccept(ignored -> inBusyLock(busyLock, () -> {
+            pendingTables.remove(tblId);
+        }));
 
         tablesByIdVv.get(causalityToken)
                 .thenRun(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
@@ -1514,11 +1513,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 tblChg.delete(name);
                             })
                             .changeIndexes(idxChg -> {
-                                NamedListView<? extends TableIndexView> indexes = chg.indexes();
-
-                                for (String indexName : indexes.namedListKeys()) {
-                                    if (indexes.get(indexName).tableId().equals(tbl.tableId())) {
-                                        idxChg.delete(indexName);
+                                for (TableIndexView index : idxChg) {
+                                    if (index.tableId().equals(tbl.tableId())) {
+                                        idxChg.delete(index.name());
                                     }
                                 }
                             }))

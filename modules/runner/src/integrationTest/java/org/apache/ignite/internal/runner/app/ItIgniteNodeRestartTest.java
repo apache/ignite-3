@@ -36,8 +36,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
 import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.Set;
@@ -61,6 +64,7 @@ import org.apache.ignite.internal.catalog.CatalogServiceImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -117,7 +121,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -179,6 +182,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private static SecurityConfiguration securityConfiguration;
+
+    @InjectConfiguration
+    private static NodeAttributesConfiguration nodeAttributes;
 
     private final List<String> clusterNodesNames = new ArrayList<>();
 
@@ -242,7 +248,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         partialNode = new ArrayList<>();
 
-        VaultManager vault = createVault(dir);
+        VaultManager vault = createVault(name, dir);
 
         ConfigurationModules modules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
 
@@ -263,14 +269,13 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
 
-        var clusterLocalConfiguration = new ClusterLocalConfiguration(name, defaultSerializationRegistry());
-
-        var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, clusterLocalConfiguration.getName());
+        var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
 
         var clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(
-                clusterLocalConfiguration,
+                name,
                 networkConfiguration,
-                nettyBootstrapFactory
+                nettyBootstrapFactory,
+                defaultSerializationRegistry()
         );
 
         HybridClock hybridClock = new HybridClockImpl();
@@ -305,7 +310,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 clusterStateStorage,
                 logicalTopology,
                 clusterManagementConfiguration,
-                distributedConfigurationUpdater);
+                distributedConfigurationUpdater,
+                nodeAttributes
+        );
 
         var metaStorageMgr = new MetaStorageManagerImpl(
                 vault,
@@ -391,7 +398,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 topologyAwareRaftGroupServiceFactory
         );
 
-        var indexManager = new IndexManager(tablesConfiguration, schemaManager, tableManager);
+        var indexManager = new IndexManager(name, tablesConfiguration, schemaManager, tableManager, clusterSvc);
 
         CatalogManager catalogManager = new CatalogServiceImpl(metaStorageMgr);
 
@@ -526,7 +533,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Starts the Vault component.
      */
-    private static VaultManager createVault(Path workDir) {
+    private static VaultManager createVault(String nodeName, Path workDir) {
         Path vaultPath = workDir.resolve(Paths.get("vault"));
 
         try {
@@ -535,7 +542,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             throw new IgniteInternalException(e);
         }
 
-        return new VaultManager(new PersistentVaultService(vaultPath));
+        return new VaultManager(new PersistentVaultService(nodeName, vaultPath));
     }
 
     /**
@@ -775,8 +782,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             res2.close();
         }
 
-        // TODO: Uncomment after IGNITE-18203
-        /*stopNode(0);
+        stopNode(0);
 
         ignite1 = startNode(0);
 
@@ -784,7 +790,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             ResultSet<SqlRow> res3 = session1.execute(null, sql);
 
             assertEquals(intRes, res3.next().intValue(0));
-        }*/
+        }
     }
 
     /**
@@ -809,6 +815,48 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         nodePort = ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value();
 
         assertEquals(newPort, nodePort);
+    }
+
+    /**
+     * Tests that a new node's attributes configuration is propagated after node restart.
+     */
+    @Test
+    public void changeNodeAttributesConfigurationOnStartTest() {
+        IgniteImpl ignite = startNode(0);
+
+        Map<String, String> attributes = new HashMap<>();
+
+        NodeAttributesConfiguration attributesConfiguration = ignite.nodeConfiguration().getConfiguration(NodeAttributesConfiguration.KEY);
+
+        attributesConfiguration.nodeAttributes().value().namedListKeys().forEach(
+                key -> attributes.put(key, attributesConfiguration.nodeAttributes().get(key).attribute().value())
+        );
+
+        assertEquals(Collections.emptyMap(), attributes);
+
+        stopNode(0);
+
+        String newAttributesCfg = "{\n"
+                + "      region.attribute = \"US\"\n"
+                + "      storage.attribute = \"SSD\"\n"
+                + "}";
+
+        Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD");
+
+        String updateCfg = "nodeAttributes.nodeAttributes=" + newAttributesCfg;
+
+        ignite = startNode(0, updateCfg);
+
+        NodeAttributesConfiguration newAttributesConfiguration =
+                ignite.nodeConfiguration().getConfiguration(NodeAttributesConfiguration.KEY);
+
+        Map<String, String> newAttributes = new HashMap<>();
+
+        newAttributesConfiguration.nodeAttributes().value().namedListKeys().forEach(
+                key -> newAttributes.put(key, newAttributesConfiguration.nodeAttributes().get(key).attribute().value())
+        );
+
+        assertEquals(newAttributesMap, newAttributes);
     }
 
     /**

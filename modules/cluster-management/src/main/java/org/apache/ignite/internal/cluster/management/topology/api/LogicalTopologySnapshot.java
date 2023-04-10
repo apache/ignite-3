@@ -24,7 +24,6 @@ import java.util.Collection;
 import java.util.Set;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * A snapshot of a logical topology as seen locally. Includes nodes participating in the logical topology and the version
@@ -41,9 +40,9 @@ public class LogicalTopologySnapshot implements Serializable {
     private final long version;
 
     @IgniteToStringInclude
-    private final Set<ClusterNode> nodes;
+    private final Set<LogicalNode> nodes;
 
-    public LogicalTopologySnapshot(long version, Collection<ClusterNode> nodes) {
+    public LogicalTopologySnapshot(long version, Collection<LogicalNode> nodes) {
         this.version = version;
         this.nodes = Set.copyOf(nodes);
     }
@@ -58,7 +57,7 @@ public class LogicalTopologySnapshot implements Serializable {
     /**
      * Returns the nodes that comprise the logical topology.
      */
-    public Set<ClusterNode> nodes() {
+    public Set<LogicalNode> nodes() {
         return nodes;
     }
 

@@ -115,10 +115,9 @@ public class Loza implements RaftManager {
 
         this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath, options, raftGroupEventsClientListener);
 
-        this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
-                        CLIENT_POOL_NAME), LOG
-                )
+        this.executor = new ScheduledThreadPoolExecutor(
+                CLIENT_POOL_SIZE,
+                NamedThreadFactory.create(clusterNetSvc.nodeName(), CLIENT_POOL_NAME, LOG)
         );
     }
 
@@ -238,6 +237,34 @@ public class Loza implements RaftManager {
 
         try {
             return startRaftGroupNodeInternal(nodeId, configuration, lsnr, eventsLsnr, groupOptions, raftServiceFactory);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Override
+    public CompletableFuture<RaftGroupService> startRaftGroupNode(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
+    ) throws NodeStoppingException {
+        assert ownFsmCallerExecutorDisruptorConfig != null;
+
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            return startRaftGroupNodeInternal(
+                    nodeId,
+                    configuration,
+                    lsnr,
+                    eventsLsnr,
+                    RaftGroupOptions.defaults().ownFsmCallerExecutorDisruptorConfig(ownFsmCallerExecutorDisruptorConfig),
+                    null
+            );
         } finally {
             busyLock.leaveBusy();
         }

@@ -60,7 +60,6 @@ import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DynamicContainer;
 import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.DynamicTest;
@@ -142,7 +141,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(SystemPropertiesExtension.class)
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
 @SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql")
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-18000")
 public class ItSqlLogicTest extends IgniteIntegrationTest {
     private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
 

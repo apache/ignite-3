@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.storage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -34,6 +35,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -74,6 +76,9 @@ public class ItDistributedConfigurationStorageTest {
     @InjectConfiguration
     private static SecurityConfiguration securityConfiguration;
 
+    @InjectConfiguration
+    private static NodeAttributesConfiguration nodeAttributes;
+
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
      */
@@ -98,7 +103,7 @@ public class ItDistributedConfigurationStorageTest {
         Node(TestInfo testInfo, Path workDir) {
             var addr = new NetworkAddress("localhost", 10000);
 
-            vaultManager = new VaultManager(new PersistentVaultService(workDir.resolve("vault")));
+            vaultManager = new VaultManager(new PersistentVaultService(testNodeName(testInfo, addr.port()), workDir.resolve("vault")));
 
             clusterService = ClusterServiceTestUtils.clusterService(
                     testInfo,
@@ -121,7 +126,9 @@ public class ItDistributedConfigurationStorageTest {
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    distributedConfigurationUpdater);
+                    distributedConfigurationUpdater,
+                    nodeAttributes
+            );
 
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
@@ -178,7 +185,7 @@ public class ItDistributedConfigurationStorageTest {
         }
 
         String name() {
-            return clusterService.localConfiguration().getName();
+            return clusterService.nodeName();
         }
     }
 

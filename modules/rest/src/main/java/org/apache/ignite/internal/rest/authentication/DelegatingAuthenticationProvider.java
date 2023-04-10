@@ -21,22 +21,13 @@ import io.micronaut.http.HttpRequest;
 import io.micronaut.security.authentication.AuthenticationProvider;
 import io.micronaut.security.authentication.AuthenticationRequest;
 import io.micronaut.security.authentication.AuthenticationResponse;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.stream.Collectors;
-import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.notifications.ConfigurationListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import io.micronaut.security.authentication.UsernamePasswordCredentials;
 import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
-import org.apache.ignite.internal.configuration.AuthenticationProviderView;
-import org.apache.ignite.internal.configuration.AuthenticationView;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.security.authentication.AuthenticationManager;
+import org.apache.ignite.internal.security.authentication.Authenticator;
+import org.apache.ignite.internal.security.authentication.UserDetails;
+import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
+import org.apache.ignite.internal.security.exception.AuthenticationException;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
@@ -46,70 +37,37 @@ import reactor.core.publisher.FluxSink;
  * {@link AuthenticationConfiguration} and updates them on configuration changes. Delegates {@link AuthenticationRequest} to the list of
  * {@link Authenticator}.
  */
-public class DelegatingAuthenticationProvider implements AuthenticationProvider, ConfigurationListener<AuthenticationView> {
+public class DelegatingAuthenticationProvider implements AuthenticationProvider {
 
-    private static final IgniteLogger LOG = Loggers.forClass(DelegatingAuthenticationProvider.class);
+    private final AuthenticationManager authenticator;
 
-    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
-    private final List<Authenticator> authenticators = new ArrayList<>();
-    private boolean authEnabled = false;
+    public DelegatingAuthenticationProvider(AuthenticationManager authenticator) {
+        this.authenticator = authenticator;
+    }
 
     @Override
     public Publisher<AuthenticationResponse> authenticate(HttpRequest<?> httpRequest, AuthenticationRequest<?, ?> authenticationRequest) {
         return Flux.create(emitter -> {
-            rwLock.readLock().lock();
             try {
-                if (authEnabled) {
-                    Optional<AuthenticationResponse> successResponse = authenticators.stream()
-                            .map(it -> it.authenticate(authenticationRequest))
-                            .filter(AuthenticationResponse::isAuthenticated)
-                            .findFirst();
-                    if (successResponse.isPresent()) {
-                        emitter.next(successResponse.get());
-                        emitter.complete();
-                    } else {
-                        emitter.error(AuthenticationResponse.exception());
-                    }
-                } else {
-                    emitter.next(AuthenticationResponse.success("Unknown"));
-                    emitter.complete();
-                }
-            } finally {
-                rwLock.readLock().unlock();
+                UserDetails userDetails = authenticator.authenticate(toIgniteAuthenticationRequest(authenticationRequest));
+                emitter.next(AuthenticationResponse.success(userDetails.username()));
+                emitter.complete();
+            } catch (AuthenticationException ex) {
+                emitter.error(AuthenticationResponse.exception(ex.getMessage()));
             }
         }, FluxSink.OverflowStrategy.ERROR);
     }
 
-    @Override
-    public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<AuthenticationView> ctx) {
-        return CompletableFuture.runAsync(() -> refreshProviders(ctx.newValue()));
-    }
-
-    private void refreshProviders(@Nullable AuthenticationView view) {
-        rwLock.writeLock().lock();
-        try {
-            if (view == null || !view.enabled()) {
-                authEnabled = false;
-                authenticators.clear();
-            } else if (view.enabled() && view.providers().size() != 0) {
-                authenticators.clear();
-                authenticators.addAll(providersFromAuthView(view));
-                authEnabled = true;
-            } else {
-                LOG.error("Invalid configuration: authentication is enabled, but no providers. Leaving the old settings");
-            }
-        } catch (Exception exception) {
-            LOG.error("Couldn't refresh authentication providers. Leaving the old settings", exception);
-        } finally {
-            rwLock.writeLock().unlock();
+    private static org.apache.ignite.internal.security.authentication.AuthenticationRequest<?, ?> toIgniteAuthenticationRequest(
+            AuthenticationRequest<?, ?> authenticationRequest
+    ) {
+        if (authenticationRequest instanceof UsernamePasswordCredentials) {
+            UsernamePasswordCredentials usernamePasswordCredentials = (UsernamePasswordCredentials) authenticationRequest;
+            return new UsernamePasswordRequest(
+                    usernamePasswordCredentials.getIdentity(),
+                    usernamePasswordCredentials.getPassword());
+        } else {
+            throw new IllegalArgumentException("Unsupported authentication request type: " + authenticationRequest.getClass());
         }
-    }
-
-    private static List<Authenticator> providersFromAuthView(AuthenticationView view) {
-        NamedListView<? extends AuthenticationProviderView> providers = view.providers();
-        return providers.namedListKeys().stream()
-                .map(providers::get)
-                .map(AuthenticatorFactory::create)
-                .collect(Collectors.toList());
     }
 }

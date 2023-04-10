@@ -33,7 +33,7 @@ public class MetricSetDto {
     private final String name;
 
     /** Metrics. */
-    @Schema(description = "List of metrics.", required = true)
+    @Schema(description = "A list of metrics.", required = true)
     private final Collection<MetricDto> metrics;
 
     /**

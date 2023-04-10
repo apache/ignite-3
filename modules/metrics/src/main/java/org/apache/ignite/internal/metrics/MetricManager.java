@@ -106,8 +106,8 @@ public class MetricManager implements IgniteComponent {
 
         MetricView conf = metricConfiguration.value();
 
-        for (String exporterName : conf.exporters().namedListKeys()) {
-            checkAndStartExporter(exporterName, metricConfiguration.exporters().get(exporterName).value());
+        for (ExporterView exporter : conf.exporters()) {
+            checkAndStartExporter(exporter.exporterName(), exporter);
         }
 
         metricConfiguration.exporters().listenElements(new ExporterConfigurationListener());

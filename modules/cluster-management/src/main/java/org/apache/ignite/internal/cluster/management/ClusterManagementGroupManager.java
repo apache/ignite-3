@@ -19,6 +19,8 @@ package org.apache.ignite.internal.cluster.management;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
@@ -27,6 +29,7 @@ import static org.apache.ignite.security.AuthenticationConfig.disabled;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -36,9 +39,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalState;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributeView;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.network.CmgMessageHandlerFactory;
 import org.apache.ignite.internal.cluster.management.network.auth.Authentication;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
@@ -131,6 +135,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private final DistributedConfigurationUpdater distributedConfigurationUpdater;
 
+    /** Node's attributes configuration. */
+    private final NodeAttributesConfiguration nodeAttributes;
+
     /**
      * Whether we attempted to complete join (i.e. send JoinReady command) on Ignite node start.
      *
@@ -153,7 +160,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             ClusterStateStorage clusterStateStorage,
             LogicalTopology logicalTopology,
             ClusterManagementConfiguration configuration,
-            DistributedConfigurationUpdater distributedConfigurationUpdater) {
+            DistributedConfigurationUpdater distributedConfigurationUpdater,
+            NodeAttributesConfiguration nodeAttributes
+    ) {
         this.clusterService = clusterService;
         this.raftManager = raftManager;
         this.clusterStateStorage = clusterStateStorage;
@@ -163,6 +172,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         this.localStateStorage = new LocalStateStorage(vault);
         this.clusterInitializer = new ClusterInitializer(clusterService);
+        this.nodeAttributes = nodeAttributes;
     }
 
     /**
@@ -380,13 +390,19 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     // Send the ClusterStateMessage to all members of the physical topology. We do not wait for the send operation
                     // because being unable to send ClusterState messages should not fail the CMG service startup.
                     // TODO: IGNITE-18275 - use RAFT replication instead of message sending
-                    sendClusterState(service, topologyService.allMembers());
+                    ClusterNode thisNode = topologyService.localMember();
 
-                    LOG.info("onLeaderElected callback executed successfully");
+                    Collection<ClusterNode> otherNodes = topologyService.allMembers().stream()
+                            .filter(node -> !thisNode.equals(node))
+                            .collect(toList());
+
+                    sendClusterState(service, otherNodes);
                 })
                 .whenComplete((v, e) -> {
                     if (e != null) {
                         LOG.warn("Error when executing onLeaderElected callback", e);
+                    } else {
+                        LOG.info("onLeaderElected callback executed successfully");
                     }
                 });
 
@@ -542,7 +558,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private CompletableFuture<CmgRaftService> completeJoinIfTryingToRejoin(CmgRaftService cmgRaftService) {
         if (attemptedCompleteJoinOnStart) {
-            return cmgRaftService.completeJoinCluster()
+            return cmgRaftService.completeJoinCluster(mapNodeAttributes())
                     .thenApply(unused -> cmgRaftService);
         } else {
             return completedFuture(cmgRaftService);
@@ -550,7 +566,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private CompletableFuture<CmgRaftService> joinCluster(CmgRaftService service, ClusterTag clusterTag) {
-        return service.startJoinCluster(clusterTag)
+        return service.startJoinCluster(clusterTag, mapNodeAttributes())
                 .thenApply(v -> service)
                 .whenComplete((v, e) -> {
                     if (e == null) {
@@ -667,7 +683,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     // Only send the ClusterStateMessage to nodes not already present in the Logical Topology.
                     Collection<ClusterNode> recipients = nodes.stream()
                             .filter(node -> !topology.nodes().contains(node))
-                            .collect(Collectors.toList());
+                            .collect(toList());
 
                     if (recipients.isEmpty()) {
                         return completedFuture(null);
@@ -847,7 +863,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         attemptedCompleteJoinOnStart = true;
 
         try {
-            return raftServiceAfterJoin().thenCompose(CmgRaftService::completeJoinCluster);
+            return raftServiceAfterJoin().thenCompose(svc -> svc.completeJoinCluster(mapNodeAttributes()));
         } finally {
             busyLock.leaveBusy();
         }
@@ -880,6 +896,16 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
                     return serviceFuture;
                 });
+    }
+
+    /**
+     * Returns a map of node's attributes produced from the local configuration of a node.
+     *
+     * @return A map of node's attributes.
+     */
+    private Map<String, String> mapNodeAttributes() {
+        return nodeAttributes.nodeAttributes().value().stream()
+                .collect(toMap(NodeAttributeView::name, NodeAttributeView::attribute));
     }
 
     @TestOnly

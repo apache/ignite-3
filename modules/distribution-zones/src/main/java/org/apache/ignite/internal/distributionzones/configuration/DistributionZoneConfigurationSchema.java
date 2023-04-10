@@ -75,4 +75,12 @@ public class DistributionZoneConfigurationSchema {
     @Range(min = 0)
     @Value(hasDefault = true)
     public int dataNodesAutoAdjustScaleDown = INFINITE_TIMER_VALUE;
+
+    /**
+     * Filter to form nodes which must be included to data nodes of this zone.
+     * Default value is {@code $..*}, which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes of nodes.
+     */
+    @ValidFilter
+    @Value(hasDefault = true)
+    public String filter = "$..*";
 }

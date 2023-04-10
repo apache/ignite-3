@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -143,9 +144,9 @@ public abstract class AbstractClusterStateStorageManagerTest {
      */
     @Test
     void testValidatedNodes() {
-        var node1 = new ClusterNode("node1", "node1", new NetworkAddress("localhost", 10_000));
-        var node2 = new ClusterNode("node2", "node2", new NetworkAddress("localhost", 10_001));
-        var node3 = new ClusterNode("node3", "node3", new NetworkAddress("localhost", 10_002));
+        var node1 = new LogicalNode("node1", "node1", new NetworkAddress("localhost", 10_000));
+        var node2 = new LogicalNode("node2", "node2", new NetworkAddress("localhost", 10_001));
+        var node3 = new LogicalNode("node3", "node3", new NetworkAddress("localhost", 10_002));
 
         storageManager.putValidatedNode(node1);
 
