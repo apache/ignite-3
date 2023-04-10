@@ -84,13 +84,7 @@ public class RaftGroupService {
             final RpcServer rpcServer,
             final NodeManager nodeManager
     ) {
-        super();
-        this.groupId = groupId;
-        this.serverId = serverId;
-        this.nodeOptions = nodeOptions;
-        this.rpcServer = rpcServer;
-        this.nodeManager = nodeManager;
-        this.ownFsmCallerExecutorDisruptorConfig = null;
+        this(groupId, serverId, nodeOptions, rpcServer, nodeManager, null);
     }
 
         /**
@@ -99,7 +93,8 @@ public class RaftGroupService {
          * @param nodeOptions Node options.
          * @param rpcServer RPC server.
          * @param nodeManager Node manager.
-         * @param ownFsmCallerExecutorDisruptorConfig Configuration own striped disruptor for FSMCaller service of raft node.
+         * @param ownFsmCallerExecutorDisruptorConfig Configuration own striped disruptor for FSMCaller service of raft node, {@code null}
+         *      means use shared disruptor.
          */
         public RaftGroupService(
                 final String groupId,
@@ -107,7 +102,7 @@ public class RaftGroupService {
                 final NodeOptions nodeOptions,
                 final RpcServer rpcServer,
                 final NodeManager nodeManager,
-                final RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
+                @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
         ) {
             super();
 
@@ -141,9 +136,7 @@ public class RaftGroupService {
 
         assert this.nodeOptions.getRpcClient() != null;
 
-        this.node = ownFsmCallerExecutorDisruptorConfig == null
-            ? new NodeImpl(groupId, serverId)
-            : new NodeImpl(groupId, serverId, ownFsmCallerExecutorDisruptorConfig);
+        this.node = new NodeImpl(groupId, serverId, ownFsmCallerExecutorDisruptorConfig);
 
         if (!this.node.init(this.nodeOptions)) {
             LOG.warn("Stopping partially started node [groupId={}, serverId={}]", groupId, serverId);

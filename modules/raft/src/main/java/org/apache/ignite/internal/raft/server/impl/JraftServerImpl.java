@@ -40,7 +40,6 @@ import java.util.function.BiPredicate;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
-import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
@@ -382,31 +381,6 @@ public class JraftServerImpl implements RaftServer {
             RaftGroupListener lsnr,
             RaftGroupOptions groupOptions
     ) {
-        return startRaftNode0(nodeId, configuration, evLsnr, lsnr, groupOptions, null);
-    }
-
-    @Override
-    public boolean startRaftNode(
-            RaftNodeId nodeId,
-            PeersAndLearners configuration,
-            RaftGroupEventsListener evLsnr,
-            RaftGroupListener lsnr,
-            RaftGroupOptions groupOptions,
-            RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
-    ) {
-        assert ownFsmCallerExecutorDisruptorConfig != null;
-
-        return startRaftNode0(nodeId, configuration, evLsnr, lsnr, groupOptions, ownFsmCallerExecutorDisruptorConfig);
-    }
-
-    private boolean startRaftNode0(
-            RaftNodeId nodeId,
-            PeersAndLearners configuration,
-            RaftGroupEventsListener evLsnr,
-            RaftGroupListener lsnr,
-            RaftGroupOptions groupOptions,
-            @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
-    ) {
         assert nodeId.peer().consistentId().equals(service.topologyService().localMember().name());
 
         // fast track to check if node with the same ID is already created.
@@ -468,26 +442,14 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setRpcClient(client);
 
-            RaftGroupService server;
-
-            if (ownFsmCallerExecutorDisruptorConfig == null) {
-                server = new RaftGroupService(
-                        nodeId.groupId().toString(),
-                        PeerId.fromPeer(nodeId.peer()),
-                        nodeOptions,
-                        rpcServer,
-                        nodeManager
-                );
-            } else {
-                server = new RaftGroupService(
-                        nodeId.groupId().toString(),
-                        PeerId.fromPeer(nodeId.peer()),
-                        nodeOptions,
-                        rpcServer,
-                        nodeManager,
-                        ownFsmCallerExecutorDisruptorConfig
-                );
-            }
+            var server = new RaftGroupService(
+                    nodeId.groupId().toString(),
+                    PeerId.fromPeer(nodeId.peer()),
+                    nodeOptions,
+                    rpcServer,
+                    nodeManager,
+                    groupOptions.ownFsmCallerExecutorDisruptorConfig()
+            );
 
             server.start();
 

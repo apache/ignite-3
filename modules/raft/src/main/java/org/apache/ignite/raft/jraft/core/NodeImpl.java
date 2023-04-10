@@ -554,34 +554,16 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
 
-    public NodeImpl(
-            final String groupId,
-            final PeerId serverId
-    ) {
-        super();
-        if (groupId != null) {
-            Utils.verifyGroupId(groupId);
-        }
-        this.groupId = groupId;
-        this.serverId = serverId != null ? serverId.copy() : null;
-        this.state = State.STATE_UNINITIALIZED;
-        this.currTerm = 0;
-        updateLastLeaderTimestamp(Utils.monotonicMs());
-        this.confCtx = new ConfigurationCtx(this);
-        this.wakingCandidate = null;
-        this.applyCommittedFuture = new CompletableFuture<>();
-        this.ownFsmCallerExecutorDisruptorConfig = null;
+    public NodeImpl(final String groupId, final PeerId serverId) {
+        this(groupId, serverId, null);
     }
 
         public NodeImpl(
                 final String groupId,
                 final PeerId serverId,
-                final RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
+                @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
         ) {
             super();
-
-            assert ownFsmCallerExecutorDisruptorConfig != null;
-
             if (groupId != null) {
                 Utils.verifyGroupId(groupId);
             }

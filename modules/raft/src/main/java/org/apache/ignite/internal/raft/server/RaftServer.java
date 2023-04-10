@@ -24,7 +24,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
-import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -75,26 +74,6 @@ public interface RaftServer extends IgniteComponent {
             RaftGroupEventsListener evLsnr,
             RaftGroupListener lsnr,
             RaftGroupOptions groupOptions
-    );
-
-    /**
-     * Starts a Raft group bound to this cluster node.
-     *
-     * @param nodeId Raft node ID.
-     * @param configuration Raft configuration.
-     * @param evLsnr Listener for group membership and other events.
-     * @param lsnr Listener for state machine events.
-     * @param groupOptions Options to apply to the group.
-     * @param ownFsmCallerExecutorDisruptorConfig Configuration of own (not shared) striped disruptor for FSMCaller service of raft node.
-     * @return {@code True} if a group was successfully started, {@code False} when the group with given name is already exists.
-     */
-    boolean startRaftNode(
-            RaftNodeId nodeId,
-            PeersAndLearners configuration,
-            RaftGroupEventsListener evLsnr,
-            RaftGroupListener lsnr,
-            RaftGroupOptions groupOptions,
-            RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
     );
 
     /**
