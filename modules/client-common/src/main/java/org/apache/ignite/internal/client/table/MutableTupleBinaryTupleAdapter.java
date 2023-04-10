@@ -370,6 +370,26 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
         return this;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public int hashCode() {
+        return Tuple.hashCode(this);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+
+        if (obj instanceof Tuple) {
+            return Tuple.equals(this, (Tuple) obj);
+        }
+
+        return false;
+    }
+
     protected abstract String schemaColumnName(int internalIndex);
 
     private String schemaColumnName0(int publicIndex) {
