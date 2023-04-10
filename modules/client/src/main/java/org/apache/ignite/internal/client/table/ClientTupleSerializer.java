@@ -36,7 +36,6 @@ import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
-import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -240,7 +239,7 @@ public class ClientTupleSerializer {
         var colCnt = keyOnly ? schema.keyColumnCount() : schema.columns().length;
         var binTuple = new BinaryTupleReader(colCnt, in.readBinary());
 
-        return new ClientTuple2(schema, binTuple, 0, colCnt);
+        return new ClientTuple(schema, binTuple, 0, colCnt);
     }
 
     static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in) {
@@ -249,7 +248,7 @@ public class ClientTupleSerializer {
 
         var binTuple = new BinaryTupleReader(colCnt, in.readBinary());
 
-        return new ClientTuple2(schema, binTuple, keyColCnt, colCnt);
+        return new ClientTuple(schema, binTuple, keyColCnt, colCnt);
     }
 
     private static IgniteBiTuple<Tuple, Tuple> readKvTuple(ClientSchema schema, ClientMessageUnpacker in) {
@@ -257,8 +256,8 @@ public class ClientTupleSerializer {
         var colCnt = schema.columns().length;
 
         var binTuple = new BinaryTupleReader(colCnt, in.readBinary());
-        var keyTuple2 = new ClientTuple2(schema, binTuple, 0, keyColCnt);
-        var valTuple2 = new ClientTuple2(schema, binTuple, keyColCnt, colCnt);
+        var keyTuple2 = new ClientTuple(schema, binTuple, 0, keyColCnt);
+        var valTuple2 = new ClientTuple(schema, binTuple, keyColCnt, colCnt);
 
         return new IgniteBiTuple<>(keyTuple2, valTuple2);
     }
