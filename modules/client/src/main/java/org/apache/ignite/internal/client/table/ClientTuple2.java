@@ -62,20 +62,6 @@ class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
     }
 
     @Override
-    protected int validateSchemaColumnIndex(int columnIndex, ColumnType type) {
-        ClientColumn column = schema.columns()[columnIndex];
-
-        var actualType = ClientColumnTypeConverter.clientDataTypeToSqlColumnType(column.type());
-
-        if (type != actualType) {
-            throw new ColumnNotFoundException("Column with index " + columnIndex + " has type " + actualType +
-                    " but " + type + " was requested");
-        }
-
-        return column.schemaIndex();
-    }
-
-    @Override
     protected ColumnType schemaColumnType(int columnIndex) {
         ClientColumn column = schema.columns()[columnIndex];
 

@@ -26,6 +26,7 @@ import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
@@ -375,7 +376,19 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
 
     protected abstract int schemaColumnIndex(@NotNull String columnName, @Nullable ColumnType type);
 
-    protected abstract int validateSchemaColumnIndex(int columnIndex, ColumnType type);
+    private int validateSchemaColumnIndex(int publicIndex, ColumnType type) {
+        Objects.checkIndex(publicIndex, schemaSize - schemaOffset);
+
+        int internalIndex = publicIndex + schemaOffset;
+        var actualType = schemaColumnType(internalIndex);
+
+        if (type != actualType) {
+            throw new ColumnNotFoundException("Column with index " + publicIndex + " has type " + actualType +
+                    " but " + type + " was requested");
+        }
+
+        return internalIndex;
+    }
 
     protected abstract ColumnType schemaColumnType(int columnIndex);
 
@@ -391,70 +404,70 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
         return index;
     }
 
-    private @Nullable Object object(int columnIndex) {
-        if (binaryTuple.hasNullValue(columnIndex)) {
+    private @Nullable Object object(int internalIndex) {
+        if (binaryTuple.hasNullValue(internalIndex)) {
             return null;
         }
 
-        var type = schemaColumnType(columnIndex);
+        var type = schemaColumnType(internalIndex);
 
         switch (type) {
             case BOOLEAN:
-                return binaryTuple.byteValue(columnIndex) != 0;
+                return binaryTuple.byteValue(internalIndex) != 0;
 
             case INT8:
-                return binaryTuple.byteValue(columnIndex);
+                return binaryTuple.byteValue(internalIndex);
 
             case INT16:
-                return binaryTuple.shortValue(columnIndex);
+                return binaryTuple.shortValue(internalIndex);
 
             case INT32:
-                return binaryTuple.intValue(columnIndex);
+                return binaryTuple.intValue(internalIndex);
 
             case INT64:
-                return binaryTuple.longValue(columnIndex);
+                return binaryTuple.longValue(internalIndex);
 
             case FLOAT:
-                return binaryTuple.floatValue(columnIndex);
+                return binaryTuple.floatValue(internalIndex);
 
             case DOUBLE:
-                return binaryTuple.doubleValue(columnIndex);
+                return binaryTuple.doubleValue(internalIndex);
 
             case DECIMAL:
-                return binaryTuple.decimalValue(columnIndex, schemaDecimalScale(columnIndex));
+                return binaryTuple.decimalValue(internalIndex, schemaDecimalScale(internalIndex));
 
             case DATE:
-                return binaryTuple.dateValue(columnIndex);
+                return binaryTuple.dateValue(internalIndex);
 
             case TIME:
-                return binaryTuple.timeValue(columnIndex);
+                return binaryTuple.timeValue(internalIndex);
 
             case DATETIME:
-                return binaryTuple.dateTimeValue(columnIndex);
+                return binaryTuple.dateTimeValue(internalIndex);
 
             case TIMESTAMP:
-                return binaryTuple.timestampValue(columnIndex);
+                return binaryTuple.timestampValue(internalIndex);
 
             case UUID:
-                return binaryTuple.uuidValue(columnIndex);
+                return binaryTuple.uuidValue(internalIndex);
 
             case BITMASK:
-                return binaryTuple.bitmaskValue(columnIndex);
+                return binaryTuple.bitmaskValue(internalIndex);
 
             case STRING:
-                return binaryTuple.stringValue(columnIndex);
+                return binaryTuple.stringValue(internalIndex);
 
             case BYTE_ARRAY:
-                return binaryTuple.bytesValue(columnIndex);
+                return binaryTuple.bytesValue(internalIndex);
 
             case PERIOD:
-                return binaryTuple.periodValue(columnIndex);
+                return binaryTuple.periodValue(internalIndex);
 
             case DURATION:
-                return binaryTuple.durationValue(columnIndex);
+                return binaryTuple.durationValue(internalIndex);
 
             case NUMBER:
-                return binaryTuple.numberValue(columnIndex);
+                return binaryTuple.numberValue(internalIndex);
 
             default:
                 throw new IllegalStateException("Unsupported type: " + type);
