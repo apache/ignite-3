@@ -33,22 +33,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests thin client configuration.
  */
-@ExtendWith(ConfigurationExtension.class)
 public class ConfigurationTest extends AbstractClientTest {
-
-    @InjectConfiguration
-    private AuthenticationConfiguration authenticationConfiguration;
-
     @Test
     public void testClientValidatesAddresses() {
         IgniteClient.Builder builder = IgniteClient.builder();
@@ -170,17 +161,7 @@ public class ConfigurationTest extends AbstractClientTest {
     public void testCustomAsyncContinuationExecutor() throws Exception {
         Function<Integer, Integer> responseDelay = x -> 50;
 
-        try (var testServer = new TestServer(
-                10900,
-                10,
-                0,
-                server,
-                x -> false,
-                responseDelay,
-                "n2",
-                clusterId,
-                authenticationConfiguration)
-        ) {
+        try (var testServer = new TestServer(10900, 10, 0, server, x -> false, responseDelay, "n2", clusterId, null)) {
             ExecutorService executor = Executors.newSingleThreadExecutor();
 
             var builderThreadName = new AtomicReference<String>();

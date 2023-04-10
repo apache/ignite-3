@@ -85,7 +85,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.client.proto.Extension;
+import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
@@ -152,6 +152,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /** Context. */
     private ClientContext clientContext;
 
+    /** Chanel handler context. */
     private ChannelHandlerContext channelHandlerContext;
 
     /** Whether the partition assignment has changed since the last server response. */
@@ -320,8 +321,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    private AuthenticationRequest<?, ?> createAuthenticationRequest(Map<Extension, Object> extensions) {
-        return new UsernamePasswordRequest((String) extensions.get(Extension.USERNAME), (String) extensions.get(Extension.PASSWORD));
+    private AuthenticationRequest<?, ?> createAuthenticationRequest(Map<HandshakeExtension, Object> extensions) {
+        return new UsernamePasswordRequest((String) extensions.get(HandshakeExtension.USERNAME),
+                (String) extensions.get(HandshakeExtension.PASSWORD));
     }
 
     private void writeMagic(ChannelHandlerContext ctx) {
@@ -640,41 +642,28 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     @Override
     public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<AuthenticationView> ctx) {
-        return CompletableFuture.runAsync(() -> {
-            if (clientContext != null && channelHandlerContext != null) {
-                onAuthenticationChange();
-            }
-        });
+        if (clientContext != null && channelHandlerContext != null) {
+            channelHandlerContext.close();
+        }
+        return CompletableFuture.completedFuture(null);
     }
 
-    private void onAuthenticationChange() {
-        channelHandlerContext.close();
-    }
-
-    private Map<Extension, Object> extractExtensions(ClientMessageUnpacker unpacker) {
-        EnumMap<Extension, Object> extensions = new EnumMap<>(Extension.class);
+    private Map<HandshakeExtension, Object> extractExtensions(ClientMessageUnpacker unpacker) {
+        EnumMap<HandshakeExtension, Object> extensions = new EnumMap<>(HandshakeExtension.class);
         int mapSize = unpacker.unpackMapHeader();
         for (int i = 0; i < mapSize; i++) {
-            Extension extension = Extension.fromKey(unpacker.unpackString());
-            extensions.put(extension, unpackExtensionValue(extension, unpacker));
+            HandshakeExtension handshakeExtension = HandshakeExtension.fromKey(unpacker.unpackString());
+            if (handshakeExtension != null) {
+                extensions.put(handshakeExtension, unpackExtensionValue(handshakeExtension, unpacker));
+            }
         }
         return extensions;
     }
 
-    private Object unpackExtensionValue(Extension extension, ClientMessageUnpacker unpacker) {
-        Class<?> type = extension.valueType();
+    private Object unpackExtensionValue(HandshakeExtension handshakeExtension, ClientMessageUnpacker unpacker) {
+        Class<?> type = handshakeExtension.valueType();
         if (type == String.class) {
             return unpacker.unpackString();
-        } else if (type == Integer.class) {
-            return unpacker.unpackInt();
-        } else if (type == Long.class) {
-            return unpacker.unpackLong();
-        } else if (type == Boolean.class) {
-            return unpacker.unpackBoolean();
-        } else if (type == Double.class) {
-            return unpacker.unpackDouble();
-        } else if (type == Float.class) {
-            return unpacker.unpackFloat();
         } else {
             throw new IllegalArgumentException("Unsupported extension type: " + type.getName());
         }

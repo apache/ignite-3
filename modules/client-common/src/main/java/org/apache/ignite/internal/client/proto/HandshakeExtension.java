@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.client.proto;
 
-/** Extensions. */
-public enum Extension {
+import org.jetbrains.annotations.Nullable;
+
+/** Handshake extensions. */
+public enum HandshakeExtension {
     USERNAME("username", String.class),
     PASSWORD("password", String.class),
     ;
@@ -27,7 +29,7 @@ public enum Extension {
 
     private final Class<?> valueType;
 
-    Extension(String key, Class<?> valueType) {
+    HandshakeExtension(String key, Class<?> valueType) {
         this.key = key;
         this.valueType = valueType;
     }
@@ -38,13 +40,14 @@ public enum Extension {
      * @param key Key.
      * @return Extension.
      */
-    public static Extension fromKey(String key) {
-        for (Extension e : values()) {
+    @Nullable
+    public static HandshakeExtension fromKey(String key) {
+        for (HandshakeExtension e : values()) {
             if (e.key.equalsIgnoreCase(key)) {
                 return e;
             }
         }
-        throw new IllegalArgumentException("Unknown extension key: " + key);
+        return null;
     }
 
     public String key() {

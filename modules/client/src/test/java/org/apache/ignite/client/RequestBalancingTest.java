@@ -26,20 +26,15 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.fakes.FakeIgnite;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests client request balancing.
  */
-@ExtendWith(ConfigurationExtension.class)
 public class RequestBalancingTest {
     /** Test server 1. */
     private TestServer server1;
@@ -50,15 +45,12 @@ public class RequestBalancingTest {
     /** Test server 3. */
     private TestServer server3;
 
-    @InjectConfiguration
-    private AuthenticationConfiguration authenticationConfiguration;
-
     @BeforeEach
     void setUp() {
         FakeIgnite ignite = new FakeIgnite();
-        server1 = AbstractClientTest.startServer(10900, 10, 0, ignite, "s1", authenticationConfiguration);
-        server2 = AbstractClientTest.startServer(10900, 10, 0, ignite, "s2", authenticationConfiguration);
-        server3 = AbstractClientTest.startServer(10900, 10, 0, ignite, "s3", authenticationConfiguration);
+        server1 = AbstractClientTest.startServer(10900, 10, 0, ignite, "s1");
+        server2 = AbstractClientTest.startServer(10900, 10, 0, ignite, "s2");
+        server3 = AbstractClientTest.startServer(10900, 10, 0, ignite, "s3");
     }
 
     @AfterEach

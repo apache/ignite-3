@@ -27,32 +27,24 @@ import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.TcpIgniteClient;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests client-side metrics (see also server-side metrics tests in {@link ServerMetricsTest}).
  */
-@ExtendWith(ConfigurationExtension.class)
 public class ClientMetricsTest {
     private TestServer server;
     private IgniteClient client;
 
-    @InjectConfiguration
-    private AuthenticationConfiguration authenticationConfiguration;
-
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void testConnectionMetrics(boolean gracefulDisconnect) throws Exception {
-        server = AbstractClientTest.startServer(10800, 10, 1000, new FakeIgnite(), authenticationConfiguration);
+        server = AbstractClientTest.startServer(10800, 10, 1000, new FakeIgnite());
         client = clientBuilder().build();
 
         ClientMetricSource metrics = metrics();
@@ -87,7 +79,7 @@ public class ClientMetricsTest {
                 responseDelay,
                 null,
                 AbstractClientTest.clusterId,
-                authenticationConfiguration
+                null
         );
         client = clientBuilder()
                 .connectTimeout(100)
@@ -113,7 +105,7 @@ public class ClientMetricsTest {
                 null,
                 null,
                 AbstractClientTest.clusterId,
-                authenticationConfiguration
+                null
         );
 
         client = clientBuilder().build();
@@ -135,7 +127,7 @@ public class ClientMetricsTest {
                 responseDelay,
                 null,
                 AbstractClientTest.clusterId,
-                authenticationConfiguration
+                null
         );
         client = clientBuilder()
                 .connectTimeout(100)
@@ -159,7 +151,7 @@ public class ClientMetricsTest {
                 responseDelay,
                 null,
                 AbstractClientTest.clusterId,
-                authenticationConfiguration
+                null
         );
         client = clientBuilder().build();
 
@@ -210,13 +202,7 @@ public class ClientMetricsTest {
 
     @Test
     public void testBytesSentReceived() {
-        server = AbstractClientTest.startServer(
-                10800,
-                10,
-                1000,
-                new FakeIgnite(),
-                authenticationConfiguration
-        );
+        server = AbstractClientTest.startServer(10800, 10, 1000, new FakeIgnite());
         client = clientBuilder().build();
 
         assertEquals(15, metrics().bytesSent());

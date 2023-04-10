@@ -58,9 +58,15 @@ public class TestServer {
 
     private long idleTimeout = 5000;
 
-    TestServer(@Nullable TestSslConfig testSslConfig, AuthenticationConfiguration authenticationConfiguration) {
+    public TestServer() {
+        this(null, null);
+    }
+
+    TestServer(@Nullable TestSslConfig testSslConfig, @Nullable AuthenticationConfiguration authenticationConfiguration) {
         this.testSslConfig = testSslConfig;
-        this.authenticationConfiguration = authenticationConfiguration;
+        this.authenticationConfiguration = authenticationConfiguration == null
+                ? mock(AuthenticationConfiguration.class)
+                : authenticationConfiguration;
         this.configurationManager = new ConfigurationManager(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
                 Set.of(),
@@ -70,10 +76,6 @@ public class TestServer {
         );
 
         metrics.enable();
-    }
-
-    TestServer(AuthenticationConfiguration authenticationConfiguration) {
-        this(null, authenticationConfiguration);
     }
 
     void idleTimeout(long idleTimeout) {
@@ -113,7 +115,7 @@ public class TestServer {
         var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTablesInternal.class), mock(IgniteTransactions.class),
                 registry, mock(IgniteCompute.class), clusterService, bootstrapFactory, mock(IgniteSql.class),
                 () -> CompletableFuture.completedFuture(UUID.randomUUID()), mock(MetricManager.class), metrics,
-                authenticationManager(authenticationConfiguration), authenticationConfiguration
+                authenticationManager(), authenticationConfiguration
         );
 
         module.start();
@@ -130,7 +132,7 @@ public class TestServer {
         return registry.getConfiguration(ClientConnectorConfiguration.KEY);
     }
 
-    private AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) {
+    private AuthenticationManager authenticationManager() {
         AuthenticationManagerImpl authenticationManager = new AuthenticationManagerImpl();
         authenticationConfiguration.listen(authenticationManager);
         return authenticationManager;

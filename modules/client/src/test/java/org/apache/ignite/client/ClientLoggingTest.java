@@ -25,28 +25,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.LoggerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests verifies an ability to set custom logger to the client.
  */
-@ExtendWith(ConfigurationExtension.class)
 public class ClientLoggingTest {
     /** Test server. */
     private TestServer server;
 
     /** Test server 2. */
     private TestServer server2;
-
-    @InjectConfiguration
-    private AuthenticationConfiguration authenticationConfiguration;
 
     @AfterEach
     void tearDown() throws Exception {
@@ -106,13 +98,12 @@ public class ClientLoggingTest {
         }
     }
 
-    private TestServer startServer(int port, FakeIgnite ignite) {
+    private static TestServer startServer(int port, FakeIgnite ignite) {
         return AbstractClientTest.startServer(
                 port,
                 10,
                 0,
-                ignite,
-                authenticationConfiguration
+                ignite
         );
     }
 

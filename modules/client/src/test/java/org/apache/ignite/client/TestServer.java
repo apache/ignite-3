@@ -79,8 +79,7 @@ public class TestServer implements AutoCloseable {
             int port,
             int portRange,
             long idleTimeout,
-            Ignite ignite,
-            AuthenticationConfiguration authenticationConfiguration
+            Ignite ignite
     ) {
         this(
                 port,
@@ -91,7 +90,7 @@ public class TestServer implements AutoCloseable {
                 null,
                 null,
                 UUID.randomUUID(),
-                authenticationConfiguration
+                null
         );
     }
 
@@ -112,7 +111,7 @@ public class TestServer implements AutoCloseable {
             @Nullable Function<Integer, Integer> responseDelay,
             @Nullable String nodeName,
             UUID clusterId,
-            AuthenticationConfiguration authenticationConfiguration
+            @Nullable AuthenticationConfiguration authenticationConfiguration
     ) {
         cfg = new ConfigurationRegistry(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
@@ -150,6 +149,9 @@ public class TestServer implements AutoCloseable {
         metrics = new ClientHandlerMetricSource();
         metrics.enable();
 
+        AuthenticationConfiguration authenticationConfigToApply = authenticationConfiguration == null
+                ? mock(AuthenticationConfiguration.class)
+                : authenticationConfiguration;
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
                         ignite,
@@ -161,7 +163,7 @@ public class TestServer implements AutoCloseable {
                         compute,
                         clusterId,
                         metrics,
-                        authenticationConfiguration)
+                        authenticationConfigToApply)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
@@ -174,8 +176,8 @@ public class TestServer implements AutoCloseable {
                         () -> CompletableFuture.completedFuture(clusterId),
                         mock(MetricManager.class),
                         metrics,
-                        authenticationManager(authenticationConfiguration),
-                        authenticationConfiguration
+                        authenticationManager(authenticationConfigToApply),
+                        authenticationConfigToApply
                         );
 
         module.start();

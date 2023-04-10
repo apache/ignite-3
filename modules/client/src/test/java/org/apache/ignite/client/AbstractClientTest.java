@@ -28,21 +28,16 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Base class for client tests.
  */
-@ExtendWith(ConfigurationExtension.class)
 public abstract class AbstractClientTest {
     protected static final String DEFAULT_TABLE = "default_test_table";
 
@@ -56,9 +51,6 @@ public abstract class AbstractClientTest {
 
     protected static UUID clusterId = UUID.randomUUID();
 
-    @InjectConfiguration
-    private static AuthenticationConfiguration authenticationConfiguration;
-
     /**
      * Before all.
      */
@@ -68,7 +60,7 @@ public abstract class AbstractClientTest {
 
         server = new FakeIgnite("server-1");
 
-        testServer = startServer(10800, 10, 0, server, authenticationConfiguration);
+        testServer = startServer(10800, 10, 0, server);
 
         serverPort = testServer.port();
 
@@ -127,10 +119,9 @@ public abstract class AbstractClientTest {
             int port,
             int portRange,
             long idleTimeout,
-            Ignite ignite,
-            AuthenticationConfiguration authenticationConfiguration
+            Ignite ignite
     ) {
-        return startServer(port, portRange, idleTimeout, ignite, null, authenticationConfiguration);
+        return startServer(port, portRange, idleTimeout, ignite, null);
     }
 
     /**
@@ -148,10 +139,9 @@ public abstract class AbstractClientTest {
             int portRange,
             long idleTimeout,
             Ignite ignite,
-            String nodeName,
-            AuthenticationConfiguration authenticationConfiguration
+            String nodeName
     ) {
-        return new TestServer(port, portRange, idleTimeout, ignite, null, null, nodeName, clusterId, authenticationConfiguration);
+        return new TestServer(port, portRange, idleTimeout, ignite, null, null, nodeName, clusterId, null);
     }
 
     /**

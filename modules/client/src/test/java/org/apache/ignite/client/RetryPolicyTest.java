@@ -33,9 +33,6 @@ import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.RetryPolicyContextImpl;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.LoggerFactory;
@@ -45,19 +42,14 @@ import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests thin client retry behavior.
  */
-@ExtendWith(ConfigurationExtension.class)
 public class RetryPolicyTest {
     private static final int ITER = 100;
 
     private TestServer server;
-
-    @InjectConfiguration
-    private AuthenticationConfiguration authenticationConfiguration;
 
     @AfterEach
     void tearDown() throws Exception {
@@ -287,6 +279,6 @@ public class RetryPolicyTest {
         FakeIgnite ign = new FakeIgnite();
         ((FakeIgniteTables) ign.tables()).createTable("t");
 
-        server = new TestServer(10900, 10, 0, ign, shouldDropConnection, null, null, UUID.randomUUID(), authenticationConfiguration);
+        server = new TestServer(10900, 10, 0, ign, shouldDropConnection, null, null, UUID.randomUUID(), null);
     }
 }

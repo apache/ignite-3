@@ -59,7 +59,7 @@ public class ItClientHandlerTest {
 
     @BeforeEach
     public void setUp(TestInfo testInfo) {
-        testServer = new TestServer(authenticationConfiguration);
+        testServer = new TestServer(null, authenticationConfiguration);
         serverModule = testServer.start(testInfo);
         serverPort = serverModule.localAddress().getPort();
     }

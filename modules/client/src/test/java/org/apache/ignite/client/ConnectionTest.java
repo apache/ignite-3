@@ -28,23 +28,14 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests client connection to various addresses.
  */
-@ExtendWith(ConfigurationExtension.class)
 public class ConnectionTest extends AbstractClientTest {
-
-    @InjectConfiguration
-    private AuthenticationConfiguration authenticationConfiguration;
-
     @Test
     public void testEmptyNodeAddress() {
         var ex = assertThrows(IgniteException.class, () -> testConnection(""));
@@ -90,16 +81,7 @@ public class ConnectionTest extends AbstractClientTest {
     public void testNoResponseFromServerWithinConnectTimeoutThrowsException() throws Exception {
         Function<Integer, Integer> responseDelay = x -> 500;
 
-        try (var srv = new TestServer(
-                10800,
-                10,
-                300,
-                new FakeIgnite(),
-                x -> false,
-                responseDelay,
-                null, UUID.randomUUID(),
-                authenticationConfiguration)
-        ) {
+        try (var srv = new TestServer(10800, 10, 300, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID(), null)) {
             Builder builder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + srv.port())
                     .retryPolicy(new RetryLimitPolicy().retryLimit(1))
