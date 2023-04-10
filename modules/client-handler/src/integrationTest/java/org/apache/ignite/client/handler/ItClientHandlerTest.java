@@ -337,5 +337,4 @@ public class ItClientHandlerTest {
             });
         }).join();
     }
-
 }
