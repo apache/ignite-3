@@ -147,20 +147,24 @@ public class ClientTupleTest {
         var datetime = LocalDateTime.of(1995, Month.MAY, 23, 17, 0, 1, 222_333_444);
         var timestamp = Instant.now();
 
-        var tuple = new ClientTuple(schema)
-                .set("i8", (byte) 1)
-                .set("i16", (short) 2)
-                .set("i32", (int) 3)
-                .set("i64", (long) 4)
-                .set("float", (float) 5.5)
-                .set("double", (double) 6.6)
-                .set("uuid", uuid)
-                .set("str", "8")
-                .set("bits", new BitSet(3))
-                .set("date", date)
-                .set("time", time)
-                .set("datetime", datetime)
-                .set("timestamp", timestamp);
+        var binTupleBuf = new BinaryTupleBuilder(schema.columns().length, false)
+                .appendByte((byte) 1)
+                .appendShort((short) 2)
+                .appendInt(3)
+                .appendLong(4)
+                .appendFloat(5.5f)
+                .appendDouble(6.6)
+                .appendUuid(uuid)
+                .appendString("8")
+                .appendBitmask(new BitSet(3))
+                .appendDate(date)
+                .appendTime(time)
+                .appendDateTime(datetime)
+                .appendTimestamp(timestamp)
+                .build();
+
+        var binTuple = new BinaryTupleReader(schema.columns().length, binTupleBuf);
+        var tuple = new ClientTuple(schema, binTuple, 0, schema.columns().length);
 
         assertEquals(1, tuple.byteValue(0));
         assertEquals(1, tuple.byteValue("i8"));
@@ -197,27 +201,24 @@ public class ClientTupleTest {
 
     @Test
     public void testBasicTupleEquality() {
-        var tuple = new ClientTuple(SCHEMA);
-        var tuple2 = new ClientTuple(SCHEMA);
+        var tuple = getTuple();
+        var tuple2 = getTuple();
 
         assertEquals(tuple, tuple);
         assertEquals(tuple, tuple2);
         assertEquals(tuple.hashCode(), tuple2.hashCode());
 
-        assertNotEquals(new ClientTuple(SCHEMA), new ClientTuple(new ClientSchema(1, new ClientColumn[]{
-                new ClientColumn("id", ClientDataType.INT64, false, true, true, 0)})));
+        assertEquals(getTuple().set("name", null), getTuple().set("name", null));
+        assertEquals(getTuple().set("name", null).hashCode(), getTuple().set("name", null).hashCode());
 
-        assertEquals(new ClientTuple(SCHEMA).set("name", null), new ClientTuple(SCHEMA).set("name", null));
-        assertEquals(new ClientTuple(SCHEMA).set("name", null).hashCode(), new ClientTuple(SCHEMA).set("name", null).hashCode());
+        assertEquals(getTuple().set("name", "bar"), getTuple().set("name", "bar"));
+        assertEquals(getTuple().set("name", "bar").hashCode(), getTuple().set("name", "bar").hashCode());
 
-        assertEquals(new ClientTuple(SCHEMA).set("name", "bar"), new ClientTuple(SCHEMA).set("name", "bar"));
-        assertEquals(new ClientTuple(SCHEMA).set("name", "bar").hashCode(), new ClientTuple(SCHEMA).set("name", "bar").hashCode());
+        assertNotEquals(getTuple().set("name", "foo"), getTuple().set("id", 1));
+        assertNotEquals(getTuple().set("name", "foo"), getTuple().set("name", "bar"));
 
-        assertNotEquals(new ClientTuple(SCHEMA).set("name", "foo"), new ClientTuple(SCHEMA).set("id", 1));
-        assertNotEquals(new ClientTuple(SCHEMA).set("name", "foo"), new ClientTuple(SCHEMA).set("name", "bar"));
-
-        tuple = new ClientTuple(SCHEMA);
-        tuple2 = new ClientTuple(SCHEMA);
+        tuple = getTuple();
+        tuple2 = getTuple();
 
         tuple.set("name", "bar");
 
@@ -261,25 +262,30 @@ public class ClientTupleTest {
         var datetime = LocalDateTime.of(1995, Month.MAY, 23, 17, 0, 1, 222_333_444);
         var timestamp = Instant.now();
 
-        var tuple = new ClientTuple(schema)
-                .set("i8", (byte) 1)
-                .set("i16", (short) 2)
-                .set("i32", (int) 3)
-                .set("i64", (long) 4)
-                .set("float", (float) 5.5)
-                .set("double", (double) 6.6)
-                .set("uuid", uuid)
-                .set("str", "8")
-                .set("bits", new BitSet(3))
-                .set("date", date)
-                .set("time", time)
-                .set("datetime", datetime)
-                .set("timestamp", timestamp);
+        var binTupleBuf = new BinaryTupleBuilder(schema.columns().length, false)
+                .appendByte((byte) 1)
+                .appendShort((short) 2)
+                .appendInt(3)
+                .appendLong(4)
+                .appendFloat(5.5f)
+                .appendDouble(6.6)
+                .appendUuid(uuid)
+                .appendString("8")
+                .appendBitmask(new BitSet(3))
+                .appendDate(date)
+                .appendTime(time)
+                .appendDateTime(datetime)
+                .appendTimestamp(timestamp)
+                .build();
+
+        var binTuple = new BinaryTupleReader(schema.columns().length, binTupleBuf);
+        var tuple = new ClientTuple(schema, binTuple, 0, schema.columns().length);
+
         var randomIdx = IntStream.range(0, tuple.columnCount()).boxed().collect(Collectors.toList());
 
         Collections.shuffle(randomIdx);
 
-        var shuffledTuple = new ClientTuple(schema);
+        var shuffledTuple = new ClientTuple(schema, binTuple, 0, schema.columns().length);
 
         for (Integer i : randomIdx) {
             shuffledTuple.set(tuple.columnName(i), tuple.value(i));
@@ -331,21 +337,7 @@ public class ClientTupleTest {
                 .build();
 
         var binTuple = new BinaryTupleReader(schema.columns().length, binTupleBuf);
-
-        var clientTuple = new ClientTuple(schema, binTuple, 0, schema.columns().length)
-                .set("i8", (byte) 1)
-                .set("i16", (short) 2)
-                .set("i32", (int) 3)
-                .set("i64", (long) 4)
-                .set("float", (float) 5.5)
-                .set("double", (double) 6.6)
-                .set("uuid", uuid)
-                .set("str", "8")
-                .set("bits", new BitSet(3))
-                .set("date", date)
-                .set("time", time)
-                .set("datetime", datetime)
-                .set("timestamp", timestamp);
+        var clientTuple = new ClientTuple(schema, binTuple, 0, schema.columns().length);
 
         var tuple = Tuple.create();
 
