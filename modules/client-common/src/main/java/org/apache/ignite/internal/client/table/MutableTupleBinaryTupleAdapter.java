@@ -100,7 +100,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
         var idx = schemaColumnIndex(columnName);
 
         if (idx < 0) {
-            throw new IllegalArgumentException("Column not found: " + columnName);
+            throw new IllegalArgumentException("Column not found: columnName=" + columnName);
         }
 
         return value(idx);
@@ -363,7 +363,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
         var index = schemaColumnIndex(columnName, type);
 
         if (index < 0) {
-            throw new IllegalArgumentException("Column '" + columnName + "' not found");
+            throw new IllegalArgumentException("Column not found: columnName=" + columnName);
         }
 
         return index;

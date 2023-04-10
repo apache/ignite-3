@@ -309,10 +309,10 @@ public class ClientTableTest extends AbstractClientTableTest {
         assertNotNull(table.get(null, tuple(2L)));
 
         assertEquals(3L, skippedTuples[0].longValue("id"));
-        assertNull(skippedTuples[0].stringValue("name"));
+        assertEquals(-1, skippedTuples[0].columnIndex("name"));
 
         assertEquals(4L, skippedTuples[1].longValue("id"));
-        assertNull(skippedTuples[1].stringValue("name"));
+        assertEquals(-1, skippedTuples[1].columnIndex("name"));
     }
 
     @Test

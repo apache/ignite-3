@@ -64,7 +64,6 @@ class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
     protected int schemaColumnIndex(@NotNull String columnName, ColumnType type) {
         ClientColumn column = column(columnName);
 
-        // TODO: Check against columnCount?
         if (column == null)
             return -1;
 
@@ -111,6 +110,10 @@ class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
 
     @Nullable
     private ClientColumn column(@NotNull String columnName) {
-        return schema.columnSafe(IgniteNameUtils.parseSimpleName(columnName));
+        ClientColumn column = schema.columnSafe(IgniteNameUtils.parseSimpleName(columnName));
+
+        return column == null || column.schemaIndex() >= columnCount
+                ? null
+                : column;
     }
 }
