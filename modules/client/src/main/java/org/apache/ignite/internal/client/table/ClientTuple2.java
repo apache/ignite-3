@@ -34,8 +34,8 @@ class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
 
     private final int columnCount;
 
-    ClientTuple2(ClientSchema schema, BinaryTupleReader tuple, int columnCount) {
-        super(tuple);
+    ClientTuple2(ClientSchema schema, BinaryTupleReader tuple, int columnCount, int binaryTupleColumnOffset) {
+        super(tuple, binaryTupleColumnOffset);
 
         this.schema = schema;
         this.columnCount = columnCount;
@@ -54,24 +54,19 @@ class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
     }
 
     @Override
-    protected int schemaColumnIndex(@NotNull String columnName) {
-        ClientColumn column = column(columnName);
-
-        return column == null ? -1 : column.schemaIndex();
-    }
-
-    @Override
-    protected int schemaColumnIndex(@NotNull String columnName, ColumnType type) {
+    protected int schemaColumnIndex(@NotNull String columnName, @Nullable ColumnType type) {
         ClientColumn column = column(columnName);
 
         if (column == null)
             return -1;
 
-        var actualType = ClientColumnTypeConverter.clientDataTypeToSqlColumnType(column.type());
+        if (type != null) {
+            var actualType = ClientColumnTypeConverter.clientDataTypeToSqlColumnType(column.type());
 
-        if (type != actualType) {
-            throw new ColumnNotFoundException("Column '" + columnName + "' has type " + actualType +
-                " but " + type + " was requested");
+            if (type != actualType) {
+                throw new ColumnNotFoundException("Column '" + columnName + "' has type " + actualType +
+                        " but " + type + " was requested");
+            }
         }
 
         return column.schemaIndex();

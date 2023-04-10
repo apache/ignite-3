@@ -31,7 +31,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@link org.apache.ignite.table.Tuple} implementation over {@link org.apache.ignite.internal.binarytuple.BinaryTupleReader},
+ * {@link Tuple} implementation over {@link BinaryTupleReader},
  * with mutable fallback.
  */
 public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
@@ -44,6 +44,8 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     /** Underlying BinaryTuple. */
     private BinaryTupleReader binaryTuple;
 
+    private final int binaryTupleColumnOffset;
+
     /** Tuple with overwritten data. */
     private @Nullable Tuple tuple;
 
@@ -52,8 +54,9 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
      *
      * @param binaryTuple Binary tuple.
      */
-    public MutableTupleBinaryTupleAdapter(@Nullable BinaryTupleReader binaryTuple) {
+    public MutableTupleBinaryTupleAdapter(@Nullable BinaryTupleReader binaryTuple, int binaryTupleColumnOffset) {
         this.binaryTuple = binaryTuple;
+        this.binaryTupleColumnOffset = binaryTupleColumnOffset;
 
         if (binaryTuple == null) {
             tuple = Tuple.create();
@@ -75,7 +78,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     /** {@inheritDoc} */
     @Override
     public int columnIndex(@NotNull String columnName) {
-        return tuple != null ? tuple.columnIndex(columnName) : schemaColumnIndex(columnName);
+        return tuple != null ? tuple.columnIndex(columnName) : schemaColumnIndex(columnName, null);
     }
 
     /** {@inheritDoc} */
@@ -85,7 +88,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
             return tuple.valueOrDefault(columnName, defaultValue);
         }
 
-        var idx = schemaColumnIndex(columnName);
+        var idx = schemaColumnIndex(columnName, null);
 
         return idx < 0 ? defaultValue : value(idx);
     }
@@ -97,7 +100,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
             return tuple.value(columnName);
         }
 
-        var idx = schemaColumnIndex(columnName);
+        var idx = schemaColumnIndex(columnName, null);
 
         if (idx < 0) {
             throw new IllegalArgumentException("Column not found: columnName=" + columnName);
@@ -355,11 +358,9 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
 
     protected abstract String schemaColumnName(int index);
 
-    protected abstract int schemaColumnIndex(@NotNull String columnName);
+    protected abstract int schemaColumnIndex(@NotNull String columnName, @Nullable ColumnType type);
 
-    protected abstract int schemaColumnIndex(@NotNull String columnName, ColumnType type);
-
-    protected int validateSchemaColumnIndex(@NotNull String columnName, ColumnType type) {
+    private int validateSchemaColumnIndex(@NotNull String columnName, ColumnType type) {
         var index = schemaColumnIndex(columnName, type);
 
         if (index < 0) {
