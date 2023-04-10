@@ -19,10 +19,12 @@ package org.apache.ignite.internal.storage.pagememory.index;
 
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
@@ -44,12 +46,10 @@ class VolatilePageMemorySortedIndexStorageTest extends AbstractPageMemorySortedI
     void setUp(
             @InjectConfiguration
             VolatilePageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration(
-                    value = "mock.tables.foo.dataStorage.name = " + VolatilePageMemoryStorageEngine.ENGINE_NAME
-            )
+            @InjectConfiguration("mock.tables.foo {}")
             TablesConfiguration tablesConfig,
-            @InjectConfiguration
-            DistributionZonesConfiguration distributionZonesConfiguration
+            @InjectConfiguration("mock { dataStorage.name = " + VolatilePageMemoryStorageEngine.ENGINE_NAME + " }")
+            DistributionZoneConfiguration distributionZoneConfiguration
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
@@ -58,8 +58,7 @@ class VolatilePageMemorySortedIndexStorageTest extends AbstractPageMemorySortedI
         engine = new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
         engine.start();
 
-        table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone());
+        table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig, distributionZoneConfiguration);
 
         table.start();
 
