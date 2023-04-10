@@ -109,7 +109,7 @@ public:
         return 0;
     }
 
-public:
+private:
     /** Most significant bits. */
     std::int64_t most = 0;
 
