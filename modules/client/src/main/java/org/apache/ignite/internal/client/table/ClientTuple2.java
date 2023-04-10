@@ -27,7 +27,7 @@ public class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
     private final ClientSchema schema;
 
     public ClientTuple2(ClientSchema schema) {
-        super(null);
+        super(null); // TODO: Accept BinaryTuple here.
 
         this.schema = schema;
     }
