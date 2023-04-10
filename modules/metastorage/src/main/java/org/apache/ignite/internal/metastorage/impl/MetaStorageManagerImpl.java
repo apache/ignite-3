@@ -167,8 +167,14 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 raftServiceFuture = raftMgr.startRaftGroupNode(
                         new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                         configuration,
-                        new MetaStorageListener(storage),
-                        new MetaStorageRaftGroupEventsListener(busyLock, clusterService, logicalTopologyService, metaStorageSvcFut),
+                        new MetaStorageListener(storage, clusterTime),
+                        new MetaStorageRaftGroupEventsListener(
+                                busyLock,
+                                clusterService,
+                                logicalTopologyService,
+                                metaStorageSvcFut,
+                                clusterTime
+                        ),
                         ownFsmCallerExecutorDisruptorConfig
                 );
             } else {
@@ -181,7 +187,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 raftServiceFuture = raftMgr.startRaftGroupNode(
                         new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                         configuration,
-                        new MetaStorageLearnerListener(storage),
+                        new MetaStorageLearnerListener(storage, clusterTime),
                         RaftGroupEventsListener.noopLsnr,
                         ownFsmCallerExecutorDisruptorConfig
                 );
