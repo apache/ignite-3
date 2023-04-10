@@ -119,7 +119,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
             throw new IllegalArgumentException("Column not found: columnName=" + columnName);
         }
 
-        return value(internalIndex);
+        return (T)object(internalIndex);
     }
 
     /** {@inheritDoc} */
