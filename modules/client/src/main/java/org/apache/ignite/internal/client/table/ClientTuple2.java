@@ -28,12 +28,12 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Client tuple. Wraps {@link BinaryTupleReader} and allows mutability.
  */
-public class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
+class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
     private final ClientSchema schema;
 
     private final int columnCount;
 
-    public ClientTuple2(ClientSchema schema, BinaryTupleReader tuple, int columnCount) {
+    ClientTuple2(ClientSchema schema, BinaryTupleReader tuple, int columnCount) {
         super(tuple);
 
         this.schema = schema;
@@ -61,7 +61,7 @@ public class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
     protected int schemaColumnIndex(@NotNull String columnName, ColumnType type) {
         ClientColumn column = column(columnName);
 
-        var actualType = ClientColumnTypeConverter.ordinalToColumnType(column.type());
+        var actualType = ClientColumnTypeConverter.clientDataTypeToSqlColumnType(column.type());
 
         if (type != actualType) {
             throw new ColumnNotFoundException("Column '" + columnName + "' has type " + actualType +
@@ -76,7 +76,7 @@ public class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
         Objects.checkIndex(columnIndex, columnCount);
         ClientColumn column = schema.columns()[columnIndex];
 
-        var actualType = ClientColumnTypeConverter.ordinalToColumnType(column.type());
+        var actualType = ClientColumnTypeConverter.clientDataTypeToSqlColumnType(column.type());
 
         if (type != actualType) {
             throw new ColumnNotFoundException("Column with index " + columnIndex + " has type " + actualType +
@@ -91,7 +91,7 @@ public class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
         Objects.checkIndex(columnIndex, columnCount);
         ClientColumn column = schema.columns()[columnIndex];
 
-        return ClientColumnTypeConverter.ordinalToColumnType(column.type());
+        return ClientColumnTypeConverter.clientDataTypeToSqlColumnType(column.type());
     }
 
     @Override
