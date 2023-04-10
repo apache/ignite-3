@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client.table;
 
-import java.util.Objects;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientColumnTypeConverter;
 import org.apache.ignite.internal.util.IgniteNameUtils;
@@ -32,24 +31,14 @@ import org.jetbrains.annotations.Nullable;
 class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
     private final ClientSchema schema;
 
-    private final int columnCount;
-
-    ClientTuple2(ClientSchema schema, BinaryTupleReader tuple, int columnCount, int binaryTupleColumnOffset) {
-        super(tuple, binaryTupleColumnOffset);
+    ClientTuple2(ClientSchema schema, BinaryTupleReader tuple, int schemaOffset, int schemaSize) {
+        super(tuple, schemaOffset, schemaSize);
 
         this.schema = schema;
-        this.columnCount = columnCount;
-    }
-
-    @Override
-    protected int schemaColumnCount() {
-        return columnCount;
     }
 
     @Override
     protected String schemaColumnName(int index) {
-        Objects.checkIndex(index, columnCount);
-
         return schema.columns()[index].name();
     }
 
@@ -74,7 +63,6 @@ class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
 
     @Override
     protected int validateSchemaColumnIndex(int columnIndex, ColumnType type) {
-        Objects.checkIndex(columnIndex, columnCount);
         ClientColumn column = schema.columns()[columnIndex];
 
         var actualType = ClientColumnTypeConverter.clientDataTypeToSqlColumnType(column.type());
@@ -89,7 +77,6 @@ class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
 
     @Override
     protected ColumnType schemaColumnType(int columnIndex) {
-        Objects.checkIndex(columnIndex, columnCount);
         ClientColumn column = schema.columns()[columnIndex];
 
         return ClientColumnTypeConverter.clientDataTypeToSqlColumnType(column.type());
@@ -97,7 +84,6 @@ class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
 
     @Override
     protected int schemaDecimalScale(int columnIndex) {
-        Objects.checkIndex(columnIndex, columnCount);
         ClientColumn column = schema.columns()[columnIndex];
 
         return column.scale();
@@ -105,10 +91,6 @@ class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
 
     @Nullable
     private ClientColumn column(@NotNull String columnName) {
-        ClientColumn column = schema.columnSafe(IgniteNameUtils.parseSimpleName(columnName));
-
-        return column == null || column.schemaIndex() >= columnCount
-                ? null
-                : column;
+        return schema.columnSafe(IgniteNameUtils.parseSimpleName(columnName));
     }
 }

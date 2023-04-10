@@ -44,7 +44,9 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     /** Underlying BinaryTuple. */
     private BinaryTupleReader binaryTuple;
 
-    private final int binaryTupleColumnOffset;
+    private final int schemaOffset;
+
+    private final int schemaSize;
 
     /** Tuple with overwritten data. */
     private @Nullable Tuple tuple;
@@ -54,19 +56,20 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
      *
      * @param binaryTuple Binary tuple.
      */
-    public MutableTupleBinaryTupleAdapter(@Nullable BinaryTupleReader binaryTuple, int binaryTupleColumnOffset) {
-        this.binaryTuple = binaryTuple;
-        this.binaryTupleColumnOffset = binaryTupleColumnOffset;
+    public MutableTupleBinaryTupleAdapter(BinaryTupleReader binaryTuple, int schemaOffset, int schemaSize) {
+        assert binaryTuple != null : "binaryTuple != null";
+        assert schemaOffset >= 0 : "schemaOffset >= 0";
+        assert schemaSize > 0 : "schemaSize > 0";
 
-        if (binaryTuple == null) {
-            tuple = Tuple.create();
-        }
+        this.binaryTuple = binaryTuple;
+        this.schemaOffset = schemaOffset;
+        this.schemaSize = schemaSize;
     }
 
     /** {@inheritDoc} */
     @Override
     public int columnCount() {
-        return tuple != null ? tuple.columnCount() : schemaColumnCount();
+        return tuple != null ? tuple.columnCount() : schemaSize - schemaOffset;
     }
 
     /** {@inheritDoc} */
@@ -353,8 +356,6 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
 
         return this;
     }
-
-    protected abstract int schemaColumnCount();
 
     protected abstract String schemaColumnName(int index);
 
