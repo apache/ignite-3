@@ -134,8 +134,8 @@ public class ClientTupleTest {
                 new ClientColumn("UUID", ClientDataType.UUID, false, false, false, 6),
                 new ClientColumn("STR", ClientDataType.STRING, false, false, false, 7),
                 new ClientColumn("BITS", ClientDataType.BITMASK, false, false, false, 8),
-                new ClientColumn("DATE", ClientDataType.DATE, false, false, false, 10),
-                new ClientColumn("TIME", ClientDataType.TIME, false, false, false, 9),
+                new ClientColumn("DATE", ClientDataType.DATE, false, false, false, 9),
+                new ClientColumn("TIME", ClientDataType.TIME, false, false, false, 10),
                 new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, false, 11),
                 new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, false, 12)
         });
@@ -249,8 +249,8 @@ public class ClientTupleTest {
                 new ClientColumn("UUID", ClientDataType.UUID, false, false, false, 6),
                 new ClientColumn("STR", ClientDataType.STRING, false, false, false, 7),
                 new ClientColumn("BITS", ClientDataType.BITMASK, false, false, false, 8),
-                new ClientColumn("DATE", ClientDataType.DATE, false, false, false, 10),
-                new ClientColumn("TIME", ClientDataType.TIME, false, false, false, 9),
+                new ClientColumn("DATE", ClientDataType.DATE, false, false, false, 9),
+                new ClientColumn("TIME", ClientDataType.TIME, false, false, false, 10),
                 new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, false, 11),
                 new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, false, 12)
         });
@@ -307,8 +307,8 @@ public class ClientTupleTest {
                 new ClientColumn("UUID", ClientDataType.UUID, false, false, false, 6),
                 new ClientColumn("STR", ClientDataType.STRING, false, false, false, 7),
                 new ClientColumn("BITS", ClientDataType.BITMASK, false, false, false, 8),
-                new ClientColumn("DATE", ClientDataType.DATE, false, false, false, 10),
-                new ClientColumn("TIME", ClientDataType.TIME, false, false, false, 9),
+                new ClientColumn("DATE", ClientDataType.DATE, false, false, false, 9),
+                new ClientColumn("TIME", ClientDataType.TIME, false, false, false, 10),
                 new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, false, 11),
                 new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, false, 12)
         });
