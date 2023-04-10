@@ -546,6 +546,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
                 int parts = table.storage().distributionZoneConfiguration().partitions().value();
 
                 long size = 0L;
+                boolean noCache = false;
 
                 for (int p = 0; p < parts; ++p) {
                     @Nullable MvPartitionStorage part = table.storage().getMvPartition(p);
@@ -557,11 +558,17 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
                     try {
                         size += part.rowsCount();
                     } catch (StorageRebalanceException ignore) {
-                        statReqCnt.set(prevCnt);
+                        noCache = true;
                     }
                 }
 
-                localRowCnt = size;
+                if (noCache) {
+                    statReqCnt.set(prevCnt);
+                } else {
+                    localRowCnt = size;
+                }
+
+                return Math.max(10_000.0, size);
             }
 
             // Forbid zero result, to prevent zero cost for table and index scans.
