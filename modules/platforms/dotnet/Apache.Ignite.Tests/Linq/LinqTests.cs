@@ -349,7 +349,6 @@ public partial class LinqTests : IgniteTestsBase
     }
 
     [Test]
-    [Ignore("IGNITE-18311")]
     public void TestOrderBySkipTakeBeforeSelect()
     {
         var query = PocoView.AsQueryable()
