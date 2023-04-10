@@ -34,6 +34,8 @@ import java.util.Collections;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
@@ -328,7 +330,25 @@ public class ClientTupleTest {
         var datetime = LocalDateTime.of(1995, Month.MAY, 23, 17, 0, 1, 222_333_444);
         var timestamp = Instant.now();
 
-        var clientTuple = new ClientTuple(schema)
+        var binTupleBuf = new BinaryTupleBuilder(schema.columns().length, false)
+                .appendByte((byte) 1)
+                .appendShort((short) 2)
+                .appendInt(3)
+                .appendLong(4)
+                .appendFloat(5.5f)
+                .appendDouble(6.6)
+                .appendUuid(uuid)
+                .appendString("8")
+                .appendBitmask(new BitSet(3))
+                .appendDate(date)
+                .appendTime(time)
+                .appendDateTime(datetime)
+                .appendTimestamp(timestamp)
+                .build();
+
+        var binTuple = new BinaryTupleReader(schema.columns().length, binTupleBuf);
+
+        var clientTuple = new ClientTuple(schema, binTuple, 0, schema.columns().length)
                 .set("i8", (byte) 1)
                 .set("i16", (short) 2)
                 .set("i32", (int) 3)

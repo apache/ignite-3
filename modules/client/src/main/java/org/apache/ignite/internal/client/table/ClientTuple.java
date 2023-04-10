@@ -31,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
 public class ClientTuple extends MutableTupleBinaryTupleAdapter {
     private final ClientSchema schema;
 
-    ClientTuple(ClientSchema schema, BinaryTupleReader tuple, int schemaOffset, int schemaSize) {
+    public ClientTuple(ClientSchema schema, BinaryTupleReader tuple, int schemaOffset, int schemaSize) {
         super(tuple, schemaOffset, schemaSize);
 
         this.schema = schema;
