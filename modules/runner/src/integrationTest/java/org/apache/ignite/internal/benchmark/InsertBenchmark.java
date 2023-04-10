@@ -123,7 +123,8 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
          * Closes resources.
          */
         @TearDown
-        public void tearDow() throws Exception {
+        public void tearDown() throws Exception {
+            // statement.close() throws `UnsupportedOperationException("Not implemented yet.")`, that's why it's commented.
             IgniteUtils.closeAll(session/*, statement*/);
         }
 
