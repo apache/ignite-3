@@ -360,6 +360,12 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
 
     protected abstract int schemaColumnIndex(@NotNull String columnName, @Nullable ColumnType type);
 
+    protected abstract int validateSchemaColumnIndex(int columnIndex, ColumnType type);
+
+    protected abstract ColumnType schemaColumnType(int columnIndex);
+
+    protected abstract int schemaDecimalScale(int columnIndex);
+
     private int validateSchemaColumnIndex(@NotNull String columnName, ColumnType type) {
         var index = schemaColumnIndex(columnName, type);
 
@@ -369,12 +375,6 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
 
         return index;
     }
-
-    protected abstract int validateSchemaColumnIndex(int columnIndex, ColumnType type);
-
-    protected abstract ColumnType schemaColumnType(int columnIndex);
-
-    protected abstract int schemaDecimalScale(int columnIndex);
 
     private @Nullable Object object(int columnIndex) {
         if (binaryTuple.hasNullValue(columnIndex)) {
