@@ -66,7 +66,7 @@ public class ClientBinaryTupleUtils {
      * @param columnName     Column name.
      * @param clientDataType Client data type (see {@link ClientDataType}).
      */
-    public static void readAndSetColumnValue(
+    public static void readAndSetColumnValue( // TODO: Remove this method, refactor all usages to ClientTuple2.
             BinaryTupleReader reader,
             int readerIndex,
             Tuple tuple,
