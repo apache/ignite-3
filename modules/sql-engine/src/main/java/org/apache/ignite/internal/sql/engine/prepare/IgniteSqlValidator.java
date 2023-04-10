@@ -36,7 +36,6 @@ import org.apache.calcite.sql.JoinConditionType;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
-import org.apache.calcite.sql.SqlDelete;
 import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlIdentifier;
@@ -65,7 +64,6 @@ import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorTable;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -163,73 +161,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     /** {@inheritDoc} */
-    @Override
-    protected SqlSelect createSourceSelectForUpdate(SqlUpdate call) {
-        final SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
-        final SqlIdentifier targetTable = (SqlIdentifier) call.getTargetTable();
-        final SqlValidatorTable table = getCatalogReader().getTable(targetTable.names);
-
-        SqlIdentifier alias = call.getAlias() != null ? call.getAlias() :
-                new SqlIdentifier(deriveAlias(targetTable, 0), SqlParserPos.ZERO);
-
-        if (table != null) {
-            table.unwrap(IgniteTable.class).descriptor().selectForUpdateRowType((IgniteTypeFactory) typeFactory)
-                    .getFieldNames().stream()
-                    .map(name -> alias.plus(name, SqlParserPos.ZERO))
-                    .forEach(selectList::add);
-        }
-
-        int ordinal = 0;
-        // Force unique aliases to avoid a duplicate for Y with SET X=Y
-        for (SqlNode exp : call.getSourceExpressionList()) {
-            selectList.add(SqlValidatorUtil.addAlias(exp, SqlUtil.deriveAliasFromOrdinal(ordinal++)));
-        }
-
-        SqlNode sourceTable = call.getTargetTable();
-
-        if (call.getAlias() != null) {
-            sourceTable =
-                    SqlValidatorUtil.addAlias(
-                            sourceTable,
-                            call.getAlias().getSimple());
-        }
-
-        return new SqlSelect(SqlParserPos.ZERO, null, selectList, sourceTable,
-                call.getCondition(), null, null, null, null, null, null, null);
-    }
-
-    /** {@inheritDoc} */
     @Override protected void addToSelectList(List<SqlNode> list, Set<String> aliases,
             List<Map.Entry<String, RelDataType>> fieldList, SqlNode exp, SelectScope scope, boolean includeSystemVars) {
         if (includeSystemVars || exp.getKind() != SqlKind.IDENTIFIER || !isSystemFieldName(deriveAlias(exp, 0))) {
             super.addToSelectList(list, aliases, fieldList, exp, scope, includeSystemVars);
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected SqlSelect createSourceSelectForDelete(SqlDelete call) {
-        final SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
-        final SqlValidatorTable table = getCatalogReader().getTable(((SqlIdentifier) call.getTargetTable()).names);
-
-        if (table != null) {
-            table.unwrap(IgniteTable.class).descriptor().deleteRowType((IgniteTypeFactory) typeFactory)
-                    .getFieldNames().stream()
-                    .map(name -> new SqlIdentifier(name, SqlParserPos.ZERO))
-                    .forEach(selectList::add);
-        }
-
-        SqlNode sourceTable = call.getTargetTable();
-
-        if (call.getAlias() != null) {
-            sourceTable =
-                    SqlValidatorUtil.addAlias(
-                            sourceTable,
-                            call.getAlias().getSimple());
-        }
-
-        return new SqlSelect(SqlParserPos.ZERO, null, selectList, sourceTable,
-                call.getCondition(), null, null, null, null, null, null, null);
     }
 
     /** {@inheritDoc} */
