@@ -58,6 +58,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -109,7 +110,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                 Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
-                List.of()
+                List.of(PersistentPageMemoryDataStorageConfigurationSchema.class)
         );
 
         clusterService = mock(ClusterService.class);
