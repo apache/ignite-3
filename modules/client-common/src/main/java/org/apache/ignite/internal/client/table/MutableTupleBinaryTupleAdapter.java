@@ -85,9 +85,13 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     /** {@inheritDoc} */
     @Override
     public int columnIndex(@NotNull String columnName) {
-        return tuple != null
-                ? tuple.columnIndex(columnName)
-                : schemaColumnIndex(columnName, null) - schemaOffset;
+        if (tuple != null) {
+            return tuple.columnIndex(columnName);
+        }
+
+        int internalIndex = schemaColumnIndex(columnName, null);
+
+        return internalIndex < 0 || internalIndex >= schemaSize ? -1 : internalIndex - schemaOffset;
     }
 
     /** {@inheritDoc} */
@@ -97,7 +101,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
             return tuple.valueOrDefault(columnName, defaultValue);
         }
 
-        var internalIndex = schemaColumnIndex(columnName, null);
+        int internalIndex = schemaColumnIndex(columnName, null);
 
         return internalIndex < 0 || internalIndex >= schemaSize ? defaultValue : value(internalIndex);
     }
@@ -109,7 +113,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
             return tuple.value(columnName);
         }
 
-        var internalIndex = schemaColumnIndex(columnName, null);
+        int internalIndex = schemaColumnIndex(columnName, null);
 
         if (internalIndex < 0 || internalIndex >= schemaSize) {
             throw new IllegalArgumentException("Column not found: columnName=" + columnName);
