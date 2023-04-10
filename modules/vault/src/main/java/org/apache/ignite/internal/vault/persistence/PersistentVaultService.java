@@ -60,7 +60,7 @@ public class PersistentVaultService implements VaultService {
 
     private static final IgniteLogger LOG = Loggers.forClass(PersistentVaultService.class);
 
-    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("vault", LOG));
+    private final ExecutorService threadPool;
 
     private final InFlightFutures futureTracker = new InFlightFutures();
 
@@ -74,10 +74,13 @@ public class PersistentVaultService implements VaultService {
     /**
      * Creates persistent vault service.
      *
+     * @param nodeName Node name.
      * @param path base path for RocksDB
      */
-    public PersistentVaultService(Path path) {
+    public PersistentVaultService(String nodeName, Path path) {
         this.path = path;
+
+        threadPool = Executors.newFixedThreadPool(4, NamedThreadFactory.create(nodeName, "vault", LOG));
     }
 
     private static Options options() {
