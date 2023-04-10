@@ -142,7 +142,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
                 eventsClientListener
         );
 
-        HybridClockImpl nodeClock = new HybridClockImpl();
+        HybridClock nodeClock = new HybridClockImpl();
         raftManager = new Loza(
                 clusterService,
                 raftConfiguration,

@@ -47,7 +47,7 @@ public class ClusterTimeImpl implements ClusterTime {
     public ClusterTimeImpl(IgniteSpinBusyLock busyLock, HybridClock clock) {
         this.busyLock = busyLock;
         this.clock = clock;
-        this.safeTime = new PendingComparableValuesTracker<>(clock.now());
+        this.safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
     }
 
     /**
@@ -77,12 +77,20 @@ public class ClusterTimeImpl implements ClusterTime {
      * Stops sync time scheduler if it exists.
      */
     public void stopLeaderTimer() {
-        LeaderTimer timer = leaderTimer;
+        if (!busyLock.enterBusy()) {
+            return;
+        }
 
-        if (timer != null) {
-            timer.stop();
+        try {
+            LeaderTimer timer = leaderTimer;
 
-            leaderTimer = null;
+            if (timer != null) {
+                timer.stop();
+
+                leaderTimer = null;
+            }
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 

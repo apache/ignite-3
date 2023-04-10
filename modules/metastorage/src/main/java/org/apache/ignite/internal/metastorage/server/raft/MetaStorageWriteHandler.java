@@ -260,9 +260,11 @@ class MetaStorageWriteHandler {
         if (command instanceof MetaStorageWriteCommand) {
             // Initiator sends us a timestamp to adjust to.
             // Alter command by setting safe time based on the adjusted clock.
-            clusterTime.adjust(((MetaStorageWriteCommand) command).initiatorTime().asHybridTimestamp());
+            MetaStorageWriteCommand writeCommand = (MetaStorageWriteCommand) command;
 
-            ((MetaStorageWriteCommand) command).safeTime(hybridTimestamp(clusterTime.now()));
+            clusterTime.adjust(writeCommand.initiatorTime().asHybridTimestamp());
+
+            writeCommand.safeTime(hybridTimestamp(clusterTime.now()));
         }
     }
 
