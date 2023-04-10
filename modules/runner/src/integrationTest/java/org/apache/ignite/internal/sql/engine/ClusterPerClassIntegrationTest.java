@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
@@ -495,7 +496,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             InternalTable internalTable = tableImpl.internalTable();
 
             assertTrue(
-                    waitForCondition(() -> getIndexConfiguration(clusterNode, indexName) != null, 10, 10_000),
+                    waitForCondition(() -> getIndexConfiguration(clusterNode, indexName) != null, 10, TimeUnit.SECONDS.toMillis(10)),
                     String.format("node=%s, tableName=%s, indexName=%s", clusterNode.name(), tableName, indexName)
             );
 
@@ -506,13 +507,14 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
                 Stream<Peer> allPeers = Stream.concat(Stream.of(raftGroupService.leader()), raftGroupService.peers().stream());
 
+                // Let's check if there is a node in the partition assignments.
                 if (allPeers.map(Peer::consistentId).noneMatch(clusterNode.name()::equals)) {
                     continue;
                 }
 
                 IndexStorage index = internalTable.storage().getOrCreateIndex(partitionId, indexId);
 
-                assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, 10_000));
+                assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, TimeUnit.SECONDS.toMillis(10)));
             }
         }
     }

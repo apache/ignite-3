@@ -178,14 +178,14 @@ class IndexBuilder {
         public void run() {
             completedFuture(null)
                     .thenCompose(unused -> inBusyLock(() -> {
-                        // At the time of creating the index, we should have already waited for the table to be created and its raft of
-                        // clients (services) to start for all partitions, so there should be no errors.
+                        // At the time of index creation, table and raft services of all partitions should be already started, so there
+                        // should be no errors.
                         RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(partitionId);
 
                         return raftGroupService
-                                // We do not check the presence of nodes in the topology on purpose, so as not to get into races on
-                                // rebalancing, it will be more convenient and reliable for us to wait for a stable topology with a
-                                // chosen leader.
+                                // Now we do not check the assignment of a node to a partition on purpose, so as not to fight races on the
+                                // rebalance, we just wait for the leader of the raft group of the partition, which has had a recovery,
+                                // rebalancing (if needed).
                                 .refreshAndGetLeaderWithTerm()
                                 .thenComposeAsync(leaderWithTerm -> inBusyLock(() -> {
                                     // At this point, we have a stable topology, each node of which has already applied all local updates.
@@ -215,27 +215,7 @@ class IndexBuilder {
                                     // TODO: IGNITE-19053 Must handle the change of leader
                                     return raftGroupService.run(createBuildIndexCommand(batchRowIds, finish))
                                             .thenRun(() -> inBusyLock(() -> {
-                                                buildIndexTaskById.compute(
-                                                        new BuildIndexTaskId(table.tableId(), tableIndexView.id(), partitionId),
-                                                        (buildIndexTaskId, previousBuildIndexTask) -> {
-                                                            if (previousBuildIndexTask == null || finish) {
-                                                                // Index build task is in the process of stopping or has completed.
-                                                                return null;
-                                                            }
-
-                                                            assert nextRowId != null : createCommonTableIndexInfo();
-
-                                                            BuildIndexTask buildIndexTask = new BuildIndexTask(
-                                                                    table,
-                                                                    tableIndexView,
-                                                                    partitionId,
-                                                                    nextRowId
-                                                            );
-
-                                                            buildIndexExecutor.submit(buildIndexTask);
-
-                                                            return buildIndexTask;
-                                                        });
+                                                scheduleNextBuildIndexTaskIfNeeded(nextRowId, finish);
 
                                                 return completedFuture(null);
                                             }));
@@ -246,6 +226,30 @@ class IndexBuilder {
 
                             LOG.error("Index build error: [{}]", throwable, createCommonTableIndexInfo());
                         }
+                    });
+        }
+
+        private void scheduleNextBuildIndexTaskIfNeeded(@Nullable RowId nextRowId, boolean finish) {
+            buildIndexTaskById.compute(
+                    new BuildIndexTaskId(table.tableId(), tableIndexView.id(), partitionId),
+                    (buildIndexTaskId, previousBuildIndexTask) -> {
+                        if (previousBuildIndexTask == null || finish) {
+                            // Index build task is in the process of stopping or has completed.
+                            return null;
+                        }
+
+                        assert nextRowId != null : createCommonTableIndexInfo();
+
+                        BuildIndexTask buildIndexTask = new BuildIndexTask(
+                                table,
+                                tableIndexView,
+                                partitionId,
+                                nextRowId
+                        );
+
+                        buildIndexExecutor.submit(buildIndexTask);
+
+                        return buildIndexTask;
                     });
         }
 
