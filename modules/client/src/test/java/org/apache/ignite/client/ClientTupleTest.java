@@ -75,38 +75,22 @@ public class ClientTupleTest {
 
     @Test
     public void testValueOrDefaultReturnsDefaultWhenColumnIsNotPresent() {
-        assertEquals("foo", getBuilder().valueOrDefault("x", "foo"));
-    }
-
-    @Test
-    public void testValueOrDefaultReturnsDefaultWhenColumnIsPresentButNotSet() {
-        assertEquals("foo", getBuilder().valueOrDefault("name", "foo"));
+        assertEquals("foo", getTuple().valueOrDefault("x", "foo"));
     }
 
     @Test
     public void testValueOrDefaultReturnsNullWhenColumnIsSetToNull() {
-        var tuple = getBuilder().set("name", null);
+        var tuple = getTuple().set("name", null);
 
         assertNull(tuple.valueOrDefault("name", "foo"));
     }
 
     @Test
-    public void testEmptySchemaThrows() {
-        assertThrows(AssertionError.class, () -> new ClientTuple(new ClientSchema(1, new ClientColumn[0])));
-    }
-
-    @Test
-    public void testSetThrowsWhenColumnIsNotPresent() {
-        var ex = assertThrows(ColumnNotFoundException.class, () -> getBuilder().set("x", "y"));
-        assertThat(ex.getMessage(), containsString("Column does not exist [name=\"X\"]"));
-    }
-
-    @Test
     public void testValueThrowsWhenColumnIsNotPresent() {
-        var ex = assertThrows(ColumnNotFoundException.class, () -> getBuilder().value("x"));
+        var ex = assertThrows(ColumnNotFoundException.class, () -> getTuple().value("x"));
         assertThat(ex.getMessage(), containsString("Column does not exist [name=\"X\"]"));
 
-        var ex2 = assertThrows(IndexOutOfBoundsException.class, () -> getBuilder().value(100));
+        var ex2 = assertThrows(IndexOutOfBoundsException.class, () -> getTuple().value(100));
         assertThat(ex2.getMessage(), containsString("Index 100 out of bounds for length 2"));
     }
 
@@ -373,13 +357,14 @@ public class ClientTupleTest {
         assertEquals(clientTuple.hashCode(), tuple.hashCode());
     }
 
-    private static ClientTuple getBuilder() {
-        return new ClientTuple(SCHEMA);
-    }
-
     private static Tuple getTuple() {
-        return new ClientTuple(SCHEMA)
-                .set("id", 3L)
-                .set("name", "Shirt");
+        var binTupleBuf = new BinaryTupleBuilder(SCHEMA.columns().length, false)
+                .appendFloat(3L)
+                .appendString("Shirt")
+                .build();
+
+        var binTuple = new BinaryTupleReader(SCHEMA.columns().length, binTupleBuf);
+
+        return new ClientTuple(SCHEMA, binTuple, 0, SCHEMA.columns().length);
     }
 }
