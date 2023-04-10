@@ -143,7 +143,7 @@ public class UrlOptionsNegativeTest {
                 arguments(UnitStatusCommand.class, CLUSTER_URL_OPTION, List.of("id")),
                 arguments(UnitListCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(ClusterInitCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test"))
-        // TODO https://issues.apache.org/jira/browse/IGNITE-17102
+        // TODO https://issues.apache.org/jira/browse/IGNITE-18378
         //                Arguments.arguments(ClusterShowCommand.class, CLUSTER_URL_OPTION, List.of()),
         );
     }
@@ -169,7 +169,7 @@ public class UrlOptionsNegativeTest {
                 arguments(UnitListReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(ClusterInitReplCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test")),
                 arguments(ConnectReplCommand.class, "", List.of())
-        // TODO https://issues.apache.org/jira/browse/IGNITE-17102
+        // TODO https://issues.apache.org/jira/browse/IGNITE-18378
         //                Arguments.arguments(ClusterShowReplCommand.class, CLUSTER_URL_OPTION, List.of()),
         );
     }

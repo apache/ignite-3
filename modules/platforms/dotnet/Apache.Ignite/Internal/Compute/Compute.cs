@@ -105,6 +105,9 @@ namespace Apache.Ignite.Internal.Compute
             return res;
         }
 
+        /// <inheritdoc/>
+        public override string ToString() => IgniteToStringBuilder.Build(GetType());
+
         [SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "Secure random is not required here.")]
         private static IClusterNode GetRandomNode(IEnumerable<IClusterNode> nodes)
         {

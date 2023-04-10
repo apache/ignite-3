@@ -300,6 +300,12 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         await TestKey(new BitArray(new[] { byte.MaxValue }), TableBitmaskName);
     }
 
+    [Test]
+    public void TestToString()
+    {
+        StringAssert.StartsWith("KeyValueView`2[Int64, String] { Table = Table { Name = TBL1, Id =", KvView.ToString());
+    }
+
     private static async Task TestKey<T>(T val, IKeyValueView<T, T> kvView)
         where T : notnull
     {

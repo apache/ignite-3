@@ -30,6 +30,7 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -175,6 +176,16 @@ public class PartitionListener implements RaftGroupListener {
                 clo.result(null);
             } catch (IgniteInternalException e) {
                 clo.result(e);
+            } catch (CompletionException e) {
+                clo.result(e.getCause());
+            } catch (Throwable t) {
+                LOG.error(
+                        "Unknown error while processing command [commandIndex={}, commandTerm={}, command={}]",
+                        t,
+                        clo.index(), clo.index(), command
+                );
+
+                throw t;
             } finally {
                 storage.releasePartitionSnapshotsReadLock();
             }

@@ -38,7 +38,7 @@ namespace Apache.Ignite.Internal
         /// </summary>
         private Endpoint(string host, int port = IgniteClientConfiguration.DefaultPort, int portRange = 0)
         {
-            Host = IgniteArgumentCheck.NotNullOrEmpty(host, "host");
+            Host = IgniteArgumentCheck.NotNullOrEmpty(host);
             Port = port;
             PortRange = portRange;
         }

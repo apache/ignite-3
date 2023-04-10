@@ -29,7 +29,7 @@ import org.apache.ignite.security.AuthenticationConfig;
 @Schema(name = "AuthenticationConfig")
 public class AuthenticationConfigDto {
 
-    @Schema(description = "If Security is enabled.")
+    @Schema(description = "If True, security is enabled. Otherwise it is not.")
     private final boolean enabled;
 
     @Schema(description = "A list of authentication providers.")

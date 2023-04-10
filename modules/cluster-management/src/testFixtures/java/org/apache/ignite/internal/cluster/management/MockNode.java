@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.cluster.management;
 
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -103,7 +105,7 @@ public class MockNode {
     private void init(int port) throws IOException {
         Path vaultDir = workDir.resolve("vault");
 
-        var vaultManager = new VaultManager(new PersistentVaultService(Files.createDirectories(vaultDir)));
+        var vaultManager = new VaultManager(new PersistentVaultService(testNodeName(testInfo, port), Files.createDirectories(vaultDir)));
 
         this.clusterService = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 

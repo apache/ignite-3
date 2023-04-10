@@ -290,4 +290,10 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
         Assert.IsTrue(res4.HasValue);
         Assert.AreEqual("11", res4.Value[0]);
     }
+
+    [Test]
+    public void TestToString()
+    {
+        StringAssert.StartsWith("KeyValueView`2[IIgniteTuple, IIgniteTuple] { Table = Table { Name = TBL1, Id =", KvView.ToString());
+    }
 }

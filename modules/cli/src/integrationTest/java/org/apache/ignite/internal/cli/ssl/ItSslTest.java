@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.ssl;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import org.apache.ignite.internal.NodeConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -42,10 +43,10 @@ public class ItSslTest extends CliSslNotInitializedIntegrationTestBase {
     @DisplayName("Should connect to cluster with given url")
     void connectToSecuredNode() {
         // When set up ssl configuration
-        execute("cli", "config", "set", "ignite.rest.key-store.path=" + resolvedKeystorePath);
-        execute("cli", "config", "set", "ignite.rest.key-store.password=" + keyStorePassword);
-        execute("cli", "config", "set", "ignite.rest.trust-store.path=" + resolvedTruststorePath);
-        execute("cli", "config", "set", "ignite.rest.trust-store.password=" + trustStorePassword);
+        execute("cli", "config", "set", "ignite.rest.key-store.path=" + NodeConfig.resolvedKeystorePath);
+        execute("cli", "config", "set", "ignite.rest.key-store.password=" + NodeConfig.keyStorePassword);
+        execute("cli", "config", "set", "ignite.rest.trust-store.path=" + NodeConfig.resolvedTruststorePath);
+        execute("cli", "config", "set", "ignite.rest.trust-store.password=" + NodeConfig.trustStorePassword);
         resetOutput();
 
         // And connect via HTTPS

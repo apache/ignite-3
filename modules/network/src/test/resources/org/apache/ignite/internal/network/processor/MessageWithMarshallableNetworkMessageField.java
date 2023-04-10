@@ -15,20 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.authentication;
+package org.apache.ignite.internal.network.processor;
 
-import io.micronaut.security.authentication.Authentication;
-import io.micronaut.security.authentication.AuthenticationRequest;
-import io.micronaut.security.authentication.AuthenticationResponse;
+import org.apache.ignite.internal.network.message.ScaleCubeMessage;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
 
-/**
- * General interface for all authenticators.
- */
-interface Authenticator {
-
-    /**
-     * Authenticates a user with the given request.
-     * If a successful authentication is returned, the object must be an instance of {@link Authentication}.
-     */
-    AuthenticationResponse authenticate(AuthenticationRequest<?, ?> authenticationRequest);
+@Transferable(1)
+public interface MessageWithMarshallableNetworkMessageField extends NetworkMessage {
+    @Marshallable
+    ScaleCubeMessage msgField();
 }

@@ -477,7 +477,7 @@ public class Checkpointer extends IgniteWorker {
                     try {
                         while (entry != null) {
                             if (shutdownNow) {
-                                return;
+                                break;
                             }
 
                             fsyncDeltaFile(currentCheckpointProgress, entry.getKey(), entry.getValue());
