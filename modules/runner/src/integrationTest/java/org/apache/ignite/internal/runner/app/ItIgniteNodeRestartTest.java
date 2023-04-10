@@ -248,7 +248,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         partialNode = new ArrayList<>();
 
-        VaultManager vault = createVault(dir);
+        VaultManager vault = createVault(name, dir);
 
         ConfigurationModules modules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
 
@@ -533,7 +533,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Starts the Vault component.
      */
-    private static VaultManager createVault(Path workDir) {
+    private static VaultManager createVault(String nodeName, Path workDir) {
         Path vaultPath = workDir.resolve(Paths.get("vault"));
 
         try {
@@ -542,7 +542,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             throw new IgniteInternalException(e);
         }
 
-        return new VaultManager(new PersistentVaultService(vaultPath));
+        return new VaultManager(new PersistentVaultService(nodeName, vaultPath));
     }
 
     /**

@@ -93,8 +93,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         return CLUSTER_NODES.get(0).sql();
     }
 
-
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19185")
     @Test
     public void ddl() {
         IgniteSql sql = igniteSql();
@@ -178,7 +177,6 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         );
     }
 
-    @Disabled
     @Test
     public void dml() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
@@ -288,7 +286,6 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         assertEquals(txManagerInternal.finished(), states.size());
     }
 
-    @Disabled
     @Test
     public void batch() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
