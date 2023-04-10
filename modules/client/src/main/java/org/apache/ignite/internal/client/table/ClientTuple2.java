@@ -64,6 +64,7 @@ class ClientTuple2 extends MutableTupleBinaryTupleAdapter {
     protected int schemaColumnIndex(@NotNull String columnName, ColumnType type) {
         ClientColumn column = column(columnName);
 
+        // TODO: Check against columnCount?
         if (column == null)
             return -1;
 
