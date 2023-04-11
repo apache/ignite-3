@@ -170,6 +170,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         final SqlValidatorTable table = getCatalogReader().getTable(targetTable.names);
 
         if (table == null) {
+            // TODO IGNITE-14865 Calcite exception should be converted/wrapped into a public ignite exception.
             throw newValidationError(call.getTargetTable(), RESOURCE.objectNotFound(targetTable.toString()));
         }
 
@@ -216,6 +217,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         final SqlValidatorTable table = getCatalogReader().getTable(targetTable.names);
 
         if (table == null) {
+            // TODO IGNITE-14865 Calcite exception should be converted/wrapped into a public ignite exception.
             throw newValidationError(targetTable, RESOURCE.objectNotFound(targetTable.toString()));
         }
 
