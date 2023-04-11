@@ -34,35 +34,50 @@ import org.jetbrains.annotations.Nullable;
  * Server-side client Tuple.
  */
 class ClientTuple extends MutableTupleBinaryTupleAdapter implements BinaryTupleContainer {
+    /** Schema. */
     private final SchemaDescriptor schema;
 
+    /**
+     * Constructor.
+     *
+     * @param schema Schema.
+     * @param noValueSet No-value set.
+     * @param tuple Tuple.
+     * @param schemaOffset Schema offset.
+     * @param schemaSize Schema size.
+     */
     ClientTuple(SchemaDescriptor schema, BitSet noValueSet, BinaryTupleReader tuple, int schemaOffset, int schemaSize) {
         super(tuple, schemaOffset, schemaSize, noValueSet);
 
         this.schema = schema;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @Nullable BinaryTupleReader binaryTuple() {
         return super.binaryTuple();
     }
 
+    /** {@inheritDoc} */
     @Override
     public Tuple set(@NotNull String columnName, @Nullable Object value) {
         throw new UnsupportedOperationException("Operation not supported.");
     }
 
+    /** {@inheritDoc} */
     @Override
     protected String schemaColumnName(int internalIndex) {
         return schema.column(internalIndex).name();
     }
 
+    /** {@inheritDoc} */
     @Override
     protected int schemaColumnIndex(@NotNull String columnName) {
         Column column = schema.column(columnName);
         return column == null ? -1 : column.schemaIndex();
     }
 
+    /** {@inheritDoc} */
     @Override
     protected ColumnType schemaColumnType(int columnIndex) {
         // TODO: There must be a direct conversion - asked in Slack.
@@ -72,6 +87,7 @@ class ClientTuple extends MutableTupleBinaryTupleAdapter implements BinaryTupleC
         return ClientColumnTypeConverter.clientDataTypeToSqlColumnType(clientTypeCode);
     }
 
+    /** {@inheritDoc} */
     @Override
     protected int schemaDecimalScale(int columnIndex) {
         return ClientTableCommon.getDecimalScale(schema.column(columnIndex).type());
