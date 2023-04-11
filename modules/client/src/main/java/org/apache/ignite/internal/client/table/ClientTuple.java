@@ -31,7 +31,7 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
     private final ClientSchema schema;
 
     public ClientTuple(ClientSchema schema, BinaryTupleReader tuple, int schemaOffset, int schemaSize) {
-        super(tuple, schemaOffset, schemaSize);
+        super(tuple, schemaOffset, schemaSize, null);
 
         this.schema = schema;
     }

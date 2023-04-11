@@ -36,13 +36,10 @@ import org.jetbrains.annotations.Nullable;
 class ClientTuple extends MutableTupleBinaryTupleAdapter implements BinaryTupleContainer {
     private final SchemaDescriptor schema;
 
-    private final BitSet noValueSet;
-
     ClientTuple(SchemaDescriptor schema, BitSet noValueSet, BinaryTupleReader tuple, int schemaOffset, int schemaSize) {
-        super(tuple, schemaOffset, schemaSize);
+        super(tuple, schemaOffset, schemaSize, noValueSet);
 
         this.schema = schema;
-        this.noValueSet = noValueSet;
     }
 
     @Override

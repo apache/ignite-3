@@ -44,6 +44,8 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
 
     private final int schemaSize;
 
+    private final @Nullable BitSet noValueSet;
+
     /** Tuple with overwritten data. */
     private @Nullable Tuple tuple;
 
@@ -52,7 +54,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
      *
      * @param binaryTuple Binary tuple.
      */
-    public MutableTupleBinaryTupleAdapter(BinaryTupleReader binaryTuple, int schemaOffset, int schemaSize) {
+    public MutableTupleBinaryTupleAdapter(BinaryTupleReader binaryTuple, int schemaOffset, int schemaSize, @Nullable BitSet noValueSet) {
         assert binaryTuple != null : "binaryTuple != null";
         assert schemaOffset >= 0 : "schemaOffset >= 0";
         assert schemaSize > 0 : "schemaSize > 0";
@@ -60,6 +62,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
         this.binaryTuple = binaryTuple;
         this.schemaOffset = schemaOffset;
         this.schemaSize = schemaSize;
+        this.noValueSet = noValueSet;
     }
 
     /** {@inheritDoc} */
@@ -97,7 +100,11 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
 
         int internalIndex = schemaColumnIndex(columnName, null);
 
-        return internalIndex < 0 || internalIndex >= schemaSize ? defaultValue : value(internalIndex);
+        return internalIndex < 0
+                || internalIndex >= schemaSize
+                || (noValueSet != null && noValueSet.get(internalIndex))
+                ? defaultValue
+                : value(internalIndex);
     }
 
     /** {@inheritDoc} */

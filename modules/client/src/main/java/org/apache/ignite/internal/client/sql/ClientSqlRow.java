@@ -28,7 +28,6 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Client SQL row.
  */
-@SuppressWarnings("unchecked")
 public class ClientSqlRow extends MutableTupleBinaryTupleAdapter implements SqlRow {
     /** Meta. */
     private final ResultSetMetadata metadata;
@@ -39,8 +38,8 @@ public class ClientSqlRow extends MutableTupleBinaryTupleAdapter implements SqlR
      * @param row Row.
      * @param meta Meta.
      */
-    public ClientSqlRow(BinaryTupleReader row, ResultSetMetadata meta) {
-        super(row, 0, meta.columns().size());
+    ClientSqlRow(BinaryTupleReader row, ResultSetMetadata meta) {
+        super(row, 0, meta.columns().size(), null);
 
         assert row != null;
         assert meta != null;
