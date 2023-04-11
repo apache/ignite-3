@@ -39,7 +39,8 @@ import org.openjdk.jmh.runner.options.TimeValue;
  *
  * <p>Results
  * Benchmark                   Mode  Cnt      Score      Error  Units
- * ClientPutGetBenchmark.get  thrpt    3  53183.778 ± 8726.747  ops/s
+ * ClientPutGetBenchmark.get  thrpt    3  49131.884 ± 6529.313  ops/s  (before IGNITE-18899)
+ * ClientPutGetBenchmark.get  thrpt    3  50886.345 ± 15990.618  ops/s (after IGNITE-18899)
  */
 @State(Scope.Benchmark)
 public class ClientPutGetBenchmark {
@@ -72,7 +73,12 @@ public class ClientPutGetBenchmark {
         recordView = table.recordView();
 
         key = Tuple.create().set("id", 1L);
-        recordView.upsert(null, Tuple.create().set("id", 1L).set("name", "John"));
+
+        Tuple rec = Tuple.create()
+                .set("id", 1L)
+                .set("name", "John".repeat(1000));
+
+        recordView.upsert(null, rec);
     }
 
     @TearDown
