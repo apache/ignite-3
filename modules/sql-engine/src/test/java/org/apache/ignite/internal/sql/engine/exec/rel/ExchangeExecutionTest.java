@@ -36,7 +36,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
@@ -282,6 +281,9 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         }
     }
 
+    /**
+     * The test checks requests with correlates from different downstreams are handled properly.
+     */
     @Test
     public void outboxRewindability() {
         UUID queryId = UUID.randomUUID();
@@ -345,8 +347,12 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         assertThat(res.items().get(0), equalTo(new Object[]{2, 2}));
     }
 
+    /**
+     * This test verifies that races between batches from previous requests and rewinds are handled properly,
+     * when requested from different downstreams.
+     */
     @Test
-    public void racesBetweenRewindAndBatchesFromPreviousRequestForQueryWithCorrelates() throws Exception {
+    public void racesBetweenRewindAndBatchesRequestWithCorrelates() {
         UUID queryId = UUID.randomUUID();
         String dataNodeName = "DATA_NODE";
 
@@ -380,7 +386,17 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
                 serviceFactory
         );
 
-        // Root1 requests rewind.
+        // Here, the both Root1 and Root2 nodes are "root" nodes just for simplicity. They represents the same physical plan node
+        // with 'hash' distribution and they are parts of the same execution tree residing on different nodes.
+        // In real world, these nodes will have a common real root node.
+        //
+        // We must fetch all either the available data from a root, or rewind from a root.
+        // Otherwise, it leads to both root1ReqFut and root2ReqFut futures hanging, because one of roots stops requesting next batches,
+        // while another root is waiting for rewind infinitely.
+        // Seems, the only case when hanging is possible - the downstream contains e.g. a LimitNode and the limit has been hit, and
+        // the query is about to finish.
+
+        // Force root1 put correlates into the request.
         await(root.rewind());
         {
             // Root1 starts fetching data.
@@ -390,7 +406,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
             assertThat(res.items().get(0), equalTo(new Object[]{1, 0}));
             assertThat(res.items(), everyItem(ODD_KEY_MATCHER));
 
-            // Late root2 rewind request.
+            // Late root2 rewind, which forces root2 to put correlates into the request.
             assertThat(root2.rewind(), CompletableFutureMatcher.willSucceedFast());
 
             // Root1 continues fetching data.
@@ -400,25 +416,25 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
             assertThat(res.items().get(0), equalTo(new Object[]{1001, 0}));
             assertThat(res.items(), everyItem(ODD_KEY_MATCHER));
 
-            // Root2 is waiting for rewind.
+            // Root2 request should wait for rewind.
             CompletableFuture<BatchedResult<Object[]>> root2ReqFut = root2.requestNextAsync(500);
             assertThat(root2ReqFut, CompletableFutureExceptionMatcher.willTimeoutFast());
 
-            // Root1 continues fetching data.
+            // Root1 continues fetching the data.
             res = await(root.requestNextAsync(500));
             assertThat(res.items(), hasSize(500));
             assertThat(res.items().get(0), equalTo(new Object[]{2001, 0}));
             assertThat(res.items(), everyItem(ODD_KEY_MATCHER));
 
-            // Root1 requests for rewind. Root2 is first in a queue.
+            // Rewind root1
             assertFalse(root2ReqFut.isDone());
             await(root.rewind());
 
-            // Root1 is waiting for rewind.
+            // Root1 request enqueued wait for rewind, root2 become active.
             CompletableFuture<BatchedResult<Object[]>> root1ReqFut = root.requestNextAsync(500);
             assertThat(root1ReqFut, CompletableFutureExceptionMatcher.willTimeoutFast());
 
-            // Root2 can fetch data.
+            // Root2 can fetch the data.
             res = await(root2ReqFut);
             assertThat(res.items(), hasSize(500));
             assertThat(res.items().get(0), equalTo(new Object[]{2, 1}));
@@ -427,14 +443,8 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
             // Root1 is still waiting for rewind.
             assertFalse(root1ReqFut.isDone());
 
-            // Here, the both Root1 and Root2 nodes are "root" nodes just for simplicity. They represents the same physical plan node
-            // with 'hash' distribution and they are parts of the same execution tree residing on different nodes.
-            // In real world, these nodes will have a common real root node.
-            //
-            // Root2 has to fetch all the available data, otherwise it means the downstream contains a LimitNode somewhere.
-            // Hitting the limit may affect the one of source of Outbox will not request more batches,
-            // which we can observe here as 'root1ReqFut' hanging, and therefore 'root2ReqFut'. But it is ok, because that means
-            // the downstream already got all the data.
+
+            // Fetching all the data from root2.
             while (res.hasMore()) {
                 res = await(root2.requestNextAsync(500));
                 assertThat(res.items(), everyItem(EVEN_KEY_MATCHER));
