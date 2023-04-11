@@ -27,7 +27,6 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 /**
  * Configuration module for metrics' configs.
  */
-@AutoService(ConfigurationModule.class)
 public class TestPersisteStorageConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
