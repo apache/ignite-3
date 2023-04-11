@@ -36,7 +36,7 @@ import org.openjdk.jmh.runner.options.TimeValue;
 /**
  * Basic table benchmark.
  *
- * <p> Results on i9-12900H, openjdk 11.0.18, Ubuntu 22.04:
+ * <p>Results on i9-12900H, openjdk 11.0.18, Ubuntu 22.04:
  * Benchmark                                                Mode  Cnt      Score       Error   Units
  * ClientPutGetBenchmark.get                               thrpt    3  49418.080 ± 17639.810   ops/s (before IGNITE-18899)
  * ClientPutGetBenchmark.get                               thrpt    3  50305.929 ± 13924.407   ops/s (after IGNITE-18899)
@@ -71,6 +71,9 @@ public class ClientPutGetBenchmark {
 
     private Tuple key;
 
+    /**
+     * Init.
+     */
     @Setup
     public void init() {
         ignite = new FakeIgnite("server-1");
@@ -92,6 +95,9 @@ public class ClientPutGetBenchmark {
         recordView.upsert(null, rec);
     }
 
+    /**
+     * Tear down.
+     */
     @TearDown
     public void tearDown() throws Exception {
         client.close();

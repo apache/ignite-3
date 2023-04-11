@@ -57,19 +57,19 @@ public class ClientTupleTest {
     });
 
     private static final ClientSchema FULL_SCHEMA = new ClientSchema(100, new ClientColumn[]{
-        new ClientColumn("I8", ClientDataType.INT8, false, false, false, 0),
-                new ClientColumn("I16", ClientDataType.INT16, false, false, false, 1),
-                new ClientColumn("I32", ClientDataType.INT32, false, false, false, 2),
-                new ClientColumn("I64", ClientDataType.INT64, false, false, false, 3),
-                new ClientColumn("FLOAT", ClientDataType.FLOAT, false, false, false, 4),
-                new ClientColumn("DOUBLE", ClientDataType.DOUBLE, false, false, false, 5),
-                new ClientColumn("UUID", ClientDataType.UUID, false, false, false, 6),
-                new ClientColumn("STR", ClientDataType.STRING, false, false, false, 7),
-                new ClientColumn("BITS", ClientDataType.BITMASK, false, false, false, 8),
-                new ClientColumn("DATE", ClientDataType.DATE, false, false, false, 9),
-                new ClientColumn("TIME", ClientDataType.TIME, false, false, false, 10),
-                new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, false, 11),
-                new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, false, 12)
+            new ClientColumn("I8", ClientDataType.INT8, false, false, false, 0),
+            new ClientColumn("I16", ClientDataType.INT16, false, false, false, 1),
+            new ClientColumn("I32", ClientDataType.INT32, false, false, false, 2),
+            new ClientColumn("I64", ClientDataType.INT64, false, false, false, 3),
+            new ClientColumn("FLOAT", ClientDataType.FLOAT, false, false, false, 4),
+            new ClientColumn("DOUBLE", ClientDataType.DOUBLE, false, false, false, 5),
+            new ClientColumn("UUID", ClientDataType.UUID, false, false, false, 6),
+            new ClientColumn("STR", ClientDataType.STRING, false, false, false, 7),
+            new ClientColumn("BITS", ClientDataType.BITMASK, false, false, false, 8),
+            new ClientColumn("DATE", ClientDataType.DATE, false, false, false, 9),
+            new ClientColumn("TIME", ClientDataType.TIME, false, false, false, 10),
+            new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, false, 11),
+            new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, false, 12)
     });
 
     private static final UUID GUID = UUID.randomUUID();
