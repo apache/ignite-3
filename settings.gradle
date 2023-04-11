@@ -32,7 +32,6 @@ include(':ignite-raft-api')
 include(':ignite-raft')
 include(':ignite-schema')
 include(':ignite-storage-page-memory')
-include(':ignite-test-storage')
 include(':ignite-transactions')
 include(':ignite-client-common')
 include(':ignite-network-api')
@@ -124,7 +123,6 @@ project(":ignite-placement-driver-api").projectDir = file('modules/placement-dri
 project(":ignite-code-deployment").projectDir = file('modules/code-deployment')
 project(":ignite-security").projectDir = file('modules/security')
 project(":ignite-catalog").projectDir = file('modules/catalog')
-project(":ignite-test-storage").projectDir = file('modules/test-storage')
 
 ext.isCiServer = System.getenv().containsKey("IGNITE_CI")
 

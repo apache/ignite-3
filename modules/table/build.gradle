@@ -101,7 +101,6 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-storage-api')))
     integrationTestImplementation(testFixtures(project(':ignite-transactions')))
     integrationTestImplementation(testFixtures(project(':ignite-cluster-management')))
-    integrationTestImplementation(testFixtures(project(':ignite-test-storage')))
     integrationTestImplementation libs.fastutil.core
 }
 

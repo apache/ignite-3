@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage;
+package org.apache.ignite.internal.storage.impl;
 
 import com.google.auto.service.AutoService;
 import java.util.Collection;

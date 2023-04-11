@@ -15,20 +15,18 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+package org.apache.ignite.internal.storage.impl;
 
-dependencies {
-    testFixturesAnnotationProcessor project(':ignite-configuration-annotation-processor')
-    testFixturesAnnotationProcessor libs.auto.service
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
 
-    testFixturesImplementation project(':ignite-core')
-    testFixturesImplementation project(':ignite-schema')
-    testFixturesImplementation project(':ignite-configuration')
-    testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.auto.service.annotations
+/**
+ *
+ */
+@PolymorphicConfigInstance("aipersist")
+public class TestPersistStorageConfigurationSchema extends DataStorageConfigurationSchema {
+    /** Data region. */
+    @Value(hasDefault = true)
+    public String dataRegion = "none";
 }
-
-description = 'ignite-test-storage'
