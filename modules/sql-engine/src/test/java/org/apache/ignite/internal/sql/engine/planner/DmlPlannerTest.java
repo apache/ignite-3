@@ -159,22 +159,29 @@ public class DmlPlannerTest extends AbstractPlannerTest {
      */
     @ParameterizedTest
     @MethodSource("basicStatements")
-    public void testDmlQueriesOnNonExistingTable(String query) {
+    public void testDmlQueriesOnNonExistingTable(String query) throws Exception {
+        IgniteSchema schema = createSchema(newTestTable("TEST", IgniteDistributions.single()));
+
         //noinspection ThrowableNotThrown
         IgniteTestUtils.assertThrowsWithCause(
-                () -> physicalPlan(query, createSchema()),
+                () -> physicalPlan(query, schema),
                 SqlValidatorException.class,
-                "Object 'TEST' not found"
+                "Object 'UNKNOWN' not found"
         );
     }
 
     private static Stream<String> basicStatements() {
         return Stream.of(
-                "SELECT * FROM test",
-                "INSERT INTO test VALUES(1)",
-                "UPDATE test SET ID=1",
-                "DELETE FROM test",
-                "MERGE INTO test USING test ON test.a = test.a WHEN MATCHED THEN UPDATE SET test.a = test.b"
+                "SELECT * FROM unknown",
+                "INSERT INTO unknown VALUES(1)",
+                "UPDATE unknown SET ID=1",
+                "DELETE FROM unknown",
+                "MERGE INTO unknown DST USING test SRC ON DST.C1 = SRC.C1" +
+                        "    WHEN MATCHED THEN UPDATE SET C2 = SRC.C2" +
+                        "    WHEN NOT MATCHED THEN INSERT (C1, C2) VALUES (SRC.C1, SRC.C2)",
+                "MERGE INTO test DST USING unknown SRC ON DST.C1 = SRC.C1" +
+                        "    WHEN MATCHED THEN UPDATE SET C2 = SRC.C2" +
+                        "    WHEN NOT MATCHED THEN INSERT (C1, C2) VALUES (SRC.C1, SRC.C2)"
         );
     }
 
