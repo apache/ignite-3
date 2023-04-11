@@ -402,7 +402,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
         var actualType = schemaColumnType(internalIndex);
 
         if (type != actualType) {
-            throw new IllegalStateException("Column with index " + publicIndex + " has type " + actualType +
+            throw new ClassCastException("Column with index " + publicIndex + " has type " + actualType +
                     " but " + type + " was requested");
         }
 

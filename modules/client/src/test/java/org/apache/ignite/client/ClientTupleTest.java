@@ -186,6 +186,43 @@ public class ClientTupleTest {
     }
 
     @Test
+    public void testTypedGettersWithIncorrectType() {
+        ClientTuple tuple = getFullSchemaTuple();
+
+        assertEquals(1, tuple.byteValue(1));
+        assertEquals(1, tuple.byteValue("i16"));
+
+        assertEquals(2, tuple.shortValue(1));
+        assertEquals(2, tuple.shortValue("i16"));
+
+        assertEquals(3, tuple.intValue(2));
+        assertEquals(3, tuple.intValue("i32"));
+
+        assertEquals(4, tuple.longValue(3));
+        assertEquals(4, tuple.longValue("i64"));
+
+        assertEquals(5.5, tuple.floatValue(4));
+        assertEquals(5.5, tuple.floatValue("float"));
+
+        assertEquals(6.6, tuple.doubleValue(5));
+        assertEquals(6.6, tuple.doubleValue("double"));
+
+        assertEquals(GUID, tuple.uuidValue(6));
+        assertEquals(GUID, tuple.uuidValue("uuid"));
+
+        assertEquals("8", tuple.stringValue(7));
+        assertEquals("8", tuple.stringValue("str"));
+
+        assertEquals(0, tuple.bitmaskValue(8).length());
+        assertEquals(0, tuple.bitmaskValue("bits").length());
+
+        assertEquals(DATE, tuple.dateValue("date"));
+        assertEquals(TIME, tuple.timeValue("time"));
+        assertEquals(DATE_TIME, tuple.datetimeValue("datetime"));
+        assertEquals(TIMESTAMP, tuple.timestampValue("timestamp"));
+    }
+
+    @Test
     public void testBasicTupleEquality() {
         var tuple = getTuple();
         var tuple2 = getTuple();
