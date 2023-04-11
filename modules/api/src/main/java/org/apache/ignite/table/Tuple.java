@@ -109,7 +109,7 @@ public interface Tuple extends Iterable<Object> {
 
             if (columnValue != null) {
                 if (columnValue instanceof byte[]) {
-                    columnValueHash = Arrays.hashCode((byte[])columnValue);
+                    columnValueHash = Arrays.hashCode((byte[]) columnValue);
                 } else {
                     columnValueHash = columnValue.hashCode();
                 }
