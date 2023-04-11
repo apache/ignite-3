@@ -21,6 +21,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -104,7 +105,17 @@ public interface Tuple extends Iterable<Object> {
             String columnName = tuple.columnName(idx);
             Object columnValue = tuple.value(idx);
 
-            hash += columnName.hashCode() ^ (columnValue == null ? 0 : columnValue.hashCode());
+            int columnValueHash = 0;
+
+            if (columnValue != null) {
+                if (columnValue instanceof byte[]) {
+                    columnValueHash = Arrays.hashCode((byte[])columnValue);
+                } else {
+                    columnValueHash = columnValue.hashCode();
+                }
+            }
+
+            hash += columnName.hashCode() ^ columnValueHash;
         }
 
         return hash;
