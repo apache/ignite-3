@@ -29,10 +29,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
-import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_FILTER_ERR;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
 import java.nio.charset.StandardCharsets;
@@ -51,7 +48,6 @@ import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -82,9 +78,6 @@ public class DistributionZonesUtil {
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION}. */
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY =
             new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION);
-
-    /** Converts string to JSON. */
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
      * The initial value of trigger revision in case when it is not initialized in the meta storage.
@@ -413,15 +406,7 @@ public class DistributionZonesUtil {
                                 })
                 );
 
-        String json;
-
-        try {
-            json = OBJECT_MAPPER.writeValueAsString(convertedAttributes);
-        } catch (JsonProcessingException e) {
-            throw new IgniteInternalException(ZONE_FILTER_ERR, "Failed to create JSON from map of node attributes.", e);
-        }
-
-        List<Map<String, Object>> res = JsonPath.parse(json).read(filter);
+        List<Map<String, Object>> res = JsonPath.read(convertedAttributes, filter);
 
         return !res.isEmpty();
     }

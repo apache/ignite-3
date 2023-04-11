@@ -355,9 +355,6 @@ public class ErrorGroups {
 
         /** Distribution zone is bound to table. */
         public static final int ZONE_BIND_TABLE_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(4);
-
-        /** Distribution zone filter error. */
-        public static final int ZONE_FILTER_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(5);
     }
 
     /** Network error group. */

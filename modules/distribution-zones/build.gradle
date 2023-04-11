@@ -35,7 +35,6 @@ dependencies {
     implementation project(':ignite-schema')
 
     implementation libs.auto.service.annotations
-    implementation libs.jackson.databind
     implementation libs.fastutil.core
     implementation libs.jetbrains.annotations
     implementation(libs.jsonpath.core) {
