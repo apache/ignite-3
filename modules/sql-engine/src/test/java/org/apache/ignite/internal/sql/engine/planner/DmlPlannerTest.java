@@ -159,12 +159,10 @@ public class DmlPlannerTest extends AbstractPlannerTest {
      */
     @ParameterizedTest
     @MethodSource("basicStatements")
-    public void testDmlQueriesOnNonExistingTable(String query) throws Exception {
-        IgniteSchema schema = createSchema(newTestTable("TEST", IgniteDistributions.single()));
-
+    public void testDmlQueriesOnNonExistingTable(String query) {
         //noinspection ThrowableNotThrown
         IgniteTestUtils.assertThrowsWithCause(
-                () -> physicalPlan(query, schema),
+                () -> physicalPlan(query, createSchema(newTestTable("TEST", IgniteDistributions.single()))),
                 SqlValidatorException.class,
                 "Object 'UNKNOWN' not found"
         );
