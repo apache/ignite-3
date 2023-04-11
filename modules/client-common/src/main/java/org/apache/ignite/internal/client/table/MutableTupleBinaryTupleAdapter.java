@@ -146,7 +146,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public byte byteValue(@NotNull String columnName) {
         return tuple != null
                 ? tuple.byteValue(columnName)
-                : binaryTuple.byteValue(validateSchemaColumnIndex(columnName, ColumnType.INT8));
+                : binaryTuple.byteValue(validateSchemaColumnType(columnName, ColumnType.INT8));
     }
 
     /** {@inheritDoc} */
@@ -154,7 +154,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public byte byteValue(int columnIndex) {
         return tuple != null
                 ? tuple.byteValue(columnIndex)
-                : binaryTuple.byteValue(validateSchemaColumnIndex(columnIndex, ColumnType.INT8));
+                : binaryTuple.byteValue(validateSchemaColumnType(columnIndex, ColumnType.INT8));
     }
 
     /** {@inheritDoc} */
@@ -162,7 +162,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public short shortValue(@NotNull String columnName) {
         return tuple != null
                 ? tuple.shortValue(columnName)
-                : binaryTuple.shortValue(validateSchemaColumnIndex(columnName, ColumnType.INT16));
+                : binaryTuple.shortValue(validateSchemaColumnType(columnName, ColumnType.INT16));
     }
 
     /** {@inheritDoc} */
@@ -170,7 +170,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public short shortValue(int columnIndex) {
         return tuple != null
                 ? tuple.shortValue(columnIndex)
-                : binaryTuple.shortValue(validateSchemaColumnIndex(columnIndex, ColumnType.INT16));
+                : binaryTuple.shortValue(validateSchemaColumnType(columnIndex, ColumnType.INT16));
     }
 
     /** {@inheritDoc} */
@@ -178,7 +178,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public int intValue(@NotNull String columnName) {
         return tuple != null
                 ? tuple.intValue(columnName)
-                : binaryTuple.intValue(validateSchemaColumnIndex(columnName, ColumnType.INT32));
+                : binaryTuple.intValue(validateSchemaColumnType(columnName, ColumnType.INT32));
     }
 
     /** {@inheritDoc} */
@@ -186,7 +186,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public int intValue(int columnIndex) {
         return tuple != null
                 ? tuple.intValue(columnIndex)
-                : binaryTuple.intValue(validateSchemaColumnIndex(columnIndex, ColumnType.INT32));
+                : binaryTuple.intValue(validateSchemaColumnType(columnIndex, ColumnType.INT32));
     }
 
     /** {@inheritDoc} */
@@ -194,7 +194,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public long longValue(@NotNull String columnName) {
         return tuple != null
                 ? tuple.longValue(columnName)
-                : binaryTuple.longValue(validateSchemaColumnIndex(columnName, ColumnType.INT64));
+                : binaryTuple.longValue(validateSchemaColumnType(columnName, ColumnType.INT64));
     }
 
     /** {@inheritDoc} */
@@ -202,7 +202,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public long longValue(int columnIndex) {
         return tuple != null
                 ? tuple.longValue(columnIndex)
-                : binaryTuple.longValue(validateSchemaColumnIndex(columnIndex, ColumnType.INT64));
+                : binaryTuple.longValue(validateSchemaColumnType(columnIndex, ColumnType.INT64));
     }
 
     /** {@inheritDoc} */
@@ -210,7 +210,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public float floatValue(@NotNull String columnName) {
         return tuple != null
                 ? tuple.floatValue(columnName)
-                : binaryTuple.floatValue(validateSchemaColumnIndex(columnName, ColumnType.FLOAT));
+                : binaryTuple.floatValue(validateSchemaColumnType(columnName, ColumnType.FLOAT));
     }
 
     /** {@inheritDoc} */
@@ -218,7 +218,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public float floatValue(int columnIndex) {
         return tuple != null
                 ? tuple.floatValue(columnIndex)
-                : binaryTuple.floatValue(validateSchemaColumnIndex(columnIndex, ColumnType.FLOAT));
+                : binaryTuple.floatValue(validateSchemaColumnType(columnIndex, ColumnType.FLOAT));
     }
 
     /** {@inheritDoc} */
@@ -226,7 +226,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public double doubleValue(@NotNull String columnName) {
         return tuple != null
                 ? tuple.doubleValue(columnName)
-                : binaryTuple.doubleValue(validateSchemaColumnIndex(columnName, ColumnType.DOUBLE));
+                : binaryTuple.doubleValue(validateSchemaColumnType(columnName, ColumnType.DOUBLE));
     }
 
     /** {@inheritDoc} */
@@ -234,7 +234,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public double doubleValue(int columnIndex) {
         return tuple != null
                 ? tuple.doubleValue(columnIndex)
-                : binaryTuple.doubleValue(validateSchemaColumnIndex(columnIndex, ColumnType.DOUBLE));
+                : binaryTuple.doubleValue(validateSchemaColumnType(columnIndex, ColumnType.DOUBLE));
     }
 
     /** {@inheritDoc} */
@@ -242,7 +242,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public String stringValue(@NotNull String columnName) {
         return tuple != null
                 ? tuple.stringValue(columnName)
-                : binaryTuple.stringValue(validateSchemaColumnIndex(columnName, ColumnType.STRING));
+                : binaryTuple.stringValue(validateSchemaColumnType(columnName, ColumnType.STRING));
     }
 
     /** {@inheritDoc} */
@@ -250,7 +250,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public String stringValue(int columnIndex) {
         return tuple != null
                 ? tuple.stringValue(columnIndex)
-                : binaryTuple.stringValue(validateSchemaColumnIndex(columnIndex, ColumnType.STRING));
+                : binaryTuple.stringValue(validateSchemaColumnType(columnIndex, ColumnType.STRING));
     }
 
     /** {@inheritDoc} */
@@ -258,7 +258,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public UUID uuidValue(@NotNull String columnName) {
         return tuple != null
                 ? tuple.uuidValue(columnName)
-                : binaryTuple.uuidValue(validateSchemaColumnIndex(columnName, ColumnType.UUID));
+                : binaryTuple.uuidValue(validateSchemaColumnType(columnName, ColumnType.UUID));
     }
 
     /** {@inheritDoc} */
@@ -266,7 +266,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public UUID uuidValue(int columnIndex) {
         return tuple != null
                 ? tuple.uuidValue(columnIndex)
-                : binaryTuple.uuidValue(validateSchemaColumnIndex(columnIndex, ColumnType.UUID));
+                : binaryTuple.uuidValue(validateSchemaColumnType(columnIndex, ColumnType.UUID));
     }
 
     /** {@inheritDoc} */
@@ -274,7 +274,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public BitSet bitmaskValue(@NotNull String columnName) {
         return tuple != null
                 ? tuple.bitmaskValue(columnName)
-                : binaryTuple.bitmaskValue(validateSchemaColumnIndex(columnName, ColumnType.BITMASK));
+                : binaryTuple.bitmaskValue(validateSchemaColumnType(columnName, ColumnType.BITMASK));
     }
 
     /** {@inheritDoc} */
@@ -282,7 +282,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public BitSet bitmaskValue(int columnIndex) {
         return tuple != null
                 ? tuple.bitmaskValue(columnIndex)
-                : binaryTuple.bitmaskValue(validateSchemaColumnIndex(columnIndex, ColumnType.BITMASK));
+                : binaryTuple.bitmaskValue(validateSchemaColumnType(columnIndex, ColumnType.BITMASK));
     }
 
     /** {@inheritDoc} */
@@ -290,7 +290,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public LocalDate dateValue(String columnName) {
         return tuple != null
                 ? tuple.dateValue(columnName)
-                : binaryTuple.dateValue(validateSchemaColumnIndex(columnName, ColumnType.DATE));
+                : binaryTuple.dateValue(validateSchemaColumnType(columnName, ColumnType.DATE));
     }
 
     /** {@inheritDoc} */
@@ -298,7 +298,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public LocalDate dateValue(int columnIndex) {
         return tuple != null
                 ? tuple.dateValue(columnIndex)
-                : binaryTuple.dateValue(validateSchemaColumnIndex(columnIndex, ColumnType.DATE));
+                : binaryTuple.dateValue(validateSchemaColumnType(columnIndex, ColumnType.DATE));
     }
 
     /** {@inheritDoc} */
@@ -306,7 +306,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public LocalTime timeValue(String columnName) {
         return tuple != null
                 ? tuple.timeValue(columnName)
-                : binaryTuple.timeValue(validateSchemaColumnIndex(columnName, ColumnType.TIME));
+                : binaryTuple.timeValue(validateSchemaColumnType(columnName, ColumnType.TIME));
     }
 
     /** {@inheritDoc} */
@@ -314,7 +314,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public LocalTime timeValue(int columnIndex) {
         return tuple != null
                 ? tuple.timeValue(columnIndex)
-                : binaryTuple.timeValue(validateSchemaColumnIndex(columnIndex, ColumnType.TIME));
+                : binaryTuple.timeValue(validateSchemaColumnType(columnIndex, ColumnType.TIME));
     }
 
     /** {@inheritDoc} */
@@ -322,7 +322,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public LocalDateTime datetimeValue(String columnName) {
         return tuple != null
                 ? tuple.datetimeValue(columnName)
-                : binaryTuple.dateTimeValue(validateSchemaColumnIndex(columnName, ColumnType.DATETIME));
+                : binaryTuple.dateTimeValue(validateSchemaColumnType(columnName, ColumnType.DATETIME));
     }
 
     /** {@inheritDoc} */
@@ -330,7 +330,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public LocalDateTime datetimeValue(int columnIndex) {
         return tuple != null
                 ? tuple.datetimeValue(columnIndex)
-                : binaryTuple.dateTimeValue(validateSchemaColumnIndex(columnIndex, ColumnType.DATETIME));
+                : binaryTuple.dateTimeValue(validateSchemaColumnType(columnIndex, ColumnType.DATETIME));
     }
 
     /** {@inheritDoc} */
@@ -338,7 +338,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public Instant timestampValue(String columnName) {
         return tuple != null
                 ? tuple.timestampValue(columnName)
-                : binaryTuple.timestampValue(validateSchemaColumnIndex(columnName, ColumnType.TIMESTAMP));
+                : binaryTuple.timestampValue(validateSchemaColumnType(columnName, ColumnType.TIMESTAMP));
     }
 
     /** {@inheritDoc} */
@@ -346,7 +346,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     public Instant timestampValue(int columnIndex) {
         return tuple != null
                 ? tuple.timestampValue(columnIndex)
-                : binaryTuple.timestampValue(validateSchemaColumnIndex(columnIndex, ColumnType.TIMESTAMP));
+                : binaryTuple.timestampValue(validateSchemaColumnType(columnIndex, ColumnType.TIMESTAMP));
     }
 
     /** {@inheritDoc} */
@@ -387,15 +387,42 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
 
     protected abstract String schemaColumnName(int internalIndex);
 
-    private String schemaColumnName0(int publicIndex) {
-        Objects.checkIndex(publicIndex, schemaSize - schemaOffset);
+    protected abstract int schemaColumnIndex(@NotNull String columnName);
 
-        return schemaColumnName(publicIndex + schemaOffset);
+    protected abstract ColumnType schemaColumnType(int columnIndex);
+
+    protected abstract int schemaDecimalScale(int columnIndex);
+
+    private int schemaColumnIndex(@NotNull String columnName, @Nullable ColumnType type) {
+        var internalIndex = schemaColumnIndex(columnName);
+
+        if (internalIndex < 0) {
+            return internalIndex;
+        }
+
+        if (type != null) {
+            ColumnType actualType = schemaColumnType(internalIndex);
+
+            if (type != actualType) {
+                throw new ClassCastException("Column with name '" + columnName + "' has type " + actualType +
+                        " but " + type + " was requested");
+            }
+        }
+
+        return internalIndex;
     }
 
-    protected abstract int schemaColumnIndex(@NotNull String columnName, @Nullable ColumnType type);
+    private int validateSchemaColumnType(@NotNull String columnName, ColumnType type) {
+        var index = schemaColumnIndex(columnName, type);
 
-    private int validateSchemaColumnIndex(int publicIndex, ColumnType type) {
+        if (index < 0) {
+            throw new ColumnNotFoundException(columnName);
+        }
+
+        return index;
+    }
+
+    private int validateSchemaColumnType(int publicIndex, ColumnType type) {
         Objects.checkIndex(publicIndex, schemaSize - schemaOffset);
 
         int internalIndex = publicIndex + schemaOffset;
@@ -409,18 +436,10 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
         return internalIndex;
     }
 
-    protected abstract ColumnType schemaColumnType(int columnIndex);
+    private String schemaColumnName0(int publicIndex) {
+        Objects.checkIndex(publicIndex, schemaSize - schemaOffset);
 
-    protected abstract int schemaDecimalScale(int columnIndex);
-
-    private int validateSchemaColumnIndex(@NotNull String columnName, ColumnType type) {
-        var index = schemaColumnIndex(columnName, type);
-
-        if (index < 0) {
-            throw new ColumnNotFoundException(columnName);
-        }
-
-        return index;
+        return schemaColumnName(publicIndex + schemaOffset);
     }
 
     private @Nullable Object object(int internalIndex) {

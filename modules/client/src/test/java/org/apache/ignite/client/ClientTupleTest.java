@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -185,13 +186,22 @@ public class ClientTupleTest {
         assertEquals(TIMESTAMP, tuple.timestampValue("timestamp"));
     }
 
+    @SuppressWarnings("ThrowableNotThrown")
     @Test
     public void testTypedGettersWithIncorrectType() {
         ClientTuple tuple = getFullSchemaTuple();
 
-        assertEquals(1, tuple.byteValue(1));
-        assertEquals(1, tuple.byteValue("i16"));
+        assertThrowsWithCause(
+                () -> tuple.byteValue(1),
+                ClassCastException.class,
+                "Column with index 1 has type INT16 but INT8 was requested");
 
+        assertThrowsWithCause(
+                () -> tuple.byteValue("i16"),
+                ClassCastException.class,
+                "Column with name 'i16' has type INT16 but INT8 was requested");
+
+        // TODO
         assertEquals(2, tuple.shortValue(1));
         assertEquals(2, tuple.shortValue("i16"));
 

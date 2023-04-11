@@ -20,7 +20,6 @@ package org.apache.ignite.internal.client.table;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientColumnTypeConverter;
 import org.apache.ignite.internal.util.IgniteNameUtils;
-import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -43,22 +42,10 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
     }
 
     @Override
-    protected int schemaColumnIndex(@NotNull String columnName, @Nullable ColumnType type) {
+    protected int schemaColumnIndex(@NotNull String columnName) {
         ClientColumn column = column(columnName);
 
-        if (column == null)
-            return -1;
-
-        if (type != null) {
-            var actualType = ClientColumnTypeConverter.clientDataTypeToSqlColumnType(column.type());
-
-            if (type != actualType) {
-                throw new ColumnNotFoundException("Column '" + columnName + "' has type " + actualType +
-                        " but " + type + " was requested");
-            }
-        }
-
-        return column.schemaIndex();
+        return column == null ? -1 : column.schemaIndex();
     }
 
     @Override
@@ -70,9 +57,7 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
 
     @Override
     protected int schemaDecimalScale(int columnIndex) {
-        ClientColumn column = schema.columns()[columnIndex];
-
-        return column.scale();
+        return schema.columns()[columnIndex].scale();
     }
 
     @Nullable
