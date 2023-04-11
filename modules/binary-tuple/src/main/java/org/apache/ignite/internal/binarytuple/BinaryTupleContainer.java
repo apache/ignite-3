@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.binarytuple;
 
 import org.jetbrains.annotations.Nullable;
 
 /**
- * An entity that stores underlying data in a {@link BinaryTuple}.
+ * An entity that stores underlying data in a {@link BinaryTupleReader}.
  */
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface BinaryTupleContainer {
@@ -29,5 +29,5 @@ public interface BinaryTupleContainer {
      *
      * @return Underlying binary tuple.
      */
-    @Nullable BinaryTuple binaryTuple();
+    @Nullable BinaryTupleReader binaryTuple();
 }

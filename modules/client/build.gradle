@@ -38,6 +38,7 @@ dependencies {
 
     annotationProcessor libs.auto.service
 
+    testAnnotationProcessor libs.jmh.annotation.processor
     testImplementation libs.jetbrains.annotations
     testImplementation project(':ignite-client-handler')
     testImplementation project(':ignite-configuration')
@@ -56,6 +57,7 @@ dependencies {
     testImplementation libs.mockito.junit
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
+    testImplementation libs.jmh.core
 }
 
 def archTestDir = "$buildDir/archtest"

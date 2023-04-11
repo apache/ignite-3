@@ -196,13 +196,14 @@ public class BinaryTupleParser {
      * @return Element value.
      */
     public final byte byteValue(int begin, int end) {
-        switch (end - begin) {
+        int len = end - begin;
+        switch (len) {
             case 0:
                 return 0;
             case Byte.BYTES:
                 return buffer.get(begin);
             default:
-                throw new BinaryTupleFormatException("Invalid length for a tuple element");
+                throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
     }
 
@@ -214,7 +215,8 @@ public class BinaryTupleParser {
      * @return Element value.
      */
     public final short shortValue(int begin, int end) {
-        switch (end - begin) {
+        int len = end - begin;
+        switch (len) {
             case 0:
                 return 0;
             case Byte.BYTES:
@@ -222,7 +224,7 @@ public class BinaryTupleParser {
             case Short.BYTES:
                 return buffer.getShort(begin);
             default:
-                throw new BinaryTupleFormatException("Invalid length for a tuple element");
+                throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
     }
 
@@ -234,7 +236,8 @@ public class BinaryTupleParser {
      * @return Element value.
      */
     public final int intValue(int begin, int end) {
-        switch (end - begin) {
+        int len = end - begin;
+        switch (len) {
             case 0:
                 return 0;
             case Byte.BYTES:
@@ -244,7 +247,7 @@ public class BinaryTupleParser {
             case Integer.BYTES:
                 return buffer.getInt(begin);
             default:
-                throw new BinaryTupleFormatException("Invalid length for a tuple element");
+                throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
     }
 
@@ -256,7 +259,8 @@ public class BinaryTupleParser {
      * @return Element value.
      */
     public final long longValue(int begin, int end) {
-        switch (end - begin) {
+        int len = end - begin;
+        switch (len) {
             case 0:
                 return 0;
             case Byte.BYTES:
@@ -268,7 +272,7 @@ public class BinaryTupleParser {
             case Long.BYTES:
                 return buffer.getLong(begin);
             default:
-                throw new BinaryTupleFormatException("Invalid length for a tuple element");
+                throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
     }
 
@@ -280,13 +284,14 @@ public class BinaryTupleParser {
      * @return Element value.
      */
     public final float floatValue(int begin, int end) {
-        switch (end - begin) {
+        int len = end - begin;
+        switch (len) {
             case 0:
                 return 0.0F;
             case Float.BYTES:
                 return buffer.getFloat(begin);
             default:
-                throw new BinaryTupleFormatException("Invalid length for a tuple element");
+                throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
     }
 
@@ -298,7 +303,8 @@ public class BinaryTupleParser {
      * @return Element value.
      */
     public final double doubleValue(int begin, int end) {
-        switch (end - begin) {
+        int len = end - begin;
+        switch (len) {
             case 0:
                 return 0.0;
             case Float.BYTES:
@@ -306,7 +312,7 @@ public class BinaryTupleParser {
             case Double.BYTES:
                 return buffer.getDouble(begin);
             default:
-                throw new BinaryTupleFormatException("Invalid length for a tuple element");
+                throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
     }
 
@@ -381,7 +387,7 @@ public class BinaryTupleParser {
             if (len == 0) {
                 return BinaryTupleCommon.DEFAULT_UUID;
             }
-            throw new BinaryTupleFormatException("Invalid length for a tuple element");
+            throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
         long msb = buffer.getLong(begin);
         long lsb = buffer.getLong(begin + 8);
@@ -412,7 +418,7 @@ public class BinaryTupleParser {
             if (len == 0) {
                 return BinaryTupleCommon.DEFAULT_DATE;
             }
-            throw new BinaryTupleFormatException("Invalid length for a tuple element");
+            throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
         return getDate(begin);
     }
@@ -430,7 +436,7 @@ public class BinaryTupleParser {
             if (len == 0) {
                 return BinaryTupleCommon.DEFAULT_TIME;
             }
-            throw new BinaryTupleFormatException("Invalid length for a tuple element");
+            throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
         return getTime(begin, len);
     }
@@ -448,7 +454,7 @@ public class BinaryTupleParser {
             if (len == 0) {
                 return BinaryTupleCommon.DEFAULT_DATE_TIME;
             }
-            throw new BinaryTupleFormatException("Invalid length for a tuple element");
+            throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
         return LocalDateTime.of(getDate(begin), getTime(begin + 3, len - 3));
     }
@@ -466,7 +472,7 @@ public class BinaryTupleParser {
             if (len == 0) {
                 return BinaryTupleCommon.DEFAULT_TIMESTAMP;
             }
-            throw new BinaryTupleFormatException("Invalid length for a tuple element");
+            throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
         long seconds = buffer.getLong(begin);
         int nanos = len == 8 ? 0 : buffer.getInt(begin + 8);
@@ -486,7 +492,7 @@ public class BinaryTupleParser {
             if (len == 0) {
                 return BinaryTupleCommon.DEFAULT_DURATION;
             }
-            throw new BinaryTupleFormatException("Invalid length for a tuple element");
+            throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
 
         long seconds = buffer.getLong(begin);
@@ -503,7 +509,8 @@ public class BinaryTupleParser {
      * @return Element value.
      */
     public final Period periodValue(int begin, int end) {
-        switch (end - begin) {
+        int len = end - begin;
+        switch (len) {
             case 0:
                 return BinaryTupleCommon.DEFAULT_PERIOD;
             case 3:
@@ -513,7 +520,7 @@ public class BinaryTupleParser {
             case 12:
                 return Period.of(buffer.getInt(begin), buffer.getInt(begin + 4), buffer.getInt(begin + 8));
             default:
-                throw new BinaryTupleFormatException("Invalid length for a tuple element");
+                throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
     }
 

@@ -58,7 +58,7 @@ public class ClientColumnMetadata implements ColumnMetadata {
 
         name = unpacker.unpackString();
         nullable = unpacker.unpackBoolean();
-        type = ClientColumnTypeConverter.ordinalToColumnType(unpacker.unpackInt());
+        type = ClientColumnTypeConverter.ordinalToSqlColumnType(unpacker.unpackInt());
         scale = unpacker.unpackInt();
         precision = unpacker.unpackInt();
 
