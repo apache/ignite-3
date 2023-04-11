@@ -174,12 +174,12 @@ public class DmlPlannerTest extends AbstractPlannerTest {
                 "INSERT INTO unknown VALUES(1)",
                 "UPDATE unknown SET ID=1",
                 "DELETE FROM unknown",
-                "MERGE INTO unknown DST USING test SRC ON DST.C1 = SRC.C1" +
-                        "    WHEN MATCHED THEN UPDATE SET C2 = SRC.C2" +
-                        "    WHEN NOT MATCHED THEN INSERT (C1, C2) VALUES (SRC.C1, SRC.C2)",
-                "MERGE INTO test DST USING unknown SRC ON DST.C1 = SRC.C1" +
-                        "    WHEN MATCHED THEN UPDATE SET C2 = SRC.C2" +
-                        "    WHEN NOT MATCHED THEN INSERT (C1, C2) VALUES (SRC.C1, SRC.C2)"
+                "MERGE INTO unknown DST USING test SRC ON DST.C1 = SRC.C1"
+                        + " WHEN MATCHED THEN UPDATE SET C2 = SRC.C2"
+                        + " WHEN NOT MATCHED THEN INSERT (C1, C2) VALUES (SRC.C1, SRC.C2)",
+                "MERGE INTO test DST USING unknown SRC ON DST.C1 = SRC.C1"
+                        + " WHEN MATCHED THEN UPDATE SET C2 = SRC.C2"
+                        + " WHEN NOT MATCHED THEN INSERT (C1, C2) VALUES (SRC.C1, SRC.C2)"
         );
     }
 
