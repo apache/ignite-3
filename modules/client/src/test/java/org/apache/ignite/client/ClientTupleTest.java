@@ -24,23 +24,32 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Month;
+import java.time.Period;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.proto.ClientColumnTypeConverter;
 import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTuple;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
@@ -68,7 +77,13 @@ public class ClientTupleTest {
             new ClientColumn("DATE", ClientDataType.DATE, false, false, false, 9),
             new ClientColumn("TIME", ClientDataType.TIME, false, false, false, 10),
             new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, false, 11),
-            new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, false, 12)
+            new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, false, 12),
+            new ClientColumn("BOOL", ClientDataType.BOOLEAN, false, false, false, 13),
+            new ClientColumn("DECIMAL", ClientDataType.DECIMAL, false, false, false, 14),
+            new ClientColumn("BYTES", ClientDataType.BYTES, false, false, false, 15),
+            new ClientColumn("PERIOD", ClientDataType.PERIOD, false, false, false, 16),
+            new ClientColumn("DURATION", ClientDataType.DURATION, false, false, false, 17),
+            new ClientColumn("NUMBER", ClientDataType.NUMBER, false, false, false, 18)
     });
 
     private static final UUID GUID = UUID.randomUUID();
@@ -270,6 +285,21 @@ public class ClientTupleTest {
         assertEquals(clientTuple.hashCode(), tuple.hashCode());
     }
 
+    @Test
+    public void testFullSchemaHasAllTypes() {
+        Set<ColumnType> schemaTypes = Arrays.stream(FULL_SCHEMA.columns())
+                .map(c -> ClientColumnTypeConverter.clientDataTypeToSqlColumnType(c.type()))
+                .collect(Collectors.toSet());
+
+        for (ColumnType columnType : ColumnType.values()) {
+            if (columnType == ColumnType.NULL) {
+                continue;
+            }
+
+            assertTrue(schemaTypes.contains(columnType), "Schema does not contain " + columnType);
+        }
+    }
+
     private static Tuple getTuple() {
         var binTupleBuf = new BinaryTupleBuilder(SCHEMA.columns().length, false)
                 .appendLong(3L)
@@ -296,6 +326,12 @@ public class ClientTupleTest {
                 .appendTime(TIME)
                 .appendDateTime(DATE_TIME)
                 .appendTimestamp(TIMESTAMP)
+                .appendByte((byte) 1)
+                .appendDecimal(BigDecimal.valueOf(1.234), 3)
+                .appendBytes(new byte[] {1, 2, 3})
+                .appendPeriod(Period.ofDays(16))
+                .appendDuration(Duration.ofDays(17))
+                .appendNumber(BigInteger.valueOf(18))
                 .build();
 
         var binTuple = new BinaryTupleReader(FULL_SCHEMA.columns().length, binTupleBuf);
