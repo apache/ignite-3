@@ -42,7 +42,6 @@ import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTuple;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -56,16 +55,31 @@ public class ClientTupleTest {
             new ClientColumn("NAME", ClientDataType.STRING, false, false, false, 1)
     });
 
-    private static final UUID uuid = UUID.randomUUID();
+    private static final ClientSchema FULL_SCHEMA = new ClientSchema(100, new ClientColumn[]{
+        new ClientColumn("I8", ClientDataType.INT8, false, false, false, 0),
+                new ClientColumn("I16", ClientDataType.INT16, false, false, false, 1),
+                new ClientColumn("I32", ClientDataType.INT32, false, false, false, 2),
+                new ClientColumn("I64", ClientDataType.INT64, false, false, false, 3),
+                new ClientColumn("FLOAT", ClientDataType.FLOAT, false, false, false, 4),
+                new ClientColumn("DOUBLE", ClientDataType.DOUBLE, false, false, false, 5),
+                new ClientColumn("UUID", ClientDataType.UUID, false, false, false, 6),
+                new ClientColumn("STR", ClientDataType.STRING, false, false, false, 7),
+                new ClientColumn("BITS", ClientDataType.BITMASK, false, false, false, 8),
+                new ClientColumn("DATE", ClientDataType.DATE, false, false, false, 9),
+                new ClientColumn("TIME", ClientDataType.TIME, false, false, false, 10),
+                new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, false, 11),
+                new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, false, 12)
+    });
 
-    private static final LocalDate date = LocalDate.of(1995, Month.MAY, 23);
+    private static final UUID GUID = UUID.randomUUID();
 
-    private static final LocalTime time = LocalTime.of(17, 0, 1, 222_333_444);
+    private static final LocalDate DATE = LocalDate.of(1995, Month.MAY, 23);
 
-    private static final LocalDateTime datetime = LocalDateTime.of(1995, Month.MAY, 23, 17, 0, 1, 222_333_444);
+    private static final LocalTime TIME = LocalTime.of(17, 0, 1, 222_333_444);
 
-    private static final Instant timestamp = Instant.now();
+    private static final LocalDateTime DATE_TIME = LocalDateTime.of(1995, Month.MAY, 23, 17, 0, 1, 222_333_444);
 
+    private static final Instant TIMESTAMP = Instant.now();
 
     @Test
     public void testValueReturnsValueByName() {
@@ -156,8 +170,8 @@ public class ClientTupleTest {
         assertEquals(6.6, tuple.doubleValue(5));
         assertEquals(6.6, tuple.doubleValue("double"));
 
-        assertEquals(uuid, tuple.uuidValue(6));
-        assertEquals(uuid, tuple.uuidValue("uuid"));
+        assertEquals(GUID, tuple.uuidValue(6));
+        assertEquals(GUID, tuple.uuidValue("uuid"));
 
         assertEquals("8", tuple.stringValue(7));
         assertEquals("8", tuple.stringValue("str"));
@@ -165,13 +179,12 @@ public class ClientTupleTest {
         assertEquals(0, tuple.bitmaskValue(8).length());
         assertEquals(0, tuple.bitmaskValue("bits").length());
 
-        assertEquals(date, tuple.dateValue("date"));
-        assertEquals(time, tuple.timeValue("time"));
-        assertEquals(datetime, tuple.datetimeValue("datetime"));
-        assertEquals(timestamp, tuple.timestampValue("timestamp"));
+        assertEquals(DATE, tuple.dateValue("date"));
+        assertEquals(TIME, tuple.timeValue("time"));
+        assertEquals(DATE_TIME, tuple.datetimeValue("datetime"));
+        assertEquals(TIMESTAMP, tuple.timestampValue("timestamp"));
     }
 
-    @NotNull
     @Test
     public void testBasicTupleEquality() {
         var tuple = getTuple();
@@ -212,53 +225,13 @@ public class ClientTupleTest {
 
     @Test
     public void testTupleEquality() {
-        var schema = new ClientSchema(100, new ClientColumn[]{
-                new ClientColumn("I8", ClientDataType.INT8, false, false, false, 0),
-                new ClientColumn("I16", ClientDataType.INT16, false, false, false, 1),
-                new ClientColumn("I32", ClientDataType.INT32, false, false, false, 2),
-                new ClientColumn("I64", ClientDataType.INT64, false, false, false, 3),
-                new ClientColumn("FLOAT", ClientDataType.FLOAT, false, false, false, 4),
-                new ClientColumn("DOUBLE", ClientDataType.DOUBLE, false, false, false, 5),
-                new ClientColumn("UUID", ClientDataType.UUID, false, false, false, 6),
-                new ClientColumn("STR", ClientDataType.STRING, false, false, false, 7),
-                new ClientColumn("BITS", ClientDataType.BITMASK, false, false, false, 8),
-                new ClientColumn("DATE", ClientDataType.DATE, false, false, false, 9),
-                new ClientColumn("TIME", ClientDataType.TIME, false, false, false, 10),
-                new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, false, 11),
-                new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, false, 12)
-        });
-
-        var uuid = UUID.randomUUID();
-
-        var date = LocalDate.of(1995, Month.MAY, 23);
-        var time = LocalTime.of(17, 0, 1, 222_333_444);
-        var datetime = LocalDateTime.of(1995, Month.MAY, 23, 17, 0, 1, 222_333_444);
-        var timestamp = Instant.now();
-
-        var binTupleBuf = new BinaryTupleBuilder(schema.columns().length, false)
-                .appendByte((byte) 1)
-                .appendShort((short) 2)
-                .appendInt(3)
-                .appendLong(4)
-                .appendFloat(5.5f)
-                .appendDouble(6.6)
-                .appendUuid(uuid)
-                .appendString("8")
-                .appendBitmask(new BitSet(3))
-                .appendDate(date)
-                .appendTime(time)
-                .appendDateTime(datetime)
-                .appendTimestamp(timestamp)
-                .build();
-
-        var binTuple = new BinaryTupleReader(schema.columns().length, binTupleBuf);
-        var tuple = new ClientTuple(schema, binTuple, 0, schema.columns().length);
+        var tuple = getFullSchemaTuple();
 
         var randomIdx = IntStream.range(0, tuple.columnCount()).boxed().collect(Collectors.toList());
 
         Collections.shuffle(randomIdx);
 
-        var shuffledTuple = new ClientTuple(schema, binTuple, 0, schema.columns().length);
+        var shuffledTuple = getFullSchemaTuple();
 
         for (Integer i : randomIdx) {
             shuffledTuple.set(tuple.columnName(i), tuple.value(i));
@@ -270,48 +243,7 @@ public class ClientTupleTest {
 
     @Test
     public void testTupleEqualityCompatibility() {
-        var schema = new ClientSchema(100, new ClientColumn[]{
-                new ClientColumn("I8", ClientDataType.INT8, false, false, false, 0),
-                new ClientColumn("I16", ClientDataType.INT16, false, false, false, 1),
-                new ClientColumn("I32", ClientDataType.INT32, false, false, false, 2),
-                new ClientColumn("I64", ClientDataType.INT64, false, false, false, 3),
-                new ClientColumn("FLOAT", ClientDataType.FLOAT, false, false, false, 4),
-                new ClientColumn("DOUBLE", ClientDataType.DOUBLE, false, false, false, 5),
-                new ClientColumn("UUID", ClientDataType.UUID, false, false, false, 6),
-                new ClientColumn("STR", ClientDataType.STRING, false, false, false, 7),
-                new ClientColumn("BITS", ClientDataType.BITMASK, false, false, false, 8),
-                new ClientColumn("DATE", ClientDataType.DATE, false, false, false, 9),
-                new ClientColumn("TIME", ClientDataType.TIME, false, false, false, 10),
-                new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, false, 11),
-                new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, false, 12)
-        });
-
-        var uuid = UUID.randomUUID();
-
-        var date = LocalDate.of(1995, Month.MAY, 23);
-        var time = LocalTime.of(17, 0, 1, 222_333_444);
-        var datetime = LocalDateTime.of(1995, Month.MAY, 23, 17, 0, 1, 222_333_444);
-        var timestamp = Instant.now();
-
-        var binTupleBuf = new BinaryTupleBuilder(schema.columns().length, false)
-                .appendByte((byte) 1)
-                .appendShort((short) 2)
-                .appendInt(3)
-                .appendLong(4)
-                .appendFloat(5.5f)
-                .appendDouble(6.6)
-                .appendUuid(uuid)
-                .appendString("8")
-                .appendBitmask(new BitSet(3))
-                .appendDate(date)
-                .appendTime(time)
-                .appendDateTime(datetime)
-                .appendTimestamp(timestamp)
-                .build();
-
-        var binTuple = new BinaryTupleReader(schema.columns().length, binTupleBuf);
-        var clientTuple = new ClientTuple(schema, binTuple, 0, schema.columns().length);
-
+        var clientTuple = getFullSchemaTuple();
         var tuple = Tuple.create();
 
         for (int i = 0; i < clientTuple.columnCount(); i++) {
@@ -334,40 +266,24 @@ public class ClientTupleTest {
     }
 
     private static ClientTuple getFullSchemaTuple() {
-        var schema = new ClientSchema(100, new ClientColumn[]{
-                new ClientColumn("I8", ClientDataType.INT8, false, false, false, 0),
-                new ClientColumn("I16", ClientDataType.INT16, false, false, false, 1),
-                new ClientColumn("I32", ClientDataType.INT32, false, false, false, 2),
-                new ClientColumn("I64", ClientDataType.INT64, false, false, false, 3),
-                new ClientColumn("FLOAT", ClientDataType.FLOAT, false, false, false, 4),
-                new ClientColumn("DOUBLE", ClientDataType.DOUBLE, false, false, false, 5),
-                new ClientColumn("UUID", ClientDataType.UUID, false, false, false, 6),
-                new ClientColumn("STR", ClientDataType.STRING, false, false, false, 7),
-                new ClientColumn("BITS", ClientDataType.BITMASK, false, false, false, 8),
-                new ClientColumn("DATE", ClientDataType.DATE, false, false, false, 9),
-                new ClientColumn("TIME", ClientDataType.TIME, false, false, false, 10),
-                new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, false, 11),
-                new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, false, 12)
-        });
-
-        var binTupleBuf = new BinaryTupleBuilder(schema.columns().length, false)
+        var binTupleBuf = new BinaryTupleBuilder(FULL_SCHEMA.columns().length, false)
                 .appendByte((byte) 1)
                 .appendShort((short) 2)
                 .appendInt(3)
                 .appendLong(4)
                 .appendFloat(5.5f)
                 .appendDouble(6.6)
-                .appendUuid(uuid)
+                .appendUuid(GUID)
                 .appendString("8")
                 .appendBitmask(new BitSet(3))
-                .appendDate(date)
-                .appendTime(time)
-                .appendDateTime(datetime)
-                .appendTimestamp(timestamp)
+                .appendDate(DATE)
+                .appendTime(TIME)
+                .appendDateTime(DATE_TIME)
+                .appendTimestamp(TIMESTAMP)
                 .build();
 
-        var binTuple = new BinaryTupleReader(schema.columns().length, binTupleBuf);
+        var binTuple = new BinaryTupleReader(FULL_SCHEMA.columns().length, binTupleBuf);
 
-        return new ClientTuple(schema, binTuple, 0, schema.columns().length);
+        return new ClientTuple(FULL_SCHEMA, binTuple, 0, FULL_SCHEMA.columns().length);
     }
 }
