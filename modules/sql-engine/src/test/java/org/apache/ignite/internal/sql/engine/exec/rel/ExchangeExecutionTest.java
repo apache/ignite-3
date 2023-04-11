@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
@@ -351,7 +352,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
 
         ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME, dataNodeName));
 
-        TestDataProvider nodeDataProvider = new TestDataProvider(4000);
+        TestDataProvider nodeDataProvider = new TestDataProvider(8000);
         ClusterNode dataNode = new ClusterNode(dataNodeName, dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
 
         createSourceFragmentMultiTarget(
@@ -445,8 +446,6 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
             assertThat(res.items(), hasSize(500));
             assertThat(res.items().get(0), equalTo(new Object[]{1, 2}));
             assertThat(res.items(), everyItem(ODD_KEY_MATCHER));
-
-            root.end();
         }
     }
 
