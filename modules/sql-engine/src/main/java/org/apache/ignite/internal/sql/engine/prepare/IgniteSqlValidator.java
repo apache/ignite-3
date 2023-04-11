@@ -65,6 +65,7 @@ import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorTable;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -166,15 +167,17 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     protected SqlSelect createSourceSelectForUpdate(SqlUpdate call) {
         final SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
         final SqlIdentifier targetTable = (SqlIdentifier) call.getTargetTable();
+        final SqlValidatorTable table = getCatalogReader().getTable(targetTable.names);
 
-        if (Commons.implicitPkEnabled()) {
-            SqlIdentifier alias = call.getAlias() != null ? call.getAlias() :
-                    new SqlIdentifier(deriveAlias(targetTable, 0), SqlParserPos.ZERO);
+        SqlIdentifier alias = call.getAlias() != null ? call.getAlias() :
+                new SqlIdentifier(deriveAlias(targetTable, 0), SqlParserPos.ZERO);
 
-            selectList.add(alias.plus(Commons.IMPLICIT_PK_COL_NAME, SqlParserPos.ZERO));
+        if (table != null) {
+            table.unwrap(IgniteTable.class).descriptor().selectForUpdateRowType((IgniteTypeFactory) typeFactory)
+                    .getFieldNames().stream()
+                    .map(name -> alias.plus(name, SqlParserPos.ZERO))
+                    .forEach(selectList::add);
         }
-
-        selectList.add(SqlIdentifier.star(SqlParserPos.ZERO));
 
         int ordinal = 0;
         // Force unique aliases to avoid a duplicate for Y with SET X=Y
@@ -207,10 +210,14 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     @Override
     protected SqlSelect createSourceSelectForDelete(SqlDelete call) {
         final SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
+        final SqlValidatorTable table = getCatalogReader().getTable(((SqlIdentifier) call.getTargetTable()).names);
 
-        selectList.add(Commons.implicitPkEnabled()
-                ? new SqlIdentifier(Commons.IMPLICIT_PK_COL_NAME, SqlParserPos.ZERO)
-                : SqlIdentifier.star(SqlParserPos.ZERO));
+        if (table != null) {
+            table.unwrap(IgniteTable.class).descriptor().deleteRowType((IgniteTypeFactory) typeFactory)
+                    .getFieldNames().stream()
+                    .map(name -> new SqlIdentifier(name, SqlParserPos.ZERO))
+                    .forEach(selectList::add);
+        }
 
         SqlNode sourceTable = call.getTargetTable();
 
