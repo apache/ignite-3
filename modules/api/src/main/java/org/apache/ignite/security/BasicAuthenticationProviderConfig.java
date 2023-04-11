@@ -24,17 +24,17 @@ public class BasicAuthenticationProviderConfig implements AuthenticationProvider
 
     private final String name;
 
-    private final String login;
+    private final String username;
 
     private final String password;
 
     /** Constructor. */
-    public BasicAuthenticationProviderConfig(String name, String login, String password) {
+    public BasicAuthenticationProviderConfig(String name, String username, String password) {
         if (StringUtils.nullOrEmpty(name)) {
             throw new IllegalArgumentException("name cannot be null or empty");
         }
 
-        if (StringUtils.nullOrEmpty(login)) {
+        if (StringUtils.nullOrEmpty(username)) {
             throw new IllegalArgumentException("login cannot be null or empty");
         }
 
@@ -43,12 +43,12 @@ public class BasicAuthenticationProviderConfig implements AuthenticationProvider
         }
 
         this.name = name;
-        this.login = login;
+        this.username = username;
         this.password = password;
     }
 
-    public String login() {
-        return login;
+    public String username() {
+        return username;
     }
 
     public String password() {

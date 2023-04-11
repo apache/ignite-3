@@ -68,7 +68,7 @@ class AuthenticationConfigurationValidatorTest {
         AuthenticationView newValue = mutateConfiguration(authenticationConfiguration, change -> {
             change.changeProviders(providers -> providers.create("basic", provider -> {
                 provider.convert(BasicAuthenticationProviderChange.class)
-                        .changeLogin("admin")
+                        .changeUsername("admin")
                         .changePassword("admin")
                         .changeName("basic");
             }));
@@ -103,7 +103,7 @@ class AuthenticationConfigurationValidatorTest {
         AuthenticationView newValue = mutateConfiguration(authenticationConfiguration, change -> {
             change.changeProviders(providers -> providers.create("basic", provider -> {
                 provider.convert(BasicAuthenticationProviderChange.class)
-                        .changeLogin("admin")
+                        .changeUsername("admin")
                         .changePassword("admin")
                         .changeName("basic");
             }));
