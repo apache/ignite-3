@@ -101,7 +101,9 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-storage-api')))
     integrationTestImplementation(testFixtures(project(':ignite-transactions')))
     integrationTestImplementation(testFixtures(project(':ignite-cluster-management')))
-    integrationTestImplementation(testFixtures(project(':ignite-storage-page-memory')))
+    integrationTestImplementation(testFixtures(project(':ignite-storage-page-memory'))) {
+        transitive = false
+    }
     integrationTestImplementation libs.fastutil.core
 }
 

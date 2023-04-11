@@ -54,7 +54,6 @@ dependencies {
     testFixturesAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testFixturesAnnotationProcessor libs.auto.service
 
-    testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation libs.jetbrains.annotations
