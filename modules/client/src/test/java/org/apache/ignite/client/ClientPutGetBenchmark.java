@@ -21,7 +21,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Scope;
@@ -68,8 +67,6 @@ public class ClientPutGetBenchmark {
 
     private IgniteClient client;
 
-    private Table table;
-
     private RecordView<Tuple> recordView;
 
     private Tuple key;
@@ -85,15 +82,13 @@ public class ClientPutGetBenchmark {
                 .addresses("127.0.0.1:" + testServer.port())
                 .build();
 
-        table = client.tables().table(DEFAULT_TABLE);
-        recordView = table.recordView();
-
         key = Tuple.create().set("id", 1L);
 
         Tuple rec = Tuple.create()
                 .set("id", 1L)
                 .set("name", "John".repeat(1000));
 
+        recordView = client.tables().table(DEFAULT_TABLE).recordView();
         recordView.upsert(null, rec);
     }
 
