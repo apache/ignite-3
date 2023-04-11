@@ -550,7 +550,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
      *
      * @return Payload bytes.
      */
-    public ByteBuffer readBinaryUnsafe() { // TODO: Review usages of this method, ensure we don't use-after-free.
+    public ByteBuffer readBinaryUnsafe() {
         assert refCnt > 0 : "Unpacker is closed";
 
         var length = unpackBinaryHeader();
