@@ -41,7 +41,9 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation project(':ignite-storage-api')
     testImplementation(testFixtures(project(':ignite-storage-api')))
-    testImplementation(testFixtures(project(':ignite-storage-page-memory')))
+    testImplementation(testFixtures(project(':ignite-storage-page-memory'))) {
+        transitive = false
+    }
     testImplementation project(':ignite-schema')
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core

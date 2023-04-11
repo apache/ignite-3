@@ -55,7 +55,9 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation(testFixtures(project(':ignite-cluster-management')))
     testImplementation(testFixtures(project(':ignite-vault')))
-    testImplementation(testFixtures(project(':ignite-storage-page-memory')))
+    testImplementation(testFixtures(project(':ignite-storage-page-memory'))) {
+        transitive = false
+    }
 
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.mockito.core
