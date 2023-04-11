@@ -38,9 +38,16 @@ import org.openjdk.jmh.runner.options.TimeValue;
  * Basic table benchmark.
  *
  * <p>Results
- * Benchmark                   Mode  Cnt      Score      Error  Units
- * ClientPutGetBenchmark.get  thrpt    3  49131.884 ± 6529.313  ops/s  (before IGNITE-18899)
- * ClientPutGetBenchmark.get  thrpt    3  50886.345 ± 15990.618  ops/s (after IGNITE-18899)
+ * Benchmark                                                Mode  Cnt      Score       Error   Units
+ * ClientPutGetBenchmark.get                               thrpt    3  50305.929 ± 13924.407   ops/s
+ * ClientPutGetBenchmark.get:·gc.alloc.rate                thrpt    3    480.666 ±   829.508  MB/sec
+ * ClientPutGetBenchmark.get:·gc.alloc.rate.norm           thrpt    3  11046.571 ± 21170.502    B/op
+ * ClientPutGetBenchmark.get:·gc.churn.G1_Eden_Space       thrpt    3    519.416 ±   555.076  MB/sec
+ * ClientPutGetBenchmark.get:·gc.churn.G1_Eden_Space.norm  thrpt    3  11928.927 ± 13109.114    B/op
+ * ClientPutGetBenchmark.get:·gc.churn.G1_Old_Gen          thrpt    3      0.001 ±     0.001  MB/sec
+ * ClientPutGetBenchmark.get:·gc.churn.G1_Old_Gen.norm     thrpt    3      0.025 ±     0.006    B/op
+ * ClientPutGetBenchmark.get:·gc.count                     thrpt    3     29.000              counts
+ * ClientPutGetBenchmark.get:·gc.time                      thrpt    3     12.000                  ms
  */
 @State(Scope.Benchmark)
 public class ClientPutGetBenchmark {
@@ -105,6 +112,7 @@ public class ClientPutGetBenchmark {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(ClientPutGetBenchmark.class.getSimpleName())
+                .addProfiler("gc")
                 .warmupIterations(3)
                 .warmupTime(TimeValue.seconds(5))
                 .measurementIterations(3)
