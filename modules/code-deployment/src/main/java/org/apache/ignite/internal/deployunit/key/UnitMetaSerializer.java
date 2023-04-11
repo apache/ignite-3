@@ -19,11 +19,11 @@ package org.apache.ignite.internal.deployunit.key;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
-import java.util.Base64.Decoder;
-import java.util.Base64.Encoder;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.UnitMeta;
 import org.apache.ignite.internal.deployunit.version.Version;
@@ -33,6 +33,8 @@ import org.apache.ignite.internal.deployunit.version.Version;
  */
 public final class UnitMetaSerializer {
     private static final String SEPARATOR = ";";
+
+    private static final String LIST_SEPARATOR = ":";
 
     /**
      * Constructor.
@@ -52,19 +54,11 @@ public final class UnitMetaSerializer {
 
         appendWithEncoding(sb, meta.id());
         appendWithEncoding(sb, meta.version().render());
-        appendWithEncoding(sb, meta.name());
+        appendWithEncoding(sb, meta.fileNames());
         appendWithEncoding(sb, meta.status().name());
-
-        for (String id : meta.consistentIdLocation()) {
-            appendWithEncoding(sb, id);
-        }
+        appendWithEncoding(sb, meta.consistentIdLocation());
 
         return sb.toString().getBytes(UTF_8);
-    }
-
-    private static void appendWithEncoding(StringBuilder sb, String content) {
-        Encoder encoder = Base64.getEncoder();
-        sb.append(new String(encoder.encode(content.getBytes(UTF_8)), UTF_8)).append(SEPARATOR);
     }
 
     /**
@@ -75,21 +69,45 @@ public final class UnitMetaSerializer {
      */
     public static UnitMeta deserialize(byte[] bytes) {
         String s = new String(bytes, UTF_8);
-        String[] split = s.split(SEPARATOR);
+        String[] split = s.split(SEPARATOR, -1);
 
-        Decoder decoder = Base64.getDecoder();
+        String id = decode(split[0]);
+        String version = decode(split[1]);
+        List<String> fileNames = deserializeList(split[2]);
 
-        String id = new String(decoder.decode(split[0]), UTF_8);
-        String version = new String(decoder.decode(split[1]), UTF_8);
-        String unitName = new String(decoder.decode(split[2]), UTF_8);
+        DeploymentStatus status = DeploymentStatus.valueOf(decode(split[3]));
 
-        DeploymentStatus status = DeploymentStatus.valueOf(new String(decoder.decode(split[3]), UTF_8));
+        List<String> ids = deserializeList(split[4]);
 
-        List<String> ids = new ArrayList<>();
-        for (int i = 4; i < split.length; i++) {
-            ids.add(new String(decoder.decode(split[i]), UTF_8));
+        return new UnitMeta(id, Version.parseVersion(version), fileNames, status, ids);
+    }
+
+    private static void appendWithEncoding(StringBuilder sb, String content) {
+        sb.append(encode(content)).append(SEPARATOR);
+    }
+
+    private static void appendWithEncoding(StringBuilder sb, List<String> content) {
+        String list = content.stream()
+                .map(UnitMetaSerializer::encode)
+                .collect(Collectors.joining(LIST_SEPARATOR));
+        sb.append(list).append(SEPARATOR);
+    }
+
+    private static List<String> deserializeList(String data) {
+        if (data.isEmpty()) {
+            return Collections.emptyList();
         }
 
-        return new UnitMeta(id, Version.parseVersion(version), unitName, status, ids);
+        return Arrays.stream(data.split(LIST_SEPARATOR))
+                .map(UnitMetaSerializer::decode)
+                .collect(Collectors.toList());
+    }
+
+    private static String encode(String s) {
+        return new String(Base64.getEncoder().encode(s.getBytes(UTF_8)), UTF_8);
+    }
+
+    private static String decode(String s) {
+        return new String(Base64.getDecoder().decode(s), UTF_8);
     }
 }

@@ -36,9 +36,9 @@ public class UnitMeta {
     private final Version version;
 
     /**
-     * Unit name.
+     * Unit file names.
      */
-    private final String name;
+    private final List<String> fileNames;
 
     /**
      * Deployment status.
@@ -55,13 +55,13 @@ public class UnitMeta {
      *
      * @param id Unit identifier.
      * @param version Unit version.
-     * @param name Unit name.
+     * @param fileNames Unit file names.
      * @param consistentIdLocation Consistent ids of nodes where unit deployed.
      */
-    public UnitMeta(String id, Version version, String name, DeploymentStatus status, List<String> consistentIdLocation) {
+    public UnitMeta(String id, Version version, List<String> fileNames, DeploymentStatus status, List<String> consistentIdLocation) {
         this.id = id;
         this.version = version;
-        this.name = name;
+        this.fileNames = fileNames;
         this.status = status;
         this.consistentIdLocation.addAll(consistentIdLocation);
     }
@@ -89,8 +89,8 @@ public class UnitMeta {
      *
      * @return name of deployment unit.
      */
-    public String name() {
-        return name;
+    public List<String> fileNames() {
+        return fileNames;
     }
 
     /**
@@ -136,7 +136,7 @@ public class UnitMeta {
         if (version != null ? !version.equals(meta.version) : meta.version != null) {
             return false;
         }
-        if (name != null ? !name.equals(meta.name) : meta.name != null) {
+        if (fileNames != null ? !fileNames.equals(meta.fileNames) : meta.fileNames != null) {
             return false;
         }
         if (status != meta.status) {
@@ -149,7 +149,7 @@ public class UnitMeta {
     public int hashCode() {
         int result = id != null ? id.hashCode() : 0;
         result = 31 * result + (version != null ? version.hashCode() : 0);
-        result = 31 * result + (name != null ? name.hashCode() : 0);
+        result = 31 * result + (fileNames != null ? fileNames.hashCode() : 0);
         result = 31 * result + (status != null ? status.hashCode() : 0);
         result = 31 * result + consistentIdLocation.hashCode();
         return result;
@@ -160,7 +160,7 @@ public class UnitMeta {
         return "UnitMeta{"
                 + "id='" + id + '\''
                 + ", version=" + version
-                + ", name='" + name + '\''
+                + ", fileNames=" + String.join(", ", fileNames)
                 + ", status=" + status
                 + ", consistentIdLocation=" + String.join(", ", consistentIdLocation)
                 + '}';

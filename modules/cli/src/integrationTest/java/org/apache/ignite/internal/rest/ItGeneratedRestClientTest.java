@@ -51,6 +51,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.internal.cli.call.unit.DeployUnitClient;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -100,6 +101,8 @@ public class ItGeneratedRestClientTest {
     private final List<String> clusterNodeNames = new ArrayList<>();
 
     private final List<Ignite> clusterNodes = new ArrayList<>();
+
+    private ApiClient apiClient;
 
     private ClusterConfigurationApi clusterConfigurationApi;
 
@@ -158,15 +161,15 @@ public class ItGeneratedRestClientTest {
 
         firstNodeName = clusterNodes.get(0).name();
 
-        ApiClient client = clientFactory.getClient("http://localhost:" + BASE_REST_PORT);
+        apiClient = clientFactory.getClient("http://localhost:" + BASE_REST_PORT);
 
-        clusterConfigurationApi = new ClusterConfigurationApi(client);
-        nodeConfigurationApi = new NodeConfigurationApi(client);
-        clusterManagementApi = new ClusterManagementApi(client);
-        nodeManagementApi = new NodeManagementApi(client);
-        topologyApi = new TopologyApi(client);
-        nodeMetricApi = new NodeMetricApi(client);
-        deploymentApi = new DeploymentApi(client);
+        clusterConfigurationApi = new ClusterConfigurationApi(apiClient);
+        nodeConfigurationApi = new NodeConfigurationApi(apiClient);
+        clusterManagementApi = new ClusterManagementApi(apiClient);
+        nodeManagementApi = new NodeManagementApi(apiClient);
+        topologyApi = new TopologyApi(apiClient);
+        nodeMetricApi = new NodeMetricApi(apiClient);
+        deploymentApi = new DeploymentApi(apiClient);
 
         objectMapper = new ObjectMapper();
     }
@@ -389,7 +392,8 @@ public class ItGeneratedRestClientTest {
     void deployUndeployUnitSync() throws ApiException {
         assertThat(deploymentApi.units(), empty());
 
-        deploymentApi.deployUnit("test.unit.id", emptyFile(), "1.0.0");
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19295
+        new DeployUnitClient(apiClient).deployUnit("test.unit.id", List.of(emptyFile()), "1.0.0");
         List<UnitStatus> units = deploymentApi.units();
         assertThat(units, hasSize(1));
         assertThat(units.get(0).getId(), equalTo("test.unit.id"));
