@@ -34,12 +34,10 @@ import java.util.UUID;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleContainer;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DecimalNativeType;
@@ -145,7 +143,7 @@ public class ClientTableCommon {
 
         assert tuple instanceof BinaryTupleContainer : "Tuple must be a BinaryTupleContainer: " + tuple.getClass();
 
-        BinaryTuple binaryTuple = ((BinaryTupleContainer) tuple).binaryTuple();
+        BinaryTupleReader binaryTuple = ((BinaryTupleContainer) tuple).binaryTuple();
 
         assert binaryTuple != null : "Binary tuple must not be null: " + tuple.getClass();
 
@@ -282,20 +280,9 @@ public class ClientTableCommon {
         // If the column has a default value, it should be applied only in case 1.
         // https://cwiki.apache.org/confluence/display/IGNITE/IEP-76+Thin+Client+Protocol+for+Ignite+3.0#IEP76ThinClientProtocolforIgnite3.0-NullvsNoValue
         var noValueSet = unpacker.unpackBitSet();
-        var binaryTupleReader = new BinaryTupleReader(cnt, unpacker.readBinaryUnsafe());
-        var tuple = Tuple.create(cnt);
+        var binaryTupleReader = new BinaryTupleReader(cnt, unpacker.readBinary());
 
-        for (int i = 0; i < cnt; i++) {
-            if (noValueSet.get(i)) {
-                continue;
-            }
-
-            Column column = schema.column(i);
-            ClientBinaryTupleUtils.readAndSetColumnValue(
-                    binaryTupleReader, i, tuple, column.name(), getClientDataType(column.type().spec()), getDecimalScale(column.type()));
-        }
-
-        return tuple;
+        return new ClientTuple(schema, noValueSet, binaryTupleReader, 0, cnt);
     }
 
     /**

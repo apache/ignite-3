@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -29,5 +30,5 @@ public interface BinaryTupleContainer {
      *
      * @return Underlying binary tuple.
      */
-    @Nullable BinaryTuple binaryTuple();
+    @Nullable BinaryTupleReader binaryTuple();
 }

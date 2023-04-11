@@ -385,6 +385,10 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
         return false;
     }
 
+    protected @Nullable BinaryTupleReader binaryTuple() {
+        return binaryTuple;
+    }
+
     protected abstract String schemaColumnName(int internalIndex);
 
     protected abstract int schemaColumnIndex(@NotNull String columnName);
