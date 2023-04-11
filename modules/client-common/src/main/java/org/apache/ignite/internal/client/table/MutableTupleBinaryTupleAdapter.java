@@ -41,14 +41,17 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     /** Underlying BinaryTuple. */
     private BinaryTupleReader binaryTuple;
 
-    private final int schemaOffset;
-
-    private final int schemaSize;
-
-    private final @Nullable BitSet noValueSet;
-
     /** Tuple with overwritten data. */
     private @Nullable Tuple tuple;
+
+    /** Schema offset: value tuples skip the key part. */
+    private final int schemaOffset;
+
+    /** Schema size: key tuples skip the value part. */
+    private final int schemaSize;
+
+    /** No-value set. */
+    private final @Nullable BitSet noValueSet;
 
     /**
      * Constructor.
