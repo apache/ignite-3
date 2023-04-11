@@ -80,7 +80,6 @@ class ClientTuple extends MutableTupleBinaryTupleAdapter implements BinaryTupleC
     /** {@inheritDoc} */
     @Override
     protected ColumnType schemaColumnType(int columnIndex) {
-        // TODO: There must be a direct conversion - asked in Slack.
         NativeTypeSpec spec = schema.column(columnIndex).type().spec();
         int clientTypeCode = ClientTableCommon.getClientDataType(spec);
 
