@@ -131,7 +131,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             throw new ColumnNotFoundException(columnName);
         }
 
-        return (T)object(internalIndex);
+        return (T) object(internalIndex);
     }
 
     /** {@inheritDoc} */
@@ -144,7 +144,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
         Objects.checkIndex(columnIndex, schemaSize - schemaOffset);
 
         int internalIndex = columnIndex + schemaOffset;
-        return (T)object(internalIndex);
+        return (T) object(internalIndex);
     }
 
     /** {@inheritDoc} */
@@ -411,11 +411,11 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
     protected abstract String schemaColumnName(int internalIndex);
 
-    protected abstract int schemaColumnIndex(@NotNull String columnName);
-
     protected abstract ColumnType schemaColumnType(int columnIndex);
 
     protected abstract int schemaDecimalScale(int columnIndex);
+
+    protected abstract int schemaColumnIndex(@NotNull String columnName);
 
     private int schemaColumnIndex(@NotNull String columnName, @Nullable ColumnType type) {
         var internalIndex = schemaColumnIndex(columnName);
@@ -428,8 +428,8 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             ColumnType actualType = schemaColumnType(internalIndex);
 
             if (type != actualType) {
-                throw new ClassCastException("Column with name '" + columnName + "' has type " + actualType +
-                        " but " + type + " was requested");
+                throw new ClassCastException("Column with name '" + columnName + "' has type " + actualType
+                        + " but " + type + " was requested");
             }
         }
 
@@ -453,8 +453,8 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
         var actualType = schemaColumnType(internalIndex);
 
         if (type != actualType) {
-            throw new ClassCastException("Column with index " + publicIndex + " has type " + actualType +
-                    " but " + type + " was requested");
+            throw new ClassCastException("Column with index " + publicIndex + " has type " + actualType
+                    + " but " + type + " was requested");
         }
 
         return internalIndex;
