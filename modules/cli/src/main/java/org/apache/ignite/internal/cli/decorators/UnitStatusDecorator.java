@@ -30,7 +30,7 @@ public class UnitStatusDecorator implements Decorator<UnitStatusRecord, Terminal
         return () -> ansi(
                 "[id: %s, versions: %s]",
                 record.id(),
-                record.versionToConsistentIds().keySet()
+                record.versionToDeploymentInfo().keySet()
         );
     }
 }
