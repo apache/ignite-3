@@ -36,6 +36,10 @@ import org.openjdk.jmh.runner.options.TimeValue;
 
 /**
  * Basic table benchmark.
+ *
+ * <p>Results
+ * Benchmark                   Mode  Cnt      Score      Error  Units
+ * ClientPutGetBenchmark.get  thrpt    3  53183.778 ± 8726.747  ops/s
  */
 @State(Scope.Benchmark)
 public class ClientPutGetBenchmark {
@@ -96,9 +100,9 @@ public class ClientPutGetBenchmark {
         Options opt = new OptionsBuilder()
                 .include(ClientPutGetBenchmark.class.getSimpleName())
                 .warmupIterations(3)
-                .warmupTime(TimeValue.seconds(10))
+                .warmupTime(TimeValue.seconds(5))
                 .measurementIterations(3)
-                .measurementTime(TimeValue.seconds(10))
+                .measurementTime(TimeValue.seconds(5))
                 .forks(1)
                 .build();
 
