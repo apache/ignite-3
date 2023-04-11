@@ -60,7 +60,7 @@ public class TupleImplTest {
     @Test
     public void testValueThrowsOnInvalidColumnName() {
         var ex = assertThrows(IllegalArgumentException.class, () -> getTuple().value("x"));
-        assertEquals("Column not found: columnName=x", ex.getMessage());
+        assertEquals("Column doesn't exist [name=x]", ex.getMessage());
     }
 
     @Test
