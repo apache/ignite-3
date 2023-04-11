@@ -21,12 +21,16 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Tuple represents an arbitrary set of columns whose values are accessible by column name.
@@ -101,7 +105,17 @@ public interface Tuple extends Iterable<Object> {
             String columnName = tuple.columnName(idx);
             Object columnValue = tuple.value(idx);
 
-            hash += columnName.hashCode() ^ (columnValue == null ? 0 : columnValue.hashCode());
+            int columnValueHash = 0;
+
+            if (columnValue != null) {
+                if (columnValue instanceof byte[]) {
+                    columnValueHash = Arrays.hashCode((byte[]) columnValue);
+                } else {
+                    columnValueHash = columnValue.hashCode();
+                }
+            }
+
+            hash += columnName.hashCode() ^ columnValueHash;
         }
 
         return hash;
@@ -199,7 +213,7 @@ public interface Tuple extends Iterable<Object> {
      * @param <T>          Default value type.
      * @return Column value if the tuple contains a column with the specified name. Otherwise, {@code defaultValue}.
      */
-    <T> T valueOrDefault(@NotNull String columnName, T defaultValue);
+    @Nullable <T> T valueOrDefault(@NotNull String columnName, @Nullable T defaultValue);
 
     /**
      * Sets a column value.
@@ -210,7 +224,7 @@ public interface Tuple extends Iterable<Object> {
      * @param value      Value to set.
      * @return {@code this} for chaining.
      */
-    Tuple set(@NotNull String columnName, Object value);
+    Tuple set(@NotNull String columnName, @Nullable Object value);
 
     /**
      * Gets a column value for the given column name.
@@ -223,7 +237,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IllegalArgumentException If no column with the given name exists.
      */
-    <T> T value(@NotNull String columnName) throws IllegalArgumentException;
+    @Nullable <T> T value(@NotNull String columnName) throws IllegalArgumentException;
 
     /**
      * Gets a column value for the given column index.
@@ -233,7 +247,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
-    <T> T value(int columnIndex);
+    @Nullable <T> T value(int columnIndex);
 
     /**
      * Gets a binary object column.
@@ -511,4 +525,29 @@ public interface Tuple extends Iterable<Object> {
      * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     Instant timestampValue(int columnIndex);
+
+    /** {@inheritDoc} */
+    @Override
+    default Iterator<Object> iterator() {
+        return new Iterator<>() {
+            /** Current column index. */
+            private int cur;
+
+            /** {@inheritDoc} */
+            @Override
+            public boolean hasNext() {
+                return cur < columnCount();
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public Object next() {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
+
+                return value(cur++);
+            }
+        };
+    }
 }

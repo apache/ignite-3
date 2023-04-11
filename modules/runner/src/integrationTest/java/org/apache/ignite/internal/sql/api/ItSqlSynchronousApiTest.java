@@ -93,7 +93,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    public void ddl() {
+    public void ddl() throws Exception {
         IgniteSql sql = igniteSql();
         Session ses = sql.createSession();
 
@@ -133,6 +133,9 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
                 "CREATE INDEX TEST_IDX ON TEST(VAL1)"
         );
         checkDdl(false, ses, "CREATE INDEX IF NOT EXISTS TEST_IDX ON TEST(VAL1)");
+
+        // TODO: IGNITE-19150 We are waiting for schema synchronization to avoid races to create and destroy indexes
+        waitForIndexBuild("TEST", "TEST_IDX");
 
         checkDdl(true, ses, "DROP INDEX TESt_iDX");
         checkDdl(true, ses, "CREATE INDEX TEST_IDX1 ON TEST(VAL0)");

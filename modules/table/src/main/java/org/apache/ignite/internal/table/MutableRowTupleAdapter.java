@@ -27,8 +27,8 @@ import java.util.BitSet;
 import java.util.Iterator;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
+import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleContainer;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.table.Tuple;
@@ -291,7 +291,7 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
 
     /** {@inheritDoc} */
     @Override
-    public Tuple set(@NotNull String columnName, Object value) {
+    public Tuple set(@NotNull String columnName, @Nullable Object value) {
         unmarshalRow();
 
         tuple.set(columnName, value);

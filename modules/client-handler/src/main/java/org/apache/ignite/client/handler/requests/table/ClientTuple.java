@@ -15,89 +15,79 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.sql;
+package org.apache.ignite.client.handler.requests.table;
 
+import java.util.BitSet;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.proto.ClientColumnTypeConverter;
 import org.apache.ignite.internal.client.table.MutableTupleBinaryTupleAdapter;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Client SQL row.
+ * Server-side client Tuple.
  */
-public class ClientSqlRow extends MutableTupleBinaryTupleAdapter implements SqlRow {
-    /** Meta. */
-    private final ResultSetMetadata metadata;
+class ClientTuple extends MutableTupleBinaryTupleAdapter {
+    /** Schema. */
+    private final SchemaDescriptor schema;
 
     /**
      * Constructor.
      *
-     * @param row Row.
-     * @param meta Meta.
+     * @param schema Schema.
+     * @param noValueSet No-value set.
+     * @param tuple Tuple.
+     * @param schemaOffset Schema offset.
+     * @param schemaSize Schema size.
      */
-    ClientSqlRow(BinaryTupleReader row, ResultSetMetadata meta) {
-        super(row, 0, meta.columns().size(), null);
+    ClientTuple(SchemaDescriptor schema, BitSet noValueSet, BinaryTupleReader tuple, int schemaOffset, int schemaSize) {
+        super(tuple, schemaOffset, schemaSize, noValueSet);
 
-        assert row != null;
-        assert meta != null;
-
-        this.metadata = meta;
+        this.schema = schema;
     }
 
     /** {@inheritDoc} */
     @Override
-    public int columnCount() {
-        return metadata.columns().size();
+    public @Nullable BinaryTupleReader binaryTuple() {
+        return super.binaryTuple();
     }
 
     /** {@inheritDoc} */
     @Override
-    public String columnName(int columnIndex) {
-        return metadata.columns().get(columnIndex).name();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int columnIndex(@NotNull String columnName) {
-        return metadata.indexOf(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Tuple set(@NotNull String columnName, Object value) {
+    public Tuple set(@NotNull String columnName, @Nullable Object value) {
         throw new UnsupportedOperationException("Operation not supported.");
     }
 
     /** {@inheritDoc} */
     @Override
     protected String schemaColumnName(int internalIndex) {
-        return columnName(internalIndex);
+        return schema.column(internalIndex).name();
     }
 
     /** {@inheritDoc} */
     @Override
     protected int schemaColumnIndex(@NotNull String columnName) {
-        return columnIndex(columnName);
+        Column column = schema.column(columnName);
+        return column == null ? -1 : column.schemaIndex();
     }
 
     /** {@inheritDoc} */
     @Override
     protected ColumnType schemaColumnType(int columnIndex) {
-        return metadata.columns().get(columnIndex).type();
+        NativeTypeSpec spec = schema.column(columnIndex).type().spec();
+        int clientTypeCode = ClientTableCommon.getClientDataType(spec);
+
+        return ClientColumnTypeConverter.clientDataTypeToSqlColumnType(clientTypeCode);
     }
 
     /** {@inheritDoc} */
     @Override
     protected int schemaDecimalScale(int columnIndex) {
-        return metadata.columns().get(columnIndex).scale();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ResultSetMetadata metadata() {
-        return metadata;
+        return ClientTableCommon.getDecimalScale(schema.column(columnIndex).type());
     }
 }

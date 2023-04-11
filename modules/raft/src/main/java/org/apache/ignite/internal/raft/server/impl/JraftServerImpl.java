@@ -447,7 +447,8 @@ public class JraftServerImpl implements RaftServer {
                     PeerId.fromPeer(nodeId.peer()),
                     nodeOptions,
                     rpcServer,
-                    nodeManager
+                    nodeManager,
+                    groupOptions.ownFsmCallerExecutorDisruptorConfig()
             );
 
             server.start();

@@ -38,7 +38,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.Cluster.NodeKnockout;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
@@ -290,7 +289,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         entryNode.logicalTopologyService().addEventListener(listener);
 
         // Knock the node out without allowing it to say good bye.
-        cluster.knockOutNode(1, NodeKnockout.PARTITION_NETWORK);
+        cluster.simulateNetworkPartitionOf(1);
 
         // 1 second is usually insufficient on my machine to get an event, even if it's produced. On the CI we
         // should probably account for spurious delays due to other processes, hence 2 seconds.

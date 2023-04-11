@@ -15,27 +15,19 @@
  * limitations under the License.
  */
 
-#pragma once
+package org.apache.ignite.internal.binarytuple;
 
-#include <ignite/common/ignite_type.h>
-
-namespace ignite {
+import org.jetbrains.annotations.Nullable;
 
 /**
- * @brief Basic column info.
+ * An entity that stores underlying data in a {@link BinaryTupleReader}.
  */
-struct column_info {
-    /** Data type of the values in this column. */
-    ignite_type type;
-
-    /** True if the column values may be NULL, false otherwise. */
-    bool nullable;
-
-    bool operator==(const column_info &other) const noexcept {
-        return type == other.type && nullable == other.nullable;
-    }
-
-    bool operator!=(const column_info &other) const noexcept { return !(operator==(other)); }
-};
-
-} // namespace ignite
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface BinaryTupleContainer {
+    /**
+     * Returns the underlying binary tuple, if present.
+     *
+     * @return Underlying binary tuple.
+     */
+    @Nullable BinaryTupleReader binaryTuple();
+}

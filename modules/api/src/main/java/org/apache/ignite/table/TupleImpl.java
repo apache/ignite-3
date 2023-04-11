@@ -26,7 +26,6 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -35,6 +34,7 @@ import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Simple tuple implementation.
@@ -100,7 +100,7 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
-    public Tuple set(@NotNull String columnName, Object val) {
+    public Tuple set(@NotNull String columnName, @Nullable Object val) {
         String columnName0 = IgniteNameUtils.parseSimpleName(columnName);
 
         int idx = colMapping.computeIfAbsent(Objects.requireNonNull(columnName0), name -> colMapping.size());
@@ -154,7 +154,7 @@ class TupleImpl implements Tuple, Serializable {
         int idx = columnIndex(columnName);
 
         if (idx == -1) {
-            throw new IllegalArgumentException("Column not found: columnName=" + columnName);
+            throw new IllegalArgumentException("Column doesn't exist [name=" + columnName + ']');
         }
 
         return (T) colValues.get(idx);
@@ -334,28 +334,6 @@ class TupleImpl implements Tuple, Serializable {
     @Override
     public Instant timestampValue(int columnIndex) {
         return value(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @NotNull
-    @Override
-    public Iterator<Object> iterator() {
-        return new Iterator<>() {
-            /** Current column index. */
-            private int cur = 0;
-
-            /** {@inheritDoc} */
-            @Override
-            public boolean hasNext() {
-                return cur < colValues.size();
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public Object next() {
-                return hasNext() ? colValues.get(cur++) : null;
-            }
-        };
     }
 
     /** {@inheritDoc} */

@@ -56,6 +56,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
@@ -986,5 +987,22 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     IndexMeta createIndexMetaForNewIndex(UUID indexId) {
         return new IndexMeta(indexId, 0L, RowId.lowestRowId(partitionId).uuid());
+    }
+
+    /**
+     * Returns a index storage instance or {@code null} if not exists.
+     *
+     * @param indexId Index UUID.
+     */
+    public @Nullable IndexStorage getIndex(UUID indexId) {
+        return busy(() -> {
+            PageMemoryHashIndexStorage hashIndexStorage = hashIndexes.get(indexId);
+
+            if (hashIndexStorage != null) {
+                return hashIndexStorage;
+            }
+
+            return sortedIndexes.get(indexId);
+        });
     }
 }

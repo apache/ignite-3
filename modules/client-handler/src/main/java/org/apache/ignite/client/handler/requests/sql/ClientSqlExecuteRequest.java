@@ -194,7 +194,7 @@ public class ClientSqlExecuteRequest {
 
             out.packString(col.name());
             out.packBoolean(col.nullable());
-            out.packInt(ClientColumnTypeConverter.columnTypeToOrdinal(col.type()));
+            out.packInt(ClientColumnTypeConverter.sqlColumnTypeToOrdinal(col.type()));
             out.packInt(col.scale());
             out.packInt(col.precision());
 

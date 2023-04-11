@@ -732,9 +732,9 @@ components:
     BasicAuthenticationProviderConfig:
       type: object
       properties:
-        login:
+        username:
           type: string
-          description: Login.
+          description: Username.
         password:
           type: string
           description: Password.

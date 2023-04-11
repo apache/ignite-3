@@ -60,7 +60,7 @@ void store_time(std::byte *dest, const ignite_time &value, std::size_t size) {
 
 } // namespace
 
-binary_tuple_builder::binary_tuple_builder(number_t element_count) noexcept
+binary_tuple_builder::binary_tuple_builder(tuple_num_t element_count) noexcept
     : element_count(element_count) {
 }
 
@@ -74,12 +74,12 @@ void binary_tuple_builder::start() noexcept {
 void binary_tuple_builder::layout() {
     assert(element_index == element_count);
 
-    binary_tuple_header header;
+    binary_tuple_common::header header;
 
     size_t nullmapSize = 0;
     if (null_elements) {
         header.set_nullmap_flag();
-        nullmapSize = binary_tuple_schema::get_nullmap_size(element_count);
+        nullmapSize = binary_tuple_common::get_nullmap_size(element_count);
     }
 
     entry_size = header.set_entry_size(value_area_size);
@@ -87,58 +87,15 @@ void binary_tuple_builder::layout() {
     std::size_t tableSize = entry_size * element_count;
 
     binary_tuple.clear();
-    binary_tuple.resize(binary_tuple_header::SIZE + nullmapSize + tableSize + value_area_size);
+    binary_tuple.resize(binary_tuple_common::HEADER_SIZE + nullmapSize + tableSize + value_area_size);
 
     binary_tuple[0] = header.flags;
 
-    next_entry = binary_tuple.data() + binary_tuple_header::SIZE + nullmapSize;
+    next_entry = binary_tuple.data() + binary_tuple_common::HEADER_SIZE + nullmapSize;
     value_base = next_entry + tableSize;
     next_value = value_base;
 
     element_index = 0;
-}
-
-data_size_t binary_tuple_builder::gauge(ignite_type type, bytes_view bytes) {
-    switch (type) {
-        case ignite_type::BOOLEAN:
-            return gauge_bool(binary_tuple_parser::get_bool(bytes));
-        case ignite_type::INT8:
-            return gauge_int8(binary_tuple_parser::get_int8(bytes));
-        case ignite_type::INT16:
-            return gauge_int16(binary_tuple_parser::get_int16(bytes));
-        case ignite_type::INT32:
-            return gauge_int32(binary_tuple_parser::get_int32(bytes));
-        case ignite_type::INT64:
-            return gauge_int64(binary_tuple_parser::get_int64(bytes));
-        case ignite_type::FLOAT:
-            return gauge_float(binary_tuple_parser::get_float(bytes));
-        case ignite_type::DOUBLE:
-            return gauge_double(binary_tuple_parser::get_double(bytes));
-        case ignite_type::NUMBER:
-        case ignite_type::DECIMAL:
-            // For a decimal there is no point to know scale here, treating it as big_integer will do.
-            return gauge_number(binary_tuple_parser::get_number(bytes));
-        case ignite_type::STRING:
-        case ignite_type::BYTE_ARRAY:
-        case ignite_type::BITMASK:
-            return static_cast<data_size_t>(bytes.size());
-        case ignite_type::UUID:
-            return gauge_uuid(binary_tuple_parser::get_uuid(bytes));
-        case ignite_type::DATE:
-            return gauge_date(binary_tuple_parser::get_date(bytes));
-        case ignite_type::TIME:
-            return gauge_time(binary_tuple_parser::get_time(bytes));
-        case ignite_type::DATETIME:
-            return gauge_date_time(binary_tuple_parser::get_date_time(bytes));
-        case ignite_type::TIMESTAMP:
-            return gauge_timestamp(binary_tuple_parser::get_timestamp(bytes));
-        case ignite_type::PERIOD:
-            return gauge_period(binary_tuple_parser::get_period(bytes));
-        case ignite_type::DURATION:
-            return gauge_duration(binary_tuple_parser::get_duration(bytes));
-        default:
-            throw std::logic_error("Unsupported type " + std::to_string(static_cast<int>(type)));
-    }
 }
 
 void binary_tuple_builder::append_bytes(bytes_view bytes) {
@@ -149,45 +106,24 @@ void binary_tuple_builder::append_bytes(bytes_view bytes) {
     append_entry();
 }
 
-void binary_tuple_builder::append_bool(bytes_view bytes) {
-    data_size_t size = gauge_int8(binary_tuple_parser::get_int8(bytes));
-    assert(size <= bytes.size());
-    append_bytes({bytes.data(), size});
-}
-
 void binary_tuple_builder::append_bool(bool value) {
-    static std::byte true_byte{1};
-    data_size_t size = gauge_bool(value);
+    static const std::byte true_byte{1};
+    const tuple_size_t size = gauge_bool(value);
     append_bytes({&true_byte, size});
 }
 
-void binary_tuple_builder::append_int8(bytes_view bytes) {
-    data_size_t size = gauge_int8(binary_tuple_parser::get_int8(bytes));
-    assert(size <= bytes.size());
-    append_bytes({bytes.data(), size});
-}
-
 void binary_tuple_builder::append_int8(std::int8_t value) {
-    data_size_t size = gauge_int8(value);
+    const tuple_size_t size = gauge_int8(value);
     append_bytes({reinterpret_cast<const std::byte *>(&value), size});
 }
 
-void binary_tuple_builder::append_int16(bytes_view bytes) {
-    auto value = binary_tuple_parser::get_int16(bytes);
-
-    data_size_t size = gauge_int16(value);
-    assert(size <= bytes.size());
-
-    if constexpr (is_little_endian_platform()) {
-        append_bytes({bytes.data(), size});
-    } else {
-        value = bytes::reverse(value);
-        append_bytes({reinterpret_cast<const std::byte *>(&value), size});
-    }
+void binary_tuple_builder::append_int8_ptr(std::int8_t *bytes) {
+    const tuple_size_t size = gauge_int8(*bytes);
+    append_bytes({reinterpret_cast<const std::byte *>(bytes), size});
 }
 
 void binary_tuple_builder::append_int16(std::int16_t value) {
-    data_size_t size = gauge_int16(value);
+    const tuple_size_t size = gauge_int16(value);
 
     if constexpr (!is_little_endian_platform()) {
         value = bytes::reverse(value);
@@ -195,14 +131,12 @@ void binary_tuple_builder::append_int16(std::int16_t value) {
     append_bytes({reinterpret_cast<const std::byte *>(&value), size});
 }
 
-void binary_tuple_builder::append_int32(bytes_view bytes) {
-    auto value = binary_tuple_parser::get_int32(bytes);
-
-    data_size_t size = gauge_int32(value);
-    assert(size <= bytes.size());
+void binary_tuple_builder::append_int16_ptr(std::int16_t *bytes) {
+    auto value = *bytes;
+    const tuple_size_t size = gauge_int16(value);
 
     if constexpr (is_little_endian_platform()) {
-        append_bytes({bytes.data(), size});
+        append_bytes({reinterpret_cast<const std::byte *>(bytes), size});
     } else {
         value = bytes::reverse(value);
         append_bytes({reinterpret_cast<const std::byte *>(&value), size});
@@ -210,7 +144,7 @@ void binary_tuple_builder::append_int32(bytes_view bytes) {
 }
 
 void binary_tuple_builder::append_int32(std::int32_t value) {
-    data_size_t size = gauge_int32(value);
+    const tuple_size_t size = gauge_int32(value);
 
     if constexpr (!is_little_endian_platform()) {
         value = bytes::reverse(value);
@@ -218,14 +152,12 @@ void binary_tuple_builder::append_int32(std::int32_t value) {
     append_bytes({reinterpret_cast<const std::byte *>(&value), size});
 }
 
-void binary_tuple_builder::append_int64(bytes_view bytes) {
-    auto value = binary_tuple_parser::get_int64(bytes);
-
-    data_size_t size = gauge_int64(value);
-    assert(size <= bytes.size());
+void binary_tuple_builder::append_int32_ptr(std::int32_t *bytes) {
+    auto value = *bytes;
+    const tuple_size_t size = gauge_int32(value);
 
     if constexpr (is_little_endian_platform()) {
-        append_bytes({bytes.data(), size});
+        append_bytes({reinterpret_cast<const std::byte *>(bytes), size});
     } else {
         value = bytes::reverse(value);
         append_bytes({reinterpret_cast<const std::byte *>(&value), size});
@@ -233,7 +165,7 @@ void binary_tuple_builder::append_int64(bytes_view bytes) {
 }
 
 void binary_tuple_builder::append_int64(std::int64_t value) {
-    data_size_t size = gauge_int64(value);
+    const tuple_size_t size = gauge_int64(value);
 
     if constexpr (!is_little_endian_platform()) {
         value = bytes::reverse(value);
@@ -241,13 +173,20 @@ void binary_tuple_builder::append_int64(std::int64_t value) {
     append_bytes({reinterpret_cast<const std::byte *>(&value), size});
 }
 
-void binary_tuple_builder::append_float(bytes_view bytes) {
-    float value = binary_tuple_parser::get_float(bytes);
-    append_float(value);
+void binary_tuple_builder::append_int64_ptr(std::int64_t *bytes) {
+    auto value = *bytes;
+    const tuple_size_t size = gauge_int64(value);
+
+    if constexpr (is_little_endian_platform()) {
+        append_bytes({reinterpret_cast<const std::byte *>(bytes), size});
+    } else {
+        value = bytes::reverse(value);
+        append_bytes({reinterpret_cast<const std::byte *>(&value), size});
+    }
 }
 
 void binary_tuple_builder::append_float(float value) {
-    data_size_t size = gauge_float(value);
+    tuple_size_t size = gauge_float(value);
 
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
@@ -261,13 +200,8 @@ void binary_tuple_builder::append_float(float value) {
     append_entry();
 }
 
-void binary_tuple_builder::append_double(bytes_view bytes) {
-    double value = binary_tuple_parser::get_double(bytes);
-    append_double(value);
-}
-
 void binary_tuple_builder::append_double(double value) {
-    data_size_t size = gauge_double(value);
+    tuple_size_t size = gauge_double(value);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
@@ -285,13 +219,8 @@ void binary_tuple_builder::append_double(double value) {
     append_entry();
 }
 
-void binary_tuple_builder::append_number(bytes_view bytes) {
-    big_integer value = binary_tuple_parser::get_number(bytes);
-    append_number(value);
-}
-
 void binary_tuple_builder::append_number(const big_integer &value) {
-    data_size_t size = gauge_number(value);
+    tuple_size_t size = gauge_number(value);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
@@ -304,7 +233,7 @@ void binary_tuple_builder::append_number(const big_integer &value) {
 }
 
 void binary_tuple_builder::append_number(const big_decimal &value) {
-    data_size_t size = gauge_number(value);
+    tuple_size_t size = gauge_number(value);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
@@ -316,13 +245,8 @@ void binary_tuple_builder::append_number(const big_decimal &value) {
     append_entry();
 }
 
-void binary_tuple_builder::append_uuid(bytes_view bytes) {
-    auto value = binary_tuple_parser::get_uuid(bytes);
-    append_uuid(value);
-}
-
 void binary_tuple_builder::append_uuid(uuid value) {
-    data_size_t size = gauge_uuid(value);
+    tuple_size_t size = gauge_uuid(value);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
@@ -336,13 +260,8 @@ void binary_tuple_builder::append_uuid(uuid value) {
     append_entry();
 }
 
-void binary_tuple_builder::append_date(bytes_view bytes) {
-    auto value = binary_tuple_parser::get_date(bytes);
-    append_date(value);
-}
-
 void binary_tuple_builder::append_date(const ignite_date &value) {
-    data_size_t size = gauge_date(value);
+    tuple_size_t size = gauge_date(value);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
@@ -355,13 +274,8 @@ void binary_tuple_builder::append_date(const ignite_date &value) {
     append_entry();
 }
 
-void binary_tuple_builder::append_time(bytes_view bytes) {
-    auto value = binary_tuple_parser::get_time(bytes);
-    append_time(value);
-}
-
 void binary_tuple_builder::append_time(const ignite_time &value) {
-    data_size_t size = gauge_time(value);
+    tuple_size_t size = gauge_time(value);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
@@ -374,13 +288,8 @@ void binary_tuple_builder::append_time(const ignite_time &value) {
     append_entry();
 }
 
-void binary_tuple_builder::append_date_time(bytes_view bytes) {
-    auto value = binary_tuple_parser::get_date_time(bytes);
-    append_date_time(value);
-}
-
 void binary_tuple_builder::append_date_time(const ignite_date_time &value) {
-    data_size_t size = gauge_date_time(value);
+    tuple_size_t size = gauge_date_time(value);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
@@ -394,13 +303,8 @@ void binary_tuple_builder::append_date_time(const ignite_date_time &value) {
     append_entry();
 }
 
-void binary_tuple_builder::append_timestamp(bytes_view bytes) {
-    auto value = binary_tuple_parser::get_timestamp(bytes);
-    append_timestamp(value);
-}
-
 void binary_tuple_builder::append_timestamp(const ignite_timestamp &value) {
-    data_size_t size = gauge_timestamp(value);
+    tuple_size_t size = gauge_timestamp(value);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
@@ -416,13 +320,8 @@ void binary_tuple_builder::append_timestamp(const ignite_timestamp &value) {
     append_entry();
 }
 
-void binary_tuple_builder::append_period(bytes_view bytes) {
-    auto value = binary_tuple_parser::get_period(bytes);
-    append_period(value);
-}
-
 void binary_tuple_builder::append_period(const ignite_period &value) {
-    data_size_t size = gauge_period(value);
+    tuple_size_t size = gauge_period(value);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
@@ -447,13 +346,8 @@ void binary_tuple_builder::append_period(const ignite_period &value) {
     append_entry();
 }
 
-void binary_tuple_builder::append_duration(bytes_view bytes) {
-    auto value = binary_tuple_parser::get_duration(bytes);
-    append_duration(value);
-}
-
 void binary_tuple_builder::append_duration(const ignite_duration &value) {
-    data_size_t size = gauge_duration(value);
+    tuple_size_t size = gauge_duration(value);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
@@ -467,49 +361,6 @@ void binary_tuple_builder::append_duration(const ignite_duration &value) {
     }
 
     append_entry();
-}
-
-void binary_tuple_builder::append(ignite_type type, const bytes_view &bytes) {
-    switch (type) {
-        case ignite_type::BOOLEAN:
-            return append_bool(bytes);
-        case ignite_type::INT8:
-            return append_int8(bytes);
-        case ignite_type::INT16:
-            return append_int16(bytes);
-        case ignite_type::INT32:
-            return append_int32(bytes);
-        case ignite_type::INT64:
-            return append_int64(bytes);
-        case ignite_type::FLOAT:
-            return append_float(bytes);
-        case ignite_type::DOUBLE:
-            return append_double(bytes);
-        case ignite_type::NUMBER:
-        case ignite_type::DECIMAL:
-            // For a decimal there is no point to know scale here, treating it as big_integer will do.
-            return append_number(bytes);
-        case ignite_type::STRING:
-        case ignite_type::BYTE_ARRAY:
-        case ignite_type::BITMASK:
-            return append_bytes(bytes);
-        case ignite_type::UUID:
-            return append_uuid(bytes);
-        case ignite_type::DATE:
-            return append_date(bytes);
-        case ignite_type::TIME:
-            return append_time(bytes);
-        case ignite_type::DATETIME:
-            return append_date_time(bytes);
-        case ignite_type::TIMESTAMP:
-            return append_timestamp(bytes);
-        case ignite_type::PERIOD:
-            return append_period(bytes);
-        case ignite_type::DURATION:
-            return append_duration(bytes);
-        default:
-            throw std::logic_error("Unsupported type " + std::to_string(static_cast<int>(type)));
-    }
 }
 
 } // namespace ignite

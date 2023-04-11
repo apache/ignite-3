@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.cli.config.ini;
 
-import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_LOGIN;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.CLUSTER_URL;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_URL;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE_PASSWORD;
@@ -129,7 +129,7 @@ public class IniConfigManager implements ConfigManager {
             defaultSection.setProperty(REST_KEY_STORE_PASSWORD.value(), "");
             defaultSection.setProperty(REST_TRUST_STORE_PATH.value(), "");
             defaultSection.setProperty(REST_TRUST_STORE_PASSWORD.value(), "");
-            defaultSection.setProperty(BASIC_AUTHENTICATION_LOGIN.value(), "");
+            defaultSection.setProperty(BASIC_AUTHENTICATION_USERNAME.value(), "");
             defaultSection.setProperty(BASIC_AUTHENTICATION_PASSWORD.value(), "");
             ini.store();
             return ini;

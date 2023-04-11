@@ -15,19 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
-
-import org.jetbrains.annotations.Nullable;
+package org.apache.ignite.internal.raft;
 
 /**
- * An entity that stores underlying data in a {@link BinaryTuple}.
+ * Raft node disruptor configuration.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface BinaryTupleContainer {
+public class RaftNodeDisruptorConfiguration {
+    private final String threadPostfix;
+
+    private final int stripes;
+
     /**
-     * Returns the underlying binary tuple, if present.
+     * Constructor.
      *
-     * @return Underlying binary tuple.
+     * @param threadPostfix Disruptor threads' name postfix.
+     * @param stripes Number of disruptor stripes.
      */
-    @Nullable BinaryTuple binaryTuple();
+    public RaftNodeDisruptorConfiguration(String threadPostfix, int stripes) {
+        this.threadPostfix = threadPostfix;
+        this.stripes = stripes;
+    }
+
+    /**
+     * Return disruptor threads' name postfix.
+     */
+    public String getThreadPostfix() {
+        return threadPostfix;
+    }
+
+    /**
+     * Return number of disruptor stripes.
+     */
+    public int getStripes() {
+        return stripes;
+    }
 }

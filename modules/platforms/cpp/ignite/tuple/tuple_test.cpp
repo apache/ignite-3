@@ -15,129 +15,176 @@
  * limitations under the License.
  */
 
+#include "binary_tuple_builder.h"
 #include "binary_tuple_parser.h"
-#include "column_info.h"
-#include "tuple_assembler.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <array>
+#include <cstring>
 #include <string>
+#include <tuple>
+#include <type_traits>
+#include <vector>
 
 using namespace std::string_literals;
 using namespace ignite;
 
+/** Binary value for a potentially nullable column. */
+using value_view = std::optional<bytes_view>;
+
+/** A set of binary values for a whole or partial row. */
+using tuple_view = std::vector<value_view>;
+
 template<typename T>
-T read_tuple(std::optional<bytes_view> data);
-
-template<>
-int8_t read_tuple(std::optional<bytes_view> data) {
-    return binary_tuple_parser::get_int8(data.value());
+T get_value(value_view data) {
+    T res;
+    if constexpr (std::is_same<T, std::int8_t>::value) {
+        res = binary_tuple_parser::get_int8(data.value());
+    } else if constexpr (std::is_same<T, std::int16_t>::value) {
+        res = binary_tuple_parser::get_int16(data.value());
+    } else if constexpr (std::is_same<T, std::int32_t>::value) {
+        res = binary_tuple_parser::get_int32(data.value());
+    } else if constexpr (std::is_same<T, std::int64_t>::value) {
+        res = binary_tuple_parser::get_int64(data.value());
+    } else if constexpr (std::is_same<T, float>::value) {
+        res = binary_tuple_parser::get_float(data.value());
+    } else if constexpr (std::is_same<T, double>::value) {
+        res = binary_tuple_parser::get_double(data.value());
+    } else if constexpr (std::is_same<T, big_integer>::value) {
+        res = binary_tuple_parser::get_number(data.value());
+    } else if constexpr (std::is_same<T, ignite_date>::value) {
+        res = binary_tuple_parser::get_date(data.value());
+    } else if constexpr (std::is_same<T, ignite_time>::value) {
+        res = binary_tuple_parser::get_time(data.value());
+    } else if constexpr (std::is_same<T, ignite_date_time>::value) {
+        res = binary_tuple_parser::get_date_time(data.value());
+    } else if constexpr (std::is_same<T, ignite_timestamp>::value) {
+        res = binary_tuple_parser::get_timestamp(data.value());
+    } else if constexpr (std::is_same<T, uuid>::value) {
+        res = binary_tuple_parser::get_uuid(data.value());
+    } else if constexpr (std::is_same<T, std::string>::value) {
+        res = {reinterpret_cast<const char *>(data->data()), data->size()};
+    }
+    return res;
 }
 
-template<>
-int16_t read_tuple(std::optional<bytes_view> data) {
-    return binary_tuple_parser::get_int16(data.value());
-}
-
-template<>
-int32_t read_tuple(std::optional<bytes_view> data) {
-    return binary_tuple_parser::get_int32(data.value());
-}
-
-template<>
-int64_t read_tuple(std::optional<bytes_view> data) {
-    return binary_tuple_parser::get_int64(data.value());
-}
-
-template<>
-double read_tuple(std::optional<bytes_view> data) {
-    return binary_tuple_parser::get_double(data.value());
-}
-
-template<>
-float read_tuple(std::optional<bytes_view> data) {
-    return binary_tuple_parser::get_float(data.value());
-}
-
-template<>
-big_integer read_tuple(std::optional<bytes_view> data) {
-    return binary_tuple_parser::get_number(data.value());
-}
-
-big_decimal read_decimal(std::optional<bytes_view> data, int32_t scale) {
+big_decimal get_decimal(value_view data, int32_t scale) {
     return binary_tuple_parser::get_decimal(data.value(), scale);
 }
 
-template<>
-ignite_date read_tuple(std::optional<bytes_view> data) {
-    return binary_tuple_parser::get_date(data.value());
-}
+struct builder : binary_tuple_builder {
+    using binary_tuple_builder::binary_tuple_builder;
 
-template<>
-ignite_date_time read_tuple(std::optional<bytes_view> data) {
-    return binary_tuple_parser::get_date_time(data.value());
-}
+    template<typename T>
+    void claim_value(const T &value) {
+        if constexpr (std::is_same<T, std::nullopt_t>::value) {
+            claim(value);
+        } else if constexpr (std::is_same<T, std::int8_t>::value) {
+            claim_int8(value);
+        } else if constexpr (std::is_same<T, std::int16_t>::value) {
+            claim_int16(value);
+        } else if constexpr (std::is_same<T, std::int32_t>::value) {
+            claim_int32(value);
+        } else if constexpr (std::is_same<T, std::int64_t>::value) {
+            claim_int64(value);
+        } else if constexpr (std::is_same<T, float>::value) {
+            claim_float(value);
+        } else if constexpr (std::is_same<T, double>::value) {
+            claim_double(value);
+        } else if constexpr (std::is_same<T, std::string>::value) {
+            claim_string(value);
+        }
+    }
 
-template<>
-uuid read_tuple(std::optional<bytes_view> data) {
-    return binary_tuple_parser::get_uuid(data.value());
-}
+    template<typename T>
+    void append_value(const T &value) {
+        if constexpr (std::is_same<T, std::nullopt_t>::value) {
+            append(value);
+        } else if constexpr (std::is_same<T, std::int8_t>::value) {
+            append_int8(value);
+        } else if constexpr (std::is_same<T, std::int16_t>::value) {
+            append_int16(value);
+        } else if constexpr (std::is_same<T, std::int32_t>::value) {
+            append_int32(value);
+        } else if constexpr (std::is_same<T, std::int64_t>::value) {
+            append_int64(value);
+        } else if constexpr (std::is_same<T, float>::value) {
+            append_float(value);
+        } else if constexpr (std::is_same<T, double>::value) {
+            append_double(value);
+        } else if constexpr (std::is_same<T, std::string>::value) {
+            append_string(value);
+        }
+    }
 
-template<>
-ignite_time read_tuple(std::optional<bytes_view> data) {
-    return binary_tuple_parser::get_time(data.value());
-}
-
-template<>
-ignite_timestamp read_tuple(std::optional<bytes_view> data) {
-    return binary_tuple_parser::get_timestamp(data.value());
-}
-
-template<>
-std::string read_tuple(std::optional<bytes_view> data) {
-    return {reinterpret_cast<const char *>(data->data()), data->size()};
-}
-
-struct SchemaDescriptor {
-    std::vector<column_info> columns;
-
-    [[nodiscard]] number_t length() const { return number_t(columns.size()); }
-
-    [[nodiscard]] binary_tuple_schema to_tuple_schema() const {
-        return binary_tuple_schema({columns.begin(), columns.end()});
+    /**
+     * @brief Assembles and returns a tuple in binary format.
+     *
+     * @tparam Ts Types parameter pack.
+     * @param tupleArgs Elements to be appended to column.
+     * @return Byte buffer with tuple in the binary form.
+     */
+    template<typename... Ts>
+    const auto &build(std::tuple<Ts...> const &tuple) {
+        start();
+        std::apply([&](auto &&...args) { ((claim_value(args)), ...); }, tuple);
+        layout();
+        std::apply([&](auto &&...args) { ((append_value(args)), ...); }, tuple);
+        return binary_tuple_builder::build();
     }
 };
 
-struct SingleValueCheck {
-    explicit SingleValueCheck(binary_tuple_parser &parser)
+struct parser : binary_tuple_parser {
+    using binary_tuple_parser::binary_tuple_parser;
+
+    parser(tuple_num_t num_elements, const std::vector<int8_t> &data)
+        : binary_tuple_parser(num_elements, {reinterpret_cast<const std::byte *>(data.data()), data.size()}) {}
+
+    tuple_view parse() {
+        assert(num_parsed_elements() == 0);
+
+        tuple_num_t num = num_elements();
+
+        tuple_view tuple;
+        tuple.reserve(num);
+        while (num_parsed_elements() < num) {
+            tuple.emplace_back(get_next());
+        }
+
+        return tuple;
+    }
+};
+
+struct single_value_check {
+    explicit single_value_check(binary_tuple_parser &parser)
         : parser{parser} {}
 
     binary_tuple_parser &parser;
 
     template<typename T>
     void operator()(T value) {
-        EXPECT_EQ(value, read_tuple<T>(parser.get_next()));
+        EXPECT_EQ(value, get_value<T>(parser.get_next()));
     }
 
     void operator()(std::nullopt_t /*null*/) { EXPECT_FALSE(parser.get_next()); }
 };
 
 template<typename... Ts, int size>
-void checkReaderWriterEquality(const SchemaDescriptor &schema, const std::tuple<Ts...> &values,
-    const int8_t (&data)[size], bool skipAssemblerCheck = false) {
+void check_reader_writer_equality(
+    const std::tuple<Ts...> &values, const std::int8_t (&data)[size], bool skip_assembler_check = false) {
+    constexpr tuple_num_t NUM_ELEMENTS = sizeof...(Ts);
 
-    auto bytes = bytes_view{reinterpret_cast<const std::byte *>(data), size};
+    bytes_view bytes{reinterpret_cast<const std::byte *>(data), size};
 
-    binary_tuple_parser tp(schema.length(), bytes);
+    binary_tuple_parser tp(NUM_ELEMENTS, bytes);
 
-    std::apply([&tp](const Ts... args) { ((SingleValueCheck(tp)(args)), ...); }, values);
+    std::apply([&tp](const Ts... args) { ((single_value_check(tp)(args)), ...); }, values);
 
     EXPECT_EQ(tp.num_elements(), tp.num_parsed_elements());
 
-    if (!skipAssemblerCheck) {
-        tuple_assembler ta(schema.to_tuple_schema());
+    if (!skip_assembler_check) {
+        builder ta(NUM_ELEMENTS);
 
         bytes_view built = ta.build(values);
 
@@ -145,46 +192,8 @@ void checkReaderWriterEquality(const SchemaDescriptor &schema, const std::tuple<
     }
 }
 
-TEST(tuple, FixedKeyFixedValue) { // NOLINT(cert-err58-cpp)
-    SchemaDescriptor schema;
-
-    schema.columns = {
-        {ignite_type::INT16, false},
-        {ignite_type::INT16, false},
-    };
-
-    // With value.
-    {
-        const std::tuple<int16_t, int16_t> &values = std::make_tuple<int16_t, int16_t>(33, -71);
-
-        int8_t data[] = {0, 1, 2, 33, -71};
-
-        checkReaderWriterEquality(schema, values, data);
-    }
-}
-
 TEST(tuple, AllTypes) {
-    SchemaDescriptor schema;
-
-    schema.columns = {
-        {ignite_type::INT8, false},
-        {ignite_type::INT16, false},
-        {ignite_type::INT32, false},
-        {ignite_type::INT64, false},
-        {ignite_type::NUMBER, false},
-        {ignite_type::DECIMAL, false},
-        {ignite_type::FLOAT, false},
-        {ignite_type::DOUBLE, false},
-        {ignite_type::DATE, false},
-        {ignite_type::TIME, false},
-        {ignite_type::DATETIME, false},
-        {ignite_type::TIMESTAMP, false},
-        {ignite_type::STRING, false},
-        {ignite_type::UUID, false},
-        {ignite_type::BYTE_ARRAY, false},
-    };
-
-    binary_tuple_schema sch = schema.to_tuple_schema();
+    static constexpr tuple_num_t NUM_ELEMENTS = 15;
 
     int8_t v1 = 1;
     int16_t v2 = 2;
@@ -204,7 +213,7 @@ TEST(tuple, AllTypes) {
     std::string v15_tmp("\1\2\3"s);
     bytes_view v15{reinterpret_cast<const std::byte *>(v15_tmp.data()), v15_tmp.size()};
 
-    binary_tuple_builder tb(sch.num_elements());
+    binary_tuple_builder tb(NUM_ELEMENTS);
     tb.start();
 
     tb.claim_int8(v1);
@@ -242,112 +251,69 @@ TEST(tuple, AllTypes) {
     tb.append_bytes(v15);
 
     const std::vector<std::byte> &binary_tuple = tb.build();
-    binary_tuple_parser tp(schema.length(), binary_tuple);
+    binary_tuple_parser tp(NUM_ELEMENTS, binary_tuple);
 
-    EXPECT_EQ(v1, read_tuple<int8_t>(tp.get_next()));
-    EXPECT_EQ(v2, read_tuple<int16_t>(tp.get_next()));
-    EXPECT_EQ(v3, read_tuple<int32_t>(tp.get_next()));
-    EXPECT_EQ(v4, read_tuple<int64_t>(tp.get_next()));
-    EXPECT_EQ(v5, read_tuple<big_integer>(tp.get_next()));
-    EXPECT_EQ(v6, read_decimal(tp.get_next(), v6.get_scale()));
-    EXPECT_EQ(v7, read_tuple<float>(tp.get_next()));
-    EXPECT_EQ(v8, read_tuple<double>(tp.get_next()));
-    EXPECT_EQ(v9, read_tuple<ignite_date>(tp.get_next()));
-    EXPECT_EQ(v10, read_tuple<ignite_time>(tp.get_next()));
-    EXPECT_EQ(v11, read_tuple<ignite_date_time>(tp.get_next()));
-    EXPECT_EQ(v12, read_tuple<ignite_timestamp>(tp.get_next()));
-    EXPECT_EQ(v13, read_tuple<std::string>(tp.get_next()));
-    EXPECT_EQ(v14, read_tuple<uuid>(tp.get_next()));
+    EXPECT_EQ(v1, get_value<int8_t>(tp.get_next()));
+    EXPECT_EQ(v2, get_value<int16_t>(tp.get_next()));
+    EXPECT_EQ(v3, get_value<int32_t>(tp.get_next()));
+    EXPECT_EQ(v4, get_value<int64_t>(tp.get_next()));
+    EXPECT_EQ(v5, get_value<big_integer>(tp.get_next()));
+    EXPECT_EQ(v6, get_decimal(tp.get_next(), v6.get_scale()));
+    EXPECT_EQ(v7, get_value<float>(tp.get_next()));
+    EXPECT_EQ(v8, get_value<double>(tp.get_next()));
+    EXPECT_EQ(v9, get_value<ignite_date>(tp.get_next()));
+    EXPECT_EQ(v10, get_value<ignite_time>(tp.get_next()));
+    EXPECT_EQ(v11, get_value<ignite_date_time>(tp.get_next()));
+    EXPECT_EQ(v12, get_value<ignite_timestamp>(tp.get_next()));
+    EXPECT_EQ(v13, get_value<std::string>(tp.get_next()));
+    EXPECT_EQ(v14, get_value<uuid>(tp.get_next()));
     EXPECT_EQ(v15, tp.get_next());
 }
 
-TEST(tuple, FixedKeyFixedNullableValue) { // NOLINT(cert-err58-cpp)
-    SchemaDescriptor schema;
-
-    schema.columns = {
-        {ignite_type::INT32, false},
-        {ignite_type::INT32, true},
-    };
-
-    // With value.
+TEST(tuple, TwoFixedValues) { // NOLINT(cert-err58-cpp)
     {
         auto values = std::make_tuple<int32_t, int32_t>(33, -71);
 
         int8_t data[] = {0, 1, 2, 33, -71};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 
-    // Null value.
     {
         auto values = std::make_tuple(int32_t{77}, std::nullopt);
 
         int8_t data[] = {4, 2, 1, 1, 77};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 }
 
-TEST(tuple, FixedKeyVarlenValue) { // NOLINT(cert-err58-cpp)
-    SchemaDescriptor schema;
-
-    schema.columns = {
-        {ignite_type::INT16, false},
-        {ignite_type::STRING, true},
-    };
-
-    // With value.
+TEST(tuple, FixedAndVarlenValue) { // NOLINT(cert-err58-cpp)
     {
         auto values = std::make_tuple(int16_t{-33}, std::string{"val"});
 
         int8_t data[] = {0, 1, 4, -33, 118, 97, 108};
 
-        checkReaderWriterEquality(schema, values, data);
-    }
-}
-
-TEST(tuple, FixedKeyVarlenNullableValue) { // NOLINT(cert-err58-cpp)
-    SchemaDescriptor schema;
-
-    schema.columns = {
-        {ignite_type::INT16, false},
-        {ignite_type::STRING, true},
-    };
-
-    // With value.
-    {
-        auto values = std::make_tuple(int16_t{-33}, std::string{"val"});
-
-        int8_t data[] = {0, 1, 4, -33, 118, 97, 108};
-
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 
-    // Null value.
     {
         auto values = std::make_tuple(int16_t{33}, std::nullopt);
 
         int8_t data[] = {4, 2, 1, 1, 33};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 }
 
-TEST(tuple, VarlenNullableKeyVarlenNullableValue) { // NOLINT(cert-err58-cpp)
-    SchemaDescriptor schema;
-
-    schema.columns = {
-        {ignite_type::STRING, true},
-        {ignite_type::STRING, true},
-    };
-
+TEST(tuple, TwoVarlenValues) { // NOLINT(cert-err58-cpp)
     // With key and value.
     {
         auto values = std::make_tuple(std::string{"key"}, std::string{"val"});
 
         int8_t data[] = {0, 3, 6, 107, 101, 121, 118, 97, 108};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 
     // Null key.
@@ -356,7 +322,7 @@ TEST(tuple, VarlenNullableKeyVarlenNullableValue) { // NOLINT(cert-err58-cpp)
 
         int8_t data[] = {4, 1, 0, 3, 118, 97, 108};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 
     // Null value.
@@ -365,7 +331,7 @@ TEST(tuple, VarlenNullableKeyVarlenNullableValue) { // NOLINT(cert-err58-cpp)
 
         int8_t data[] = {4, 2, 3, 3, 107, 101, 121};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 
     // Null both.
@@ -374,27 +340,18 @@ TEST(tuple, VarlenNullableKeyVarlenNullableValue) { // NOLINT(cert-err58-cpp)
 
         int8_t data[] = {4, 3, 0, 0};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 }
 
-TEST(tuple, FixedAndVarlenKeyFixedAndVarlenValue) { // NOLINT(cert-err58-cpp)
-    SchemaDescriptor schema;
-
-    schema.columns = {
-        {ignite_type::INT16, false},
-        {ignite_type::STRING, false},
-        {ignite_type::INT32, true},
-        {ignite_type::STRING, true},
-    };
-
+TEST(tuple, FourMixedValues) { // NOLINT(cert-err58-cpp)
     // With value.
     {
         auto values = std::make_tuple(int16_t{33}, std::string{"keystr"}, int32_t{73}, std::string{"valstr"});
 
         int8_t data[] = {0, 1, 7, 8, 14, 33, 107, 101, 121, 115, 116, 114, 73, 118, 97, 108, 115, 116, 114};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 
     // Null value.
@@ -403,29 +360,18 @@ TEST(tuple, FixedAndVarlenKeyFixedAndVarlenValue) { // NOLINT(cert-err58-cpp)
 
         int8_t data[] = {4, 12, 1, 8, 8, 8, 33, 107, 101, 121, 115, 116, 114, 50};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 }
 
 TEST(tuple, FixedNullableColumns) { // NOLINT(cert-err58-cpp)
-    SchemaDescriptor schema;
-
-    schema.columns = {
-        {ignite_type::INT8, true},
-        {ignite_type::INT16, true},
-        {ignite_type::INT32, true},
-        {ignite_type::INT8, true},
-        {ignite_type::INT16, true},
-        {ignite_type::INT32, true},
-    };
-
     // Last column null.
     {
         auto values = std::make_tuple(int8_t{11}, int16_t{22}, std::nullopt, int8_t{-44}, int16_t{-66}, std::nullopt);
 
         int8_t data[] = {4, 36, 1, 2, 2, 3, 4, 4, 11, 22, -44, -66};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 
     // First column null.
@@ -434,7 +380,7 @@ TEST(tuple, FixedNullableColumns) { // NOLINT(cert-err58-cpp)
 
         int8_t data[] = {4, 9, 0, 1, 2, 2, 3, 4, 22, 33, -55, -66};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 
     // Middle column null.
@@ -443,7 +389,7 @@ TEST(tuple, FixedNullableColumns) { // NOLINT(cert-err58-cpp)
 
         int8_t data[] = {4, 18, 1, 1, 2, 3, 3, 4, 11, 33, -44, -66};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 
     // All columns null.
@@ -453,22 +399,11 @@ TEST(tuple, FixedNullableColumns) { // NOLINT(cert-err58-cpp)
 
         int8_t data[] = {4, 63, 0, 0, 0, 0, 0, 0};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 }
 
 TEST(tuple, VarlenNullableColumns) { // NOLINT(cert-err58-cpp)
-    SchemaDescriptor schema;
-
-    schema.columns = {
-        {ignite_type::STRING, true},
-        {ignite_type::STRING, true},
-        {ignite_type::STRING, true},
-        {ignite_type::STRING, true},
-        {ignite_type::STRING, true},
-        {ignite_type::STRING, true},
-    };
-
     // Last column null.
     {
         auto values = std::make_tuple("abc"s, "ascii"s, std::nullopt, "yz"s, "我愛Java"s, std::nullopt);
@@ -476,7 +411,7 @@ TEST(tuple, VarlenNullableColumns) { // NOLINT(cert-err58-cpp)
         int8_t data[] = {4, 36, 3, 8, 8, 10, 20, 20, 97, 98, 99, 97, 115, 99, 105, 105, 121, 122, -26, -120, -111, -26,
             -124, -101, 74, 97, 118, 97};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 
     // First column null.
@@ -486,7 +421,7 @@ TEST(tuple, VarlenNullableColumns) { // NOLINT(cert-err58-cpp)
         int8_t data[] = {4, 9, 0, 5, 15, 15, 25, 30, 97, 115, 99, 105, 105, -26, -120, -111, -26, -124, -101, 74, 97,
             118, 97, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 97, 115, 99, 105, 105};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 
     // Middle column null.
@@ -496,7 +431,7 @@ TEST(tuple, VarlenNullableColumns) { // NOLINT(cert-err58-cpp)
         int8_t data[] = {4, 18, 3, 3, 13, 15, 15, 20, 97, 98, 99, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
             121, 122, 97, 115, 99, 105, 105};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 
     // All columns null.
@@ -506,24 +441,11 @@ TEST(tuple, VarlenNullableColumns) { // NOLINT(cert-err58-cpp)
 
         int8_t data[] = {4, 63, 0, 0, 0, 0, 0, 0};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 }
 
 TEST(tuple, FixedAndVarlenNullableColumns) { // NOLINT(cert-err58-cpp)
-    SchemaDescriptor schema;
-
-    schema.columns = {
-        {ignite_type::INT8, true},
-        {ignite_type::INT16, true},
-        {ignite_type::STRING, true},
-        {ignite_type::STRING, true},
-        {ignite_type::INT8, true},
-        {ignite_type::INT16, true},
-        {ignite_type::STRING, true},
-        {ignite_type::STRING, true},
-    };
-
     // Check null/non-null all fixed/varlen.
     {
         auto values = std::make_tuple(
@@ -531,7 +453,7 @@ TEST(tuple, FixedAndVarlenNullableColumns) { // NOLINT(cert-err58-cpp)
 
         int8_t data[] = {4, 60, 1, 2, 2, 2, 2, 2, 4, 9, 11, 22, 121, 122, 97, 115, 99, 105, 105};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 
     // Check null/non-null single fixed.
@@ -542,7 +464,7 @@ TEST(tuple, FixedAndVarlenNullableColumns) { // NOLINT(cert-err58-cpp)
         int8_t data[] = {4, 33, 0, 1, 3, 13, 14, 14, 16, 21, 22, 97, 98, -26, -120, -111, -26, -124, -101, 74, 97, 118,
             97, 55, 121, 122, 97, 115, 99, 105, 105};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 
     // Check null/non-null single varlen.
@@ -553,7 +475,7 @@ TEST(tuple, FixedAndVarlenNullableColumns) { // NOLINT(cert-err58-cpp)
         int8_t data[] = {4, -124, 1, 2, 2, 12, 13, 14, 16, 16, 11, 22, -26, -120, -111, -26, -124, -101, 74, 97, 118,
             97, 55, 66, 121, 122};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 
     // Check null/non-null mixed.
@@ -564,7 +486,7 @@ TEST(tuple, FixedAndVarlenNullableColumns) { // NOLINT(cert-err58-cpp)
         int8_t data[] = {
             4, -106, 1, 1, 1, 11, 11, 12, 14, 14, 11, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 22, 121, 122};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 
     // Check all null/non-null.
@@ -575,76 +497,49 @@ TEST(tuple, FixedAndVarlenNullableColumns) { // NOLINT(cert-err58-cpp)
         int8_t data[] = {
             4, -16, 1, 2, 4, 14, 14, 14, 14, 14, 11, 22, 97, 98, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 }
 
 TEST(tuple, ZeroLengthVarlen) { // NOLINT(cert-err58-cpp)
-    SchemaDescriptor schema;
-
-    schema.columns = {
-        {ignite_type::INT32, false},
-        {ignite_type::BYTE_ARRAY, false},
-    };
-
     // Single zero-length vector of bytes.
     {
         auto values = std::make_tuple(int32_t{0}, ""s);
 
         int8_t data[] = {0, 0, 0};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 
     // Two zero-length vectors of bytes.
     {
-        schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, false});
-
         auto values = std::make_tuple(int32_t{0}, ""s, ""s);
 
         int8_t data[] = {0, 0, 0, 0};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 
     // Two zero-length vectors of bytes and single integer value.
     {
-        schema.columns.erase(schema.columns.begin() + 1, schema.columns.end());
-
-        schema.columns.emplace_back(column_info{ignite_type::INT32, false});
-        schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, false});
-        schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, false});
-
         auto values = std::make_tuple(int32_t{0}, int32_t{123}, ""s, ""s);
 
         int8_t data[] = {0, 0, 1, 1, 1, 123};
 
-        checkReaderWriterEquality(schema, values, data);
+        check_reader_writer_equality(values, data);
     }
 }
 
 TEST(tuple, SingleVarlen) { // NOLINT(cert-err58-cpp)
-    SchemaDescriptor schema;
-
-    schema.columns = {
-        {ignite_type::INT32, false},
-        {ignite_type::BYTE_ARRAY, false},
-    };
-
     auto values = std::make_tuple(int32_t{0}, "\1\2\3"s);
 
     int8_t data[] = {0, 0, 3, 1, 2, 3};
 
-    checkReaderWriterEquality(schema, values, data);
+    check_reader_writer_equality(values, data);
 }
 
 TEST(tuple, TinyVarlenFormatOverflowLarge) { // NOLINT(cert-err58-cpp)
-    SchemaDescriptor schema;
-
-    schema.columns.emplace_back(column_info{ignite_type::INT32, false});
-    for (int i = 0; i < 300; i++) {
-        schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, false});
-    }
+    static constexpr tuple_num_t NUM_ELEMENTS = 301;
 
     // Flags - 1 zero byte
     // Varlen table - 1 byte for key column + 300 bytes for value columns
@@ -652,13 +547,13 @@ TEST(tuple, TinyVarlenFormatOverflowLarge) { // NOLINT(cert-err58-cpp)
     std::vector<std::byte> reference(306);
     std::fill(reference.begin() + 1, reference.end() - 4, std::byte{4});
 
-    binary_tuple_parser tp(schema.length(), {reinterpret_cast<std::byte *>(reference.data()), reference.size()});
+    binary_tuple_parser tp(NUM_ELEMENTS, {reinterpret_cast<std::byte *>(reference.data()), reference.size()});
 
     auto first = tp.get_next();
     EXPECT_TRUE(first.has_value());
-    EXPECT_EQ(0, read_tuple<int32_t>(first.value()));
+    EXPECT_EQ(0, get_value<int32_t>(first.value()));
 
-    for (int i = 1; i < schema.length(); i++) {
+    for (int i = 1; i < NUM_ELEMENTS; i++) {
         auto next = tp.get_next();
         EXPECT_TRUE(next.has_value());
         EXPECT_EQ(0, next.value().size());
@@ -666,12 +561,7 @@ TEST(tuple, TinyVarlenFormatOverflowLarge) { // NOLINT(cert-err58-cpp)
 }
 
 TEST(tuple, TinyVarlenFormatOverflowMedium) { // NOLINT(cert-err58-cpp)
-    SchemaDescriptor schema;
-
-    schema.columns.emplace_back(column_info{ignite_type::INT32, false});
-    for (int i = 0; i < 300; i++) {
-        schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, false});
-    }
+    static constexpr tuple_num_t NUM_ELEMENTS = 301;
 
     // Flags - 1 zero byte
     // Varlen table - 301 bytes
@@ -694,19 +584,19 @@ TEST(tuple, TinyVarlenFormatOverflowMedium) { // NOLINT(cert-err58-cpp)
     reference[307] = 2;
     reference[308] = 3;
 
-    binary_tuple_parser tp(schema.length(), {reinterpret_cast<std::byte *>(reference.data()), reference.size()});
+    binary_tuple_parser tp(NUM_ELEMENTS, {reinterpret_cast<std::byte *>(reference.data()), reference.size()});
 
     auto first = tp.get_next();
     EXPECT_TRUE(first.has_value());
-    EXPECT_EQ(0, read_tuple<int32_t>(first.value()));
+    EXPECT_EQ(0, get_value<int32_t>(first.value()));
 
     for (int i = 1; i <= 3; i++) {
         auto next = tp.get_next();
         EXPECT_TRUE(next.has_value());
         EXPECT_EQ(1, next->size());
-        EXPECT_EQ(i, read_tuple<int8_t>(next.value()));
+        EXPECT_EQ(i, get_value<int8_t>(next.value()));
     }
-    for (number_t i = 4; i < schema.length(); i++) {
+    for (tuple_num_t i = 4; i < NUM_ELEMENTS; i++) {
         auto next = tp.get_next();
         EXPECT_TRUE(next.has_value());
         EXPECT_EQ(0, next.value().size());
@@ -715,19 +605,7 @@ TEST(tuple, TinyVarlenFormatOverflowMedium) { // NOLINT(cert-err58-cpp)
 
 // Check same binaries that used in testExpectedVarlenTupleBinaries java side test.
 TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
-    SchemaDescriptor schema;
-
-    // Value columns are sorted here like they are sorted on java side during schema construction.
-    // Fixed size columns go first, varlen columns last.
-    schema.columns = {
-        {ignite_type::INT32, false},
-        {ignite_type::INT32, false},
-        {ignite_type::INT32, false},
-        {ignite_type::INT32, false},
-        {ignite_type::BYTE_ARRAY, false},
-        {ignite_type::BYTE_ARRAY, false},
-        {ignite_type::STRING, false},
-    };
+    static constexpr tuple_num_t NUM_ELEMENTS = 7;
 
     // clang-format off
     std::vector<int8_t> referenceTiny {
@@ -747,21 +625,19 @@ TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
         97, 98, 99};
     // clang-format on
 
-    binary_tuple_parser tpTiny(
-        schema.length(), {reinterpret_cast<std::byte *>(referenceTiny.data()), referenceTiny.size()});
-    tuple_view tiny = tpTiny.parse();
+    tuple_view tiny = parser(NUM_ELEMENTS, referenceTiny).parse();
 
     EXPECT_TRUE(tiny[0].has_value());
-    EXPECT_EQ(0, read_tuple<int32_t>(tiny[0].value()));
+    EXPECT_EQ(0, get_value<int32_t>(tiny[0].value()));
 
     EXPECT_TRUE(tiny[1].has_value());
-    EXPECT_EQ(1, read_tuple<int32_t>(tiny[1].value()));
+    EXPECT_EQ(1, get_value<int32_t>(tiny[1].value()));
 
     EXPECT_TRUE(tiny[2].has_value());
-    EXPECT_EQ(2, read_tuple<int32_t>(tiny[2].value()));
+    EXPECT_EQ(2, get_value<int32_t>(tiny[2].value()));
 
     EXPECT_TRUE(tiny[3].has_value());
-    EXPECT_EQ(3, read_tuple<int32_t>(tiny[3].value()));
+    EXPECT_EQ(3, get_value<int32_t>(tiny[3].value()));
 
     EXPECT_TRUE(tiny[4].has_value());
     bytes_view varlen = tiny[4].value();
@@ -815,21 +691,19 @@ TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
     // Copy varlen array that does not fit to tiny format.
     referenceMedium.insert(referenceMedium.end() - 3, mediumArray.begin(), mediumArray.end());
 
-    binary_tuple_parser tpMedium(
-        schema.length(), {reinterpret_cast<std::byte *>(referenceMedium.data()), referenceMedium.size()});
-    tuple_view medium = tpMedium.parse();
+    tuple_view medium = parser(NUM_ELEMENTS, referenceMedium).parse();
 
     EXPECT_TRUE(medium[0].has_value());
-    EXPECT_EQ(0, read_tuple<int32_t>(medium[0].value()));
+    EXPECT_EQ(0, get_value<int32_t>(medium[0].value()));
 
     EXPECT_TRUE(medium[1].has_value());
-    EXPECT_EQ(1, read_tuple<int32_t>(medium[1].value()));
+    EXPECT_EQ(1, get_value<int32_t>(medium[1].value()));
 
     EXPECT_TRUE(medium[2].has_value());
-    EXPECT_EQ(2, read_tuple<int32_t>(medium[2].value()));
+    EXPECT_EQ(2, get_value<int32_t>(medium[2].value()));
 
     EXPECT_TRUE(medium[3].has_value());
-    EXPECT_EQ(3, read_tuple<int32_t>(medium[3].value()));
+    EXPECT_EQ(3, get_value<int32_t>(medium[3].value()));
 
     EXPECT_TRUE(medium[4].has_value());
     varlen = medium[4].value();
@@ -884,21 +758,19 @@ TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
     // Copy varlen array that does not fit to tiny and medium format.
     referenceLarge.insert(referenceLarge.end() - 3, largeArray.begin(), largeArray.end());
 
-    binary_tuple_parser tpLarge(
-        schema.length(), {reinterpret_cast<std::byte *>(referenceLarge.data()), referenceLarge.size()});
-    tuple_view large = tpLarge.parse();
+    tuple_view large = parser(NUM_ELEMENTS, referenceLarge).parse();
 
     EXPECT_TRUE(large[0].has_value());
-    EXPECT_EQ(0, read_tuple<int32_t>(large[0].value()));
+    EXPECT_EQ(0, get_value<int32_t>(large[0].value()));
 
     EXPECT_TRUE(large[1].has_value());
-    EXPECT_EQ(1, read_tuple<int32_t>(large[1].value()));
+    EXPECT_EQ(1, get_value<int32_t>(large[1].value()));
 
     EXPECT_TRUE(large[2].has_value());
-    EXPECT_EQ(2, read_tuple<int32_t>(large[2].value()));
+    EXPECT_EQ(2, get_value<int32_t>(large[2].value()));
 
     EXPECT_TRUE(large[3].has_value());
-    EXPECT_EQ(3, read_tuple<int32_t>(large[3].value()));
+    EXPECT_EQ(3, get_value<int32_t>(large[3].value()));
 
     EXPECT_TRUE(large[4].has_value());
     varlen = large[4].value();
@@ -924,11 +796,7 @@ TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
 }
 
 TEST(tuple, StringAfterNull) {
-    SchemaDescriptor schema;
-
-    schema.columns.emplace_back(column_info{ignite_type::INT32, false});
-    schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, true});
-    schema.columns.emplace_back(column_info{ignite_type::STRING, false});
+    static constexpr tuple_num_t NUM_ELEMENTS = 3;
 
     // 101, null, "Bob"
     std::vector<std::byte> tuple;
@@ -936,46 +804,32 @@ TEST(tuple, StringAfterNull) {
         tuple.push_back(static_cast<std::byte>(i));
     }
 
-    binary_tuple_parser tp(schema.length(), tuple);
+    binary_tuple_parser tp(NUM_ELEMENTS, tuple);
 
-    EXPECT_EQ(101, read_tuple<int32_t>(tp.get_next()));
+    EXPECT_EQ(101, get_value<int32_t>(tp.get_next()));
     EXPECT_FALSE(tp.get_next().has_value());
-    EXPECT_EQ("Bob", read_tuple<std::string>(tp.get_next()));
+    EXPECT_EQ("Bob", get_value<std::string>(tp.get_next()));
 }
 
 TEST(tuple, EmptyValueTupleAssembler) { // NOLINT(cert-err58-cpp)
-    SchemaDescriptor schema;
+    static constexpr tuple_num_t NUM_ELEMENTS = 1;
 
-    schema.columns.emplace_back(column_info{ignite_type::INT32, false});
-
-    tuple_assembler ta(schema.to_tuple_schema());
+    builder ta(NUM_ELEMENTS);
 
     auto tuple = ta.build(std::tuple<int32_t>(123));
 
-    binary_tuple_parser tp(schema.length(), tuple);
+    binary_tuple_parser tp(NUM_ELEMENTS, tuple);
 
     auto slice = tp.get_next();
     ASSERT_TRUE(slice.has_value());
-    EXPECT_EQ(123, read_tuple<int32_t>(slice.value()));
+    EXPECT_EQ(123, get_value<int32_t>(slice.value()));
 }
 
 TEST(tuple, TupleWriteRead) { // NOLINT(cert-err58-cpp)
-    SchemaDescriptor schema;
-
-    schema.columns.emplace_back(column_info{ignite_type::INT32, false});
-    schema.columns.emplace_back(column_info{ignite_type::DOUBLE, false});
-    schema.columns.emplace_back(column_info{ignite_type::INT8, false});
-    schema.columns.emplace_back(column_info{ignite_type::INT16, false});
-    schema.columns.emplace_back(column_info{ignite_type::INT64, false});
-    schema.columns.emplace_back(column_info{ignite_type::INT8, false});
+    static constexpr tuple_num_t NUM_ELEMENTS = 6;
 
     for (bool nullable : {false, true}) {
-        for (number_t i = 0; i < schema.length(); i++) {
-            schema.columns[i].nullable = nullable;
-        }
-
-        binary_tuple_schema sch = schema.to_tuple_schema();
-        binary_tuple_builder tb(sch.num_elements());
+        binary_tuple_builder tb(NUM_ELEMENTS);
 
         tb.start();
 
@@ -1005,50 +859,37 @@ TEST(tuple, TupleWriteRead) { // NOLINT(cert-err58-cpp)
 
         auto &tuple = tb.build();
 
-        binary_tuple_parser tp(schema.length(), tuple);
-        tuple_view t = tp.parse();
+        tuple_view t = parser(NUM_ELEMENTS, tuple).parse();
 
         ASSERT_TRUE(t[0].has_value());
-        EXPECT_EQ(1234, read_tuple<int32_t>(t[0].value()));
+        EXPECT_EQ(1234, get_value<int32_t>(t[0].value()));
 
         ASSERT_TRUE(t[1].has_value());
-        EXPECT_EQ(5.0, read_tuple<double>(t[1].value()));
+        EXPECT_EQ(5.0, get_value<double>(t[1].value()));
 
         ASSERT_TRUE(t[2].has_value());
-        EXPECT_EQ(6, read_tuple<int8_t>(t[2].value()));
+        EXPECT_EQ(6, get_value<int8_t>(t[2].value()));
 
         ASSERT_TRUE(t[3].has_value());
-        EXPECT_EQ(7, read_tuple<int16_t>(t[3].value()));
+        EXPECT_EQ(7, get_value<int16_t>(t[3].value()));
 
         if (nullable) {
             EXPECT_FALSE(t[4].has_value());
         } else {
             ASSERT_TRUE(t[4].has_value());
-            EXPECT_EQ(8, read_tuple<int64_t>(t[4].value()));
+            EXPECT_EQ(8, get_value<int64_t>(t[4].value()));
         }
 
         ASSERT_TRUE(t[5].has_value());
-        EXPECT_EQ(9, read_tuple<int8_t>(t[5].value()));
+        EXPECT_EQ(9, get_value<int8_t>(t[5].value()));
     }
 }
 
 TEST(tuple, Int8TupleWriteRead) { // NOLINT(cert-err58-cpp)
-    SchemaDescriptor schema;
-
-    schema.columns.emplace_back(column_info{ignite_type::INT8, false});
-    schema.columns.emplace_back(column_info{ignite_type::INT8, false});
-    schema.columns.emplace_back(column_info{ignite_type::INT8, false});
-    schema.columns.emplace_back(column_info{ignite_type::INT8, false});
-    schema.columns.emplace_back(column_info{ignite_type::INT8, false});
-    schema.columns.emplace_back(column_info{ignite_type::INT8, false});
+    static constexpr tuple_num_t NUM_ELEMENTS = 6;
 
     for (bool nullable : {false, true}) {
-        for (number_t i = 0; i < schema.length(); i++) {
-            schema.columns[i].nullable = nullable;
-        }
-
-        binary_tuple_schema sch = schema.to_tuple_schema();
-        binary_tuple_builder tb(sch.num_elements());
+        binary_tuple_builder tb(NUM_ELEMENTS);
 
         tb.start();
 
@@ -1078,128 +919,88 @@ TEST(tuple, Int8TupleWriteRead) { // NOLINT(cert-err58-cpp)
 
         auto &tuple = tb.build();
 
-        binary_tuple_parser tp(schema.length(), tuple);
-        tuple_view t = tp.parse();
+        tuple_view t = parser(NUM_ELEMENTS, tuple).parse();
 
         ASSERT_TRUE(t[0].has_value());
-        EXPECT_EQ(0, read_tuple<int8_t>(t[0].value()));
+        EXPECT_EQ(0, get_value<int8_t>(t[0].value()));
 
         ASSERT_TRUE(t[1].has_value());
-        EXPECT_EQ(1, read_tuple<int8_t>(t[1].value()));
+        EXPECT_EQ(1, get_value<int8_t>(t[1].value()));
 
         ASSERT_TRUE(t[2].has_value());
-        EXPECT_EQ(2, read_tuple<int8_t>(t[2].value()));
+        EXPECT_EQ(2, get_value<int8_t>(t[2].value()));
 
         ASSERT_TRUE(t[3].has_value());
-        EXPECT_EQ(3, read_tuple<int8_t>(t[3].value()));
+        EXPECT_EQ(3, get_value<int8_t>(t[3].value()));
 
         if (nullable) {
             EXPECT_FALSE(t[4].has_value());
         } else {
             ASSERT_TRUE(t[4].has_value());
-            EXPECT_EQ(4, read_tuple<int8_t>(t[4].value()));
+            EXPECT_EQ(4, get_value<int8_t>(t[4].value()));
         }
 
         ASSERT_TRUE(t[5].has_value());
-        EXPECT_EQ(5, read_tuple<int8_t>(t[5].value()));
+        EXPECT_EQ(5, get_value<int8_t>(t[5].value()));
     }
-}
-
-TEST(tuple, NullKeyTupleAssembler) { // NOLINT(cert-err58-cpp)
-    GTEST_SKIP() << "Skip, as nullability is not checked during tuple assembly at the moment";
-    SchemaDescriptor schema;
-
-    schema.columns.emplace_back(column_info{ignite_type::INT32, false});
-
-    {
-        tuple_assembler ta(schema.to_tuple_schema());
-
-        ta.start();
-
-        ASSERT_THROW(ta.append_null(), std::runtime_error);
-    }
-
-    schema.columns[0].nullable = true;
-
-    tuple_assembler ta(schema.to_tuple_schema());
-
-    ta.start();
-
-    ta.append_null();
-
-    auto &tuple = ta.build(std::make_tuple(std::nullopt));
-
-    binary_tuple_parser tp(schema.length(), tuple);
-
-    ASSERT_FALSE(tp.get_next().has_value());
 }
 
 TEST(tuple, VarlenLargeTest) { // NOLINT(cert-err58-cpp)
-    SchemaDescriptor schema;
-
-    schema.columns = {{ignite_type::STRING, true}, {ignite_type::STRING, true}, {ignite_type::STRING, true}};
+    static constexpr tuple_num_t NUM_ELEMENTS = 3;
 
     {
         auto values = std::make_tuple(std::string(100'000, 'a'), "b"s, std::nullopt);
 
-        tuple_assembler tuple_assembler(schema.to_tuple_schema());
+        builder tuple_assembler(NUM_ELEMENTS);
 
         bytes_view tuple = tuple_assembler.build(values);
 
-        binary_tuple_parser tp(schema.length(), tuple);
+        binary_tuple_parser tp(NUM_ELEMENTS, tuple);
 
-        EXPECT_EQ(std::get<0>(values), read_tuple<std::string>(tp.get_next()));
-        EXPECT_EQ(std::get<1>(values), read_tuple<std::string>(tp.get_next()));
+        EXPECT_EQ(std::get<0>(values), get_value<std::string>(tp.get_next()));
+        EXPECT_EQ(std::get<1>(values), get_value<std::string>(tp.get_next()));
         EXPECT_FALSE(tp.get_next().has_value());
     }
     {
         auto values = std::make_tuple(std::string(100'000, 'a'), "b"s, "c"s);
 
-        tuple_assembler tuple_assembler(schema.to_tuple_schema());
+        builder tuple_assembler(NUM_ELEMENTS);
 
         bytes_view tuple = tuple_assembler.build(values);
 
-        binary_tuple_parser tp(schema.length(), tuple);
+        binary_tuple_parser tp(NUM_ELEMENTS, tuple);
 
-        EXPECT_EQ(std::get<0>(values), read_tuple<std::string>(tp.get_next()));
-        EXPECT_EQ(std::get<1>(values), read_tuple<std::string>(tp.get_next()));
-        EXPECT_EQ(std::get<2>(values), read_tuple<std::string>(tp.get_next()));
+        EXPECT_EQ(std::get<0>(values), get_value<std::string>(tp.get_next()));
+        EXPECT_EQ(std::get<1>(values), get_value<std::string>(tp.get_next()));
+        EXPECT_EQ(std::get<2>(values), get_value<std::string>(tp.get_next()));
     }
     {
-        schema.columns = {{ignite_type::INT8, true}, {ignite_type::STRING, true}, {ignite_type::STRING, true}};
-
         auto values = std::make_tuple(std::nullopt, std::string(100'000, 'a'), "b"s);
 
-        tuple_assembler tuple_assembler(schema.to_tuple_schema());
+        builder tuple_assembler(NUM_ELEMENTS);
 
         bytes_view tuple = tuple_assembler.build(values);
 
-        binary_tuple_parser tp(schema.length(), tuple);
+        binary_tuple_parser tp(NUM_ELEMENTS, tuple);
 
         EXPECT_FALSE(tp.get_next().has_value());
-        EXPECT_EQ(std::get<1>(values), read_tuple<std::string>(tp.get_next()));
-        EXPECT_EQ(std::get<2>(values), read_tuple<std::string>(tp.get_next()));
+        EXPECT_EQ(std::get<1>(values), get_value<std::string>(tp.get_next()));
+        EXPECT_EQ(std::get<2>(values), get_value<std::string>(tp.get_next()));
     }
 }
 
 TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
-    SchemaDescriptor schema;
-
-    schema.columns.emplace_back(column_info{ignite_type::INT32, false});
-    for (int i = 0; i < 300; i++) {
-        schema.columns.emplace_back(column_info{ignite_type::BYTE_ARRAY, false});
-    }
+    static constexpr tuple_num_t NUM_ELEMENTS = 301;
 
     {
-        binary_tuple_schema sch = schema.to_tuple_schema();
-        binary_tuple_builder tb(sch.num_elements());
+        binary_tuple_builder tb(NUM_ELEMENTS);
         tb.start();
         tb.claim_int32(100500);
 
         // Create a 10-char value.
         std::string value("0123456789");
 
-        for (int i = 1; i < schema.length(); i++) {
+        for (int i = 1; i < NUM_ELEMENTS; i++) {
             tb.claim_string(value);
         }
 
@@ -1207,7 +1008,7 @@ TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
 
         tb.append_int32(100500);
 
-        for (int i = 1; i < schema.length(); i++) {
+        for (int i = 1; i < NUM_ELEMENTS; i++) {
             tb.append_string(value);
         }
 
@@ -1217,17 +1018,16 @@ TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
         // The flags field must be equal to log2(2) = 1.
         EXPECT_EQ(std::byte{1}, tuple[0]);
 
-        binary_tuple_parser tp(schema.length(), tuple);
+        binary_tuple_parser tp(NUM_ELEMENTS, tuple);
 
-        EXPECT_EQ(100500, read_tuple<int32_t>(tp.get_next()));
-        for (number_t i = 1; i < schema.length(); i++) {
-            EXPECT_EQ(value, read_tuple<std::string>(tp.get_next()));
+        EXPECT_EQ(100500, get_value<int32_t>(tp.get_next()));
+        for (tuple_num_t i = 1; i < NUM_ELEMENTS; i++) {
+            EXPECT_EQ(value, get_value<std::string>(tp.get_next()));
         }
     }
 
     {
-        binary_tuple_schema sch({schema.columns.begin(), schema.columns.end()});
-        binary_tuple_builder tb(sch.num_elements());
+        binary_tuple_builder tb(NUM_ELEMENTS);
         tb.start();
         tb.claim_int32(100500);
 
@@ -1237,7 +1037,7 @@ TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
             value += "0123456789";
         }
 
-        for (int i = 1; i < schema.length(); i++) {
+        for (int i = 1; i < NUM_ELEMENTS; i++) {
             tb.claim_string(value);
         }
 
@@ -1245,7 +1045,7 @@ TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
 
         tb.append_int32(100500);
 
-        for (int i = 1; i < schema.length(); i++) {
+        for (int i = 1; i < NUM_ELEMENTS; i++) {
             tb.append_string(value);
         }
 
@@ -1256,11 +1056,11 @@ TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
         // be equal to log2(4) = 2.
         EXPECT_EQ(std::byte{2}, tuple[0]);
 
-        binary_tuple_parser tp(schema.length(), tuple);
+        binary_tuple_parser tp(NUM_ELEMENTS, tuple);
 
-        EXPECT_EQ(100500, read_tuple<int32_t>(tp.get_next()));
-        for (number_t i = 1; i < schema.length(); i++) {
-            EXPECT_EQ(value, read_tuple<std::string>(tp.get_next()));
+        EXPECT_EQ(100500, get_value<int32_t>(tp.get_next()));
+        for (tuple_num_t i = 1; i < NUM_ELEMENTS; i++) {
+            EXPECT_EQ(value, get_value<std::string>(tp.get_next()));
         }
     }
 }

@@ -135,7 +135,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
 
         // Then
         assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
-        assertThat(getProblem(thrown).detail(), containsString("Login must not be empty"));
+        assertThat(getProblem(thrown).detail(), containsString("Username must not be empty"));
     }
 
     @Test
@@ -152,7 +152,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
                 + "        {\n"
                 + "          \"name\": \"basic\",\n"
                 + "          \"type\": \"basic\",\n"
-                + "          \"login\": \"admin\"\n"
+                + "          \"username\": \"admin\"\n"
                 + "        }\n"
                 + "      ]\n"
                 + "    }\n"
@@ -181,7 +181,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
                 + "      \"providers\": [\n"
                 + "        {\n"
                 + "          \"name\": \"basic\",\n"
-                + "          \"login\": \"admin\",\n"
+                + "          \"username\": \"admin\",\n"
                 + "          \"password\": \"admin\"\n"
                 + "        }\n"
                 + "      ]\n"
@@ -211,7 +211,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
                 + "      \"providers\": [\n"
                 + "        {\n"
                 + "          \"type\": \"basic\",\n"
-                + "          \"login\": \"admin\",\n"
+                + "          \"username\": \"admin\",\n"
                 + "          \"password\": \"admin\"\n"
                 + "        }\n"
                 + "      ]\n"

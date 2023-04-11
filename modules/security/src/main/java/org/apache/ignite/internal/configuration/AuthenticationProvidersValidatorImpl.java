@@ -46,8 +46,8 @@ public class AuthenticationProvidersValidatorImpl implements
             AuthenticationType authenticationType = AuthenticationType.parse(view.type());
             if (authenticationType == AuthenticationType.BASIC) {
                 BasicAuthenticationProviderView basicAuthProviderView = (BasicAuthenticationProviderView) view;
-                if (StringUtils.nullOrBlank(basicAuthProviderView.login())) {
-                    ctx.addIssue(new ValidationIssue(key, "Login must not be blank"));
+                if (StringUtils.nullOrBlank(basicAuthProviderView.username())) {
+                    ctx.addIssue(new ValidationIssue(key, "Username must not be blank"));
                 }
                 if (StringUtils.nullOrBlank(basicAuthProviderView.password())) {
                     ctx.addIssue(new ValidationIssue(key, "Password must not be blank"));
