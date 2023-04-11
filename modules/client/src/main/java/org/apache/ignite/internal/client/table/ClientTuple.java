@@ -28,8 +28,17 @@ import org.jetbrains.annotations.Nullable;
  * Client tuple. Wraps {@link BinaryTupleReader} and allows mutability.
  */
 public class ClientTuple extends MutableTupleBinaryTupleAdapter {
+    /** Schema. */
     private final ClientSchema schema;
 
+    /**
+     * Constructor.
+     *
+     * @param schema Schema.
+     * @param tuple Tuple.
+     * @param schemaOffset Schema offset.
+     * @param schemaSize Schema size.
+     */
     public ClientTuple(ClientSchema schema, BinaryTupleReader tuple, int schemaOffset, int schemaSize) {
         super(tuple, schemaOffset, schemaSize, null);
 
