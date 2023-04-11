@@ -64,7 +64,7 @@ ignite_time load_time(bytes_view bytes) {
             break;
     }
 
-    auto second = std::int_fast8_t((time) & 63);
+    auto second = std::int_fast8_t(time & 63);
     auto minute = std::int_fast8_t((time >> 6) & 63);
     auto hour = std::int_fast8_t((time >> 12) & 31);
 

@@ -171,10 +171,11 @@ struct single_value_check {
 };
 
 template<typename... Ts, int size>
-void check_reader_writer_equality(const std::tuple<Ts...> &values, const std::int8_t (&data)[size], bool skip_assembler_check = false) {
+void check_reader_writer_equality(
+    const std::tuple<Ts...> &values, const std::int8_t (&data)[size], bool skip_assembler_check = false) {
     constexpr tuple_num_t NUM_ELEMENTS = sizeof...(Ts);
 
-    bytes_view bytes {reinterpret_cast<const std::byte *>(data), size};
+    bytes_view bytes{reinterpret_cast<const std::byte *>(data), size};
 
     binary_tuple_parser tp(NUM_ELEMENTS, bytes);
 
@@ -277,6 +278,7 @@ TEST(tuple, TwoFixedValues) { // NOLINT(cert-err58-cpp)
 
         check_reader_writer_equality(values, data);
     }
+
     {
         auto values = std::make_tuple(int32_t{77}, std::nullopt);
 
@@ -294,6 +296,7 @@ TEST(tuple, FixedAndVarlenValue) { // NOLINT(cert-err58-cpp)
 
         check_reader_writer_equality(values, data);
     }
+
     {
         auto values = std::make_tuple(int16_t{33}, std::nullopt);
 

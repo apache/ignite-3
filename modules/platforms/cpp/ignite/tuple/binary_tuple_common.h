@@ -80,7 +80,9 @@ struct header {
  *
  * @return Nullmap size in bytes.
  */
-constexpr tuple_size_t get_nullmap_size(tuple_num_t num_elements) noexcept { return (num_elements + 7) / 8; }
+constexpr tuple_size_t get_nullmap_size(tuple_num_t num_elements) noexcept {
+    return (num_elements + 7) / 8;
+}
 
 /**
  * @brief Gets offset of the byte that contains null-bit of a given tuple element.
@@ -88,7 +90,9 @@ constexpr tuple_size_t get_nullmap_size(tuple_num_t num_elements) noexcept { ret
  * @param index Tuple element index.
  * @return Offset of the required byte relative to the tuple start.
  */
-constexpr tuple_size_t get_null_offset(tuple_num_t index) noexcept { return HEADER_SIZE + index / 8; }
+constexpr tuple_size_t get_null_offset(tuple_num_t index) noexcept {
+    return HEADER_SIZE + index / 8;
+}
 
 /**
  * @brief Gets a null-bit mask corresponding to a given tuple element.
@@ -96,7 +100,9 @@ constexpr tuple_size_t get_null_offset(tuple_num_t index) noexcept { return HEAD
  * @param index Tuple element index.
  * @return Mask to extract the required null-bit.
  */
-constexpr std::byte get_null_mask(tuple_num_t index) noexcept { return std::byte{1} << (index % 8); }
+constexpr std::byte get_null_mask(tuple_num_t index) noexcept {
+    return std::byte{1} << (index % 8);
+}
 
 } // namespace binary_tuple_common
 

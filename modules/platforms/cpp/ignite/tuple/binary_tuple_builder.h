@@ -264,9 +264,7 @@ public:
      *
      * @param value Element value.
      */
-    void append_string(const std::string &value) {
-        append_bytes(value);
-    }
+    void append_string(const std::string &value) { append_bytes(value); }
 
     /**
      * @brief Writes binary value of specified element.
