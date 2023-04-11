@@ -313,7 +313,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         checkState();
 
         if (rewindQueue == null) {
-             rewindQueue = new ArrayDeque<>(nodeBuffers.size());
+            rewindQueue = new ArrayDeque<>(nodeBuffers.size());
         }
 
         rewindQueue.offer(new RewindRequest(nodeName, state, amountOfBatches));
