@@ -15,26 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.vault.persistence;
-
-import java.nio.file.Path;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.vault.VaultService;
-import org.apache.ignite.internal.vault.VaultServiceTest;
-import org.junit.jupiter.api.extension.ExtendWith;
+package org.apache.ignite.internal.raft;
 
 /**
- * Test suite for the {@link PersistentVaultService}.
+ * Raft node disruptor configuration.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-class ItPersistentVaultServiceTest extends VaultServiceTest {
-    @WorkDirectory
-    private Path vaultDir;
+public class RaftNodeDisruptorConfiguration {
+    private final String threadPostfix;
 
-    /** {@inheritDoc} */
-    @Override
-    protected VaultService getVaultService() {
-        return new PersistentVaultService("test", vaultDir);
+    private final int stripes;
+
+    /**
+     * Constructor.
+     *
+     * @param threadPostfix Disruptor threads' name postfix.
+     * @param stripes Number of disruptor stripes.
+     */
+    public RaftNodeDisruptorConfiguration(String threadPostfix, int stripes) {
+        this.threadPostfix = threadPostfix;
+        this.stripes = stripes;
+    }
+
+    /**
+     * Return disruptor threads' name postfix.
+     */
+    public String getThreadPostfix() {
+        return threadPostfix;
+    }
+
+    /**
+     * Return number of disruptor stripes.
+     */
+    public int getStripes() {
+        return stripes;
     }
 }

@@ -511,7 +511,7 @@ data: {
       "TEMPORARY"
 #     "THEN"
 #     "TIME"
-#     "TIMESTAMP"
+      "TIMESTAMP"
       "TIMEZONE_HOUR"
       "TIMEZONE_MINUTE"
       "TINYINT"

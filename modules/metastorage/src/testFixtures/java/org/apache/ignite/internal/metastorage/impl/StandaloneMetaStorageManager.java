@@ -33,6 +33,7 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -120,8 +121,20 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
         RaftGroupService raftGroupService = mock(RaftGroupService.class);
 
         try {
-            when(raftManager.startRaftGroupNode(any(), any(), listenerCaptor.capture(), any())).thenReturn(
-                    completedFuture(raftGroupService));
+            when(raftManager.startRaftGroupNode(
+                    any(),
+                    any(),
+                    listenerCaptor.capture(),
+                    any()
+            )).thenReturn(completedFuture(raftGroupService));
+
+            when(raftManager.startRaftGroupNode(
+                    any(),
+                    any(),
+                    listenerCaptor.capture(),
+                    any(),
+                    any(RaftNodeDisruptorConfiguration.class)
+            )).thenReturn(completedFuture(raftGroupService));
         } catch (NodeStoppingException e) {
             throw new RuntimeException(e);
         }

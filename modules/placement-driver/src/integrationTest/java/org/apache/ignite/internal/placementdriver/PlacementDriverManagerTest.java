@@ -121,7 +121,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
     }
 
     private void startPlacementDriverManager() throws NodeStoppingException {
-        vaultManager = new VaultManager(new PersistentVaultService(workDir.resolve("vault")));
+        vaultManager = new VaultManager(new PersistentVaultService(testNodeName(testInfo, PORT), workDir.resolve("vault")));
 
         var nodeFinder = new StaticNodeFinder(Collections.singletonList(new NetworkAddress("localhost", PORT)));
 
