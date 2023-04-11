@@ -548,6 +548,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * If {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleUp} and
      * {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleDown} are immediate then it waits that the data nodes
      * are up-to-date for the passed topology version.
+     *
      * <p>If the values of auto adjust scale up and auto adjust scale down are zero, then on the cluster topology changes
      * the data nodes for the zone should be updated immediately. Therefore, this method must return the data nodes which is calculated
      * based on the topology with passed or greater version. Since the date nodes value is updated asynchronously, this method waits for
@@ -555,9 +556,11 @@ public class DistributionZoneManager implements IgniteComponent {
      * the date nodes to be updated with nodes that have left the topology if the value of auto adjust scale down is 0.
      * After the zone manager has observed the logical topology change and the data nodes value is updated according to cluster topology,
      * then this method completes the returned future with the current value of data nodes.
+     *
      * <p>If the value of auto adjust scale up is greater than zero, then it is not necessary to wait for the data nodes update triggered
      * by new nodes in cluster topology. Similarly if the value of auto adjust scale down is greater than zero, then it is not necessary to
      * wait for the data nodes update triggered by new nodes that have left the topology in cluster topology.
+     *
      * <p>The returned future can be completed with {@link DistributionZoneNotFoundException} and
      * {@link DistributionZoneWasRemovedException} in case when the distribution zone was removed during method execution.
      *
@@ -590,6 +593,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * Transforms {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleUp}
      * and {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleDown} values to boolean values.
      * True if it equals to zero and false if it greater than zero. Zero means that data nodes changing must be started immediately.
+     *
      * <p>The returned future can be completed with {@link DistributionZoneNotFoundException}
      * in case when the distribution zone was removed.
      *
@@ -611,6 +615,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * If the {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleUp} equals to 0 then waits for the zone manager processes
      * the data nodes update triggered by started nodes with passed or greater revision.
      * Else does nothing.
+     *
      * <p>The returned future can be completed with {@link DistributionZoneWasRemovedException}
      * in case when the distribution zone was removed during method execution.
      *
@@ -638,6 +643,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * If the {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleDown} equals to 0 then waits for the zone manager processes
      * the data nodes update triggered by stopped nodes with passed or greater revision.
      * Else does nothing.
+     *
      * <p>The returned future can be completed with {@link DistributionZoneWasRemovedException}
      * in case when the distribution zone was removed during method execution.
      *
@@ -1184,7 +1190,7 @@ public class DistributionZoneManager implements IgniteComponent {
                     }
 
                     assert newLogicalTopology != null : "The event doesn't contain logical topology";
-                    assert topVer > 0 : "The event doesn't contain logical topology version";
+                    assert revision > 0 : "The event doesn't contain logical topology version";
 
                     Set<String> newLogicalTopology0 = newLogicalTopology;
 
@@ -1807,7 +1813,7 @@ public class DistributionZoneManager implements IgniteComponent {
          *
          * @return The tracker.
          */
-        PendingComparableValuesTracker<Long> scaleUpRevisionTracker() {
+        private PendingComparableValuesTracker<Long> scaleUpRevisionTracker() {
             return scaleUpRevisionTracker;
         }
 
@@ -1816,7 +1822,7 @@ public class DistributionZoneManager implements IgniteComponent {
          *
          * @return The tracker.
          */
-        PendingComparableValuesTracker<Long> scaleDownRevisionTracker() {
+        private PendingComparableValuesTracker<Long> scaleDownRevisionTracker() {
             return scaleDownRevisionTracker;
         }
 
@@ -1846,15 +1852,5 @@ public class DistributionZoneManager implements IgniteComponent {
             this.nodeNames = nodeNames;
             this.addition = addition;
         }
-    }
-
-    @TestOnly
-    Map<Integer, ZoneState> zonesState() {
-        return zonesState;
-    }
-
-    @TestOnly
-    PendingComparableValuesTracker<Long> topVerTracker() {
-        return topVerTracker;
     }
 }

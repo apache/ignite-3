@@ -49,8 +49,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.configuration.NamedConfigurationTree;
-import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -61,7 +59,6 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfigurationSchema;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneWasRemovedException;
@@ -74,9 +71,6 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.StatementResultImpl;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
-import org.apache.ignite.internal.schema.configuration.TableChange;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultEntry;
@@ -188,146 +182,14 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
     }
 
     /**
-     * Test checks that data nodes futures are completed on topology with added and removed nodes.
+     * This test invokes {@link DistributionZoneManager#topologyVersionedDataNodes(int, long)} with default and non-default zone id
+     * and different logical topology versions.
+     * Simulates new logical topology with new nodes and with removed nodes. Check that data nodes futures are completed in right order.
      */
     @Test
     void testSeveralScaleUpAndSeveralScaleDownThenScaleUpAndScaleDown() throws Exception {
         startZoneManager(0);
 
-        TestSeveralScaleUpAndSeveralScaleDownDataObject testData = testSeveralScaleUpAndSeveralScaleDownGeneral();
-
-        LOG.info("Topology with added and removed nodes.");
-
-        Set<String> dataNodes = Set.of("node0", "node2");
-
-        topologyWatchListenerOnUpdate(dataNodes, testData.topVer2, testData.dataNodesRevision2);
-
-        assertTrue(testData.topVerUpFut2.isDone());
-        assertTrue(testData.topVerDownFut2.isDone());
-
-        CompletableFuture<Void> revisionUpFut = distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID)
-                .scaleUpRevisionTracker().waitFor(testData.dataNodesRevision2);
-
-        assertFalse(revisionUpFut.isDone());
-
-        dataNodesWatchListenerOnUpdate(DEFAULT_ZONE_ID, dataNodes, true, testData.dataNodesRevision2,
-                testData.dataNodesRevision2 + 1);
-
-        assertTrue(waitForCondition(revisionUpFut::isDone, 3000));
-
-        CompletableFuture<Void> revisionDownFut = distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).scaleDownRevisionTracker()
-                    .waitFor(testData.dataNodesRevision2);
-
-        assertFalse(revisionDownFut.isDone());
-
-        assertFalse(testData.dataNodesUpFut3.isDone());
-        assertFalse(testData.dataNodesDownFut3.isDone());
-
-        dataNodesWatchListenerOnUpdate(DEFAULT_ZONE_ID, dataNodes, false, testData.dataNodesRevision2,
-                testData.dataNodesRevision2 + 2);
-
-        assertTrue(waitForCondition(revisionDownFut::isDone, 3000));
-
-        assertEquals(dataNodes, testData.dataNodesUpFut3.get(3, SECONDS));
-        assertEquals(dataNodes, testData.dataNodesDownFut3.get(3, SECONDS));
-    }
-
-    /**
-     * Test checks that data nodes futures are completed on topology with added nodes.
-     */
-    @Test
-    void testSeveralScaleUpAndSeveralScaleDownThenScaleUp() throws Exception {
-        startZoneManager(0);
-
-        TestSeveralScaleUpAndSeveralScaleDownDataObject testData = testSeveralScaleUpAndSeveralScaleDownGeneral();
-
-        LOG.info("Topology with added nodes.");
-
-        Set<String> dataNodes = Set.of("node0", "node1", "node2");
-
-        topologyWatchListenerOnUpdate(dataNodes, testData.topVer2, testData.dataNodesRevision2);
-
-        assertTrue(testData.topVerUpFut2.isDone());
-        assertTrue(testData.topVerDownFut2.isDone());
-
-        CompletableFuture<Void> revisionUpFut = distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID)
-                    .scaleUpRevisionTracker().waitFor(testData.dataNodesRevision2);
-
-        assertFalse(revisionUpFut.isDone());
-
-        dataNodesWatchListenerOnUpdate(DEFAULT_ZONE_ID, dataNodes, true, testData.dataNodesRevision2,
-                testData.dataNodesRevision2 + 1);
-
-        assertTrue(waitForCondition(revisionUpFut::isDone, 3000));
-        assertEquals(dataNodes, testData.dataNodesUpFut3.get(3, SECONDS));
-        assertEquals(dataNodes, testData.dataNodesDownFut3.get(3, SECONDS));
-    }
-
-    /**
-     * Test checks that data nodes futures are completed on topology with removed nodes.
-     */
-    @Test
-    void testSeveralScaleUpAndSeveralScaleDownThenScaleDown() throws Exception {
-        startZoneManager(0);
-
-        TestSeveralScaleUpAndSeveralScaleDownDataObject testData = testSeveralScaleUpAndSeveralScaleDownGeneral();
-
-        LOG.info("Topology with removed nodes.");
-
-        Set<String> dataNodes = Set.of("node0");
-
-        topologyWatchListenerOnUpdate(dataNodes, testData.topVer2, testData.dataNodesRevision2);
-
-        assertTrue(testData.topVerUpFut2.isDone());
-        assertTrue(testData.topVerDownFut2.isDone());
-
-        CompletableFuture<Void> revisionDownFut = distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID)
-                .scaleDownRevisionTracker().waitFor((long) testData.dataNodesRevision2);
-
-        assertFalse(revisionDownFut.isDone());
-
-        dataNodesWatchListenerOnUpdate(DEFAULT_ZONE_ID, dataNodes, false, testData.dataNodesRevision2,
-                testData.dataNodesRevision2 + 1);
-
-        assertTrue(waitForCondition(revisionDownFut::isDone, 3000));
-        assertEquals(dataNodes, testData.dataNodesUpFut3.get(3, SECONDS));
-        assertEquals(dataNodes, testData.dataNodesDownFut3.get(3, SECONDS));
-    }
-
-    private static class TestSeveralScaleUpAndSeveralScaleDownDataObject {
-        private final long topVer2;
-        private final long dataNodesRevision2;
-        private final CompletableFuture<Void> topVerUpFut2;
-        private final CompletableFuture<Void> topVerDownFut2;
-        private final CompletableFuture<Set<String>> dataNodesUpFut3;
-        private final CompletableFuture<Set<String>> dataNodesDownFut3;
-
-        TestSeveralScaleUpAndSeveralScaleDownDataObject(
-                long topVer2,
-                long dataNodesRevision2,
-                CompletableFuture<Void> topVerUpFut2,
-                CompletableFuture<Void> topVerDownFut2,
-                CompletableFuture<Set<String>> dataNodesUpFut3,
-                CompletableFuture<Set<String>> dataNodesDownFut3) {
-            this.topVer2 = topVer2;
-            this.dataNodesRevision2 = dataNodesRevision2;
-            this.topVerUpFut2 = topVerUpFut2;
-            this.topVerDownFut2 = topVerDownFut2;
-            this.dataNodesUpFut3 = dataNodesUpFut3;
-            this.dataNodesDownFut3 = dataNodesDownFut3;
-        }
-    }
-
-    /**
-     * This method invokes {@link DistributionZoneManager#topologyVersionedDataNodes(int, long)} with default and non-default zone id
-     * and different logical topology version. Collects data nodes futures.
-     * Simulates new logical topology with new nodes. Check that some of data nodes futures are completed.
-     * Simulates new logical topology with removed nodes. Check that some of data nodes futures are completed.
-     *
-     * @return Structure with data for continue testing.
-     */
-    private TestSeveralScaleUpAndSeveralScaleDownDataObject testSeveralScaleUpAndSeveralScaleDownGeneral()
-            throws Exception {
         distributionZoneManager.createZone(
                         new DistributionZoneConfigurationParameters.Builder("zone0")
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
@@ -361,51 +223,37 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         int dataNodesRevision0 = 2;
 
-        CompletableFuture<Void> topVerUpFut0 = distributionZoneManager.topVerTracker().waitFor(1L);
-        CompletableFuture<Void> topVerUpFut1 = distributionZoneManager.topVerTracker().waitFor(2L);
-        CompletableFuture<Void> topVerUpFut2 = distributionZoneManager.topVerTracker().waitFor(11L);
-
-        assertFalse(topVerUpFut0.isDone());
-        assertFalse(topVerUpFut1.isDone());
-        assertFalse(topVerUpFut2.isDone());
-
         Set<String> threeNodes = Set.of("node0", "node1", "node2");
 
         topologyWatchListenerOnUpdate(threeNodes, topVer0, dataNodesRevision0);
 
-        assertTrue(waitForCondition(topVerUpFut0::isDone, 3_000));
-        assertTrue(waitForCondition(topVerUpFut1::isDone, 3_000));
-        assertFalse(topVerUpFut2.isDone());
-
-        CompletableFuture<Void> revision2Fut0;
-        CompletableFuture<Void> revision2Fut1;
-        CompletableFuture<Void> revision2Fut2;
-
-        revision2Fut0 = distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID)
-                .scaleUpRevisionTracker().waitFor((long) dataNodesRevision0);
-        revision2Fut1 = distributionZoneManager.zonesState().get(zoneId0)
-                .scaleUpRevisionTracker().waitFor((long) dataNodesRevision0);
-        revision2Fut2 = distributionZoneManager.zonesState().get(zoneId1)
-                .scaleUpRevisionTracker().waitFor((long) dataNodesRevision0);
-
-
-        assertFalse(revision2Fut0.isDone());
-        assertFalse(revision2Fut1.isDone());
-        assertFalse(revision2Fut2.isDone());
+        assertFalse(dataNodesUpFut0::isDone);
+        assertFalse(dataNodesUpFut1::isDone);
+        assertFalse(dataNodesUpFut2::isDone);
+        assertFalse(dataNodesUpFut4::isDone);
+        assertFalse(dataNodesUpFut5::isDone);
+        assertFalse(dataNodesUpFut6::isDone);
+        assertFalse(dataNodesUpFut7::isDone);
 
         dataNodesWatchListenerOnUpdate(DEFAULT_ZONE_ID, threeNodes, true, dataNodesRevision0, dataNodesRevision0 + 1);
-        dataNodesWatchListenerOnUpdate(zoneId0, threeNodes, true, dataNodesRevision0, dataNodesRevision0 + 1);
-        dataNodesWatchListenerOnUpdate(zoneId1, threeNodes, true, dataNodesRevision0, dataNodesRevision0 + 1);
-
-        assertTrue(waitForCondition(revision2Fut0::isDone, 3_000));
-        assertTrue(waitForCondition(revision2Fut1::isDone, 3_000));
-        assertTrue(waitForCondition(revision2Fut2::isDone, 3_000));
 
         assertEquals(threeNodes, dataNodesUpFut0.get(3, SECONDS));
         assertEquals(threeNodes, dataNodesUpFut1.get(3, SECONDS));
         assertEquals(threeNodes, dataNodesUpFut2.get(3, SECONDS));
+        assertFalse(dataNodesUpFut4::isDone);
+        assertFalse(dataNodesUpFut5::isDone);
+        assertFalse(dataNodesUpFut6::isDone);
+        assertFalse(dataNodesUpFut7::isDone);
+
+        dataNodesWatchListenerOnUpdate(zoneId0, threeNodes, true, dataNodesRevision0, dataNodesRevision0 + 1);
+
         assertEquals(threeNodes, dataNodesUpFut4.get(3, SECONDS));
         assertEquals(threeNodes, dataNodesUpFut5.get(3, SECONDS));
+        assertFalse(dataNodesUpFut6::isDone);
+        assertFalse(dataNodesUpFut7::isDone);
+
+        dataNodesWatchListenerOnUpdate(zoneId1, threeNodes, true, dataNodesRevision0, dataNodesRevision0 + 1);
+
         assertEquals(threeNodes, dataNodesUpFut6.get(3, SECONDS));
         assertEquals(threeNodes, dataNodesUpFut7.get(3, SECONDS));
         assertFalse(dataNodesUpFut3.isDone());
@@ -422,14 +270,6 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
         CompletableFuture<Set<String>> dataNodesDownFut6 = distributionZoneManager.topologyVersionedDataNodes(zoneId1, 4);
         CompletableFuture<Set<String>> dataNodesDownFut7 = distributionZoneManager.topologyVersionedDataNodes(zoneId1, 5);
 
-        CompletableFuture<Void> topVerDownFut0 = distributionZoneManager.topVerTracker().waitFor(4L);
-        CompletableFuture<Void> topVerDownFut1 = distributionZoneManager.topVerTracker().waitFor(5L);
-        CompletableFuture<Void> topVerDownFut2 = distributionZoneManager.topVerTracker().waitFor(6L);
-
-        assertFalse(topVerDownFut0.isDone());
-        assertFalse(topVerDownFut1.isDone());
-        assertFalse(topVerDownFut2.isDone());
-
         int topVer1 = 5;
 
         int dataNodesRevision1 = dataNodesRevision0 + 2;
@@ -438,53 +278,56 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         topologyWatchListenerOnUpdate(twoNodes, topVer1, dataNodesRevision1);
 
-        assertTrue(waitForCondition(topVerDownFut0::isDone, 3_000));
-        assertTrue(waitForCondition(topVerDownFut1::isDone, 3_000));
-        assertFalse(waitForCondition(topVerDownFut2::isDone, 3_000));
-
-        CompletableFuture<Void> revision5Fut0 = distributionZoneManager.zonesState()
-                .get(DEFAULT_ZONE_ID).scaleDownRevisionTracker().waitFor((long) dataNodesRevision1);
-        CompletableFuture<Void> revision5Fut1 = distributionZoneManager.zonesState()
-                .get(zoneId0).scaleDownRevisionTracker().waitFor((long) dataNodesRevision1);
-        CompletableFuture<Void> revision5Fut2 = distributionZoneManager.zonesState()
-                .get(zoneId1).scaleDownRevisionTracker().waitFor((long) dataNodesRevision1);
-
-        assertFalse(revision5Fut0.isDone());
-        assertFalse(revision5Fut1.isDone());
-        assertFalse(revision5Fut2.isDone());
+        assertFalse(dataNodesDownFut0::isDone);
+        assertFalse(dataNodesDownFut1::isDone);
+        assertFalse(dataNodesDownFut2::isDone);
+        assertFalse(dataNodesDownFut4::isDone);
+        assertFalse(dataNodesDownFut5::isDone);
+        assertFalse(dataNodesDownFut6::isDone);
+        assertFalse(dataNodesDownFut7::isDone);
 
         dataNodesWatchListenerOnUpdate(DEFAULT_ZONE_ID, twoNodes, false, dataNodesRevision1, dataNodesRevision1 + 1);
-        dataNodesWatchListenerOnUpdate(zoneId0, twoNodes, false, dataNodesRevision1, dataNodesRevision1 + 1);
-        dataNodesWatchListenerOnUpdate(zoneId1, twoNodes, false, dataNodesRevision1, dataNodesRevision1 + 1);
-
-        assertTrue(waitForCondition(revision5Fut0::isDone, 3_000));
-        assertTrue(waitForCondition(revision5Fut1::isDone, 3_000));
-        assertTrue(waitForCondition(revision5Fut2::isDone, 3_000));
 
         assertEquals(twoNodes, dataNodesDownFut0.get(3, SECONDS));
         assertEquals(twoNodes, dataNodesDownFut1.get(3, SECONDS));
         assertEquals(twoNodes, dataNodesDownFut2.get(3, SECONDS));
+        assertFalse(dataNodesDownFut4::isDone);
+        assertFalse(dataNodesDownFut5::isDone);
+        assertFalse(dataNodesDownFut6::isDone);
+        assertFalse(dataNodesDownFut7::isDone);
+
+        dataNodesWatchListenerOnUpdate(zoneId0, twoNodes, false, dataNodesRevision1, dataNodesRevision1 + 1);
+
         assertEquals(twoNodes, dataNodesDownFut4.get(3, SECONDS));
         assertEquals(twoNodes, dataNodesDownFut5.get(3, SECONDS));
+        assertFalse(dataNodesDownFut6::isDone);
+        assertFalse(dataNodesDownFut7::isDone);
+
+        dataNodesWatchListenerOnUpdate(zoneId1, twoNodes, false, dataNodesRevision1, dataNodesRevision1 + 1);
+
         assertEquals(twoNodes, dataNodesDownFut6.get(3, SECONDS));
         assertEquals(twoNodes, dataNodesDownFut7.get(3, SECONDS));
         assertFalse(dataNodesDownFut3.isDone());
-
-        assertFalse(topVerUpFut2.isDone());
-        assertFalse(topVerDownFut2.isDone());
 
         int topVer2 = 20;
 
         int dataNodesRevision2 = dataNodesRevision1 + 2;
 
-        return new TestSeveralScaleUpAndSeveralScaleDownDataObject(
-                topVer2,
-                dataNodesRevision2,
-                topVerUpFut2,
-                topVerDownFut2,
-                dataNodesUpFut3,
-                dataNodesDownFut3
-        );
+        LOG.info("Topology with added and removed nodes.");
+
+        Set<String> dataNodes = Set.of("node0", "node2");
+
+        topologyWatchListenerOnUpdate(dataNodes, topVer2, dataNodesRevision2);
+
+        dataNodesWatchListenerOnUpdate(DEFAULT_ZONE_ID, dataNodes, true, dataNodesRevision2, dataNodesRevision2 + 1);
+
+        assertFalse(dataNodesUpFut3.isDone());
+        assertFalse(dataNodesDownFut3.isDone());
+
+        dataNodesWatchListenerOnUpdate(DEFAULT_ZONE_ID, dataNodes, false, dataNodesRevision2, dataNodesRevision2 + 2);
+
+        assertEquals(dataNodes, dataNodesUpFut3.get(3, SECONDS));
+        assertEquals(dataNodes, dataNodesDownFut3.get(3, SECONDS));
     }
 
     /**
@@ -496,52 +339,31 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         CompletableFuture<Set<String>> dataNodesFut = distributionZoneManager.topologyVersionedDataNodes(DEFAULT_ZONE_ID, 5);
 
-        CompletableFuture<Void> topVerFut5 = distributionZoneManager.topVerTracker().waitFor(5L);
+        assertFalse(dataNodesFut.isDone());
 
-        assertFalse(topVerFut5.isDone());
+        long topVer = 100;
+
+        Set<String> dataNodes0 = Set.of("node0", "node1");
+
+        topologyWatchListenerOnUpdate(dataNodes0, topVer, 10);
 
         assertFalse(dataNodesFut.isDone());
 
-        topologyWatchListenerOnUpdate(Set.of("node0", "node1"), 100, 10);
+        dataNodesWatchListenerOnUpdate(DEFAULT_ZONE_ID, dataNodes0, true, 10, 11);
 
-        assertTrue(waitForCondition(topVerFut5::isDone, 3_000));
-
-        ZoneState zoneState = distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID);
-
-        CompletableFuture<Void> revisionFut10 = zoneState.scaleUpRevisionTracker().waitFor(10L);
-
-        assertFalse(revisionFut10.isDone());
-
-        assertFalse(dataNodesFut.isDone());
-
-        dataNodesWatchListenerOnUpdate(DEFAULT_ZONE_ID, Set.of("node0", "node1"), true, 10, 11);
-
-        assertTrue(waitForCondition(revisionFut10::isDone, 3_000));
-
-        assertEquals(Set.of("node0", "node1"), dataNodesFut.get(3, SECONDS));
+        assertEquals(dataNodes0, dataNodesFut.get(3, SECONDS));
 
         dataNodesFut = distributionZoneManager.topologyVersionedDataNodes(DEFAULT_ZONE_ID, 106);
 
-        CompletableFuture<Void> topVerFut106 = distributionZoneManager.topVerTracker().waitFor(106L);
+        Set<String> dataNodes1 = Set.of("node0");
 
-        assertFalse(topVerFut106.isDone());
-
-        topologyWatchListenerOnUpdate(Set.of("node0"), 200, 12);
-
-        assertTrue(waitForCondition(topVerFut106::isDone, 3_000));
-
-        CompletableFuture<Void> revisionFut12 = distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID)
-                .scaleDownRevisionTracker().waitFor(12L);
-
-        assertFalse(revisionFut12.isDone());
+        topologyWatchListenerOnUpdate(dataNodes1, topVer + 100, 12);
 
         assertFalse(dataNodesFut.isDone());
 
-        dataNodesWatchListenerOnUpdate(DEFAULT_ZONE_ID, Set.of("node0"), false, 12, 13);
+        dataNodesWatchListenerOnUpdate(DEFAULT_ZONE_ID, dataNodes1, false, 12, 13);
 
-        assertTrue(waitForCondition(revisionFut12::isDone, 3_000));
-
-        assertEquals(Set.of("node0"), dataNodesFut.get(3, SECONDS));
+        assertEquals(dataNodes1, dataNodesFut.get(3, SECONDS));
     }
 
     /**
@@ -568,10 +390,6 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         CompletableFuture<Set<String>> dataNodesFut = distributionZoneManager.topologyVersionedDataNodes(zoneId, 1);
 
-        CompletableFuture<Void> topVerUpFut = distributionZoneManager.topVerTracker().waitFor(1L);
-
-        assertFalse(topVerUpFut.isDone());
-
         Set<String> nodes0 = Set.of("node0", "node1");
 
         topologyWatchListenerOnUpdate(nodes0, 1, 1);
@@ -580,13 +398,13 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         dataNodesWatchListenerOnUpdate(zoneId, nodes0, true, 1, 2);
 
-        dataNodesFut.get(3, SECONDS);
+        assertEquals(nodes0, dataNodesFut.get(3, SECONDS));
 
         dataNodesFut = distributionZoneManager.topologyVersionedDataNodes(zoneId, 2);
 
-        Set<String> nodes1 = Set.of("node0");
+        assertFalse(dataNodesFut.isDone());
 
-        topologyWatchListenerOnUpdate(nodes1, 2, 2);
+        topologyWatchListenerOnUpdate(Set.of("node0"), 2, 2);
 
         assertEquals(nodes0, dataNodesFut.get(3, SECONDS));
     }
@@ -634,10 +452,6 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         CompletableFuture<Set<String>> dataNodesFut = distributionZoneManager.topologyVersionedDataNodes(zoneId1, 1);
 
-        CompletableFuture<Void> topVerUpFut = distributionZoneManager.topVerTracker().waitFor(1L);
-
-        assertFalse(topVerUpFut.isDone());
-
         Set<String> nodes0 = Set.of("node0", "node1");
 
         topologyWatchListenerOnUpdate(nodes0, 1, 1);
@@ -650,7 +464,9 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
         CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.topologyVersionedDataNodes(zoneId1, 2);
         CompletableFuture<Set<String>> dataNodesFut1Zone2 = distributionZoneManager.topologyVersionedDataNodes(zoneId2, 2);
 
+        assertFalse(dataNodesFut1Zone0.isDone());
         assertFalse(dataNodesFut1.isDone());
+        assertFalse(dataNodesFut1Zone2.isDone());
 
         Set<String> nodes1 = Set.of("node0");
 
@@ -662,11 +478,13 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         dataNodesWatchListenerOnUpdate(zoneId1, nodes1, false, 3, 4);
 
-        dataNodesFut1.get(3, SECONDS);
+        assertEquals(nodes1, dataNodesFut1.get(3, SECONDS));
 
         CompletableFuture<Set<String>> dataNodesFut2 = distributionZoneManager.topologyVersionedDataNodes(zoneId1, 3);
 
         Set<String> nodes2 = Set.of("node0", "node1");
+
+        assertFalse(dataNodesFut2.isDone());
 
         topologyWatchListenerOnUpdate(nodes2, 3, 5);
 
@@ -697,19 +515,13 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         CompletableFuture<Set<String>> dataNodesFut = distributionZoneManager.topologyVersionedDataNodes(zoneId, 1);
 
-        CompletableFuture<Void> topVerUpFut = distributionZoneManager.topVerTracker().waitFor(1L);
-
         assertFalse(dataNodesFut.isDone());
 
         Set<String> nodes0 = Set.of("node0", "node1");
 
         topologyWatchListenerOnUpdate(nodes0, 1, 1);
 
-        assertTrue(waitForCondition(dataNodesFut::isDone, 3000));
-
         assertEquals(emptySet(), dataNodesFut.get(3, SECONDS));
-
-        assertTrue(waitForCondition(topVerUpFut::isDone, 3000));
 
         CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.topologyVersionedDataNodes(zoneId, 1);
 
@@ -742,49 +554,21 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         CompletableFuture<Set<String>> dataNodesFut0 = distributionZoneManager.topologyVersionedDataNodes(zoneId, 5);
 
-        CompletableFuture<Void> topVerFut5 = distributionZoneManager.topVerTracker().waitFor(5L);
-
-        assertFalse(topVerFut5.isDone());
-
         topologyWatchListenerOnUpdate(Set.of("node0", "node1"), 100, 10);
 
-        assertTrue(waitForCondition(topVerFut5::isDone, 3_000));
-
-        ZoneState zoneState = distributionZoneManager.zonesState().get(zoneId);
-
-        CompletableFuture<Void> revisionDownFut10 = zoneState
-                .scaleUpRevisionTracker().waitFor(10L);
-
-        assertFalse(revisionDownFut10.isDone());
+        assertFalse(dataNodesFut0.isDone());
 
         dataNodesWatchListenerOnUpdate(zoneId, Set.of("node0", "node1"), true, 10, 11);
-
-        assertTrue(waitForCondition(revisionDownFut10::isDone, 3_000));
 
         assertEquals(Set.of("node0", "node1"), dataNodesFut0.get(3, SECONDS));
 
         CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.topologyVersionedDataNodes(zoneId, 106);
 
-        CompletableFuture<Void> topVerFut106 = distributionZoneManager.topVerTracker().waitFor(106L);
-
-        assertFalse(topVerFut106.isDone());
-
         topologyWatchListenerOnUpdate(Set.of("node0", "node2"), 200, 12);
 
-        assertTrue(waitForCondition(topVerFut106::isDone, 3_000));
-
-        CompletableFuture<Void> revisionUpFut12 = zoneState.scaleUpRevisionTracker().waitFor(12L);
-
-        CompletableFuture<Void> revisionDownFut12 = zoneState.scaleDownRevisionTracker().waitFor(12L);
-
-        assertFalse(revisionDownFut12.isDone());
-        assertFalse(revisionUpFut12.isDone());
         assertFalse(dataNodesFut1.isDone());
 
         distributionZoneManager.dropZone("zone0").get();
-
-        assertTrue(waitForCondition(revisionDownFut12::isDone, 3_000));
-        assertTrue(waitForCondition(revisionUpFut12::isDone, 3_000));
 
         assertThrowsWithCause(() -> dataNodesFut1.get(3, SECONDS), DistributionZoneWasRemovedException.class);
     }
@@ -794,7 +578,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      * and dataNodesAutoAdjustScaleDown timer increased to non-zero value.
      */
     @Test
-    void testScaleUpScaleDownWhileAwaitingDataNodes() throws Exception {
+    void testScaleUpScaleDownAreChangedWhileAwaitingDataNodes() throws Exception {
         startZoneManager(0);
 
         Set<String> nodes0 = Set.of("node0", "node1");
@@ -819,6 +603,8 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder("zone0")
                         .dataNodesAutoAdjustScaleUp(1000).dataNodesAutoAdjustScaleDown(1000).build())
                 .get(3, SECONDS);
+
+        assertFalse(dataNodesFut.isDone());
 
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                         .dataNodesAutoAdjustScaleUp(1000).dataNodesAutoAdjustScaleDown(1000).build())
