@@ -25,6 +25,7 @@ import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
+import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.sql.ColumnType;
@@ -36,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
  * {@link Tuple} implementation over {@link BinaryTupleReader},
  * with mutable fallback.
  */
-public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
+public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTupleContainer {
     /** Underlying BinaryTuple. */
     private BinaryTupleReader binaryTuple;
 
@@ -402,7 +403,9 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
         return false;
     }
 
-    protected @Nullable BinaryTupleReader binaryTuple() {
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable BinaryTupleReader binaryTuple() {
         return binaryTuple;
     }
 

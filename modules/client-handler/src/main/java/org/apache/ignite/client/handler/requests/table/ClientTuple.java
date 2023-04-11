@@ -21,7 +21,6 @@ import java.util.BitSet;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientColumnTypeConverter;
 import org.apache.ignite.internal.client.table.MutableTupleBinaryTupleAdapter;
-import org.apache.ignite.internal.schema.BinaryTupleContainer;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -33,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Server-side client Tuple.
  */
-class ClientTuple extends MutableTupleBinaryTupleAdapter implements BinaryTupleContainer {
+class ClientTuple extends MutableTupleBinaryTupleAdapter {
     /** Schema. */
     private final SchemaDescriptor schema;
 
