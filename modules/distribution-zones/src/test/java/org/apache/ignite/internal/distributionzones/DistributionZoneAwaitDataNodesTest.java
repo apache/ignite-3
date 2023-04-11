@@ -59,6 +59,8 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfigurationSchema;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -83,12 +85,14 @@ import org.apache.ignite.lang.ByteArray;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests awaiting data nodes algorithm in distribution zone manager in case when
  * {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleUp}
  * or {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleDown} are immediate.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneAwaitDataNodesTest.class);
 
@@ -107,6 +111,9 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
     private ClusterManagementGroupManager cmgManager;
 
     private VaultManager vaultManager;
+
+    @InjectConfiguration
+    private TablesConfiguration tablesConfiguration;
 
     private WatchListener topologyWatchListener;
 
@@ -147,18 +154,6 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
         logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
         LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
-
-        TablesConfiguration tablesConfiguration = mock(TablesConfiguration.class);
-
-        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = mock(NamedConfigurationTree.class);
-
-        when(tablesConfiguration.tables()).thenReturn(tables);
-
-        NamedListView<TableView> tablesValue = mock(NamedListView.class);
-
-        when(tables.value()).thenReturn(tablesValue);
-
-        when(tablesValue.size()).thenReturn(0);
 
         clusterCfgMgr = new ConfigurationManager(
                 List.of(DistributionZonesConfiguration.KEY),

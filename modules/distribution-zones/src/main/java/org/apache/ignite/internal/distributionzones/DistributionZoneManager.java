@@ -544,24 +544,26 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * The method for obtaining data nodes of the specified zone.
-     * The flow for the future completion:
-     * Waiting for DistributionZoneManager observe passed topology version or greater version in topologyWatchListener.
-     * If the {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleUp} equals to 0 than wait for writing data nodes triggered
-     * by started nodes and corresponding to the passed topology version or greater topology version
-     * to the data nodes into the meta storage.
-     * If the {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleDown} equals to 0 than wait for writing data nodes
-     * triggered by stopped nodes and corresponding to the passed topology version or greater topology version
-     * to the data nodes into the meta storage.
-     * After waiting it completes the future with data nodes of the specified zone.
-     * This method must be invoked in a change configuration closure to guarantee that the zone is exists and values of scaleUp/scaleDown
-     * timers are up to date.
-     * The returned future can be completed with {@link DistributionZoneNotFoundException} and {@link DistributionZoneWasRemovedException}
-     * in case when the distribution zone was removed during method execution.
+     * The method for obtaining the data nodes of the specified zone.
+     * If {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleUp} and
+     * {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleDown} are immediate then it waits that the data nodes
+     * are up-to-date for the passed topology version.
+     * <p>If the values of auto adjust scale up and auto adjust scale down are zero, then on the cluster topology changes
+     * the data nodes for the zone should be updated immediately. Therefore, this method must return the data nodes which is calculated
+     * based on the topology with passed or greater version. Since the date nodes value is updated asynchronously, this method waits for
+     * the date nodes to be updated with new nodes in the topology if the value of auto adjust scale up is 0. And also waits for
+     * the date nodes to be updated with nodes that have left the topology if the value of auto adjust scale down is 0.
+     * After the zone manager has observed the logical topology change and the data nodes value is updated according to cluster topology,
+     * then this method completes the returned future with the current value of data nodes.
+     * <p>If the value of auto adjust scale up is greater than zero, then it is not necessary to wait for the data nodes update triggered
+     * by new nodes in cluster topology. Similarly if the value of auto adjust scale down is greater than zero, then it is not necessary to
+     * wait for the data nodes update triggered by new nodes that have left the topology in cluster topology.
+     * <p>The returned future can be completed with {@link DistributionZoneNotFoundException} and
+     * {@link DistributionZoneWasRemovedException} in case when the distribution zone was removed during method execution.
      *
      * @param zoneId Zone id.
      * @param topVer Topology version.
-     * @return The data nodes future.
+     * @return The data nodes future which will be completed with data nodes for the zoneId or with exception.
      */
     public CompletableFuture<Set<String>> topologyVersionedDataNodes(int zoneId, long topVer) {
         CompletableFuture<IgniteBiTuple<Boolean, Boolean>> timerValuesFut = awaitTopologyVersion(topVer)
@@ -574,7 +576,8 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Waits for DistributionZoneManager observe passed topology version or greater version in topologyWatchListener.
+     * Waits for DistributionZoneManager waits for observing passed topology version or greater version
+     * in {@link DistributionZoneManager#topologyWatchListener}.
      *
      * @param topVer Topology version.
      * @return Future for chaining.
@@ -586,10 +589,12 @@ public class DistributionZoneManager implements IgniteComponent {
     /**
      * Transforms {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleUp}
      * and {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleDown} values to boolean values.
-     * True if it equals to zero and false if it greater than zero. Zero means that data nodes changing must be started immediate.
+     * True if it equals to zero and false if it greater than zero. Zero means that data nodes changing must be started immediately.
+     * <p>The returned future can be completed with {@link DistributionZoneNotFoundException}
+     * in case when the distribution zone was removed.
      *
      * @param zoneId Zone id.
-     * @return Future with the result.
+     * @return Future with the boolean values for immediate auto adjust scale up and immediate auto adjust scale down.
      */
     private CompletableFuture<IgniteBiTuple<Boolean, Boolean>> getImmediateTimers(int zoneId) {
         return inBusyLock(busyLock, () -> {
@@ -603,9 +608,11 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * If the {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleUp} equals to 0 than waits for writing data nodes triggered
-     * by started nodes and corresponding to the passed topology version or greater topology version
-     * to the data nodes into the meta storage.
+     * If the {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleUp} equals to 0 then waits for the zone manager processes
+     * the data nodes update triggered by started nodes with passed or greater revision.
+     * Else does nothing.
+     * <p>The returned future can be completed with {@link DistributionZoneWasRemovedException}
+     * in case when the distribution zone was removed during method execution.
      *
      * @param zoneId Zone id.
      * @param immediateScaleUp True in case of immediate scale up.
@@ -628,9 +635,11 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * If the {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleDown} equals to 0 than waits for writing data nodes
-     * triggered by stopped nodes and corresponding to the passed topology version or greater topology version
-     * to the data nodes into the meta storage.
+     * If the {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleDown} equals to 0 then waits for the zone manager processes
+     * the data nodes update triggered by stopped nodes with passed or greater revision.
+     * Else does nothing.
+     * <p>The returned future can be completed with {@link DistributionZoneWasRemovedException}
+     * in case when the distribution zone was removed during method execution.
      *
      * @param zoneId Zone id.
      * @param immediateScaleDown True in case of immediate scale down.
@@ -1127,7 +1136,7 @@ public class DistributionZoneManager implements IgniteComponent {
             });
 
             assert topologyEntry == null || topologyEntry.value() == null || logicalTopology.equals(fromBytes(topologyEntry.value()))
-                    : "DistributionZoneManager.logicalTopology was changed after initialization from the vault manager.";
+                    : "Initial value of logical topology was changed after initialization from the vault manager.";
         } finally {
             busyLock.leaveBusy();
         }
@@ -1174,8 +1183,8 @@ public class DistributionZoneManager implements IgniteComponent {
                         }
                     }
 
-                    assert newLogicalTopology != null;
-                    assert revision > 0;
+                    assert newLogicalTopology != null : "The event doesn't contain logical topology";
+                    assert topVer > 0 : "The event doesn't contain logical topology version";
 
                     Set<String> newLogicalTopology0 = newLogicalTopology;
 
@@ -1185,6 +1194,7 @@ public class DistributionZoneManager implements IgniteComponent {
                     Set<String> addedNodes =
                             newLogicalTopology.stream().filter(node -> !logicalTopology.contains(node)).collect(toSet());
 
+                    //First update lastScaleUpRevision and lastScaleDownRevision then update topVerTracker to ensure thread-safety.
                     if (!addedNodes.isEmpty()) {
                         lastScaleUpRevision = revision;
                     }
@@ -1193,9 +1203,6 @@ public class DistributionZoneManager implements IgniteComponent {
                         lastScaleDownRevision = revision;
                     }
 
-                    //The topology version must be updated after the lastScaleUpRevision and lastScaleDownRevision are updated.
-                    //This is necessary in order to when topology version waiters will be notified that topology version is updated
-                    //then they will start wait correspond lastScaleUpRevision and lastScaleDownRevision revisions.
                     topVerTracker.update(topVer);
 
                     logicalTopology = newLogicalTopology;
