@@ -213,7 +213,7 @@ public interface Tuple extends Iterable<Object> {
      * @param <T>          Default value type.
      * @return Column value if the tuple contains a column with the specified name. Otherwise, {@code defaultValue}.
      */
-    @Nullable <T> T valueOrDefault(@NotNull String columnName, T defaultValue);
+    @Nullable <T> T valueOrDefault(@NotNull String columnName, @Nullable T defaultValue);
 
     /**
      * Sets a column value.
