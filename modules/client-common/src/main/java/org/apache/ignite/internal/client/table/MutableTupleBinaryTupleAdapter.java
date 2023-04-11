@@ -68,7 +68,17 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple {
     /** {@inheritDoc} */
     @Override
     public int columnCount() {
-        return tuple != null ? tuple.columnCount() : schemaSize - schemaOffset;
+        if (tuple != null) {
+            return tuple.columnCount();
+        }
+
+        int cnt = schemaSize - schemaOffset;
+
+        if (noValueSet != null) {
+            cnt -= noValueSet.cardinality();
+        }
+
+        return cnt;
     }
 
     /** {@inheritDoc} */
