@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.emptyMap;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -28,11 +29,15 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_FILTER_ERR;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -46,6 +51,7 @@ import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -76,6 +82,9 @@ public class DistributionZonesUtil {
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION}. */
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY =
             new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION);
+
+    /** Converts string to JSON. */
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
      * The initial value of trigger revision in case when it is not initialized in the meta storage.
@@ -369,5 +378,51 @@ public class DistributionZonesUtil {
         }
 
         return null;
+    }
+
+    /**
+     * Check if {@code nodeAttributes} satisfy the {@code filter}.
+     *
+     * @param nodeAttributes Key value map of node's attributes.
+     * @param filter Valid {@link JsonPath} filter of JSON fields.
+     * @return True if at least one value from {@code nodeAttributes} satisfy {@code filter}, false otherwise.
+     *         Returns true if {@code nodeAttributes} is empty.
+     */
+    public static boolean filter(Map<String, String> nodeAttributes, String filter) {
+        // If attributes are not specified for some node, this node should pass the filter condition.
+        if (nodeAttributes.isEmpty()) {
+            return true;
+        }
+
+        // We need to convert numbers to Long objects, so they could be parsed to numbers in JSON.
+        // nodeAttributes has String values of numbers because nodeAttributes come from configuration,
+        // but configuration does not support Object as a configuration value.
+        Map<String, Object> convertedAttributes = nodeAttributes.entrySet().stream()
+                .collect(
+                        toMap(
+                                Map.Entry::getKey,
+                                e -> {
+                                    long res;
+
+                                    try {
+                                        res = Long.parseLong(e.getValue());
+                                    } catch (NumberFormatException ignored) {
+                                        return e.getValue();
+                                    }
+                                    return res;
+                                })
+                );
+
+        String json;
+
+        try {
+            json = OBJECT_MAPPER.writeValueAsString(convertedAttributes);
+        } catch (JsonProcessingException e) {
+            throw new IgniteInternalException(ZONE_FILTER_ERR, "Failed to create JSON from map of node attributes.", e);
+        }
+
+        List<Map<String, Object>> res = JsonPath.parse(json).read(filter);
+
+        return !res.isEmpty();
     }
 }
