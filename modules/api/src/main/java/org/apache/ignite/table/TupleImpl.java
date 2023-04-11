@@ -154,7 +154,7 @@ class TupleImpl implements Tuple, Serializable {
         int idx = columnIndex(columnName);
 
         if (idx == -1) {
-            throw new IllegalArgumentException("Column not found: columnName=" + columnName);
+            throw new IllegalArgumentException("Column doesn't exist [name=" + columnName + ']');
         }
 
         return (T) colValues.get(idx);
