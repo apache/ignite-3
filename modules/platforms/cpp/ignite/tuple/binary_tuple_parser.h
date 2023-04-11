@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "binary_tuple_schema.h"
+#include "binary_tuple_common.h"
 
 #include <ignite/common/big_decimal.h>
 #include <ignite/common/big_integer.h>
@@ -30,6 +30,8 @@
 #include <ignite/common/ignite_timestamp.h>
 #include <ignite/common/uuid.h>
 
+#include <optional>
+
 namespace ignite {
 
 /**
@@ -40,13 +42,13 @@ namespace ignite {
 class binary_tuple_parser {
     bytes_view binary_tuple; /**< The binary tuple to parse. */
 
-    const number_t element_count; /**< Total number of elements. */
+    const tuple_num_t element_count; /**< Total number of elements. */
 
-    number_t element_index; /**< Index of the next element to parse. */
+    tuple_num_t element_index; /**< Index of the next element to parse. */
 
     bool has_nullmap; /**< Flag that indicates if the tuple contains a nullmap. */
 
-    data_size_t entry_size; /**< Size of an offset table entry. */
+    tuple_size_t entry_size; /**< Size of an offset table entry. */
 
     const std::byte *next_entry; /**< Position of the next offset table entry. */
 
@@ -66,7 +68,7 @@ public:
      * @param num_elements Number of tuple elements.
      * @param data Binary tuple buffer.
      */
-    explicit binary_tuple_parser(number_t num_elements, bytes_view data);
+    explicit binary_tuple_parser(tuple_num_t num_elements, bytes_view data);
 
     /**
      * @brief Gets the original binary tuple.
@@ -80,44 +82,28 @@ public:
      *
      * @return Tuple size.
      */
-    data_size_t get_size() const noexcept { return static_cast<data_size_t>(binary_tuple.size()); }
+    tuple_size_t get_size() const noexcept { return static_cast<tuple_size_t>(binary_tuple.size()); }
 
     /**
      * @brief Gets the expected total number of tuple elements.
      *
      * @return Number of elements.
      */
-    number_t num_elements() const noexcept { return element_count; }
+    tuple_num_t num_elements() const noexcept { return element_count; }
 
     /**
      * @brief Gets the number of parsed tuple elements.
      *
      * @return Number of parsed elements.
      */
-    number_t num_parsed_elements() const noexcept { return element_index; }
+    tuple_num_t num_parsed_elements() const noexcept { return element_index; }
 
     /**
      * @brief Gets the next value of the tuple.
      *
      * @return The next value.
      */
-    value_view get_next();
-
-    /**
-     * @brief Gets a series of values.
-     *
-     * @param num Required number of values. The value of NOT_NUM means all the available values.
-     * @return A set of values.
-     */
-    tuple_view parse(number_t num = NOT_NUM);
-
-    /**
-     * @brief Gets a series of values presuming they belong to a key. So no NULL values are allowed.
-     *
-     * @param num Required number of values. The value of NOT_NUM means all the available values.
-     * @return A set of values.
-     */
-    key_tuple_view parse_key(number_t num = NOT_NUM);
+    std::optional<bytes_view> get_next();
 
     /**
      * @brief Reads value of specified element.
