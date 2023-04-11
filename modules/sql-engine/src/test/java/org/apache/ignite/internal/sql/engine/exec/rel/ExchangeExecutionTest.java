@@ -435,7 +435,6 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
             // Hitting the limit may affect the one of source of Outbox will not request more batches,
             // which we can observe here as 'root1ReqFut' hanging, and therefore 'root2ReqFut'. But it is ok, because that means
             // the downstream already got all the data.
-            System.out.println("Fetch all data");
             while (res.hasMore()) {
                 res = await(root2.requestNextAsync(500));
                 assertThat(res.items(), everyItem(EVEN_KEY_MATCHER));
