@@ -41,7 +41,6 @@ import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTuple;
-import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
