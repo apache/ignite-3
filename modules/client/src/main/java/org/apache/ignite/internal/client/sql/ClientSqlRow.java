@@ -65,16 +65,6 @@ public class ClientSqlRow extends MutableTupleBinaryTupleAdapter implements SqlR
         return metadata.indexOf(columnName);
     }
 
-    private int columnIndexChecked(@NotNull String columnName) {
-        int idx = columnIndex(columnName);
-
-        if (idx == -1) {
-            throw new IllegalArgumentException("Column doesn't exist [name=" + columnName + ']');
-        }
-
-        return idx;
-    }
-
     /** {@inheritDoc} */
     @Override
     public Tuple set(@NotNull String columnName, Object value) {
