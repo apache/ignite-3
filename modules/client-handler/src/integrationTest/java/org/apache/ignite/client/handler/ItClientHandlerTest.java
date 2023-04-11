@@ -331,7 +331,7 @@ public class ItClientHandlerTest {
             change.changeEnabled(true);
             change.changeProviders().create("basic", authenticationProviderChange -> {
                 authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
-                        .changeLogin(username)
+                        .changeUsername(username)
                         .changePassword(password)
                         .changeName("basic");
             });
