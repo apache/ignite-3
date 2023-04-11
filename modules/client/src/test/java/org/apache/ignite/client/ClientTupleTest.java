@@ -201,21 +201,55 @@ public class ClientTupleTest {
                 ClassCastException.class,
                 "Column with name 'i16' has type INT16 but INT8 was requested");
 
-        // TODO
-        assertEquals(2, tuple.shortValue(1));
-        assertEquals(2, tuple.shortValue("i16"));
+        assertThrowsWithCause(
+                () -> tuple.shortValue(2),
+                ClassCastException.class,
+                "Column with index 2 has type INT32 but INT16 was requested");
 
-        assertEquals(3, tuple.intValue(2));
-        assertEquals(3, tuple.intValue("i32"));
+        assertThrowsWithCause(
+                () -> tuple.shortValue("i32"),
+                ClassCastException.class,
+                "Column with name 'i32' has type INT32 but INT16 was requested");
 
-        assertEquals(4, tuple.longValue(3));
-        assertEquals(4, tuple.longValue("i64"));
+        assertThrowsWithCause(
+                () -> tuple.intValue(3),
+                ClassCastException.class,
+                "Column with index 3 has type INT64 but INT32 was requested");
 
-        assertEquals(5.5, tuple.floatValue(4));
-        assertEquals(5.5, tuple.floatValue("float"));
+        assertThrowsWithCause(
+                () -> tuple.intValue("i64"),
+                ClassCastException.class,
+                "Column with name 'i64' has type INT64 but INT32 was requested");
 
-        assertEquals(6.6, tuple.doubleValue(5));
-        assertEquals(6.6, tuple.doubleValue("double"));
+        assertThrowsWithCause(
+                () -> tuple.longValue(4),
+                ClassCastException.class,
+                "Column with index 4 has type FLOAT but INT64 was requested");
+
+        assertThrowsWithCause(
+                () -> tuple.longValue("float"),
+                ClassCastException.class,
+                "Column with name 'float' has type FLOAT but INT64 was requested");
+
+        assertThrowsWithCause(
+                () -> tuple.floatValue(5),
+                ClassCastException.class,
+                "Column with index 5 has type DOUBLE but FLOAT was requested");
+
+        assertThrowsWithCause(
+                () -> tuple.floatValue("double"),
+                ClassCastException.class,
+                "Column with name 'double' has type DOUBLE but FLOAT was requested");
+
+        assertThrowsWithCause(
+                () -> tuple.doubleValue(6),
+                ClassCastException.class,
+                "Column with index 6 has type UUID but DOUBLE was requested");
+
+        assertThrowsWithCause(
+                () -> tuple.doubleValue("uuid"),
+                ClassCastException.class,
+                "Column with name 'uuid' has type UUID but DOUBLE was requested");
 
         assertEquals(GUID, tuple.uuidValue(6));
         assertEquals(GUID, tuple.uuidValue("uuid"));
