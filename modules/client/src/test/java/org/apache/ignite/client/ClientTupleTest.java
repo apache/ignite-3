@@ -98,74 +98,74 @@ public class ClientTupleTest {
 
     @Test
     public void testValueReturnsValueByName() {
-        assertEquals(3L, (Long) getTuple().value("id"));
-        assertEquals("Shirt", getTuple().value("name"));
+        assertEquals(3L, (Long) createTuple().value("id"));
+        assertEquals("Shirt", createTuple().value("name"));
     }
 
     @Test
     public void testValueReturnsValueByIndex() {
-        assertEquals(3L, (Long) getTuple().value(0));
-        assertEquals("Shirt", getTuple().value(1));
+        assertEquals(3L, (Long) createTuple().value(0));
+        assertEquals("Shirt", createTuple().value(1));
     }
 
     @Test
     public void testValueOrDefaultReturnsValueByName() {
-        assertEquals(3L, getTuple().valueOrDefault("id", -1L));
-        assertEquals("Shirt", getTuple().valueOrDefault("name", "y"));
+        assertEquals(3L, createTuple().valueOrDefault("id", -1L));
+        assertEquals("Shirt", createTuple().valueOrDefault("name", "y"));
     }
 
     @Test
     public void testValueOrDefaultReturnsDefaultWhenColumnIsNotPresent() {
-        assertEquals("foo", getTuple().valueOrDefault("x", "foo"));
+        assertEquals("foo", createTuple().valueOrDefault("x", "foo"));
     }
 
     @Test
     public void testValueOrDefaultReturnsNullWhenColumnIsSetToNull() {
-        var tuple = getTuple().set("name", null);
+        var tuple = createTuple().set("name", null);
 
         assertNull(tuple.valueOrDefault("name", "foo"));
     }
 
     @Test
     public void testValueThrowsWhenColumnIsNotPresent() {
-        var ex = assertThrows(IllegalArgumentException.class, () -> getTuple().value("x"));
+        var ex = assertThrows(IllegalArgumentException.class, () -> createTuple().value("x"));
         assertThat(ex.getMessage(), containsString("Column doesn't exist [name=x]"));
 
-        var ex2 = assertThrows(IndexOutOfBoundsException.class, () -> getTuple().value(100));
+        var ex2 = assertThrows(IndexOutOfBoundsException.class, () -> createTuple().value(100));
         assertThat(ex2.getMessage(), containsString("Index 100 out of bounds for length 2"));
     }
 
     @Test
     public void testColumnCountReturnsSchemaSize() {
-        assertEquals(SCHEMA.columns().length, getTuple().columnCount());
+        assertEquals(SCHEMA.columns().length, createTuple().columnCount());
     }
 
     @Test
     public void testColumnNameReturnsNameByIndex() {
-        assertEquals("ID", getTuple().columnName(0));
-        assertEquals("NAME", getTuple().columnName(1));
+        assertEquals("ID", createTuple().columnName(0));
+        assertEquals("NAME", createTuple().columnName(1));
     }
 
     @Test
     public void testColumnNameThrowsOnInvalidIndex() {
-        var ex = assertThrows(IndexOutOfBoundsException.class, () -> getTuple().columnName(-1));
+        var ex = assertThrows(IndexOutOfBoundsException.class, () -> createTuple().columnName(-1));
         assertEquals("Index -1 out of bounds for length 2", ex.getMessage());
     }
 
     @Test
     public void testColumnIndexReturnsIndexByName() {
-        assertEquals(0, getTuple().columnIndex("id"));
-        assertEquals(1, getTuple().columnIndex("name"));
+        assertEquals(0, createTuple().columnIndex("id"));
+        assertEquals(1, createTuple().columnIndex("name"));
     }
 
     @Test
     public void testColumnIndexForMissingColumns() {
-        assertEquals(-1, getTuple().columnIndex("foo"));
+        assertEquals(-1, createTuple().columnIndex("foo"));
     }
 
     @Test
     public void testTypedGetters() {
-        ClientTuple tuple = getFullSchemaTuple();
+        ClientTuple tuple = createFullSchemaTuple();
 
         assertEquals(1, tuple.byteValue(0));
         assertEquals(1, tuple.byteValue("i8"));
@@ -203,7 +203,7 @@ public class ClientTupleTest {
     @SuppressWarnings("ThrowableNotThrown")
     @Test
     public void testTypedGettersWithIncorrectType() {
-        ClientTuple tuple = getFullSchemaTuple();
+        ClientTuple tuple = createFullSchemaTuple();
 
         assertThrowsWithCause(
                 () -> tuple.byteValue(8),
@@ -218,24 +218,24 @@ public class ClientTupleTest {
 
     @Test
     public void testBasicTupleEquality() {
-        var tuple = getTuple();
-        var tuple2 = getTuple();
+        var tuple = createTuple();
+        var tuple2 = createTuple();
 
         assertEquals(tuple, tuple);
         assertEquals(tuple, tuple2);
         assertEquals(tuple.hashCode(), tuple2.hashCode());
 
-        assertEquals(getTuple().set("name", null), getTuple().set("name", null));
-        assertEquals(getTuple().set("name", null).hashCode(), getTuple().set("name", null).hashCode());
+        assertEquals(createTuple().set("name", null), createTuple().set("name", null));
+        assertEquals(createTuple().set("name", null).hashCode(), createTuple().set("name", null).hashCode());
 
-        assertEquals(getTuple().set("name", "bar"), getTuple().set("name", "bar"));
-        assertEquals(getTuple().set("name", "bar").hashCode(), getTuple().set("name", "bar").hashCode());
+        assertEquals(createTuple().set("name", "bar"), createTuple().set("name", "bar"));
+        assertEquals(createTuple().set("name", "bar").hashCode(), createTuple().set("name", "bar").hashCode());
 
-        assertNotEquals(getTuple().set("name", "foo"), getTuple().set("id", 1));
-        assertNotEquals(getTuple().set("name", "foo"), getTuple().set("name", "bar"));
+        assertNotEquals(createTuple().set("name", "foo"), createTuple().set("id", 1));
+        assertNotEquals(createTuple().set("name", "foo"), createTuple().set("name", "bar"));
 
-        tuple = getTuple();
-        tuple2 = getTuple();
+        tuple = createTuple();
+        tuple2 = createTuple();
 
         tuple.set("name", "bar");
 
@@ -256,13 +256,13 @@ public class ClientTupleTest {
 
     @Test
     public void testTupleEquality() {
-        var tuple = getFullSchemaTuple();
+        var tuple = createFullSchemaTuple();
 
         var randomIdx = IntStream.range(0, tuple.columnCount()).boxed().collect(Collectors.toList());
 
         Collections.shuffle(randomIdx);
 
-        var shuffledTuple = getFullSchemaTuple();
+        var shuffledTuple = createFullSchemaTuple();
 
         for (Integer i : randomIdx) {
             shuffledTuple.set(tuple.columnName(i), tuple.value(i));
@@ -274,7 +274,7 @@ public class ClientTupleTest {
 
     @Test
     public void testTupleEqualityCompatibility() {
-        var clientTuple = getFullSchemaTuple();
+        var clientTuple = createFullSchemaTuple();
         var tuple = Tuple.create();
 
         for (int i = 0; i < clientTuple.columnCount(); i++) {
@@ -300,7 +300,7 @@ public class ClientTupleTest {
         }
     }
 
-    private static Tuple getTuple() {
+    private static Tuple createTuple() {
         var binTupleBuf = new BinaryTupleBuilder(SCHEMA.columns().length, false)
                 .appendLong(3L)
                 .appendString("Shirt")
@@ -311,7 +311,7 @@ public class ClientTupleTest {
         return new ClientTuple(SCHEMA, binTuple, 0, SCHEMA.columns().length);
     }
 
-    private static ClientTuple getFullSchemaTuple() {
+    private static ClientTuple createFullSchemaTuple() {
         var binTupleBuf = new BinaryTupleBuilder(FULL_SCHEMA.columns().length, false)
                 .appendByte((byte) 1)
                 .appendShort((short) 2)
