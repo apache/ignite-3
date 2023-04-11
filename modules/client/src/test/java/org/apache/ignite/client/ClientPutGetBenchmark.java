@@ -27,6 +27,7 @@ import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
@@ -66,8 +67,15 @@ public class ClientPutGetBenchmark {
         table = client.tables().table(DEFAULT_TABLE);
         recordView = table.recordView();
 
-        key = Tuple.create().set("id", 1);
-        recordView.upsert(null, Tuple.create().set("id", 1).set("name", "John"));
+        key = Tuple.create().set("id", 1L);
+        recordView.upsert(null, Tuple.create().set("id", 1L).set("name", "John"));
+    }
+
+    @TearDown
+    public void tearDown() throws Exception {
+        client.close();
+        testServer.close();
+        ignite.close();
     }
 
     /**

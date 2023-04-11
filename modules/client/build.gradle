@@ -38,6 +38,7 @@ dependencies {
 
     annotationProcessor libs.auto.service
 
+    testAnnotationProcessor libs.jmh.annotation.processor
     testImplementation libs.jetbrains.annotations
     testImplementation project(':ignite-client-handler')
     testImplementation project(':ignite-configuration')
