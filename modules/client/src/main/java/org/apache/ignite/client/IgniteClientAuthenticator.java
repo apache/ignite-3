@@ -21,4 +21,5 @@ package org.apache.ignite.client;
  * Ignite client authenticator.
  */
 public interface IgniteClientAuthenticator {
+    // TODO: Interface hierarchy should match AuthenticationProvider on the server side.
 }
