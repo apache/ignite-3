@@ -19,7 +19,6 @@ package org.apache.ignite.internal.hlc;
 
 import java.io.Serializable;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * A hybrid timestamp that combines physical clock and logical clock.
@@ -63,15 +62,14 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     }
 
     /**
-     * Compares hybrid timestamps.
+     * Finds maximum hybrid timestamp.
      *
-     * @param times Times for comparing.
+     * @param times Times for comparing. Must not be {@code null} or empty.
      * @return The highest hybrid timestamp.
      */
-    public static @Nullable HybridTimestamp max(HybridTimestamp... times) {
-        if (times.length == 0) {
-            return null;
-        }
+    public static HybridTimestamp max(HybridTimestamp... times) {
+        assert times != null;
+        assert times.length > 0;
 
         HybridTimestamp maxTime = times[0];
 

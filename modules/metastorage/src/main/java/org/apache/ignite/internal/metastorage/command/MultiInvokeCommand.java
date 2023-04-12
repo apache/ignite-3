@@ -18,14 +18,13 @@
 package org.apache.ignite.internal.metastorage.command;
 
 import org.apache.ignite.internal.metastorage.dsl.Iif;
-import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Represents invoke command with nested conditions and execution branches.
  */
 @Transferable(MetastorageCommandsMessageGroup.MULTI_INVOKE)
-public interface MultiInvokeCommand extends WriteCommand {
+public interface MultiInvokeCommand extends MetaStorageWriteCommand {
     /**
      * Returns if statement.
      *

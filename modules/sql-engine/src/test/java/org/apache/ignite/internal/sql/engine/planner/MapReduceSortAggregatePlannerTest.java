@@ -48,17 +48,6 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
     };
 
     /**
-     * Parent class requires all test cases being verified by {@link #assertPlan(TestCase, Predicate, String...)}.
-     * Lets just make such call with predicate that returns true for any input.
-     */
-    @Test
-    public void disabledTests() throws Exception {
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-18871 Wrong collation derived.
-        assertPlan(TestCase.CASE_18_3, alwaysTrue());
-        assertPlan(TestCase.CASE_18_3A, alwaysTrue());
-    }
-
-    /**
      * Validates a plan for simple query with aggregate.
      */
     @Test
@@ -292,11 +281,11 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
     public void groupsWithOrderByGroupColumns() throws Exception {
         checkGroupsWithOrderBySubsetOfGroupColumnsSingle(TestCase.CASE_18_1, TraitUtils.createCollation(List.of(0, 1)));
         checkGroupsWithOrderBySubsetOfGroupColumnsSingle(TestCase.CASE_18_2, TraitUtils.createCollation(List.of(1, 0)));
-        // checkGroupsWithOrderBySubsetOfGroupColumnsSingle(TestCase.CASE_18_3, TraitUtils.createCollation(List.of(0, 1)));
+        checkGroupsWithOrderBySubsetOfGroupColumnsSingle(TestCase.CASE_18_3, TraitUtils.createCollation(List.of(1, 0)));
 
         checkGroupsWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_18_1A, TraitUtils.createCollation(List.of(0, 1)));
         checkGroupsWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_18_2A, TraitUtils.createCollation(List.of(1, 0)));
-        // checkGroupsWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_18_3A, TraitUtils.createCollation(List.of(0, 1)));
+        checkGroupsWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_18_3A, TraitUtils.createCollation(List.of(1, 0)));
     }
 
     /**

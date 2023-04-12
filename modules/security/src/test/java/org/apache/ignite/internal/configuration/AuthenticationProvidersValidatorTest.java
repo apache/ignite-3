@@ -47,7 +47,7 @@ class AuthenticationProvidersValidatorTest {
                 authenticationConfiguration, change -> {
                     change.changeProviders(providers -> providers.create("basic", provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
-                                .changeLogin("admin")
+                                .changeUsername("admin")
                                 .changePassword("admin")
                                 .changeName("basic");
                     }));
@@ -87,7 +87,7 @@ class AuthenticationProvidersValidatorTest {
 
         // then
         validate(AuthenticationProvidersValidatorImpl.INSTANCE, mock(AuthenticationProvidersValidator.class), ctx,
-                "Login must not be blank");
+                "Username must not be blank");
     }
 
     @Test
@@ -97,7 +97,7 @@ class AuthenticationProvidersValidatorTest {
                 authenticationConfiguration, change -> {
                     change.changeProviders(providers -> providers.create("basic", provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
-                                .changeLogin("")
+                                .changeUsername("")
                                 .changePassword("admin")
                                 .changeName("basic");
                     }));
@@ -113,7 +113,7 @@ class AuthenticationProvidersValidatorTest {
 
         // then
         validate(AuthenticationProvidersValidatorImpl.INSTANCE, mock(AuthenticationProvidersValidator.class), ctx,
-                "Login must not be blank");
+                "Username must not be blank");
     }
 
     @Test
@@ -123,7 +123,7 @@ class AuthenticationProvidersValidatorTest {
                 authenticationConfiguration, change -> {
                     change.changeProviders(providers -> providers.create("basic", provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
-                                .changeLogin("admin")
+                                .changeUsername("admin")
                                 .changeName("basic");
                     }));
                     change.changeEnabled(false);
@@ -148,7 +148,7 @@ class AuthenticationProvidersValidatorTest {
                 authenticationConfiguration, change -> {
                     change.changeProviders(providers -> providers.create("basic", provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
-                                .changeLogin("admin")
+                                .changeUsername("admin")
                                 .changePassword("")
                                 .changeName("basic");
                     }));

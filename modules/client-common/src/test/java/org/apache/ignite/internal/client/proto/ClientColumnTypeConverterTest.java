@@ -29,8 +29,8 @@ public class ClientColumnTypeConverterTest {
     @Test
     public void testConvertAllTypes() {
         for (ColumnType columnType : ColumnType.values()) {
-            int ordinal = ClientColumnTypeConverter.columnTypeToOrdinal(columnType);
-            ColumnType resColumnType = ClientColumnTypeConverter.ordinalToColumnType(ordinal);
+            int ordinal = ClientColumnTypeConverter.sqlColumnTypeToOrdinal(columnType);
+            ColumnType resColumnType = ClientColumnTypeConverter.ordinalToSqlColumnType(ordinal);
 
             assertEquals(columnType, resColumnType);
         }

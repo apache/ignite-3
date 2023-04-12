@@ -77,7 +77,8 @@ public class ItSslClientHandlerTest {
                 TestSslConfig.builder()
                         .keyStorePath(keyStorePkcs12Path)
                         .keyStorePassword("changeit")
-                        .build()
+                        .build(),
+                null
         );
         serverModule = testServer.start(testInfo);
 
@@ -93,7 +94,8 @@ public class ItSslClientHandlerTest {
                 TestSslConfig.builder()
                         .keyStorePath(keyStorePkcs12Path)
                         .keyStorePassword("wrong-password")
-                        .build()
+                        .build(),
+                null
         );
 
         assertThrowsWithCause(() -> testServer.start(testInfo), IgniteException.class, "keystore password was incorrect");

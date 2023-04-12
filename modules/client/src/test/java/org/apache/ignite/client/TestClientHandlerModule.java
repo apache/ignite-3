@@ -38,8 +38,11 @@ import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.security.authentication.AuthenticationManager;
+import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.lang.IgniteException;
@@ -82,6 +85,9 @@ public class TestClientHandlerModule implements IgniteComponent {
     /** Netty bootstrap factory. */
     private final NettyBootstrapFactory bootstrapFactory;
 
+    /** Authentication configuration. */
+    private final AuthenticationConfiguration authenticationConfiguration;
+
     /**
      * Constructor.
      *
@@ -104,7 +110,8 @@ public class TestClientHandlerModule implements IgniteComponent {
             ClusterService clusterService,
             IgniteCompute compute,
             UUID clusterId,
-            ClientHandlerMetricSource metrics) {
+            ClientHandlerMetricSource metrics,
+            AuthenticationConfiguration authenticationConfiguration) {
         assert ignite != null;
         assert registry != null;
         assert bootstrapFactory != null;
@@ -118,6 +125,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.compute = compute;
         this.clusterId = clusterId;
         this.metrics = metrics;
+        this.authenticationConfiguration = authenticationConfiguration;
     }
 
     /** {@inheritDoc} */
@@ -189,7 +197,8 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         clusterService,
                                         mock(IgniteSql.class),
                                         clusterId,
-                                        metrics));
+                                        metrics,
+                                        authenticationManager(authenticationConfiguration)));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
@@ -272,5 +281,11 @@ public class TestClientHandlerModule implements IgniteComponent {
 
             super.channelRead(ctx, msg);
         }
+    }
+
+    private AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) {
+        AuthenticationManagerImpl manager = new AuthenticationManagerImpl();
+        authenticationConfiguration.listen(manager);
+        return manager;
     }
 }

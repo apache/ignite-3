@@ -41,6 +41,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
@@ -313,5 +314,18 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      */
     public String getTableName() {
         return tableCfg.name().value();
+    }
+
+    @Override
+    public @Nullable IndexStorage getIndex(int partitionId, UUID indexId) {
+        return busy(() -> {
+            AbstractPageMemoryMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
+
+            if (partitionStorage == null) {
+                throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+            }
+
+            return partitionStorage.getIndex(indexId);
+        });
     }
 }

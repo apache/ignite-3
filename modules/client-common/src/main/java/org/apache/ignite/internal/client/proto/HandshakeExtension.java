@@ -15,19 +15,46 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.client.proto;
 
 import org.jetbrains.annotations.Nullable;
 
-/**
- * An entity that stores underlying data in a {@link BinaryTuple}.
- */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface BinaryTupleContainer {
+/** Handshake extensions. */
+public enum HandshakeExtension {
+    USERNAME("username", String.class),
+    PASSWORD("password", String.class),
+    ;
+
+    private final String key;
+
+    private final Class<?> valueType;
+
+    HandshakeExtension(String key, Class<?> valueType) {
+        this.key = key;
+        this.valueType = valueType;
+    }
+
     /**
-     * Returns the underlying binary tuple, if present.
+     * Finds an extension with a provided key.
      *
-     * @return Underlying binary tuple.
+     * @param key Key.
+     * @return Extension.
      */
-    @Nullable BinaryTuple binaryTuple();
+    @Nullable
+    public static HandshakeExtension fromKey(String key) {
+        for (HandshakeExtension e : values()) {
+            if (e.key.equalsIgnoreCase(key)) {
+                return e;
+            }
+        }
+        return null;
+    }
+
+    public String key() {
+        return key;
+    }
+
+    public Class<?> valueType() {
+        return valueType;
+    }
 }

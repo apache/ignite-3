@@ -42,7 +42,7 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
                 "--meta-storage-node", CLUSTER_NODE_NAMES.get(0),
                 "--cluster-name", "cluster",
                 "--auth-enabled",
-                "--basic-auth-login", "admin",
+                "--basic-auth-username", "admin",
                 "--basic-auth-password", "password"
         );
 
@@ -58,7 +58,7 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
         assertRestIsUnavailable();
 
         // set basic authentication settings
-        execute("cli", "config", "set", "ignite.auth.basic.login=admin");
+        execute("cli", "config", "set", "ignite.auth.basic.username=admin");
         execute("cli", "config", "set", "ignite.auth.basic.password=password");
 
         // REST is available
