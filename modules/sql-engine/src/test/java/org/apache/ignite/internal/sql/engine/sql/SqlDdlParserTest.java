@@ -25,7 +25,6 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -291,10 +290,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         String query = "create table my_table(id int) with"
                 + " replicas=2,"
                 + " partitions=3,"
-                + " primary_zone='zone123',"
-                + " dataRegion='default',"
-                + " \"pageSize\"=1024,"
-                + " \"persistent\"=true";
+                + " primary_zone='zone123'";
 
         SqlNode node = parse(query);
 
@@ -305,9 +301,6 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThatOptionPresent(createTable.createOptionList().getList(), "REPLICAS", 2);
         assertThatOptionPresent(createTable.createOptionList().getList(), "PARTITIONS", 3);
         assertThatOptionPresent(createTable.createOptionList().getList(), "PRIMARY_ZONE", "zone123");
-        assertThatOptionPresent(createTable.createOptionList().getList(), "DATAREGION", "default");
-        assertThatOptionPresent(createTable.createOptionList().getList(), "pageSize", 1024);
-        assertThatOptionPresent(createTable.createOptionList().getList(), "persistent", true);
     }
 
     @Test

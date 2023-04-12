@@ -66,9 +66,9 @@ class StorageEngineExample {
 
             try (Statement stmt = conn.createStatement()) {
                 stmt.executeUpdate(
-                        "CREATE ZONE MAIN_ZONE "
+                        "CREATE ZONE ACCOUNTS_ZONE "
                                 + "ENGINE "  + engineName
-                                + " WITH dataRegion='" + dataRegionName + "'"
+                                + " WITH DATAREGION='" + dataRegionName + "'"
                 );
                 stmt.executeUpdate(
                         "CREATE TABLE ACCOUNTS ( "
@@ -76,7 +76,7 @@ class StorageEngineExample {
                                 + "FIRST_NAME VARCHAR, "
                                 + "LAST_NAME  VARCHAR, "
                                 + "BALANCE    DOUBLE) "
-                                + "WITH PRIMARY_ZONE = 'MAIN_ZONE'"
+                                + "WITH PRIMARY_ZONE = 'ACCOUNTS_ZONE'"
                 );
             }
 
@@ -145,7 +145,7 @@ class StorageEngineExample {
                     Statement stmt = conn.createStatement()
             ) {
                 stmt.executeUpdate("DROP TABLE ACCOUNTS");
-                stmt.executeUpdate("DROP ZONE MAIN_ZONE");
+                stmt.executeUpdate("DROP ZONE ACCOUNTS_ZONE");
             }
         }
     }

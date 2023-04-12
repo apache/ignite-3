@@ -181,7 +181,8 @@ public class DdlCommandHandler {
             zoneCfgBuilder.partitions(cmd.partitions());
         }
 
-        zoneCfgBuilder.dataStorageChangeConsumer(ch -> dataStorageManager.zoneDataStorageConsumer(cmd.dataStorage(), cmd.dataStorageOptions()).accept(ch));
+        zoneCfgBuilder.dataStorageChangeConsumer(
+                dataStorageManager.zoneDataStorageConsumer(cmd.dataStorage(), cmd.dataStorageOptions()));
 
         return distributionZoneManager.createZone(zoneCfgBuilder.build())
                 .handle(handleModificationResult(cmd.ifNotExists(), DistributionZoneAlreadyExistsException.class));
@@ -246,7 +247,6 @@ public class DdlCommandHandler {
             tableChange.changePrimaryKey(pkChange -> pkChange.changeColumns(cmd.primaryKeyColumns().toArray(String[]::new))
                     .changeColocationColumns(colocationKeys0.toArray(String[]::new)));
 
-            // TODO: KKK errors during this change are ignored in MockedStructureTest
             if (cmd.zone() != null) {
                 tableChange.changeZoneId(distributionZoneManager.getZoneId(cmd.zone()));
             } else {

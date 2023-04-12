@@ -30,6 +30,7 @@ import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfig
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageView;
 import org.apache.ignite.internal.schema.configuration.storage.KnownDataStorage;
 import org.apache.ignite.internal.schema.configuration.storage.KnownDataStorageValidator;
+import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -39,7 +40,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public class KnownDataStorageValidatorTest {
     @InjectConfiguration(
-            value = "mock.name = unknown",
+            value = "mock.name = " + UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE,
             polymorphicExtensions = {
                 TestDataStorageConfigurationSchema.class
             }

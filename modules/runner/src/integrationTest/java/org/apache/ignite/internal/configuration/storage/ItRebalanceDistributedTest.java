@@ -905,7 +905,10 @@ public class ItRebalanceDistributedTest {
 
     private void createTableWithOnePartition(String tableName, String zoneName, int replicas, boolean testDataStorage) {
         int zoneId = await(
-                createZone(nodes.get(0).distributionZoneManager, zoneName, 1, replicas, dataStorageChange -> dataStorageChange.convert(TestDataStorageChange.class)));
+                createZone(
+                        nodes.get(0).distributionZoneManager,
+                        zoneName, 1, replicas,
+                        testDataStorage ? (dataStorageChange -> dataStorageChange.convert(TestDataStorageChange.class)) : null));
 
         assertThat(
                 nodes.get(0).tableManager.createTableAsync(

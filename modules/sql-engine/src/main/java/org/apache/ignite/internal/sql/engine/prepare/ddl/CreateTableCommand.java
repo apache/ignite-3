@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.jetbrains.annotations.Nullable;
 
 /**

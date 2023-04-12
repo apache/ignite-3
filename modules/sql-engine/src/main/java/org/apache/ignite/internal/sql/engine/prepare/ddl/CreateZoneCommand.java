@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -56,10 +55,8 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
     /** Data storage options. */
     private Map<String, Object> dataStorageOptions;
 
-
-    public String dataStorage() {
-        // TODO: KKK dirty hack
-        return (dataStorage == null) ? "aipersist" : dataStorage;
+    @Nullable public String dataStorage() {
+        return dataStorage;
     }
 
     public void dataStorage(String dataStorage) {
@@ -70,6 +67,12 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         return (dataStorageOptions == null) ? Map.of() : dataStorageOptions;
     }
 
+    /**
+     * Add data storage option.
+     *
+     * @param name Name of the option.
+     * @param value Value of the option.
+     */
     public void addDataStorageOption(String name, Object value) {
         if (dataStorageOptions == null) {
             dataStorageOptions = new HashMap<>();
@@ -86,8 +89,7 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         this.ifNotExists = ifNotExists;
     }
 
-    @Nullable
-    public Integer replicas() {
+    @Nullable public Integer replicas() {
         return replicas;
     }
 
@@ -95,8 +97,7 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         this.replicas = replicas;
     }
 
-    @Nullable
-    public Integer partitions() {
+    @Nullable public Integer partitions() {
         return partitions;
     }
 
@@ -104,8 +105,7 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         this.partitions = partitions;
     }
 
-    @Nullable
-    public String affinity() {
+    @Nullable public String affinity() {
         return affinity;
     }
 
@@ -113,8 +113,7 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         this.affinity = affinity;
     }
 
-    @Nullable
-    public String nodeFilter() {
+    @Nullable public String nodeFilter() {
         return nodeFiler;
     }
 
@@ -122,8 +121,7 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         this.nodeFiler = nodeFiler;
     }
 
-    @Nullable
-    public Integer dataNodesAutoAdjust() {
+    @Nullable public Integer dataNodesAutoAdjust() {
         return dataNodesAutoAdjust;
     }
 
@@ -131,8 +129,7 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
     }
 
-    @Nullable
-    public Integer dataNodesAutoAdjustScaleUp() {
+    @Nullable public Integer dataNodesAutoAdjustScaleUp() {
         return dataNodesAutoAdjustScaleUp;
     }
 
@@ -140,8 +137,7 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
     }
 
-    @Nullable
-    public Integer dataNodesAutoAdjustScaleDown() {
+    @Nullable public Integer dataNodesAutoAdjustScaleDown() {
         return dataNodesAutoAdjustScaleDown;
     }
 

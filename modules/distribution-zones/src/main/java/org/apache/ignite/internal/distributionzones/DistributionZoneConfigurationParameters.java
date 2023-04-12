@@ -43,6 +43,7 @@ public class DistributionZoneConfigurationParameters {
     /** Number of zone partitions. */
     private final Integer partitions;
 
+    /** Consumer of {@link DataStorageChange}, which sets the right data storage options. */
     private final Consumer<DataStorageChange> dataStorageChangeConsumer;
 
     /** Nodes' filter. */
@@ -125,6 +126,11 @@ public class DistributionZoneConfigurationParameters {
         return partitions;
     }
 
+    /**
+     * Returns the consumer of {@link DataStorageChange}, which sets the right data storage options.
+     *
+     * @return The consumer of {@link DataStorageChange}, which sets the right data storage options.
+     */
     public Consumer<DataStorageChange> dataStorageChangeConsumer() {
         return dataStorageChangeConsumer;
     }
@@ -160,6 +166,7 @@ public class DistributionZoneConfigurationParameters {
         /** Number of zone partitions. */
         private Integer partitions;
 
+        /** Consumer of {@link DataStorageChange}, which sets the right data storage options. */
         private Consumer<DataStorageChange> dataStorageChangeConsumer;
 
         /* Nodes' filter. */
@@ -239,6 +246,12 @@ public class DistributionZoneConfigurationParameters {
             return this;
         }
 
+        /**
+         * Sets the consumer of {@link DataStorageChange}, which sets the right data storage options.
+         *
+         * @param dataStorageChangeConsumer Consumer of {@link DataStorageChange}, which sets the right data storage options.
+         * @return This instance.
+         */
         public Builder dataStorageChangeConsumer(Consumer<DataStorageChange> dataStorageChangeConsumer) {
             this.dataStorageChangeConsumer = dataStorageChangeConsumer;
 

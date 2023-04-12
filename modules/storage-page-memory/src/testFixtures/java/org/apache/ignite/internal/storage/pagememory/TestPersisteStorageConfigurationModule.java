@@ -17,15 +17,20 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
 
 /**
- * Configuration module for metrics' configs.
+ * Configuration module for mock configuration {@link TestPersistStorageConfigurationSchema}.
+ *
+ * <p>Important: don't use @AutoService here,
+ * because it will produce the collision between the real {@link PersistentPageMemoryDataStorageConfigurationSchema}
+ * and the {@link TestPersistStorageConfigurationSchema} in the 'test' configuration of the current module
+ * (because test configuration always depends on testFixtures and main configuration).
  */
 public class TestPersisteStorageConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */

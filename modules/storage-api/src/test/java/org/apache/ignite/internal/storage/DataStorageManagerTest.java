@@ -199,12 +199,12 @@ public class DataStorageManagerTest {
                 dataStorageModules.createStorageEngines("test", mock(ConfigurationRegistry.class), workDir, null)
         );
 
-        dataStorageConfig.change(dataStorageManager.defaultTableDataStorageConsumer(FIRST)).get(1, TimeUnit.SECONDS);
+        dataStorageConfig.change(dataStorageManager.defaultZoneDataStorageConsumer(FIRST)).get(1, TimeUnit.SECONDS);
         assertThat(dataStorageConfig.value(), instanceOf(FirstDataStorageView.class));
 
         dataStorageConfig.change(c -> c.convert(UnknownDataStorageChange.class)).get(1, TimeUnit.SECONDS);
 
-        dataStorageConfig.change(dataStorageManager.defaultTableDataStorageConsumer(UNKNOWN_DATA_STORAGE)).get(1, TimeUnit.SECONDS);
+        dataStorageConfig.change(dataStorageManager.defaultZoneDataStorageConsumer(UNKNOWN_DATA_STORAGE)).get(1, TimeUnit.SECONDS);
         assertThat(dataStorageConfig.value(), instanceOf(FirstDataStorageView.class));
     }
 
@@ -220,15 +220,15 @@ public class DataStorageManagerTest {
                 dataStorageModules.createStorageEngines("test", mock(ConfigurationRegistry.class), workDir, null)
         );
 
-        dataStorageConfig.change(dataStorageManager.defaultTableDataStorageConsumer(FIRST)).get(1, TimeUnit.SECONDS);
+        dataStorageConfig.change(dataStorageManager.defaultZoneDataStorageConsumer(FIRST)).get(1, TimeUnit.SECONDS);
         assertThat(dataStorageConfig.value(), instanceOf(FirstDataStorageView.class));
 
-        dataStorageConfig.change(dataStorageManager.defaultTableDataStorageConsumer(SECOND)).get(1, TimeUnit.SECONDS);
+        dataStorageConfig.change(dataStorageManager.defaultZoneDataStorageConsumer(SECOND)).get(1, TimeUnit.SECONDS);
         assertThat(dataStorageConfig.value(), instanceOf(SecondDataStorageView.class));
 
         dataStorageConfig.change(c -> c.convert(UnknownDataStorageChange.class)).get(1, TimeUnit.SECONDS);
 
-        dataStorageConfig.change(dataStorageManager.defaultTableDataStorageConsumer(UNKNOWN_DATA_STORAGE)).get(1, TimeUnit.SECONDS);
+        dataStorageConfig.change(dataStorageManager.defaultZoneDataStorageConsumer(UNKNOWN_DATA_STORAGE)).get(1, TimeUnit.SECONDS);
         assertThat(dataStorageConfig.value(), instanceOf(UnknownDataStorageView.class));
     }
 }

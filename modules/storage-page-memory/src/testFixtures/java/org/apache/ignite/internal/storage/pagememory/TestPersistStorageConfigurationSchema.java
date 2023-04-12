@@ -22,7 +22,9 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
 
 /**
- *
+ * Test persistent storage configuration to fix the configuration loading issues in the test modules,
+ * where the real 'aipersist' is not available.
+ * This issue appears during the loading configuration for default distribution zone with the default data storage configuration.
  */
 @PolymorphicConfigInstance("aipersist")
 public class TestPersistStorageConfigurationSchema extends DataStorageConfigurationSchema {

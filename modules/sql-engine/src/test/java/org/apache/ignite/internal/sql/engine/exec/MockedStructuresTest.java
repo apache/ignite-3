@@ -19,11 +19,9 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
-import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -83,7 +81,6 @@ import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurati
 import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -163,7 +160,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TablesConfiguration tblsCfg;
 
-    @InjectConfiguration("mock.distributionZones.zone123{dataStorage.name = rocksdb, zoneId = 1}")
+    @InjectConfiguration("mock.distributionZones.zone123{dataStorage.name = " + ENGINE_NAME + ", zoneId = 1}")
     private DistributionZonesConfiguration dstZnsCfg;
 
     TableManager tblManager;
@@ -279,7 +276,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         queryProc.start();
 
-        dstZnsCfg.defaultDistributionZone().change(ch -> ch.changeDataStorage(d -> d.convert(RocksDbDataStorageChange.class))).get(1, TimeUnit.SECONDS);
+        dstZnsCfg.defaultDistributionZone().change(ch -> ch.changeDataStorage(d -> d.convert(RocksDbDataStorageChange.class)))
+                .get(1, TimeUnit.SECONDS);
 
         rocksDbEngineConfig.regions()
                 .change(c -> c.create("test_region", rocksDbDataRegionChange -> {}))
@@ -448,7 +446,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 () -> readFirst(queryProc.querySingleAsync(
                         sessionId,
                         context,
-                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with primary_zone='zone123', %s='%s'", method + 6, method, method)
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) WITH %s='%s'", method + 6, method, method)
                 ))
         );
 
@@ -497,8 +495,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         });
 
         when(cs.nodeName()).thenAnswer(invocation -> "node1");
-
-        when(distributionZoneManager.getZoneId(any())).thenReturn(1);
 
         when(cs.topologyService()).thenAnswer(invocation -> {
             TopologyService ret = mock(TopologyService.class);

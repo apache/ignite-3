@@ -24,8 +24,6 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Range;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.storage.KnownDataStorage;
 
 /**
  * Table configuration schema class.

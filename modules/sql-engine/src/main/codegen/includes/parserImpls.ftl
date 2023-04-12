@@ -485,47 +485,6 @@ void CreateZoneOption(List<SqlNode> list) :
     }
 }
 
-SqlLiteral CreateNumericZoneOptionKey() :
-{
-}
-{
-    <PARTITIONS>
-    {
-        return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.PARTITIONS, getPos());
-    }
-|
-    <REPLICAS>
-    {
-        return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.REPLICAS, getPos());
-    }
-|
-    <DATA_NODES_AUTO_ADJUST>
-    {
-        return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST, getPos());
-    }
-|
-    <DATA_NODES_AUTO_ADJUST_SCALE_UP>
-    {
-        return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP, getPos());
-    }
-|
-    <DATA_NODES_AUTO_ADJUST_SCALE_DOWN>
-    {
-        return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN, getPos());
-    }
-}
-
-SqlLiteral CreateStringZoneOptionKey() :
-{
-}
-{
-    <ENGINE> { return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_STORAGE_ENGINE, getPos()); }
-|
-    <AFFINITY_FUNCTION> { return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.AFFINITY_FUNCTION, getPos()); }
-|
-    <DATA_NODES_FILTER> { return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_NODES_FILTER, getPos()); }
-}
-
 SqlDrop SqlDropZone(Span s, boolean replace) :
 {
     final boolean ifExists;
@@ -589,38 +548,6 @@ void AlterZoneOption(List<SqlNode> list) :
   {
       list.add(new IgniteSqlZoneOption(key, val, s.end(this)));
   }
-}
-
-SqlLiteral AlterZoneNumericOptionKey() :
-{
-}
-{
-    <REPLICAS>
-    {
-        return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.REPLICAS, getPos());
-    }
-|
-    <DATA_NODES_AUTO_ADJUST>
-    {
-        return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST, getPos());
-    }
-|
-    <DATA_NODES_AUTO_ADJUST_SCALE_UP>
-    {
-        return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP, getPos());
-    }
-|
-    <DATA_NODES_AUTO_ADJUST_SCALE_DOWN>
-    {
-        return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN, getPos());
-    }
-}
-
-SqlLiteral AlterZoneStringOptionKey() :
-{
-}
-{
-    <DATA_NODES_FILTER> { return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_NODES_FILTER, getPos()); }
 }
 
 SqlLiteral ParseDecimalLiteral():

@@ -113,7 +113,7 @@ public class IgniteSqlCreateZone extends SqlCreate {
     }
 
     /**
-     * Returns a name of the engine the table should be created in.
+     * Returns an engine name of the zone to create.
      */
     public @Nullable SqlIdentifier engineName() {
         return engineName;

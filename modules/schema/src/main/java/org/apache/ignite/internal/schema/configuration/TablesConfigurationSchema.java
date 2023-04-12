@@ -23,7 +23,6 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.schema.configuration.index.IndexValidator;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.storage.ExistingDataStorage;
 
 /**
  * Tables configuration schema.
