@@ -181,6 +181,8 @@ public interface IgniteClientConfiguration {
     /**
      * Gets the authenticator.
      *
+     * <p>See also: {@link BasicAuthenticator}.
+     *
      * @return Authenticator.
      */
     IgniteClientAuthenticator authenticator();
