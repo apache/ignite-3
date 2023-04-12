@@ -249,7 +249,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
 
         Transaction tx = autoCommit ? null : connectionContext.getOrStartTransaction();
-        var context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE, tx);
+        QueryContext context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE, tx);
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connectionContext.doInSession(sessionId -> processor.querySingleAsync(
                 sessionId,
@@ -426,13 +426,13 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         void close() {
             synchronized (mux) {
-                finishTransactionAsync(false);
-
                 SessionId sessionId = this.sessionId;
 
                 this.sessionId = null;
 
                 cleaner.clean(sessionId);
+
+                finishTransactionAsync(false);
             }
         }
 
