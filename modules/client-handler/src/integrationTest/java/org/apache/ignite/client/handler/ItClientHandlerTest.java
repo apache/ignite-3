@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.client.handler.ItClientHandlerTestUtils.MAGIC;
+import static org.apache.ignite.lang.ErrorGroups.Authentication.COMMON_AUTHENTICATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -31,15 +32,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.msgpack.core.MessagePack;
 
 /**
  * Client connector integration tests with real sockets.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class ItClientHandlerTest {
     private ClientHandlerModule serverModule;
 
@@ -47,9 +54,12 @@ public class ItClientHandlerTest {
 
     private int serverPort;
 
+    @InjectConfiguration
+    private AuthenticationConfiguration authenticationConfiguration;
+
     @BeforeEach
     public void setUp(TestInfo testInfo) {
-        testServer = new TestServer();
+        testServer = new TestServer(null, authenticationConfiguration);
         serverModule = testServer.start(testInfo);
         serverPort = serverModule.localAddress().getPort();
     }
@@ -132,6 +142,128 @@ public class ItClientHandlerTest {
     }
 
     @Test
+    void testHandshakeWithAuthenticationValidCredentials() throws Exception {
+        setupAuthentication("admin", "password");
+
+        try (var sock = new Socket("127.0.0.1", serverPort)) {
+            OutputStream out = sock.getOutputStream();
+
+            // Magic: IGNI
+            out.write(MAGIC);
+
+            // Handshake.
+            var packer = MessagePack.newDefaultBufferPacker();
+            packer.packInt(0);
+            packer.packInt(0);
+            packer.packInt(0);
+            packer.packInt(7 + 8 + 5 + 10 + 10); // Size.
+
+            packer.packInt(3); // Major.
+            packer.packInt(0); // Minor.
+            packer.packInt(0); // Patch.
+
+            packer.packInt(2); // Client type: general purpose.
+
+            packer.packBinaryHeader(0); // Features.
+            packer.packMapHeader(2); // Extensions.
+            packer.packString("username");
+            packer.packString("admin");
+            packer.packString("password");
+            packer.packString("password");
+
+            out.write(packer.toByteArray());
+            out.flush();
+
+            // Read response.
+            var unpacker = MessagePack.newDefaultUnpacker(sock.getInputStream());
+            final var magic = unpacker.readPayload(4);
+            unpacker.skipValue(3); // LE int zeros.
+            final var len = unpacker.unpackInt();
+            final var major = unpacker.unpackInt();
+            final var minor = unpacker.unpackInt();
+            final var patch = unpacker.unpackInt();
+            final var success = unpacker.tryUnpackNil();
+            assertTrue(success);
+
+            final var idleTimeout = unpacker.unpackLong();
+            final var nodeId = unpacker.unpackString();
+            final var nodeName = unpacker.unpackString();
+            unpacker.skipValue(); // Cluster id.
+
+            var featuresLen = unpacker.unpackBinaryHeader();
+            unpacker.skipValue(featuresLen);
+
+            var extensionsLen = unpacker.unpackMapHeader();
+            unpacker.skipValue(extensionsLen);
+
+            assertArrayEquals(MAGIC, magic);
+            assertEquals(46, len);
+            assertEquals(3, major);
+            assertEquals(0, minor);
+            assertEquals(0, patch);
+            assertEquals(5000, idleTimeout);
+            assertEquals("id", nodeId);
+            assertEquals("consistent-id", nodeName);
+        }
+    }
+
+    @Test
+    void testHandshakeWithAuthenticationEmptyCredentials() throws Exception {
+        setupAuthentication("admin", "password");
+
+        try (var sock = new Socket("127.0.0.1", serverPort)) {
+            OutputStream out = sock.getOutputStream();
+
+            // Magic: IGNI
+            out.write(MAGIC);
+
+            // Handshake.
+            var packer = MessagePack.newDefaultBufferPacker();
+            packer.packInt(0);
+            packer.packInt(0);
+            packer.packInt(0);
+            packer.packInt(7); // Size.
+
+            packer.packInt(3); // Major.
+            packer.packInt(0); // Minor.
+            packer.packInt(0); // Patch.
+
+            packer.packInt(2); // Client type: general purpose.
+
+            packer.packBinaryHeader(0); // Features.
+            packer.packMapHeader(0); // Extensions.
+
+            out.write(packer.toByteArray());
+            out.flush();
+
+            // Read response.
+            var unpacker = MessagePack.newDefaultUnpacker(sock.getInputStream());
+            var magic = unpacker.readPayload(4);
+            unpacker.readPayload(4); // Length.
+            final var major = unpacker.unpackInt();
+            final var minor = unpacker.unpackInt();
+            final var patch = unpacker.unpackInt();
+
+            unpacker.skipValue(); // traceId
+            final var code = unpacker.tryUnpackNil() ? UNKNOWN_ERR : unpacker.unpackInt();
+            final var errClassName = unpacker.unpackString();
+            final var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+            final var errStackTrace = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+
+            assertArrayEquals(MAGIC, magic);
+            assertEquals(3, major);
+            assertEquals(0, minor);
+            assertEquals(0, patch);
+            assertEquals(COMMON_AUTHENTICATION_ERR, code);
+
+            assertThat(errMsg, containsString("Authentication failed"));
+            assertEquals("org.apache.ignite.internal.security.exception.AuthenticationException", errClassName);
+            assertNull(errStackTrace);
+        }
+    }
+
+
+    @Test
     void testHandshakeInvalidVersionReturnsError() throws Exception {
         try (var sock = new Socket("127.0.0.1", serverPort)) {
             OutputStream out = sock.getOutputStream();
@@ -192,5 +324,17 @@ public class ItClientHandlerTest {
             out.write(1);
             out.flush();
         }
+    }
+
+    private void setupAuthentication(String username, String password) {
+        authenticationConfiguration.change(change -> {
+            change.changeEnabled(true);
+            change.changeProviders().create("basic", authenticationProviderChange -> {
+                authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
+                        .changeUsername(username)
+                        .changePassword(password)
+                        .changeName("basic");
+            });
+        }).join();
     }
 }
