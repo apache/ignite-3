@@ -189,14 +189,10 @@ public class DistributionZoneManager implements IgniteComponent {
     /** The tracker for the last topology version which was observed by distribution zone manager. */
     private final PendingComparableValuesTracker<Long> topVerTracker;
 
-    /**
-     * The last meta storage revision on which scale up timer was started.
-     */
+    /** The last meta storage revision on which scale up timer was started. */
     private volatile long lastScaleUpRevision;
 
-    /**
-     * The last meta storage revision on which scale down timer was started.
-     */
+    /** The last meta storage revision on which scale down timer was started. */
     private volatile long lastScaleDownRevision;
 
     /** Listener for a topology events. */
@@ -552,7 +548,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * <p>If the values of auto adjust scale up and auto adjust scale down are zero, then on the cluster topology changes
      * the data nodes for the zone should be updated immediately. Therefore, this method must return the data nodes which is calculated
      * based on the topology with passed or greater version. Since the date nodes value is updated asynchronously, this method waits for
-     * the date nodes to be updated with new nodes in the topology if the value of auto adjust scale up is 0. And also waits for
+     * the date nodes to be updated with new nodes in the topology if the value of auto adjust scale up is 0, and also waits for
      * the date nodes to be updated with nodes that have left the topology if the value of auto adjust scale down is 0.
      * After the zone manager has observed the logical topology change and the data nodes value is updated according to cluster topology,
      * then this method completes the returned future with the current value of data nodes.
@@ -579,8 +575,7 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Waits for DistributionZoneManager waits for observing passed topology version or greater version
-     * in {@link DistributionZoneManager#topologyWatchListener}.
+     * Waits for observing passed topology version or greater version in {@link DistributionZoneManager#topologyWatchListener}.
      *
      * @param topVer Topology version.
      * @return Future for chaining.
@@ -759,6 +754,8 @@ public class DistributionZoneManager implements IgniteComponent {
                 zoneState.stopScaleUp();
             }
 
+            //Only wait for a scale up revision if the auto adjust scale up has a zero value.
+            //So if the value of the auto adjust scale up has become non-zero, then need to complete all futures.
             if (newScaleUp > 0) {
                 zoneState.scaleUpRevisionTracker().update(lastScaleUpRevision);
             }
@@ -801,6 +798,8 @@ public class DistributionZoneManager implements IgniteComponent {
                 zoneState.stopScaleDown();
             }
 
+            //Only wait for a scale down revision if the auto adjust scale down has a zero value.
+            //So if the value of the auto adjust scale down has become non-zero, then need to complete all futures.
             if (newScaleDown > 0) {
                 zoneState.scaleDownRevisionTracker().update(lastScaleDownRevision);
             }
@@ -823,6 +822,7 @@ public class DistributionZoneManager implements IgniteComponent {
         metaStorageManager.unregisterWatch(topologyWatchListener);
         metaStorageManager.unregisterWatch(dataNodesWatchListener);
 
+        //Need to update trackers with max possible value to complete all futures that are waiting for trackers.
         topVerTracker.update(Long.MAX_VALUE);
 
         zonesState.values().forEach(zoneState -> {
