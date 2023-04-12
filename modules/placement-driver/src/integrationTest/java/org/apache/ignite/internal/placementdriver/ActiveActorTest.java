@@ -27,6 +27,8 @@ import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -52,6 +54,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -437,6 +440,8 @@ public class ActiveActorTest extends IgniteAbstractTest {
             int nodes,
             int clientPort
     ) {
+        when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(completedFuture(true));
+
         List<NetworkAddress> addresses = getNetworkAddresses(nodes);
 
         var nodeFinder = new StaticNodeFinder(addresses);

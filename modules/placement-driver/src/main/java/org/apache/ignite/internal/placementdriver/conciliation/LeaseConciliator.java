@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.placementdriver.conciliation;
 
-import static org.apache.ignite.internal.placementdriver.LeaseUpdater.LEASE_PERIOD;
 import static org.apache.ignite.internal.placementdriver.conciliation.LeaseAgreement.UNDEFINED_AGREEMENT;
 
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -38,7 +38,6 @@ public class LeaseConciliator {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(LeaseConciliator.class);
 
-    /** Placement driver messages factory. */
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     /** Leases ready to accept. */
@@ -67,6 +66,12 @@ public class LeaseConciliator {
      * @param force If the flag is true, the process tries to insist of apply the lease.
      */
     public void conciliate(ReplicationGroupId groupId, Lease lease, boolean force) {
+        var fut = new CompletableFuture<LeaseGrantedMessageResponse>();
+
+        leaseToConciliate.put(groupId, new LeaseAgreement(lease, fut));
+
+        long leaseInterval = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
+
         clusterService.messagingService().invoke(
                         lease.getLeaseholder().name(),
                         PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessage()
@@ -75,20 +80,20 @@ public class LeaseConciliator {
                                 .leaseExpirationTime(lease.getExpirationTime())
                                 .force(force)
                                 .build(),
-                        LEASE_PERIOD)
-                .whenComplete((msg, throwable) -> {
+                        leaseInterval)
+                .handle((msg, throwable) -> {
                     if (throwable != null) {
                         LOG.warn("Lease was not conciliated due to exception [lease={}]", throwable, lease);
                     } else {
                         assert msg instanceof LeaseGrantedMessageResponse : "Message type is unexpected [type="
                                 + msg.getClass().getSimpleName() + ']';
-
-                        var resp = (LeaseGrantedMessageResponse) msg;
-
-                        leaseToConciliate.put(groupId, new LeaseAgreement(lease, resp.accepted(), resp.redirectProposal()));
-
-                        triggerToRenewLeases();
                     }
+
+                    fut.complete((LeaseGrantedMessageResponse) msg);
+
+                    triggerToRenewLeases();
+
+                    return msg;
                 });
     }
 

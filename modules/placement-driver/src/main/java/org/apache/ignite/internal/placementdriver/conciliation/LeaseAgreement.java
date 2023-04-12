@@ -17,47 +17,34 @@
 
 package org.apache.ignite.internal.placementdriver.conciliation;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
+import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 
 /**
  * The agreement is formed from {@link org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse}.
  */
 public class LeaseAgreement {
     /** The agreement, which has not try conciliating yet. */
-    public static final LeaseAgreement UNDEFINED_AGREEMENT = new LeaseAgreement(null, false);
+    public static final LeaseAgreement UNDEFINED_AGREEMENT = new LeaseAgreement(null, completedFuture(null));
 
     /** Lease. */
     private final Lease lease;
 
-    /** Accepted flag. */
-    private final boolean accepted;
-
-    /** A node that should agree with a lease or {@code null} if there is not a preference node. */
-    private final String redirectTo;
+    /** Future to {@link LeaseGrantedMessageResponse} response. */
+    private final CompletableFuture<LeaseGrantedMessageResponse> responseFut;
 
     /**
      * The constructor.
      *
      * @param lease Lease.
-     * @param accepted If this flag is true the lease is accepted by the leaseholder, otherwise false.
-     * @param redirectTo A node that should agree with a lease.
+     * @param remoteNodeResponseFuture The future of response from the remote node which is conciliating the agreement.
      */
-    public LeaseAgreement(Lease lease, boolean accepted, String redirectTo) {
-        assert redirectTo == null || !accepted : "Lease accepted by leaseholder, but the node proposes to redirect the lease [";
-
+    public LeaseAgreement(Lease lease, CompletableFuture<LeaseGrantedMessageResponse> remoteNodeResponseFuture) {
         this.lease = lease;
-        this.accepted = accepted;
-        this.redirectTo = redirectTo;
-    }
-
-    /**
-     * Creates a new agreement.
-     *
-     * @param lease Lease.
-     * @param accepted If this flag is true the lease is accepted by the leaseholder, otherwise false.
-     */
-    public LeaseAgreement(Lease lease, boolean accepted) {
-        this(lease, accepted, null);
+        this.responseFut = remoteNodeResponseFuture;
     }
 
     /**
@@ -75,7 +62,17 @@ public class LeaseAgreement {
      * @return Accepted flag.
      */
     public boolean isAccepted() {
-        return accepted;
+        if (!responseFut.isDone()) {
+            return false;
+        }
+
+        LeaseGrantedMessageResponse resp = responseFut.join();
+
+        if (resp != null) {
+            return resp.accepted();
+        }
+
+        return false;
     }
 
     /**
@@ -85,6 +82,25 @@ public class LeaseAgreement {
      * @return Node id to propose a lease.
      */
     public String getRedirectTo() {
-        return redirectTo;
+        if (!responseFut.isDone()) {
+            return null;
+        }
+
+        LeaseGrantedMessageResponse resp = responseFut.join();
+
+        if (resp != null) {
+            return resp.redirectProposal();
+        }
+
+        return null;
+    }
+
+    /**
+     * Returns true if the agreement is conciliated, false otherwise.
+     *
+     * @return True if a response of the agreement has been received, false otherwise.
+     */
+    public boolean ready() {
+        return responseFut.isDone();
     }
 }

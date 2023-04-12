@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
-import static org.apache.ignite.internal.placementdriver.leases.Lease.EMPTY_LEASE;
 
 import java.util.Map;
 import java.util.Set;
@@ -45,6 +44,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 
@@ -60,6 +60,9 @@ public class LeaseUpdater {
 
     /** Lease holding interval. */
     public static final long LEASE_PERIOD = 10 * UPDATE_LEASE_MS;
+
+    /** Long lease interval. The interval is used between lease granting attempts. */
+    private final long longLeasePeriod;
 
     /** Cluster service. */
     private final ClusterService clusterService;
@@ -117,6 +120,7 @@ public class LeaseUpdater {
         this.leaseTracker = leaseTracker;
         this.clock = clock;
 
+        this.longLeasePeriod = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 3_600_000L);
         this.assignmentsTracker = new AssignmentsTracker(vaultManager, msManager, tablesConfiguration, distributionZonesConfiguration);
         this.topologyTracker = new TopologyTracker(topologyService);
         this.updater = new Updater();
@@ -146,16 +150,6 @@ public class LeaseUpdater {
     public void activate() {
         leaseConciliator = new LeaseConciliator(clusterService);
 
-        leaseTracker.subscribeLeaseAdded((groupId, oldLease, newLease) -> {
-            if (newLease != null && !newLease.isAccepted()) {
-                boolean force = oldLease != null && newLease.getLeaseholder().equals(oldLease.getLeaseholder());
-
-                leaseConciliator.conciliate(groupId, newLease, force);
-            } else if (newLease == null) {
-                leaseConciliator.onLeaseRemoved(groupId);
-            }
-        });
-
         //TODO: IGNITE-18879 Implement lease maintenance.
         updaterTread = new Thread(updater, NamedThreadFactory.threadPrefix(nodeName, "lease-updater"));
 
@@ -172,8 +166,6 @@ public class LeaseUpdater {
 
             updaterTread = null;
         }
-
-        leaseTracker.unsubscribeLeaseAdded();
 
         leaseConciliator = null;
     }
@@ -244,28 +236,37 @@ public class LeaseUpdater {
                         LeaseAgreement agreement = leaseConciliator.conciliated(grpId);
 
                         if (agreement.isAccepted()) {
-                            acceptLeasInMetaStorage(grpId, lease);
+                            acceptLeaseInMetaStorage(grpId, lease);
+
+                            continue;
+                        } else if (agreement.ready()) {
+                            ClusterNode candidate = nextLeaseHolder(grpId, entry.getValue());
+
+                            if (candidate == null) {
+                                continue;
+                            }
+
+                            // New lease is granting.
+                            writeNewLeasInMetaStorage(grpId, lease, candidate);
                         }
                     }
 
                     HybridTimestamp now = clock.now();
 
-                    // Nothing holds the lease.
-                    if (lease == EMPTY_LEASE
-                            // The lease is near to expiration.
-                            || now.getPhysical() > (lease.getExpirationTime().getPhysical() - LEASE_PERIOD / 2)) {
+                    // The lease is expired or near to the one.
+                    if (now.getPhysical() > (lease.getExpirationTime().getPhysical() - LEASE_PERIOD / 2)) {
                         ClusterNode candidate = nextLeaseHolder(grpId, entry.getValue());
 
                         if (candidate == null) {
                             continue;
                         }
 
-                        if (isReplicationGroupUpdateLeaseholder(lease, candidate)) {
+                        if (isLeaseIsOutdated(lease)) {
                             // New lease is granting.
                             writeNewLeasInMetaStorage(grpId, lease, candidate);
                         } else if (lease.isAccepted() && candidate.equals(lease.getLeaseholder())) {
                             // Old lease is renewing.
-                            prolongLeasInMetaStorage(grpId, lease);
+                            prolongLeaseInMetaStorage(grpId, lease);
                         }
                     }
                 }
@@ -290,7 +291,7 @@ public class LeaseUpdater {
 
             HybridTimestamp startTs = clock.now();
 
-            var expirationTs = new HybridTimestamp(startTs.getPhysical() + LEASE_PERIOD, 0);
+            var expirationTs = new HybridTimestamp(startTs.getPhysical() + longLeasePeriod, 0);
 
             byte[] leaseRaw = ByteUtils.toBytes(lease);
 
@@ -300,7 +301,13 @@ public class LeaseUpdater {
                     or(notExists(leaseKey), value(leaseKey).eq(leaseRaw)),
                     put(leaseKey, ByteUtils.toBytes(renewedLease)),
                     noop()
-            );
+            ).thenAccept(isCreated -> {
+                if (isCreated) {
+                    boolean force = candidate.equals(lease.getLeaseholder());
+
+                    leaseConciliator.conciliate(grpId, renewedLease, force);
+                }
+            });
         }
 
         /**
@@ -309,7 +316,7 @@ public class LeaseUpdater {
          * @param grpId Replication group id.
          * @param lease Lease to prolong.
          */
-        private void prolongLeasInMetaStorage(ReplicationGroupId grpId, Lease lease) {
+        private void prolongLeaseInMetaStorage(ReplicationGroupId grpId, Lease lease) {
             var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
             var newTs = new HybridTimestamp(clock.now().getPhysical() + LEASE_PERIOD, 0);
 
@@ -330,12 +337,13 @@ public class LeaseUpdater {
          * @param grpId Replication group id.
          * @param lease Lease to accept.
          */
-        private void acceptLeasInMetaStorage(ReplicationGroupId grpId, Lease lease) {
+        private void acceptLeaseInMetaStorage(ReplicationGroupId grpId, Lease lease) {
             var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
+            var newTs = new HybridTimestamp(clock.now().getPhysical() + LEASE_PERIOD, 0);
 
             byte[] leaseRaw = ByteUtils.toBytes(lease);
 
-            Lease renewedLease = lease.acceptLease();
+            Lease renewedLease = lease.acceptLease(newTs);
 
             msManager.invoke(
                     value(leaseKey).eq(leaseRaw),
@@ -345,17 +353,15 @@ public class LeaseUpdater {
         }
 
         /**
-         * Checks that a leaseholder candidate can take a lease on the replication group.
+         * Checks that the lease is outdated.
          *
          * @param lease Lease.
-         * @param candidate The node is a leaseholder candidate.
          * @return True when the candidate can be a leaseholder, otherwise false.
          */
-        private boolean isReplicationGroupUpdateLeaseholder(Lease lease, ClusterNode candidate) {
+        private boolean isLeaseIsOutdated(Lease lease) {
             HybridTimestamp now = clock.now();
 
-            return lease == EMPTY_LEASE
-                    || (!lease.isAccepted() && now.after(lease.getExpirationTime()));
+            return now.after(lease.getExpirationTime());
         }
     }
 }

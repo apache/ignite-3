@@ -57,9 +57,6 @@ public class LeaseTracker {
     /** Leases cache. */
     private final Map<ReplicationGroupId, Lease> leases;
 
-    /** Lease update closure. */
-    private volatile LeaseUpdateClosure updateClosure;
-
     /** Listener to update a leases cache. */
     private final UpdateListener updateListener = new UpdateListener();
 
@@ -102,22 +99,6 @@ public class LeaseTracker {
     }
 
     /**
-     * Subscribes to notifications.
-     *
-     * @param closure Closure to notify about an adding / removing a lease.
-     */
-    public void subscribeLeaseAdded(LeaseUpdateClosure closure) {
-        this.updateClosure = closure;
-    }
-
-    /**
-     * Unsubscribes for notification.
-     */
-    public void unsubscribeLeaseAdded() {
-        this.updateClosure = null;
-    }
-
-    /**
      * Stops the tracker.
      */
     public void stopTrack() {
@@ -155,22 +136,12 @@ public class LeaseTracker {
 
                 TablePartitionId grpId = TablePartitionId.fromString(key);
 
-                LeaseUpdateClosure closure0 = updateClosure;
-
                 if (msEntry.empty()) {
-                    Lease previousLease = leases.remove(grpId);
-
-                    if (closure0 != null) {
-                        closure0.update(grpId, previousLease, null);
-                    }
+                    leases.remove(grpId);
                 } else {
                     Lease lease = ByteUtils.fromBytes(msEntry.value());
 
-                    Lease previousLease = leases.put(grpId, lease);
-
-                    if (closure0 != null) {
-                        closure0.update(grpId, previousLease, lease);
-                    }
+                    leases.put(grpId, lease);
                 }
             }
 

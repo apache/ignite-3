@@ -34,6 +34,9 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     /** A constant holding the maximum value a {@code HybridTimestamp} can have. */
     public static final HybridTimestamp MAX_VALUE = new HybridTimestamp(Long.MAX_VALUE, Integer.MAX_VALUE);
 
+    /** The constant holds the minimum value which {@code HybridTimestamp} might formally have. */
+    public static final HybridTimestamp MIN_VALUE = new HybridTimestamp(1L, -1);
+
     /**
      * Cluster cLock skew. The constant determines the undefined inclusive interval to compares timestamp from various nodes.
      * TODO: IGNITE-18978 Method to comparison timestamps with clock skew.

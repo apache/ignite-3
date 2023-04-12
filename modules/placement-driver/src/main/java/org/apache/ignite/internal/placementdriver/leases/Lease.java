@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.placementdriver.leases;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
+
 import java.io.Serializable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.network.ClusterNode;
@@ -26,8 +28,8 @@ import org.apache.ignite.network.ClusterNode;
  * The real lease is stored in Meta storage.
  */
 public class Lease implements Serializable {
-    /** The object is used when nothing holds the lease. */
-    public static Lease EMPTY_LEASE = new Lease(null, null, null, true);
+    /** The object is used when nothing holds the lease. Empty lease is always expired. */
+    public static Lease EMPTY_LEASE = new Lease(null, MIN_VALUE, MIN_VALUE, false);
 
     /** A node that holds a lease until {@code stopLeas}. */
     private final ClusterNode leaseholder;
@@ -35,7 +37,7 @@ public class Lease implements Serializable {
     /** The lease is accepted, when the holder knows about it and applies all related obligations. */
     private final boolean accepted;
 
-    /** Lease start timestamp. The timestamp is assigned when the lease created and does not be changed when the lease is prolonged. */
+    /** Lease start timestamp. The timestamp is assigned when the lease created and is not changed when the lease is prolonged. */
     private final HybridTimestamp startTime;
 
     /** Timestamp to expiration the lease. */
@@ -68,13 +70,13 @@ public class Lease implements Serializable {
     }
 
     /**
-     * Prolongs a lease to until a new timestamp. Only an accepted lease available to prolong.
+     * Prolongs a lease until new timestamp. Only an accepted lease can be prolonged.
      *
      * @param to The new lease expiration timestamp.
-     * @return A new lease which will have the same properties except expire timestamp.
+     * @return A new lease which will have the same properties except of expiration timestamp.
      */
     public Lease prolongLease(HybridTimestamp to) {
-        assert accepted : "The lease should be accepted by leaseholder before prolong ["
+        assert accepted : "The lease should be accepted by leaseholder before prolongation ["
                 + "leaseholder=" + leaseholder
                 + ", expirationTime=" + expirationTime
                 + ", prolongTo=" + to + ']';
@@ -85,14 +87,15 @@ public class Lease implements Serializable {
     /**
      * Accepts the lease.
      *
+     * @param to The new lease expiration timestamp.
      * @return A accepted lease.
      */
-    public Lease acceptLease() {
+    public Lease acceptLease(HybridTimestamp to) {
         assert !accepted : "The lease is already accepted ["
                 + "leaseholder=" + leaseholder
                 + ", expirationTime=" + expirationTime + ']';
 
-        return new Lease(leaseholder, startTime, expirationTime, true);
+        return new Lease(leaseholder, startTime, to, true);
     }
 
     /**
