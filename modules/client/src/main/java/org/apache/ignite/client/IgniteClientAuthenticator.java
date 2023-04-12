@@ -17,13 +17,28 @@
 
 package org.apache.ignite.client;
 
-import java.util.Map;
-
 /**
  * Ignite client authenticator.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface IgniteClientAuthenticator {
-    // TODO: Interface hierarchy should match AuthenticationProvider on the server side.
-    Map<String, Object> credentials(); // TODO: This is too broad; require only username and password?
+    /**
+     * Authenticator type.
+     *
+     * @return Authenticator type.
+     */
+    String type();
+
+    /**
+     * User id.
+     *
+     * @return User id.
+     */
+    String user();
+
+    /**
+     * Key.
+     *
+     * @return Key.
+     */
+    Object key();
 }

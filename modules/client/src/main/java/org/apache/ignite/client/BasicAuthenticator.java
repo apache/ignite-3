@@ -32,12 +32,6 @@ public class BasicAuthenticator implements IgniteClientAuthenticator {
         this.password = password;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public Map<String, Object> credentials() {
-        return Map.of("username", username, "password", password);
-    }
-
     /**
      * Creates a new builder.
      *
@@ -45,6 +39,21 @@ public class BasicAuthenticator implements IgniteClientAuthenticator {
      */
     public static Builder builder() {
         return new Builder();
+    }
+
+    @Override
+    public String type() {
+        return "basic";
+    }
+
+    @Override
+    public String user() {
+        return username;
+    }
+
+    @Override
+    public Object key() {
+        return password;
     }
 
     static class Builder {
