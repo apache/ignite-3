@@ -173,34 +173,11 @@ public class LeaseUpdater {
     /**
      * Finds a node that can be the leaseholder.
      *
-     * @param groupId Replication group id.
      * @param assignments Replication group assignment.
      * @return Cluster node, or {@code null} if no node in assignments can be the leaseholder.
      */
-    private ClusterNode nextLeaseHolder(ReplicationGroupId groupId, Set<Assignment> assignments) {
+    private ClusterNode nextLeaseHolder(Set<Assignment> assignments) {
         //TODO: IGNITE-18879 Implement more intellectual algorithm to choose a node.
-        LeaseAgreement agreement = leaseConciliator.conciliated(groupId);
-
-        if (agreement.getRedirectTo() != null) {
-            boolean hasInAssignments = false;
-
-            for (Assignment assignment : assignments) {
-                if (agreement.getRedirectTo().equals(assignment.consistentId())) {
-                    hasInAssignments = true;
-
-                    break;
-                }
-            }
-
-            if (hasInAssignments) {
-                ClusterNode candidate = topologyTracker.nodeByConsistentId(agreement.getRedirectTo());
-
-                if (candidate != null) {
-                    return candidate;
-                }
-            }
-        }
-
         String consistentId = null;
 
         for (Assignment assignment : assignments) {
@@ -232,30 +209,11 @@ public class LeaseUpdater {
 
                     Lease lease = leaseTracker.getLease(grpId);
 
-                    if (!lease.isAccepted()) {
-                        LeaseAgreement agreement = leaseConciliator.conciliated(grpId);
-
-                        if (agreement.isAccepted()) {
-                            acceptLeaseInMetaStorage(grpId, lease);
-
-                            continue;
-                        } else if (agreement.ready()) {
-                            ClusterNode candidate = nextLeaseHolder(grpId, entry.getValue());
-
-                            if (candidate == null) {
-                                continue;
-                            }
-
-                            // New lease is granting.
-                            writeNewLeasInMetaStorage(grpId, lease, candidate);
-                        }
-                    }
-
                     HybridTimestamp now = clock.now();
 
                     // The lease is expired or near to the one.
                     if (now.getPhysical() > (lease.getExpirationTime().getPhysical() - LEASE_PERIOD / 2)) {
-                        ClusterNode candidate = nextLeaseHolder(grpId, entry.getValue());
+                        ClusterNode candidate = nextLeaseHolder(entry.getValue());
 
                         if (candidate == null) {
                             continue;
