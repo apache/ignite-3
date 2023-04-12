@@ -48,17 +48,6 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
     };
 
     /**
-     * Parent class requires all test cases being verified by {@link #assertPlan(TestCase, Predicate, String...)}.
-     * Lets just make such call with predicate that returns true for any input.
-     */
-    @Test
-    public void disabledTests() throws Exception {
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-18871 Wrong collation derived.
-        assertPlan(TestCase.CASE_18_3, alwaysTrue());
-        assertPlan(TestCase.CASE_18_3A, alwaysTrue());
-    }
-
-    /**
      * Validates a plan for simple query with aggregate.
      */
     @Test
@@ -262,11 +251,11 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
     public void groupsWithOrderByGroupColumns() throws Exception {
         checkGroupsWithOrderByGroupColumnsSingle(TestCase.CASE_18_1, TraitUtils.createCollation(List.of(0, 1)));
         checkGroupsWithOrderByGroupColumnsSingle(TestCase.CASE_18_2, TraitUtils.createCollation(List.of(1, 0)));
-        // checkGroupsWithOrderByGroupColumnsSingle(TestCase.CASE_18_3, TraitUtils.createCollation(List.of(0, 1)));
+        checkGroupsWithOrderByGroupColumnsSingle(TestCase.CASE_18_3, TraitUtils.createCollation(List.of(1, 0)));
 
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_1A, TraitUtils.createCollation(List.of(0, 1)));
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_2A, TraitUtils.createCollation(List.of(1, 0)));
-        // checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_3A, TraitUtils.createCollation(List.of(0, 1)));
+        checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_3A, TraitUtils.createCollation(List.of(1, 0)));
     }
 
     /**
@@ -420,7 +409,6 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
         );
     }
 
-    //TODO: https://issues.apache.org/jira/browse/IGNITE-18871 Index should be used here.
     private void checkAggWithGroupByIndexColumnsSingle(TestCase testCase) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
@@ -431,7 +419,6 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
         );
     }
 
-    //TODO: https://issues.apache.org/jira/browse/IGNITE-18871 Index should be used here.
     private void checkAggWithGroupByIndexColumnsHash(TestCase testCase) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
