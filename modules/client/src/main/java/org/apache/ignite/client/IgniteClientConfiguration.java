@@ -177,4 +177,11 @@ public interface IgniteClientConfiguration {
      * @return {@code true} if metrics are enabled.
      */
     boolean metricsEnabled();
+
+    /**
+     * Gets the authenticator.
+     *
+     * @return Authenticator.
+     */
+    IgniteClientAuthenticator authenticator();
 }
