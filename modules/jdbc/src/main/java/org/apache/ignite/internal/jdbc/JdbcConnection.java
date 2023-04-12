@@ -49,6 +49,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.SslConfiguration;
@@ -381,10 +383,16 @@ public class JdbcConnection implements Connection {
      * @throws SQLException If failed.
      */
     private void finishTx(boolean commit) throws SQLException {
-        JdbcFinishTxResult res = handler().finishTxAsync(connectionId, commit).join();
+        try {
+            JdbcFinishTxResult res = handler().finishTxAsync(connectionId, commit).join();
 
-        if (res.status() != Response.STATUS_SUCCESS) {
-            throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+            if (res.status() != Response.STATUS_SUCCESS) {
+                throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+            }
+        } catch (CompletionException e) {
+            throw new SQLException("The transaction " + (commit ? "commit" : "rollback") + " request failed.", e);
+        } catch (CancellationException e) {
+            throw new SQLException("Request to " + (commit ? "commit" : "rollback") + " the transaction has been canceled.", e);
         }
     }
 
