@@ -376,9 +376,19 @@ public class DistributionZonesUtil {
     /**
      * Check if {@code nodeAttributes} satisfy the {@code filter}.
      *
+     * <p> Some examples:
+     * <ul>
+     *     <li>Node attributes: ("region" -> "US", "storage" -> "SSD"); filter: "$[?(@.region == 'US')]"; result: true</li>
+     *     <li>Node attributes: ("region" -> "US"); filter: "$[?(@.storage == 'SSD' && @.region == 'US')]"; result: false</li>
+     *     <li>Node attributes: ("region" -> "US"); filter: "$[?(@.storage == 'SSD']"; result: false</li>
+     *     <li>Node attributes: ("region" -> "US"); filter: "$[?(@.storage != 'SSD']"; result: true</li>
+     *     <li>Node attributes: ("region" -> "US", "dataRegionSize: 10); filter: "$[?(@.region == 'EU' || @.dataRegionSize > 5)]";
+     *     result: true</li>
+     * </ul>
+     *
      * @param nodeAttributes Key value map of node's attributes.
      * @param filter Valid {@link JsonPath} filter of JSON fields.
-     * @return True if at least one value from {@code nodeAttributes} satisfy {@code filter}, false otherwise.
+     * @return True if {@code nodeAttributes} satisfy {@code filter}, false otherwise.
      *         Returns true if {@code nodeAttributes} is empty.
      */
     public static boolean filter(Map<String, String> nodeAttributes, String filter) {
