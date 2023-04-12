@@ -349,7 +349,6 @@ public partial class LinqTests : IgniteTestsBase
     }
 
     [Test]
-    [Ignore("IGNITE-18311")]
     public void TestOrderBySkipTakeBeforeSelect()
     {
         var query = PocoView.AsQueryable()
@@ -364,8 +363,7 @@ public partial class LinqTests : IgniteTestsBase
 
         StringAssert.Contains(
             "select _T0.KEY from (" +
-            "select _T1.KEY, _T1.VAL " +
-            "from PUBLIC.TBL1 as _T1 " +
+            "select * from PUBLIC.TBL1 as _T1 " +
             "order by _T1.KEY desc " +
             "limit ? offset ?) as _T0",
             query.ToString());
