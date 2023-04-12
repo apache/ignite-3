@@ -15,24 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command;
+package org.apache.ignite.internal.metastorage.server.time;
 
-import java.util.List;
-import org.apache.ignite.network.annotations.Transferable;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
- * Get and put all command for MetaStorageCommandListener that inserts or updates entries with given keys and given values and retrieves a
- * previous entries for given keys.
+ * Cluster time with a hybrid clock instance and access to safe time.
  */
-@Transferable(MetastorageCommandsMessageGroup.GET_AND_PUT_ALL)
-public interface GetAndPutAllCommand extends MetaStorageWriteCommand {
+public interface ClusterTime {
     /**
-     * Returns keys.
+     * Returns current cluster time.
      */
-    List<byte[]> keys();
+    HybridTimestamp now();
 
     /**
-     * Returns values.
+     * Provides the future that is completed when cluster time reaches given one. If the time is greater or equal
+     * then the given one, returns completed future.
+     *
+     * @param time Timestamp to wait for.
+     * @return Future.
      */
-    List<byte[]> values();
+    CompletableFuture<Void> waitFor(HybridTimestamp time);
 }

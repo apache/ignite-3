@@ -663,7 +663,8 @@ public class ItRebalanceDistributedTest {
                     raftManager,
                     testInfo.getTestMethod().get().isAnnotationPresent(UseRocksMetaStorage.class)
                             ? new RocksDbKeyValueStorage(nodeName, resolveDir(dir, "metaStorage"))
-                            : new SimpleInMemoryKeyValueStorage(nodeName)
+                            : new SimpleInMemoryKeyValueStorage(nodeName),
+                    hybridClock
             );
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);

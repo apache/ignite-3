@@ -17,22 +17,14 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
-import java.util.List;
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Get and put all command for MetaStorageCommandListener that inserts or updates entries with given keys and given values and retrieves a
- * previous entries for given keys.
+ * Command that initiates idle safe time synchronization.
  */
-@Transferable(MetastorageCommandsMessageGroup.GET_AND_PUT_ALL)
-public interface GetAndPutAllCommand extends MetaStorageWriteCommand {
-    /**
-     * Returns keys.
-     */
-    List<byte[]> keys();
-
-    /**
-     * Returns values.
-     */
-    List<byte[]> values();
+@Transferable(MetastorageCommandsMessageGroup.SYNC_TIME)
+public interface SyncTimeCommand extends WriteCommand {
+    /** New safe time. */
+    HybridTimestampMessage safeTime();
 }

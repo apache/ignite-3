@@ -142,11 +142,12 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
                 eventsClientListener
         );
 
+        HybridClock nodeClock = new HybridClockImpl();
         raftManager = new Loza(
                 clusterService,
                 raftConfiguration,
                 workDir.resolve("loza"),
-                new HybridClockImpl(),
+                nodeClock,
                 eventsClientListener
         );
 
@@ -158,7 +159,8 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
                 cmgManager,
                 logicalTopologyService,
                 raftManager,
-                storage
+                storage,
+                nodeClock
         );
 
         placementDriverManager = new PlacementDriverManager(
