@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.cli.config.ini;
 
-import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_LOGIN;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.CLUSTER_URL;
-import static org.apache.ignite.internal.cli.config.CliConfigKeys.Constants.CURRENT_PROFILE;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_URL;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE_PATH;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PATH;
+import static org.apache.ignite.internal.cli.config.ConfigConstants.CURRENT_PROFILE;
 
 import java.io.File;
 import java.io.IOException;
@@ -121,7 +121,7 @@ public class IniConfigManager implements ConfigManager {
             file.delete();
             file.createNewFile();
             IniFile ini = new IniFile(file);
-            ini.getTopLevelSection().setProperty("current_profile", DEFAULT_PROFILE_NAME);
+            ini.getTopLevelSection().setProperty(CURRENT_PROFILE, DEFAULT_PROFILE_NAME);
             IniSection defaultSection = ini.createSection(DEFAULT_PROFILE_NAME);
             defaultSection.setProperty(CLUSTER_URL.value(), "http://localhost:10300");
             defaultSection.setProperty(JDBC_URL.value(), "jdbc:ignite:thin://127.0.0.1:10800");
@@ -129,7 +129,7 @@ public class IniConfigManager implements ConfigManager {
             defaultSection.setProperty(REST_KEY_STORE_PASSWORD.value(), "");
             defaultSection.setProperty(REST_TRUST_STORE_PATH.value(), "");
             defaultSection.setProperty(REST_TRUST_STORE_PASSWORD.value(), "");
-            defaultSection.setProperty(BASIC_AUTHENTICATION_LOGIN.value(), "");
+            defaultSection.setProperty(BASIC_AUTHENTICATION_USERNAME.value(), "");
             defaultSection.setProperty(BASIC_AUTHENTICATION_PASSWORD.value(), "");
             ini.store();
             return ini;

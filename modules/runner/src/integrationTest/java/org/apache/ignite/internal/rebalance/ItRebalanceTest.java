@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.rebalance;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.Cluster.NodeKnockout.PARTITION_NETWORK;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -124,7 +123,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
             assertInstanceOf(ReplicaUnavailableException.class, e.getCause());
         }
 
-        cluster.knockOutNode(2, PARTITION_NETWORK);
+        cluster.simulateNetworkPartitionOf(2);
 
         assertTrue(waitAssignments(List.of(
                 Set.of(0, 1, 3),
@@ -137,7 +136,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
         assertNotNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(1).node()).get());
         assertNotNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(3).node()).get());
 
-        cluster.reanimateNode(2, PARTITION_NETWORK);
+        cluster.removeNetworkPartitionOf(2);
 
         assertTrue(waitAssignments(List.of(
                 Set.of(0, 1, 2),
@@ -203,10 +202,11 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
 
     private void createTestTable() throws InterruptedException {
         String sql1 = "create zone test_zone with "
+                + "partitions=1, replicas=3, "
                 + "data_nodes_auto_adjust_scale_up=0, "
                 + "data_nodes_auto_adjust_scale_down=0";
         String sql2 = "create table test (id int primary key, value varchar(20))"
-                + " with partitions=1, replicas=3, primary_zone='TEST_ZONE'";
+                + " with primary_zone='TEST_ZONE'";
 
         cluster.doInSession(0, session -> {
             executeUpdate(sql1, session);

@@ -35,7 +35,6 @@ public interface Flowable<T> {
         return value() != null;
     }
 
-
     Class<T> type();
 
     /**

@@ -15,29 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.authentication;
+package org.apache.ignite.internal.security.authentication;
 
-import io.micronaut.security.authentication.AuthenticationRequest;
-import io.micronaut.security.authentication.AuthenticationResponse;
+import org.jetbrains.annotations.Nullable;
 
-/** Implementation of basic authenticator. */
-class BasicAuthenticator implements Authenticator {
+/**
+ * Represents a request to authenticate using a username and a password.
+ */
+public class UsernamePasswordRequest implements AuthenticationRequest<String, String> {
 
-    private final String login;
+    private final String username;
 
     private final String password;
 
-    public BasicAuthenticator(String login, String password) {
-        this.login = login;
+    public UsernamePasswordRequest() {
+        username = null;
+        password = null;
+    }
+
+    public UsernamePasswordRequest(String username, String password) {
+        this.username = username;
         this.password = password;
     }
 
+    @Nullable
     @Override
-    public AuthenticationResponse authenticate(AuthenticationRequest<?, ?> authenticationRequest) {
-        if (authenticationRequest.getIdentity().equals(login) && authenticationRequest.getSecret().equals(password)) {
-            return AuthenticationResponse.success((String) authenticationRequest.getIdentity());
-        } else {
-            return AuthenticationResponse.failure();
-        }
+    public String getIdentity() {
+        return username;
+    }
+
+    @Nullable
+    @Override
+    public String getSecret() {
+        return password;
     }
 }

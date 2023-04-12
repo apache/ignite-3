@@ -27,6 +27,7 @@ import org.apache.ignite.internal.cli.core.JdbcUrl;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
+import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
@@ -43,7 +44,7 @@ import org.apache.ignite.rest.client.invoker.ApiException;
  * Call for connect to Ignite 3 node. As a result {@link Session} will hold a valid node-url.
  */
 @Singleton
-public class ConnectCall implements Call<ConnectCallInput, String> {
+public class ConnectCall implements Call<UrlCallInput, String> {
     private final Session session;
 
     private final StateConfigProvider stateConfigProvider;
@@ -60,8 +61,8 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
     }
 
     @Override
-    public CallOutput<String> execute(ConnectCallInput input) {
-        String nodeUrl = input.getNodeUrl();
+    public CallOutput<String> execute(UrlCallInput input) {
+        String nodeUrl = input.getUrl();
         SessionInfo sessionInfo = session.info();
         if (sessionInfo != null && Objects.equals(sessionInfo.nodeUrl(), nodeUrl)) {
             MessageUiComponent message = MessageUiComponent.fromMessage("You are already connected to %s", UiElements.url(nodeUrl));

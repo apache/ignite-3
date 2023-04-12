@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.authentication;
+package org.apache.ignite.internal.security.authentication;
 
 import org.apache.ignite.internal.configuration.AuthenticationProviderView;
 import org.apache.ignite.internal.configuration.BasicAuthenticationProviderView;
@@ -28,7 +28,7 @@ class AuthenticatorFactory {
         AuthenticationType type = AuthenticationType.parse(view.type());
         if (type == AuthenticationType.BASIC) {
             BasicAuthenticationProviderView basicAuthProviderView = (BasicAuthenticationProviderView) view;
-            return new BasicAuthenticator(basicAuthProviderView.login(), basicAuthProviderView.password());
+            return new BasicAuthenticator(basicAuthProviderView.username(), basicAuthProviderView.password());
         } else {
             throw new IllegalArgumentException("Unexpected authentication type: " + type);
         }

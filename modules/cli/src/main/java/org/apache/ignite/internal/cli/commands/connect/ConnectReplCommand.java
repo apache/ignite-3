@@ -21,11 +21,11 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OR_NAME_DESC;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.connect.ConnectCall;
-import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
+import org.apache.ignite.internal.cli.call.connect.ConnectSslCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
@@ -41,7 +41,7 @@ public class ConnectReplCommand extends BaseCommand implements Runnable {
     private NodeNameOrUrl nodeNameOrUrl;
 
     @Inject
-    private ConnectCall connectCall;
+    private ConnectSslCall connectCall;
 
     @Inject
     private ConnectToClusterQuestion question;
@@ -50,7 +50,7 @@ public class ConnectReplCommand extends BaseCommand implements Runnable {
     @Override
     public void run() {
         question.askQuestionIfConnected(nodeNameOrUrl.stringUrl())
-                .map(ConnectCallInput::new)
+                .map(UrlCallInput::new)
                 .then(Flows.fromCall(connectCall))
                 .verbose(verbose)
                 .print()

@@ -17,53 +17,16 @@
 
 package org.apache.ignite.internal.cli.ssl;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
-
+import org.apache.ignite.internal.NodeConfig;
 import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
 
 /**
  * Integration test base for SSL tests.
  */
 public class CliSslNotInitializedIntegrationTestBase extends CliCommandTestNotInitializedIntegrationBase {
-    protected static final String keyStorePath = "ssl/keystore.p12";
-    protected static final String keyStorePassword = "changeit";
-    protected static final String trustStorePath = "ssl/truststore.jks";
-    protected static final String trustStorePassword = "changeit";
-
-    static final String resolvedKeystorePath = getResourcePath(CliSslClientConnectorIntegrationTestBase.class, keyStorePath);
-    static final String resolvedTruststorePath = getResourcePath(CliSslClientConnectorIntegrationTestBase.class, trustStorePath);
-
-    /**
-     * Template for node bootstrap config with Scalecube and Logical Topology settings for fast failure detection.
-     */
-    protected static final String REST_SSL_BOOTSTRAP_CONFIG = "{\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    },\n"
-            + "  },\n"
-            + "  rest: {"
-            + "    dualProtocol: " + true + ",\n"
-            + "    ssl: {\n"
-            + "      enabled: " + true + ",\n"
-            + "      clientAuth: \"require\",\n"
-            + "      keyStore: {\n"
-            + "        path: \"" +  escapeWindowsPath(resolvedKeystorePath) + "\",\n"
-            + "        password: " + keyStorePassword + "\n"
-            + "      }, \n"
-            + "      trustStore: {\n"
-            + "        type: JKS,\n"
-            + "        path: \"" + escapeWindowsPath(resolvedTruststorePath) + "\",\n"
-            + "        password: " + trustStorePassword + "\n"
-            + "      }\n"
-            + "    }\n"
-            + "  }\n"
-            + "}";
 
     @Override
     protected String nodeBootstrapConfigTemplate() {
-        return REST_SSL_BOOTSTRAP_CONFIG;
+        return NodeConfig.REST_SSL_BOOTSTRAP_CONFIG;
     }
 }

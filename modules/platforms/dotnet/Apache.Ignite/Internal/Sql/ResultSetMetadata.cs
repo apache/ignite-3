@@ -18,7 +18,7 @@
 namespace Apache.Ignite.Internal.Sql
 {
     using System.Collections.Generic;
-    using System.Text;
+    using Common;
     using Ignite.Sql;
 
     internal sealed record ResultSetMetadata(IReadOnlyList<IColumnMetadata> Columns) : IResultSetMetadata
@@ -47,17 +47,9 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
-        public override string ToString()
-        {
-            var builder = new StringBuilder();
-
-            builder
-                .Append("ResultSetMetadata { ")
-                .Append("Columns = { ")
-                .Append(string.Join(", ", Columns))
-                .Append(" } }");
-
-            return builder.ToString();
-        }
+        public override string ToString() =>
+            new IgniteToStringBuilder(GetType())
+                .AppendList(Columns)
+                .Build();
     }
 }
