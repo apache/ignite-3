@@ -28,7 +28,6 @@ import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static java.sql.Statement.NO_GENERATED_KEYS;
 import static java.sql.Statement.RETURN_GENERATED_KEYS;
-import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -52,9 +51,7 @@ import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.jdbc.IgniteJdbcDriver;
-import org.hamcrest.MatcherAssert;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -509,99 +506,6 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
             // Exception when called on closed connection
             checkConnectionClosed(() -> conn.nativeSQL(sqlText));
-        }
-    }
-
-    @Test
-    public void testGetSetAutoCommit() throws Exception {
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            assertTrue(conn.getAutoCommit());
-
-            // assert no exception
-            conn.setAutoCommit(false);;
-
-            // assert no exception
-            conn.setAutoCommit(true);
-
-            try (Statement stmt = conn.createStatement()) {
-                stmt.executeUpdate("create table digits(a int primary key, b int)");
-
-                int rowsCount = 3;
-                String sqlUpdate = "insert into digits values (1, 1), (2, 2), (3, 3)";
-                Supplier<Long> selectRowsCount = () -> {
-                    try (ResultSet rs = stmt.executeQuery("select count(*) from digits")) {
-                        rs.next();
-
-                        return rs.getLong(1);
-                    } catch (SQLException e) {
-                        throw new RuntimeException(e);
-                    }
-                };
-
-                conn.setAutoCommit(false);
-
-                assertEquals(rowsCount, stmt.executeUpdate(sqlUpdate));
-                assertEquals(rowsCount, selectRowsCount.get());
-
-                // Verify that switching to the same mode does nothing.
-                conn.setAutoCommit(false);
-                conn.rollback();
-                assertEquals(0, selectRowsCount.get());
-
-                // Verify that switching to auto-commit mode again commits started transaction.
-                assertEquals(rowsCount, stmt.executeUpdate(sqlUpdate));
-                conn.setAutoCommit(true);
-                conn.setAutoCommit(false);
-                conn.rollback();
-                assertEquals(rowsCount, selectRowsCount.get());
-            } finally {
-                conn.setAutoCommit(true);
-                stmt.executeUpdate("drop table if exists digits");
-            }
-
-            conn.close();
-
-            // Exception when called on closed connection
-            checkConnectionClosed(() -> conn.setAutoCommit(true));
-        }
-    }
-
-
-    @Test
-    public void testCommit() throws Exception {
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            assertTrue(conn.getAutoCommit());
-
-            // Should not be called in auto-commit mode
-            SQLException commitEx = assertThrows(SQLException.class, conn::commit);
-            MatcherAssert.assertThat(commitEx.getMessage(),
-                    containsString("Transaction cannot be committed explicitly in auto-commit mode."));
-
-            conn.setAutoCommit(false);
-            conn.commit();
-
-            conn.close();
-
-            // Exception when called on closed connection
-            checkConnectionClosed(conn::commit);
-        }
-    }
-
-    @Test
-    public void testRollback() throws Exception {
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            // Should not be called in auto-commit mode
-            SQLException rollbackEx = assertThrows(SQLException.class, conn::rollback);
-            MatcherAssert.assertThat(rollbackEx.getMessage(),
-                    containsString("Transaction cannot be rolled back explicitly in auto-commit mode."));
-
-            conn.setAutoCommit(false);
-            conn.rollback();
-
-            conn.close();
-
-            // Exception when called on closed connection
-            checkConnectionClosed(conn::rollback);
         }
     }
 

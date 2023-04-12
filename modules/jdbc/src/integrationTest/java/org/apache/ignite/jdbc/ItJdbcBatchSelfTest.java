@@ -33,7 +33,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
-import java.util.concurrent.Callable;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.junit.jupiter.api.AfterAll;
@@ -402,7 +401,16 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     public void testBatchPrepared() throws SQLException {
         final int batchSize = 10;
 
-        populatePrepared(batchSize);
+        for (int i = 0; i < batchSize; ++i) {
+            int paramCnt = 1;
+
+            pstmt.setInt(paramCnt++, i);
+            pstmt.setString(paramCnt++, "Name" + i);
+            pstmt.setString(paramCnt++, "Lastname" + i);
+            pstmt.setInt(paramCnt++, 20 + i);
+
+            pstmt.addBatch();
+        }
 
         int[] updCnts = pstmt.executeBatch();
 
@@ -417,7 +425,16 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     public void testBatchExceptionPrepared() throws Exception {
         final int failedIdx = 5;
 
-        populatePrepared(failedIdx);
+        for (int i = 0; i < failedIdx; ++i) {
+            int paramCnt = 1;
+
+            pstmt.setInt(paramCnt++, i);
+            pstmt.setString(paramCnt++, "Name" + i);
+            pstmt.setString(paramCnt++, "Lastname" + i);
+            pstmt.setInt(paramCnt++, 20 + i);
+
+            pstmt.addBatch();
+        }
 
         int paramCnt = 1;
         pstmt.setString(paramCnt++, "FAIL");
@@ -619,61 +636,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         assertEquals(0L, personsCount(), "Test table should be empty after empty batch is performed.");
     }
 
-    @Test
-    public void testTransactionalBatch() throws Exception {
-        conn.setAutoCommit(false);
-
-        int rowsCnt = 5;
-
-        Callable<int[]> batchOp = () -> {
-            for (int i = 0; i < rowsCnt; i++) {
-                stmt.addBatch("insert into Person (id, firstName, lastName, age) values " + valuesRow(i));
-            }
-
-            return stmt.executeBatch();
-        };
-
-        // Check rollback.
-        checkBatchTxResult(rowsCnt, batchOp, false);
-
-        // Check commit.
-        checkBatchTxResult(rowsCnt, batchOp, true);
-    }
-
-    @Test
-    public void testTransactionalBatchPrepared() throws Exception {
-        conn.setAutoCommit(false);
-
-        int rowsCnt = 5;
-
-        Callable<int[]> batchOp = () -> {
-            populatePrepared(rowsCnt);
-
-            return pstmt.executeBatch();
-        };
-
-        // Check rollback.
-        checkBatchTxResult(rowsCnt, batchOp, false);
-
-        // Check commit.
-        checkBatchTxResult(rowsCnt, batchOp, true);
-    }
-
-    private void checkBatchTxResult(int rowsCnt, Callable<int[]> batchOp, boolean commit) throws Exception {
-        int[] updCnts = batchOp.call();
-        assertEquals(rowsCnt, updCnts.length, "Invalid update counts size");
-
-        if (commit) {
-            conn.commit();
-        } else {
-            conn.rollback();
-        }
-
-        assertEquals(commit ? rowsCnt : 0, personsCount());
-
-        conn.rollback();
-    }
-
     /**
      * Generate values for insert query.
      *
@@ -732,25 +694,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
             cnt.next();
 
             return cnt.getLong(1);
-        }
-    }
-
-    /**
-     * Populates prepared statement.
-     *
-     * @param rowsCnt Rows count.
-     * @throws SQLException If failed.
-     */
-    private void populatePrepared(int rowsCnt) throws SQLException {
-        for (int i = 0; i < rowsCnt; ++i) {
-            int paramCnt = 1;
-
-            pstmt.setInt(paramCnt++, i);
-            pstmt.setString(paramCnt++, "Name" + i);
-            pstmt.setString(paramCnt++, "Lastname" + i);
-            pstmt.setInt(paramCnt++, 20 + i);
-
-            pstmt.addBatch();
         }
     }
 }
