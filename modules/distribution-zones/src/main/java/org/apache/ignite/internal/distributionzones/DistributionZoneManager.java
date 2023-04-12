@@ -557,8 +557,9 @@ public class DistributionZoneManager implements IgniteComponent {
      * by new nodes in cluster topology. Similarly if the value of auto adjust scale down is greater than zero, then it is not necessary to
      * wait for the data nodes update triggered by new nodes that have left the topology in cluster topology.
      *
-     * <p>The returned future can be completed with {@link DistributionZoneNotFoundException} and
-     * {@link DistributionZoneWasRemovedException} in case when the distribution zone was removed during method execution.
+     * <p>The returned future can be completed with {@link DistributionZoneNotFoundException} if zone with the provided {@code zoneId}
+     * cannot be found or {@link DistributionZoneWasRemovedException} in case when the distribution zone was removed during
+     * method execution.
      *
      * @param zoneId Zone id.
      * @param topVer Topology version.
@@ -1200,7 +1201,7 @@ public class DistributionZoneManager implements IgniteComponent {
                     Set<String> addedNodes =
                             newLogicalTopology.stream().filter(node -> !logicalTopology.contains(node)).collect(toSet());
 
-                    //First update lastScaleUpRevision and lastScaleDownRevision then update topVerTracker to ensure thread-safety.
+                    //Firstly update lastScaleUpRevision and lastScaleDownRevision then update topVerTracker to ensure thread-safety.
                     if (!addedNodes.isEmpty()) {
                         lastScaleUpRevision = revision;
                     }
