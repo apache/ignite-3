@@ -80,7 +80,7 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
     /**
      * Get flag indicating whether auto-commit mode is enabled.
      *
-     * @return Flag indicating whether auto-commit mode is enabled.
+     * @return {@code true} if auto-commit mode is enabled, {@code false} otherwise.
      */
     public boolean autoCommit() {
         return autoCommit;
