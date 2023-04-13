@@ -110,7 +110,7 @@ public class LeaseNegotiator {
     }
 
     /**
-     * Removes lease from list to conciliate.
+     * Removes lease from list to negotiate.
      *
      * @param groupId Lease to expire.
      */
