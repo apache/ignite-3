@@ -156,7 +156,7 @@ public class ItClientHandlerTest {
             packer.packInt(0);
             packer.packInt(0);
             packer.packInt(0);
-            packer.packInt(7 + 8 + 5 + 10 + 10); // Size.
+            packer.packInt(67); // Size.
 
             packer.packInt(3); // Major.
             packer.packInt(0); // Minor.
@@ -165,10 +165,12 @@ public class ItClientHandlerTest {
             packer.packInt(2); // Client type: general purpose.
 
             packer.packBinaryHeader(0); // Features.
-            packer.packMapHeader(2); // Extensions.
-            packer.packString("username");
+            packer.packMapHeader(3); // Extensions.
+            packer.packString("authn-type");
+            packer.packString("basic");
+            packer.packString("authn-identity");
             packer.packString("admin");
-            packer.packString("password");
+            packer.packString("authn-secret");
             packer.packString("password");
 
             out.write(packer.toByteArray());
