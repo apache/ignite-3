@@ -17,13 +17,53 @@
 
 package org.apache.ignite.client;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+import java.util.UUID;
+import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+
 /**
  * Tests client authentication.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class ClientAuthenticationTest {
+    @InjectConfiguration
+    private AuthenticationConfiguration authenticationConfiguration;
+
+    private TestServer server;
+
+    private IgniteClient client;
+
+    @AfterEach
+    public void afterEach() throws Exception {
+        IgniteUtils.closeAll(client, server);
+    }
+
     // TODO: No authn on server, no authn on client
     // TODO: Authn on server, no authn on client
     // TODO: No authn on server, authn on client
     // TODO: Authn on server, authn on client (valid creds)
     // TODO: Authn on server, authn on client (invalid creds)
+    @Test
+    public void testNoAuthnOnServerNoAuthnOnClient() throws Exception {
+        assertNotNull(authenticationConfiguration);
+
+        server = new TestServer(
+                10800,
+                10,
+                1000,
+                new FakeIgnite(),
+                null,
+                null,
+                null,
+                UUID.randomUUID(),
+                authenticationConfiguration);
+    }
 }
