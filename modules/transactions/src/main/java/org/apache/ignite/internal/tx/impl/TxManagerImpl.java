@@ -18,12 +18,16 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_CREATING_ERR;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -36,7 +40,9 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -44,11 +50,12 @@ import org.jetbrains.annotations.TestOnly;
  *
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
+// TODO: IGNITE-19267 протестировать новые методы
 public class TxManagerImpl implements TxManager {
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
-    private ReplicaService replicaService;
+    private final ReplicaService replicaService;
 
     /** Lock manager. */
     private final LockManager lockManager;
@@ -60,6 +67,12 @@ public class TxManagerImpl implements TxManager {
     /** The storage for tx states. */
     @TestOnly
     private final ConcurrentHashMap<UUID, TxState> states = new ConcurrentHashMap<>();
+
+    /** Future of a read-only transaction by its read timestamp. */
+    private final ConcurrentNavigableMap<HybridTimestamp, CompletableFuture<Void>> readOnlyTxFutureByReadTs = new ConcurrentSkipListMap<>();
+
+    /** Lower bound (exclusive) the timestamps for starting new read-only transactions, {@code null} means there is no lower bound. */
+    private final AtomicReference<HybridTimestamp> lowerBoundTsToStartNewReadOnlyTx = new AtomicReference<>();
 
     /**
      * The constructor.
@@ -74,27 +87,45 @@ public class TxManagerImpl implements TxManager {
         this.clock = clock;
     }
 
-    /** {@inheritDoc} */
     @Override
     public InternalTransaction begin() {
         return begin(false);
     }
 
-    /** {@inheritDoc} */
     @Override
     public InternalTransaction begin(boolean readOnly) {
         UUID txId = Timestamp.nextVersion().toUuid();
 
-        return readOnly ? new ReadOnlyTransactionImpl(this, txId, clock.now()) : new ReadWriteTransactionImpl(this, txId);
+        if (!readOnly) {
+            return new ReadWriteTransactionImpl(this, txId);
+        }
+
+        HybridTimestamp readTimestamp = clock.now();
+
+        readOnlyTxFutureByReadTs.compute(readTimestamp, (timestamp, readOnlyTxFuture) -> {
+            assert readOnlyTxFuture == null : "previous transaction has not completed yet: " + readTimestamp;
+
+            HybridTimestamp lowerBound = lowerBoundTsToStartNewReadOnlyTx.get();
+
+            if (lowerBound != null && readTimestamp.compareTo(lowerBound) <= 0) {
+                throw new IgniteInternalException(
+                        TX_READ_ONLY_CREATING_ERR,
+                        "Timestamp read-only transaction must be greater than the lower bound: [txTimestamp={}, lowerBound={}]",
+                        readTimestamp, lowerBound
+                );
+            }
+
+            return new CompletableFuture<>();
+        });
+
+        return new ReadOnlyTransactionImpl(this, txId, readTimestamp);
     }
 
-    /** {@inheritDoc} */
     @Override
     public TxState state(UUID txId) {
         return states.get(txId);
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean changeState(UUID txId, TxState before, TxState after) {
         return states.compute(txId, (k, v) -> {
@@ -106,7 +137,6 @@ public class TxManagerImpl implements TxManager {
         }) == after;
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> finish(
             ReplicationGroupId commitPartition,
@@ -134,7 +164,6 @@ public class TxManagerImpl implements TxManager {
                 .thenRun(() -> changeState(txId, null, commit ? TxState.COMMITED : TxState.ABORTED));
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> cleanup(
             ClusterNode recipientNode,
@@ -162,27 +191,43 @@ public class TxManagerImpl implements TxManager {
         return allOf(cleanupFutures);
     }
 
-    /** {@inheritDoc} */
     @Override
     public int finished() {
         return (int) states.entrySet().stream().filter(e -> e.getValue() == TxState.COMMITED || e.getValue() == TxState.ABORTED).count();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() {
         // No-op.
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public void stop() {
         // No-op.
     }
 
-    /** {@inheritDoc} */
     @Override
     public LockManager lockManager() {
         return lockManager;
+    }
+
+    void completeReadOnlyTransactionFuture(HybridTimestamp txTimestamp) {
+        CompletableFuture<Void> readOnlyTxFuture = readOnlyTxFutureByReadTs.remove(txTimestamp);
+
+        assert readOnlyTxFuture != null : txTimestamp;
+
+        readOnlyTxFuture.complete(null);
+    }
+
+    @Override
+    public void updateLowerBoundToStartNewReadOnlyTransaction(@Nullable HybridTimestamp lowerBound) {
+        lowerBoundTsToStartNewReadOnlyTx.set(lowerBound);
+    }
+
+    @Override
+    public CompletableFuture<Void> getFutureReadOnlyTransactions(HybridTimestamp timestamp) {
+        List<CompletableFuture<Void>> readOnlyTxFutures = List.copyOf(readOnlyTxFutureByReadTs.headMap(timestamp, false).values());
+
+        return allOf(readOnlyTxFutures.toArray(CompletableFuture[]::new));
     }
 }

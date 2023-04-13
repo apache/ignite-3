@@ -24,7 +24,9 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -46,6 +48,8 @@ public interface TxManager extends IgniteComponent {
      * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
      *      Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
      * @return The started transaction.
+     * @throws IgniteInternalException with {@link Transactions#TX_READ_ONLY_CREATING_ERR} if there is an error when creating a read-only
+     *      transaction.
      */
     InternalTransaction begin(boolean readOnly);
 
@@ -124,4 +128,20 @@ public interface TxManager extends IgniteComponent {
      */
     @TestOnly
     int finished();
+
+    /**
+     * Updates the lower bound (exclusive) of the timestamp to start new read-only transactions.
+     *
+     * <p>All new read-only transactions will have to start strictly greater this lower bound.
+     *
+     * @param lowerBound New lower bound, {@code null} if there is no lower bound.
+     */
+    void updateLowerBoundToStartNewReadOnlyTransaction(@Nullable HybridTimestamp lowerBound);
+
+    /**
+     * Returns the future of all read-only transactions up to the timestamp (exclusive).
+     *
+     * @param timestamp Timestamp.
+     */
+    CompletableFuture<Void> getFutureReadOnlyTransactions(HybridTimestamp timestamp);
 }

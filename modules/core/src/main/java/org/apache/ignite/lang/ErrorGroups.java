@@ -291,6 +291,9 @@ public class ErrorGroups {
 
         /** Tx state storage rebalancing error. */
         public static final int TX_STATE_STORAGE_REBALANCE_ERR = TX_ERR_GROUP.registerErrorCode(10);
+
+        /** Error creating read-only transaction. */
+        public static final int TX_READ_ONLY_CREATING_ERR = TX_ERR_GROUP.registerErrorCode(11);
     }
 
     /** Replicator error group. */
