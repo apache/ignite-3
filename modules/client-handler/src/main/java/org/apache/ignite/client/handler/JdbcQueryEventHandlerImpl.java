@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler;
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNKNOWN;
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
+import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.io.PrintWriter;
@@ -421,6 +422,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         private final PropertiesHolder properties = PropertiesHelper.emptyHolder();
 
         private volatile @Nullable SessionId sessionId;
+        private volatile boolean closed;
         private @Nullable Transaction tx;
 
         JdbcConnectionContext(
@@ -435,17 +437,41 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         void close() {
             synchronized (mux) {
+                closed = true;
+
+                finishTransactionAsync(false);
+
                 SessionId sessionId = this.sessionId;
 
                 this.sessionId = null;
 
                 cleaner.clean(sessionId);
-
-                finishTransactionAsync(false);
             }
         }
 
+        Transaction getOrStartTransaction() {
+            assert !closed;
+
+            return tx == null ? tx = igniteTransactions.begin() : tx;
+        }
+
+        CompletableFuture<Void> finishTransactionAsync(boolean commit) {
+            Transaction tx0 = tx;
+
+            tx = null;
+
+            if (tx0 == null) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            return commit ? tx0.commitAsync() : tx0.rollbackAsync();
+        }
+
         <T> CompletableFuture<T> doInSession(SessionAwareAction<T> action) {
+            if (closed) {
+                return CompletableFuture.failedFuture(new IgniteInternalException(CONNECTION_ERR, "Connection is closed"));
+            }
+
             SessionId potentiallyNotCreatedSessionId = this.sessionId;
 
             if (potentiallyNotCreatedSessionId == null) {
@@ -488,22 +514,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
                 return newSessionId;
             }
-        }
-
-        private Transaction getOrStartTransaction() {
-            return tx == null ? tx = igniteTransactions.begin() : tx;
-        }
-
-        private CompletableFuture<Void> finishTransactionAsync(boolean commit) {
-            Transaction tx0 = tx;
-
-            tx = null;
-
-            if (tx0 == null) {
-                return CompletableFuture.completedFuture(null);
-            }
-
-            return commit ? tx0.commitAsync() : tx0.rollbackAsync();
         }
 
         private static boolean sessionExpiredError(Throwable throwable) {

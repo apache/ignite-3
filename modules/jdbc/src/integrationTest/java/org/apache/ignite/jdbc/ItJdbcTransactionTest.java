@@ -61,11 +61,12 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
 
     /**
      * Tests {@link Connection#setAutoCommit(boolean)} and {@link Connection#getAutoCommit()} methods behaviour.
-     *
-     * <p>Auto-commit mode is enabled by default.
-     * <p>If {@code setAutoCommit} is called and the auto-commit mode is not changed, the call is a no-op.
-     * <p>If {@code setAutoCommit} is called during transaction and auto-commit mode changed then active transaction is committed.
-     * <p>Call to {@code setAutoCommit} or {@code getAutoCommit} on a closed connection throws exception.
+     * <ul>
+     * <li>Auto-commit mode is enabled by default.
+     * <li>If {@code setAutoCommit} is called and the auto-commit mode is not changed, the call is a no-op.
+     * <li>If {@code setAutoCommit} is called during transaction and auto-commit mode changed then active transaction is committed.
+     * <li>Call to {@code setAutoCommit} or {@code getAutoCommit} on a closed connection throws exception.
+     * </ul>
      *
      * @throws SQLException If failed.
      */
