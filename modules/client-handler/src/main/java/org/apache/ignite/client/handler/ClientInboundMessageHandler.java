@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.handler;
 
-import static org.apache.ignite.lang.ErrorGroups.Client.AUTHENTICATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.HANDSHAKE_HEADER_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
@@ -100,6 +99,7 @@ import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
+import org.apache.ignite.internal.security.exception.AuthenticationException;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -343,7 +343,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                     (String) extensions.get(HandshakeExtension.AUTHENTICATION_SECRET));
         }
 
-        throw new IgniteException(AUTHENTICATION_ERR, "Unsupported authentication type: " + authnType);
+        throw new AuthenticationException("Unsupported authentication type: " + authnType);
     }
 
     private void writeMagic(ChannelHandlerContext ctx) {
