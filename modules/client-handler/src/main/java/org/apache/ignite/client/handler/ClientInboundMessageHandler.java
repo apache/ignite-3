@@ -107,6 +107,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.security.AuthenticationException;
+import org.apache.ignite.security.AuthenticationType;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
@@ -337,7 +338,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             return new AnonymousRequest();
         }
 
-        if (authnType.equals("basic")) {
+        if (authnType instanceof String && AuthenticationType.BASIC.name().equalsIgnoreCase((String) authnType)) {
             return new UsernamePasswordRequest(
                     (String) extensions.get(HandshakeExtension.AUTHENTICATION_IDENTITY),
                     (String) extensions.get(HandshakeExtension.AUTHENTICATION_SECRET));

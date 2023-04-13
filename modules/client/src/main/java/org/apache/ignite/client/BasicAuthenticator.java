@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client;
 
+import org.apache.ignite.security.AuthenticationType;
+
 /**
  * Basic authenticator.
  */
@@ -41,7 +43,7 @@ public class BasicAuthenticator implements IgniteClientAuthenticator {
 
     @Override
     public String type() {
-        return "basic";
+        return AuthenticationType.BASIC.name();
     }
 
     @Override
