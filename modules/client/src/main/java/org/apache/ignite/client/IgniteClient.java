@@ -107,6 +107,9 @@ public interface IgniteClient extends Ignite {
         /** Metrics enabled flag. */
         private boolean metricsEnabled;
 
+        /** Authenticator. */
+        private @Nullable IgniteClientAuthenticator authenticator;
+
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
          * If port is not set then Ignite will generate multiple addresses for default port range. See {@link
@@ -313,6 +316,20 @@ public interface IgniteClient extends Ignite {
          */
         public Builder metricsEnabled(boolean metricsEnabled) {
             this.metricsEnabled = metricsEnabled;
+
+            return this;
+        }
+
+        /**
+         * Sets the authenticator.
+         *
+         * <p>See also: {@link BasicAuthenticator}.
+         *
+         * @param authenticator Authenticator.
+         * @return This instance.
+         */
+        public Builder authenticator(@Nullable IgniteClientAuthenticator authenticator) {
+            this.authenticator = authenticator;
 
             return this;
         }
