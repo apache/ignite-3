@@ -345,7 +345,8 @@ public interface IgniteClient extends Ignite {
                     retryPolicy,
                     loggerFactory,
                     sslConfiguration,
-                    metricsEnabled);
+                    metricsEnabled,
+                    authenticator);
 
             return TcpIgniteClient.startAsync(cfg);
         }

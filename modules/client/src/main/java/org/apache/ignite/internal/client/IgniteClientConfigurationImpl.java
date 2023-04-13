@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client;
 
 import java.util.concurrent.Executor;
 import org.apache.ignite.client.IgniteClientAddressFinder;
+import org.apache.ignite.client.IgniteClientAuthenticator;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.client.SslConfiguration;
@@ -65,6 +66,8 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     private final boolean metricsEnabled;
 
+    private final @Nullable  IgniteClientAuthenticator authenticator;
+
     /**
      * Constructor.
      *
@@ -78,8 +81,10 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
      * @param heartbeatInterval Heartbeat message interval.
      * @param heartbeatTimeout Heartbeat message timeout.
      * @param retryPolicy Retry policy.
-     * @param loggerFactory Logger factory which will be used to create a logger instance for this this particular client when needed.
+     * @param loggerFactory Logger factory which will be used to create a logger instance for this this particular client when
+     *         needed.
      * @param metricsEnabled Whether metrics are enabled.
+     * @param authenticator Authenticator.
      */
     public IgniteClientConfigurationImpl(
             IgniteClientAddressFinder addressFinder,
@@ -94,7 +99,8 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             @Nullable RetryPolicy retryPolicy,
             @Nullable LoggerFactory loggerFactory,
             @Nullable SslConfiguration sslConfiguration,
-            boolean metricsEnabled) {
+            boolean metricsEnabled,
+            @Nullable IgniteClientAuthenticator authenticator) {
         this.addressFinder = addressFinder;
 
         //noinspection AssignmentOrReturnOfFieldWithMutableType (cloned in Builder).
@@ -111,6 +117,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.loggerFactory = loggerFactory;
         this.sslConfiguration = sslConfiguration;
         this.metricsEnabled = metricsEnabled;
+        this.authenticator = authenticator;
     }
 
     /** {@inheritDoc} */
@@ -189,5 +196,11 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public boolean metricsEnabled() {
         return metricsEnabled;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteClientAuthenticator authenticator() {
+        return authenticator;
     }
 }

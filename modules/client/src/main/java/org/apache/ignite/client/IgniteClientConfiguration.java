@@ -185,5 +185,5 @@ public interface IgniteClientConfiguration {
      *
      * @return Authenticator.
      */
-    IgniteClientAuthenticator authenticator();
+    @Nullable IgniteClientAuthenticator authenticator();
 }
