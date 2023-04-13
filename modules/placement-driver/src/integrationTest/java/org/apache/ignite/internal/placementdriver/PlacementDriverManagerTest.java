@@ -103,7 +103,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TablesConfiguration tblsCfg;
 
-    @InjectConfiguration()
+    @InjectConfiguration
     private DistributionZonesConfiguration dstZnsCfg;
 
     private MetaStorageManagerImpl metaStorageManager;
