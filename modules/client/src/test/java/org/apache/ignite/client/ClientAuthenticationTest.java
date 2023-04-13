@@ -68,7 +68,7 @@ public class ClientAuthenticationTest {
     // TODO: Authn on server, authn on client (valid creds)
     // TODO: Authn on server, authn on client (invalid creds)
     @Test
-    public void testNoAuthnOnServerNoAuthnOnClient() throws Exception {
+    public void testNoAuthnOnServerNoAuthnOnClient() {
         server = startServer();
         client = startClient(null);
     }
@@ -87,7 +87,6 @@ public class ClientAuthenticationTest {
 
         server = startServer();
 
-        // TODO: Why is exception internal?
         IgniteTestUtils.assertThrowsWithCause(() -> startClient(null), AuthenticationException.class, "Authentication failed");
     }
 
