@@ -139,7 +139,7 @@ public interface TxManager extends IgniteComponent {
     void updateLowerBoundToStartNewReadOnlyTransaction(@Nullable HybridTimestamp lowerBound);
 
     /**
-     * Returns the future of all read-only transactions up to the timestamp (exclusive).
+     * Returns the future of all read-only transactions up to the timestamp.
      *
      * @param timestamp Timestamp.
      */

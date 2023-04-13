@@ -152,7 +152,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         InternalTransaction roTx0 = txManager.begin(true);
         InternalTransaction roTx1 = txManager.begin(true);
 
-        CompletableFuture<Void> readOnlyTxsFutures = txManager.getFutureReadOnlyTransactions(clock.now());
+        CompletableFuture<Void> readOnlyTxsFutures = txManager.getFutureReadOnlyTransactions(roTx1.readTimestamp());
         assertFalse(readOnlyTxsFutures.isDone());
 
         assertThat(rwTx0.commitAsync(), willSucceedFast());
