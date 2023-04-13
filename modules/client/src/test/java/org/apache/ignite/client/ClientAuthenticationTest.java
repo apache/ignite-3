@@ -25,6 +25,7 @@ import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,6 +35,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ClientAuthenticationTest {
+    @SuppressWarnings("unused")
     @InjectConfiguration
     private AuthenticationConfiguration authenticationConfiguration;
 
@@ -55,7 +57,27 @@ public class ClientAuthenticationTest {
     public void testNoAuthnOnServerNoAuthnOnClient() throws Exception {
         assertNotNull(authenticationConfiguration);
 
-        server = new TestServer(
+        server = startServer();
+
+        client = IgniteClient.builder()
+                .addresses("127.0.0.1:" + server.port())
+                .build();
+    }
+
+    @Test
+    public void testAuthnOnServerNoAuthnOnClient() throws Exception {
+        assertNotNull(authenticationConfiguration);
+
+        server = startServer();
+
+        client = IgniteClient.builder()
+                .addresses("127.0.0.1:" + server.port())
+                .build();
+    }
+
+    @NotNull
+    private TestServer startServer() {
+        return new TestServer(
                 10800,
                 10,
                 1000,
