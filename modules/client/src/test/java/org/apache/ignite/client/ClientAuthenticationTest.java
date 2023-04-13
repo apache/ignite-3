@@ -22,11 +22,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import java.util.UUID;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -43,6 +45,14 @@ public class ClientAuthenticationTest {
 
     private IgniteClient client;
 
+    @BeforeEach
+    public void beforeEach() {
+        authenticationConfiguration.change(change -> {
+            change.changeEnabled(false);
+            change.changeProviders().delete("basic");
+        }).join();
+    }
+
     @AfterEach
     public void afterEach() throws Exception {
         IgniteUtils.closeAll(client, server);
@@ -55,8 +65,6 @@ public class ClientAuthenticationTest {
     // TODO: Authn on server, authn on client (invalid creds)
     @Test
     public void testNoAuthnOnServerNoAuthnOnClient() throws Exception {
-        assertNotNull(authenticationConfiguration);
-
         server = startServer();
 
         client = IgniteClient.builder()
@@ -65,8 +73,16 @@ public class ClientAuthenticationTest {
     }
 
     @Test
-    public void testAuthnOnServerNoAuthnOnClient() throws Exception {
-        assertNotNull(authenticationConfiguration);
+    public void testAuthnOnServerNoAuthnOnClient() {
+        authenticationConfiguration.change(change -> {
+            change.changeEnabled(true);
+            change.changeProviders().create("basic", authenticationProviderChange -> {
+                authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
+                        .changeUsername("admin")
+                        .changePassword("admin")
+                        .changeName("basic");
+            });
+        }).join();
 
         server = startServer();
 

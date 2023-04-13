@@ -54,6 +54,7 @@ public class ItClientHandlerTest {
 
     private int serverPort;
 
+    @SuppressWarnings("unused")
     @InjectConfiguration
     private AuthenticationConfiguration authenticationConfiguration;
 
