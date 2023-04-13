@@ -17,8 +17,6 @@
 
 package org.apache.ignite.client;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 import java.util.UUID;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
@@ -62,39 +60,40 @@ public class ClientAuthenticationTest {
         IgniteUtils.closeAll(client, server);
     }
 
-    // TODO: No authn on server, no authn on client
-    // TODO: Authn on server, no authn on client
-    // TODO: No authn on server, authn on client
-    // TODO: Authn on server, authn on client (valid creds)
-    // TODO: Authn on server, authn on client (invalid creds)
     @Test
     public void testNoAuthnOnServerNoAuthnOnClient() {
-        server = startServer();
+        server = startServer(false);
         client = startClient(null);
     }
 
     @Test
-    public void testAuthnOnServerNoAuthnOnClient() {
-        authenticationConfiguration.change(change -> {
-            change.changeEnabled(true);
-            change.changeProviders().create("basic", authenticationProviderChange -> {
-                authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
-                        .changeUsername("admin")
-                        .changePassword("admin")
-                        .changeName("basic");
-            });
-        }).join();
+    public void testAuthnOnClientNoAuthnOnServer() {
+        server = startServer(false);
 
-        server = startServer();
+        startClient(BasicAuthenticator.builder().username("u").password("p").build());
+    }
+
+    @Test
+    public void testAuthnOnServerNoAuthnOnClient() {
+        server = startServer(true);
 
         IgniteTestUtils.assertThrowsWithCause(() -> startClient(null), AuthenticationException.class, "Authentication failed");
     }
 
     @Test
-    public void testAuthnOnClientNoAuthnOnServer() {
-        server = startServer();
+    public void testAuthnOnServerBadAuthnOnClient() {
+        server = startServer(true);
 
-        startClient(BasicAuthenticator.builder().username("u").password("p").build());
+        BasicAuthenticator authenticator = BasicAuthenticator.builder().username("u").password("p").build();
+
+        IgniteTestUtils.assertThrowsWithCause(() -> startClient(authenticator), AuthenticationException.class, "Authentication failed");
+    }
+
+    @Test
+    public void testAuthnOnClientAuthnOnServer() {
+        server = startServer(false);
+
+        startClient(BasicAuthenticator.builder().username("usr").password("pwd").build());
     }
 
     private IgniteClient startClient(@Nullable IgniteClientAuthenticator authenticator) {
@@ -105,7 +104,18 @@ public class ClientAuthenticationTest {
     }
 
     @NotNull
-    private TestServer startServer() {
+    private TestServer startServer(boolean basicAuthn) {
+        if (basicAuthn) {
+            authenticationConfiguration.change(change -> {
+                change.changeEnabled(true);
+                change.changeProviders().create("basic", authenticationProviderChange ->
+                        authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
+                                .changeUsername("usr")
+                                .changePassword("pwd")
+                                .changeName("basic"));
+            }).join();
+        }
+
         return new TestServer(
                 10800,
                 10,
