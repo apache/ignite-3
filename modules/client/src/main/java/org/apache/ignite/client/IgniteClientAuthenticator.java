@@ -18,7 +18,7 @@
 package org.apache.ignite.client;
 
 /**
- * Ignite client authenticator.
+ * Ignite client authenticator. Provides authentication information during server handshake.
  */
 public interface IgniteClientAuthenticator {
     /**
