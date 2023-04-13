@@ -90,6 +90,13 @@ public class ClientAuthenticationTest {
         IgniteTestUtils.assertThrowsWithCause(() -> startClient(null), AuthenticationException.class, "Authentication failed");
     }
 
+    @Test
+    public void testAuthnOnClientNoAuthnOnServer() {
+        server = startServer();
+
+        startClient(BasicAuthenticator.builder().username("u").password("p").build());
+    }
+
     private IgniteClient startClient(@Nullable IgniteClientAuthenticator authenticator) {
         return IgniteClient.builder()
                 .addresses("127.0.0.1:" + server.port())
