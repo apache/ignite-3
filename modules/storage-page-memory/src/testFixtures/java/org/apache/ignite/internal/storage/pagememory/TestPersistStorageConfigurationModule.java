@@ -32,7 +32,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Persis
  * and the {@link TestPersistStorageConfigurationSchema} in the 'test' configuration of the current module
  * (because test configuration always depends on testFixtures and main configuration).
  */
-public class TestPersisteStorageConfigurationModule implements ConfigurationModule {
+public class TestPersistStorageConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
