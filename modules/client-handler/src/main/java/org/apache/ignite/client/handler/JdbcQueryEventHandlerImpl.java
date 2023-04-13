@@ -435,6 +435,37 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             this.igniteTransactions = igniteTransactions;
         }
 
+        /**
+         * Gets the transaction associated with the current connection, starts a new one if it doesn't already exist.
+         *
+         * <p>NOTE: this method is not thread-safe and should only be called by a single thread.
+         *
+         * @return Transaction associated with the current connection.
+         */
+        Transaction getOrStartTransaction() {
+            return tx == null ? tx = igniteTransactions.begin() : tx;
+        }
+
+        /**
+         * Finishes active transaction, if one exists.
+         *
+         * <p>NOTE: this method is not thread-safe and should only be called by a single thread.
+         *
+         * @param commit {@code True} to commit, {@code false} to rollback.
+         * @return Future that represents the pending completion of the operation.
+         */
+        CompletableFuture<Void> finishTransactionAsync(boolean commit) {
+            Transaction tx0 = tx;
+
+            tx = null;
+
+            if (tx0 == null) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            return commit ? tx0.commitAsync() : tx0.rollbackAsync();
+        }
+
         void close() {
             synchronized (mux) {
                 closed = true;
@@ -447,24 +478,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
                 cleaner.clean(sessionId);
             }
-        }
-
-        Transaction getOrStartTransaction() {
-            assert !closed;
-
-            return tx == null ? tx = igniteTransactions.begin() : tx;
-        }
-
-        CompletableFuture<Void> finishTransactionAsync(boolean commit) {
-            Transaction tx0 = tx;
-
-            tx = null;
-
-            if (tx0 == null) {
-                return CompletableFuture.completedFuture(null);
-            }
-
-            return commit ? tx0.commitAsync() : tx0.rollbackAsync();
         }
 
         <T> CompletableFuture<T> doInSession(SessionAwareAction<T> action) {
