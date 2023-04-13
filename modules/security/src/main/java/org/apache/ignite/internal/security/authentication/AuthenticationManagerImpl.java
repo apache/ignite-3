@@ -47,6 +47,12 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
 
     private boolean authEnabled = false;
 
+    /**
+     * Creates an instance of {@link AuthenticationManagerImpl}.
+     *
+     * @param cfg Configuration.
+     * @return Authentication manager.
+     */
     public static AuthenticationManagerImpl create(AuthenticationConfiguration cfg) {
         var manager = new AuthenticationManagerImpl();
         manager.refreshProviders(cfg.value());
