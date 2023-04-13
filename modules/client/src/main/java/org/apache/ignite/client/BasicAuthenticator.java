@@ -54,22 +54,42 @@ public class BasicAuthenticator implements IgniteClientAuthenticator {
         return password;
     }
 
+    /**
+     * Builder.
+     */
     static class Builder {
         private String username;
         private String password;
 
+        /**
+         * Sets username.
+         *
+         * @param username Username.
+         * @return {@code this} for chaining.
+         */
         public Builder username(String username) {
             this.username = username;
 
             return this;
         }
 
+        /**
+         * Sets password.
+         *
+         * @param password Password.
+         * @return {@code this} for chaining.
+         */
         public Builder password(String password) {
             this.password = password;
 
             return this;
         }
 
+        /**
+         * Builds a new authenticator.
+         *
+         * @return Authenticator.
+         */
         public BasicAuthenticator build() {
             return new BasicAuthenticator(username, password);
         }
