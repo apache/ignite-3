@@ -34,9 +34,9 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
+import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -203,7 +203,7 @@ public class LeaseUpdater {
         @Override
         public void run() {
             while (updaterTread != null && !updaterTread.isInterrupted()) {
-                HybridTimestamp now = clock.now();
+                long outdatedLeaseThreshold = clock.now().getPhysical() + LEASE_INTERVAL / 2;
 
                 for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : assignmentsTracker.assignments().entrySet()) {
                     ReplicationGroupId grpId = entry.getKey();
@@ -211,13 +211,16 @@ public class LeaseUpdater {
                     Lease lease = leaseTracker.getLease(grpId);
 
                     // The lease is expired or close to this.
-                    if (now.getPhysical() > (lease.getExpirationTime().getPhysical() - LEASE_INTERVAL / 2)) {
+                    if (lease.getExpirationTime().getPhysical() < outdatedLeaseThreshold) {
                         ClusterNode candidate = nextLeaseHolder(entry.getValue());
 
                         if (candidate == null) {
                             continue;
                         }
 
+                        // We can't prolong the expired lease because we already have an interval of time when the lease was not active,
+                        // so we must start ne negotiation round from the beginning; the same we do for the groups that don't have
+                        // leaseholders at all.
                         if (isLeaseOutdated(lease)) {
                             // New lease is granting.
                             writeNewLeasInMetaStorage(grpId, lease, candidate);

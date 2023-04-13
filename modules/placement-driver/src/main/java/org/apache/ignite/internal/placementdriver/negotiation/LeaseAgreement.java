@@ -82,7 +82,7 @@ public class LeaseAgreement {
      * @return Node id to propose a lease.
      */
     public String getRedirectTo() {
-        assert responseFut.isDone() : "The method should invoke only the agreement is ready";
+        assert responseFut.isDone() : "The method should be invoked only after the agreement is ready";
 
         LeaseGrantedMessageResponse resp = responseFut.join();
 
