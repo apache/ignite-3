@@ -283,9 +283,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         }
     }
 
-    private AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) {
-        AuthenticationManagerImpl manager = new AuthenticationManagerImpl();
-        authenticationConfiguration.listen(manager);
-        return manager;
+    private static AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) {
+        return AuthenticationManagerImpl.create(authenticationConfiguration);
     }
 }
