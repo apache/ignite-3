@@ -15,23 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.lang;
+apply from: "$rootDir/buildscripts/java-core.gradle"
+//apply from: "$rootDir/buildscripts/publishing.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
 
-import static com.tngtech.archunit.core.importer.ImportOption.Predefined.ONLY_INCLUDE_TESTS;
+description = 'ignite-arch-test'
 
-import com.tngtech.archunit.core.importer.ImportOption;
-import com.tngtech.archunit.core.importer.Location;
-import java.util.regex.Pattern;
+dependencies {
+    testImplementation project(':ignite-api')
 
-/**
- * Provide the ability to evaluate every class location, to determine if the class should be treated as a test class.
- */
-public class IgniteTestImportOption implements ImportOption {
-    private final Pattern integrationTestPattern = Pattern.compile(".*/build/classes/([^/]+/)integrationTest/.*");
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean includes(Location location) {
-        return ONLY_INCLUDE_TESTS.includes(location) || location.matches(integrationTestPattern);
-    }
+    testImplementation libs.archunit.core
+    testImplementation libs.archunit.junit5
+    testImplementation libs.archunit.junit5
 }
