@@ -105,6 +105,17 @@ public class ClientAuthenticationTest {
 
     @NotNull
     private TestServer startServer(boolean basicAuthn) {
+        var server = new TestServer(
+                10800,
+                10,
+                1000,
+                new FakeIgnite(),
+                null,
+                null,
+                null,
+                UUID.randomUUID(),
+                authenticationConfiguration);
+
         if (basicAuthn) {
             authenticationConfiguration.change(change -> {
                 change.changeEnabled(true);
@@ -116,15 +127,6 @@ public class ClientAuthenticationTest {
             }).join();
         }
 
-        return new TestServer(
-                10800,
-                10,
-                1000,
-                new FakeIgnite(),
-                null,
-                null,
-                null,
-                UUID.randomUUID(),
-                authenticationConfiguration);
+        return server;
     }
 }
