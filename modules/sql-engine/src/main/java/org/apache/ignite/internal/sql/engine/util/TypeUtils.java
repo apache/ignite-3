@@ -66,6 +66,8 @@ import org.jetbrains.annotations.Nullable;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class TypeUtils {
+    private static final TypeUtils INSTANCE = new TypeUtils();
+
     private static final Set<SqlTypeName> CONVERTABLE_TYPES = EnumSet.of(
             SqlTypeName.DATE,
             SqlTypeName.TIME,
@@ -88,6 +90,33 @@ public class TypeUtils {
             SqlTypeName.INTERVAL_YEAR,
             SqlTypeName.INTERVAL_YEAR_MONTH
     );
+
+    private Set<Class<?>> correctParamClasses;
+
+    {
+        {
+            correctParamClasses = Arrays.stream(ColumnType.values()).map(ColumnType::columnTypeToClass).collect(Collectors.toSet());
+
+            correctParamClasses.add(boolean.class);
+            correctParamClasses.add(byte.class);
+            correctParamClasses.add(short.class);
+            correctParamClasses.add(int.class);
+            correctParamClasses.add(long.class);
+            correctParamClasses.add(float.class);
+            correctParamClasses.add(double.class);
+            correctParamClasses.add(char[].class);
+            correctParamClasses.add(char.class);
+        }
+    }
+
+    public static TypeUtils instance() {
+        return INSTANCE;
+    }
+
+    /** Return {@code true} if supplied object is suitable as dynamic parameter. */
+    public boolean correctParamInstance(Object param) {
+        return param == null || correctParamClasses.contains(param.getClass());
+    }
 
     /**
      * CombinedRowType.

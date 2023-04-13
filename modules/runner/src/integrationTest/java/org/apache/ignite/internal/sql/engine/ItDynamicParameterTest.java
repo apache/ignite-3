@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.sql.engine.util.SqlTypeUtils.toSqlType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -31,19 +31,24 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.EnumSource.Mode;
 
 /** Dynamic parameters checks. */
 public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
@@ -59,19 +64,28 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
         sql("DROP TABLE IF EXISTS t1");
     }
 
-    @ParameterizedTest
-    @EnumSource(value = ColumnType.class,
-            //    https://issues.apache.org/jira/browse/IGNITE-18789
-            //    https://issues.apache.org/jira/browse/IGNITE-18414
-            //    https://issues.apache.org/jira/browse/IGNITE-18345
-            names = {"DECIMAL", "NUMBER", "BITMASK", "DURATION", "DATETIME", "TIMESTAMP", "DATE", "TIME", "PERIOD"},
-            mode = Mode.EXCLUDE
-    )
-    void testMetadataTypesForDynamicParameters(ColumnType type) {
-        Object param = generateValueByType(RND.nextInt(), type);
+    @Test
+    void testMetadataTypesForDynamicParameters() {
+        //    https://issues.apache.org/jira/browse/IGNITE-18789
+        //    https://issues.apache.org/jira/browse/IGNITE-18414
+        String[] excludedTypes = {"DECIMAL", "NUMBER", "BITMASK", "DURATION", "PERIOD"};
+        Set<String> excluded = new HashSet<>(Arrays.asList(excludedTypes));
 
-        assertQuery("SELECT typeof(?)").withParams(param).returns(toSqlType(type)).check();
-        assertQuery("SELECT ?").withParams(param).returns(param).columnMetadata(new MetadataMatcher().type(type)).check();
+        for (ColumnType type : ColumnType.values()) {
+            if (excluded.contains(type.name().toUpperCase())) {
+                continue;
+            }
+
+            Object param = generateValueByType(RND.nextInt(), type);
+
+            List<List<Object>> ret = sql("SELECT typeof(?)", param);
+            assert ret.size() == 1;
+            String type0 = (String) ret.get(0).get(0);
+
+            // type returned from typeof can contain precision definition.
+            assertTrue(type0.startsWith(toSqlType(type)));
+            assertQuery("SELECT ?").withParams(param).returns(param).columnMetadata(new MetadataMatcher().type(type)).check();
+        }
     }
 
     @Test
@@ -81,7 +95,7 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT POWER(?, ?)").withParams(2, 3).returns(8d).check();
         assertQuery("SELECT SQRT(?)").withParams(4d).returns(2d).check();
         assertQuery("SELECT ?").withParams("asd").returns("asd").check();
-        assertQuery("SELECT ? % ?").withParams(11, 10).returns(BigDecimal.valueOf(1)).check();
+        assertQuery("SELECT ? % ?").withParams(11, 10).returns(1).check();
         assertQuery("SELECT ? + ?, LOWER(?) ").withParams(2, 2, "TeSt").returns(4, "test").check();
         assertQuery("SELECT LOWER(?), ? + ? ").withParams("TeSt", 2, 2).returns("test", 4).check();
 
@@ -92,14 +106,14 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT id FROM person WHERE name LIKE ? ORDER BY id LIMIT ?").withParams("I%", 1).returns(0).check();
         assertQuery("SELECT id FROM person WHERE name LIKE ? ORDER BY id LIMIT ? OFFSET ?").withParams("I%", 1, 1).returns(2).check();
         assertQuery("SELECT id from person WHERE salary<? and id<?").withParams(15, 3).returns(0).check();
-    }
 
-    // After fix the mute reason need to merge the test with above testDynamicParameters
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18345")
-    @Test
-    public void testDynamicParameters3() {
-        assertQuery("SELECT LAST_DAY(?)").withParams(Date.valueOf("2022-01-01")).returns(Date.valueOf("2022-01-31")).check();
-        assertQuery("SELECT LAST_DAY(?)").withParams(LocalDate.parse("2022-01-01")).returns(Date.valueOf("2022-01-31")).check();
+        IgniteTestUtils.assertThrowsWithCause(() -> sql("SELECT LAST_DAY(?)", Date.valueOf("2022-01-01")),
+                SqlException.class, "Unsupported dynamic parameter defined");
+
+        LocalDate date1 = LocalDate.parse("2022-01-01");
+        LocalDate date2 = LocalDate.parse("2022-01-31");
+
+        assertQuery("SELECT LAST_DAY(?)").withParams(date1).returns(date2).check();
     }
 
     /** Need to test the same query with different type of parameters to cover case with check right plans cache work. **/
@@ -230,15 +244,56 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
                         (LocalTime) generateValueByType(i, ColumnType.TIME)
                 );
             case TIMESTAMP:
-                return Instant.from((LocalDateTime) generateValueByType(i, ColumnType.DATETIME));
+                return Instant.from(ZonedDateTime.of((LocalDateTime) generateValueByType(i, ColumnType.DATETIME), ZoneId.systemDefault()));
             case DATE:
-                return LocalDate.of(2022, 01, 01).plusDays(i);
+                return LocalDate.of(2022, 01, 01).plusDays(i % 30);
             case TIME:
-                return LocalTime.of(0, 00, 00).plusSeconds(i);
+                return LocalTime.of(0, 00, 00).plusSeconds(i % 1000);
             case PERIOD:
                 return Period.of(i % 2, i % 12, i % 29);
             default:
                 throw new IllegalArgumentException("unsupported type " + type);
+        }
+    }
+
+    private static String toSqlType(ColumnType columnType) {
+        switch (columnType) {
+            case BOOLEAN:
+                return SqlTypeName.BOOLEAN.getName();
+            case INT8:
+                return SqlTypeName.TINYINT.getName();
+            case INT16:
+                return SqlTypeName.SMALLINT.getName();
+            case INT32:
+                return SqlTypeName.INTEGER.getName();
+            case INT64:
+                return SqlTypeName.BIGINT.getName();
+            case FLOAT:
+                return SqlTypeName.REAL.getName();
+            case DOUBLE:
+                return SqlTypeName.DOUBLE.getName();
+            case DECIMAL:
+                return SqlTypeName.DECIMAL.getName();
+            case DATE:
+                return SqlTypeName.DATE.getName();
+            case TIME:
+                return SqlTypeName.TIME.getName();
+            case DATETIME:
+                return SqlTypeName.TIMESTAMP.getName();
+            case TIMESTAMP:
+                return SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName();
+            case UUID:
+                return UuidType.NAME;
+            case STRING:
+                return SqlTypeName.VARCHAR.getName();
+            case BYTE_ARRAY:
+                return SqlTypeName.VARBINARY.getName();
+            case NUMBER:
+                return SqlTypeName.INTEGER.getName();
+            case NULL:
+                return SqlTypeName.NULL.getName();
+            default:
+                throw new IllegalArgumentException("Unsupported type " + columnType);
         }
     }
 
