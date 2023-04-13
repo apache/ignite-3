@@ -17,8 +17,6 @@
 
 package org.apache.ignite.client;
 
-import java.util.Map;
-
 /**
  * Basic authenticator.
  */
@@ -47,12 +45,12 @@ public class BasicAuthenticator implements IgniteClientAuthenticator {
     }
 
     @Override
-    public String user() {
+    public Object identity() {
         return username;
     }
 
     @Override
-    public Object key() {
+    public Object secret() {
         return password;
     }
 

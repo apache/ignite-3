@@ -29,16 +29,16 @@ public interface IgniteClientAuthenticator {
     String type();
 
     /**
-     * User id.
+     * Identity.
      *
-     * @return User id.
+     * @return Identity.
      */
-    String user();
+    Object identity();
 
     /**
-     * Key.
+     * Secret.
      *
-     * @return Key.
+     * @return Secret.
      */
-    Object key();
+    Object secret();
 }

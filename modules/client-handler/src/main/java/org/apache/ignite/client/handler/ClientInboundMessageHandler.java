@@ -321,10 +321,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    private AuthenticationRequest<?, ?> createAuthenticationRequest(Map<HandshakeExtension, Object> extensions) {
+    private static AuthenticationRequest<?, ?> createAuthenticationRequest(Map<HandshakeExtension, Object> extensions) {
         // TODO: Require also auth_type extension?
-        return new UsernamePasswordRequest((String) extensions.get(HandshakeExtension.AUTHENTICATION_USER),
-                (String) extensions.get(HandshakeExtension.AUTHENTICATION_KEY));
+        return new UsernamePasswordRequest(
+                (String) extensions.get(HandshakeExtension.AUTHENTICATION_IDENTITY),
+                (String) extensions.get(HandshakeExtension.AUTHENTICATION_SECRET));
     }
 
     private void writeMagic(ChannelHandlerContext ctx) {
