@@ -69,7 +69,7 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
         return CompletableFuture.runAsync(() -> refreshProviders(ctx.newValue()));
     }
 
-    private void refreshProviders(@Nullable AuthenticationView view) {
+    public void refreshProviders(@Nullable AuthenticationView view) {
         rwLock.writeLock().lock();
         try {
             if (view == null || !view.enabled()) {

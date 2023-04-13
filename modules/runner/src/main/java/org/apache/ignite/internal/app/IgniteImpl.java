@@ -550,8 +550,10 @@ public class IgniteImpl implements Ignite {
                 .getConfiguration(SecurityConfiguration.KEY)
                 .authentication();
 
-        AuthenticationManager manager = new AuthenticationManagerImpl();
+        var manager = new AuthenticationManagerImpl();
+        manager.refreshProviders(authConfiguration.value());
         authConfiguration.listen(manager);
+
         return manager;
     }
 
