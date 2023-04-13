@@ -25,5 +25,4 @@ dependencies {
 
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
-    testImplementation libs.archunit.junit5
 }
