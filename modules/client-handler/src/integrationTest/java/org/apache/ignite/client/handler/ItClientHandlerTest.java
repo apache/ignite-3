@@ -54,6 +54,7 @@ public class ItClientHandlerTest {
 
     private int serverPort;
 
+    @SuppressWarnings("unused")
     @InjectConfiguration
     private AuthenticationConfiguration authenticationConfiguration;
 
@@ -156,7 +157,7 @@ public class ItClientHandlerTest {
             packer.packInt(0);
             packer.packInt(0);
             packer.packInt(0);
-            packer.packInt(7 + 8 + 5 + 10 + 10); // Size.
+            packer.packInt(67); // Size.
 
             packer.packInt(3); // Major.
             packer.packInt(0); // Minor.
@@ -165,10 +166,12 @@ public class ItClientHandlerTest {
             packer.packInt(2); // Client type: general purpose.
 
             packer.packBinaryHeader(0); // Features.
-            packer.packMapHeader(2); // Extensions.
-            packer.packString("username");
+            packer.packMapHeader(3); // Extensions.
+            packer.packString("authn-type");
+            packer.packString("basic");
+            packer.packString("authn-identity");
             packer.packString("admin");
-            packer.packString("password");
+            packer.packString("authn-secret");
             packer.packString("password");
 
             out.write(packer.toByteArray());
@@ -257,11 +260,10 @@ public class ItClientHandlerTest {
             assertEquals(COMMON_AUTHENTICATION_ERR, code);
 
             assertThat(errMsg, containsString("Authentication failed"));
-            assertEquals("org.apache.ignite.internal.security.exception.AuthenticationException", errClassName);
+            assertEquals("org.apache.ignite.security.AuthenticationException", errClassName);
             assertNull(errStackTrace);
         }
     }
-
 
     @Test
     void testHandshakeInvalidVersionReturnsError() throws Exception {

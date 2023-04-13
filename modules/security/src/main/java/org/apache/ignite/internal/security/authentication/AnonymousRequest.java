@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.security.authentication;
 
-import org.apache.ignite.security.AuthenticationException;
-
 /**
- * General interface for all authenticators.
+ * Represents a request to authenticate anonymously.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface Authenticator {
+public class AnonymousRequest implements AuthenticationRequest<Void, Void> {
+    @Override
+    public Void getIdentity() {
+        return null;
+    }
 
-    /**
-     * Authenticates a user with the given request.
-     * If a successful authentication is returned, the object must be an instance of {@link UserDetails}.
-     */
-    UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) throws AuthenticationException;
+    @Override
+    public Void getSecret() {
+        return null;
+    }
 }

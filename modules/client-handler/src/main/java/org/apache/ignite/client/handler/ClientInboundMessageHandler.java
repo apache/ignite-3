@@ -94,8 +94,10 @@ import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.security.authentication.AnonymousRequest;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
+import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
@@ -104,6 +106,8 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.security.AuthenticationException;
+import org.apache.ignite.security.AuthenticationType;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
@@ -267,9 +271,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             var clientCode = unpacker.unpackInt();
             var featuresLen = unpacker.unpackBinaryHeader();
             var features = BitSet.valueOf(unpacker.readPayload(featuresLen));
-            var extensions = extractExtensions(unpacker);
 
-            var userDetails = authenticationManager.authenticate(createAuthenticationRequest(extensions));
+            Map<HandshakeExtension, Object> extensions = extractExtensions(unpacker);
+            UserDetails userDetails = authenticate(extensions);
 
             clientContext = new ClientContext(clientVer, clientCode, features, userDetails);
 
@@ -321,9 +325,26 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    private AuthenticationRequest<?, ?> createAuthenticationRequest(Map<HandshakeExtension, Object> extensions) {
-        return new UsernamePasswordRequest((String) extensions.get(HandshakeExtension.USERNAME),
-                (String) extensions.get(HandshakeExtension.PASSWORD));
+    private UserDetails authenticate(Map<HandshakeExtension, Object> extensions) {
+        AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
+
+        return authenticationManager.authenticate(authenticationRequest);
+    }
+
+    private static AuthenticationRequest<?, ?> createAuthenticationRequest(Map<HandshakeExtension, Object> extensions) {
+        Object authnType = extensions.get(HandshakeExtension.AUTHENTICATION_TYPE);
+
+        if (authnType == null) {
+            return new AnonymousRequest();
+        }
+
+        if (authnType instanceof String && AuthenticationType.BASIC.name().equalsIgnoreCase((String) authnType)) {
+            return new UsernamePasswordRequest(
+                    (String) extensions.get(HandshakeExtension.AUTHENTICATION_IDENTITY),
+                    (String) extensions.get(HandshakeExtension.AUTHENTICATION_SECRET));
+        }
+
+        throw new AuthenticationException("Unsupported authentication type: " + authnType);
     }
 
     private void writeMagic(ChannelHandlerContext ctx) {
@@ -648,7 +669,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         return CompletableFuture.completedFuture(null);
     }
 
-    private Map<HandshakeExtension, Object> extractExtensions(ClientMessageUnpacker unpacker) {
+    private static Map<HandshakeExtension, Object> extractExtensions(ClientMessageUnpacker unpacker) {
         EnumMap<HandshakeExtension, Object> extensions = new EnumMap<>(HandshakeExtension.class);
         int mapSize = unpacker.unpackMapHeader();
         for (int i = 0; i < mapSize; i++) {
@@ -660,7 +681,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         return extensions;
     }
 
-    private Object unpackExtensionValue(HandshakeExtension handshakeExtension, ClientMessageUnpacker unpacker) {
+    private static Object unpackExtensionValue(HandshakeExtension handshakeExtension, ClientMessageUnpacker unpacker) {
         Class<?> type = handshakeExtension.valueType();
         if (type == String.class) {
             return unpacker.unpackString();

@@ -21,8 +21,9 @@ import org.jetbrains.annotations.Nullable;
 
 /** Handshake extensions. */
 public enum HandshakeExtension {
-    USERNAME("username", String.class),
-    PASSWORD("password", String.class),
+    AUTHENTICATION_TYPE("authn-type", String.class),
+    AUTHENTICATION_IDENTITY("authn-identity", String.class),
+    AUTHENTICATION_SECRET("authn-secret", String.class),
     ;
 
     private final String key;
