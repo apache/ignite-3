@@ -69,7 +69,7 @@ include(':ignite-placement-driver-api')
 include(':ignite-code-deployment')
 include(':ignite-security')
 include(':ignite-catalog')
-include(":ignite-arh-test")
+include(":ignite-arch-test")
 
 project(":ignite-examples").projectDir = file('examples')
 project(":ignite-page-memory").projectDir = file('modules/page-memory')
