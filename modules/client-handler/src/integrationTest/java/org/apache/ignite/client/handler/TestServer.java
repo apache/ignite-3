@@ -133,6 +133,8 @@ public class TestServer {
     }
 
     private AuthenticationManager authenticationManager() {
-        return AuthenticationManagerImpl.create(authenticationConfiguration);
+        AuthenticationManagerImpl authenticationManager = new AuthenticationManagerImpl();
+        authenticationConfiguration.listen(authenticationManager);
+        return authenticationManager;
     }
 }

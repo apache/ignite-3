@@ -26,7 +26,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.AuthenticationProviderView;
 import org.apache.ignite.internal.configuration.AuthenticationView;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -46,20 +45,6 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
     private final List<Authenticator> authenticators = new ArrayList<>();
 
     private boolean authEnabled = false;
-
-    /**
-     * Creates an instance of {@link AuthenticationManagerImpl}.
-     *
-     * @param cfg Configuration.
-     * @return Authentication manager.
-     */
-    public static AuthenticationManagerImpl create(AuthenticationConfiguration cfg) {
-        var manager = new AuthenticationManagerImpl();
-        manager.refreshProviders(cfg.value());
-        cfg.listen(manager);
-
-        return manager;
-    }
 
     @Override
     public UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) {

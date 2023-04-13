@@ -550,7 +550,9 @@ public class IgniteImpl implements Ignite {
                 .getConfiguration(SecurityConfiguration.KEY)
                 .authentication();
 
-        return AuthenticationManagerImpl.create(authConfiguration);
+        AuthenticationManager manager = new AuthenticationManagerImpl();
+        authConfiguration.listen(manager);
+        return manager;
     }
 
     private RestComponent createRestComponent(String name) {

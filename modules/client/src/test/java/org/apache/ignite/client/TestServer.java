@@ -239,7 +239,9 @@ public class TestServer implements AutoCloseable {
         return name + "-id";
     }
 
-    private static AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) {
-        return AuthenticationManagerImpl.create(authenticationConfiguration);
+    private AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) {
+        AuthenticationManagerImpl authenticationManager = new AuthenticationManagerImpl();
+        authenticationConfiguration.listen(authenticationManager);
+        return authenticationManager;
     }
 }
