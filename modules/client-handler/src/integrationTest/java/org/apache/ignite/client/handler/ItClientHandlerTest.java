@@ -260,11 +260,10 @@ public class ItClientHandlerTest {
             assertEquals(COMMON_AUTHENTICATION_ERR, code);
 
             assertThat(errMsg, containsString("Authentication failed"));
-            assertEquals("org.apache.ignite.internal.security.exception.AuthenticationException", errClassName);
+            assertEquals("org.apache.ignite.security.AuthenticationException", errClassName);
             assertNull(errStackTrace);
         }
     }
-
 
     @Test
     void testHandshakeInvalidVersionReturnsError() throws Exception {
