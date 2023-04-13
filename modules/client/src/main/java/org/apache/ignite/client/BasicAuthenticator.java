@@ -22,8 +22,7 @@ import org.apache.ignite.security.AuthenticationType;
 /**
  * Basic authenticator with username and password.
  *
- * <p>Credentials are sent to the server in plain text.
- * It is highly recommended to enable SSL/TLS when using authentication - see {@link IgniteClientConfiguration#ssl()}.
+ * <p>Credentials are sent to the server in plain text, unless SSL/TLS is enabled - see {@link IgniteClientConfiguration#ssl()}.
  */
 public class BasicAuthenticator implements IgniteClientAuthenticator {
     private final String username;
