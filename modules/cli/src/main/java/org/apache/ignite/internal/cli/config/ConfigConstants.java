@@ -54,21 +54,6 @@ public final class ConfigConstants {
      */
     public static final String CURRENT_PROFILE = "current_profile";
 
-    /**
-     * Default cluster or node URL property name.
-     */
-    public static final String CLUSTER_URL = "ignite.cluster-endpoint-url";
-
-    /**
-     * Default JDBC URL property name.
-     */
-    public static final String JDBC_URL = "ignite.jdbc-url";
-
-    /**
-     * Last connected URL property name.
-     */
-    public static final String LAST_CONNECTED_URL = "ignite.last-connected-url";
-
     private ConfigConstants() {
     }
 

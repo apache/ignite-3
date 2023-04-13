@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands.sql;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_KEY;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_SHORT;
@@ -62,7 +63,7 @@ import picocli.CommandLine.Parameters;
 @Command(name = "sql", description = "Executes SQL query")
 public class SqlReplCommand extends BaseCommand implements Runnable {
     @Option(names = {JDBC_URL_OPTION, JDBC_URL_OPTION_SHORT}, required = true,
-            descriptionKey = "ignite.jdbc-url", description = JDBC_URL_OPTION_DESC)
+            descriptionKey = JDBC_URL_KEY, description = JDBC_URL_OPTION_DESC)
     private String jdbc;
 
     @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
