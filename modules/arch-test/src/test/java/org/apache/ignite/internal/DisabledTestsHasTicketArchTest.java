@@ -62,7 +62,7 @@ public class DisabledTestsHasTicketArchTest {
     static void checkAnnotation(String name, Disabled annotation, ConditionEvents events) {
         String disableReason = annotation.value();
 
-        if (disableReason.toUpperCase().contains("IGNITE-")) {
+        if (disableReason != null && disableReason.toUpperCase().contains("IGNITE-")) {
             return;
         }
 

@@ -17,8 +17,6 @@
 
 package org.apache.ignite.lang;
 
-import static com.tngtech.archunit.core.importer.ImportOption.Predefined;
-
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.core.importer.Location;
 import java.util.regex.Pattern;
