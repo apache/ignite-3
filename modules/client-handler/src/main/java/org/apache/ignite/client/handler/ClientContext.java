@@ -21,7 +21,6 @@ import java.util.BitSet;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Client connection context.
@@ -36,7 +35,7 @@ class ClientContext {
     /** Feature set. */
     private final BitSet features;
 
-    private final @Nullable UserDetails userDetails;
+    private final UserDetails userDetails;
 
     /**
      * Constructor.
@@ -46,7 +45,7 @@ class ClientContext {
      * @param features Feature set.
      * @param userDetails User details.
      */
-    ClientContext(ProtocolVersion version, int clientCode, BitSet features, @Nullable UserDetails userDetails) {
+    ClientContext(ProtocolVersion version, int clientCode, BitSet features, UserDetails userDetails) {
         this.version = version;
         this.clientCode = clientCode;
         this.features = features;
@@ -80,7 +79,7 @@ class ClientContext {
         return features;
     }
 
-    public @Nullable UserDetails userDetails() {
+    public UserDetails userDetails() {
         return userDetails;
     }
 

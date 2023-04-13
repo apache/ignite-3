@@ -324,7 +324,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    private @Nullable UserDetails authenticate(Map<HandshakeExtension, Object> extensions) {
+    private UserDetails authenticate(Map<HandshakeExtension, Object> extensions) {
         AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
 
         return authenticationManager.authenticate(authenticationRequest);
@@ -668,7 +668,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         return CompletableFuture.completedFuture(null);
     }
 
-    private Map<HandshakeExtension, Object> extractExtensions(ClientMessageUnpacker unpacker) {
+    private static Map<HandshakeExtension, Object> extractExtensions(ClientMessageUnpacker unpacker) {
         EnumMap<HandshakeExtension, Object> extensions = new EnumMap<>(HandshakeExtension.class);
         int mapSize = unpacker.unpackMapHeader();
         for (int i = 0; i < mapSize; i++) {
@@ -680,7 +680,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         return extensions;
     }
 
-    private Object unpackExtensionValue(HandshakeExtension handshakeExtension, ClientMessageUnpacker unpacker) {
+    private static Object unpackExtensionValue(HandshakeExtension handshakeExtension, ClientMessageUnpacker unpacker) {
         Class<?> type = handshakeExtension.valueType();
         if (type == String.class) {
             return unpacker.unpackString();
