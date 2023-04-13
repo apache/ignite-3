@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.AUTHENTICATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.HANDSHAKE_HEADER_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
@@ -96,6 +97,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
+import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
@@ -267,9 +269,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             var clientCode = unpacker.unpackInt();
             var featuresLen = unpacker.unpackBinaryHeader();
             var features = BitSet.valueOf(unpacker.readPayload(featuresLen));
-            var extensions = extractExtensions(unpacker);
 
-            var userDetails = authenticationManager.authenticate(createAuthenticationRequest(extensions));
+            Map<HandshakeExtension, Object> extensions = extractExtensions(unpacker);
+            UserDetails userDetails = authenticate(extensions);
 
             clientContext = new ClientContext(clientVer, clientCode, features, userDetails);
 
@@ -321,11 +323,28 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    private static AuthenticationRequest<?, ?> createAuthenticationRequest(Map<HandshakeExtension, Object> extensions) {
-        // TODO: Require also auth_type extension?
-        return new UsernamePasswordRequest(
-                (String) extensions.get(HandshakeExtension.AUTHENTICATION_IDENTITY),
-                (String) extensions.get(HandshakeExtension.AUTHENTICATION_SECRET));
+    private @Nullable UserDetails authenticate(Map<HandshakeExtension, Object> extensions) {
+        AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
+
+        return authenticationRequest == null
+                ? null
+                : authenticationManager.authenticate(authenticationRequest);
+    }
+
+    private static @Nullable AuthenticationRequest<?, ?> createAuthenticationRequest(Map<HandshakeExtension, Object> extensions) {
+        Object authnType = extensions.get(HandshakeExtension.AUTHENTICATION_TYPE);
+
+        if (authnType == null) {
+            return null;
+        }
+
+        if (authnType.equals("basic")) {
+            return new UsernamePasswordRequest(
+                    (String) extensions.get(HandshakeExtension.AUTHENTICATION_IDENTITY),
+                    (String) extensions.get(HandshakeExtension.AUTHENTICATION_SECRET));
+        }
+
+        throw new IgniteException(AUTHENTICATION_ERR, "Unsupported authentication type: " + authnType);
     }
 
     private void writeMagic(ChannelHandlerContext ctx) {
