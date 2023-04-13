@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
 public class DistributionZoneFiltersTest {
 
     @Test
-    void testNodeAttributesFilter1() {
+    void testNodeAttributesFilterScenario1() {
         Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10");
 
         String filter = "$[?(@.dataRegionSize == 10)]";
@@ -40,7 +40,7 @@ public class DistributionZoneFiltersTest {
     }
 
     @Test
-    void testNodeAttributesFilter2() {
+    void testNodeAttributesFilterScenario2() {
         Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10");
 
         String filter = "$[?(@.region == 'US')]";
@@ -49,7 +49,7 @@ public class DistributionZoneFiltersTest {
     }
 
     @Test
-    void testNodeAttributesFilter3() {
+    void testNodeAttributesFilterScenario3() {
         Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10");
 
         String filter = "$[?(@.dataRegionSize == 10 && @.region == 'US')]";
@@ -58,7 +58,7 @@ public class DistributionZoneFiltersTest {
     }
 
     @Test
-    void testNodeAttributesFilter4() {
+    void testNodeAttributesFilterScenario4() {
         Map<String, String> newAttributesMap = Map.of("storage", "SSD", "dataRegionSize", "10");
 
         String filter = "$[?(@.dataRegionSize == 10 && @.region == 'US')]";
@@ -67,16 +67,16 @@ public class DistributionZoneFiltersTest {
     }
 
     @Test
-    void testNodeAttributesFilter5() {
+    void testNodeAttributesFilterScenario5() {
         Map<String, String> newAttributesMap = Map.of();
 
         String filter = "$[?(@.dataRegionSize == 10 && @.region == 'US')]";
 
-        assertTrue(filter(newAttributesMap, filter));
+        assertFalse(filter(newAttributesMap, filter));
     }
 
     @Test
-    void testNodeAttributesFilter6() {
+    void testNodeAttributesFilterScenario6() {
         Map<String, String> newAttributesMap = Map.of("storage", "SSD");
 
         String filter = "$[?(@.storage == 'SSD' && @.region == 'US')]";
@@ -85,14 +85,14 @@ public class DistributionZoneFiltersTest {
     }
 
     @Test
-    void testNodeAttributesFilter7() {
+    void testNodeAttributesFilterScenario7() {
         Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10");
 
         assertTrue(filter(newAttributesMap, DEFAULT_FILTER));
     }
 
     @Test
-    void testNodeAttributesFilter8() {
+    void testNodeAttributesFilterScenario8() {
         Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10");
 
         String filter = "$.[?(@.newValue == 100)]";
@@ -101,7 +101,7 @@ public class DistributionZoneFiltersTest {
     }
 
     @Test
-    void testNodeAttributesFilter9() {
+    void testNodeAttributesFilterScenario9() {
         Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10");
 
         String filter = "$.[?(@.newValue != 100)]";
@@ -110,7 +110,16 @@ public class DistributionZoneFiltersTest {
     }
 
     @Test
-    void testNodeAttributesFilter10() {
+    void testNodeAttributesFilterScenario10() {
+        Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10");
+
+        String filter = "$.[?(@.newValue && @.newValue != 100)]";
+
+        assertFalse(filter(newAttributesMap, filter));
+    }
+
+    @Test
+    void testNodeAttributesFilterScenario11() {
         Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10");
 
         String filter = "$[?(@.dataRegionSize != 10)]";
@@ -119,7 +128,7 @@ public class DistributionZoneFiltersTest {
     }
 
     @Test
-    void testNodeAttributesFilter11() {
+    void testNodeAttributesFilterScenario12() {
         Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10");
 
         String filter = "$[?(@.region != 'EU')]";
@@ -128,7 +137,7 @@ public class DistributionZoneFiltersTest {
     }
 
     @Test
-    void testNodeAttributesFilter12() {
+    void testNodeAttributesFilterScenario13() {
         Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10");
 
         String filter = "$[?(@.region != 'EU' && @.dataRegionSize > 5)]";
@@ -137,7 +146,7 @@ public class DistributionZoneFiltersTest {
     }
 
     @Test
-    void testNodeAttributesFilter13() {
+    void testNodeAttributesFilterScenario14() {
         Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10");
 
         String filter = "$[?(@.region != 'EU' && @.dataRegionSize < 5)]";
@@ -146,7 +155,7 @@ public class DistributionZoneFiltersTest {
     }
 
     @Test
-    void testNodeAttributesFilter14() {
+    void testNodeAttributesFilterScenario15() {
         Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10");
 
         String filter = "$[?(@.dataRegionSize > 5 && @.dataRegionSize < 5)]";
@@ -155,7 +164,7 @@ public class DistributionZoneFiltersTest {
     }
 
     @Test
-    void testNodeAttributesFilter15() {
+    void testNodeAttributesFilterScenario16() {
         Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10");
 
         String filter = "$[?(@.region == 'US' && @.region == 'EU')]";
@@ -164,7 +173,7 @@ public class DistributionZoneFiltersTest {
     }
 
     @Test
-    void testNodeAttributesFilter16() {
+    void testNodeAttributesFilterScenario17() {
         Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10");
 
         String filter = "$[?(@.region == 'EU' || @.dataRegionSize > 5)]";
