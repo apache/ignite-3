@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.exception;
+package org.apache.ignite.security;
 
 import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups.Authentication;
