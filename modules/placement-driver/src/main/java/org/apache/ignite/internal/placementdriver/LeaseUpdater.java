@@ -34,7 +34,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.placementdriver.conciliation.LeaseConciliator;
+import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -58,10 +58,10 @@ public class LeaseUpdater {
     private static final long UPDATE_LEASE_MS = 200L;
 
     /** Lease holding interval. */
-    public static final long LEASE_PERIOD = 10 * UPDATE_LEASE_MS;
+    public static final long LEASE_INTERVAL = 10 * UPDATE_LEASE_MS;
 
     /** Long lease interval. The interval is used between lease granting attempts. */
-    private final long longLeasePeriod;
+    private final long longLeaseInterval;
 
     /** Cluster service. */
     private final ClusterService clusterService;
@@ -87,8 +87,8 @@ public class LeaseUpdater {
     /** Dedicated thread to update leases. */
     private volatile Thread updaterTread;
 
-    /** Processor to communicate with the leaseholder to conciliate the lease. */
-    private LeaseConciliator leaseConciliator;
+    /** Processor to communicate with the leaseholder to negotiate the lease. */
+    private LeaseNegotiator leaseNegotiator;
 
     /** Node name. */
     private String nodeName;
@@ -119,7 +119,7 @@ public class LeaseUpdater {
         this.leaseTracker = leaseTracker;
         this.clock = clock;
 
-        this.longLeasePeriod = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 3_600_000L);
+        this.longLeaseInterval = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 120_000L);
         this.assignmentsTracker = new AssignmentsTracker(vaultManager, msManager, tablesConfiguration, distributionZonesConfiguration);
         this.topologyTracker = new TopologyTracker(topologyService);
         this.updater = new Updater();
@@ -147,7 +147,7 @@ public class LeaseUpdater {
      * Activates a lease updater to renew leases.
      */
     public void activate() {
-        leaseConciliator = new LeaseConciliator(clusterService);
+        leaseNegotiator = new LeaseNegotiator(clusterService);
 
         //TODO: IGNITE-18879 Implement lease maintenance.
         updaterTread = new Thread(updater, NamedThreadFactory.threadPrefix(nodeName, "lease-updater"));
@@ -166,7 +166,7 @@ public class LeaseUpdater {
             updaterTread = null;
         }
 
-        leaseConciliator = null;
+        leaseNegotiator = null;
     }
 
     /**
@@ -203,22 +203,22 @@ public class LeaseUpdater {
         @Override
         public void run() {
             while (updaterTread != null && !updaterTread.isInterrupted()) {
+                HybridTimestamp now = clock.now();
+
                 for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : assignmentsTracker.assignments().entrySet()) {
                     ReplicationGroupId grpId = entry.getKey();
 
                     Lease lease = leaseTracker.getLease(grpId);
 
-                    HybridTimestamp now = clock.now();
-
-                    // The lease is expired or near to the one.
-                    if (now.getPhysical() > (lease.getExpirationTime().getPhysical() - LEASE_PERIOD / 2)) {
+                    // The lease is expired or close to this.
+                    if (now.getPhysical() > (lease.getExpirationTime().getPhysical() - LEASE_INTERVAL / 2)) {
                         ClusterNode candidate = nextLeaseHolder(entry.getValue());
 
                         if (candidate == null) {
                             continue;
                         }
 
-                        if (isLeaseIsOutdated(lease)) {
+                        if (isLeaseOutdated(lease)) {
                             // New lease is granting.
                             writeNewLeasInMetaStorage(grpId, lease, candidate);
                         } else if (lease.isAccepted() && candidate.equals(lease.getLeaseholder())) {
@@ -248,7 +248,7 @@ public class LeaseUpdater {
 
             HybridTimestamp startTs = clock.now();
 
-            var expirationTs = new HybridTimestamp(startTs.getPhysical() + longLeasePeriod, 0);
+            var expirationTs = new HybridTimestamp(startTs.getPhysical() + longLeaseInterval, 0);
 
             byte[] leaseRaw = ByteUtils.toBytes(lease);
 
@@ -262,7 +262,7 @@ public class LeaseUpdater {
                 if (isCreated) {
                     boolean force = candidate.equals(lease.getLeaseholder());
 
-                    leaseConciliator.conciliate(grpId, renewedLease, force);
+                    leaseNegotiator.negotiate(grpId, renewedLease, force);
                 }
             });
         }
@@ -275,7 +275,7 @@ public class LeaseUpdater {
          */
         private void prolongLeaseInMetaStorage(ReplicationGroupId grpId, Lease lease) {
             var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
-            var newTs = new HybridTimestamp(clock.now().getPhysical() + LEASE_PERIOD, 0);
+            var newTs = new HybridTimestamp(clock.now().getPhysical() + LEASE_INTERVAL, 0);
 
             byte[] leaseRaw = ByteUtils.toBytes(lease);
 
@@ -289,14 +289,15 @@ public class LeaseUpdater {
         }
 
         /**
-         * Writes an accepted lease in Meta storage.
+         * Writes an accepted lease in Meta storage. After the lease will be written to Meta storage,
+         * the lease becomes available to all components.
          *
          * @param grpId Replication group id.
          * @param lease Lease to accept.
          */
-        private void acceptLeaseInMetaStorage(ReplicationGroupId grpId, Lease lease) {
+        private void publishLease(ReplicationGroupId grpId, Lease lease) {
             var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
-            var newTs = new HybridTimestamp(clock.now().getPhysical() + LEASE_PERIOD, 0);
+            var newTs = new HybridTimestamp(clock.now().getPhysical() + LEASE_INTERVAL, 0);
 
             byte[] leaseRaw = ByteUtils.toBytes(lease);
 
@@ -311,11 +312,12 @@ public class LeaseUpdater {
 
         /**
          * Checks that the lease is outdated.
+         * {@link Lease#EMPTY_LEASE} is always outdated.
          *
          * @param lease Lease.
          * @return True when the candidate can be a leaseholder, otherwise false.
          */
-        private boolean isLeaseIsOutdated(Lease lease) {
+        private boolean isLeaseOutdated(Lease lease) {
             HybridTimestamp now = clock.now();
 
             return now.after(lease.getExpirationTime());

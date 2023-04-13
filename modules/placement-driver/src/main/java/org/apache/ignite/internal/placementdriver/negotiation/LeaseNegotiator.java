@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdriver.conciliation;
+package org.apache.ignite.internal.placementdriver.negotiation;
 
-import static org.apache.ignite.internal.placementdriver.conciliation.LeaseAgreement.UNDEFINED_AGREEMENT;
+import static org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement.UNDEFINED_AGREEMENT;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -32,16 +32,16 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterService;
 
 /**
- * This class conciliates a lease with leaseholder. If the lease is conciliated, it is ready available to accept.
+ * This class negotiates a lease with leaseholder. If the lease is negotiated, it is ready available to accept.
  */
-public class LeaseConciliator {
+public class LeaseNegotiator {
     /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(LeaseConciliator.class);
+    private static final IgniteLogger LOG = Loggers.forClass(LeaseNegotiator.class);
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     /** Leases ready to accept. */
-    private final Map<ReplicationGroupId, LeaseAgreement> leaseToConciliate;
+    private final Map<ReplicationGroupId, LeaseAgreement> leaseToNegotiate;
 
     /** Cluster service. */
     private final ClusterService clusterService;
@@ -51,24 +51,24 @@ public class LeaseConciliator {
      *
      * @param clusterService Cluster service.
      */
-    public LeaseConciliator(ClusterService clusterService) {
+    public LeaseNegotiator(ClusterService clusterService) {
         this.clusterService = clusterService;
 
-        this.leaseToConciliate = new ConcurrentHashMap<>();
+        this.leaseToNegotiate = new ConcurrentHashMap<>();
     }
 
     /**
-     * Tries conciliating a lease with its leaseholder.
-     * The conciliation will achieve after the method is invoked. Use {@link #conciliated(ReplicationGroupId)} to check a result.
+     * Tries negotiating a lease with its leaseholder.
+     * The negotiation will achieve after the method is invoked. Use {@link #negotiated(ReplicationGroupId)} to check a result.
      *
      * @param groupId Lease replication group id.
-     * @param lease Lease to conciliate.
+     * @param lease Lease to negotiate.
      * @param force If the flag is true, the process tries to insist of apply the lease.
      */
-    public void conciliate(ReplicationGroupId groupId, Lease lease, boolean force) {
+    public void negotiate(ReplicationGroupId groupId, Lease lease, boolean force) {
         var fut = new CompletableFuture<LeaseGrantedMessageResponse>();
 
-        leaseToConciliate.put(groupId, new LeaseAgreement(lease, fut));
+        leaseToNegotiate.put(groupId, new LeaseAgreement(lease, fut));
 
         long leaseInterval = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
 
@@ -83,7 +83,7 @@ public class LeaseConciliator {
                         leaseInterval)
                 .handle((msg, throwable) -> {
                     if (throwable != null) {
-                        LOG.warn("Lease was not conciliated due to exception [lease={}]", throwable, lease);
+                        LOG.warn("Lease was not negotiated due to exception [lease={}]", throwable, lease);
                     } else {
                         assert msg instanceof LeaseGrantedMessageResponse : "Message type is unexpected [type="
                                 + msg.getClass().getSimpleName() + ']';
@@ -103,8 +103,8 @@ public class LeaseConciliator {
      * @param groupId Replication group id.
      * @return Lease agreement.
      */
-    public LeaseAgreement conciliated(ReplicationGroupId groupId) {
-        LeaseAgreement agreement = leaseToConciliate.getOrDefault(groupId, UNDEFINED_AGREEMENT);
+    public LeaseAgreement negotiated(ReplicationGroupId groupId) {
+        LeaseAgreement agreement = leaseToNegotiate.getOrDefault(groupId, UNDEFINED_AGREEMENT);
 
         return agreement;
     }
@@ -115,7 +115,7 @@ public class LeaseConciliator {
      * @param groupId Lease to expire.
      */
     public void onLeaseRemoved(ReplicationGroupId groupId) {
-        leaseToConciliate.remove(groupId);
+        leaseToNegotiate.remove(groupId);
     }
 
     /**

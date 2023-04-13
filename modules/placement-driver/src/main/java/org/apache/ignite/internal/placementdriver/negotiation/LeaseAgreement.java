@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdriver.conciliation;
+package org.apache.ignite.internal.placementdriver.negotiation;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -24,10 +24,10 @@ import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 
 /**
- * The agreement is formed from {@link org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse}.
+ * The agreement is formed from {@link LeaseGrantedMessageResponse}.
  */
 public class LeaseAgreement {
-    /** The agreement, which has not try conciliating yet. */
+    /** The agreement, which has not try negotiating yet. */
     public static final LeaseAgreement UNDEFINED_AGREEMENT = new LeaseAgreement(null, completedFuture(null));
 
     /** Lease. */
@@ -40,7 +40,7 @@ public class LeaseAgreement {
      * The constructor.
      *
      * @param lease Lease.
-     * @param remoteNodeResponseFuture The future of response from the remote node which is conciliating the agreement.
+     * @param remoteNodeResponseFuture The future of response from the remote node which is negotiating the agreement.
      */
     public LeaseAgreement(Lease lease, CompletableFuture<LeaseGrantedMessageResponse> remoteNodeResponseFuture) {
         this.lease = lease;
@@ -76,27 +76,21 @@ public class LeaseAgreement {
     }
 
     /**
-     * The property is {@code null} if the lease is accepted and not {@code null}  if the leaseholder does not apply the lease and proposes
-     * the other node.
+     * The property matches to {@link LeaseGrantedMessageResponse#redirectProposal()}.
+     * This property is available only when the agreement is ready (look at {@link #ready()}).
      *
      * @return Node id to propose a lease.
      */
     public String getRedirectTo() {
-        if (!responseFut.isDone()) {
-            return null;
-        }
+        assert responseFut.isDone() : "The method should invoke only the agreement is ready";
 
         LeaseGrantedMessageResponse resp = responseFut.join();
 
-        if (resp != null) {
-            return resp.redirectProposal();
-        }
-
-        return null;
+        return resp != null ? resp.redirectProposal() : null;
     }
 
     /**
-     * Returns true if the agreement is conciliated, false otherwise.
+     * Returns true if the agreement is negotiated, false otherwise.
      *
      * @return True if a response of the agreement has been received, false otherwise.
      */
