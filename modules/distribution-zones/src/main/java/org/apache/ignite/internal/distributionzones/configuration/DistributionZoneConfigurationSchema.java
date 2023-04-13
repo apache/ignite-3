@@ -29,7 +29,6 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.storage.KnownDataStorage;
 
 /**
  * Distribution zone configuration schema class.
@@ -57,7 +56,6 @@ public class DistributionZoneConfigurationSchema {
     public int replicas = DEFAULT_REPLICA_COUNT;
 
     /** Data storage configuration. */
-    @KnownDataStorage
     @ConfigValue
     public DataStorageConfigurationSchema dataStorage;
 

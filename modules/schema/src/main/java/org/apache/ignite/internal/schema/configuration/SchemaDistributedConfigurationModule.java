@@ -31,7 +31,6 @@ import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDef
 import org.apache.ignite.internal.schema.configuration.index.HashIndexConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.index.IndexValidatorImpl;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.storage.KnownDataStorageValidator;
 import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema;
 
 /**
@@ -52,7 +51,6 @@ public class SchemaDistributedConfigurationModule implements ConfigurationModule
     @Override
     public Set<Validator<?, ?>> validators() {
         return Set.of(
-                new KnownDataStorageValidator(),
                 TableValidatorImpl.INSTANCE,
                 ColumnTypeValidatorImpl.INSTANCE,
                 IndexValidatorImpl.INSTANCE
