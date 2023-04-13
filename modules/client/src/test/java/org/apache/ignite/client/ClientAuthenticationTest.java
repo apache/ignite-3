@@ -25,8 +25,11 @@ import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.security.exception.AuthenticationException;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +38,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Tests client authentication.
  */
+@SuppressWarnings({"resource", "ThrowableNotThrown"})
 @ExtendWith(ConfigurationExtension.class)
 public class ClientAuthenticationTest {
     @SuppressWarnings("unused")
@@ -66,10 +70,7 @@ public class ClientAuthenticationTest {
     @Test
     public void testNoAuthnOnServerNoAuthnOnClient() throws Exception {
         server = startServer();
-
-        client = IgniteClient.builder()
-                .addresses("127.0.0.1:" + server.port())
-                .build();
+        client = startClient(null);
     }
 
     @Test
@@ -86,8 +87,14 @@ public class ClientAuthenticationTest {
 
         server = startServer();
 
-        client = IgniteClient.builder()
+        // TODO: Why is exception internal?
+        IgniteTestUtils.assertThrowsWithCause(() -> startClient(null), AuthenticationException.class, "Authentication failed");
+    }
+
+    private IgniteClient startClient(@Nullable IgniteClientAuthenticator authenticator) {
+        return IgniteClient.builder()
                 .addresses("127.0.0.1:" + server.port())
+                .authenticator(authenticator)
                 .build();
     }
 
