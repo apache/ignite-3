@@ -20,14 +20,14 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.AFFINITY_FUNCTION;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_NODES_FILTER;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_STORAGE_ENGINE;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.PARTITIONS;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.REPLICAS;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.AFFINITY_FUNCTION;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_FILTER;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_STORAGE_ENGINE;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.PARTITIONS;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.REPLICAS;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEYS_MULTIPLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEY_MISSING_ERR;
@@ -91,7 +91,6 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
@@ -118,9 +117,9 @@ public class DdlSqlToCommandConverter {
     private final Map<String, Map<String, DdlOptionInfo<CreateZoneCommand, ?>>> dataStorageOptionInfos;
 
     /** Mapping: Zone option ID -> DDL option info. */
-    private final Map<IgniteSqlZoneOptionEnum, DdlOptionInfo<CreateZoneCommand, ?>> zoneOptionInfos;
+    private final Map<ZoneOptionEnum, DdlOptionInfo<CreateZoneCommand, ?>> zoneOptionInfos;
 
-    private final Map<IgniteSqlZoneOptionEnum, DdlOptionInfo<AlterZoneSetCommand, ?>> alterZoneOptionInfos;
+    private final Map<ZoneOptionEnum, DdlOptionInfo<AlterZoneSetCommand, ?>> alterZoneOptionInfos;
 
     /**
      * Constructor.
@@ -519,7 +518,7 @@ public class DdlSqlToCommandConverter {
 
         Map<String, DdlOptionInfo<CreateZoneCommand, ?>> dsOptInfos = dataStorageOptionInfos.get(dataStorageName);
 
-        Set<String> knownOptionNames = EnumSet.allOf(IgniteSqlZoneOptionEnum.class).stream().map(Enum::name).collect(Collectors.toSet());
+        Set<String> knownOptionNames = EnumSet.allOf(ZoneOptionEnum.class).stream().map(Enum::name).collect(Collectors.toSet());
         Set<String> remainingKnownOptions = new HashSet<>(knownOptionNames);
 
         for (SqlNode optionNode : createZoneNode.createOptionList().getList()) {
@@ -532,7 +531,7 @@ public class DdlSqlToCommandConverter {
             DdlOptionInfo<CreateZoneCommand, ?> zoneOptionInfo;
 
             if (remainingKnownOptions.remove(optionName)) {
-                zoneOptionInfo = zoneOptionInfos.get(IgniteSqlZoneOptionEnum.valueOf(optionName));
+                zoneOptionInfo = zoneOptionInfos.get(ZoneOptionEnum.valueOf(optionName));
             } else if (knownOptionNames.contains(optionName)) {
                 throw new IgniteException(QUERY_VALIDATION_ERR,
                         String.format("Duplicate DDL command option has been specified [option=%s, query=%s]", optionName, ctx.query()));
@@ -565,7 +564,7 @@ public class DdlSqlToCommandConverter {
         alterZoneCmd.zoneName(deriveObjectName(alterZoneSet.name(), ctx, "zoneName"));
         alterZoneCmd.ifExists(alterZoneSet.ifExists());
 
-        Set<String> knownOptionNames = EnumSet.allOf(IgniteSqlZoneOptionEnum.class).stream().map(Enum::name).collect(Collectors.toSet());
+        Set<String> knownOptionNames = EnumSet.allOf(ZoneOptionEnum.class).stream().map(Enum::name).collect(Collectors.toSet());
         Set<String> remainingKnownOptions = new HashSet<>(knownOptionNames);
 
         for (SqlNode optionNode : alterZoneSet.alterOptionsList().getList()) {
@@ -580,7 +579,7 @@ public class DdlSqlToCommandConverter {
                         String.format("Duplicate DDL command option has been specified [option=%s, query=%s]", optionName, ctx.query()));
             }
 
-            DdlOptionInfo<AlterZoneSetCommand, ?> zoneOptionInfo = alterZoneOptionInfos.get(IgniteSqlZoneOptionEnum.valueOf(optionName));
+            DdlOptionInfo<AlterZoneSetCommand, ?> zoneOptionInfo = alterZoneOptionInfos.get(ZoneOptionEnum.valueOf(optionName));
 
             assert zoneOptionInfo != null : optionName;
             assert option.value() instanceof SqlLiteral : option.value();

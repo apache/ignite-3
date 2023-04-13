@@ -46,6 +46,8 @@ public class IgniteSqlZoneOption extends SqlCall {
     public IgniteSqlZoneOption(SqlIdentifier key, SqlNode value, SqlParserPos pos) {
         super(pos);
 
+        assert key.isSimple() : key;
+
         this.key = key;
         this.value = value;
     }

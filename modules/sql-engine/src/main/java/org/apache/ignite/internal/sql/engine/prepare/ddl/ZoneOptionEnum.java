@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.sql;
+package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 /**
  * Enumerates the options for CREATE ZONE and ALTER ZONE statements.
  */
-public enum IgniteSqlZoneOptionEnum {
+public enum ZoneOptionEnum {
     /** Number of partitions. */
     PARTITIONS,
 
