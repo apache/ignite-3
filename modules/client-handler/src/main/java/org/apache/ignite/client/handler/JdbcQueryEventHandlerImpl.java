@@ -61,7 +61,6 @@ import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -155,7 +154,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
 
         Transaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
-
         QueryContext context = createQueryContext(req.getStmtType(), tx);
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connectionContext.doInSession(sessionId -> processor.querySingleAsync(
@@ -191,13 +189,20 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcBatchExecuteResult> batchAsync(long connectionId, JdbcBatchExecuteRequest req) {
-        List<String> queries = req.queries();
+        JdbcConnectionContext connectionContext;
+        try {
+            connectionContext = resources.get(connectionId).get(JdbcConnectionContext.class);
+        } catch (IgniteInternalCheckedException exception) {
+            return CompletableFuture.completedFuture(new JdbcBatchExecuteResult(Response.STATUS_FAILED, "Connection is broken"));
+        }
 
+        Transaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
+        var queries = req.queries();
         var counters = new IntArrayList(req.queries().size());
         var tail = CompletableFuture.completedFuture(counters);
 
         for (String query : queries) {
-            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionId, req.autoCommit(), query, OBJECT_EMPTY_ARRAY)
+            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionContext, tx, query, OBJECT_EMPTY_ARRAY)
                     .thenApply(cnt -> {
                         list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
 
@@ -217,13 +222,20 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcBatchExecuteResult> batchPrepStatementAsync(long connectionId, JdbcBatchPreparedStmntRequest req) {
-        var argList = req.getArgs();
+        JdbcConnectionContext connectionContext;
+        try {
+            connectionContext = resources.get(connectionId).get(JdbcConnectionContext.class);
+        } catch (IgniteInternalCheckedException exception) {
+            return CompletableFuture.completedFuture(new JdbcBatchExecuteResult(Response.STATUS_FAILED, "Connection is broken"));
+        }
 
+        Transaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
+        var argList = req.getArgs();
         var counters = new IntArrayList(req.getArgs().size());
         var tail = CompletableFuture.completedFuture(counters);
 
         for (Object[] args : argList) {
-            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionId, req.autoCommit(), req.getQuery(), args)
+            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionContext, tx, req.getQuery(), args)
                     .thenApply(cnt -> {
                         list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
 
@@ -240,20 +252,17 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         });
     }
 
-    private CompletableFuture<Long> executeAndCollectUpdateCount(long connectionId, boolean autoCommit, String sql, Object[] arg) {
-        JdbcConnectionContext connectionContext;
-        try {
-            connectionContext = resources.get(connectionId).get(JdbcConnectionContext.class);
-        } catch (IgniteInternalCheckedException exception) {
-            return CompletableFuture.failedFuture(new IgniteInternalException(Client.CONNECTION_ERR));
-        }
+    private CompletableFuture<Long> executeAndCollectUpdateCount(
+            JdbcConnectionContext connCtx,
+            @Nullable Transaction tx,
+            String sql,
+            Object[] arg
+    ) {
+        QueryContext queryContext = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE, tx);
 
-        Transaction tx = autoCommit ? null : connectionContext.getOrStartTransaction();
-        QueryContext context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE, tx);
-
-        CompletableFuture<AsyncSqlCursor<List<Object>>> result = connectionContext.doInSession(sessionId -> processor.querySingleAsync(
+        CompletableFuture<AsyncSqlCursor<List<Object>>> result = connCtx.doInSession(sessionId -> processor.querySingleAsync(
                 sessionId,
-                context,
+                queryContext,
                 sql,
                 arg == null ? OBJECT_EMPTY_ARRAY : arg
         ));
