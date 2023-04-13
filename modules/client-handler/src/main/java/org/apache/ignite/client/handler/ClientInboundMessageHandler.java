@@ -95,6 +95,7 @@ import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.security.authentication.AnonymousRequest;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
 import org.apache.ignite.internal.security.authentication.UserDetails;
@@ -326,16 +327,14 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private @Nullable UserDetails authenticate(Map<HandshakeExtension, Object> extensions) {
         AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
 
-        return authenticationRequest == null
-                ? null
-                : authenticationManager.authenticate(authenticationRequest);
+        return authenticationManager.authenticate(authenticationRequest);
     }
 
-    private static @Nullable AuthenticationRequest<?, ?> createAuthenticationRequest(Map<HandshakeExtension, Object> extensions) {
+    private static AuthenticationRequest<?, ?> createAuthenticationRequest(Map<HandshakeExtension, Object> extensions) {
         Object authnType = extensions.get(HandshakeExtension.AUTHENTICATION_TYPE);
 
         if (authnType == null) {
-            return null;
+            return new AnonymousRequest();
         }
 
         if (authnType.equals("basic")) {
