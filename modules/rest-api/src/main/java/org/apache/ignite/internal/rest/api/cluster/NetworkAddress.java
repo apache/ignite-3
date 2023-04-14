@@ -21,13 +21,12 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
-import org.apache.ignite.network.NetworkAddress;
 
 /**
- * REST representation of {@link NetworkAddress}.
+ * REST representation of {@link org.apache.ignite.network.NetworkAddress}.
  */
-@Schema(name = "NetworkAddress", description = "Node network address information.")
-public class NetworkAddressDto {
+@Schema(description = "Node network address information.")
+public class NetworkAddress {
     /** Host. */
     @Schema(description = "Name of the host node runs on.")
     private final String host;
@@ -43,7 +42,7 @@ public class NetworkAddressDto {
      * @param port Port.
      */
     @JsonCreator
-    public NetworkAddressDto(
+    public NetworkAddress(
             @JsonProperty("host") String host,
             @JsonProperty("port") int port
     ) {

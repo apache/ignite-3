@@ -21,14 +21,12 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
-import org.apache.ignite.network.ClusterNode;
 
 /**
- * REST representation of {@link ClusterNode}.
+ * REST representation of {@link org.apache.ignite.network.ClusterNode}.
  */
-@Schema(name = "ClusterNode", description = "Information about the cluster node.")
-
-public class ClusterNodeDto {
+@Schema(description = "Information about the cluster node.")
+public class ClusterNode {
     /** Local id assigned to this node instance. Changes between restarts. */
     @Schema(description = "Node ID.")
     private final String id;
@@ -39,10 +37,10 @@ public class ClusterNodeDto {
 
     /** Network address of this node. */
     @Schema(description = "Cluster network address information.")
-    private final NetworkAddressDto address;
+    private final NetworkAddress address;
 
     @Schema(description = "Node metadata information.")
-    private final NodeMetadataDto metadata;
+    private final NodeMetadata metadata;
 
     /**
      * Constructor.
@@ -52,11 +50,11 @@ public class ClusterNodeDto {
      * @param address Node address.
      */
     @JsonCreator
-    public ClusterNodeDto(
+    public ClusterNode(
             @JsonProperty("id") String id,
             @JsonProperty("name") String name,
-            @JsonProperty("address") NetworkAddressDto address,
-            @JsonProperty("metadata") NodeMetadataDto metadata) {
+            @JsonProperty("address") NetworkAddress address,
+            @JsonProperty("metadata") NodeMetadata metadata) {
         this.id = id;
         this.name = name;
         this.address = address;
@@ -84,12 +82,12 @@ public class ClusterNodeDto {
     }
 
     @JsonGetter("address")
-    public NetworkAddressDto address() {
+    public NetworkAddress address() {
         return address;
     }
 
     @JsonGetter("metadata")
-    public NodeMetadataDto metadata() {
+    public NodeMetadata metadata() {
         return metadata;
     }
 }

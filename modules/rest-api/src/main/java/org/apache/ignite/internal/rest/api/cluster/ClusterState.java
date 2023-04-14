@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rest.api.cluster;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Collection;
@@ -26,8 +27,8 @@ import java.util.Objects;
 /**
  * REST representation of internal ClusterState.
  */
-@Schema(name = "ClusterState", description = "Information about current cluster state.")
-public class ClusterStateDto {
+@Schema(description = "Information about current cluster state.")
+public class ClusterState {
     @Schema(description = "List of cluster management group nodes. These nodes are responsible for maintaining RAFT cluster topology.")
     private final Collection<String> cmgNodes;
 
@@ -38,7 +39,7 @@ public class ClusterStateDto {
     private final String igniteVersion;
 
     @Schema(description = "Unique tag that identifies the cluster.")
-    private final ClusterTagDto clusterTag;
+    private final ClusterTag clusterTag;
 
     /**
      * Creates a new cluster state.
@@ -49,11 +50,11 @@ public class ClusterStateDto {
      * @param clusterTag Cluster tag.
      */
     @JsonCreator
-    public ClusterStateDto(
+    public ClusterState(
             @JsonProperty("cmgNodes") Collection<String> cmgNodes,
             @JsonProperty("msNodes") Collection<String> msNodes,
             @JsonProperty("igniteVersion") String igniteVersion,
-            @JsonProperty("clusterTag") ClusterTagDto clusterTag
+            @JsonProperty("clusterTag") ClusterTag clusterTag
     ) {
         this.cmgNodes = cmgNodes;
         this.msNodes = msNodes;
@@ -61,23 +62,23 @@ public class ClusterStateDto {
         this.clusterTag = clusterTag;
     }
 
-    @JsonProperty
+    @JsonGetter("cmgNodes")
     public Collection<String> cmgNodes() {
         return cmgNodes;
     }
 
-    @JsonProperty
+    @JsonGetter("msNodes")
     public Collection<String> msNodes() {
         return msNodes;
     }
 
-    @JsonProperty
+    @JsonGetter("igniteVersion")
     public String igniteVersion() {
         return igniteVersion;
     }
 
-    @JsonProperty
-    public ClusterTagDto clusterTag() {
+    @JsonGetter("clusterTag")
+    public ClusterTag clusterTag() {
         return clusterTag;
     }
 
@@ -89,7 +90,7 @@ public class ClusterStateDto {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        ClusterStateDto state = (ClusterStateDto) o;
+        ClusterState state = (ClusterState) o;
         return cmgNodes.equals(state.cmgNodes) && msNodes.equals(state.msNodes) && igniteVersion.equals(state.igniteVersion)
                 && clusterTag.equals(state.clusterTag);
     }

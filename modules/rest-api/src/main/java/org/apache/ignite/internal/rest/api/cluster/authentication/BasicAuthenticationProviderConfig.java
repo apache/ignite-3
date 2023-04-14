@@ -23,14 +23,13 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.security.AuthenticationType;
-import org.apache.ignite.security.BasicAuthenticationProviderConfig;
 
 /**
  * REST representation of {@link BasicAuthenticationProviderConfig}.
  */
 @JsonTypeName("basic")
 @Schema(name = "BasicAuthenticationProviderConfig", description = "Configuration for basic authentication.")
-public class BasicAuthenticationProviderConfigDto implements AuthenticationProviderConfigDto {
+public class BasicAuthenticationProviderConfig implements AuthenticationProviderConfig {
 
     @Schema(description = "Provider name.")
     private final String name;
@@ -43,7 +42,7 @@ public class BasicAuthenticationProviderConfigDto implements AuthenticationProvi
 
     /** Constructor. */
     @JsonCreator
-    public BasicAuthenticationProviderConfigDto(
+    public BasicAuthenticationProviderConfig(
             @JsonProperty("name") String name,
             @JsonProperty("username") String username,
             @JsonProperty("password") String password) {
