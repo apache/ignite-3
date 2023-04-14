@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -66,6 +67,8 @@ public class LowWatermarkManager implements ManuallyCloseable {
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
     private final AtomicReference<HybridTimestamp> lowWatermark = new AtomicReference<>();
+
+    private final AtomicReference<ScheduledFuture<?>> lastScheduledTaskFuture = new AtomicReference<>();
 
     /**
      * Constructor.
@@ -141,6 +144,12 @@ public class LowWatermarkManager implements ManuallyCloseable {
 
         busyLock.block();
 
+        ScheduledFuture<?> lastScheduledTaskFuture = this.lastScheduledTaskFuture.get();
+
+        if (lastScheduledTaskFuture != null) {
+            lastScheduledTaskFuture.cancel(true);
+        }
+
         IgniteUtils.shutdownAndAwaitTermination(scheduledThreadPool, 10, TimeUnit.SECONDS);
     }
 
@@ -188,7 +197,19 @@ public class LowWatermarkManager implements ManuallyCloseable {
     }
 
     private void scheduleUpdateLowWatermarkBusy() {
-        scheduledThreadPool.schedule(this::updateLowWatermark, lowWatermarkConfig.updateFrequency().value(), TimeUnit.MILLISECONDS);
+        ScheduledFuture<?> previousScheduledFuture = this.lastScheduledTaskFuture.get();
+
+        assert previousScheduledFuture == null || previousScheduledFuture.isDone() : "previous scheduled task has not finished";
+
+        ScheduledFuture<?> newScheduledFuture = scheduledThreadPool.schedule(
+                this::updateLowWatermark,
+                lowWatermarkConfig.updateFrequency().value(),
+                TimeUnit.MILLISECONDS
+        );
+
+        boolean casResult = lastScheduledTaskFuture.compareAndSet(previousScheduledFuture, newScheduledFuture);
+
+        assert casResult : "only one scheduled task is expected";
     }
 
     HybridTimestamp createNewLowWatermarkCandidate() {
