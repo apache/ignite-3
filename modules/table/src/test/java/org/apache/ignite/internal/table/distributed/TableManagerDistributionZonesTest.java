@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.Collections.emptySet;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
@@ -232,6 +233,11 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
             return ret;
         });
 
+        VaultManager vaultManager = mock(VaultManager.class);
+
+        when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
+        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
+
         tableManager = new TableManager(
                 "node1",
                 (x) -> {},
@@ -253,7 +259,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
                 null,
                 mock(OutgoingSnapshotsManager.class),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
-                mock(VaultManager.class)
+                vaultManager
         );
     }
 

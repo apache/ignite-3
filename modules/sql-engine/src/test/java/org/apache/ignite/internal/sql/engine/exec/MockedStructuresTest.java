@@ -203,7 +203,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     /** Stop configuration manager. */
     @AfterEach
-    void after() throws Exception {
+    void after() {
         try {
             Objects.requireNonNull(queryProc).stop();
         } catch (Exception e) {

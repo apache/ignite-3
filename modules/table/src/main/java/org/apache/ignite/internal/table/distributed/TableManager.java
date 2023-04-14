@@ -984,7 +984,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     @Override
-    public void stop() throws Exception {
+    public void stop() {
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
@@ -1000,17 +1000,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         Map<UUID, TableImpl> tablesToStop = Stream.concat(tablesByIdVv.latest().entrySet().stream(), pendingTables.entrySet().stream())
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v1));
 
-        IgniteUtils.closeAllManually(
-                () -> cleanUpTablesResources(tablesToStop),
-                lowWatermarkManager,
-                mvGc,
-                () -> shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS),
-                () -> shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS),
-                () -> shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS),
-                () -> shutdownAndAwaitTermination(txStateStorageScheduledPool, 10, TimeUnit.SECONDS),
-                () -> shutdownAndAwaitTermination(scanRequestExecutor, 10, TimeUnit.SECONDS),
-                () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, 10, TimeUnit.SECONDS)
-        );
+        cleanUpTablesResources(tablesToStop);
+
+        try {
+            IgniteUtils.closeAllManually(lowWatermarkManager, mvGc);
+        } catch (Throwable t) {
+            LOG.error("Failed to close internal components", t);
+        }
+
+        shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(txStateStorageScheduledPool, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(scanRequestExecutor, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(incomingSnapshotsExecutor, 10, TimeUnit.SECONDS);
     }
 
     /**
