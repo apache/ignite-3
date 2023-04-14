@@ -225,7 +225,7 @@ public class TxManagerImpl implements TxManager {
     }
 
     @Override
-    public CompletableFuture<Void> getFutureReadOnlyTransactions(HybridTimestamp timestamp) {
+    public CompletableFuture<Void> getFutureAllReadOnlyTransactions(HybridTimestamp timestamp) {
         List<CompletableFuture<Void>> readOnlyTxFutures = List.copyOf(readOnlyTxFutureByReadTs.headMap(timestamp, true).values());
 
         return allOf(readOnlyTxFutures.toArray(CompletableFuture[]::new));

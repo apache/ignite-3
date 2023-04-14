@@ -143,5 +143,5 @@ public interface TxManager extends IgniteComponent {
      *
      * @param timestamp Timestamp.
      */
-    CompletableFuture<Void> getFutureReadOnlyTransactions(HybridTimestamp timestamp);
+    CompletableFuture<Void> getFutureAllReadOnlyTransactions(HybridTimestamp timestamp);
 }

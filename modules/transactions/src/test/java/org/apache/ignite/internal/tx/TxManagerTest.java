@@ -145,14 +145,14 @@ public class TxManagerTest extends IgniteAbstractTest {
     @Test
     void testGetFutureReadOnlyTransactions() {
         // Let's check the absence of transactions.
-        assertThat(txManager.getFutureReadOnlyTransactions(clock.now()), willSucceedFast());
+        assertThat(txManager.getFutureAllReadOnlyTransactions(clock.now()), willSucceedFast());
 
         InternalTransaction rwTx0 = txManager.begin(false);
 
         InternalTransaction roTx0 = txManager.begin(true);
         InternalTransaction roTx1 = txManager.begin(true);
 
-        CompletableFuture<Void> readOnlyTxsFutures = txManager.getFutureReadOnlyTransactions(roTx1.readTimestamp());
+        CompletableFuture<Void> readOnlyTxsFutures = txManager.getFutureAllReadOnlyTransactions(roTx1.readTimestamp());
         assertFalse(readOnlyTxsFutures.isDone());
 
         assertThat(rwTx0.commitAsync(), willSucceedFast());
@@ -168,6 +168,6 @@ public class TxManagerTest extends IgniteAbstractTest {
         txManager.begin(false);
         txManager.begin(false);
 
-        assertThat(txManager.getFutureReadOnlyTransactions(clock.now()), willSucceedFast());
+        assertThat(txManager.getFutureAllReadOnlyTransactions(clock.now()), willSucceedFast());
     }
 }

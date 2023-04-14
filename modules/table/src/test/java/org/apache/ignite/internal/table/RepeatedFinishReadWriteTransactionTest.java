@@ -288,7 +288,7 @@ public class RepeatedFinishReadWriteTransactionTest {
         }
 
         @Override
-        public CompletableFuture<Void> getFutureReadOnlyTransactions(HybridTimestamp timestamp) {
+        public CompletableFuture<Void> getFutureAllReadOnlyTransactions(HybridTimestamp timestamp) {
             return null;
         }
     }
