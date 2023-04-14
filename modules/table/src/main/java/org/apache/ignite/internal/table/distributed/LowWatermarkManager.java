@@ -194,7 +194,7 @@ public class LowWatermarkManager implements ManuallyCloseable {
     HybridTimestamp createNewLowWatermarkCandidate() {
         HybridTimestamp now = clock.now();
 
-        long newPhysicalTime = now.getPhysical() - lowWatermarkConfig.dataAvailabilityTime().value() - getClockSkewMills();
+        long newPhysicalTime = now.getPhysical() - lowWatermarkConfig.dataAvailabilityTime().value() - getMaxClockSkew();
 
         HybridTimestamp lowWatermarkCandidate = new HybridTimestamp(newPhysicalTime, now.getLogical());
 
@@ -206,8 +206,8 @@ public class LowWatermarkManager implements ManuallyCloseable {
         return lowWatermarkCandidate;
     }
 
-    private long getClockSkewMills() {
-        // TODO: IGNITE-19267 не забыть добавить новую задачу
+    private long getMaxClockSkew() {
+        // TODO: IGNITE-19287 Add Implementation
         return 0;
     }
 }

@@ -50,7 +50,6 @@ import org.jetbrains.annotations.TestOnly;
  *
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
-// TODO: IGNITE-19267 протестировать новые методы
 public class TxManagerImpl implements TxManager {
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
