@@ -319,6 +319,8 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         rewindQueue.offer(new RewindRequest(nodeName, state, amountOfBatches));
 
         if (currentNode == null || currentNode.equals(nodeName)) {
+            currentNode = null;
+
             processRewindQueue();
         }
     }
