@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -51,8 +52,7 @@ public class UsageTest {
                 List.of(LocalConfiguration.KEY),
                 Set.of(),
                 new TestConfigurationStorage(LOCAL),
-                List.of(),
-                List.of()
+                new ConfigurationTreeGenerator(List.of(LocalConfiguration.KEY))
         );
 
         registry.start();
@@ -113,8 +113,7 @@ public class UsageTest {
                 List.of(NetworkConfiguration.KEY, LocalConfiguration.KEY),
                 Set.of(),
                 new TestConfigurationStorage(LOCAL),
-                List.of(),
-                List.of()
+                new ConfigurationTreeGenerator(List.of(NetworkConfiguration.KEY, LocalConfiguration.KEY))
         );
 
         registry.start();

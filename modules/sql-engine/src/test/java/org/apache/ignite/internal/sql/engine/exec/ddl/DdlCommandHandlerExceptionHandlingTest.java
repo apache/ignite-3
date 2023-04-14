@@ -33,6 +33,7 @@ import java.util.concurrent.TimeoutException;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -48,6 +49,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,6 +65,7 @@ import org.mockito.quality.Strictness;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
+    private static final ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(List.of(DistributionZonesConfiguration.KEY));
     @Mock
     private TableManager tableManager;
 
@@ -80,8 +83,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
             List.of(DistributionZonesConfiguration.KEY),
             Set.of(),
             new TestConfigurationStorage(DISTRIBUTED),
-            List.of(),
-            List.of()
+            generator
     );
 
     private DistributionZoneManager distributionZoneManager;
@@ -118,6 +120,11 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     @AfterEach
     public void after() throws Exception {
         registry.stop();
+    }
+
+    @AfterAll
+    public static void afterAll() throws Exception {
+        generator.close();
     }
 
     @Test

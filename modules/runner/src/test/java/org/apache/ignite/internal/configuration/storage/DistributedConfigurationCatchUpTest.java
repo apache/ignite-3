@@ -29,7 +29,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -38,8 +37,8 @@ import java.util.function.Consumer;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.TestConfigurationChanger;
-import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.metastorage.EntryEvent;
@@ -95,15 +94,14 @@ public class DistributedConfigurationCatchUpTest {
     public void testMetaStorageRevisionDifferentFromConfigurationOnRestart() throws Exception {
         RootKey<DistributedTestConfiguration, DistributedTestView> rootKey = DistributedTestConfiguration.KEY;
 
-        ConfigurationAsmGenerator cgen = new ConfigurationAsmGenerator();
+        ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(List.of(rootKey));
 
         MetaStorageMockWrapper wrapper = new MetaStorageMockWrapper();
 
         DistributedConfigurationStorage storage = storage(wrapper);
 
         try {
-            var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Set.of(),
-                    storage, Collections.emptyList(), Collections.emptyList());
+            var changer = new TestConfigurationChanger(List.of(rootKey), Set.of(), storage, generator);
 
             try {
                 changer.start();
@@ -133,8 +131,7 @@ public class DistributedConfigurationCatchUpTest {
 
         try {
 
-            var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Set.of(),
-                    storage, Collections.emptyList(), Collections.emptyList());
+            var changer = new TestConfigurationChanger(List.of(rootKey), Set.of(), storage, generator);
 
             try {
                 changer.start();

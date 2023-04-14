@@ -22,7 +22,6 @@ import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotifier.notifyListeners;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicId;
@@ -31,7 +30,6 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.po
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaFields;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.touch;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
-import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
@@ -59,7 +57,6 @@ import org.apache.ignite.configuration.notifications.ConfigurationNamedListListe
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationChanger.ConfigurationUpdateListener;
-import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
@@ -96,9 +93,6 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
     /** Configuration change handler. */
     private final ConfigurationChanger changer;
 
-    /** Configuration generator. */
-    private final ConfigurationAsmGenerator cgen = new ConfigurationAsmGenerator();
-
     /** Configuration storage revision change listeners. */
     private final ConfigurationListenerHolder<ConfigurationStorageRevisionListener> storageRevisionListeners =
             new ConfigurationListenerHolder<>();
@@ -109,9 +103,6 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
      * @param rootKeys                    Configuration root keys.
      * @param validators                  Validators.
      * @param storage                     Configuration storage.
-     * @param internalSchemaExtensions    Internal extensions ({@link InternalConfiguration}) of configuration schemas ({@link
-     *                                    ConfigurationRoot} and {@link Config}).
-     * @param polymorphicSchemaExtensions Polymorphic extensions ({@link PolymorphicConfigInstance}) of configuration schemas.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
      *                                  extensions are not valid.
      */
@@ -119,16 +110,9 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
             Collection<RootKey<?, ?>> rootKeys,
             Set<Validator<?, ?>> validators,
             ConfigurationStorage storage,
-            Collection<Class<?>> internalSchemaExtensions,
-            Collection<Class<?>> polymorphicSchemaExtensions
+            ConfigurationTreeGenerator generator
     ) {
         checkConfigurationType(rootKeys, storage);
-
-        Set<Class<?>> allSchemas = collectAllSchemas(rootKeys, internalSchemaExtensions, polymorphicSchemaExtensions);
-
-        Map<Class<?>, Set<Class<?>>> internalExtensions = internalExtensionsWithCheck(allSchemas, internalSchemaExtensions);
-
-        Map<Class<?>, Set<Class<?>>> polymorphicExtensions = polymorphicExtensionsWithCheck(allSchemas, polymorphicSchemaExtensions);
 
         this.rootKeys = rootKeys;
 
@@ -143,37 +127,15 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
         changer = new ConfigurationChanger(notificationUpdateListener(), rootKeys, validators0, storage) {
             @Override
             public InnerNode createRootNode(RootKey<?, ?> rootKey) {
-                return cgen.instantiateNode(rootKey.schemaClass());
+                return generator.instantiateNode(rootKey.schemaClass());
             }
         };
 
         rootKeys.forEach(rootKey -> {
-            cgen.compileRootSchema(rootKey.schemaClass(), internalExtensions, polymorphicExtensions);
-
-            DynamicConfiguration<?, ?> cfg = cgen.instantiateCfg(rootKey, changer);
+            DynamicConfiguration<?, ?> cfg = generator.instantiateCfg(rootKey, changer);
 
             configs.put(rootKey.key(), cfg);
         });
-    }
-
-    /**
-     * Collects all schemas and subschemas (recursively) from root keys, internal and polymorphic schema extensions.
-     *
-     * @param rootKeys                    root keys
-     * @param internalSchemaExtensions    internal schema extensions
-     * @param polymorphicSchemaExtensions polymorphic schema extensions
-     * @return set of all schema classes
-     */
-    private static Set<Class<?>> collectAllSchemas(Collection<RootKey<?, ?>> rootKeys,
-            Collection<Class<?>> internalSchemaExtensions,
-            Collection<Class<?>> polymorphicSchemaExtensions) {
-        Set<Class<?>> allSchemas = new HashSet<>();
-
-        allSchemas.addAll(collectSchemas(viewReadOnly(rootKeys, RootKey::schemaClass)));
-        allSchemas.addAll(collectSchemas(internalSchemaExtensions));
-        allSchemas.addAll(collectSchemas(polymorphicSchemaExtensions));
-
-        return allSchemas;
     }
 
     /**

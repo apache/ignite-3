@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NodeFinderType;
@@ -81,8 +82,7 @@ public class ClusterServiceTestUtils {
                 Collections.singleton(NetworkConfiguration.KEY),
                 Set.of(),
                 new TestConfigurationStorage(ConfigurationType.LOCAL),
-                List.of(),
-                List.of()
+                new ConfigurationTreeGenerator(Collections.singleton(NetworkConfiguration.KEY))
         );
 
         NetworkConfiguration networkConfiguration = nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);

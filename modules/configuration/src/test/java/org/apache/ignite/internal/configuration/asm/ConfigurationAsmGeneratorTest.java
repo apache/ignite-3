@@ -40,6 +40,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.ConfigurationReadOnlyException;
 import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
+import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -54,6 +55,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.TestConfigurationChanger;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -70,47 +72,52 @@ import org.junit.jupiter.api.Test;
  */
 public class ConfigurationAsmGeneratorTest {
     /** Configuration generator. */
-    private static ConfigurationAsmGenerator generator;
+    private static ConfigurationTreeGenerator generator;
+
+
+    private static Collection<Class<?>> internalExtensions = List.of(
+            ExtendedTestRootConfigurationSchema.class,
+            ExtendedSecondTestRootConfigurationSchema.class,
+            ExtendedTestConfigurationSchema.class,
+            ExtendedSecondTestConfigurationSchema.class
+    );
+
+    private static Collection<Class<?>> polymorphicExtensions = List.of(
+            FirstPolymorphicInstanceTestConfigurationSchema.class,
+            SecondPolymorphicInstanceTestConfigurationSchema.class,
+            NonDefaultPolymorphicInstanceTestConfigurationSchema.class,
+            FirstPolymorphicNamedInstanceTestConfigurationSchema.class,
+            SecondPolymorphicNamedInstanceTestConfigurationSchema.class,
+            PolyInst0InjectedNameConfigurationSchema.class,
+            PolyInst1InjectedNameConfigurationSchema.class
+    );
+
+    private static Collection<RootKey<?, ?>> rootKeys = List.of(
+            TestRootConfiguration.KEY,
+            InjectedNameRootConfiguration.KEY,
+            RootFromAbstractConfiguration.KEY
+    );
 
     /** Configuration changer. */
     private ConfigurationChanger changer;
 
     @BeforeAll
     public static void beforeAll() {
-        generator = new ConfigurationAsmGenerator();
+        generator = new ConfigurationTreeGenerator(rootKeys, internalExtensions, polymorphicExtensions);
     }
 
     @AfterAll
-    public static void afterAll() {
-        generator = null;
+    public static void afterAll() throws Exception {
+        generator.close();
     }
 
     @BeforeEach
     void beforeEach() {
-        Collection<Class<?>> internalExtensions = List.of(
-                ExtendedTestRootConfigurationSchema.class,
-                ExtendedSecondTestRootConfigurationSchema.class,
-                ExtendedTestConfigurationSchema.class,
-                ExtendedSecondTestConfigurationSchema.class
-        );
-
-        Collection<Class<?>> polymorphicExtensions = List.of(
-                FirstPolymorphicInstanceTestConfigurationSchema.class,
-                SecondPolymorphicInstanceTestConfigurationSchema.class,
-                NonDefaultPolymorphicInstanceTestConfigurationSchema.class,
-                FirstPolymorphicNamedInstanceTestConfigurationSchema.class,
-                SecondPolymorphicNamedInstanceTestConfigurationSchema.class,
-                PolyInst0InjectedNameConfigurationSchema.class,
-                PolyInst1InjectedNameConfigurationSchema.class
-        );
-
         changer = new TestConfigurationChanger(
-                generator,
-                List.of(TestRootConfiguration.KEY, InjectedNameRootConfiguration.KEY, RootFromAbstractConfiguration.KEY),
+                rootKeys,
                 Set.of(),
                 new TestConfigurationStorage(LOCAL),
-                internalExtensions,
-                polymorphicExtensions
+                generator
         );
 
         changer.start();

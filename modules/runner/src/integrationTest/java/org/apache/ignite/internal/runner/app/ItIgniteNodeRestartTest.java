@@ -70,6 +70,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
@@ -259,13 +260,18 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         } catch (IOException e) {
             throw new NodeConfigWriteException("Failed to write config content to file.", e);
         }
+
+        var generator = new ConfigurationTreeGenerator(
+                modules.local().rootKeys(),
+                modules.local().internalSchemaExtensions(),
+                modules.local().polymorphicSchemaExtensions()
+        );
+
         var nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
                 modules.local().validators(),
-                new LocalFileConfigurationStorage(configFile, modules.local().rootKeys(), modules.local().internalSchemaExtensions(),
-                        modules.local().polymorphicSchemaExtensions()),
-                modules.local().internalSchemaExtensions(),
-                modules.local().polymorphicSchemaExtensions()
+                new LocalFileConfigurationStorage(configFile, generator),
+                generator
         );
 
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);

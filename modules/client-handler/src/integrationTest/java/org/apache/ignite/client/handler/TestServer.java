@@ -29,6 +29,7 @@ import javax.annotation.Nullable;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -59,8 +60,7 @@ public class TestServer {
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
                 Set.of(),
                 new TestConfigurationStorage(LOCAL),
-                List.of(),
-                List.of()
+                new ConfigurationTreeGenerator(List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY))
         );
 
         metrics.enable();

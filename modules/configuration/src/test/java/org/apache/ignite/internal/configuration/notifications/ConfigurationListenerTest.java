@@ -70,6 +70,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -157,19 +158,26 @@ public class ConfigurationListenerTest {
 
     private ParentConfiguration config;
 
+    private ConfigurationTreeGenerator generator;
+
     /**
      * Before each.
      */
     @BeforeEach
     public void before() {
+        generator = new ConfigurationTreeGenerator(
+                List.of(ParentConfiguration.KEY),
+                List.of(InternalChildConfigurationSchema.class),
+                List.of(StringPolyConfigurationSchema.class, LongPolyConfigurationSchema.class)
+        );
+
         storage = new TestConfigurationStorage(LOCAL);
 
         registry = new ConfigurationRegistry(
                 List.of(ParentConfiguration.KEY),
                 Set.of(),
                 storage,
-                List.of(InternalChildConfigurationSchema.class),
-                List.of(StringPolyConfigurationSchema.class, LongPolyConfigurationSchema.class)
+                generator
         );
 
         registry.start();
@@ -182,6 +190,7 @@ public class ConfigurationListenerTest {
     @AfterEach
     public void after() throws Exception {
         registry.stop();
+        generator.close();
     }
 
     @Test

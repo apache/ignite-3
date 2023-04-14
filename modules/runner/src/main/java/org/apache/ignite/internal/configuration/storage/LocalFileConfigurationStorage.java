@@ -17,13 +17,10 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.fillFromPrefixMap;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.toPrefixMap;
 
 import com.typesafe.config.Config;
@@ -40,11 +37,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -53,24 +47,19 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Function;
 import java.util.function.Supplier;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigCreateException;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
-import org.apache.ignite.internal.configuration.RootInnerNode;
 import org.apache.ignite.internal.configuration.SuperRoot;
-import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
-import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Implementation of {@link ConfigurationStorage} based on local file configuration storage.
@@ -90,21 +79,17 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     /** Latest state of last applied configuration. */
     private final Map<String, Serializable> latest = new ConcurrentHashMap<>();
 
-    /** Configuration nodes generator. */
-    private final ConfigurationAsmGenerator cgen = new ConfigurationAsmGenerator();
-
-    /** Map of root keys that are needed to generate configuration tree. */
-    private final Map<String, RootKey<?, ?>> rootKeys;
+    private final ConfigurationTreeGenerator generator;
 
     /** Configuration changes listener. */
     private final AtomicReference<ConfigurationStorageListener> lsnrRef = new AtomicReference<>();
 
     /** Thread pool for configuration updates notifications. */
-    private final ExecutorService threadPool = Executors.newFixedThreadPool(
-            2, new NamedThreadFactory("loc-cfg-file", LOG)
+    private final ExecutorService notificationsThreadPool = Executors.newFixedThreadPool(
+            2, new NamedThreadFactory("cfg-file", LOG)
     );
 
-    /** Thread pool for configuration updates notifications. */
+    /** Thread pool for configuration updates. */
     private final ExecutorService workerThreadPool = Executors.newFixedThreadPool(
             2, new NamedThreadFactory("cfg-file-worker", LOG)
     );
@@ -116,103 +101,93 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     private long lastRevision = 0L;
 
     /**
-     * Constructor without configuration extensions.
-     *
-     * @param configPath Path to node bootstrap configuration file.
-     * @param rootKeys Configuration root keys.
-     */
-    public LocalFileConfigurationStorage(Path configPath, Collection<RootKey<?, ?>> rootKeys) {
-        this(configPath, rootKeys, Collections.emptyList(), Collections.emptyList());
-    }
-
-    /**
      * Constructor.
      *
      * @param configPath Path to node bootstrap configuration file.
-     * @param rootKeys Configuration root keys.
-     * @param internalSchemaExtensions Internal schema extensions.
-     * @param polymorphicSchemaExtensions Polymorphic schema extensions.
+     * @param generator Configuration tree generator.
      */
-    public LocalFileConfigurationStorage(Path configPath, Collection<RootKey<?, ?>> rootKeys,
-            Collection<Class<?>> internalSchemaExtensions, Collection<Class<?>> polymorphicSchemaExtensions) {
+    public LocalFileConfigurationStorage(Path configPath, ConfigurationTreeGenerator generator) {
         this.configPath = configPath;
-        this.rootKeys = rootKeys.stream().collect(toMap(RootKey::key, identity()));
+        this.generator = generator;
         this.tempConfigPath = configPath.resolveSibling(configPath.getFileName() + ".tmp");
 
-        Map<Class<?>, Set<Class<?>>> internalExtensions = internalSchemaExtensions(internalSchemaExtensions);
-        Map<Class<?>, Set<Class<?>>> polymorphicExtensions = polymorphicSchemaExtensions(polymorphicSchemaExtensions);
-
-        rootKeys.forEach(key -> cgen.compileRootSchema(key.schemaClass(), internalExtensions, polymorphicExtensions));
-
         checkAndRestoreConfigFile();
-    }
-
-    private static void setValues(SuperRoot target, Config source) {
-        HoconConverter.hoconSource(source.root()).descend(target);
     }
 
     @Override
     public CompletableFuture<Data> readDataOnRecovery() {
-        return writeLockAsync(() -> {
-            SuperRoot superRoot = createSuperRoot();
-            SuperRoot copiedSuperRoot = superRoot.copy();
+        return async(() -> {
+            lock.writeLock().lock();
+            try {
+                SuperRoot superRoot = generator.createSuperRoot();
+                SuperRoot copiedSuperRoot = superRoot.copy();
 
-            Config hocon = readHoconFromFile();
-            setValues(copiedSuperRoot, hocon);
+                Config hocon = readHoconFromFile();
+                HoconConverter.hoconSource(hocon.root()).descend(copiedSuperRoot);
 
-            addDefaults(copiedSuperRoot);
+                addDefaults(copiedSuperRoot);
 
-            Map<String, Serializable> flattenedUpdatesMap = createFlattenedUpdatesMap(superRoot, copiedSuperRoot);
+                Map<String, Serializable> flattenedUpdatesMap = createFlattenedUpdatesMap(superRoot, copiedSuperRoot);
 
-            latest.putAll(flattenedUpdatesMap);
+                latest.putAll(flattenedUpdatesMap);
 
-            return new Data(flattenedUpdatesMap, lastRevision);
+                return new Data(flattenedUpdatesMap, lastRevision);
+            } finally {
+                lock.writeLock().unlock();
+            }
         });
     }
 
-
     private Config readHoconFromFile() {
         checkAndRestoreConfigFile();
+
         return ConfigFactory.parseFile(configPath.toFile(), ConfigParseOptions.defaults().setAllowMissing(false));
-    }
-
-    @NotNull
-    private SuperRoot createSuperRoot() {
-        SuperRoot superRoot = new SuperRoot(rootCreator());
-        for (RootKey<?, ?> rootKey : rootKeys.values()) {
-            superRoot.addRoot(rootKey, createRootNode(rootKey));
-        }
-
-        return superRoot;
     }
 
     @Override
     public CompletableFuture<Map<String, ? extends Serializable>> readAllLatest(String prefix) {
-        return readLockAsync(() ->
-                latest.entrySet()
+        return async(() -> {
+            lock.readLock().lock();
+            try {
+                return latest.entrySet()
                         .stream()
                         .filter(entry -> entry.getKey().startsWith(prefix))
-                        .collect(toMap(Entry::getKey, Entry::getValue))
-        );
+                        .collect(toMap(Entry::getKey, Entry::getValue));
+            } finally {
+                lock.readLock().unlock();
+            }
+        });
     }
 
     @Override
     public CompletableFuture<Serializable> readLatest(String key) {
-        return readLockAsync(() -> latest.get(key));
+        return async(() -> {
+            lock.readLock().lock();
+            try {
+                return latest.get(key);
+            } finally {
+                lock.readLock().unlock();
+            }
+        });
     }
 
     @Override
     public CompletableFuture<Boolean> write(Map<String, ? extends Serializable> newValues, long ver) {
-        return writeLockAsync(() -> {
-            if (ver != lastRevision) {
-                return false;
+        return async(() -> {
+            lock.writeLock().lock();
+            try {
+                if (ver != lastRevision) {
+                    return false;
+                }
+
+                mergeAndSave(newValues);
+
+                sendNotificationAsync(new Data(newValues, lastRevision));
+
+                return true;
+            } finally {
+                lock.writeLock().unlock();
             }
-
-            mergeAndSave(newValues);
-
-            runAsync(() -> lsnrRef.get().onEntriesChanged(new Data(newValues, lastRevision)));
-
-            return true;
         });
     }
 
@@ -230,11 +205,6 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                 latest.put(key, value);
             }
         });
-    }
-
-    private void runAsync(Runnable runnable) {
-        CompletableFuture<Void> future = CompletableFuture.runAsync(runnable, threadPool);
-        futureTracker.registerFuture(future);
     }
 
     @Override
@@ -262,7 +232,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     @Override
     public void close() {
         IgniteUtils.shutdownAndAwaitTermination(workerThreadPool, 10, TimeUnit.SECONDS);
-        IgniteUtils.shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(notificationsThreadPool, 10, TimeUnit.SECONDS);
 
         futureTracker.cancelInFlightFutures();
     }
@@ -293,34 +263,24 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
      */
     private String renderHoconString() {
         // Super root that'll be filled from the storage data.
-        SuperRoot rootNode = new SuperRoot(rootCreator());
+        SuperRoot rootNode = generator.createSuperRoot();
 
         fillFromPrefixMap(rootNode, toPrefixMap(latest));
 
         addDefaults(rootNode);
 
-        ConfigValue conf = ConfigImpl.fromAnyRef(HoconConverter.represent(rootNode, new ConverterToMapVisitor(false)), null);
+        ConfigValue conf = ConfigImpl.fromAnyRef(
+                rootNode.accept(null, new ConverterToMapVisitor(false)), null
+        );
 
-        Config newConfig = ((ConfigObject) conf).toConfig().resolve();
+        return renderConfig((ConfigObject) conf);
+    }
+
+    private static String renderConfig(ConfigObject conf) {
+        Config newConfig = conf.toConfig().resolve();
         return newConfig.isEmpty()
                 ? ""
                 : newConfig.root().render(ConfigRenderOptions.concise().setFormatted(true).setJson(false));
-    }
-
-    private Function<String, RootInnerNode> rootCreator() {
-        return key -> {
-            RootKey<?, ?> rootKey = rootKeys.get(key);
-
-            return rootKey == null ? null : new RootInnerNode(rootKey, createRootNode(rootKey));
-        };
-    }
-
-    private InnerNode createRootNode(RootKey<?, ?> rootKey) {
-        return cgen.instantiateNode(rootKey.schemaClass());
-    }
-
-    private Config parseConfigOptions() {
-        return readHoconFromFile();
     }
 
     /** Check that configuration file still exists and restore it with latest applied state in case it was deleted. */
@@ -340,25 +300,19 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         }
     }
 
-    private <T> CompletableFuture<T> readLockAsync(Supplier<T> supplier) {
-        lock.readLock().lock();
-        try {
-            CompletableFuture<T> future = CompletableFuture.supplyAsync(supplier, workerThreadPool);
-            futureTracker.registerFuture(future);
-            return future;
-        } finally {
-            lock.readLock().unlock();
-        }
+    private <T> CompletableFuture<T> async(Supplier<T> supplier) {
+        CompletableFuture<T> future = CompletableFuture.supplyAsync(supplier, workerThreadPool);
+        futureTracker.registerFuture(future);
+
+        return future;
     }
 
-    private <T> CompletableFuture<T> writeLockAsync(Supplier<T> supplier) {
-        lock.writeLock().lock();
-        try {
-            CompletableFuture<T> future = CompletableFuture.supplyAsync(supplier, workerThreadPool);
-            futureTracker.registerFuture(future);
-            return future;
-        } finally {
-            lock.writeLock().unlock();
-        }
+    private void sendNotificationAsync(Data data) {
+        CompletableFuture<Void> future = CompletableFuture.runAsync(
+                () -> lsnrRef.get().onEntriesChanged(data),
+                notificationsThreadPool
+        );
+
+        futureTracker.registerFuture(future);
     }
 }

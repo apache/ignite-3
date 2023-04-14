@@ -56,8 +56,11 @@ public class ConfigurationRegistryTest {
                         List.of(SecondRootConfiguration.KEY),
                         Set.of(),
                         new TestConfigurationStorage(LOCAL),
-                        List.of(ExtendedFirstRootConfigurationSchema.class),
-                        List.of()
+                        new ConfigurationTreeGenerator(
+                                List.of(SecondRootConfiguration.KEY),
+                                List.of(ExtendedFirstRootConfigurationSchema.class),
+                                List.of()
+                        )
                 )
         );
 
@@ -66,8 +69,11 @@ public class ConfigurationRegistryTest {
                 List.of(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
                 Set.of(),
                 new TestConfigurationStorage(LOCAL),
-                List.of(ExtendedFirstRootConfigurationSchema.class),
-                List.of()
+                new ConfigurationTreeGenerator(
+                        List.of(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
+                        List.of(ExtendedFirstRootConfigurationSchema.class),
+                        List.of()
+                )
         );
 
         configRegistry.stop();
@@ -82,8 +88,11 @@ public class ConfigurationRegistryTest {
                         List.of(ThirdRootConfiguration.KEY),
                         Set.of(),
                         new TestConfigurationStorage(LOCAL),
-                        List.of(),
-                        List.of(Second0PolymorphicConfigurationSchema.class)
+                        new ConfigurationTreeGenerator(
+                                List.of(ThirdRootConfiguration.KEY),
+                                List.of(),
+                                List.of(Second0PolymorphicConfigurationSchema.class)
+                        )
                 )
         );
 
@@ -94,8 +103,11 @@ public class ConfigurationRegistryTest {
                         List.of(ThirdRootConfiguration.KEY),
                         Set.of(),
                         new TestConfigurationStorage(LOCAL),
-                        List.of(),
-                        List.of(First0PolymorphicConfigurationSchema.class, ErrorFirst0PolymorphicConfigurationSchema.class)
+                        new ConfigurationTreeGenerator(
+                                List.of(ThirdRootConfiguration.KEY),
+                                List.of(),
+                                List.of(First0PolymorphicConfigurationSchema.class, ErrorFirst0PolymorphicConfigurationSchema.class)
+                        )
                 )
         );
 
@@ -104,13 +116,16 @@ public class ConfigurationRegistryTest {
                 List.of(ThirdRootConfiguration.KEY, FourthRootConfiguration.KEY, FifthRootConfiguration.KEY),
                 Set.of(),
                 new TestConfigurationStorage(LOCAL),
-                List.of(),
-                List.of(
-                        First0PolymorphicConfigurationSchema.class,
-                        First1PolymorphicConfigurationSchema.class,
-                        Second0PolymorphicConfigurationSchema.class,
-                        Third0PolymorphicConfigurationSchema.class,
-                        Third1PolymorphicConfigurationSchema.class
+                new ConfigurationTreeGenerator(
+                        List.of(ThirdRootConfiguration.KEY, FourthRootConfiguration.KEY, FifthRootConfiguration.KEY),
+                        List.of(),
+                        List.of(
+                                First0PolymorphicConfigurationSchema.class,
+                                First1PolymorphicConfigurationSchema.class,
+                                Second0PolymorphicConfigurationSchema.class,
+                                Third0PolymorphicConfigurationSchema.class,
+                                Third1PolymorphicConfigurationSchema.class
+                        )
                 )
         );
 
@@ -125,8 +140,11 @@ public class ConfigurationRegistryTest {
                         List.of(ThirdRootConfiguration.KEY),
                         Set.of(),
                         new TestConfigurationStorage(LOCAL),
-                        List.of(),
-                        List.of()
+                        new ConfigurationTreeGenerator(
+                                List.of(ThirdRootConfiguration.KEY),
+                                List.of(),
+                                List.of()
+                        )
                 )
         );
 
@@ -141,8 +159,11 @@ public class ConfigurationRegistryTest {
                 List.of(SixthRootConfiguration.KEY),
                 Set.of(),
                 new TestConfigurationStorage(LOCAL),
-                List.of(),
-                List.of(Fourth0PolymorphicConfigurationSchema.class)
+                new ConfigurationTreeGenerator(
+                        List.of(SixthRootConfiguration.KEY),
+                        List.of(),
+                        List.of(Fourth0PolymorphicConfigurationSchema.class)
+                )
         );
 
         registry.start();
@@ -170,8 +191,11 @@ public class ConfigurationRegistryTest {
                 List.of(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
                 Set.of(),
                 storage,
-                List.of(),
-                List.of()
+                new ConfigurationTreeGenerator(
+                        List.of(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
+                        List.of(),
+                        List.of()
+                )
         );
 
         registry.start();

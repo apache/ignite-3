@@ -37,8 +37,8 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.TestConfigurationChanger;
-import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.hamcrest.Matchers;
@@ -46,7 +46,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -56,27 +55,24 @@ public class LocalFileConfigurationStorageTest {
 
     private static final String CONFIG_NAME = "ignite-config.conf";
 
-    private static ConfigurationAsmGenerator cgen;
+    private static ConfigurationTreeGenerator treeGenerator = new ConfigurationTreeGenerator(List.of(TopConfiguration.KEY));
 
     @WorkDirectory
     private Path tmpDir;
 
-    /** Test configuration storage. */
     private LocalFileConfigurationStorage storage;
 
-    /** Test configuration changer. */
     private TestConfigurationChanger changer;
 
-    /** Instantiates {@link #cgen}. */
     @BeforeAll
     public static void beforeAll() {
-        cgen = new ConfigurationAsmGenerator();
+        treeGenerator = new ConfigurationTreeGenerator(List.of(TopConfiguration.KEY));
     }
 
-    /** Nullifies {@link #cgen} to prevent memory leak from having runtime ClassLoader accessible from GC root. */
+    /** Nullifies {@link #treeGenerator} to prevent memory leak from having runtime ClassLoader accessible from GC root. */
     @AfterAll
     public static void afterAll() {
-        cgen = null;
+        treeGenerator = null;
     }
 
     private Path getConfigFile() {
@@ -85,15 +81,13 @@ public class LocalFileConfigurationStorageTest {
 
     @BeforeEach
     void before() {
-        storage = new LocalFileConfigurationStorage(getConfigFile(), List.of(TopConfiguration.KEY));
+        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator);
 
         changer = new TestConfigurationChanger(
-                cgen,
                 List.of(TopConfiguration.KEY),
                 Set.of(),
                 storage,
-                List.of(),
-                List.of()
+                treeGenerator
         );
 
         changer.start();
@@ -104,8 +98,9 @@ public class LocalFileConfigurationStorageTest {
         changer.stop();
     }
 
+
+    /** Default values are not enriched on read when the config file is empty. */
     @Test
-    @DisplayName("Default values are not added enriched on read when the config file is empty")
     void empty() throws IOException {
         // Given
         assertThat(configFileContent(), emptyString());
@@ -117,13 +112,15 @@ public class LocalFileConfigurationStorageTest {
         assertThat(storageValues.entrySet(), hasSize(1));
     }
 
+    /** Named list entities can be added. */
     @Test
-    @DisplayName("Named list entities can be added")
     void add() throws Exception {
         // Given
         assertThat(configFileContent(), emptyString());
+
         // And
-        var topConfiguration = (TopConfiguration) cgen.instantiateCfg(TopConfiguration.KEY, changer);
+        var topConfiguration = (TopConfiguration) treeGenerator.instantiateCfg(TopConfiguration.KEY, changer);
+
         topConfiguration.namedList().change(b -> b.create("name1", x -> {
             x.changeStrVal("strVal1");
             x.changeIntVal(-1);
@@ -135,6 +132,7 @@ public class LocalFileConfigurationStorageTest {
         // Then
         assertThat(storageValues, allOf(aMapWithSize(6), hasValue(-1)));
         assertThat(storageValues, allOf(aMapWithSize(6), hasValue("strVal1")));
+
         // And
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
@@ -183,14 +181,15 @@ public class LocalFileConfigurationStorageTest {
         ));
     }
 
-    @DisplayName("Update values")
+    /** Update values. */
     @Test
     void update() throws Exception {
         // Given
         assertThat(configFileContent(), emptyString());
 
         // When
-        var topConfiguration = (TopConfiguration) cgen.instantiateCfg(TopConfiguration.KEY, changer);
+        var topConfiguration = (TopConfiguration) treeGenerator.instantiateCfg(TopConfiguration.KEY, changer);
+
         topConfiguration.shortVal().update((short) 3).get();
         // And
         var storageValues = readAllLatest();
@@ -254,11 +253,12 @@ public class LocalFileConfigurationStorageTest {
         ));
     }
 
-    @DisplayName("Remove values")
+    /** Remove values. */
     @Test
     void remove() throws Exception {
         // Given
-        var topConfiguration = (TopConfiguration) cgen.instantiateCfg(TopConfiguration.KEY, changer);
+        var topConfiguration = (TopConfiguration) treeGenerator.instantiateCfg(TopConfiguration.KEY, changer);
+
         topConfiguration.namedList().change(b -> {
             b.create("name1", x -> {
                 x.changeStrVal("strVal1");
@@ -269,6 +269,7 @@ public class LocalFileConfigurationStorageTest {
                 x.changeIntVal(-2);
             });
         }).get();
+
         topConfiguration.shortVal().update((short) 3).get();
         // And values are saved to file
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
@@ -326,7 +327,7 @@ public class LocalFileConfigurationStorageTest {
         ));
     }
 
-    @DisplayName("Delete file before read on recovery")
+    /** Delete file before read on recovery. */
     @Test
     void deleteFileBeforeReadOnRecovery() throws IOException {
         // Given
@@ -346,7 +347,7 @@ public class LocalFileConfigurationStorageTest {
         ));
     }
 
-    @DisplayName("Delete file before read all")
+    /** Delete file before read all. */
     @Test
     void deleteFileBeforeReadAll() throws Exception {
         // Given
@@ -361,11 +362,11 @@ public class LocalFileConfigurationStorageTest {
         assertThat(Files.exists(getConfigFile()), is(false));
 
         // When update configuration
-        var topConfiguration = (TopConfiguration) cgen.instantiateCfg(TopConfiguration.KEY, changer);
+        var topConfiguration = (TopConfiguration) treeGenerator.instantiateCfg(TopConfiguration.KEY, changer);
         topConfiguration.namedList().change(b -> b.create("name1", x -> {
-                x.changeStrVal("strVal1");
-                x.changeIntVal(-1);
-            })).get();
+            x.changeStrVal("strVal1");
+            x.changeIntVal(-1);
+        })).get();
 
         // Then file is created
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
@@ -382,6 +383,8 @@ public class LocalFileConfigurationStorageTest {
         ));
     }
 
+    // todo: defaults store
+
     private String configFileContent() throws IOException {
         return Files.readString(getConfigFile());
     }
@@ -389,11 +392,6 @@ public class LocalFileConfigurationStorageTest {
     private Map<String, ? extends Serializable> readAllLatest() {
         return storage.readAllLatest("").join();
     }
-
-    // null == remove
-
-    // when read file you can see all values
-    //
 
     /** Root that has a single named list. */
     @ConfigurationRoot(rootName = "top")

@@ -61,6 +61,7 @@ import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigReadException;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
@@ -298,14 +299,17 @@ public class IgniteImpl implements Ignite {
 
         ConfigurationModules modules = loadConfigurationModules(serviceProviderClassLoader);
 
+        ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
+                modules.local().rootKeys(),
+                modules.local().internalSchemaExtensions(),
+                modules.local().polymorphicSchemaExtensions()
+        );
+
         nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
                 modules.local().validators(),
-                new LocalFileConfigurationStorage(configPath, modules.local().rootKeys(),
-                        modules.local().internalSchemaExtensions(),
-                        modules.local().polymorphicSchemaExtensions()),
-                modules.local().internalSchemaExtensions(),
-                modules.local().polymorphicSchemaExtensions()
+                new LocalFileConfigurationStorage(configPath, generator),
+                generator
         );
 
         ConfigurationRegistry nodeConfigRegistry = nodeCfgMgr.configurationRegistry();
@@ -391,8 +395,7 @@ public class IgniteImpl implements Ignite {
                 modules.distributed().rootKeys(),
                 modules.distributed().validators(),
                 cfgStorage,
-                modules.distributed().internalSchemaExtensions(),
-                modules.distributed().polymorphicSchemaExtensions()
+                generator
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
