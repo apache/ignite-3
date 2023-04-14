@@ -537,18 +537,11 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
          * is less or equal than half of {@link #IO_BATCH_CNT}.
          */
         void requestNextBatchIfNeeded() throws IgniteInternalCheckedException {
-            int inFlightCount = lastRequested - lastEnqueued;
+            int maxInFlightCount = Math.max(IO_BATCH_CNT, 1);
+            int currentInFlightCount = lastRequested - lastEnqueued;
 
-            // IO_BATCH_CNT should never be less than 1, but we don't have validation
-            if (IO_BATCH_CNT <= 1 && inFlightCount == 0) {
-                batchRequester.request(1, sharedStateHolder);
-
-                lastRequested++;
-
-                // shared state should be send only once until next rewind
-                sharedStateHolder = null;
-            } else if (IO_BATCH_CNT / 2 >= inFlightCount) {
-                int countOfBatches = IO_BATCH_CNT - inFlightCount;
+            if (maxInFlightCount / 2 >= currentInFlightCount) {
+                int countOfBatches = maxInFlightCount - currentInFlightCount;
 
                 lastRequested += countOfBatches;
 

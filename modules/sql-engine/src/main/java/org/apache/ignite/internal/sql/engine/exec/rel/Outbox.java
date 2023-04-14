@@ -302,7 +302,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     }
 
     /**
-     * Enqueue current rewind request, the tries to process rewind queue requests (in order) if possible.
+     * Enqueue current rewind request, then tries to process rewind queue requests (in order) if possible.
      *
      * @param nodeName Requester node name.
      * @param state Shared state.
@@ -329,6 +329,8 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
      * @throws Exception If failed to send the request.
      */
     private void processRewindQueue() throws Exception {
+        assert currentNode == null;
+
         RewindRequest rewind = rewindQueue.poll();
 
         if (rewind == null) {
@@ -343,7 +345,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         onRequest(currentNode, rewind.amountOfBatches);
     }
 
-    static final class RemoteDownstream<RowT> {
+    private static final class RemoteDownstream<RowT> {
         @FunctionalInterface
         private interface BatchSender<RowT> {
             void send(String targetNodeName, int batchId, boolean last, List<RowT> rows) throws IgniteInternalCheckedException;
@@ -521,7 +523,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     /**
      * Request, which requires rewind.
      */
-    static class RewindRequest {
+    private static class RewindRequest {
         final String nodeName;
         final SharedState state;
         final int amountOfBatches;
