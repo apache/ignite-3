@@ -88,6 +88,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -201,7 +202,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     /** Stop configuration manager. */
     @AfterEach
-    void after() {
+    void after() throws Exception {
         try {
             Objects.requireNonNull(queryProc).stop();
         } catch (Exception e) {
@@ -561,7 +562,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 null,
                 clock,
                 mock(OutgoingSnapshotsManager.class),
-                mock(TopologyAwareRaftGroupServiceFactory.class)
+                mock(TopologyAwareRaftGroupServiceFactory.class),
+                mock(VaultManager.class)
         );
 
         tableManager.start();

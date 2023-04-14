@@ -107,6 +107,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -371,7 +372,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * Tests a work of the public API for Table manager {@see org.apache.ignite.table.manager.IgniteTables} when the manager is stopping.
      */
     @Test
-    public void testApiTableManagerOnStop() {
+    public void testApiTableManagerOnStop() throws Exception {
         createTableManager(tblManagerFut);
 
         TableManager tableManager = tblManagerFut.join();
@@ -421,7 +422,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * stopping.
      */
     @Test
-    public void testInternalApiTableManagerOnStop() {
+    public void testInternalApiTableManagerOnStop() throws Exception {
         createTableManager(tblManagerFut);
 
         TableManager tableManager = tblManagerFut.join();
@@ -835,7 +836,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 budgetView -> new LocalLogStorageFactory(),
                 new HybridClockImpl(),
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
-                mock(TopologyAwareRaftGroupServiceFactory.class)
+                mock(TopologyAwareRaftGroupServiceFactory.class),
+                mock(VaultManager.class)
         ) {
 
             @Override

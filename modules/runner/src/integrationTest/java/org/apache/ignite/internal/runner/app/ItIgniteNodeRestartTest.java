@@ -396,7 +396,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 view -> new LocalLogStorageFactory(),
                 hybridClock,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
-                topologyAwareRaftGroupServiceFactory
+                topologyAwareRaftGroupServiceFactory,
+                vault
         );
 
         var indexManager = new IndexManager(name, tablesConfiguration, schemaManager, tableManager, clusterSvc);

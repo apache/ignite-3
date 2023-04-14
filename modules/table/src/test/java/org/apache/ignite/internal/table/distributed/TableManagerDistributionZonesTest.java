@@ -90,6 +90,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Outgo
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.utils.RebalanceUtil;
+import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -251,7 +252,8 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
                 null,
                 null,
                 mock(OutgoingSnapshotsManager.class),
-                mock(TopologyAwareRaftGroupServiceFactory.class)
+                mock(TopologyAwareRaftGroupServiceFactory.class),
+                mock(VaultManager.class)
         );
     }
 
