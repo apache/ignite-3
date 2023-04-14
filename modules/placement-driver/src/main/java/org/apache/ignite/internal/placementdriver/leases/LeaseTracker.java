@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdriver;
+package org.apache.ignite.internal.placementdriver.leases;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
+import static org.apache.ignite.internal.placementdriver.leases.Lease.EMPTY_LEASE;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -111,7 +112,7 @@ public class LeaseTracker {
      * @return A lease is associated with the group.
      */
     public @NotNull Lease getLease(ReplicationGroupId grpId) {
-        return leases.getOrDefault(grpId, Lease.EMPTY_LEASE);
+        return leases.getOrDefault(grpId, EMPTY_LEASE);
     }
 
     private static String incrementLastChar(String str) {

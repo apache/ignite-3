@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones.configuration;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_FILTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
@@ -74,5 +75,5 @@ public class DistributionZoneConfigurationSchema {
      */
     @ValidFilter
     @Value(hasDefault = true)
-    public String filter = "$..*";
+    public String filter = DEFAULT_FILTER;
 }

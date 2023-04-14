@@ -15,19 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication;
-
-import org.apache.ignite.security.AuthenticationException;
+package org.apache.ignite.client;
 
 /**
- * General interface for all authenticators.
+ * Ignite client authenticator. Provides authentication information during server handshake.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface Authenticator {
+public interface IgniteClientAuthenticator {
+    /**
+     * Authenticator type.
+     *
+     * @return Authenticator type.
+     */
+    String type();
 
     /**
-     * Authenticates a user with the given request.
-     * If a successful authentication is returned, the object must be an instance of {@link UserDetails}.
+     * Identity.
+     *
+     * @return Identity.
      */
-    UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) throws AuthenticationException;
+    Object identity();
+
+    /**
+     * Secret.
+     *
+     * @return Secret.
+     */
+    Object secret();
 }
