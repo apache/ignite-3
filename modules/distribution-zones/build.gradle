@@ -34,9 +34,9 @@ dependencies {
     implementation project(':ignite-vault')
     implementation project(':ignite-schema')
 
-    implementation libs.jetbrains.annotations
-    implementation libs.fastutil.core
     implementation libs.auto.service.annotations
+    implementation libs.fastutil.core
+    implementation libs.jetbrains.annotations
     implementation(libs.jsonpath.core) {
         //IDEA test runner doesn't apply Gradle dependency resolve strategy, this is just not implemented
         //So, exclude asm-core transitive dependency to protect of jar-hell.

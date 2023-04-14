@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.security.authentication;
 
-import org.apache.ignite.internal.security.exception.AuthenticationException;
+import org.apache.ignite.security.AuthenticationException;
 
 /**
  * General interface for all authenticators.
  */
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface Authenticator {
 
     /**

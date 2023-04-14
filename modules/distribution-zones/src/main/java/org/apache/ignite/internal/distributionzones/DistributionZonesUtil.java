@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.emptyMap;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -33,6 +34,7 @@ import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -411,5 +413,50 @@ public class DistributionZonesUtil {
         }
 
         return null;
+    }
+
+    /**
+     * Check if {@code nodeAttributes} satisfy the {@code filter}.
+     *
+     * <p>Some examples:
+     * <ol>
+     *     <li>Node attributes: ("region" -> "US", "storage" -> "SSD"); filter: "$[?(@.region == 'US')]"; result: true</li>
+     *     <li>Node attributes: ("region" -> "US"); filter: "$[?(@.storage == 'SSD' && @.region == 'US')]"; result: false</li>
+     *     <li>Node attributes: ("region" -> "US"); filter: "$[?(@.storage == 'SSD']"; result: false</li>
+     *     <li>Node attributes: ("region" -> "US"); filter: "$[?(@.storage != 'SSD']"; result: true</li>
+     *     <li>Node attributes: ("region" -> "US", "dataRegionSize: 10); filter: "$[?(@.region == 'EU' || @.dataRegionSize > 5)]";
+     *     result: true</li>
+     * </ol>
+     * Note, that in the example 4 we can see, that {@code JsonPath} threats missed 'storage' attribute as an attribute, that passes
+     * {@code $[?(@.storage != 'SSD']}. If it is needed, that node without 'storage' does not pass a filter, it's needed to use EXISTS
+     * logic for that attribute, like {@code $[?(@.storage && @.storage != 'SSD']}
+     *
+     * @param nodeAttributes Key value map of node's attributes.
+     * @param filter Valid {@link JsonPath} filter of JSON fields.
+     * @return True if {@code nodeAttributes} satisfy {@code filter}, false otherwise. Returns true if {@code nodeAttributes} is empty.
+     */
+    public static boolean filter(Map<String, String> nodeAttributes, String filter) {
+        // We need to convert numbers to Long objects, so they could be parsed to numbers in JSON.
+        // nodeAttributes has String values of numbers because nodeAttributes come from configuration,
+        // but configuration does not support Object as a configuration value.
+        Map<String, Object> convertedAttributes = nodeAttributes.entrySet().stream()
+                .collect(
+                        toMap(
+                                Map.Entry::getKey,
+                                e -> {
+                                    long res;
+
+                                    try {
+                                        res = Long.parseLong(e.getValue());
+                                    } catch (NumberFormatException ignored) {
+                                        return e.getValue();
+                                    }
+                                    return res;
+                                })
+                );
+
+        List<Map<String, Object>> res = JsonPath.read(convertedAttributes, filter);
+
+        return !res.isEmpty();
     }
 }

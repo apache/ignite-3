@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rest.api.cluster;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Objects;
@@ -26,8 +27,8 @@ import java.util.UUID;
 /**
  * REST representation of internal ClusterTag.
  */
-@Schema(name = "ClusterTag", description = "Unique tag that identifies the cluster.")
-public class ClusterTagDto {
+@Schema(description = "Unique tag that identifies the cluster.")
+public class ClusterTag {
     /** Auto-generated part. */
     @Schema(description = "Unique cluster UUID. Generated automatically.")
     private final UUID clusterId;
@@ -37,17 +38,20 @@ public class ClusterTagDto {
     private final String clusterName;
 
     @JsonCreator
-    public ClusterTagDto(@JsonProperty("clusterName") String clusterName, @JsonProperty("clusterId") UUID clusterId) {
+    public ClusterTag(
+            @JsonProperty("clusterName") String clusterName,
+            @JsonProperty("clusterId") UUID clusterId
+    ) {
         this.clusterName = clusterName;
         this.clusterId = clusterId;
     }
 
-    @JsonProperty
+    @JsonGetter("clusterId")
     public UUID clusterId() {
         return clusterId;
     }
 
-    @JsonProperty
+    @JsonGetter("clusterName")
     public String clusterName() {
         return clusterName;
     }
@@ -60,7 +64,7 @@ public class ClusterTagDto {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        ClusterTagDto that = (ClusterTagDto) o;
+        ClusterTag that = (ClusterTag) o;
         return clusterId.equals(that.clusterId) && clusterName.equals(that.clusterName);
     }
 

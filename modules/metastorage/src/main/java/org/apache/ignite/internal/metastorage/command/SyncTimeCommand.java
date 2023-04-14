@@ -15,19 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.metastorage.command;
 
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * An entity that stores underlying data in a {@link BinaryTuple}.
+ * Command that initiates idle safe time synchronization.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface BinaryTupleContainer {
-    /**
-     * Returns the underlying binary tuple, if present.
-     *
-     * @return Underlying binary tuple.
-     */
-    @Nullable BinaryTuple binaryTuple();
+@Transferable(MetastorageCommandsMessageGroup.SYNC_TIME)
+public interface SyncTimeCommand extends WriteCommand {
+    /** New safe time. */
+    HybridTimestampMessage safeTime();
 }

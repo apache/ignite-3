@@ -41,8 +41,8 @@ public enum CliConfigKeys {
     /** Default JDBC URL property name. */
     JDBC_URL(Constants.JDBC_URL),
 
-    /** Basic authentication login. */
-    BASIC_AUTHENTICATION_LOGIN(Constants.BASIC_AUTHENTICATION_LOGIN),
+    /** Basic authentication username. */
+    BASIC_AUTHENTICATION_USERNAME(Constants.BASIC_AUTHENTICATION_USERNAME),
 
     /** Basic authentication password. */
     BASIC_AUTHENTICATION_PASSWORD(Constants.BASIC_AUTHENTICATION_PASSWORD);
@@ -69,7 +69,7 @@ public enum CliConfigKeys {
 
         public static final String JDBC_URL = "ignite.jdbc-url";
 
-        public static final String BASIC_AUTHENTICATION_LOGIN = "ignite.auth.basic.login";
+        public static final String BASIC_AUTHENTICATION_USERNAME = "ignite.auth.basic.username";
 
         public static final String BASIC_AUTHENTICATION_PASSWORD = "ignite.auth.basic.password";
     }

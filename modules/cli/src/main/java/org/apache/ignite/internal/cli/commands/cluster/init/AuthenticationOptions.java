@@ -20,12 +20,12 @@ package org.apache.ignite.internal.cli.commands.cluster.init;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.AUTHENTICATION_ENABLED_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.AUTHENTICATION_ENABLED_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.AUTHENTICATION_ENABLED_OPTION_SHORT;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.BASIC_AUTHENTICATION_LOGIN_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.BASIC_AUTHENTICATION_LOGIN_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.BASIC_AUTHENTICATION_LOGIN_OPTION_SHORT;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.BASIC_AUTHENTICATION_PASSWORD_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.BASIC_AUTHENTICATION_PASSWORD_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.BASIC_AUTHENTICATION_PASSWORD_OPTION_SHORT;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.BASIC_AUTHENTICATION_USERNAME_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.BASIC_AUTHENTICATION_USERNAME_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.BASIC_AUTHENTICATION_USERNAME_OPTION_SHORT;
 
 import picocli.CommandLine.Option;
 
@@ -38,8 +38,8 @@ public class AuthenticationOptions {
             description = AUTHENTICATION_ENABLED_OPTION_DESC)
     private boolean enabled;
 
-    @Option(names = {BASIC_AUTHENTICATION_LOGIN_OPTION, BASIC_AUTHENTICATION_LOGIN_OPTION_SHORT},
-            description = BASIC_AUTHENTICATION_LOGIN_OPTION_DESC)
+    @Option(names = {BASIC_AUTHENTICATION_USERNAME_OPTION, BASIC_AUTHENTICATION_USERNAME_OPTION_SHORT},
+            description = BASIC_AUTHENTICATION_USERNAME_OPTION_DESC)
     private String basicLogin;
 
     @Option(names = {BASIC_AUTHENTICATION_PASSWORD_OPTION, BASIC_AUTHENTICATION_PASSWORD_OPTION_SHORT},

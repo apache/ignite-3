@@ -21,33 +21,32 @@ import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.swagger.v3.oas.annotations.media.DiscriminatorMapping;
 import io.swagger.v3.oas.annotations.media.Schema;
-import org.apache.ignite.security.AuthenticationProviderConfig;
 import org.apache.ignite.security.AuthenticationType;
 
 /**
- * REST representation of {@link AuthenticationProviderConfig}.
+ * REST representation of {@link org.apache.ignite.security.AuthenticationProviderConfig}.
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME,
         include = JsonTypeInfo.As.PROPERTY,
         property = "type")
 @JsonSubTypes({
-        @JsonSubTypes.Type(value = BasicAuthenticationProviderConfigDto.class, names = {"basic", "BASIC"})
+        @JsonSubTypes.Type(value = BasicAuthenticationProviderConfig.class, names = {"basic", "BASIC"})
 })
 @Schema(
         name = "AuthenticationProviderConfig",
         description = "Configuration for the authentication provider.",
         discriminatorProperty = "type",
         discriminatorMapping = {
-                @DiscriminatorMapping(value = "basic", schema = BasicAuthenticationProviderConfigDto.class)
+                @DiscriminatorMapping(value = "basic", schema = BasicAuthenticationProviderConfig.class)
         },
         oneOf = {
-                BasicAuthenticationProviderConfigDto.class
+                BasicAuthenticationProviderConfig.class
         },
         subTypes = {
-                BasicAuthenticationProviderConfigDto.class
+                BasicAuthenticationProviderConfig.class
         }
 )
-public interface AuthenticationProviderConfigDto {
+public interface AuthenticationProviderConfig {
 
     /** Authentication type. */
     AuthenticationType type();

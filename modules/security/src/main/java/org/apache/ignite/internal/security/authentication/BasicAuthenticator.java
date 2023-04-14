@@ -20,19 +20,19 @@ package org.apache.ignite.internal.security.authentication;
 /** Implementation of basic authenticator. */
 class BasicAuthenticator implements Authenticator {
 
-    private final String login;
+    private final String username;
 
     private final String password;
 
-    public BasicAuthenticator(String login, String password) {
-        this.login = login;
+    public BasicAuthenticator(String username, String password) {
+        this.username = username;
         this.password = password;
     }
 
     @Override
     public UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) {
-        if (login.equals(authenticationRequest.getIdentity()) && password.equals(authenticationRequest.getSecret())) {
-            return new UserDetails(login);
+        if (username.equals(authenticationRequest.getIdentity()) && password.equals(authenticationRequest.getSecret())) {
+            return new UserDetails(username);
         } else {
             return null;
         }

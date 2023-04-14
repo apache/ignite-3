@@ -15,27 +15,27 @@
  * limitations under the License.
  */
 
-#pragma once
+package org.apache.ignite.internal.metastorage.command;
 
-#include <ignite/common/ignite_type.h>
+import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
-namespace ignite {
+/** Message with a {@link HybridTimestamp}. */
+@Transferable(MetastorageCommandsMessageGroup.HYBRID_TS)
+public interface HybridTimestampMessage extends NetworkMessage, Serializable {
+    /**
+     * Returns physical time.
+     */
+    long physical();
 
-/**
- * @brief Basic column info.
- */
-struct column_info {
-    /** Data type of the values in this column. */
-    ignite_type type;
+    /**
+     * Returns logical time.
+     */
+    int logical();
 
-    /** True if the column values may be NULL, false otherwise. */
-    bool nullable;
-
-    bool operator==(const column_info &other) const noexcept {
-        return type == other.type && nullable == other.nullable;
+    default HybridTimestamp asHybridTimestamp() {
+        return new HybridTimestamp(physical(), logical());
     }
-
-    bool operator!=(const column_info &other) const noexcept { return !(operator==(other)); }
-};
-
-} // namespace ignite
+}

@@ -138,6 +138,12 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Id of the default distribution zone. */
     public static final int DEFAULT_ZONE_ID = 0;
 
+    /**
+     * Default filter value for a distribution zone,
+     * which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes of nodes.
+     */
+    public static final String DEFAULT_FILTER = "$..*";
+
     /** Default number of zone replicas. */
     public static final int DEFAULT_REPLICA_COUNT = 1;
 
