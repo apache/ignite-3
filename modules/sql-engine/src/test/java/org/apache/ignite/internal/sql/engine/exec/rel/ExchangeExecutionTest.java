@@ -398,64 +398,61 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
 
         // Force root1 put correlates into the request.
         await(root.rewind());
-        {
-            // Root1 starts fetching data.
-            BatchedResult<Object[]> res = await(root.requestNextAsync(500));
+        // Root1 starts fetching data.
+        BatchedResult<Object[]> res = await(root.requestNextAsync(500));
 
-            assertThat(res.items(), hasSize(500));
-            assertThat(res.items().get(0), equalTo(new Object[]{1, 0}));
-            assertThat(res.items(), everyItem(ODD_KEY_MATCHER));
+        assertThat(res.items(), hasSize(500));
+        assertThat(res.items().get(0), equalTo(new Object[]{1, 0}));
+        assertThat(res.items(), everyItem(ODD_KEY_MATCHER));
 
-            // Late root2 rewind, which forces root2 to put correlates into the request.
-            assertThat(root2.rewind(), CompletableFutureMatcher.willSucceedFast());
+        // Late root2 rewind, which forces root2 to put correlates into the request.
+        assertThat(root2.rewind(), CompletableFutureMatcher.willSucceedFast());
 
-            // Root1 continues fetching data.
-            res = await(root.requestNextAsync(500));
+        // Root1 continues fetching data.
+        res = await(root.requestNextAsync(500));
 
-            assertThat(res.items(), hasSize(500));
-            assertThat(res.items().get(0), equalTo(new Object[]{1001, 0}));
-            assertThat(res.items(), everyItem(ODD_KEY_MATCHER));
+        assertThat(res.items(), hasSize(500));
+        assertThat(res.items().get(0), equalTo(new Object[]{1001, 0}));
+        assertThat(res.items(), everyItem(ODD_KEY_MATCHER));
 
-            // Root2 request should wait for rewind.
-            CompletableFuture<BatchedResult<Object[]>> root2ReqFut = root2.requestNextAsync(500);
-            assertThat(root2ReqFut, CompletableFutureExceptionMatcher.willTimeoutFast());
+        // Root2 request should wait for rewind.
+        CompletableFuture<BatchedResult<Object[]>> root2ReqFut = root2.requestNextAsync(500);
+        assertThat(root2ReqFut, CompletableFutureExceptionMatcher.willTimeoutFast());
 
-            // Root1 continues fetching the data.
-            res = await(root.requestNextAsync(500));
-            assertThat(res.items(), hasSize(500));
-            assertThat(res.items().get(0), equalTo(new Object[]{2001, 0}));
-            assertThat(res.items(), everyItem(ODD_KEY_MATCHER));
+        // Root1 continues fetching the data.
+        res = await(root.requestNextAsync(500));
+        assertThat(res.items(), hasSize(500));
+        assertThat(res.items().get(0), equalTo(new Object[]{2001, 0}));
+        assertThat(res.items(), everyItem(ODD_KEY_MATCHER));
 
-            // Rewind root1
-            assertFalse(root2ReqFut.isDone());
-            await(root.rewind());
+        // Rewind root1
+        assertFalse(root2ReqFut.isDone());
+        await(root.rewind());
 
-            // Root1 request enqueued wait for rewind, root2 become active.
-            CompletableFuture<BatchedResult<Object[]>> root1ReqFut = root.requestNextAsync(500);
-            assertThat(root1ReqFut, CompletableFutureExceptionMatcher.willTimeoutFast());
+        // Root1 request enqueued wait for rewind, root2 become active.
+        CompletableFuture<BatchedResult<Object[]>> root1ReqFut = root.requestNextAsync(500);
+        assertThat(root1ReqFut, CompletableFutureExceptionMatcher.willTimeoutFast());
 
-            // Root2 can fetch the data.
-            res = await(root2ReqFut);
-            assertThat(res.items(), hasSize(500));
-            assertThat(res.items().get(0), equalTo(new Object[]{2, 1}));
+        // Root2 can fetch the data.
+        res = await(root2ReqFut);
+        assertThat(res.items(), hasSize(500));
+        assertThat(res.items().get(0), equalTo(new Object[]{2, 1}));
+        assertThat(res.items(), everyItem(EVEN_KEY_MATCHER));
+
+        // Root1 is still waiting for rewind.
+        assertFalse(root1ReqFut.isDone());
+
+        // Fetching all the data from root2.
+        while (res.hasMore()) {
+            res = await(root2.requestNextAsync(500));
             assertThat(res.items(), everyItem(EVEN_KEY_MATCHER));
-
-            // Root1 is still waiting for rewind.
-            assertFalse(root1ReqFut.isDone());
-
-
-            // Fetching all the data from root2.
-            while (res.hasMore()) {
-                res = await(root2.requestNextAsync(500));
-                assertThat(res.items(), everyItem(EVEN_KEY_MATCHER));
-            }
-
-            // Now, root1 can fetch data.
-            res = await(root1ReqFut);
-            assertThat(res.items(), hasSize(500));
-            assertThat(res.items().get(0), equalTo(new Object[]{1, 2}));
-            assertThat(res.items(), everyItem(ODD_KEY_MATCHER));
         }
+
+        // Now, root1 can fetch data.
+        res = await(root1ReqFut);
+        assertThat(res.items(), hasSize(500));
+        assertThat(res.items().get(0), equalTo(new Object[]{1, 2}));
+        assertThat(res.items(), everyItem(ODD_KEY_MATCHER));
     }
 
     private RewindableAsyncRoot<Object[], Object[]> createRootFragment(
