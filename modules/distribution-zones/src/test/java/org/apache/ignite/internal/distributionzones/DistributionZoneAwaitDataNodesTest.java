@@ -24,10 +24,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
@@ -114,13 +110,13 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
     private TablesConfiguration tablesConfiguration;
 
     @InjectConfiguration
-    protected DistributionZonesConfiguration zonesConfiguration;
+    private DistributionZonesConfiguration zonesConfiguration;
 
     private WatchListener topologyWatchListener;
 
     private WatchListener dataNodesWatchListener;
 
-    protected SimpleInMemoryKeyValueStorage keyValueStorage;
+    private SimpleInMemoryKeyValueStorage keyValueStorage;
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
@@ -573,25 +569,6 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
                 List.of(
                         Operations.put(zonesLogicalTopologyKey(), toBytes(nodes)),
                         Operations.put(zonesLogicalTopologyVersionKey(), longToBytes(topVer))
-                ),
-                List.of(Operations.noop())
-        );
-
-        assertThat(invokeFuture, willBe(true));
-    }
-
-    private void setNodesWatchInMetaStorage(int zoneId, Set<String> nodes, boolean isScaleUp, long scaleRevision) {
-        byte[] newDataNodes = toBytes(toDataNodesMap(nodes));
-        byte[] newScaleRevision = longToBytes(scaleRevision);
-
-        CompletableFuture<Boolean> invokeFuture = metaStorageManager.invoke(
-                Conditions.exists(zonesLogicalTopologyKey()),
-                List.of(
-                        Operations.put(zoneDataNodesKey(zoneId), newDataNodes),
-                        Operations.put(
-                                isScaleUp ? zoneScaleUpChangeTriggerKey(zoneId) : zoneScaleDownChangeTriggerKey(zoneId),
-                                newScaleRevision
-                        )
                 ),
                 List.of(Operations.noop())
         );
