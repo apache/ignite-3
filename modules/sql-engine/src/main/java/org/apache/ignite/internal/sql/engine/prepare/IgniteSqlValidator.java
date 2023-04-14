@@ -555,28 +555,24 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     protected void inferUnknownTypes(RelDataType inferredType, SqlValidatorScope scope, SqlNode node) {
+        boolean isNullLiteral = SqlUtil.isNullLiteral(node, false);
         //previously inferred type need to be corrected, probably only type inference from dynamic param is significant but input
         // param can be null.
-        if (node instanceof SqlDynamicParam && !inferredType.equals(unknownType)) {
+        if (!isNullLiteral && node instanceof SqlDynamicParam) {
             SqlDynamicParam dynamicParam = (SqlDynamicParam) node;
             RelDataType type = inferDynamicParamType(dynamicParam);
 
-            boolean canCast = !SqlTypeUtil.isNull(type) && SqlTypeUtil.canCastFrom(inferredType, type, true)
+            boolean narrowType = inferredType.equals(unknownType) || SqlTypeUtil.canCastFrom(inferredType, type, true)
                     && SqlTypeUtil.comparePrecision(inferredType.getPrecision(), type.getPrecision()) > 0;
 
-            if (canCast) {
+            if (narrowType) {
                 setValidatedNodeType(node, type);
+
                 return;
             }
         }
 
-        if (node instanceof SqlDynamicParam && inferredType.equals(unknownType)) {
-            SqlDynamicParam dynamicParam = (SqlDynamicParam) node;
-
-            RelDataType type = inferDynamicParamType(dynamicParam);
-
-            setValidatedNodeType(node, type);
-        } else if (node instanceof SqlCall) {
+        if (node instanceof SqlCall) {
             SqlValidatorScope newScope = scopes.get(node);
 
             if (newScope != null) {
