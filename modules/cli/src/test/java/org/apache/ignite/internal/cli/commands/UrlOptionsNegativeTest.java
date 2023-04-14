@@ -104,7 +104,10 @@ public class UrlOptionsNegativeTest {
     NodeNameRegistry nodeNameRegistry;
 
     private void setUp(Class<?> cmdClass) {
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithDefaultProfile());
+        configManagerProvider.configManager = new IniConfigManager(
+                TestConfigManagerHelper.createSectionWithDefaultProfile(),
+                TestConfigManagerHelper.createEmptySecretConfig()
+        );
         MicronautFactory factory = new MicronautFactory(context);
         cmd = new CommandLine(cmdClass, factory)
                 .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
@@ -287,7 +290,10 @@ public class UrlOptionsNegativeTest {
 
     @Test
     void testConnectCommandWithoutParametersWithEmptyConfig() {
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createEmptyConfig());
+        configManagerProvider.configManager = new IniConfigManager(
+                TestConfigManagerHelper.createEmptyConfig(),
+                TestConfigManagerHelper.createEmptySecretConfig()
+        );
         setUp(ConnectReplCommand.class);
         cmd.execute();
 

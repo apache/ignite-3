@@ -17,30 +17,93 @@
 
 package org.apache.ignite.internal.cli.config.ini;
 
-import org.apache.ignite.internal.cli.config.Config;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.Profile;
 
 /**
  * Implementation of {@link Profile} based on {@link IniSection}.
  */
 public class IniProfile implements Profile {
-    private final IniSection section;
+    private final String name;
     private final IniConfig config;
+    private final IniConfig secretConfig;
 
-    public IniProfile(IniSection section, Runnable saveAction) {
-        this.section = section;
-        this.config = new IniConfig(section, saveAction);
+    /**
+     * Constructor.
+     *
+     * @param name Profile name.
+     * @param config Ini config.
+     * @param secretConfig Ini secret config.
+     */
+    public IniProfile(String name, IniConfig config, IniConfig secretConfig) {
+        this.name = name;
+        this.config = config;
+        this.secretConfig = secretConfig;
     }
 
     /** {@inheritDoc} */
     @Override
     public String getName() {
-        return section.getName();
+        return name;
     }
 
     /** {@inheritDoc} */
     @Override
-    public Config getConfig() {
-        return config;
+    public Map<String, String> getAll() {
+        Map<String, String> all = new HashMap<>(config.getAll());
+        all.putAll(secretConfig.getAll());
+        return all;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getProperty(String key) {
+        if (CliConfigKeys.secretConfigKeys().contains(key)) {
+            return secretConfig.getProperty(key);
+        } else {
+            return config.getProperty(key);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getProperty(String key, String defaultValue) {
+        if (CliConfigKeys.secretConfigKeys().contains(key)) {
+            return secretConfig.getProperty(key, defaultValue);
+        } else {
+            return config.getProperty(key, defaultValue);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setProperty(String key, String value) {
+        if (CliConfigKeys.secretConfigKeys().contains(key)) {
+            secretConfig.setProperty(key, value);
+        } else {
+            config.setProperty(key, value);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setProperties(Map<String, String> values) {
+        Map<Boolean, Map<String, String>> secretToValues = values.entrySet().stream()
+                .collect(Collectors.groupingBy(it -> CliConfigKeys.secretConfigKeys().contains(it.getKey()),
+                        Collectors.toMap(Entry::getKey, Entry::getValue)));
+
+        Map<String, String> configValues = secretToValues.get(false);
+        if (configValues != null) {
+            config.setProperties(configValues);
+        }
+
+        Map<String, String> secretConfigValues = secretToValues.get(true);
+        if (secretConfigValues != null) {
+            secretConfig.setProperties(secretToValues.get(true));
+        }
     }
 }

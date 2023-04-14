@@ -25,8 +25,11 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
@@ -102,9 +105,10 @@ public abstract class CliCommandTestBase {
                 .isEqualTo(expectedOutput);
     }
 
-    protected void assertOutputContains(String expectedOutput) {
+    protected void assertOutputContains(String... expectedOutput) {
+        Set<String> expectedStrings = Arrays.stream(expectedOutput).collect(Collectors.toSet());
         assertThat(sout.toString())
-                .as("Expected command output to contain: " + expectedOutput + " but was " + sout.toString())
+                .as("Expected command output to contain: " + expectedStrings + " but was " + sout.toString())
                 .contains(expectedOutput);
     }
 

@@ -30,7 +30,10 @@ import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
 @Replaces(ConfigManagerProvider.class)
 public class TestConfigManagerProvider implements ConfigManagerProvider {
 
-    public ConfigManager configManager = new IniConfigManager(TestConfigManagerHelper.createIntegrationTests());
+    public ConfigManager configManager = new IniConfigManager(
+            TestConfigManagerHelper.createIntegrationTests(),
+            TestConfigManagerHelper.createEmptySecretConfig()
+    );
 
     @Override
     public ConfigManager get() {

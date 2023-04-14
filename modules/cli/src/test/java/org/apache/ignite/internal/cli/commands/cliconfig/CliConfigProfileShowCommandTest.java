@@ -41,7 +41,10 @@ class CliConfigProfileShowCommandTest extends CliConfigCommandTestBase {
 
     @Test
     public void testWithoutDefaultProfile() {
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithoutDefaultProfile());
+        configManagerProvider.configManager = new IniConfigManager(
+                TestConfigManagerHelper.createSectionWithoutDefaultProfile(),
+                TestConfigManagerHelper.createEmptySecretConfig()
+        );
         execute();
 
         assertAll(

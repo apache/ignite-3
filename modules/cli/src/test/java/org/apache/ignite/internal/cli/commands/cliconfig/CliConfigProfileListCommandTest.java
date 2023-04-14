@@ -43,7 +43,10 @@ class CliConfigProfileListCommandTest extends CliConfigCommandTestBase {
 
     @Test
     public void testSingleProfile() {
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createOneSectionWithDefaultProfile());
+        configManagerProvider.configManager = new IniConfigManager(
+                TestConfigManagerHelper.createOneSectionWithDefaultProfile(),
+                TestConfigManagerHelper.createEmptySecretConfig()
+        );
         execute();
 
         String expectedResult = "default" + System.lineSeparator();
@@ -55,7 +58,10 @@ class CliConfigProfileListCommandTest extends CliConfigCommandTestBase {
 
     @Test
     public void testEmptyConfig() {
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createEmptyConfig());
+        configManagerProvider.configManager = new IniConfigManager(
+                TestConfigManagerHelper.createEmptyConfig(),
+                TestConfigManagerHelper.createEmptySecretConfig()
+        );
         execute();
 
         String expectedResult = "default" + System.lineSeparator();
