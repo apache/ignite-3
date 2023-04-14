@@ -21,25 +21,24 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
-import org.apache.ignite.security.AuthenticationConfig;
 
 /**
- * REST representation of {@link AuthenticationConfig}.
+ * REST representation of {@link org.apache.ignite.security.AuthenticationConfig}.
  */
 @Schema(name = "AuthenticationConfig")
-public class AuthenticationConfigDto {
+public class AuthenticationConfig {
 
     @Schema(description = "If True, security is enabled. Otherwise it is not.")
     private final boolean enabled;
 
     @Schema(description = "A list of authentication providers.")
-    private final List<AuthenticationProviderConfigDto> providers;
+    private final List<AuthenticationProviderConfig> providers;
 
     /** Constructor. */
     @JsonCreator
-    public AuthenticationConfigDto(
+    public AuthenticationConfig(
             @JsonProperty("enabled") boolean enabled,
-            @JsonProperty("providers") List<AuthenticationProviderConfigDto> providers
+            @JsonProperty("providers") List<AuthenticationProviderConfig> providers
     ) {
 
         if (enabled && (providers == null || providers.isEmpty())) {
@@ -56,7 +55,7 @@ public class AuthenticationConfigDto {
     }
 
     @JsonProperty
-    public List<AuthenticationProviderConfigDto> providers() {
+    public List<AuthenticationProviderConfig> providers() {
         return providers;
     }
 

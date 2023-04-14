@@ -51,7 +51,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.deployunit.version.Version;
-import org.apache.ignite.internal.rest.api.deployment.UnitStatusDto;
+import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 import org.apache.ignite.internal.testframework.IntegrationTestBase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -103,7 +103,7 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
         assertThat(response.code(), is(OK.code()));
 
         MutableHttpRequest<Object> get = HttpRequest.GET("units");
-        UnitStatusDto status = client.toBlocking().retrieve(get, UnitStatusDto.class);
+        UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
 
         assertThat(status.id(), is(id));
         assertThat(status.versionToConsistentIds().keySet(), equalTo(Set.of(version)));
@@ -136,7 +136,7 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
         assertThat(response.code(), is(OK.code()));
 
         MutableHttpRequest<Object> get = HttpRequest.GET("units");
-        UnitStatusDto status = client.toBlocking().retrieve(get, UnitStatusDto.class);
+        UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
 
         String version = Version.LATEST.render();
         assertThat(status.id(), is(id));
@@ -263,9 +263,9 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
 
     }
 
-    private UnitStatusDto status(String id) {
+    private UnitStatus status(String id) {
         MutableHttpRequest<Object> get = HttpRequest.GET("units/" + id + "/status");
-        return client.toBlocking().retrieve(get, UnitStatusDto.class);
+        return client.toBlocking().retrieve(get, UnitStatus.class);
     }
 }
 
