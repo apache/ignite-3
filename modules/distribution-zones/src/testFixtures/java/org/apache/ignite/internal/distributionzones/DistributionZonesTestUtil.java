@@ -49,7 +49,7 @@ public class DistributionZonesTestUtil {
                     .dataStorageChangeConsumer(dataStorageChangeConsumer);
         }
 
-        return zoneManager.createZone(distributionZoneCfgBuilder.build()).thenApply((v) -> zoneManager.getZoneId(zoneName));
+        return zoneManager.createZone(distributionZoneCfgBuilder.build());
     }
 
     /**
