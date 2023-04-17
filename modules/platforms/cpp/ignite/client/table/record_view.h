@@ -20,6 +20,7 @@
 #include <ignite/client/table/ignite_tuple.h>
 #include <ignite/client/transaction/transaction.h>
 #include <ignite/client/type_mapping.h>
+#include <ignite/client/detail/type_mapping_utils.h>
 
 #include <ignite/common/config.h>
 #include <ignite/common/ignite_result.h>
@@ -492,7 +493,7 @@ public:
      */
     void get_async(transaction *tx, const value_type &key, ignite_callback<std::optional<value_type>> callback) {
         m_delegate.get_async(tx, convert_to_tuple(key), [callback = std::move(callback)] (auto res) {
-            callback(convert_result(std::move(res)));
+            callback(convert_result<value_type>(std::move(res)));
         });
     }
 
@@ -523,9 +524,10 @@ public:
      */
     void get_all_async(transaction *tx, std::vector<value_type> keys,
         ignite_callback<std::vector<std::optional<value_type>>> callback) {
-        m_delegate.get_all_async(tx, values_to_tuples(std::move(keys)), [callback = std::move(callback)] (auto res) {
-            callback(convert_result(std::move(res)));
-        });
+        m_delegate.get_all_async(tx, values_to_tuples<value_type>(std::move(keys)),
+            [callback = std::move(callback)] (auto res) {
+                callback(convert_result<value_type>(std::move(res)));
+            });
     }
 
     /**
@@ -578,7 +580,7 @@ public:
      * @param callback Callback that is called on operation completion.
      */
     void upsert_all_async(transaction *tx, std::vector<value_type> records, ignite_callback<void> callback) {
-        m_delegate.upsert_all_async(tx, values_to_tuples(std::move(records)), std::move(callback));
+        m_delegate.upsert_all_async(tx, values_to_tuples<value_type>(std::move(records)), std::move(callback));
     }
 
     /**
@@ -606,7 +608,7 @@ public:
     void get_and_upsert_async(
         transaction *tx, const value_type &record, ignite_callback<std::optional<value_type>> callback) {
         m_delegate.get_and_upsert_async(tx, convert_to_tuple(record), [callback = std::move(callback)] (auto res) {
-            callback(convert_result(std::move(res)));
+            callback(convert_result<value_type>(std::move(res)));
         });
     }
 
@@ -659,9 +661,9 @@ public:
      */
     void insert_all_async(
         transaction *tx, std::vector<value_type> records, ignite_callback<std::vector<value_type>> callback) {
-        m_delegate.insert_all_async(tx, values_to_tuples(std::move(records)),
+        m_delegate.insert_all_async(tx, values_to_tuples<value_type>(std::move(records)),
             [callback = std::move(callback)] (auto res) {
-                callback(convert_result(std::move(res)));
+                callback(convert_result<value_type>(std::move(res)));
             }
         );
     }
@@ -753,7 +755,7 @@ public:
     void get_and_replace_async(
         transaction *tx, const value_type &record, ignite_callback<std::optional<value_type>> callback) {
         m_delegate.get_and_replace_async(tx, convert_to_tuple(record), [callback = std::move(callback)] (auto res) {
-            callback(convert_result(std::move(res)));
+            callback(convert_result<value_type>(std::move(res)));
         });
     }
 
@@ -837,7 +839,7 @@ public:
     void get_and_remove_async(
         transaction *tx, const value_type &key, ignite_callback<std::optional<value_type>> callback) {
         m_delegate.get_and_remove_async(tx, convert_to_tuple(key), [callback = std::move(callback)] (auto res) {
-            callback(convert_result(std::move(res)));
+            callback(convert_result<value_type>(std::move(res)));
         });
     }
 
@@ -866,8 +868,8 @@ public:
      */
     void remove_all_async(
         transaction *tx, std::vector<value_type> keys, ignite_callback<std::vector<value_type>> callback) {
-        m_delegate.remove_all_async(tx, values_to_tuples(std::move(keys)), [callback = std::move(callback)] (auto res) {
-            callback(convert_result(std::move(res)));
+        m_delegate.remove_all_async(tx, values_to_tuples<value_type>(std::move(keys)), [callback = std::move(callback)] (auto res) {
+            callback(convert_result<value_type>(std::move(res)));
         });
     }
 
@@ -898,9 +900,9 @@ public:
      */
     void remove_all_exact_async(
         transaction *tx, std::vector<value_type> records, ignite_callback<std::vector<value_type>> callback) {
-        m_delegate.remove_all_exact_async(tx, values_to_tuples(std::move(records)),
+        m_delegate.remove_all_exact_async(tx, values_to_tuples<value_type>(std::move(records)),
             [callback = std::move(callback)] (auto res) {
-                callback(convert_result(std::move(res)));
+                callback(convert_result<value_type>(std::move(res)));
             }
         );
     }
@@ -921,88 +923,6 @@ public:
     }
 
 private:
-    /**
-     * Convert values to tuples.
-     * @param vals Values.
-     * @return Tuples.
-     */
-    static std::vector<ignite_tuple> values_to_tuples(std::vector<value_type> values) {
-        //TODO: Optimize memory usage (IGNITE-19198)
-        std::vector<ignite_tuple> tuples;
-        tuples.reserve(values.size());
-        for (auto &&value : std::move(values)) {
-            tuples.push_back(convert_to_tuple(std::move(value)));
-        }
-        return tuples;
-    }
-
-    /**
-     * Tuples to values.
-     * @param tuples Tuples.
-     * @return Values.
-     */
-    static std::vector<value_type> tuples_to_values(std::vector<ignite_tuple> tuples) {
-        //TODO: Optimize memory usage (IGNITE-19198)
-        std::vector<value_type> values;
-        values.reserve(tuples.size());
-        for (auto &&tuple : std::move(tuples)) {
-            values.emplace_back(convert_from_tuple<value_type>(std::move(tuple)));
-        }
-        return values;
-    }
-
-    /**
-     * Optional tuples to optional values.
-     * @param tuples Tuples.
-     * @return Values.
-     */
-    static std::vector<std::optional<value_type>> tuples_to_values(std::vector<std::optional<ignite_tuple>> tuples) {
-        //TODO: Optimize memory usage (IGNITE-19198)
-        std::vector<std::optional<value_type>> values;
-        values.reserve(tuples.size());
-        for (auto &&tuple : std::move(tuples)) {
-            values.emplace_back(convert_from_tuple<value_type>(std::move(tuple)));
-        }
-        return values;
-    }
-
-    /**
-     * Convert result from tuple-based type to user type.
-     * @param res Result to convert.
-     * @return Converted result.
-     */
-    static ignite_result<std::optional<value_type>> convert_result(ignite_result<std::optional<ignite_tuple>> &&res) {
-        if (res.has_error())
-            return {std::move(res).error()};
-
-        return {convert_from_tuple<value_type>(std::move(res).value())};
-    }
-
-    /**
-     * Convert result from tuple-based type to user type.
-     * @param res Result to convert.
-     * @return Converted result.
-     */
-    static ignite_result<std::vector<std::optional<value_type>>> convert_result(
-        ignite_result<std::vector<std::optional<ignite_tuple>>> &&res) {
-        if (res.has_error())
-            return {std::move(res).error()};
-
-        return {tuples_to_values(std::move(res).value())};
-    }
-
-    /**
-     * Convert result from tuple-based type to user type.
-     * @param res Result to convert.
-     * @return Converted result.
-     */
-    static ignite_result<std::vector<value_type>> convert_result(ignite_result<std::vector<ignite_tuple>> &&res) {
-        if (res.has_error())
-            return {std::move(res).error()};
-
-        return {tuples_to_values(std::move(res).value())};
-    }
-
     /**
      * Constructor
      *

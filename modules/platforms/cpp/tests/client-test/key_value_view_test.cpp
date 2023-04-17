@@ -119,35 +119,31 @@ protected:
     key_value_view<test_key_type, test_value_type> kv_view;
 };
 
-//TEST_F(key_value_view_test, put_get) {
-//    auto key_tuple = get_tuple(1);
-//    auto val_tuple = get_tuple("foo");
-//
-//    kv_view.put(nullptr, key_tuple, val_tuple);
-//    auto res_tuple = kv_view.get(nullptr, key_tuple);
-//
-//    ASSERT_TRUE(res_tuple.has_value());
-//    EXPECT_EQ(2, res_tuple->column_count());
-//    EXPECT_EQ(1L, res_tuple->get<int64_t>("key"));
-//    EXPECT_EQ("foo", res_tuple->get<std::string>("val"));
-//}
-//
-//TEST_F(key_value_view_test, put_get_async) {
-//    auto key_tuple = get_tuple(1);
-//    auto val_tuple = get_tuple("foo");
-//
-//    auto all_done = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
-//
-//    kv_view.put_async(nullptr, key_tuple, val_tuple, [&](ignite_result<void> &&res) {
-//        if (!check_and_set_operation_error(*all_done, res))
-//            return;
-//
-//        kv_view.get_async(nullptr, key_tuple, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
-//    });
-//
-//    auto res_tuple = all_done->get_future().get();
-//    ASSERT_TRUE(res_tuple.has_value());
-//    EXPECT_EQ(2, res_tuple->column_count());
-//    EXPECT_EQ(key_tuple.get<int64_t>("key"), res_tuple->get<int64_t>("key"));
-//    EXPECT_EQ(val_tuple.get<std::string>("val"), res_tuple->get<std::string>("val"));
-//}
+TEST_F(key_value_view_test, put_get) {
+    auto key = test_key_type(1);
+    auto val = test_value_type("foo");
+
+    kv_view.put(nullptr, key, val);
+    auto res = kv_view.get(nullptr, key);
+
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ("foo", res->val);
+}
+
+TEST_F(key_value_view_test, put_get_async) {
+    auto key = test_key_type(1);
+    auto val = test_value_type("foo");
+
+    auto all_done = std::make_shared<std::promise<std::optional<test_value_type>>>();
+
+    kv_view.put_async(nullptr, key, val, [&](ignite_result<void> &&res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        kv_view.get_async(nullptr, key, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+    });
+
+    auto res = all_done->get_future().get();
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ("foo", res->val);
+}

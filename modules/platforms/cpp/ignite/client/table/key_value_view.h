@@ -19,6 +19,8 @@
 
 #include "ignite/client/table/ignite_tuple.h"
 #include "ignite/client/transaction/transaction.h"
+#include "ignite/client/type_mapping.h"
+#include "ignite/client/detail/type_mapping_utils.h"
 
 #include "ignite/common/config.h"
 #include "ignite/common/ignite_result.h"
@@ -60,7 +62,7 @@ public:
     key_value_view &operator=(key_value_view &&) noexcept = default;
 
     /**
-     * Gets a record by key asynchronously.
+     * Gets a value by key asynchronously.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
@@ -72,7 +74,7 @@ public:
         transaction *tx, const key_type &key, ignite_callback<std::optional<value_type>> callback);
 
     /**
-     * Gets a record by key.
+     * Gets a value by key.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
@@ -498,6 +500,115 @@ public:
     key_value_view() = default;
     key_value_view(key_value_view &&) noexcept = default;
     key_value_view &operator=(key_value_view &&) noexcept = default;
+
+    /**
+     * Gets a value by key asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key Key.
+     * @param callback Callback which is called on success with value if it
+     *   exists and @c std::nullopt otherwise
+     */
+    void get_async(transaction *tx, const key_type &key, ignite_callback<std::optional<value_type>> callback) {
+        m_delegate.get_async(tx, convert_to_tuple(key), [callback = std::move(callback)] (auto res) {
+            callback(convert_result<value_type>(std::move(res)));
+        });
+    }
+
+    /**
+     * Gets a value by key.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key Key.
+     * @return Value if exists and @c std::nullopt otherwise.
+     */
+    [[nodiscard]] std::optional<value_type> get(transaction *tx, const key_type &key) {
+        return sync<std::optional<value_type>>(
+            [this, tx, &key](auto callback) { get_async(tx, key, std::move(callback)); });
+    }
+
+//    /**
+//     * Gets multiple records by keys asynchronously.
+//     *
+//     * @param tx Optional transaction. If nullptr implicit transaction for this
+//     *   single operation is used.
+//     * @param keys Keys.
+//     * @param callback Callback that is called on operation completion. Called with
+//     *   resulting records with all columns filled from the table. The order of
+//     *   elements is guaranteed to be the same as the order of keys. If a record
+//     *   does not exist, the resulting element of the corresponding order is
+//     *   @c std::nullopt.
+//     */
+//    IGNITE_API void get_all_async(
+//        transaction *tx, std::vector<key_type> keys, ignite_callback<std::vector<std::optional<value_type>>> callback);
+//
+//    /**
+//     * Gets multiple records by keys.
+//     *
+//     * @param tx Optional transaction. If nullptr implicit transaction for this
+//     *   single operation is used.
+//     * @param keys Keys.
+//     * @return Resulting records with all columns filled from the table.
+//     *   The order of elements is guaranteed to be the same as the order of
+//     *   keys. If a record does not exist, the resulting element of the
+//     *   corresponding order is @c std::nullopt.
+//     */
+//    [[nodiscard]] IGNITE_API std::vector<std::optional<value_type>> get_all(
+//        transaction *tx, std::vector<key_type> keys) {
+//        return sync<std::vector<std::optional<value_type>>>([this, tx, keys = std::move(keys)](auto callback) mutable {
+//            get_all_async(tx, std::move(keys), std::move(callback));
+//        });
+//    }
+//
+//    /**
+//     * Asynchronously determines if the table contains an entry for the specified key.
+//     *
+//     * @param tx Optional transaction. If nullptr implicit transaction for this
+//     *   single operation is used.
+//     * @param key Key.
+//     * @param callback Callback which is called on success with value
+//     *   indicating whether value exists or not.
+//     */
+//    IGNITE_API void contains_async(transaction *tx, const key_type &key, ignite_callback<bool> callback);
+//
+//    /**
+//     * Determines if the table contains an entry for the specified key.
+//     *
+//     * @param tx Optional transaction. If nullptr implicit transaction for this
+//     *   single operation is used.
+//     * @param key Key.
+//     * @return Value indicating whether value exists or not.
+//     */
+//    [[nodiscard]] IGNITE_API bool contains(transaction *tx, const key_type &key) {
+//        return sync<bool>([this, tx, &key](auto callback) { contains_async(tx, key, std::move(callback)); });
+//    }
+
+    /**
+     * Puts a value with a given key asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *  single operation is used.
+     * @param key Key.
+     * @param value Value.
+     * @param callback Callback.
+     */
+    void put_async(transaction *tx, const key_type &key, const value_type &value, ignite_callback<void> callback) {
+        m_delegate.put_async(tx, convert_to_tuple(key), convert_to_tuple(value), std::move(callback));
+    }
+
+    /**
+     * Puts a value with a given key.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *  single operation is used.
+     * @param key Key.
+     * @param value Value.
+     */
+    void put(transaction *tx, const key_type &key, const value_type &value) {
+        sync<void>([this, tx, &key, &value](auto callback) { put_async(tx, key, value, std::move(callback)); });
+    }
 
 private:
     /**
