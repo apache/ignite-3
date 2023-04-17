@@ -38,6 +38,8 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     /** Include internal configuration nodes (private configuration extensions). */
     private final boolean includeInternal;
 
+    private final boolean skipNullValues;
+
     /** Stack with intermediate results. Used to store values during recursive calls. */
     private final Deque<Object> deque = new ArrayDeque<>();
 
@@ -45,9 +47,20 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
      * Constructor.
      *
      * @param includeInternal Include internal configuration nodes (private configuration extensions).
+     * @param skipNullValues Skip null values.
+     */
+    public ConverterToMapVisitor(boolean includeInternal, boolean skipNullValues) {
+        this.includeInternal = includeInternal;
+        this.skipNullValues = skipNullValues;
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param includeInternal Include internal configuration nodes (private configuration extensions).
      */
     public ConverterToMapVisitor(boolean includeInternal) {
-        this.includeInternal = includeInternal;
+        this(includeInternal, false);
     }
 
     /** {@inheritDoc} */
@@ -69,6 +82,10 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     /** {@inheritDoc} */
     @Override
     public Object visitInnerNode(String key, InnerNode node) {
+        if (skipNullValues && node == null) {
+            return null;
+        }
+
         Map<String, Object> innerMap = new HashMap<>();
 
         deque.push(innerMap);
@@ -112,8 +129,14 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
         Object parent = deque.peek();
 
         if (parent instanceof Map) {
+            if (skipNullValues && val == null)
+                return;
+
             ((Map<String, Object>) parent).put(key, val);
         } else if (parent instanceof List) {
+            if (skipNullValues && val == null)
+                return;
+
             ((Collection<Object>) parent).add(val);
         }
     }

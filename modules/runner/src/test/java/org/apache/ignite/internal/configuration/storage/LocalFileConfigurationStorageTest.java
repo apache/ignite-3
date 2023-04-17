@@ -29,12 +29,14 @@ import static org.hamcrest.Matchers.is;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
@@ -144,7 +146,6 @@ public class LocalFileConfigurationStorageTest {
                         + "            strVal=strVal1\n"
                         + "        }\n"
                         + "    ]\n"
-                        + "    shortVal=1\n"
                         + "}"
         ));
 
@@ -177,7 +178,6 @@ public class LocalFileConfigurationStorageTest {
                         + "            strVal=strVal2\n"
                         + "        }\n"
                         + "    ]\n"
-                        + "    shortVal=1\n"
                         + "}\n"
         ));
     }
@@ -343,6 +343,31 @@ public class LocalFileConfigurationStorageTest {
         assertThat(configFileContent(), equalTo(""));
     }
 
+
+    /** File content is not changed when read data on recovery. */
+    @Test
+    void fileContentIsNotChanged() throws IOException {
+        // Given
+        String fileContent = "top {\n"
+                + "    namedList=[\n"
+                + "        {\n"
+                + "            intVal=-1\n"
+                + "            name=name1\n"
+                + "        }\n"
+                + "    ]\n"
+                + "}\n";
+
+        Files.write(getConfigFile(), fileContent.getBytes(StandardCharsets.UTF_8));
+
+        // When
+        var storageValues = storage.readDataOnRecovery().join().values();
+        // Then
+        assertThat(storageValues, allOf(aMapWithSize(5), hasValue(-1)));
+        assertThat(storageValues, allOf(aMapWithSize(5), hasValue("foo"))); // default value
+        // And file was not changed
+        assertThat(configFileContent(), equalTo(fileContent));
+    }
+
     /** Delete file before read all. */
     @Test
     void deleteFileBeforeReadAll() throws Exception {
@@ -378,8 +403,6 @@ public class LocalFileConfigurationStorageTest {
         ));
     }
 
-    // todo: defaults store
-
     private String configFileContent() throws IOException {
         return Files.readString(getConfigFile());
     }
@@ -394,8 +417,20 @@ public class LocalFileConfigurationStorageTest {
         @NamedConfigValue
         public NamedListConfigurationSchema namedList;
 
+        @ConfigValue
+        public InnerConfigurationSchema inner;
+
         @Value(hasDefault = true)
         public short shortVal = 1;
+    }
+
+    @Config
+    public static class InnerConfigurationSchema {
+        @Value(hasDefault = true)
+        public String strVal = "foo";
+
+        @Value(hasDefault = true)
+        public boolean boolVal = false;
     }
 
     /** Named list element node that contains another named list. */

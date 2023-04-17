@@ -19,7 +19,6 @@ package org.apache.ignite.internal.configuration.storage;
 
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.fillFromPrefixMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.toPrefixMap;
 
@@ -127,8 +126,11 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                 HoconConverter.hoconSource(hocon.root()).descend(copiedSuperRoot);
 
                 Map<String, Serializable> flattenedUpdatesMap = createFlattenedUpdatesMap(superRoot, copiedSuperRoot);
-
-                latest.putAll(flattenedUpdatesMap);
+                flattenedUpdatesMap.forEach((key, value) -> {
+                    if (value != null) { // filter defaults
+                        latest.put(key, value);
+                    }
+                });
 
                 return new Data(flattenedUpdatesMap, lastRevision);
             } finally {
@@ -266,20 +268,20 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
         fillFromPrefixMap(rootNode, toPrefixMap(latest));
 
-        addDefaults(rootNode);
+        Object transformed = rootNode.accept(null, new ConverterToMapVisitor(false, true));
 
         ConfigValue conf = ConfigImpl.fromAnyRef(
-                rootNode.accept(null, new ConverterToMapVisitor(false)), null
+                transformed, null
         );
 
         return renderConfig((ConfigObject) conf);
     }
 
     private static String renderConfig(ConfigObject conf) {
-        Config newConfig = conf.toConfig();
+        Config newConfig = conf.toConfig().resolve();
         return newConfig.isEmpty()
                 ? ""
-                : newConfig.root().render(ConfigRenderOptions.concise());
+                : newConfig.root().render(ConfigRenderOptions.concise().setFormatted(true).setJson(false));
     }
 
     /** Check that configuration file still exists and restore it with latest applied state in case it was deleted. */
