@@ -265,7 +265,7 @@ public class DistributionZoneManager implements IgniteComponent {
         try {
             CompletableFuture<Integer> fut = new CompletableFuture<>();
 
-            int[] zoneIdContainer = {};
+            int[] zoneIdContainer = new int[1];
 
             zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
                 try {
