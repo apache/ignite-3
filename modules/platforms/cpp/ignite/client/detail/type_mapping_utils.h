@@ -40,6 +40,22 @@ std::vector<ignite_tuple> values_to_tuples(std::vector<T> values) {
 }
 
 /**
+ * Convert key-value pairs to tuples.
+ * @param vals Values.
+ * @return Tuples.
+ */
+template<typename K, typename V>
+std::vector<std::pair<ignite_tuple, ignite_tuple>> values_to_tuples(std::vector<std::pair<K, V>> values) {
+    //TODO: Optimize memory usage (IGNITE-19198)
+    std::vector<std::pair<ignite_tuple, ignite_tuple>> tuples;
+    tuples.reserve(values.size());
+    for (auto &&pair : std::move(values)) {
+        tuples.emplace_back(convert_to_tuple(std::move(pair.first)), convert_to_tuple(std::move(pair.second)));
+    }
+    return tuples;
+}
+
+/**
  * Tuples to values.
  * @param tuples Tuples.
  * @return Values.

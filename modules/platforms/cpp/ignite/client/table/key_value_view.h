@@ -529,41 +529,46 @@ public:
             [this, tx, &key](auto callback) { get_async(tx, key, std::move(callback)); });
     }
 
+    /**
+     * Gets multiple values by keys asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param keys Keys.
+     * @param callback Callback that is called on operation completion. Called with
+     *   resulting records with all columns filled from the table. The order of
+     *   elements is guaranteed to be the same as the order of keys. If a record
+     *   does not exist, the resulting element of the corresponding order is
+     *   @c std::nullopt.
+     */
+    void get_all_async(
+        transaction *tx, std::vector<key_type> keys, ignite_callback<std::vector<std::optional<value_type>>> callback) {
+        m_delegate.get_all_async(tx, values_to_tuples<key_type>(std::move(keys)),
+            [callback = std::move(callback)] (auto res) {
+                callback(convert_result<value_type>(std::move(res)));
+            });
+    }
+
+    /**
+     * Gets multiple values by keys.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param keys Keys.
+     * @return Resulting records with all columns filled from the table.
+     *   The order of elements is guaranteed to be the same as the order of
+     *   keys. If a record does not exist, the resulting element of the
+     *   corresponding order is @c std::nullopt.
+     */
+    [[nodiscard]] std::vector<std::optional<value_type>> get_all(
+        transaction *tx, std::vector<key_type> keys) {
+        return sync<std::vector<std::optional<value_type>>>([this, tx, keys = std::move(keys)](auto callback) mutable {
+            get_all_async(tx, std::move(keys), std::move(callback));
+        });
+    }
+
 //    /**
-//     * Gets multiple records by keys asynchronously.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param keys Keys.
-//     * @param callback Callback that is called on operation completion. Called with
-//     *   resulting records with all columns filled from the table. The order of
-//     *   elements is guaranteed to be the same as the order of keys. If a record
-//     *   does not exist, the resulting element of the corresponding order is
-//     *   @c std::nullopt.
-//     */
-//    IGNITE_API void get_all_async(
-//        transaction *tx, std::vector<key_type> keys, ignite_callback<std::vector<std::optional<value_type>>> callback);
-//
-//    /**
-//     * Gets multiple records by keys.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param keys Keys.
-//     * @return Resulting records with all columns filled from the table.
-//     *   The order of elements is guaranteed to be the same as the order of
-//     *   keys. If a record does not exist, the resulting element of the
-//     *   corresponding order is @c std::nullopt.
-//     */
-//    [[nodiscard]] IGNITE_API std::vector<std::optional<value_type>> get_all(
-//        transaction *tx, std::vector<key_type> keys) {
-//        return sync<std::vector<std::optional<value_type>>>([this, tx, keys = std::move(keys)](auto callback) mutable {
-//            get_all_async(tx, std::move(keys), std::move(callback));
-//        });
-//    }
-//
-//    /**
-//     * Asynchronously determines if the table contains an entry for the specified key.
+//     * Asynchronously determines if the table contains a value for the specified key.
 //     *
 //     * @param tx Optional transaction. If nullptr implicit transaction for this
 //     *   single operation is used.
@@ -571,7 +576,9 @@ public:
 //     * @param callback Callback which is called on success with value
 //     *   indicating whether value exists or not.
 //     */
-//    IGNITE_API void contains_async(transaction *tx, const key_type &key, ignite_callback<bool> callback);
+//    void contains_async(transaction *tx, const key_type &key, ignite_callback<bool> callback) {
+//        m_delegate.contains_async(tx, convert_to_tuple(key), std::move(callback));
+//    }
 //
 //    /**
 //     * Determines if the table contains an entry for the specified key.
@@ -581,7 +588,7 @@ public:
 //     * @param key Key.
 //     * @return Value indicating whether value exists or not.
 //     */
-//    [[nodiscard]] IGNITE_API bool contains(transaction *tx, const key_type &key) {
+//    [[nodiscard]] bool contains(transaction *tx, const key_type &key) {
 //        return sync<bool>([this, tx, &key](auto callback) { contains_async(tx, key, std::move(callback)); });
 //    }
 
@@ -608,6 +615,30 @@ public:
      */
     void put(transaction *tx, const key_type &key, const value_type &value) {
         sync<void>([this, tx, &key, &value](auto callback) { put_async(tx, key, value, std::move(callback)); });
+    }
+
+    /**
+     * Puts multiple key-value pairs asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param pairs Pairs to put.
+     * @param callback Callback that is called on operation completion.
+     */
+    void put_all_async(
+        transaction *tx, const std::vector<std::pair<key_type, value_type>> &pairs, ignite_callback<void> callback) {
+        m_delegate.put_all_async(tx, values_to_tuples<key_type, value_type>(std::move(pairs)), std::move(callback));
+    }
+
+    /**
+     * Puts multiple key-value pairs.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param pairs Pairs to put.
+     */
+    void put_all(transaction *tx, const std::vector<std::pair<key_type, value_type>> &pairs) {
+        sync<void>([this, tx, pairs](auto callback) mutable { put_all_async(tx, pairs, std::move(callback)); });
     }
 
 private:
