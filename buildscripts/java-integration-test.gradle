@@ -63,8 +63,8 @@ testing {
     }
 }
 
-tasks.named('check') {
-    dependsOn(testing.suites.integrationTest)
+check {
+    dependsOn integrationTest
 }
 
 pmdIntegrationTest {
