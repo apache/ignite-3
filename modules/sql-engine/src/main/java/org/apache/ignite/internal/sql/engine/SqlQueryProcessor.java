@@ -23,6 +23,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_EXPIRED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_SQL_OPERATION_KIND_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
@@ -414,7 +415,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     StatementParseResult parseResult = IgniteSqlParser.parse(sql, StatementParseResult.MODE);
                     SqlNode sqlNode = parseResult.statement();
 
-                    validateParsedStatement(context, parseResult, sqlNode, params);
+                    validateParsedStatement(context, outerTx, parseResult, sqlNode, params);
 
                     return sqlNode;
                 })
@@ -591,7 +592,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     /** Performs additional validation of a parsed statement. **/
-    private static void validateParsedStatement(QueryContext context, ParseResult parseResult, SqlNode node, Object[] params) {
+    private static void validateParsedStatement(QueryContext context, InternalTransaction outerTx, ParseResult parseResult, SqlNode node, Object[] params) {
         Set<SqlQueryType> allowedTypes = context.allowedQueryTypes();
         SqlQueryType queryType = Commons.getQueryType(node);
 
@@ -605,6 +606,10 @@ public class SqlQueryProcessor implements QueryProcessor {
             String message = format("Invalid SQL statement type in the batch. Expected {} but got {}.", allowedTypes, queryType);
 
             throw new QueryValidationException(message);
+        }
+
+        if (SqlQueryType.DDL == queryType && outerTx != null) {
+            throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR, "DDL doesn't support transactions.");
         }
 
         if (parseResult.dynamicParamsCount() != params.length) {

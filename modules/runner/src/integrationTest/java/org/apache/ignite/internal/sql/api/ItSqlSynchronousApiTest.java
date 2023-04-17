@@ -56,6 +56,7 @@ import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -278,6 +279,14 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
             Thread.sleep(300); // ResultSetImpl fetches next page in background, wait to it to complete to avoid flakiness.
             rs.close();
             assertThrowsWithCause(() -> rs.forEachRemaining(Object::hashCode), CursorClosedException.class);
+        }
+
+        {
+            Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
+            assertThrowsWithCause(() -> ses.execute(tx, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)"),
+                    SqlException.class,
+                    "DDL doesn't support transactions."
+            );
         }
 
         TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
