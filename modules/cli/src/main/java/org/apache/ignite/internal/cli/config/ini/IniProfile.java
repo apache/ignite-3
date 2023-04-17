@@ -103,7 +103,7 @@ public class IniProfile implements Profile {
 
         Map<String, String> secretConfigValues = secretToValues.get(true);
         if (secretConfigValues != null) {
-            secretConfig.setProperties(secretToValues.get(true));
+            secretConfig.setProperties(secretConfigValues);
         }
     }
 }

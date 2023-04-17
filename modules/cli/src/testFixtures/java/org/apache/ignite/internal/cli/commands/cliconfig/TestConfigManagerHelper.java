@@ -32,6 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.Set;
 import org.apache.ignite.internal.cli.config.ConfigManager;
+import org.apache.ignite.internal.cli.util.OperationSystem;
 
 /**
  * Test factory for {@link ConfigManager}.
@@ -52,6 +53,7 @@ public class TestConfigManagerHelper {
         return copyResourceToTempFile(EMPTY);
     }
 
+    /** Creates and returns the empty secret file config. */
     public static File createEmptySecretConfig() {
         File file = copyResourceToTempFile(EMPTY_SECRET);
         try {
@@ -109,7 +111,9 @@ public class TestConfigManagerHelper {
         }
     }
 
-    public static void setFilePermissions(File file, Set<PosixFilePermission> perms) throws IOException {
-        Files.setPosixFilePermissions(file.toPath(), perms);
+    private static void setFilePermissions(File file, Set<PosixFilePermission> perms) throws IOException {
+        if (OperationSystem.current() != OperationSystem.WINDOWS) {
+            Files.setPosixFilePermissions(file.toPath(), perms);
+        }
     }
 }

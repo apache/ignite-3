@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cli.commands.cliconfig;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.commands.CliCommandTestBase;
-import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
 import org.junit.jupiter.api.BeforeEach;
 
 /**
@@ -31,9 +30,6 @@ public abstract class CliConfigCommandTestBase extends CliCommandTestBase {
 
     @BeforeEach
     void configManagerRefresh() {
-        configManagerProvider.configManager = new IniConfigManager(
-                TestConfigManagerHelper.createSectionWithDefaultProfile(),
-                TestConfigManagerHelper.createEmptySecretConfig()
-        );
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createSectionWithDefaultProfile());
     }
 }

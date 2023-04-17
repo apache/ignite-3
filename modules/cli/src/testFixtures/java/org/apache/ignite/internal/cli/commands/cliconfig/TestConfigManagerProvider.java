@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.commands.cliconfig;
 
 import io.micronaut.context.annotation.Replaces;
 import jakarta.inject.Singleton;
+import java.io.File;
 import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
@@ -38,5 +39,9 @@ public class TestConfigManagerProvider implements ConfigManagerProvider {
     @Override
     public ConfigManager get() {
         return configManager;
+    }
+
+    public void setConfigFile(File configFile) {
+        configManager = new IniConfigManager(configFile, TestConfigManagerHelper.createEmptySecretConfig());
     }
 }

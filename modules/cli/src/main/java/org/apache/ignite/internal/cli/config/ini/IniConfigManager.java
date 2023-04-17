@@ -41,6 +41,7 @@ import org.apache.ignite.internal.cli.config.Profile;
 import org.apache.ignite.internal.cli.config.ProfileNotFoundException;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
+import org.apache.ignite.internal.cli.util.OperationSystem;
 import org.apache.ignite.internal.logger.IgniteLogger;
 
 /**
@@ -88,9 +89,11 @@ public class IniConfigManager implements ConfigManager {
     private IniFile secretConfigFile(File file) {
         IniFile configFile;
         try {
-            Set<PosixFilePermission> posixFilePermissions = Files.getPosixFilePermissions(file.toPath());
-            if (!secretPermission().equals(posixFilePermissions)) {
-                throw new IgniteCliException("The secret configuration file must have 700 permissions.");
+            if (OperationSystem.current() != OperationSystem.WINDOWS) {
+                Set<PosixFilePermission> posixFilePermissions = Files.getPosixFilePermissions(file.toPath());
+                if (!secretPermission().equals(posixFilePermissions)) {
+                    throw new IgniteCliException("The secret configuration file must have 700 permissions");
+                }
             }
             configFile = new IniFile(file);
         } catch (IOException e) {
@@ -185,7 +188,13 @@ public class IniConfigManager implements ConfigManager {
         try {
             file.getParentFile().mkdirs();
             file.delete();
-            Files.createFile(file.toPath(), PosixFilePermissions.asFileAttribute(secretPermission()));
+
+            if (OperationSystem.current() == OperationSystem.WINDOWS) {
+                Files.createFile(file.toPath());
+            } else {
+                Files.createFile(file.toPath(), PosixFilePermissions.asFileAttribute(secretPermission()));
+            }
+
             IniFile ini = new IniFile(file);
             IniSection defaultSection = ini.createSection(DEFAULT_PROFILE_NAME);
             defaultSection.setProperty(REST_KEY_STORE_PATH.value(), "");
