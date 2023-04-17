@@ -79,6 +79,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     /** Latest state of last applied configuration. */
     private final Map<String, Serializable> latest = new ConcurrentHashMap<>();
 
+    /** Configuration tree generator. */
     private final ConfigurationTreeGenerator generator;
 
     /** Configuration changes listener. */

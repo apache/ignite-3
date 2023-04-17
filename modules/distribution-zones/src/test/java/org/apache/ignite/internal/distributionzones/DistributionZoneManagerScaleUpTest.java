@@ -65,7 +65,6 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneChange;
@@ -94,7 +93,6 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -111,8 +109,6 @@ public class DistributionZoneManagerScaleUpTest {
     private static final LogicalNode NODE_2 = new LogicalNode("2", "B", new NetworkAddress("localhost", 123));
 
     private static final LogicalNode NODE_3 = new LogicalNode("3", "C", new NetworkAddress("localhost", 123));
-
-    private static final ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(List.of(DistributionZonesConfiguration.KEY));
 
     private DistributionZoneManager distributionZoneManager;
 
@@ -144,7 +140,8 @@ public class DistributionZoneManagerScaleUpTest {
                 List.of(DistributionZonesConfiguration.KEY),
                 Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
-                generator
+                List.of(),
+                List.of()
         );
 
         zonesConfiguration = clusterCfgMgr.configurationRegistry()
@@ -216,11 +213,6 @@ public class DistributionZoneManagerScaleUpTest {
         keyValueStorage.close();
 
         clusterStateStorage.destroy();
-    }
-
-    @AfterAll
-    public static void tearDownAll() throws Exception {
-        generator.close();
     }
 
     @Test

@@ -35,7 +35,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -49,7 +48,6 @@ import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNo
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -65,8 +63,6 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     private static final String NEW_ZONE_NAME = "zone2";
 
-    private static final ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(List.of(DistributionZonesConfiguration.KEY));
-
     private ConfigurationRegistry registry;
 
     private DistributionZoneManager distributionZoneManager;
@@ -80,7 +76,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
                 List.of(DistributionZonesConfiguration.KEY),
                 Set.of(FilterValidator.INSTANCE),
                 new TestConfigurationStorage(DISTRIBUTED),
-                generator
+                List.of(),
+                List.of()
         );
 
         registry.start();
@@ -97,11 +94,6 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
                 null,
                 "node"
         );
-    }
-
-    @AfterAll
-    public static void tearDownAll() throws Exception {
-        generator.close();
     }
 
     @AfterEach

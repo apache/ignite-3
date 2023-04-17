@@ -36,9 +36,6 @@ public class ConfigurationManager implements IgniteComponent {
     /** Configuration registry. */
     private final ConfigurationRegistry registry;
 
-    /** Runtime implementations generator for node classes. */
-    private final ConfigurationTreeGenerator generator;
-
     /**
      * Constructor.
      *
@@ -54,8 +51,6 @@ public class ConfigurationManager implements IgniteComponent {
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator
     ) {
-        // we don't need to close the generator here, because it's passed from the outside
-        this.generator = null;
         this.registry = new ConfigurationRegistry(
                 rootKeys,
                 validators,
@@ -80,12 +75,12 @@ public class ConfigurationManager implements IgniteComponent {
             Collection<Class<?>> internalSchemaExtensions,
             Collection<Class<?>> polymorphicSchemaExtensions
     ) {
-        this.generator = new ConfigurationTreeGenerator(rootKeys, internalSchemaExtensions, polymorphicSchemaExtensions);
         this.registry = new ConfigurationRegistry(
                 rootKeys,
                 validators,
                 storage,
-                generator
+                internalSchemaExtensions,
+                polymorphicSchemaExtensions
         );
     }
 
@@ -100,9 +95,6 @@ public class ConfigurationManager implements IgniteComponent {
     public void stop() throws Exception {
         // TODO: IGNITE-15161 Implement component's stop.
         registry.stop();
-        if (generator != null) {
-            generator.close();
-        }
     }
 
     /**

@@ -38,7 +38,6 @@ import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -104,8 +103,8 @@ public class TestServer implements AutoCloseable {
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
                 Set.of(),
                 new TestConfigurationStorage(LOCAL),
-                new ConfigurationTreeGenerator(List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY))
-
+                List.of(),
+                List.of()
         );
 
         cfg.start();

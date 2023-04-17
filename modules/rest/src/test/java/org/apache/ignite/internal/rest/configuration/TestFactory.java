@@ -30,7 +30,6 @@ import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 
 /**
@@ -58,7 +57,8 @@ public class TestFactory {
                 List.of(TestRootConfiguration.KEY),
                 Set.of(validator),
                 new TestConfigurationStorage(LOCAL),
-                new ConfigurationTreeGenerator(List.of(TestRootConfiguration.KEY))
+                List.of(),
+                List.of()
         );
 
         configurationRegistry.start();

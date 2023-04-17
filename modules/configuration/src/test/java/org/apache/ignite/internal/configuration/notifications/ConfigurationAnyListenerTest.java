@@ -54,7 +54,6 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -148,24 +147,17 @@ public class ConfigurationAnyListenerTest {
     /** Notification events. */
     private final List<String> events = new CopyOnWriteArrayList<>();
 
-    private ConfigurationTreeGenerator generator;
-
     /**
      * Before each.
      */
     @BeforeEach
     public void before() throws Exception {
-        generator = new ConfigurationTreeGenerator(
-                List.of(RootConfiguration.KEY),
-                List.of(),
-                List.of(FirstPolyAnyConfigurationSchema.class, SecondPolyAnyConfigurationSchema.class)
-        );
-
         registry = new ConfigurationRegistry(
                 List.of(RootConfiguration.KEY),
                 Set.of(),
                 new TestConfigurationStorage(LOCAL),
-                generator
+                List.of(),
+                List.of(FirstPolyAnyConfigurationSchema.class, SecondPolyAnyConfigurationSchema.class)
         );
 
         registry.start();

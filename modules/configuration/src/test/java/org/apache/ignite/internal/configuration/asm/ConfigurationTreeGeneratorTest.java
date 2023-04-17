@@ -68,9 +68,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Testing the {@link ConfigurationAsmGenerator}.
+ * Testing the {@link ConfigurationTreeGenerator}.
  */
-public class ConfigurationAsmGeneratorTest {
+public class ConfigurationTreeGeneratorTest {
     /** Configuration generator. */
     private static ConfigurationTreeGenerator generator;
 

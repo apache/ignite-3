@@ -51,7 +51,6 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -76,7 +75,6 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -87,8 +85,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
     private static final LogicalNode NODE_1 = new LogicalNode("1", "name1", new NetworkAddress("localhost", 123));
 
     private static final LogicalNode NODE_2 = new LogicalNode("2", "name2", new NetworkAddress("localhost", 123));
-
-    private static final ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(List.of(DistributionZonesConfiguration.KEY));
 
     private ClusterManagementGroupManager cmgManager;
 
@@ -107,7 +103,8 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
                 List.of(DistributionZonesConfiguration.KEY),
                 Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
-                generator
+                List.of(),
+                List.of()
         );
 
         DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
@@ -274,12 +271,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         clusterStateStorage.destroy();
     }
-
-    @AfterAll
-    public static void tearDownAll() throws Exception {
-        generator.close();
-    }
-
 
     @Test
     void testMetaStorageKeysInitializedOnStartWhenTopVerEmpty() throws Exception {

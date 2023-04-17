@@ -44,7 +44,6 @@ import java.util.Set;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -56,7 +55,6 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,8 +70,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     private static final String NEW_ZONE_NAME = "zone2";
 
     private static final Set<String> nodes = Set.of("name1");
-
-    private static final ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(List.of(DistributionZonesConfiguration.KEY));
 
     private DistributionZoneManager distributionZoneManager;
 
@@ -94,7 +90,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
                 List.of(DistributionZonesConfiguration.KEY),
                 Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
-                generator
+                List.of(),
+                List.of()
         );
 
         DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
@@ -143,11 +140,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         metaStorageManager.stop();
         clusterCfgMgr.stop();
         vaultMgr.stop();
-    }
-
-    @AfterAll
-    public static void tearDownAll() throws Exception {
-        generator.close();
     }
 
     @Test

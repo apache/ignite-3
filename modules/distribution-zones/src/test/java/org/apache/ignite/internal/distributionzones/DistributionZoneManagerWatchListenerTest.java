@@ -52,7 +52,6 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -71,7 +70,6 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -81,8 +79,6 @@ import org.junit.jupiter.api.Test;
  */
 //TODO: IGNITE-18564 Add tests with not default distribution zones, when distributionZones.change.trigger per zone will be created.
 public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest {
-    private static ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(List.of(DistributionZonesConfiguration.KEY));
-
     private DistributionZoneManager distributionZoneManager;
 
     private SimpleInMemoryKeyValueStorage keyValueStorage;
@@ -111,7 +107,8 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
                 List.of(DistributionZonesConfiguration.KEY),
                 Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
-                generator
+                List.of(),
+                List.of()
         );
 
         zonesConfiguration = clusterCfgMgr.configurationRegistry()
@@ -183,11 +180,6 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
         clusterCfgMgr.stop();
 
         keyValueStorage.close();
-    }
-
-    @AfterAll
-    public static void tearDownAll() throws Exception {
-        generator.close();
     }
 
     @Test

@@ -95,8 +95,8 @@ public class NamedListNodeTest {
 
     /** Nullifies {@link #cgen} to prevent memory leak from having runtime ClassLoader accessible from GC root. */
     @AfterAll
-    public static void afterAll() {
-        cgen = null;
+    public static void afterAll() throws Exception {
+        cgen.close();
     }
 
     /**

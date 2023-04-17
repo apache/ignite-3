@@ -41,7 +41,6 @@ import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.rest.configuration.ConfigurationPresentation;
 import org.apache.ignite.internal.rest.configuration.hocon.HoconPresentation;
@@ -56,8 +55,6 @@ import org.junit.jupiter.api.Test;
 public class ConfigurationPresentationTest {
     /** Configuration registry. */
     private static ConfigurationRegistry cfgRegistry;
-
-    private static ConfigurationTreeGenerator generator;
 
     /** Configuration presentation. */
     private static ConfigurationPresentation<String> cfgPresentation;
@@ -80,13 +77,12 @@ public class ConfigurationPresentationTest {
             }
         };
 
-        generator = new ConfigurationTreeGenerator(List.of(TestRootConfiguration.KEY));
-
         cfgRegistry = new ConfigurationRegistry(
                 List.of(TestRootConfiguration.KEY),
                 Set.of(validator),
                 new TestConfigurationStorage(LOCAL),
-                generator
+                List.of(),
+                List.of()
         );
 
         cfgRegistry.start();
@@ -107,9 +103,6 @@ public class ConfigurationPresentationTest {
         cfgPresentation = null;
 
         cfg = null;
-
-        generator.close();
-        generator = null;
     }
 
     /**

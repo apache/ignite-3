@@ -84,7 +84,7 @@ public class ConfigurationFlattener {
     /**
      * Visitor that collects diff between "old" and "new" trees into a flat map.
      */
-    private static class FlattenerVisitor extends KeysTrackingConfigurationVisitor<Object> {
+    static class FlattenerVisitor extends KeysTrackingConfigurationVisitor<Object> {
         /** Old nodes stack for recursion. */
         private final Deque<InnerNode> oldInnerNodesStack;
 

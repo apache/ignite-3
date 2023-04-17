@@ -395,7 +395,8 @@ public class IgniteImpl implements Ignite {
                 modules.distributed().rootKeys(),
                 modules.distributed().validators(),
                 cfgStorage,
-                generator
+                modules.distributed().internalSchemaExtensions(),
+                modules.distributed().polymorphicSchemaExtensions()
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();

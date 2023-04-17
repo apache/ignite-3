@@ -44,9 +44,7 @@ import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -101,14 +99,7 @@ public class DirectPropertiesTest {
         public String str = "bar";
     }
 
-    private static ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(List.of(DirectConfiguration.KEY));
-
     private ConfigurationRegistry registry;
-
-    @AfterAll
-    static void afterAll() throws Exception {
-        generator.close();
-    }
 
     @BeforeEach
     void setUp() {
@@ -116,7 +107,8 @@ public class DirectPropertiesTest {
                 List.of(DirectConfiguration.KEY),
                 Set.of(),
                 new TestConfigurationStorage(LOCAL),
-                generator
+                List.of(),
+                List.of()
         );
 
         registry.start();

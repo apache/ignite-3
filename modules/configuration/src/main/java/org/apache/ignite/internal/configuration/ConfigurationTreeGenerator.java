@@ -31,10 +31,12 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
+import org.jetbrains.annotations.Nullable;
 
-/** Schema aware configuration generator. */
+/** Schema-aware configuration generator. */
 public class ConfigurationTreeGenerator implements ManuallyCloseable {
 
+    @Nullable
     private ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
 
     private final Map<String, RootKey<?, ?>> rootKeys;
@@ -73,7 +75,7 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
      *
      * @return New instance of {@link SuperRoot}.
      */
-    public SuperRoot createSuperRoot() {
+    public synchronized SuperRoot createSuperRoot() {
         assert generator != null : "ConfigurationTreeGenerator is already closed";
 
         SuperRoot superRoot = new SuperRoot(rootCreator());
@@ -91,14 +93,14 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
      * @param changer Configuration changer instance to pass into constructor.
      * @return Configuration instance.
      */
-    public DynamicConfiguration<?, ?> instantiateCfg(RootKey<?, ?> rootKey, DynamicConfigurationChanger changer) {
+    public synchronized DynamicConfiguration<?, ?> instantiateCfg(RootKey<?, ?> rootKey, DynamicConfigurationChanger changer) {
         assert generator != null : "ConfigurationTreeGenerator is already closed";
 
         return generator.instantiateCfg(rootKey, changer);
     }
 
     /**
-     * Creates new instance of {@code *Node} class corresponding to the given Configuration Schema.
+     * Creates new instance of {@code *Node} class corresponding to the given Configuration Schema class.
      *
      * @param schemaClass Configuration Schema class.
      * @return Node instance.
@@ -110,9 +112,9 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
     }
 
     /**
-     * Creates new instance of root {@code *Node} class corresponding to the given Configuration Schema.
+     * Creates new instance of root {@code *Node} class corresponding to the given root key.
      */
-    public InnerNode createRootNode(RootKey<?, ?> rootKey) {
+    public synchronized InnerNode createRootNode(RootKey<?, ?> rootKey) {
         return instantiateNode(rootKey.schemaClass());
     }
 
@@ -125,7 +127,7 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public synchronized void close() throws Exception {
         generator = null;
     }
 }

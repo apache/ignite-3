@@ -93,9 +93,44 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
     /** Configuration change handler. */
     private final ConfigurationChanger changer;
 
+    /** Runtime implementations generator for node classes. */
+    private final ConfigurationTreeGenerator generator;
+
+    /** Flag that indicates if the {@link ConfigurationTreeGenerator} generator instance is owned by this object or not. */
+    private boolean ownConfigTreeGenerator = false;
+
     /** Configuration storage revision change listeners. */
     private final ConfigurationListenerHolder<ConfigurationStorageRevisionListener> storageRevisionListeners =
             new ConfigurationListenerHolder<>();
+
+    /**
+     * Constructor.
+     *
+     * @param rootKeys                    Configuration root keys.
+     * @param validators                  Validators.
+     * @param storage                     Configuration storage.
+     * @param internalSchemaExtensions    Internal extensions ({@link InternalConfiguration}) of configuration schemas ({@link
+     *                                    ConfigurationRoot} and {@link Config}).
+     * @param polymorphicSchemaExtensions Polymorphic extensions ({@link PolymorphicConfigInstance}) of configuration schemas.
+     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
+     *                                  extensions are not valid.
+     */
+    public ConfigurationRegistry(
+            Collection<RootKey<?, ?>> rootKeys,
+            Set<Validator<?, ?>> validators,
+            ConfigurationStorage storage,
+            Collection<Class<?>> internalSchemaExtensions,
+            Collection<Class<?>> polymorphicSchemaExtensions
+    ) {
+        this(
+                rootKeys,
+                validators,
+                storage,
+                new ConfigurationTreeGenerator(rootKeys, internalSchemaExtensions, polymorphicSchemaExtensions)
+        );
+
+        this.ownConfigTreeGenerator = true;
+    }
 
     /**
      * Constructor.
@@ -112,6 +147,8 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator
     ) {
+        this.generator = generator;
+
         checkConfigurationType(rootKeys, storage);
 
         this.rootKeys = rootKeys;
@@ -166,6 +203,10 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
         changer.stop();
 
         storageRevisionListeners.clear();
+
+        if (ownConfigTreeGenerator) {
+            generator.close();
+        }
     }
 
     /**

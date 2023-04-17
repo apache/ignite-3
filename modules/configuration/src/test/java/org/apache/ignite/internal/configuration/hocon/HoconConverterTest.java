@@ -49,7 +49,6 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -197,8 +196,6 @@ public class HoconConverterTest {
         public String someName;
     }
 
-    private static ConfigurationTreeGenerator generator;
-
     private static ConfigurationRegistry registry;
 
     private static HoconRootConfiguration configuration;
@@ -210,13 +207,12 @@ public class HoconConverterTest {
      */
     @BeforeAll
     public static void beforeAll() {
-        generator = new ConfigurationTreeGenerator(List.of(HoconRootConfiguration.KEY, HoconInjectedNameRootConfiguration.KEY));
-
         registry = new ConfigurationRegistry(
                 List.of(HoconRootConfiguration.KEY, HoconInjectedNameRootConfiguration.KEY),
                 Set.of(),
                 new TestConfigurationStorage(LOCAL),
-                generator
+                List.of(),
+                List.of()
         );
 
         registry.start();
@@ -231,9 +227,6 @@ public class HoconConverterTest {
     @AfterAll
     public static void after() throws Exception {
         registry.stop();
-        generator.close();
-
-        generator = null;
 
         registry = null;
 
