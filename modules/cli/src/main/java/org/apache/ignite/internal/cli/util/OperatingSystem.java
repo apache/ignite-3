@@ -70,11 +70,14 @@ public enum OperatingSystem {
     }
 
     private static OperatingSystem determineCurrentOs() {
-        return parse(System.getProperty("os.name"));
+        String osName = System.getProperty("os.name");
+        if (osName == null) {
+            throw new IllegalStateException("Unable to determine current operating system: system property 'os.name' is not set.");
+        }
+        return parse(osName);
     }
 
     private static OperatingSystem parse(String osName) {
-
         osName = osName.toLowerCase(Locale.ENGLISH);
 
         if (osName.contains("aix")) {
