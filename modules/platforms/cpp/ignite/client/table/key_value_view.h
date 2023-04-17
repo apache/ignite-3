@@ -305,7 +305,7 @@ public:
      *   records from @c keys that did not exist.
      */
     IGNITE_API void remove_all_async(
-        transaction *tx, std::vector<key_type> keys, ignite_callback<std::vector<value_type>> callback);
+        transaction *tx, std::vector<key_type> keys, ignite_callback<std::vector<key_type>> callback);
 
     /**
      * Removes values with given keys from the table. If one or more keys
@@ -316,8 +316,8 @@ public:
      * @param keys Keys.
      * @return Records from @c keys that did not exist.
      */
-    IGNITE_API std::vector<value_type> remove_all(transaction *tx, std::vector<key_type> keys) {
-        return sync<std::vector<value_type>>([this, tx, keys = std::move(keys)](auto callback) mutable {
+    IGNITE_API std::vector<key_type> remove_all(transaction *tx, std::vector<key_type> keys) {
+        return sync<std::vector<key_type>>([this, tx, keys = std::move(keys)](auto callback) mutable {
             remove_all_async(tx, std::move(keys), std::move(callback));
         });
     }
@@ -333,7 +333,7 @@ public:
      *   records from @c records that did not exist.
      */
     IGNITE_API void remove_all_async(transaction *tx, const std::vector<std::pair<key_type, value_type>> &pairs,
-        ignite_callback<std::vector<value_type>> callback);
+        ignite_callback<std::vector<key_type>> callback);
 
     /**
      * Removes records with given keys and values from the table. If one or more
@@ -344,8 +344,8 @@ public:
      * @param pairs Pairs to remove.
      * @return Records from @c records that did not exist.
      */
-    IGNITE_API std::vector<value_type> remove_all(transaction *tx, std::vector<std::pair<key_type, value_type>> pairs) {
-        return sync<std::vector<value_type>>([this, tx, pairs = std::move(pairs)](auto callback) mutable {
+    IGNITE_API std::vector<key_type> remove_all(transaction *tx, std::vector<std::pair<key_type, value_type>> pairs) {
+        return sync<std::vector<key_type>>([this, tx, pairs = std::move(pairs)](auto callback) mutable {
             remove_all_async(tx, std::move(pairs), std::move(callback));
         });
     }
@@ -701,6 +701,123 @@ public:
     bool put_if_absent(transaction *tx, const key_type &key, const value_type &value) {
         return sync<bool>(
             [this, tx, &key, &value](auto callback) { put_if_absent_async(tx, key, value, std::move(callback)); });
+    }
+
+//    /**
+//     * Removes a value with the specified key asynchronously.
+//     *
+//     * @param tx Optional transaction. If nullptr implicit transaction for this
+//     *   single operation is used.
+//     * @param key Key.
+//     * @param callback Callback that is called on operation completion. Called with
+//     *   a value indicating whether a record with the specified key was deleted.
+//     */
+//    void remove_async(transaction *tx, const key_type &key, ignite_callback<bool> callback);
+//
+//    /**
+//     * Removes a value with the specified key.
+//     *
+//     * @param tx Optional transaction. If nullptr implicit transaction for this
+//     *   single operation is used.
+//     * @param key Key.
+//     * @return A value indicating whether a record with the specified key was deleted.
+//     */
+//    bool remove(transaction *tx, const value_type &key) {
+//        return sync<bool>([this, tx, &key](auto callback) { remove_async(tx, key, std::move(callback)); });
+//    }
+//
+//    /**
+//     * Asynchronously removes a value with a given key from the table only if it is equal to the specified value.
+//     *
+//     * @param tx Optional transaction. If nullptr implicit transaction for this
+//     *   single operation is used.
+//     * @param key Key.
+//     * @param value Value.
+//     * @param callback Callback that is called on operation completion. Called with
+//     *   a value indicating whether a record with the specified key was deleted.
+//     */
+//    void remove_async(
+//        transaction *tx, const key_type &key, const value_type &value, ignite_callback<bool> callback);
+//
+//    /**
+//     * Removes a value with a given key from the table only if it is equal to the specified value.
+//     *
+//     * @param tx Optional transaction. If nullptr implicit transaction for this
+//     *   single operation is used.
+//     * @param key Key.
+//     * @param value Value.
+//     * @return A value indicating whether a record with the specified key was
+//     *   deleted.
+//     */
+//    bool remove(transaction *tx, const key_type &key, const value_type &value) {
+//        return sync<bool>(
+//            [this, tx, &key, &value](auto callback) { remove_async(tx, key, value, std::move(callback)); });
+//    }
+
+    /**
+     * Removes values with given keys from the table asynchronously. If one or
+     * more keys do not exist, other values are still removed
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param keys Keys.
+     * @param callback Callback that is called on operation completion. Called with
+     *   records from @c keys that did not exist.
+     */
+    void remove_all_async(
+        transaction *tx, std::vector<key_type> keys, ignite_callback<std::vector<key_type>> callback) {
+        m_delegate.remove_all_async(tx, values_to_tuples<key_type>(std::move(keys)),
+            [callback = std::move(callback)] (auto res) {
+                callback(convert_result<key_type>(std::move(res)));
+            });
+    }
+
+    /**
+     * Removes values with given keys from the table. If one or more keys
+     * do not exist, other values are still removed
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param keys Keys.
+     * @return Records from @c keys that did not exist.
+     */
+    std::vector<key_type> remove_all(transaction *tx, std::vector<key_type> keys) {
+        return sync<std::vector<key_type>>([this, tx, keys = std::move(keys)](auto callback) mutable {
+            remove_all_async(tx, std::move(keys), std::move(callback));
+        });
+    }
+
+    /**
+     * Removes records with given keys and values from the table asynchronously.
+     * If one or more records do not exist, other records are still removed.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param pairs Pairs to remove.
+     * @param callback Callback that is called on operation completion. Called with
+     *   records from @c records that did not exist.
+     */
+    void remove_all_async(transaction *tx, const std::vector<std::pair<key_type, value_type>> &pairs,
+        ignite_callback<std::vector<key_type>> callback) {
+        m_delegate.remove_all_async(tx, values_to_tuples<key_type, value_type>(std::move(pairs)),
+            [callback = std::move(callback)] (auto res) {
+                callback(convert_result<key_type>(std::move(res)));
+            });
+    }
+
+    /**
+     * Removes records with given keys and values from the table. If one or more
+     * records do not exist, other records are still removed.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param pairs Pairs to remove.
+     * @return Records from @c records that did not exist.
+     */
+    std::vector<key_type> remove_all(transaction *tx, std::vector<std::pair<key_type, value_type>> pairs) {
+        return sync<std::vector<key_type>>([this, tx, pairs = std::move(pairs)](auto callback) mutable {
+            remove_all_async(tx, std::move(pairs), std::move(callback));
+        });
     }
 
 private:

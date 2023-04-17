@@ -109,7 +109,7 @@ protected:
         for (int i = -100; i < 100; ++i)
             work_range.emplace_back(i);
 
-//        kv_view.remove_all(nullptr, work_range);
+        kv_view.remove_all(nullptr, work_range);
     }
 
     /** Ignite client. */
@@ -410,32 +410,6 @@ TEST_F(key_value_view_test, put_if_absent_existing_record_async) {
 //    EXPECT_EQ(val2.val, res->val);
 //}
 //
-//TEST_F(key_value_view_test, replace_empty_key_throws) {
-//    EXPECT_THROW(
-//        {
-//            try {
-//                kv_view.replace(nullptr, {}, get_tuple("foo"));
-//            } catch (const ignite_error &e) {
-//                EXPECT_STREQ("Key tuple can not be empty", e.what());
-//                throw;
-//            }
-//        },
-//        ignite_error);
-//}
-//
-//TEST_F(key_value_view_test, replace_empty_value_throws) {
-//    EXPECT_THROW(
-//        {
-//            try {
-//                kv_view.replace(nullptr, test_key_type(1), {});
-//            } catch (const ignite_error &e) {
-//                EXPECT_STREQ("Value tuple can not be empty", e.what());
-//                throw;
-//            }
-//        },
-//        ignite_error);
-//}
-//
 //TEST_F(key_value_view_test, replace_exact_nonexisting) {
 //    auto res = kv_view.replace(nullptr, test_key_type(42), test_value_type("foo"), test_value_type("bar"));
 //
@@ -446,10 +420,10 @@ TEST_F(key_value_view_test, put_if_absent_existing_record_async) {
 //}
 //
 //TEST_F(key_value_view_test, replace_exact_existing_wrong) {
-//    auto res = kv_view.put_if_absent(nullptr, test_key_type(42), get_tuple("foo"));
+//    auto res = kv_view.put_if_absent(nullptr, test_key_type(42), test_value_type("foo"));
 //    ASSERT_TRUE(res);
 //
-//    res = kv_view.replace(nullptr, test_key_type(42), test_value_type("bar"), get_tuple("baz"));
+//    res = kv_view.replace(nullptr, test_key_type(42), test_value_type("bar"), test_value_type("baz"));
 //    ASSERT_FALSE(res);
 //
 //    auto res = kv_view.get(nullptr, test_key_type(42));
@@ -460,10 +434,10 @@ TEST_F(key_value_view_test, put_if_absent_existing_record_async) {
 //}
 //
 //TEST_F(key_value_view_test, replace_exact_existing_right) {
-//    auto res = kv_view.put_if_absent(nullptr, test_key_type(42), get_tuple("foo"));
+//    auto res = kv_view.put_if_absent(nullptr, test_key_type(42), test_value_type("foo"));
 //    ASSERT_TRUE(res);
 //
-//    res = kv_view.replace(nullptr, test_key_type(42), test_value_type("foo"), get_tuple("baz"));
+//    res = kv_view.replace(nullptr, test_key_type(42), test_value_type("foo"), test_value_type("baz"));
 //    ASSERT_TRUE(res);
 //
 //    auto res = kv_view.get(nullptr, test_key_type(42));
@@ -503,41 +477,6 @@ TEST_F(key_value_view_test, put_if_absent_existing_record_async) {
 //    EXPECT_EQ(2, res->column_count());
 //    EXPECT_EQ(42, res->key);
 //    EXPECT_EQ(val2.val, res->val);
-//}
-//
-//TEST_F(key_value_view_test, replace_exact_empty_throws) {
-//    EXPECT_THROW(
-//        {
-//            try {
-//                kv_view.replace(nullptr, {}, test_value_type("foo"), test_value_type("bar"));
-//            } catch (const ignite_error &e) {
-//                EXPECT_STREQ("Key tuple can not be empty", e.what());
-//                throw;
-//            }
-//        },
-//        ignite_error);
-//
-//    EXPECT_THROW(
-//        {
-//            try {
-//                kv_view.replace(nullptr, test_key_type(1), {}, test_value_type("bar"));
-//            } catch (const ignite_error &e) {
-//                EXPECT_STREQ("Value tuple can not be empty", e.what());
-//                throw;
-//            }
-//        },
-//        ignite_error);
-//
-//    EXPECT_THROW(
-//        {
-//            try {
-//                kv_view.replace(nullptr, test_key_type(1), test_value_type("foo"), {});
-//            } catch (const ignite_error &e) {
-//                EXPECT_STREQ("Value tuple can not be empty", e.what());
-//                throw;
-//            }
-//        },
-//        ignite_error);
 //}
 //
 //TEST_F(key_value_view_test, get_and_replace_nonexisting) {
@@ -597,46 +536,22 @@ TEST_F(key_value_view_test, put_if_absent_existing_record_async) {
 //    EXPECT_EQ(val1.val, res->val);
 //}
 //
-//TEST_F(key_value_view_test, get_and_replace_empty_throws) {
-//    EXPECT_THROW(
-//        {
-//            try {
-//                (void) kv_view.get_and_replace(nullptr, test_key_type(1), {});
-//            } catch (const ignite_error &e) {
-//                EXPECT_STREQ("Value tuple can not be empty", e.what());
-//                throw;
-//            }
-//        },
-//        ignite_error);
-//
-//    EXPECT_THROW(
-//        {
-//            try {
-//                (void) kv_view.get_and_replace(nullptr, {}, get_tuple("foo"));
-//            } catch (const ignite_error &e) {
-//                EXPECT_STREQ("Key tuple can not be empty", e.what());
-//                throw;
-//            }
-//        },
-//        ignite_error);
-//}
-//
 //TEST_F(key_value_view_test, remove_nonexisting) {
-//    auto res = kv_view.remove(nullptr, get_tuple(1));
+//    auto res = kv_view.remove(nullptr, test_value_type(1));
 //    ASSERT_FALSE(res);
 //
-//    auto res = kv_view.get(nullptr, get_tuple(1));
+//    auto res = kv_view.get(nullptr, test_value_type(1));
 //    ASSERT_FALSE(res.has_value());
 //}
 //
 //TEST_F(key_value_view_test, remove_existing) {
-//    auto res = kv_view.put_if_absent(nullptr, test_key_type(1), get_tuple("foo"));
+//    auto res = kv_view.put_if_absent(nullptr, test_key_type(1), test_value_type("foo"));
 //    ASSERT_TRUE(res);
 //
-//    res = kv_view.remove(nullptr, get_tuple(1));
+//    res = kv_view.remove(nullptr, test_value_type(1));
 //    ASSERT_TRUE(res);
 //
-//    auto res = kv_view.get(nullptr, get_tuple(1));
+//    auto res = kv_view.get(nullptr, test_value_type(1));
 //    ASSERT_FALSE(res.has_value());
 //}
 //
@@ -671,21 +586,21 @@ TEST_F(key_value_view_test, put_if_absent_existing_record_async) {
 //}
 //
 //TEST_F(key_value_view_test, remove_exact_nonexisting) {
-//    auto res = kv_view.remove(nullptr, test_key_type(1), get_tuple("foo"));
+//    auto res = kv_view.remove(nullptr, test_key_type(1), test_value_type("foo"));
 //    ASSERT_FALSE(res);
 //}
 //
 //TEST_F(key_value_view_test, remove_exact_existing) {
-//    auto res = kv_view.put_if_absent(nullptr, test_key_type(1), get_tuple("foo"));
+//    auto res = kv_view.put_if_absent(nullptr, test_key_type(1), test_value_type("foo"));
 //    ASSERT_TRUE(res);
 //
 //    res = kv_view.remove(nullptr, test_key_type(1), test_value_type("bar"));
 //    ASSERT_FALSE(res);
 //
-//    res = kv_view.remove(nullptr, test_key_type(1), get_tuple("foo"));
+//    res = kv_view.remove(nullptr, test_key_type(1), test_value_type("foo"));
 //    ASSERT_TRUE(res);
 //
-//    auto res = kv_view.get(nullptr, get_tuple(1));
+//    auto res = kv_view.get(nullptr, test_value_type(1));
 //    ASSERT_FALSE(res.has_value());
 //}
 //
@@ -713,32 +628,8 @@ TEST_F(key_value_view_test, put_if_absent_existing_record_async) {
 //    ASSERT_TRUE(res);
 //}
 //
-//TEST_F(key_value_view_test, remove_exact_empty_throws) {
-//    EXPECT_THROW(
-//        {
-//            try {
-//                kv_view.remove(nullptr, {}, get_tuple("foo"));
-//            } catch (const ignite_error &e) {
-//                EXPECT_STREQ("Key tuple can not be empty", e.what());
-//                throw;
-//            }
-//        },
-//        ignite_error);
-//
-//    EXPECT_THROW(
-//        {
-//            try {
-//                kv_view.remove(nullptr, test_key_type(1), {});
-//            } catch (const ignite_error &e) {
-//                EXPECT_STREQ("Value tuple can not be empty", e.what());
-//                throw;
-//            }
-//        },
-//        ignite_error);
-//}
-//
 //TEST_F(key_value_view_test, get_and_remove_nonexisting) {
-//    auto res = kv_view.get_and_replace(nullptr, test_key_type(42), get_tuple("foo"));
+//    auto res = kv_view.get_and_replace(nullptr, test_key_type(42), test_value_type("foo"));
 //    ASSERT_FALSE(res.has_value());
 //
 //    auto res = kv_view.get(nullptr, test_key_type(42));
@@ -746,7 +637,7 @@ TEST_F(key_value_view_test, put_if_absent_existing_record_async) {
 //}
 //
 //TEST_F(key_value_view_test, get_and_remove_existing) {
-//    auto res = kv_view.put_if_absent(nullptr, test_key_type(42), get_tuple("foo"));
+//    auto res = kv_view.put_if_absent(nullptr, test_key_type(42), test_value_type("foo"));
 //    ASSERT_TRUE(res);
 //
 //    auto res = kv_view.get_and_remove(nullptr, test_key_type(42));
@@ -796,107 +687,99 @@ TEST_F(key_value_view_test, put_if_absent_existing_record_async) {
 //        },
 //        ignite_error);
 //}
-//
-//TEST_F(key_value_view_test, remove_all_nonexisting_keys_return_all) {
-//    std::vector<ignite_tuple> non_existing = {test_key_type(1), get_tuple(2)};
-//    auto res = kv_view.remove_all(nullptr, non_existing);
-//
-//    EXPECT_EQ(res.size(), 2);
-//
-//    // TODO: Key order should be preserved by the server (IGNITE-16004).
-//    EXPECT_EQ(1, res[0].column_count());
-//    EXPECT_EQ(2, res[0].key);
-//
-//    EXPECT_EQ(1, res[1].column_count());
-//    EXPECT_EQ(1, res[1].key);
-//}
-//
-//TEST_F(key_value_view_test, remove_all_only_existing) {
-//    std::vector<std::pair<ignite_tuple, ignite_tuple>> to_insert = {
-//        {test_key_type(1), test_value_type("foo")}, {get_tuple(2), test_value_type("bar")}};
-//    kv_view.put_all(nullptr, to_insert);
-//
-//    auto res = kv_view.remove_all(nullptr, {test_key_type(1), get_tuple(2)});
-//
-//    EXPECT_TRUE(res.empty());
-//}
-//
-//TEST_F(key_value_view_test, remove_all_overlapped) {
-//    static constexpr std::size_t records_num = 10;
-//
-//    std::vector<std::pair<ignite_tuple, ignite_tuple>> to_insert;
-//    to_insert.reserve(records_num);
-//    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i)
-//        to_insert.emplace_back(get_tuple(i), get_tuple("Val" + std::to_string(i)));
-//
-//    kv_view.put_all(nullptr, to_insert);
-//
-//    std::vector<ignite_tuple> to_remove;
-//    for (std::int64_t i = 9; i < 13; ++i)
-//        to_remove.emplace_back(get_tuple(i));
-//
-//    auto res = kv_view.remove_all(nullptr, to_remove);
-//
-//    EXPECT_EQ(res.size(), 2);
-//
-//    // TODO: Key order should be preserved by the server (IGNITE-16004).
-//    EXPECT_EQ(1, res[0].column_count());
-//    EXPECT_EQ(12, res[0].key);
-//
-//    EXPECT_EQ(1, res[1].column_count());
-//    EXPECT_EQ(11, res[1].key);
-//}
-//
-//TEST_F(key_value_view_test, remove_all_empty) {
-//    auto res = kv_view.remove_all(nullptr, std::vector<ignite_tuple>{});
-//    EXPECT_TRUE(res.empty());
-//}
-//
-//TEST_F(key_value_view_test, remove_all_exact_nonexisting) {
-//    auto res = kv_view.remove_all(nullptr, {{test_key_type(1), test_value_type("foo")}, {get_tuple(2), test_value_type("bar")}});
-//
-//    // TODO: Key order should be preserved by the server (IGNITE-16004).
-//    ASSERT_EQ(2, res.size());
-//}
-//
-//TEST_F(key_value_view_test, remove_all_exact_overlapped) {
-//    kv_view.put_all(nullptr, {{test_key_type(1), test_value_type("foo")}, {get_tuple(2), test_value_type("bar")}});
-//
-//    auto res = kv_view.remove_all(nullptr, {{test_key_type(1), get_tuple("baz")}, {get_tuple(2), test_value_type("bar")}});
-//
-//    EXPECT_EQ(res.size(), 1);
-//    EXPECT_EQ(2, res.front().column_count());
-//    EXPECT_EQ(1, res.front().key);
-//    EXPECT_EQ("baz", res.front().val);
-//
-//    auto tuple2 = kv_view.get(nullptr, get_tuple(2));
-//
-//    ASSERT_FALSE(tuple2.has_value());
-//}
-//
-//TEST_F(key_value_view_test, remove_all_exact_overlapped_async) {
-//    auto all_done = std::make_shared<std::promise<std::vector<ignite_tuple>>>();
-//
-//    kv_view.put_all_async(nullptr, {{test_key_type(1), test_value_type("foo")}, {get_tuple(2), test_value_type("bar")}}, [&](auto res) {
-//        if (!check_and_set_operation_error(*all_done, res))
-//            return;
-//
-//        kv_view.remove_all_async(nullptr, {{test_key_type(1), get_tuple("baz")}, {get_tuple(2), test_value_type("bar")}},
-//            [&](auto res) { result_set_promise(*all_done, std::move(res)); });
-//    });
-//
-//    auto res = all_done->get_future().get();
-//    EXPECT_EQ(res.size(), 1);
-//    EXPECT_EQ(2, res.front().column_count());
-//    EXPECT_EQ(1, res.front().key);
-//    EXPECT_EQ("baz", res.front().val);
-//}
-//
-//TEST_F(key_value_view_test, remove_all_exact_empty) {
-//    auto res = kv_view.remove_all(nullptr, std::vector<std::pair<ignite_tuple, ignite_tuple>>{});
-//    EXPECT_TRUE(res.empty());
-//}
-//
+
+TEST_F(key_value_view_test, remove_all_nonexisting_keys_return_all) {
+    std::vector<test_key_type> non_existing = {test_key_type(1), test_key_type(2)};
+    auto res = kv_view.remove_all(nullptr, non_existing);
+
+    EXPECT_EQ(res.size(), 2);
+
+    // TODO: Key order should be preserved by the server (IGNITE-16004).
+    EXPECT_EQ(2, res[0].key);
+    EXPECT_EQ(1, res[1].key);
+}
+
+TEST_F(key_value_view_test, remove_all_only_existing) {
+    std::vector<std::pair<test_key_type, test_value_type>> to_insert = {
+        {test_key_type(1), test_value_type("foo")}, {test_key_type(2), test_value_type("bar")}};
+    kv_view.put_all(nullptr, to_insert);
+
+    auto res = kv_view.remove_all(nullptr, {test_key_type(1), test_key_type(2)});
+
+    EXPECT_TRUE(res.empty());
+}
+
+TEST_F(key_value_view_test, remove_all_overlapped) {
+    static constexpr std::size_t records_num = 10;
+
+    std::vector<std::pair<test_key_type, test_value_type>> to_insert;
+    to_insert.reserve(records_num);
+    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i)
+        to_insert.emplace_back(i, "Val" + std::to_string(i));
+
+    kv_view.put_all(nullptr, to_insert);
+
+    std::vector<test_key_type> to_remove;
+    for (std::int64_t i = 9; i < 13; ++i)
+        to_remove.emplace_back(i);
+
+    auto res = kv_view.remove_all(nullptr, to_remove);
+
+    EXPECT_EQ(res.size(), 2);
+
+    // TODO: Key order should be preserved by the server (IGNITE-16004).
+    EXPECT_EQ(12, res[0].key);
+    EXPECT_EQ(11, res[1].key);
+}
+
+TEST_F(key_value_view_test, remove_all_empty) {
+    auto res = kv_view.remove_all(nullptr, std::vector<test_key_type>{});
+    EXPECT_TRUE(res.empty());
+}
+
+TEST_F(key_value_view_test, remove_all_exact_nonexisting) {
+    auto res = kv_view.remove_all(nullptr, {
+        {test_key_type(1), test_value_type("foo")}, {test_key_type(2), test_value_type("bar")}});
+
+    // TODO: Key order should be preserved by the server (IGNITE-16004).
+    ASSERT_EQ(2, res.size());
+}
+
+TEST_F(key_value_view_test, remove_all_exact_overlapped) {
+    kv_view.put_all(nullptr, {{test_key_type(1), test_value_type("foo")}, {test_key_type(2), test_value_type("bar")}});
+
+    auto res = kv_view.remove_all(nullptr, {
+        {test_key_type(1), test_value_type("baz")}, {test_key_type(2), test_value_type("bar")}});
+
+    EXPECT_EQ(res.size(), 1);
+    EXPECT_EQ(1, res.front().key);
+
+    auto tuple2 = kv_view.get(nullptr, test_key_type(2));
+
+    ASSERT_FALSE(tuple2.has_value());
+}
+
+TEST_F(key_value_view_test, remove_all_exact_overlapped_async) {
+    auto all_done = std::make_shared<std::promise<std::vector<test_key_type>>>();
+
+    kv_view.put_all_async(nullptr, {{test_key_type(1), test_value_type("foo")}, {test_key_type(2), test_value_type("bar")}}, [&](auto res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        kv_view.remove_all_async(nullptr, {{test_key_type(1), test_value_type("baz")}, {test_key_type(2), test_value_type("bar")}},
+            [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+    });
+
+    auto res = all_done->get_future().get();
+    EXPECT_EQ(res.size(), 1);
+    EXPECT_EQ(1, res.front().key);
+}
+
+TEST_F(key_value_view_test, remove_all_exact_empty) {
+    auto res = kv_view.remove_all(nullptr, std::vector<std::pair<test_key_type, test_value_type>>{});
+    EXPECT_TRUE(res.empty());
+}
+
 //TEST_F(key_value_view_test, types_test) {
 //    auto table = m_client.get_tables().get_table(TABLE_NAME_ALL_COLUMNS);
 //    kv_view = table->get_key_value_binary_view();
