@@ -114,7 +114,6 @@ import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValu
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -679,7 +678,6 @@ public class ItRebalanceDistributedTest {
                     cfgStorage,
                     List.of(ExtendedTableConfigurationSchema.class),
                     List.of(
-                            UnknownDataStorageConfigurationSchema.class,
                             VolatilePageMemoryDataStorageConfigurationSchema.class,
                             UnsafeMemoryAllocatorConfigurationSchema.class,
                             PersistentPageMemoryDataStorageConfigurationSchema.class,

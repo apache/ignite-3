@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
-import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.AFFINITY_FUNCTION;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN;
@@ -698,10 +697,6 @@ public class DdlSqlToCommandConverter {
     private String deriveDataStorage(@Nullable SqlIdentifier engineName, PlanningContext ctx) {
         if (engineName == null) {
             String defaultDataStorage = defaultDataStorageSupplier.get();
-
-            if (defaultDataStorage.equals(UNKNOWN_DATA_STORAGE)) {
-                throw new SqlException(STORAGE_ENGINE_NOT_VALID_ERR, "Default data storage is not defined, query:" + ctx.query());
-            }
 
             return defaultDataStorage;
         }

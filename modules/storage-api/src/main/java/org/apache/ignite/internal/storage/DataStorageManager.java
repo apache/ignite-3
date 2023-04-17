@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.storage;
 
-import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
-import static org.apache.ignite.internal.util.CollectionUtils.first;
-
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Consumer;
@@ -33,7 +30,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -90,45 +86,34 @@ public class DataStorageManager implements IgniteComponent {
      * Returns a consumer that will set the default {@link DistributionZoneConfiguration#dataStorage table data storage}
      * depending on the {@link StorageEngine engine}.
      *
-     * @param defaultDataStorageView View of {@link DistributionZonesConfiguration#defaultDataStorage}. For the case {@link
-     *      UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} and there is only one engine, then it will be the default, otherwise
-     *      there will be no default.
+     * @param defaultDataStorageView View of {@link DistributionZonesConfiguration#defaultDataStorage}.
      */
     public Consumer<DataStorageChange> defaultZoneDataStorageConsumer(String defaultDataStorageView) {
         return zoneDataStorageChange -> {
-            if (!defaultDataStorageView.equals(UNKNOWN_DATA_STORAGE)) {
-                assert engines.containsKey(defaultDataStorageView)
-                        : "Default Storage Engine \"" + defaultDataStorageView + "\" is missing from configuration";
+            assert engines.containsKey(defaultDataStorageView)
+                    : "Default Storage Engine \"" + defaultDataStorageView + "\" is missing from configuration";
 
-                zoneDataStorageChange.convert(defaultDataStorageView);
-            } else if (engines.size() == 1) {
-                zoneDataStorageChange.convert(first(engines.keySet()));
-            }
+            zoneDataStorageChange.convert(defaultDataStorageView);
         };
     }
 
     /**
      * Returns the default data storage.
      *
-     * <p>{@link DistributionZonesConfiguration#defaultDataStorage} is used. For the case {@link
-     * UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} and there is only one engine, then it will be the default.
+     * <p>{@link DistributionZonesConfiguration#defaultDataStorage} is used.
      */
     public String defaultDataStorage() {
-        String defaultDataStorage = defaultDataStorageConfig.value();
-
-        return !defaultDataStorage.equals(UNKNOWN_DATA_STORAGE) || engines.size() > 1 ? defaultDataStorage : first(engines.keySet());
+        return defaultDataStorageConfig.value();
     }
 
     /**
      * Creates a consumer that will change the {@link DataStorageConfigurationSchema data storage} for the {@link
      * DistributionZoneConfiguration#dataStorage}.
      *
-     * @param dataStorage Data storage, {@link UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} is invalid.
+     * @param dataStorage Data storage.
      * @param values {@link Value Values} for the data storage. Mapping: field name -> field value.
      */
     public Consumer<DataStorageChange> zoneDataStorageConsumer(String dataStorage, Map<String, Object> values) {
-        assert !dataStorage.equals(UNKNOWN_DATA_STORAGE);
-
         ConfigurationSource configurationSource = new ConfigurationSource() {
             /** {@inheritDoc} */
             @Override

@@ -31,7 +31,6 @@ import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDef
 import org.apache.ignite.internal.schema.configuration.index.HashIndexConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.index.IndexValidatorImpl;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-schema.
@@ -60,7 +59,6 @@ public class SchemaDistributedConfigurationModule implements ConfigurationModule
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(
-                UnknownDataStorageConfigurationSchema.class,
                 ConstantValueDefaultConfigurationSchema.class,
                 FunctionCallDefaultConfigurationSchema.class,
                 NullValueDefaultConfigurationSchema.class,
