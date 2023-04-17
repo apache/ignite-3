@@ -25,13 +25,6 @@ public class SessionInfo {
 
     private final String jdbcUrl;
 
-    /** Default constructor. */
-    public SessionInfo() {
-        this.nodeUrl = null;
-        this.nodeName = null;
-        this.jdbcUrl = null;
-    }
-
     /** Constructor. */
     public SessionInfo(String nodeUrl, String nodeName, String jdbcUrl) {
         this.nodeUrl = nodeUrl;
