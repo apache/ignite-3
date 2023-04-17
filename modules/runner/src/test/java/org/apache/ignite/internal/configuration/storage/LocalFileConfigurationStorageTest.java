@@ -21,6 +21,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.emptyString;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.equalToCompressingWhiteSpace;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.hasValue;
@@ -108,8 +109,8 @@ public class LocalFileConfigurationStorageTest {
         // When
         var storageValues = readAllLatest();
 
-        // Then storage data only contains top level defaults
-        assertThat(storageValues.entrySet(), hasSize(1));
+        // Then
+        assertThat(storageValues.entrySet(), hasSize(0));
     }
 
     /** Named list entities can be added. */
@@ -130,8 +131,8 @@ public class LocalFileConfigurationStorageTest {
         var storageValues = readAllLatest();
 
         // Then
-        assertThat(storageValues, allOf(aMapWithSize(6), hasValue(-1)));
-        assertThat(storageValues, allOf(aMapWithSize(6), hasValue("strVal1")));
+        assertThat(storageValues, allOf(aMapWithSize(5), hasValue(-1)));
+        assertThat(storageValues, allOf(aMapWithSize(5), hasValue("strVal1")));
 
         // And
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
@@ -156,11 +157,11 @@ public class LocalFileConfigurationStorageTest {
         storageValues = readAllLatest();
 
         // Then
-        assertThat(storageValues, allOf(aMapWithSize(11), hasValue(-2)));
-        assertThat(storageValues, allOf(aMapWithSize(11), hasValue("strVal2")));
+        assertThat(storageValues, allOf(aMapWithSize(10), hasValue(-2)));
+        assertThat(storageValues, allOf(aMapWithSize(10), hasValue("strVal2")));
         // And
-        assertThat(storageValues, allOf(aMapWithSize(11), hasValue(-1)));
-        assertThat(storageValues, allOf(aMapWithSize(11), hasValue("strVal1")));
+        assertThat(storageValues, allOf(aMapWithSize(10), hasValue(-1)));
+        assertThat(storageValues, allOf(aMapWithSize(10), hasValue("strVal1")));
         // And
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
@@ -336,15 +337,10 @@ public class LocalFileConfigurationStorageTest {
         // When
         var storageValues = storage.readDataOnRecovery().join().values();
 
-        // Then storage data only contains top level defaults
-        assertThat(storageValues.entrySet(), hasSize(1));
-        // And
-        assertThat(configFileContent(), equalToCompressingWhiteSpace(
-                "top {\n"
-                        + "    namedList=[]\n"
-                        + "    shortVal=1\n"
-                        + "}\n"
-        ));
+        // Then
+        assertThat(storageValues.entrySet(), hasSize(0));
+        // And empty file was created
+        assertThat(configFileContent(), equalTo(""));
     }
 
     /** Delete file before read all. */
@@ -356,8 +352,8 @@ public class LocalFileConfigurationStorageTest {
         // When
         var storageValues = readAllLatest();
 
-        // Then storage data only contains top level defaults
-        assertThat(storageValues.entrySet(), hasSize(1));
+        // Then
+        assertThat(storageValues.entrySet(), hasSize(0));
         // And there is no file
         assertThat(Files.exists(getConfigFile()), is(false));
 
@@ -378,7 +374,6 @@ public class LocalFileConfigurationStorageTest {
                         + "            strVal=strVal1\n"
                         + "        }\n"
                         + "    ]\n"
-                        + "    shortVal=1\n"
                         + "}\n"
         ));
     }

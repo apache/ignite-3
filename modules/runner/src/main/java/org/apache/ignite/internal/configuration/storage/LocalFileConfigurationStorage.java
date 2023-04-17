@@ -126,8 +126,6 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                 Config hocon = readHoconFromFile();
                 HoconConverter.hoconSource(hocon.root()).descend(copiedSuperRoot);
 
-                addDefaults(copiedSuperRoot);
-
                 Map<String, Serializable> flattenedUpdatesMap = createFlattenedUpdatesMap(superRoot, copiedSuperRoot);
 
                 latest.putAll(flattenedUpdatesMap);
@@ -278,10 +276,10 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     }
 
     private static String renderConfig(ConfigObject conf) {
-        Config newConfig = conf.toConfig().resolve();
+        Config newConfig = conf.toConfig();
         return newConfig.isEmpty()
                 ? ""
-                : newConfig.root().render(ConfigRenderOptions.concise().setFormatted(true).setJson(false));
+                : newConfig.root().render(ConfigRenderOptions.concise());
     }
 
     /** Check that configuration file still exists and restore it with latest applied state in case it was deleted. */
