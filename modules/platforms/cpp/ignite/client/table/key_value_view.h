@@ -641,6 +641,68 @@ public:
         sync<void>([this, tx, pairs](auto callback) mutable { put_all_async(tx, pairs, std::move(callback)); });
     }
 
+    /**
+     * Puts a value with a given key and returns previous value for the key asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key Key.
+     * @param value Value.
+     * @param callback Callback. Called with a value which contains replaced
+     *   value or @c std::nullopt if it did not exist.
+     */
+    void get_and_put_async(transaction *tx, const key_type &key, const value_type &value,
+        ignite_callback<std::optional<value_type>> callback) {
+        m_delegate.get_and_put_async(tx, convert_to_tuple(key), convert_to_tuple(value),
+            [callback = std::move(callback)] (auto res) {
+                callback(convert_result<value_type>(std::move(res)));
+            });
+    }
+
+    /**
+     * Puts a value with a given key and returns previous value for the key.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key Key.
+     * @param value Value.
+     * @return A replaced value or @c std::nullopt if it did not exist.
+     */
+    [[nodiscard]] std::optional<value_type> get_and_put(
+        transaction *tx, const key_type &key, const value_type &value) {
+        return sync<std::optional<value_type>>(
+            [this, tx, &key, &value](auto callback) { get_and_put_async(tx, key, value, std::move(callback)); });
+    }
+
+    /**
+     * Asynchronously puts a value with a given key if the specified key is not present in the table.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key Key.
+     * @param value Value.
+     * @param callback Callback. Called with a value indicating whether the
+     *   record was inserted. Equals @c false if a record with the same key
+     *   already exists.
+     */
+    void put_if_absent_async(
+        transaction *tx, const key_type &key, const value_type &value, ignite_callback<bool> callback) {
+        m_delegate.put_if_absent_async(tx, convert_to_tuple(key), convert_to_tuple(value), std::move(callback));
+    }
+
+    /**
+     * Puts a value with a given key if the specified key is not present in the table.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key Key.
+     * @param value Value.
+     */
+    bool put_if_absent(transaction *tx, const key_type &key, const value_type &value) {
+        return sync<bool>(
+            [this, tx, &key, &value](auto callback) { put_if_absent_async(tx, key, value, std::move(callback)); });
+    }
+
 private:
     /**
      * Constructor

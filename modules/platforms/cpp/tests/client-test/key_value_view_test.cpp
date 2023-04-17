@@ -239,156 +239,118 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
     EXPECT_EQ("Val10", res[1]->val);
 }
 
-//TEST_F(key_value_view_test, get_and_put_new_record) {
-//    auto key = get_tuple(42);
-//    auto val = test_value_type("foo");
-//    auto res = kv_view.get_and_put(nullptr, key, val);
-//
-//    ASSERT_FALSE(res.has_value());
-//}
-//
-//TEST_F(key_value_view_test, get_and_put_existing_record) {
-//    auto key = get_tuple(42);
-//    auto val_tuple1 = test_value_type("foo");
-//    auto res = kv_view.get_and_put(nullptr, key, val_tuple1);
-//
-//    ASSERT_FALSE(res.has_value());
-//
-//    auto val_tuple2 = get_tuple("bar");
-//    res = kv_view.get_and_put(nullptr, key, val_tuple2);
-//
-//    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(2, res->column_count());
-//    EXPECT_EQ(42, res->key);
-//    EXPECT_EQ("foo", res->val);
-//
-//    res = kv_view.get(nullptr, key);
-//
-//    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(2, res->column_count());
-//    EXPECT_EQ(42, res->key);
-//    EXPECT_EQ("bar", res->val);
-//}
-//
-//TEST_F(key_value_view_test, get_and_put_existing_record_async) {
-//    auto key = get_tuple(42);
-//    auto val_tuple1 = test_value_type("foo");
-//    auto val_tuple2 = get_tuple("bar");
-//
-//    auto first = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
-//
-//    kv_view.get_and_put_async(nullptr, key, val_tuple1, [&](auto res) {
-//        if (!check_and_set_operation_error(*first, res))
-//            return;
-//
-//        if (res.value().has_value())
-//            first->set_exception(std::make_exception_ptr(ignite_error("Expected nullopt on first insertion")));
-//
-//        kv_view.get_and_put_async(
-//            nullptr, key, val_tuple2, [&](auto res) { result_set_promise(*first, std::move(res)); });
-//    });
-//
-//    auto res = first->get_future().get();
-//    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(2, res->column_count());
-//    EXPECT_EQ(42, res->key);
-//    EXPECT_EQ(val_tuple1.get<std::string>("val"), res->val);
-//
-//    auto second = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
-//    kv_view.get_async(nullptr, key, [&](auto res) { result_set_promise(*second, std::move(res)); });
-//
-//    res = second->get_future().get();
-//    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(2, res->column_count());
-//    EXPECT_EQ(42, res->key);
-//    EXPECT_EQ(val_tuple2.get<std::string>("val"), res->val);
-//}
-//
-//TEST_F(key_value_view_test, insert_new_record) {
-//    auto key = get_tuple(42);
-//    auto val = test_value_type("foo");
-//    auto res = kv_view.put_if_absent(nullptr, key, val);
-//
-//    ASSERT_TRUE(res);
-//}
-//
-//TEST_F(key_value_view_test, put_if_absent_existing_record) {
-//    auto key = get_tuple(42);
-//    auto val_tuple1 = test_value_type("foo");
-//    auto res = kv_view.put_if_absent(nullptr, key, val_tuple1);
-//    ASSERT_TRUE(res);
-//
-//    auto val_tuple2 = get_tuple("bar");
-//    res = kv_view.put_if_absent(nullptr, key, val_tuple2);
-//    ASSERT_FALSE(res);
-//
-//    auto res = kv_view.get(nullptr, key);
-//    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(2, res->column_count());
-//    EXPECT_EQ(42, res->key);
-//    EXPECT_EQ("foo", res->val);
-//}
-//
-//TEST_F(key_value_view_test, put_if_absent_existing_record_async) {
-//    auto key = get_tuple(42);
-//    auto val_tuple1 = test_value_type("foo");
-//    auto val_tuple2 = get_tuple("bar");
-//
-//    auto all_done = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
-//
-//    kv_view.put_if_absent_async(nullptr, key, val_tuple1, [&](ignite_result<bool> &&res) {
-//        if (!check_and_set_operation_error(*all_done, res))
-//            return;
-//
-//        if (!res.value())
-//            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on first insertion")));
-//
-//        kv_view.put_if_absent_async(nullptr, key, val_tuple2, [&](ignite_result<bool> &&res) {
-//            if (!check_and_set_operation_error(*all_done, res))
-//                return;
-//
-//            if (res.value())
-//                all_done->set_exception(std::make_exception_ptr(ignite_error("Expected false on second insertion")));
-//
-//            kv_view.get_async(nullptr, key, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
-//        });
-//    });
-//
-//    auto res = all_done->get_future().get();
-//    ASSERT_TRUE(res.has_value());
-//    EXPECT_EQ(2, res->column_count());
-//    EXPECT_EQ(42, res->key);
-//    EXPECT_EQ(val_tuple1.get<std::string>("val"), res->val);
-//}
-//
-//TEST_F(key_value_view_test, put_if_absent_empty_key_throws) {
-//    EXPECT_THROW(
-//        {
-//            try {
-//                kv_view.put_if_absent(nullptr, {}, get_tuple("foo"));
-//            } catch (const ignite_error &e) {
-//                EXPECT_STREQ("Key tuple can not be empty", e.what());
-//                throw;
-//            }
-//        },
-//        ignite_error);
-//}
-//
-//TEST_F(key_value_view_test, put_if_absent_empty_value_throws) {
-//    EXPECT_THROW(
-//        {
-//            try {
-//                kv_view.put_if_absent(nullptr, test_key_type(1), {});
-//            } catch (const ignite_error &e) {
-//                EXPECT_STREQ("Value tuple can not be empty", e.what());
-//                throw;
-//            }
-//        },
-//        ignite_error);
-//}
-//
+TEST_F(key_value_view_test, get_and_put_new_record) {
+    auto key = test_key_type(42);
+    auto val = test_value_type("foo");
+    auto res = kv_view.get_and_put(nullptr, key, val);
+
+    ASSERT_FALSE(res.has_value());
+}
+
+TEST_F(key_value_view_test, get_and_put_existing_record) {
+    auto key = test_key_type(42);
+    auto val1 = test_value_type("foo");
+    auto res = kv_view.get_and_put(nullptr, key, val1);
+
+    ASSERT_FALSE(res.has_value());
+
+    auto val2 = test_value_type("bar");
+    res = kv_view.get_and_put(nullptr, key, val2);
+
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ("foo", res->val);
+
+    res = kv_view.get(nullptr, key);
+
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ("bar", res->val);
+}
+
+TEST_F(key_value_view_test, get_and_put_existing_record_async) {
+    auto key = test_key_type(42);
+    auto val1 = test_value_type("foo");
+    auto val2 = test_value_type("bar");
+
+    auto first = std::make_shared<std::promise<std::optional<test_value_type>>>();
+
+    kv_view.get_and_put_async(nullptr, key, val1, [&](auto res) {
+        if (!check_and_set_operation_error(*first, res))
+            return;
+
+        if (res.value().has_value())
+            first->set_exception(std::make_exception_ptr(ignite_error("Expected nullopt on first insertion")));
+
+        kv_view.get_and_put_async(
+            nullptr, key, val2, [&](auto res) { result_set_promise(*first, std::move(res)); });
+    });
+
+    auto res = first->get_future().get();
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ(val1.val, res->val);
+
+    auto second = std::make_shared<std::promise<std::optional<test_value_type>>>();
+    kv_view.get_async(nullptr, key, [&](auto res) { result_set_promise(*second, std::move(res)); });
+
+    res = second->get_future().get();
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ(val2.val, res->val);
+}
+
+TEST_F(key_value_view_test, insert_new_record) {
+    auto key = test_key_type(42);
+    auto val = test_value_type("foo");
+    auto res = kv_view.put_if_absent(nullptr, key, val);
+
+    ASSERT_TRUE(res);
+}
+
+TEST_F(key_value_view_test, put_if_absent_existing_record) {
+    auto key = test_key_type(42);
+    auto val1 = test_value_type("foo");
+    auto put_res = kv_view.put_if_absent(nullptr, key, val1);
+    ASSERT_TRUE(put_res);
+
+    auto val2 = test_value_type("bar");
+    put_res = kv_view.put_if_absent(nullptr, key, val2);
+    ASSERT_FALSE(put_res);
+
+    auto res = kv_view.get(nullptr, key);
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ("foo", res->val);
+}
+
+TEST_F(key_value_view_test, put_if_absent_existing_record_async) {
+    auto key = test_key_type(42);
+    auto val1 = test_value_type("foo");
+    auto val2 = test_value_type("bar");
+
+    auto all_done = std::make_shared<std::promise<std::optional<test_value_type>>>();
+
+    kv_view.put_if_absent_async(nullptr, key, val1, [&](ignite_result<bool> &&res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        if (!res.value())
+            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on first insertion")));
+
+        kv_view.put_if_absent_async(nullptr, key, val2, [&](ignite_result<bool> &&res) {
+            if (!check_and_set_operation_error(*all_done, res))
+                return;
+
+            if (res.value())
+                all_done->set_exception(std::make_exception_ptr(ignite_error("Expected false on second insertion")));
+
+            kv_view.get_async(nullptr, key, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+        });
+    });
+
+    auto res = all_done->get_future().get();
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ(val1.val, res->val);
+}
+
 //TEST_F(key_value_view_test, replace_nonexisting) {
-//    auto key = get_tuple(42);
+//    auto key = test_key_type(42);
 //    auto val = test_value_type("foo");
 //
 //    auto res = kv_view.replace(nullptr, key, val);
@@ -399,14 +361,14 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //}
 //
 //TEST_F(key_value_view_test, replace_existing) {
-//    auto key = get_tuple(42);
-//    auto val_tuple1 = test_value_type("foo");
+//    auto key = test_key_type(42);
+//    auto val1 = test_value_type("foo");
 //
-//    auto res = kv_view.put_if_absent(nullptr, key, val_tuple1);
+//    auto res = kv_view.put_if_absent(nullptr, key, val1);
 //    ASSERT_TRUE(res);
 //
-//    auto val_tuple2 = get_tuple("bar");
-//    res = kv_view.replace(nullptr, key, val_tuple2);
+//    auto val2 = test_value_type("bar");
+//    res = kv_view.replace(nullptr, key, val2);
 //    ASSERT_TRUE(res);
 //
 //    auto res = kv_view.get(nullptr, key);
@@ -417,20 +379,20 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //}
 //
 //TEST_F(key_value_view_test, replace_existing_async) {
-//    auto key = get_tuple(42);
-//    auto val_tuple1 = test_value_type("foo");
-//    auto val_tuple2 = get_tuple("bar");
+//    auto key = test_key_type(42);
+//    auto val1 = test_value_type("foo");
+//    auto val2 = test_value_type("bar");
 //
-//    auto all_done = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
+//    auto all_done = std::make_shared<std::promise<std::optional<test_value_type>>>();
 //
-//    kv_view.put_if_absent_async(nullptr, key, val_tuple1, [&](ignite_result<bool> &&res) {
+//    kv_view.put_if_absent_async(nullptr, key, val1, [&](ignite_result<bool> &&res) {
 //        if (!check_and_set_operation_error(*all_done, res))
 //            return;
 //
 //        if (!res.value())
 //            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insertion")));
 //
-//        kv_view.replace_async(nullptr, key, val_tuple2, [&](ignite_result<bool> &&res) {
+//        kv_view.replace_async(nullptr, key, val2, [&](ignite_result<bool> &&res) {
 //            if (!check_and_set_operation_error(*all_done, res))
 //                return;
 //
@@ -445,7 +407,7 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //    ASSERT_TRUE(res.has_value());
 //    EXPECT_EQ(2, res->column_count());
 //    EXPECT_EQ(42, res->key);
-//    EXPECT_EQ(val_tuple2.get<std::string>("val"), res->val);
+//    EXPECT_EQ(val2.val, res->val);
 //}
 //
 //TEST_F(key_value_view_test, replace_empty_key_throws) {
@@ -475,22 +437,22 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //}
 //
 //TEST_F(key_value_view_test, replace_exact_nonexisting) {
-//    auto res = kv_view.replace(nullptr, get_tuple(42), test_value_type("foo"), get_tuple("bar"));
+//    auto res = kv_view.replace(nullptr, test_key_type(42), test_value_type("foo"), test_value_type("bar"));
 //
 //    ASSERT_FALSE(res);
 //
-//    auto res = kv_view.get(nullptr, get_tuple(42));
+//    auto res = kv_view.get(nullptr, test_key_type(42));
 //    ASSERT_FALSE(res.has_value());
 //}
 //
 //TEST_F(key_value_view_test, replace_exact_existing_wrong) {
-//    auto res = kv_view.put_if_absent(nullptr, get_tuple(42), get_tuple("foo"));
+//    auto res = kv_view.put_if_absent(nullptr, test_key_type(42), get_tuple("foo"));
 //    ASSERT_TRUE(res);
 //
-//    res = kv_view.replace(nullptr, get_tuple(42), get_tuple("bar"), get_tuple("baz"));
+//    res = kv_view.replace(nullptr, test_key_type(42), test_value_type("bar"), get_tuple("baz"));
 //    ASSERT_FALSE(res);
 //
-//    auto res = kv_view.get(nullptr, get_tuple(42));
+//    auto res = kv_view.get(nullptr, test_key_type(42));
 //    ASSERT_TRUE(res.has_value());
 //    EXPECT_EQ(2, res->column_count());
 //    EXPECT_EQ(42, res->key);
@@ -498,13 +460,13 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //}
 //
 //TEST_F(key_value_view_test, replace_exact_existing_right) {
-//    auto res = kv_view.put_if_absent(nullptr, get_tuple(42), get_tuple("foo"));
+//    auto res = kv_view.put_if_absent(nullptr, test_key_type(42), get_tuple("foo"));
 //    ASSERT_TRUE(res);
 //
-//    res = kv_view.replace(nullptr, get_tuple(42), test_value_type("foo"), get_tuple("baz"));
+//    res = kv_view.replace(nullptr, test_key_type(42), test_value_type("foo"), get_tuple("baz"));
 //    ASSERT_TRUE(res);
 //
-//    auto res = kv_view.get(nullptr, get_tuple(42));
+//    auto res = kv_view.get(nullptr, test_key_type(42));
 //    ASSERT_TRUE(res.has_value());
 //    EXPECT_EQ(2, res->column_count());
 //    EXPECT_EQ(42, res->key);
@@ -512,20 +474,20 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //}
 //
 //TEST_F(key_value_view_test, replace_exact_existing_right_async) {
-//    auto key = get_tuple(42);
-//    auto val_tuple1 = test_value_type("foo");
-//    auto val_tuple2 = get_tuple("bar");
+//    auto key = test_key_type(42);
+//    auto val1 = test_value_type("foo");
+//    auto val2 = test_value_type("bar");
 //
-//    auto all_done = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
+//    auto all_done = std::make_shared<std::promise<std::optional<test_value_type>>>();
 //
-//    kv_view.put_if_absent_async(nullptr, key, val_tuple1, [&](ignite_result<bool> &&res) {
+//    kv_view.put_if_absent_async(nullptr, key, val1, [&](ignite_result<bool> &&res) {
 //        if (!check_and_set_operation_error(*all_done, res))
 //            return;
 //
 //        if (!res.value())
 //            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insertion")));
 //
-//        kv_view.replace_async(nullptr, key, val_tuple1, val_tuple2, [&](ignite_result<bool> &&res) {
+//        kv_view.replace_async(nullptr, key, val1, val2, [&](ignite_result<bool> &&res) {
 //            if (!check_and_set_operation_error(*all_done, res))
 //                return;
 //
@@ -540,14 +502,14 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //    ASSERT_TRUE(res.has_value());
 //    EXPECT_EQ(2, res->column_count());
 //    EXPECT_EQ(42, res->key);
-//    EXPECT_EQ(val_tuple2.get<std::string>("val"), res->val);
+//    EXPECT_EQ(val2.val, res->val);
 //}
 //
 //TEST_F(key_value_view_test, replace_exact_empty_throws) {
 //    EXPECT_THROW(
 //        {
 //            try {
-//                kv_view.replace(nullptr, {}, test_value_type("foo"), get_tuple("bar"));
+//                kv_view.replace(nullptr, {}, test_value_type("foo"), test_value_type("bar"));
 //            } catch (const ignite_error &e) {
 //                EXPECT_STREQ("Key tuple can not be empty", e.what());
 //                throw;
@@ -558,7 +520,7 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //    EXPECT_THROW(
 //        {
 //            try {
-//                kv_view.replace(nullptr, test_key_type(1), {}, get_tuple("bar"));
+//                kv_view.replace(nullptr, test_key_type(1), {}, test_value_type("bar"));
 //            } catch (const ignite_error &e) {
 //                EXPECT_STREQ("Value tuple can not be empty", e.what());
 //                throw;
@@ -579,7 +541,7 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //}
 //
 //TEST_F(key_value_view_test, get_and_replace_nonexisting) {
-//    auto key = get_tuple(42);
+//    auto key = test_key_type(42);
 //    auto val = test_value_type("foo");
 //    auto res = kv_view.get_and_replace(nullptr, key, val);
 //
@@ -590,20 +552,20 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //}
 //
 //TEST_F(key_value_view_test, get_and_replace_existing) {
-//    auto key = get_tuple(42);
-//    auto val_tuple1 = test_value_type("foo");
-//    auto res = kv_view.put_if_absent(nullptr, key, val_tuple1);
+//    auto key = test_key_type(42);
+//    auto val1 = test_value_type("foo");
+//    auto res = kv_view.put_if_absent(nullptr, key, val1);
 //    ASSERT_TRUE(res);
 //
-//    auto val_tuple2 = get_tuple("bar");
-//    auto res = kv_view.get_and_replace(nullptr, key, val_tuple2);
+//    auto val2 = test_value_type("bar");
+//    auto res = kv_view.get_and_replace(nullptr, key, val2);
 //
 //    ASSERT_TRUE(res.has_value());
 //    EXPECT_EQ(2, res->column_count());
 //    EXPECT_EQ(42, res->key);
 //    EXPECT_EQ("foo", res->val);
 //
-//    res = kv_view.get(nullptr, get_tuple(42));
+//    res = kv_view.get(nullptr, test_key_type(42));
 //    ASSERT_TRUE(res.has_value());
 //    EXPECT_EQ(2, res->column_count());
 //    EXPECT_EQ(42, res->key);
@@ -611,13 +573,13 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //}
 //
 //TEST_F(key_value_view_test, get_and_replace_existing_async) {
-//    auto key = get_tuple(42);
-//    auto val_tuple1 = test_value_type("foo");
-//    auto val_tuple2 = get_tuple("bar");
+//    auto key = test_key_type(42);
+//    auto val1 = test_value_type("foo");
+//    auto val2 = test_value_type("bar");
 //
-//    auto all_done = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
+//    auto all_done = std::make_shared<std::promise<std::optional<test_value_type>>>();
 //
-//    kv_view.put_if_absent_async(nullptr, key, val_tuple1, [&](ignite_result<bool> &&res) {
+//    kv_view.put_if_absent_async(nullptr, key, val1, [&](ignite_result<bool> &&res) {
 //        if (!check_and_set_operation_error(*all_done, res))
 //            return;
 //
@@ -625,14 +587,14 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insertion")));
 //
 //        kv_view.get_and_replace_async(
-//            nullptr, key, val_tuple2, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+//            nullptr, key, val2, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
 //    });
 //
 //    auto res = all_done->get_future().get();
 //    ASSERT_TRUE(res.has_value());
 //    EXPECT_EQ(2, res->column_count());
 //    EXPECT_EQ(42, res->key);
-//    EXPECT_EQ(val_tuple1.get<std::string>("val"), res->val);
+//    EXPECT_EQ(val1.val, res->val);
 //}
 //
 //TEST_F(key_value_view_test, get_and_replace_empty_throws) {
@@ -681,14 +643,14 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //TEST_F(key_value_view_test, remove_existing_async) {
 //    auto all_done = std::make_shared<std::promise<bool>>();
 //
-//    kv_view.put_if_absent_async(nullptr, get_tuple(42), test_value_type("foo"), [&](ignite_result<bool> &&res) {
+//    kv_view.put_if_absent_async(nullptr, test_key_type(42), test_value_type("foo"), [&](ignite_result<bool> &&res) {
 //        if (!check_and_set_operation_error(*all_done, res))
 //            return;
 //
 //        if (!res.value())
 //            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insertion")));
 //
-//        kv_view.remove_async(nullptr, get_tuple(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+//        kv_view.remove_async(nullptr, test_key_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
 //    });
 //
 //    auto res = all_done->get_future().get();
@@ -717,7 +679,7 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //    auto res = kv_view.put_if_absent(nullptr, test_key_type(1), get_tuple("foo"));
 //    ASSERT_TRUE(res);
 //
-//    res = kv_view.remove(nullptr, test_key_type(1), get_tuple("bar"));
+//    res = kv_view.remove(nullptr, test_key_type(1), test_value_type("bar"));
 //    ASSERT_FALSE(res);
 //
 //    res = kv_view.remove(nullptr, test_key_type(1), get_tuple("foo"));
@@ -728,7 +690,7 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //}
 //
 //TEST_F(key_value_view_test, remove_exact_existing_async) {
-//    auto key = get_tuple(42);
+//    auto key = test_key_type(42);
 //    auto val = test_value_type("foo");
 //
 //    auto all_done = std::make_shared<std::promise<bool>>();
@@ -736,7 +698,7 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //    auto res = kv_view.put_if_absent(nullptr, key, val);
 //    ASSERT_TRUE(res);
 //
-//    kv_view.remove_async(nullptr, key, get_tuple("bar"), [&](auto res) {
+//    kv_view.remove_async(nullptr, key, test_value_type("bar"), [&](auto res) {
 //        if (!check_and_set_operation_error(*all_done, res))
 //            return;
 //
@@ -776,35 +738,35 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //}
 //
 //TEST_F(key_value_view_test, get_and_remove_nonexisting) {
-//    auto res = kv_view.get_and_replace(nullptr, get_tuple(42), get_tuple("foo"));
+//    auto res = kv_view.get_and_replace(nullptr, test_key_type(42), get_tuple("foo"));
 //    ASSERT_FALSE(res.has_value());
 //
-//    auto res = kv_view.get(nullptr, get_tuple(42));
+//    auto res = kv_view.get(nullptr, test_key_type(42));
 //    ASSERT_FALSE(res.has_value());
 //}
 //
 //TEST_F(key_value_view_test, get_and_remove_existing) {
-//    auto res = kv_view.put_if_absent(nullptr, get_tuple(42), get_tuple("foo"));
+//    auto res = kv_view.put_if_absent(nullptr, test_key_type(42), get_tuple("foo"));
 //    ASSERT_TRUE(res);
 //
-//    auto res = kv_view.get_and_remove(nullptr, get_tuple(42));
+//    auto res = kv_view.get_and_remove(nullptr, test_key_type(42));
 //
 //    ASSERT_TRUE(res.has_value());
 //    EXPECT_EQ(2, res->column_count());
 //    EXPECT_EQ(42, res->key);
 //    EXPECT_EQ("foo", res->val);
 //
-//    res = kv_view.get(nullptr, get_tuple(42));
+//    res = kv_view.get(nullptr, test_key_type(42));
 //    ASSERT_FALSE(res.has_value());
 //}
 //
 //TEST_F(key_value_view_test, get_and_remove_existing_async) {
-//    auto key = get_tuple(42);
-//    auto val_tuple1 = test_value_type("foo");
+//    auto key = test_key_type(42);
+//    auto val1 = test_value_type("foo");
 //
-//    auto all_done = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
+//    auto all_done = std::make_shared<std::promise<std::optional<test_value_type>>>();
 //
-//    kv_view.put_if_absent_async(nullptr, key, val_tuple1, [&](ignite_result<bool> &&res) {
+//    kv_view.put_if_absent_async(nullptr, key, val1, [&](ignite_result<bool> &&res) {
 //        if (!check_and_set_operation_error(*all_done, res))
 //            return;
 //
@@ -819,7 +781,7 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //    ASSERT_TRUE(res.has_value());
 //    EXPECT_EQ(2, res->column_count());
 //    EXPECT_EQ(42, res->key);
-//    EXPECT_EQ(val_tuple1.get<std::string>("val"), res->val);
+//    EXPECT_EQ(val1.val, res->val);
 //}
 //
 //TEST_F(key_value_view_test, get_and_remove_empty_throws) {
@@ -851,7 +813,7 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //
 //TEST_F(key_value_view_test, remove_all_only_existing) {
 //    std::vector<std::pair<ignite_tuple, ignite_tuple>> to_insert = {
-//        {test_key_type(1), test_value_type("foo")}, {get_tuple(2), get_tuple("bar")}};
+//        {test_key_type(1), test_value_type("foo")}, {get_tuple(2), test_value_type("bar")}};
 //    kv_view.put_all(nullptr, to_insert);
 //
 //    auto res = kv_view.remove_all(nullptr, {test_key_type(1), get_tuple(2)});
@@ -891,21 +853,21 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //}
 //
 //TEST_F(key_value_view_test, remove_all_exact_nonexisting) {
-//    auto res = kv_view.remove_all(nullptr, {{test_key_type(1), test_value_type("foo")}, {get_tuple(2), get_tuple("bar")}});
+//    auto res = kv_view.remove_all(nullptr, {{test_key_type(1), test_value_type("foo")}, {get_tuple(2), test_value_type("bar")}});
 //
 //    // TODO: Key order should be preserved by the server (IGNITE-16004).
 //    ASSERT_EQ(2, res.size());
 //}
 //
 //TEST_F(key_value_view_test, remove_all_exact_overlapped) {
-//    kv_view.put_all(nullptr, {{test_key_type(1), test_value_type("foo")}, {get_tuple(2), get_tuple("bar")}});
+//    kv_view.put_all(nullptr, {{test_key_type(1), test_value_type("foo")}, {get_tuple(2), test_value_type("bar")}});
 //
-//    auto res = kv_view.remove_all(nullptr, {{test_key_type(1), get_tuple("baz")}, {get_tuple(2), get_tuple("bar")}});
+//    auto res = kv_view.remove_all(nullptr, {{test_key_type(1), get_tuple("baz")}, {get_tuple(2), test_value_type("bar")}});
 //
 //    EXPECT_EQ(res.size(), 1);
 //    EXPECT_EQ(2, res.front().column_count());
 //    EXPECT_EQ(1, res.front().key);
-//    EXPECT_EQ("baz", res.front().get<std::string>("val"));
+//    EXPECT_EQ("baz", res.front().val);
 //
 //    auto tuple2 = kv_view.get(nullptr, get_tuple(2));
 //
@@ -915,11 +877,11 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //TEST_F(key_value_view_test, remove_all_exact_overlapped_async) {
 //    auto all_done = std::make_shared<std::promise<std::vector<ignite_tuple>>>();
 //
-//    kv_view.put_all_async(nullptr, {{test_key_type(1), test_value_type("foo")}, {get_tuple(2), get_tuple("bar")}}, [&](auto res) {
+//    kv_view.put_all_async(nullptr, {{test_key_type(1), test_value_type("foo")}, {get_tuple(2), test_value_type("bar")}}, [&](auto res) {
 //        if (!check_and_set_operation_error(*all_done, res))
 //            return;
 //
-//        kv_view.remove_all_async(nullptr, {{test_key_type(1), get_tuple("baz")}, {get_tuple(2), get_tuple("bar")}},
+//        kv_view.remove_all_async(nullptr, {{test_key_type(1), get_tuple("baz")}, {get_tuple(2), test_value_type("bar")}},
 //            [&](auto res) { result_set_promise(*all_done, std::move(res)); });
 //    });
 //
@@ -927,7 +889,7 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //    EXPECT_EQ(res.size(), 1);
 //    EXPECT_EQ(2, res.front().column_count());
 //    EXPECT_EQ(1, res.front().key);
-//    EXPECT_EQ("baz", res.front().get<std::string>("val"));
+//    EXPECT_EQ("baz", res.front().val);
 //}
 //
 //TEST_F(key_value_view_test, remove_all_exact_empty) {
@@ -960,8 +922,8 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 //        {"decimal", big_decimal(123456789098765)},
 //    };
 //
-//    kv_view.put(nullptr, get_tuple(42), inserted);
-//    auto res = kv_view.get(nullptr, get_tuple(42));
+//    kv_view.put(nullptr, test_key_type(42), inserted);
+//    auto res = kv_view.get(nullptr, test_key_type(42));
 //
 //    ASSERT_TRUE(res.has_value());
 //    ASSERT_EQ(res->column_count(), inserted.column_count() + 1);
