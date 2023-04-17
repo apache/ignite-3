@@ -191,7 +191,7 @@ class JdbcQueryEventHandlerImplTest {
     }
 
     @Test
-    public void explicitTxRollbackOnClose() {
+    public void explicitTxRollbackOnCloseRegistry() {
         Transaction tx = mock(Transaction.class);
 
         when(tx.rollbackAsync()).thenReturn(CompletableFuture.completedFuture(null));
@@ -210,7 +210,7 @@ class JdbcQueryEventHandlerImplTest {
     }
 
     @Test
-    public void explicitTxStart() {
+    public void singleTxUsedForMultipleOperations() {
         when(queryProcessor.querySingleAsync(any(), any(), any()))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Expected")));
 
