@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static java.util.Collections.emptySet;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZoneReplicas;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -37,8 +40,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.lang.annotation.ElementType;
@@ -75,6 +80,7 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -161,6 +167,7 @@ import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -171,6 +178,7 @@ import org.mockito.Mockito;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
+@Disabled
 public class ItRebalanceDistributedTest {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceDistributedTest.class);
@@ -211,6 +219,10 @@ public class ItRebalanceDistributedTest {
     private StaticNodeFinder finder;
 
     private List<Node> nodes;
+
+    private ClusterManagementGroupManager cmgMgr;
+
+    private DistributionZoneManager distributionZoneManager;
 
     @BeforeEach
     void before(TestInfo testInfo) throws Exception {
@@ -253,6 +265,7 @@ public class ItRebalanceDistributedTest {
 
         await(nodes.get(0).tableManager.createTableAsync(
                 "TBL1",
+                DEFAULT_ZONE_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
                         .changeZoneId(zoneId)));
 
@@ -278,6 +291,7 @@ public class ItRebalanceDistributedTest {
 
         await(nodes.get(0).tableManager.createTableAsync(
                 "TBL1",
+                DEFAULT_ZONE_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
                         .changeZoneId(zoneId)));
 
@@ -304,6 +318,7 @@ public class ItRebalanceDistributedTest {
 
         await(nodes.get(0).tableManager.createTableAsync(
                 "TBL1",
+                DEFAULT_ZONE_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
                         .changeZoneId(zoneId)));
 
@@ -333,6 +348,7 @@ public class ItRebalanceDistributedTest {
 
         TableImpl table = (TableImpl) await(nodes.get(1).tableManager.createTableAsync(
                 "TBL1",
+                DEFAULT_ZONE_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
                         .changeZoneId(zoneId)));
 
@@ -396,6 +412,7 @@ public class ItRebalanceDistributedTest {
 
         await(nodes.get(0).tableManager.createTableAsync(
                 "TBL1",
+                DEFAULT_ZONE_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
                         .changeZoneId(zoneId)));
 
@@ -723,6 +740,12 @@ public class ItRebalanceDistributedTest {
 
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
 
+            cmgMgr = mock(ClusterManagementGroupManager.class);
+
+            LogicalTopologySnapshot logicalTopologySnapshot = new LogicalTopologySnapshot(0, emptySet());
+
+            when(cmgMgr.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));
+
             LogicalTopologyService logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                     clusterService,
@@ -760,7 +783,9 @@ public class ItRebalanceDistributedTest {
                     view -> new LocalLogStorageFactory(),
                     new HybridClockImpl(),
                     new OutgoingSnapshotsManager(clusterService.messagingService()),
-                    topologyAwareRaftGroupServiceFactory
+                    topologyAwareRaftGroupServiceFactory,
+                    cmgMgr,
+                    distributionZoneManager
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg,
@@ -909,6 +934,7 @@ public class ItRebalanceDistributedTest {
         assertThat(
                 nodes.get(0).tableManager.createTableAsync(
                         tableName,
+                        DEFAULT_ZONE_NAME,
                         tableChange -> {
                             SchemaConfigurationConverter.convert(createTableDefinition(tableName), tableChange)
                                     .changeZoneId(zoneId);

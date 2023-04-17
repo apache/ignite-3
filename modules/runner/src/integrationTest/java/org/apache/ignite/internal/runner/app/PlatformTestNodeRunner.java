@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
@@ -260,7 +261,7 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("val", ColumnType.string()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        await(((TableManager) node.tables()).createTableAsync(schTbl.name(), tblCh ->
+        await(((TableManager) node.tables()).createTableAsync(schTbl.name(), DEFAULT_ZONE_NAME, tblCh ->
                 SchemaConfigurationConverter.convert(schTbl, tblCh)
                         .changeZoneId(zoneId)
         ));
@@ -289,7 +290,7 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        await(((TableManager) node.tables()).createTableAsync(schTblAll.name(), tblCh ->
+        await(((TableManager) node.tables()).createTableAsync(schTblAll.name(), DEFAULT_ZONE_NAME, tblCh ->
                 SchemaConfigurationConverter.convert(schTblAll, tblCh)
                         .changeZoneId(zoneId)
         ));
@@ -315,7 +316,7 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        await(((TableManager) node.tables()).createTableAsync(schTblAllSql.name(), tblCh ->
+        await(((TableManager) node.tables()).createTableAsync(schTblAllSql.name(), DEFAULT_ZONE_NAME, tblCh ->
                 SchemaConfigurationConverter.convert(schTblAllSql, tblCh)
                         .changeZoneId(zoneId)
         ));
@@ -345,7 +346,7 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("val", type).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        await(((TableManager) node.tables()).createTableAsync(schTbl.name(), tblCh ->
+        await(((TableManager) node.tables()).createTableAsync(schTbl.name(), DEFAULT_ZONE_NAME, tblCh ->
                 SchemaConfigurationConverter.convert(schTbl, tblCh)
                         .changeZoneId(zoneId)
         ));

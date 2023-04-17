@@ -536,6 +536,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         return await(((TableManager) node.tables()).createTableAsync(
                 tableName,
+                zoneName,
                 tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(
                         cols).withPrimaryKey("key").build(), tblCh)
                         .changeZoneId(zoneId)
