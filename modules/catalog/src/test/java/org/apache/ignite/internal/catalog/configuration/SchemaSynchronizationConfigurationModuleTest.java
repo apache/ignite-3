@@ -15,27 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schemasync.configuration;
+package org.apache.ignite.internal.catalog.configuration;
 
-import com.google.auto.service.AutoService;
-import java.util.Collection;
-import java.util.Set;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.is;
+
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.junit.jupiter.api.Test;
 
-/**
- * {@link ConfigurationModule} for distributed (cluster-wide) configuration of Schema Synchronization.
- */
-@AutoService(ConfigurationModule.class)
-public class SchemaSynchronizationConfigurationModule implements ConfigurationModule {
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.DISTRIBUTED;
+class SchemaSynchronizationConfigurationModuleTest {
+    private final ConfigurationModule module = new SchemaSynchronizationConfigurationModule();
+
+    @Test
+    void typeIsDistributed() {
+        assertThat(module.type(), is(ConfigurationType.DISTRIBUTED));
     }
 
-    @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return Set.of(SchemaSynchronizationConfiguration.KEY);
+    @Test
+    void rootKeysAreAsExpected() {
+        assertThat(module.rootKeys(), contains(SchemaSynchronizationConfiguration.KEY));
     }
 }

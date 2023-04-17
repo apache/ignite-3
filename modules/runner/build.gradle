@@ -58,7 +58,6 @@ dependencies {
     implementation project(':ignite-code-deployment')
     implementation project(':ignite-security')
     implementation project(':ignite-catalog')
-    implementation project(':ignite-schema-sync')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
