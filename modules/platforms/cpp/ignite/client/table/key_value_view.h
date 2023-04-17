@@ -36,24 +36,8 @@ namespace detail {
 class table_impl;
 }
 
-/**
- * Key-Value view interface provides methods to access table records in form of separate key and value parts.
- */
 template<typename K, typename V>
-class key_value_view {
-public:
-    typedef typename std::decay<K>::type key_type;
-    typedef typename std::decay<V>::type value_type;
-
-    // Deleted
-    key_value_view(const key_value_view &) = delete;
-    key_value_view &operator=(const key_value_view &) = delete;
-
-    // Default
-    key_value_view() = default;
-    key_value_view(key_value_view &&) noexcept = default;
-    key_value_view &operator=(key_value_view &&) noexcept = default;
-};
+class key_value_view;
 
 /**
  * Key-Value view interface provides methods to access table records in form of separate key and value parts.
@@ -493,6 +477,39 @@ private:
 
     /** Implementation. */
     std::shared_ptr<detail::table_impl> m_impl;
+};
+
+/**
+ * Key-Value view interface provides methods to access table records in form of separate key and value parts.
+ */
+template<typename K, typename V>
+class key_value_view {
+    friend class table;
+
+public:
+    typedef typename std::decay<K>::type key_type;
+    typedef typename std::decay<V>::type value_type;
+
+    // Deleted
+    key_value_view(const key_value_view &) = delete;
+    key_value_view &operator=(const key_value_view &) = delete;
+
+    // Default
+    key_value_view() = default;
+    key_value_view(key_value_view &&) noexcept = default;
+    key_value_view &operator=(key_value_view &&) noexcept = default;
+
+private:
+    /**
+     * Constructor
+     *
+     * @param impl Implementation
+     */
+    explicit key_value_view(key_value_view<ignite_tuple, ignite_tuple> delegate)
+        : m_delegate(std::move(delegate)) {}
+
+    /** Delegate. */
+    key_value_view<ignite_tuple, ignite_tuple> m_delegate;
 };
 
 } // namespace ignite

@@ -54,7 +54,7 @@ protected:
     /** Ignite client. */
     ignite_client m_client;
 
-    /** Record binary view. */
+    /** Key-Value binary view. */
     key_value_view<ignite_tuple, ignite_tuple> kv_view;
 };
 
