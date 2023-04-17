@@ -110,6 +110,7 @@ public class DistributionZoneManagerScaleUpTest {
 
     private static final LogicalNode NODE_3 = new LogicalNode("3", "C", new NetworkAddress("localhost", 123));
 
+
     private DistributionZoneManager distributionZoneManager;
 
     private SimpleInMemoryKeyValueStorage keyValueStorage;

@@ -212,7 +212,10 @@ public class HoconConverterTest {
                 Set.of(),
                 new TestConfigurationStorage(LOCAL),
                 List.of(),
-                List.of()
+                List.of(
+                        HoconFirstPolymorphicInstanceConfigurationSchema.class,
+                        HoconSecondPolymorphicInstanceConfigurationSchema.class
+                )
         );
 
         registry.start();
