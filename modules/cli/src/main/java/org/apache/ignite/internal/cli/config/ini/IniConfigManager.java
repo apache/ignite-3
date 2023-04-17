@@ -41,7 +41,7 @@ import org.apache.ignite.internal.cli.config.Profile;
 import org.apache.ignite.internal.cli.config.ProfileNotFoundException;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
-import org.apache.ignite.internal.cli.util.OperationSystem;
+import org.apache.ignite.internal.cli.util.OperatingSystem;
 import org.apache.ignite.internal.logger.IgniteLogger;
 
 /**
@@ -89,7 +89,7 @@ public class IniConfigManager implements ConfigManager {
     private IniFile secretConfigFile(File file) {
         IniFile configFile;
         try {
-            if (OperationSystem.current() != OperationSystem.WINDOWS) {
+            if (OperatingSystem.current() != OperatingSystem.WINDOWS) {
                 Set<PosixFilePermission> posixFilePermissions = Files.getPosixFilePermissions(file.toPath());
                 if (!secretPermission().equals(posixFilePermissions)) {
                     throw new IgniteCliException("The secret configuration file must have 700 permissions");
@@ -189,7 +189,7 @@ public class IniConfigManager implements ConfigManager {
             file.getParentFile().mkdirs();
             file.delete();
 
-            if (OperationSystem.current() == OperationSystem.WINDOWS) {
+            if (OperatingSystem.current() == OperatingSystem.WINDOWS) {
                 Files.createFile(file.toPath());
             } else {
                 Files.createFile(file.toPath(), PosixFilePermissions.asFileAttribute(secretPermission()));

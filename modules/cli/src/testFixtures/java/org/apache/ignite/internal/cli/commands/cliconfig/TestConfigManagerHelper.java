@@ -32,7 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.Set;
 import org.apache.ignite.internal.cli.config.ConfigManager;
-import org.apache.ignite.internal.cli.util.OperationSystem;
+import org.apache.ignite.internal.cli.util.OperatingSystem;
 
 /**
  * Test factory for {@link ConfigManager}.
@@ -112,7 +112,7 @@ public class TestConfigManagerHelper {
     }
 
     private static void setFilePermissions(File file, Set<PosixFilePermission> perms) throws IOException {
-        if (OperationSystem.current() != OperationSystem.WINDOWS) {
+        if (OperatingSystem.current() != OperatingSystem.WINDOWS) {
             Files.setPosixFilePermissions(file.toPath(), perms);
         }
     }

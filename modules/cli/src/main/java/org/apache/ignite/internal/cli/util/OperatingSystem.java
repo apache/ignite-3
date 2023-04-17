@@ -20,7 +20,7 @@ package org.apache.ignite.internal.cli.util;
 import java.util.Locale;
 
 /** Utility class for detection OS. */
-public enum OperationSystem {
+public enum OperatingSystem {
 
     /**
      * IBM AIX operating system.
@@ -63,17 +63,17 @@ public enum OperationSystem {
      */
     OTHER;
 
-    private static final OperationSystem CURRENT_OS = determineCurrentOs();
+    private static final OperatingSystem CURRENT_OS = determineCurrentOs();
 
-    public static OperationSystem current() {
+    public static OperatingSystem current() {
         return CURRENT_OS;
     }
 
-    private static OperationSystem determineCurrentOs() {
+    private static OperatingSystem determineCurrentOs() {
         return parse(System.getProperty("os.name"));
     }
 
-    private static OperationSystem parse(String osName) {
+    private static OperatingSystem parse(String osName) {
 
         osName = osName.toLowerCase(Locale.ENGLISH);
 
