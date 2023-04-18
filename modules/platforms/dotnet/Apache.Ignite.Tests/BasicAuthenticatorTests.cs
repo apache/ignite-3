@@ -41,7 +41,17 @@ public class BasicAuthenticatorTests : IgniteTestsBase
     [Test]
     public async Task TestAuthnOnClientNoAuthnOnServer()
     {
-        await Task.Delay(1);
+        var cfg = new IgniteClientConfiguration(GetConfig())
+        {
+            Authenticator = new BasicAuthenticator
+            {
+                Username = "u",
+                Password = "p"
+            }
+        };
+
+        using var client = await IgniteClient.StartAsync(cfg);
+        await client.GetClusterNodesAsync();
     }
 
     [Test]
