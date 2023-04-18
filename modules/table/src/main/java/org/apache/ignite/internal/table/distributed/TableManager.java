@@ -813,7 +813,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             storageUpdateHandler,
                                                             txStatePartitionStorage,
                                                             safeTime,
-                                                            storageIndexTracker
+                                                            storageIndexTracker,
+                                                            lowWatermark::getLowWatermark
                                                     ),
                                                     new RebalanceRaftGroupEventsListener(
                                                             metaStorageMgr,
@@ -2056,7 +2057,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 storageUpdateHandler,
                                 txStatePartitionStorage,
                                 safeTime,
-                                storageIndexTracker
+                                storageIndexTracker,
+                                lowWatermark::getLowWatermark
                         );
 
                         RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(

@@ -32,6 +32,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -87,25 +88,31 @@ public class PartitionListener implements RaftGroupListener {
     /** Storage index tracker. */
     private final PendingComparableValuesTracker<Long> storageIndexTracker;
 
+    /** Low watermark supplier, will return {@code null} if no low watermark has been assigned yet. */
+    private final Supplier<HybridTimestamp> lowWatermarkSupplier;
+
     /**
      * The constructor.
      *
      * @param partitionDataStorage The storage.
      * @param safeTime Safe time tracker.
      * @param storageIndexTracker Storage index tracker.
+     * @param lowWatermarkSupplier Low watermark supplier, will return {@code null} if no low watermark has been assigned yet.
      */
     public PartitionListener(
             PartitionDataStorage partitionDataStorage,
             StorageUpdateHandler storageUpdateHandler,
             TxStateStorage txStateStorage,
             PendingComparableValuesTracker<HybridTimestamp> safeTime,
-            PendingComparableValuesTracker<Long> storageIndexTracker
+            PendingComparableValuesTracker<Long> storageIndexTracker,
+            Supplier<HybridTimestamp> lowWatermarkSupplier
     ) {
         this.storage = partitionDataStorage;
         this.storageUpdateHandler = storageUpdateHandler;
         this.txStateStorage = txStateStorage;
         this.safeTime = safeTime;
         this.storageIndexTracker = storageIndexTracker;
+        this.lowWatermarkSupplier = lowWatermarkSupplier;
 
         // TODO: IGNITE-18502 Implement a pending update storage
         try (PartitionTimestampCursor cursor = partitionDataStorage.scan(HybridTimestamp.MAX_VALUE)) {
@@ -220,7 +227,8 @@ public class PartitionListener implements RaftGroupListener {
                     txsPendingRowIds.computeIfAbsent(cmd.txId(), entry -> new HashSet<>()).add(rowId);
 
                     storage.lastApplied(commandIndex, commandTerm);
-                }
+                },
+                lowWatermarkSupplier.get()
         );
     }
 
@@ -237,13 +245,16 @@ public class PartitionListener implements RaftGroupListener {
             return;
         }
 
-        storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), rowIds -> {
-            for (RowId rowId : rowIds) {
-                txsPendingRowIds.computeIfAbsent(cmd.txId(), entry0 -> new HashSet<>()).add(rowId);
-            }
+        storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(),
+                rowIds -> {
+                    for (RowId rowId : rowIds) {
+                        txsPendingRowIds.computeIfAbsent(cmd.txId(), entry0 -> new HashSet<>()).add(rowId);
+                    }
 
-            storage.lastApplied(commandIndex, commandTerm);
-        });
+                    storage.lastApplied(commandIndex, commandTerm);
+                },
+                lowWatermarkSupplier.get()
+        );
     }
 
     /**

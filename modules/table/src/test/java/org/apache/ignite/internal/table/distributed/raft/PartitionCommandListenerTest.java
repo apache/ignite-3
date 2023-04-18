@@ -198,7 +198,8 @@ public class PartitionCommandListenerTest {
                 storageUpdateHandler,
                 txStateStorage,
                 safeTimeTracker,
-                new PendingComparableValuesTracker<>(0L)
+                new PendingComparableValuesTracker<>(0L),
+                () -> null
         );
     }
 
@@ -292,7 +293,8 @@ public class PartitionCommandListenerTest {
                 storageUpdateHandler,
                 txStateStorage,
                 new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0)),
-                new PendingComparableValuesTracker<>(0L)
+                new PendingComparableValuesTracker<>(0L),
+                () -> null
         );
 
         txStateStorage.lastApplied(3L, 1L);

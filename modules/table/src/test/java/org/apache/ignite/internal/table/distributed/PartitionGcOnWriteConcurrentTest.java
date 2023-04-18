@@ -83,9 +83,12 @@ public class PartitionGcOnWriteConcurrentTest {
     void testSameLwm(UpdateType updateType) {
         HybridTimestamp lwm = CLOCK.now();
 
-        runRace(createRunnable(updateType, lwm), createRunnable(updateType, lwm));
+        runRace(
+                createRunnable(updateType, lwm),
+                createRunnable(updateType, lwm)
+        );
 
-        verify(storage, times(1)).pollForVacuum(lwm);
+        verify(storage, times(2)).pollForVacuum(lwm);
     }
 
     @ParameterizedTest

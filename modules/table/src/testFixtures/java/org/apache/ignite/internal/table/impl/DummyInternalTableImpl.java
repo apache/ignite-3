@@ -300,7 +300,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 storageUpdateHandler,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 safeTime,
-                new PendingComparableValuesTracker<>(0L)
+                new PendingComparableValuesTracker<>(0L),
+                () -> null
         );
 
         safeTimeUpdaterThread = new Thread(new SafeTimeUpdater(safeTime), "safe-time-updater");

@@ -464,7 +464,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                 storageUpdateHandler,
                                 txStateStorage,
                                 safeTime,
-                                storageIndexTracker
+                                storageIndexTracker,
+                                () -> null
                         ),
                         RaftGroupEventsListener.noopLsnr,
                         topologyAwareRaftGroupServiceFactory

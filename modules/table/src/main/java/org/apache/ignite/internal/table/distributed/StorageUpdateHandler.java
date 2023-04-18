@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -54,9 +53,6 @@ public class StorageUpdateHandler {
     private final PartitionDataStorage storage;
 
     private final TableIndexStoragesSupplier indexes;
-
-    /** Last recorded GC low watermark. */
-    private final AtomicReference<HybridTimestamp> lastRecordedLwm = new AtomicReference<>();
 
     /** Data storage configuration. */
     private final DataStorageConfiguration dsCfg;
@@ -110,7 +106,6 @@ public class StorageUpdateHandler {
      * @param onReplication Callback on replication.
      * @param lowWatermark GC low watermark.
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-18909 Pass low watermark.
     public void handleUpdate(
             UUID txId,
             UUID rowUuid,
@@ -170,7 +165,6 @@ public class StorageUpdateHandler {
      * @param onReplication On replication callback.
      * @param lowWatermark GC low watermark.
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-18909 Pass low watermark.
     public void handleUpdateAll(
             UUID txId,
             Map<UUID, ByteBuffer> rowsToUpdate,
@@ -216,21 +210,7 @@ public class StorageUpdateHandler {
             return;
         }
 
-        @Nullable HybridTimestamp oldLwm;
-        do {
-            oldLwm = lastRecordedLwm.get();
-
-            if (oldLwm != null && newLwm.compareTo(oldLwm) <= 0) {
-                break;
-            }
-        } while (!lastRecordedLwm.compareAndSet(oldLwm, newLwm));
-
-        if (oldLwm == null || newLwm.compareTo(oldLwm) > 0) {
-            // Iff the lwm we have is the new lwm.
-            // Otherwise our newLwm is either smaller than last recorded lwm or last recorded lwm has changed
-            // concurrently and it become greater. If that's the case, another thread will perform the GC.
-            vacuumBatch(newLwm, dsCfg.gcOnUpdateBatchSize().value());
-        }
+        vacuumBatch(newLwm, dsCfg.gcOnUpdateBatchSize().value());
     }
 
     /**
@@ -357,6 +337,7 @@ public class StorageUpdateHandler {
      * @param count Count of entries to GC.
      */
     void vacuumBatch(HybridTimestamp lowWatermark, int count) {
+        // TODO: IGNITE-19290 выполнить тольео при достижении safeTime
         for (int i = 0; i < count; i++) {
             if (!storage.runConsistently(() -> internalVacuum(lowWatermark))) {
                 break;
