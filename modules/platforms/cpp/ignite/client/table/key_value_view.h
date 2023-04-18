@@ -854,6 +854,106 @@ public:
             [this, tx, &key](auto callback) { get_and_remove_async(tx, key, std::move(callback)); });
     }
 
+    /**
+     * Asynchronously replaces a record with the specified key if it exists, otherwise does nothing.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key Key.
+     * @param value Value.
+     * @param callback Callback. Called with a value indicating whether a record
+     *   with the specified key was replaced.
+     */
+    void replace_async(transaction *tx, const key_type &key, const value_type &value, ignite_callback<bool> callback) {
+        m_delegate.replace_async(tx, convert_to_tuple(key), convert_to_tuple(value), std::move(callback));
+    }
+
+    /**
+     * Replaces a record with the same key columns if it exists, otherwise does
+     * nothing.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key Key.
+     * @param value Value.
+     * @return A value indicating whether a record with the specified key was
+     *   replaced.
+     */
+    bool replace(transaction *tx, const key_type &key, const value_type &value) {
+        return sync<bool>(
+            [this, tx, &key, &value](auto callback) { replace_async(tx, key, value, std::move(callback)); });
+    }
+
+    /**
+     * Asynchronously replaces a value with a @c new_value one only if existing value equals to the specified
+     * @c old_value.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key Key.
+     * @param old_value Value to be replaced.
+     * @param new_value New value.
+     * @param callback Callback. Called with a value indicating whether a
+     *   specified record was replaced.
+     */
+    void replace_async(transaction *tx, const key_type &key, const value_type &old_value,
+        const value_type &new_value, ignite_callback<bool> callback) {
+        m_delegate.replace_async(tx, convert_to_tuple(key), convert_to_tuple(old_value), convert_to_tuple(new_value),
+            std::move(callback));
+    }
+
+    /**
+     * Replaces a value with a @c new_value one only if existing value equals
+     * to the specified @c old_value.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key Key.
+     * @param old_value Value to be replaced.
+     * @param new_value New value.
+     * @return A value indicating whether a specified record was replaced.
+     */
+    bool replace(
+        transaction *tx, const key_type &key, const value_type &old_value, const value_type &new_value) {
+        return sync<bool>([this, tx, &key, &old_value, &new_value](
+                              auto callback) { replace_async(tx, key, old_value, new_value, std::move(callback)); });
+    }
+
+    /**
+     * Asynchronously replaces a record with the given key if it exists
+     * returning previous value.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key Key.
+     * @param value Value.
+     * @param callback Callback. Called with a previous value for the given key,
+     *   or @c std::nullopt if it did not exist.
+     */
+    void get_and_replace_async(transaction *tx, const key_type &key, const value_type &value,
+        ignite_callback<std::optional<value_type>> callback) {
+        m_delegate.get_and_replace_async(tx, convert_to_tuple(key), convert_to_tuple(value),
+            [callback = std::move(callback)] (auto res) {
+                callback(convert_result<value_type>(std::move(res)));
+            });
+    }
+
+    /**
+     * Replaces a record with the given key if it exists returning previous
+     * value.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key Key.
+     * @param value Value.
+     * @param callback A previous value for the given key, or @c std::nullopt if
+     *   it did not exist.
+     */
+    [[nodiscard]] std::optional<value_type> get_and_replace(
+        transaction *tx, const key_type &key, const value_type &value) {
+        return sync<std::optional<value_type>>(
+            [this, tx, &key, &value](auto callback) { get_and_replace_async(tx, key, value, std::move(callback)); });
+    }
 private:
     /**
      * Constructor
