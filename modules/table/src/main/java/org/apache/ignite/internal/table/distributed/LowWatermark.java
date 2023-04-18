@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.concurrent.Executors;
@@ -110,22 +111,23 @@ public class LowWatermark implements ManuallyCloseable {
     public void start() {
         inBusyLock(busyLock, () -> {
             vaultManager.get(LOW_WATERMARK_VAULT_KEY)
-                    .thenApply(vaultEntry -> inBusyLock(busyLock, () -> {
+                    .thenCompose(vaultEntry -> inBusyLock(busyLock, () -> {
                         if (vaultEntry == null) {
                             scheduleUpdateLowWatermarkBusy();
 
-                            return null;
+                            return completedFuture(null);
                         }
 
                         HybridTimestamp lowWatermark = ByteUtils.fromBytes(vaultEntry.value());
 
-                        txManager.updateLowWatermark(lowWatermark);
+                        return txManager.updateLowWatermark(lowWatermark)
+                                .thenApply(unused -> {
+                                    this.lowWatermark.set(lowWatermark);
 
-                        this.lowWatermark.set(lowWatermark);
+                                    runGcAndScheduleUpdateLowWatermarkBusy(lowWatermark);
 
-                        runGcAndScheduleUpdateLowWatermarkBusy(lowWatermark);
-
-                        return lowWatermark;
+                                    return lowWatermark;
+                                });
                     }))
                     .whenComplete((lowWatermark, throwable) -> {
                         if (throwable != null) {
@@ -173,14 +175,10 @@ public class LowWatermark implements ManuallyCloseable {
         inBusyLock(busyLock, () -> {
             HybridTimestamp lowWatermarkCandidate = createNewLowWatermarkCandidate();
 
-            // Update the low watermark for read-only transactions so that new transactions cannot be created less than or equal to the new
-            // candidate.
-            txManager.updateLowWatermark(lowWatermarkCandidate);
-
             // Wait until all the read-only transactions are finished before the new candidate, since no new RO transactions could be
             // created, then we can safely promote the candidate as a new low watermark, store it in vault, and we can safely start cleaning
             // up the stale/junk data in the tables.
-            txManager.getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(lowWatermarkCandidate)
+            txManager.updateLowWatermark(lowWatermarkCandidate)
                     .thenCompose(unused -> inBusyLock(
                             busyLock,
                             () -> vaultManager.put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(lowWatermarkCandidate)))

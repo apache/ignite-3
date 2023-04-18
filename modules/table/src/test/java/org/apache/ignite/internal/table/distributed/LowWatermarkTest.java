@@ -100,6 +100,8 @@ public class LowWatermarkTest {
         when(vaultManager.get(LOW_WATERMARK_VAULT_KEY))
                 .thenReturn(completedFuture(new VaultEntry(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(lowWatermark))));
 
+        when(txManager.updateLowWatermark(any(HybridTimestamp.class))).thenReturn(completedFuture(null));
+
         this.lowWatermark.start();
 
         verify(mvGc).updateLowWatermark(lowWatermark);
@@ -124,7 +126,7 @@ public class LowWatermarkTest {
 
         when(clock.now()).thenReturn(now);
 
-        when(txManager.getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(any(HybridTimestamp.class))).thenReturn(completedFuture(null));
+        when(txManager.updateLowWatermark(any(HybridTimestamp.class))).thenReturn(completedFuture(null));
 
         when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
 
@@ -136,7 +138,6 @@ public class LowWatermarkTest {
         InOrder inOrder = inOrder(txManager, vaultManager, mvGc);
 
         inOrder.verify(txManager).updateLowWatermark(newLowWatermarkCandidate);
-        inOrder.verify(txManager).getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(newLowWatermarkCandidate);
 
         inOrder.verify(vaultManager).put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(newLowWatermarkCandidate));
 
@@ -160,7 +161,7 @@ public class LowWatermarkTest {
         CompletableFuture<Void> finishGetAllReadOnlyTransactions = new CompletableFuture<>();
 
         try {
-            when(txManager.getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(any(HybridTimestamp.class))).then(invocation -> {
+            when(txManager.updateLowWatermark(any(HybridTimestamp.class))).then(invocation -> {
                 startGetAllReadOnlyTransactions.countDown();
 
                 return finishGetAllReadOnlyTransactions;
@@ -173,7 +174,7 @@ public class LowWatermarkTest {
 
             // Let's check that it was called only once.
             assertEquals(1, startGetAllReadOnlyTransactions.getCount());
-            verify(txManager).getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(any(HybridTimestamp.class));
+            verify(txManager).updateLowWatermark(any(HybridTimestamp.class));
 
             finishGetAllReadOnlyTransactions.complete(null);
 

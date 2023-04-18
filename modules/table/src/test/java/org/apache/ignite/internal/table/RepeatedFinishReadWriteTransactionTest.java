@@ -284,11 +284,7 @@ public class RepeatedFinishReadWriteTransactionTest {
         }
 
         @Override
-        public void updateLowWatermark(HybridTimestamp newLowWatermark) {
-        }
-
-        @Override
-        public CompletableFuture<Void> getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(HybridTimestamp timestamp) {
+        public CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark) {
             return completedFuture(null);
         }
     }

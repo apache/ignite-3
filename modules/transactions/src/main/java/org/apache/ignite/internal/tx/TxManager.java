@@ -135,13 +135,7 @@ public interface TxManager extends IgniteComponent {
      * <p>All new read-only transactions will need to be created with a read time greater than this value.
      *
      * @param newLowWatermark New low watermark.
+     * @return Future of all read-only transactions with read timestamp less or equals the given new low watermark.
      */
-    void updateLowWatermark(HybridTimestamp newLowWatermark);
-
-    /**
-     * Returns the future of all read-only transactions with read timestamp less or equals the given timestamp.
-     *
-     * @param timestamp Timestamp.
-     */
-    CompletableFuture<Void> getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(HybridTimestamp timestamp);
+    CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark);
 }

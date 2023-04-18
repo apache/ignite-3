@@ -237,7 +237,7 @@ public class TxManagerImpl implements TxManager {
     }
 
     @Override
-    public void updateLowWatermark(HybridTimestamp newLowWatermark) {
+    public CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark) {
         lowWatermarkReadWriteLock.writeLock().lock();
 
         try {
@@ -251,17 +251,14 @@ public class TxManagerImpl implements TxManager {
 
                 return newLowWatermark;
             });
+
+            TxIdAndTimestamp upperBound = new TxIdAndTimestamp(newLowWatermark, new UUID(Long.MAX_VALUE, Long.MAX_VALUE));
+
+            List<CompletableFuture<Void>> readOnlyTxFutures = List.copyOf(readOnlyTxFutureById.headMap(upperBound, true).values());
+
+            return allOf(readOnlyTxFutures.toArray(CompletableFuture[]::new));
         } finally {
             lowWatermarkReadWriteLock.writeLock().unlock();
         }
-    }
-
-    @Override
-    public CompletableFuture<Void> getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(HybridTimestamp timestamp) {
-        TxIdAndTimestamp upperBound = new TxIdAndTimestamp(timestamp, new UUID(Long.MAX_VALUE, Long.MAX_VALUE));
-
-        List<CompletableFuture<Void>> readOnlyTxFutures = List.copyOf(readOnlyTxFutureById.headMap(upperBound, true).values());
-
-        return allOf(readOnlyTxFutures.toArray(CompletableFuture[]::new));
     }
 }

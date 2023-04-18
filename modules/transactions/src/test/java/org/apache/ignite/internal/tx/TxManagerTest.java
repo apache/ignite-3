@@ -126,10 +126,10 @@ public class TxManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testUpdateLowerWatermark() {
+    void testCreateNewRoTxAfterUpdateLowerWatermark() {
         when(clock.now()).thenReturn(new HybridTimestamp(10, 10));
 
-        txManager.updateLowWatermark(new HybridTimestamp(10, 11));
+        assertThat(txManager.updateLowWatermark(new HybridTimestamp(10, 11)), willSucceedFast());
 
         IgniteInternalException exception = assertThrows(IgniteInternalException.class, () -> txManager.begin(true));
 
@@ -137,16 +137,16 @@ public class TxManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testGetFutureAllReadOnlyTransactionsWhichLessOrEqualTo() {
+    void testUpdateLowerWatermark() {
         // Let's check the absence of transactions.
-        assertThat(txManager.getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(clock.now()), willSucceedFast());
+        assertThat(txManager.updateLowWatermark(clock.now()), willSucceedFast());
 
         InternalTransaction rwTx0 = txManager.begin(false);
 
         InternalTransaction roTx0 = txManager.begin(true);
         InternalTransaction roTx1 = txManager.begin(true);
 
-        CompletableFuture<Void> readOnlyTxsFuture = txManager.getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(roTx1.readTimestamp());
+        CompletableFuture<Void> readOnlyTxsFuture = txManager.updateLowWatermark(roTx1.readTimestamp());
         assertFalse(readOnlyTxsFuture.isDone());
 
         assertThat(rwTx0.commitAsync(), willSucceedFast());
@@ -162,6 +162,6 @@ public class TxManagerTest extends IgniteAbstractTest {
         txManager.begin(false);
         txManager.begin(false);
 
-        assertThat(txManager.getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(clock.now()), willSucceedFast());
+        assertThat(txManager.updateLowWatermark(clock.now()), willSucceedFast());
     }
 }
