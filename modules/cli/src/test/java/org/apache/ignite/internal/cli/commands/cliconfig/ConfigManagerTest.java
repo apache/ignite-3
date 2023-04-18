@@ -27,18 +27,20 @@ class ConfigManagerTest {
     @Test
     public void testSaveLoadConfig() {
         File tempFile = TestConfigManagerHelper.createSectionWithDefaultProfile();
-        IniConfigManager configManager = new IniConfigManager(tempFile);
+        File tempSecretFile = TestConfigManagerHelper.createEmptySecretConfig();
+        IniConfigManager configManager = new IniConfigManager(tempFile, tempSecretFile);
 
         configManager.setProperty("ignite.cluster-endpoint-url", "test");
 
-        IniConfigManager configAfterSave = new IniConfigManager(tempFile);
+        IniConfigManager configAfterSave = new IniConfigManager(tempFile, tempSecretFile);
         assertThat(configAfterSave.getCurrentProperty("ignite.cluster-endpoint-url")).isEqualTo("test");
     }
 
     @Test
     public void testLoadConfigWithoutDefaultProfile() {
         File tempFile = TestConfigManagerHelper.createSectionWithoutDefaultProfile();
-        IniConfigManager configManager = new IniConfigManager(tempFile);
+        File tempSecretFile = TestConfigManagerHelper.createEmptySecretConfig();
+        IniConfigManager configManager = new IniConfigManager(tempFile, tempSecretFile);
 
 
         assertThat(configManager.getCurrentProfile().getName()).isEqualTo("owner");
@@ -47,7 +49,8 @@ class ConfigManagerTest {
     @Test
     public void testEmptyConfigLoad() {
         File tempFile = TestConfigManagerHelper.createEmptyConfig();
-        IniConfigManager configManager = new IniConfigManager(tempFile);
+        File tempSecretFile = TestConfigManagerHelper.createEmptySecretConfig();
+        IniConfigManager configManager = new IniConfigManager(tempFile, tempSecretFile);
 
         assertThat(configManager.getCurrentProfile().getName()).isEqualTo("default");
     }
@@ -56,7 +59,8 @@ class ConfigManagerTest {
     @Test
     public void testRemoveConfigFileOnRuntime() {
         File tempFile = TestConfigManagerHelper.createSectionWithDefaultProfile();
-        IniConfigManager configManager = new IniConfigManager(tempFile);
+        File tempSecretFile = TestConfigManagerHelper.createEmptySecretConfig();
+        IniConfigManager configManager = new IniConfigManager(tempFile, tempSecretFile);
 
         assertThat(configManager.getCurrentProfile().getName()).isEqualTo("database");
 
