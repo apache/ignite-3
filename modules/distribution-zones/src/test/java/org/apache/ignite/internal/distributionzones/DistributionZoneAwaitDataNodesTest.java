@@ -54,7 +54,6 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfigurationSchema;
@@ -64,7 +63,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -100,8 +98,6 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
     private ClusterStateStorage clusterStateStorage;
 
-    private ConfigurationManager clusterCfgMgr;
-
     private ClusterManagementGroupManager cmgManager;
 
     private VaultManager vaultManager;
@@ -111,10 +107,6 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private DistributionZonesConfiguration zonesConfiguration;
-
-    private WatchListener topologyWatchListener;
-
-    private WatchListener dataNodesWatchListener;
 
     private SimpleInMemoryKeyValueStorage keyValueStorage;
 
@@ -154,10 +146,10 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         mockCmgLocalNodes();
 
+        vaultManager.put(new ByteArray("applied_revision"), longToBytes(1)).get();
+
         // Not adding 'distributionZoneManager' on purpose, it's started manually.
         components.forEach(IgniteComponent::start);
-
-        metaStorageManager.deployWatches();
     }
 
     @AfterEach
@@ -303,10 +295,6 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
     @Test
     void testAwaitingScaleUpOnly() throws Exception {
         startZoneManager(0);
-
-        distributionZoneManager.alterZone(DEFAULT_ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
-                        .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE).dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE).build())
-                .get(3, SECONDS);
 
         distributionZoneManager.createZone(
                         new DistributionZoneConfigurationParameters.Builder("zone1")
@@ -552,9 +540,9 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
     }
 
     private void startZoneManager(long revision) throws Exception {
-        vaultManager.put(new ByteArray("applied_revision"), longToBytes(revision)).get();
-
         distributionZoneManager.start();
+
+        metaStorageManager.deployWatches();
 
         distributionZoneManager.alterZone(
                         DEFAULT_ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
