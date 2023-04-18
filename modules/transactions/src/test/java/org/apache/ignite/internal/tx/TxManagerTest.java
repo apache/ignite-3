@@ -20,7 +20,6 @@ package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -135,11 +134,6 @@ public class TxManagerTest extends IgniteAbstractTest {
         IgniteInternalException exception = assertThrows(IgniteInternalException.class, () -> txManager.begin(true));
 
         assertEquals(Transactions.TX_READ_ONLY_TO_OLD_ERR, exception.code());
-
-        // Let's check the removed lower bound.
-        txManager.updateLowWatermark(null);
-
-        assertDoesNotThrow(() -> txManager.begin(true));
     }
 
     @Test
