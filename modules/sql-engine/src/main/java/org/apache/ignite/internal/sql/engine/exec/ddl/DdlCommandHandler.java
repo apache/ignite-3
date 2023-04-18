@@ -247,11 +247,11 @@ public class DdlCommandHandler {
 
             tableChange.changeDataStorage(dataStorageManager.tableDataStorageConsumer(cmd.dataStorage(), cmd.dataStorageOptions()));
 
-            if (cmd.zone() != null) {
-                tableChange.changeZoneId(distributionZoneManager.getZoneId(cmd.zone()));
-            } else {
-                tableChange.changeZoneId(DEFAULT_ZONE_ID);
-            }
+//            if (cmd.zone() != null) {
+//                tableChange.changeZoneId(distributionZoneManager.getZoneId(cmd.zone()));
+//            } else {
+//                tableChange.changeZoneId(DEFAULT_ZONE_ID);
+//            }
         };
 
         String zoneName;

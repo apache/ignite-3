@@ -222,8 +222,6 @@ public class ItRebalanceDistributedTest {
 
     private ClusterManagementGroupManager cmgMgr;
 
-    private DistributionZoneManager distributionZoneManager;
-
     @BeforeEach
     void before(TestInfo testInfo) throws Exception {
         nodes = new ArrayList<>();
