@@ -600,7 +600,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         // DDL is non-transactional.
         {
-            Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
+            Transaction tx = igniteTx().begin();
             try {
                 assertThrowsWithCause(() -> await(ses.executeAsync(tx, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)")),
                         SqlException.class,

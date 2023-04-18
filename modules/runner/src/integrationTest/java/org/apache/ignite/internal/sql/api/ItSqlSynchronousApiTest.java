@@ -56,6 +56,7 @@ import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -91,6 +92,10 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
      */
     protected IgniteSql igniteSql() {
         return CLUSTER_NODES.get(0).sql();
+    }
+
+    protected IgniteTransactions igniteTx() {
+        return CLUSTER_NODES.get(0).transactions();
     }
 
     @Test
@@ -282,7 +287,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         }
 
         {
-            Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
+            Transaction tx = igniteTx().begin();
             try {
                 assertThrowsWithCause(() -> ses.execute(tx, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)"),
                         SqlException.class,
