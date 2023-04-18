@@ -25,11 +25,13 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
+import org.apache.ignite.internal.sql.engine.exec.SharedState;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -47,10 +49,12 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     private final MailboxRegistry registry;
     private final Destination<RowT> dest;
     private final Map<String, RemoteDownstream<RowT>> nodeBuffers;
-
     private final Deque<RowT> inBuf = new ArrayDeque<>(inBufSize);
-
+    /** Queue for requests, which requires rewind. */
+    private Queue<RewindRequest> rewindQueue;
     private int waiting;
+    /** Node, which rewindable request is processed now. */
+    private @Nullable String currentNode;
 
     /**
      * Constructor.
@@ -140,13 +144,15 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     /** {@inheritDoc} */
     @Override
     public void push(RowT row) throws Exception {
-        assert waiting > 0;
+        assert waiting > 0 : waiting;
 
         checkState();
 
         waiting--;
 
-        inBuf.add(row);
+        if (currentNode == null || dest.targets(row).contains(currentNode)) {
+            inBuf.add(row);
+        }
 
         flush();
     }
@@ -154,7 +160,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     /** {@inheritDoc} */
     @Override
     public void end() throws Exception {
-        assert waiting > 0;
+        assert waiting > 0 : waiting;
 
         checkState();
 
@@ -199,6 +205,12 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     protected void rewindInternal() {
         inBuf.clear();
         waiting = 0;
+
+        if (currentNode != null) {
+            nodeBuffers.get(currentNode).reset();
+
+            return;
+        }
 
         for (String nodeName : dest.targets()) {
             RemoteDownstream<?> downstream = nodeBuffers.get(nodeName);
@@ -266,8 +278,15 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         if (waiting == 0) {
             source().request(waiting = inBufSize);
         } else if (waiting == -1) {
-            for (RemoteDownstream<RowT> buffer : nodeBuffers.values()) {
-                buffer.end();
+            if (currentNode != null) {
+                nodeBuffers.get(currentNode).end();
+                currentNode = null; // Allow incoming rewind request from next node.
+
+                processRewindQueue();
+            } else {
+                for (RemoteDownstream<RowT> buffer : nodeBuffers.values()) {
+                    buffer.end();
+                }
             }
         }
     }
@@ -280,6 +299,52 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         if (nodeName.equals(context().originatingNodeName())) {
             context().execute(this::close, this::onError);
         }
+    }
+
+    /**
+     * Enqueue current rewind request, then tries to process rewind queue requests (in order) if possible.
+     *
+     * @param nodeName Requester node name.
+     * @param state Shared state.
+     * @param amountOfBatches Amount of batches requested.
+     * @throws Exception If failed.
+     */
+    public void onRewindRequest(String nodeName, SharedState state, int amountOfBatches) throws Exception {
+        checkState();
+
+        if (rewindQueue == null) {
+            rewindQueue = new ArrayDeque<>(nodeBuffers.size());
+        }
+
+        rewindQueue.offer(new RewindRequest(nodeName, state, amountOfBatches));
+
+        if (currentNode == null || currentNode.equals(nodeName)) {
+            currentNode = null;
+
+            processRewindQueue();
+        }
+    }
+
+    /**
+     * Takes the next delayed request from the queue if available, then applies the state, rewinds source and proceeds with the request.
+     *
+     * @throws Exception If failed to send the request.
+     */
+    private void processRewindQueue() throws Exception {
+        assert currentNode == null;
+
+        RewindRequest rewind = rewindQueue.poll();
+
+        if (rewind == null) {
+            return;
+        }
+
+        currentNode = rewind.nodeName;
+
+        context().sharedState(rewind.state);
+        rewind();
+
+        onRequest(currentNode, rewind.amountOfBatches);
     }
 
     private static final class RemoteDownstream<RowT> {
@@ -383,7 +448,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         void onBatchRequested(int amountOfBatches) throws Exception {
             assert amountOfBatches > 0 : amountOfBatches;
 
-            this.pendingCount = amountOfBatches;
+            this.pendingCount += amountOfBatches;
 
             // if there is a batch which is ready to be sent, then just sent it
             if (state == State.FULL || state == State.LAST_BATCH) {
@@ -431,6 +496,8 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
             if (lastBatch) {
                 state = State.END;
                 curr = null;
+                lastSentBatchId += pendingCount;
+                pendingCount = 0;
             } else {
                 state = State.FILLING;
                 curr = new ArrayList<>(IO_BATCH_SIZE);
@@ -452,6 +519,21 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         void close() {
             curr = null;
             state = State.END;
+        }
+    }
+
+    /**
+     * Request, which requires rewind.
+     */
+    private static class RewindRequest {
+        final String nodeName;
+        final SharedState state;
+        final int amountOfBatches;
+
+        RewindRequest(String nodeName, SharedState state, int amountOfBatches) {
+            this.nodeName = nodeName;
+            this.state = state;
+            this.amountOfBatches = amountOfBatches;
         }
     }
 }

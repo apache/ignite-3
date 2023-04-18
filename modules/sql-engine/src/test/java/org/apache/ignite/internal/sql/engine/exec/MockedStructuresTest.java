@@ -93,6 +93,8 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -558,6 +560,11 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     }
 
     private TableManager createTableManager() {
+        VaultManager vaultManager = mock(VaultManager.class);
+
+        when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
+        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
+
         TableManager tableManager = new TableManager(
                 "",
                 revisionUpdater,
@@ -579,6 +586,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 clock,
                 mock(OutgoingSnapshotsManager.class),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
+                vaultManager,
                 cmgMgr,
                 distributionZoneManager
         );

@@ -79,7 +79,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     /** {@inheritDoc} */
     @Override
     public void push(InRowT row) throws Exception {
-        assert waiting > 0;
+        assert waiting > 0 : waiting;
 
         buff.add(converter.apply(row));
 
@@ -91,7 +91,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     /** {@inheritDoc} */
     @Override
     public void end() throws Exception {
-        assert waiting > 0;
+        assert waiting > 0 : waiting;
 
         waiting = -1;
 

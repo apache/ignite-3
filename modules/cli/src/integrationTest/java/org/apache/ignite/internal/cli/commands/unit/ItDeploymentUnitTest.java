@@ -93,4 +93,27 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
                 () -> assertErrOutputContains("Unit not found")
         );
     }
+
+    @Test
+    @DisplayName("Should display correct status after deploy")
+    void deployAndStatusCheck() {
+        // When undeploy non-existing unit
+        execute("unit", "deploy", "test.unit.id.5", "--version", "1.0.0", "--path", path);
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Done")
+        );
+
+        execute("unit", "status", "test.unit.id.5");
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("1.0.0"),
+                () -> assertOutputContains("DEPLOYED")
+        );
+    }
 }

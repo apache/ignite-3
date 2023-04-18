@@ -43,6 +43,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
+import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.hamcrest.CustomMatcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 
@@ -854,5 +856,33 @@ public final class IgniteTestUtils {
      */
     public static String escapeWindowsPath(String path) {
         return path.replace("\\", "\\\\");
+    }
+
+    /**
+     * Predicate matcher.
+     *
+     * @param <DataT> Data type.
+     */
+    public static class PredicateMatcher<DataT> extends CustomMatcher<DataT> {
+        /** Predicate. */
+        private final Predicate<DataT> predicate;
+
+        /**
+         * Constructor.
+         *
+         * @param pred Predicate.
+         * @param msg Error description.
+         */
+        public PredicateMatcher(Predicate<DataT> pred, String msg) {
+            super(msg);
+
+            predicate = pred;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean matches(Object o) {
+            return predicate.test((DataT) o);
+        }
     }
 }

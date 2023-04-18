@@ -16,6 +16,8 @@
  */
 
 #include "ignite_runner_suite.h"
+#include "all_fields_type.h"
+
 #include "tests/test-common/test_utils.h"
 
 #include "ignite/client/ignite_client.h"
@@ -938,95 +940,6 @@ TEST_F(record_view_test, remove_all_exact_overlapped_async) {
 TEST_F(record_view_test, remove_all_exact_empty) {
     auto res = view.remove_all_exact(nullptr, {});
     EXPECT_TRUE(res.empty());
-}
-
-/**
- * All columns type table mapping (@see ignite_runner_suite::TABLE_NAME_ALL_COLUMNS).
- */
-struct all_fields_type {
-    all_fields_type() = default;
-    explicit all_fields_type(std::int64_t key) : m_key(key) {}
-
-    std::int64_t m_key{0};
-    std::string m_str;
-    std::int8_t m_int8{0};
-    std::int16_t m_int16{0};
-    std::int32_t m_int32{0};
-    std::int64_t m_int64{0};
-    float m_float{.0f};
-    double m_double{.0};
-    uuid m_uuid;
-    ignite_date m_date;
-    bit_array m_bitmask;
-    ignite_time m_time;
-    ignite_time m_time2;
-    ignite_date_time m_datetime;
-    ignite_date_time m_datetime2;
-    ignite_timestamp m_timestamp;
-    ignite_timestamp m_timestamp2;
-    std::vector<std::byte> m_blob;
-    big_decimal m_decimal;
-};
-
-namespace ignite {
-
-template<>
-ignite_tuple convert_to_tuple(all_fields_type &&value) {
-    ignite_tuple tuple;
-
-    tuple.set("key", value.m_key);
-    tuple.set("str", value.m_str);
-    tuple.set("int8", value.m_int8);
-    tuple.set("int16", value.m_int16);
-    tuple.set("int32", value.m_int32);
-    tuple.set("int64", value.m_int64);
-    tuple.set("float", value.m_float);
-    tuple.set("double", value.m_double);
-    tuple.set("uuid", value.m_uuid);
-    tuple.set("date", value.m_date);
-    tuple.set("bitmask", value.m_bitmask);
-    tuple.set("time", value.m_time);
-    tuple.set("time2", value.m_time2);
-    tuple.set("datetime", value.m_datetime);
-    tuple.set("datetime2", value.m_datetime2);
-    tuple.set("timestamp", value.m_timestamp);
-    tuple.set("timestamp2", value.m_timestamp2);
-    tuple.set("blob", value.m_blob);
-    tuple.set("decimal", value.m_decimal);
-
-    return tuple;
-}
-
-template<>
-all_fields_type convert_from_tuple(ignite_tuple&& value) {
-    all_fields_type res;
-
-    res.m_key = value.get<std::int64_t>("key");
-
-    if (value.column_count() > 1) {
-        res.m_str = value.get<std::string>("str");
-        res.m_int8 = value.get<std::int8_t>("int8");
-        res.m_int16 = value.get<std::int16_t>("int16");
-        res.m_int32 = value.get<std::int32_t>("int32");
-        res.m_int64 = value.get<std::int64_t>("int64");
-        res.m_float = value.get<float>("float");
-        res.m_double = value.get<double>("double");
-        res.m_uuid = value.get<uuid>("uuid");
-        res.m_date = value.get<ignite_date>("date");
-        res.m_bitmask = value.get<bit_array>("bitmask");
-        res.m_time = value.get<ignite_time>("time");
-        res.m_time2 = value.get<ignite_time>("time2");
-        res.m_datetime = value.get<ignite_date_time>("datetime");
-        res.m_datetime2 = value.get<ignite_date_time>("datetime2");
-        res.m_timestamp = value.get<ignite_timestamp>("timestamp");
-        res.m_timestamp2 = value.get<ignite_timestamp>("timestamp2");
-        res.m_blob = value.get<std::vector<std::byte>>("blob");
-        res.m_decimal = value.get<big_decimal>("decimal");
-    }
-
-    return res;
-}
-
 }
 
 TEST_F(record_view_test, types_test) {

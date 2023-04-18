@@ -21,7 +21,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.util.List;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import java.util.Map;
 
 /**
@@ -32,20 +32,22 @@ public class UnitStatus {
     /**
      * Unit identifier.
      */
-    @Schema(description = "Unit identifier.")
+    @Schema(description = "Unit identifier.",
+            requiredMode = RequiredMode.REQUIRED)
     private final String id;
 
     /**
      * Map from existing unit version to list of nodes consistent ids where unit deployed.
      */
-    @Schema(description = "Map from unit version to node consistent id where unit is deployed.")
-    private final Map<String, List<String>> versionToConsistentIds;
+    @Schema(description = "Map from unit version to unit deployment status.",
+            requiredMode = RequiredMode.REQUIRED)
+    private final Map<String, DeploymentInfo> versionToDeploymentInfo;
 
     @JsonCreator
     public UnitStatus(@JsonProperty("id") String id,
-            @JsonProperty("versionToConsistentIds") Map<String, List<String>> versionToConsistentIds) {
+            @JsonProperty("versionToDeploymentInfo") Map<String, DeploymentInfo> versionToDeploymentInfo) {
         this.id = id;
-        this.versionToConsistentIds = versionToConsistentIds;
+        this.versionToDeploymentInfo = versionToDeploymentInfo;
     }
 
     /**
@@ -63,8 +65,8 @@ public class UnitStatus {
      *
      * @return Map from existing unit version to list of nodes consistent ids where unit deployed.
      */
-    @JsonGetter("versionToConsistentIds")
-    public Map<String, List<String>> versionToConsistentIds() {
-        return versionToConsistentIds;
+    @JsonGetter("versionToDeploymentInfo")
+    public Map<String, DeploymentInfo> versionToDeploymentInfo() {
+        return versionToDeploymentInfo;
     }
 }

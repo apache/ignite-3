@@ -490,6 +490,7 @@ public class IgniteImpl implements Ignite {
                 clock,
                 outgoingSnapshotsManager,
                 topologyAwareRaftGroupServiceFactory,
+                vaultMgr,
                 cmgMgr,
                 distributionZoneManager
         );

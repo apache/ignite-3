@@ -397,6 +397,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 hybridClock,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
                 topologyAwareRaftGroupServiceFactory,
+                vault,
                 null,
                 null
         );

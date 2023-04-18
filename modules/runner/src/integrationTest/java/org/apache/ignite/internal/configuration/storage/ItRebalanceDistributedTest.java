@@ -782,6 +782,7 @@ public class ItRebalanceDistributedTest {
                     new HybridClockImpl(),
                     new OutgoingSnapshotsManager(clusterService.messagingService()),
                     topologyAwareRaftGroupServiceFactory,
+                    vaultManager,
                     cmgMgr,
                     distributionZoneManager
             ) {

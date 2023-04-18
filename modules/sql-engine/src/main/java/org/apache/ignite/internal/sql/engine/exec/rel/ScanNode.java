@@ -76,6 +76,7 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     protected void rewindInternal() {
         Commons.closeQuiet(it);
         it = null;
+        requested = 0;
     }
 
     /** {@inheritDoc} */

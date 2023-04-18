@@ -20,7 +20,6 @@ package org.apache.ignite.internal.cli.commands.cliconfig;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.internal.cli.commands.cliconfig.profile.CliConfigProfileListCommand;
-import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
 import org.junit.jupiter.api.Test;
 
 class CliConfigProfileListCommandTest extends CliConfigCommandTestBase {
@@ -43,7 +42,7 @@ class CliConfigProfileListCommandTest extends CliConfigCommandTestBase {
 
     @Test
     public void testSingleProfile() {
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createOneSectionWithDefaultProfile());
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createOneSectionWithDefaultProfile());
         execute();
 
         String expectedResult = "default" + System.lineSeparator();
@@ -55,7 +54,7 @@ class CliConfigProfileListCommandTest extends CliConfigCommandTestBase {
 
     @Test
     public void testEmptyConfig() {
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createEmptyConfig());
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createEmptyConfig());
         execute();
 
         String expectedResult = "default" + System.lineSeparator();
