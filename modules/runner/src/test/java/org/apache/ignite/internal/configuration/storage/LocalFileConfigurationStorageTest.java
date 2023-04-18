@@ -439,6 +439,7 @@ public class LocalFileConfigurationStorageTest {
         public short ignore = 1;
     }
 
+    /** Inner config to test that it won't be saved to tge file if not changed by the user.*/
     @Config
     public static class InnerConfigurationSchema {
         @Value(hasDefault = true)

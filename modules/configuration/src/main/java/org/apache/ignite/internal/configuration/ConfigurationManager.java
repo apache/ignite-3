@@ -37,6 +37,7 @@ public class ConfigurationManager implements IgniteComponent {
      * @param rootKeys                    Configuration root keys.
      * @param validators                  Validators.
      * @param storage                     Configuration storage.
+     * @param generator                   Configuration tree generator.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
      *                                  extensions are not valid.
      */
@@ -46,7 +47,7 @@ public class ConfigurationManager implements IgniteComponent {
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator
     ) {
-        this.registry = new ConfigurationRegistry(
+        registry = new ConfigurationRegistry(
                 rootKeys,
                 validators,
                 storage,
@@ -60,6 +61,9 @@ public class ConfigurationManager implements IgniteComponent {
      * @param rootKeys                    Configuration root keys.
      * @param validators                  Validators.
      * @param storage                     Configuration storage.
+     * @param internalSchemaExtensions    Internal extensions ({@link InternalConfiguration}) of configuration schemas ({@link
+     *                                    ConfigurationRoot} and {@link Config}).
+     * @param polymorphicSchemaExtensions Polymorphic extensions ({@link PolymorphicConfigInstance}) of configuration schemas.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
      *                                  extensions are not valid.
      */
@@ -70,7 +74,7 @@ public class ConfigurationManager implements IgniteComponent {
             Collection<Class<?>> internalSchemaExtensions,
             Collection<Class<?>> polymorphicSchemaExtensions
     ) {
-        this.registry = new ConfigurationRegistry(
+        registry = new ConfigurationRegistry(
                 rootKeys,
                 validators,
                 storage,

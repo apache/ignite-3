@@ -103,8 +103,9 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     /** {@inheritDoc} */
     @Override
     public Object visitNamedListNode(String key, NamedListNode<?> node) {
-        if (skipEmptyValues && node.size() == 0)
+        if (skipEmptyValues && node.size() == 0) {
             return null;
+        }
 
         List<Object> list = new ArrayList<>(node.size());
 
@@ -132,22 +133,25 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     private void addToParent(String key, Object val) {
         Object parent = deque.peek();
 
-        if (skipEmptyValues && val == null)
+        if (skipEmptyValues && val == null) {
             return;
+        }
 
         if (parent instanceof Map) {
             if (skipEmptyValues && val instanceof Map) {
                 Map<?, ?> map = (Map<?, ?>) val;
-                if (map.isEmpty())
+                if (map.isEmpty()) {
                     return;
+                }
             }
 
             ((Map<String, Object>) parent).put(key, val);
         } else if (parent instanceof List) {
             if (skipEmptyValues && val instanceof List) {
                 List<?> list = (List<?>) val;
-                if (list.isEmpty())
+                if (list.isEmpty()) {
                     return;
+                }
             }
 
             ((Collection<Object>) parent).add(val);
