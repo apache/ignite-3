@@ -15,24 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.config;
+package org.apache.ignite.internal.catalog.configuration;
 
-import jakarta.inject.Singleton;
-import picocli.CommandLine;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.is;
 
-/**
- * Implementation of {@link CommandLine.IDefaultValueProvider} based on CLI config API.
- */
-@Singleton
-public class ConfigDefaultValueProvider implements CommandLine.IDefaultValueProvider {
-    private final ConfigManagerProvider configManagerProvider;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.junit.jupiter.api.Test;
 
-    public ConfigDefaultValueProvider(ConfigManagerProvider configManagerProvider) {
-        this.configManagerProvider = configManagerProvider;
+class SchemaSynchronizationConfigurationModuleTest {
+    private final ConfigurationModule module = new SchemaSynchronizationConfigurationModule();
+
+    @Test
+    void typeIsDistributed() {
+        assertThat(module.type(), is(ConfigurationType.DISTRIBUTED));
     }
 
-    @Override
-    public String defaultValue(CommandLine.Model.ArgSpec argSpec) throws Exception {
-        return configManagerProvider.get().getCurrentProperty(argSpec.descriptionKey());
+    @Test
+    void rootKeysAreAsExpected() {
+        assertThat(module.rootKeys(), contains(SchemaSynchronizationConfiguration.KEY));
     }
 }

@@ -15,24 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.config;
+package org.apache.ignite.internal.catalog.configuration;
 
-import jakarta.inject.Singleton;
-import picocli.CommandLine;
+import com.google.auto.service.AutoService;
+import java.util.Collection;
+import java.util.Set;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**
- * Implementation of {@link CommandLine.IDefaultValueProvider} based on CLI config API.
+ * {@link ConfigurationModule} for distributed (cluster-wide) configuration of Schema Synchronization.
  */
-@Singleton
-public class ConfigDefaultValueProvider implements CommandLine.IDefaultValueProvider {
-    private final ConfigManagerProvider configManagerProvider;
-
-    public ConfigDefaultValueProvider(ConfigManagerProvider configManagerProvider) {
-        this.configManagerProvider = configManagerProvider;
+@AutoService(ConfigurationModule.class)
+public class SchemaSynchronizationConfigurationModule implements ConfigurationModule {
+    @Override
+    public ConfigurationType type() {
+        return ConfigurationType.DISTRIBUTED;
     }
 
     @Override
-    public String defaultValue(CommandLine.Model.ArgSpec argSpec) throws Exception {
-        return configManagerProvider.get().getCurrentProperty(argSpec.descriptionKey());
+    public Collection<RootKey<?, ?>> rootKeys() {
+        return Set.of(SchemaSynchronizationConfiguration.KEY);
     }
 }

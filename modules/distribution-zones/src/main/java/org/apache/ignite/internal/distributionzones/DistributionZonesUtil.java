@@ -54,20 +54,28 @@ import org.jetbrains.annotations.Nullable;
  * Util class for Distribution Zones flow.
  */
 public class DistributionZonesUtil {
-    /** Key prefix for zone's data nodes. */
+    /** Key prefix for zone's data nodes and trigger keys. */
     private static final String DISTRIBUTION_ZONE_DATA_NODES_PREFIX = "distributionZone.dataNodes.";
 
+    /** Key prefix for zone's data nodes. */
+    private static final String DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "value.";
+
     /** Key prefix for zone's scale up change trigger key. */
-    private static final String DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX = "distributionZone.scaleUp.change.trigger.";
+    private static final String DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX =
+            DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "scaleUpChangeTrigger.";
 
     /** Key prefix for zone's scale down change trigger key. */
-    private static final String DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX = "distributionZone.scaleDown.change.trigger.";
+    private static final String DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX =
+            DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "scaleDownChangeTrigger.";
+
+    /** Key prefix for zones' logical topology nodes and logical topology version. */
+    private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX = "distributionZones.logicalTopology.";
 
     /** Key prefix for zones' logical topology nodes. */
-    private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY = "distributionZones.logicalTopology";
+    private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "nodes";
 
     /** Key prefix for zones' logical topology version. */
-    private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION = "distributionZones.logicalTopologyVersion";
+    private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "version";
 
     /** Key prefix, needed for processing the event about zone's update was triggered only once. */
     private static final String DISTRIBUTION_ZONES_CHANGE_TRIGGER_KEY_PREFIX = "distributionZones.change.trigger.";
@@ -85,23 +93,36 @@ public class DistributionZonesUtil {
      */
     private static final long INITIAL_TRIGGER_REVISION_VALUE = 0;
 
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}. */
+    private static final ByteArray DISTRIBUTION_ZONES_DATA_NODES_KEY =
+            new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_PREFIX);
+
     /**
-     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}.
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX}.
      *
      * @param zoneId Zone id.
      * @return ByteArray representation.
      */
     public static ByteArray zoneDataNodesKey(int zoneId) {
-        return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_PREFIX + zoneId);
+        return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX + zoneId);
     }
 
     /**
-     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}.
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX}.
      *
      * @return ByteArray representation.
      */
-    public static ByteArray zoneDataNodesPrefix() {
-        return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_PREFIX);
+    public static ByteArray zoneDataNodesKey() {
+        return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX);
+    }
+
+    /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX}.
+     *
+     * @return ByteArray representation.
+     */
+    public static ByteArray zoneLogicalTopologyPrefix() {
+        return new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX);
     }
 
     /**
@@ -113,7 +134,7 @@ public class DistributionZonesUtil {
     public static int extractZoneId(byte[] key) {
         var strKey = new String(key, StandardCharsets.UTF_8);
 
-        return Integer.parseInt(strKey.substring(DISTRIBUTION_ZONE_DATA_NODES_PREFIX.length()));
+        return Integer.parseInt(strKey.substring(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX.length()));
     }
 
     /**
@@ -133,11 +154,25 @@ public class DistributionZonesUtil {
     }
 
     /**
+     * The key prefix needed for processing an event about zone's data node propagation on scale up.
+     */
+    public static ByteArray zoneScaleUpChangeTriggerKey() {
+        return new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX);
+    }
+
+    /**
      * The key needed for processing an event about zone's data node propagation on scale down.
      * With this key we can be sure that event was triggered only once.
      */
     public static ByteArray zoneScaleDownChangeTriggerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX + zoneId);
+    }
+
+    /**
+     * The key prefix needed for processing an event about zone's data node propagation on scale down.
+     */
+    public static ByteArray zoneScaleDownChangeTriggerKey() {
+        return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX);
     }
 
     /**
@@ -154,6 +189,13 @@ public class DistributionZonesUtil {
      */
     static ByteArray zonesLogicalTopologyVersionKey() {
         return DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY;
+    }
+
+    /**
+     * The key prefix needed for processing an event about zone's data nodes.
+     */
+    static ByteArray zonesDataNodesPrefix() {
+        return DISTRIBUTION_ZONES_DATA_NODES_KEY;
     }
 
     /**
