@@ -126,10 +126,19 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final BooleanProperty sslEnabled = new BooleanProperty("sslEnabled",
             "Enable ssl", false, null, false, null);
 
+    /** Basic authentication username. */
+    private final StringProperty basicAuthUsername = new StringProperty("basicAuthUsername",
+            "Basic authentication username", null, null, false, null);
+
+    /** Basic authentication password. */
+    private final StringProperty basicAuthPassword = new StringProperty("basicAuthPassword",
+            "Basic authentication password", null, null, false, null);
+
     /** Properties array. */
     private final ConnectionProperty[] propsArray = {
             qryTimeout, connTimeout, trustStorePath, trustStorePassword, trustStoreType,
-            sslEnabled, clientAuth, ciphers, keyStorePath, keyStorePassword, keyStoreType
+            sslEnabled, clientAuth, ciphers, keyStorePath, keyStorePassword, keyStoreType,
+            basicAuthUsername, basicAuthPassword
     };
 
     /** {@inheritDoc} */
@@ -347,6 +356,26 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     public Iterable<String> getCiphers() {
         String value = ciphers.value();
         return value != null ? Arrays.asList(value.split(",")) : null;
+    }
+
+    @Override
+    public String getBasicAuthUsername() {
+        return basicAuthUsername.value();
+    }
+
+    @Override
+    public void setBasicAuthUsername(String username) {
+        basicAuthUsername.setValue(username);
+    }
+
+    @Override
+    public String getBasicAuthPassword() {
+        return basicAuthPassword.value();
+    }
+
+    @Override
+    public void setBasicAuthPassword(String password) {
+        basicAuthPassword.setValue(password);
     }
 
     /**

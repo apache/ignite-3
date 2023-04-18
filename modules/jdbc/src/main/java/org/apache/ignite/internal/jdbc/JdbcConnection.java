@@ -50,7 +50,9 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.IgniteClientAuthenticator;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.client.HostAndPortRange;
 import org.apache.ignite.internal.client.TcpIgniteClient;
@@ -168,6 +170,7 @@ public class JdbcConnection implements Connection {
                     .reconnectThrottlingPeriod(reconnectThrottlingPeriod)
                     .reconnectThrottlingRetries(reconnectThrottlingRetries)
                     .ssl(extractSslConfiguration(connProps))
+                    .authenticator(extractAuthenticationConfiguration(connProps))
                     .build());
 
         } catch (Exception e) {
@@ -191,7 +194,7 @@ public class JdbcConnection implements Connection {
         holdability = HOLD_CURSORS_OVER_COMMIT;
     }
 
-    private @Nullable SslConfiguration extractSslConfiguration(ConnectionProperties connProps) {
+    private static @Nullable SslConfiguration extractSslConfiguration(ConnectionProperties connProps) {
         if (connProps.isSslEnabled()) {
             return SslConfiguration.builder()
                     .enabled(true)
@@ -203,6 +206,19 @@ public class JdbcConnection implements Connection {
                     .keyStoreType(connProps.getKeyStoreType())
                     .keyStorePath(connProps.getKeyStorePath())
                     .keyStorePassword(connProps.getKeyStorePassword())
+                    .build();
+        } else {
+            return null;
+        }
+    }
+
+    private static @Nullable IgniteClientAuthenticator extractAuthenticationConfiguration(ConnectionProperties connProps) {
+        String basicAuthUsername = connProps.getBasicAuthUsername();
+        String basicAuthPassword = connProps.getBasicAuthPassword();
+        if (basicAuthUsername != null && basicAuthPassword != null) {
+            return BasicAuthenticator.builder()
+                    .username(basicAuthUsername)
+                    .password(basicAuthPassword)
                     .build();
         } else {
             return null;

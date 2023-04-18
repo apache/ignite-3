@@ -32,19 +32,19 @@ public class ApiClientSettings {
 
     private String trustStorePassword;
 
-    private String basicAuthLogin;
+    private String basicAuthUsername;
 
     private String basicAuthPassword;
 
     ApiClientSettings(String basePath, String keyStorePath, String keyStorePassword, String trustStorePath,
             String trustStorePassword,
-            String basicAuthLogin, String basicAuthPassword) {
+            String basicAuthUsername, String basicAuthPassword) {
         this.basePath = basePath;
         this.keyStorePath = keyStorePath;
         this.keyStorePassword = keyStorePassword;
         this.trustStorePath = trustStorePath;
         this.trustStorePassword = trustStorePassword;
-        this.basicAuthLogin = basicAuthLogin;
+        this.basicAuthUsername = basicAuthUsername;
         this.basicAuthPassword = basicAuthPassword;
     }
 
@@ -72,8 +72,8 @@ public class ApiClientSettings {
         return trustStorePassword;
     }
 
-    public String basicAuthLogin() {
-        return basicAuthLogin;
+    public String basicAuthUsername() {
+        return basicAuthUsername;
     }
 
     public String basicAuthPassword() {
@@ -92,12 +92,12 @@ public class ApiClientSettings {
         return Objects.equals(basePath, that.basePath) && Objects.equals(keyStorePath, that.keyStorePath)
                 && Objects.equals(keyStorePassword, that.keyStorePassword) && Objects.equals(trustStorePath,
                 that.trustStorePath) && Objects.equals(trustStorePassword, that.trustStorePassword) && Objects.equals(
-                basicAuthLogin, that.basicAuthLogin) && Objects.equals(basicAuthPassword, that.basicAuthPassword);
+                basicAuthUsername, that.basicAuthUsername) && Objects.equals(basicAuthPassword, that.basicAuthPassword);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(basePath, keyStorePath, keyStorePassword, trustStorePath, trustStorePassword, basicAuthLogin,
+        return Objects.hash(basePath, keyStorePath, keyStorePassword, trustStorePath, trustStorePassword, basicAuthUsername,
                 basicAuthPassword);
     }
 }
