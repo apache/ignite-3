@@ -544,4 +544,18 @@ public class PlatformTestNodeRunner {
             }
         }
     }
+
+    /**
+     * Compute job that enables or disables client authentication.
+     */
+    @SuppressWarnings({"unused"}) // Used by platform tests.
+    private static class EnableAuthenticationJob implements ComputeJob<Void> {
+        @Override
+        public Void execute(JobExecutionContext context, Object... args) {
+            Boolean enable = (Boolean) args[0];
+            Ignite ignite = context.ignite();
+
+            return null;
+        }
+    }
 }
