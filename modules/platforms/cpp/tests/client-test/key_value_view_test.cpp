@@ -105,8 +105,8 @@ protected:
 
     void TearDown() override {
         std::vector<test_key_type> work_range;
-        work_range.reserve(200);
-        for (int i = -100; i < 100; ++i)
+        work_range.reserve(100);
+        for (int i = -50; i < 50; ++i)
             work_range.emplace_back(i);
 
         kv_view.remove_all(nullptr, work_range);
@@ -535,99 +535,86 @@ TEST_F(key_value_view_test, put_if_absent_existing_record_async) {
 //    EXPECT_EQ(42, res->key);
 //    EXPECT_EQ(val1.val, res->val);
 //}
-//
-//TEST_F(key_value_view_test, remove_nonexisting) {
-//    auto res = kv_view.remove(nullptr, test_value_type(1));
-//    ASSERT_FALSE(res);
-//
-//    auto res = kv_view.get(nullptr, test_value_type(1));
-//    ASSERT_FALSE(res.has_value());
-//}
-//
-//TEST_F(key_value_view_test, remove_existing) {
-//    auto res = kv_view.put_if_absent(nullptr, test_key_type(1), test_value_type("foo"));
-//    ASSERT_TRUE(res);
-//
-//    res = kv_view.remove(nullptr, test_value_type(1));
-//    ASSERT_TRUE(res);
-//
-//    auto res = kv_view.get(nullptr, test_value_type(1));
-//    ASSERT_FALSE(res.has_value());
-//}
-//
-//TEST_F(key_value_view_test, remove_existing_async) {
-//    auto all_done = std::make_shared<std::promise<bool>>();
-//
-//    kv_view.put_if_absent_async(nullptr, test_key_type(42), test_value_type("foo"), [&](ignite_result<bool> &&res) {
-//        if (!check_and_set_operation_error(*all_done, res))
-//            return;
-//
-//        if (!res.value())
-//            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insertion")));
-//
-//        kv_view.remove_async(nullptr, test_key_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
-//    });
-//
-//    auto res = all_done->get_future().get();
-//    ASSERT_TRUE(res);
-//}
-//
-//TEST_F(key_value_view_test, remove_empty_throws) {
-//    EXPECT_THROW(
-//        {
-//            try {
-//                kv_view.remove(nullptr, ignite_tuple{});
-//            } catch (const ignite_error &e) {
-//                EXPECT_STREQ("Key tuple can not be empty", e.what());
-//                throw;
-//            }
-//        },
-//        ignite_error);
-//}
-//
-//TEST_F(key_value_view_test, remove_exact_nonexisting) {
-//    auto res = kv_view.remove(nullptr, test_key_type(1), test_value_type("foo"));
-//    ASSERT_FALSE(res);
-//}
-//
-//TEST_F(key_value_view_test, remove_exact_existing) {
-//    auto res = kv_view.put_if_absent(nullptr, test_key_type(1), test_value_type("foo"));
-//    ASSERT_TRUE(res);
-//
-//    res = kv_view.remove(nullptr, test_key_type(1), test_value_type("bar"));
-//    ASSERT_FALSE(res);
-//
-//    res = kv_view.remove(nullptr, test_key_type(1), test_value_type("foo"));
-//    ASSERT_TRUE(res);
-//
-//    auto res = kv_view.get(nullptr, test_value_type(1));
-//    ASSERT_FALSE(res.has_value());
-//}
-//
-//TEST_F(key_value_view_test, remove_exact_existing_async) {
-//    auto key = test_key_type(42);
-//    auto val = test_value_type("foo");
-//
-//    auto all_done = std::make_shared<std::promise<bool>>();
-//
-//    auto res = kv_view.put_if_absent(nullptr, key, val);
-//    ASSERT_TRUE(res);
-//
-//    kv_view.remove_async(nullptr, key, test_value_type("bar"), [&](auto res) {
-//        if (!check_and_set_operation_error(*all_done, res))
-//            return;
-//
-//        if (res.value())
-//            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected false on second remove")));
-//
-//        kv_view.remove_async(
-//            nullptr, key, val, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
-//    });
-//
-//    auto res = all_done->get_future().get();
-//    ASSERT_TRUE(res);
-//}
-//
+
+TEST_F(key_value_view_test, remove_nonexisting) {
+    auto res1 = kv_view.remove(nullptr, test_key_type(1));
+    ASSERT_FALSE(res1);
+
+    auto res2 = kv_view.get(nullptr, test_key_type(1));
+    ASSERT_FALSE(res2.has_value());
+}
+
+TEST_F(key_value_view_test, remove_existing) {
+    auto res = kv_view.put_if_absent(nullptr, test_key_type(1), test_value_type("foo"));
+    ASSERT_TRUE(res);
+
+    res = kv_view.remove(nullptr, test_key_type(1));
+    ASSERT_TRUE(res);
+
+    auto res2 = kv_view.get(nullptr, test_key_type(1));
+    ASSERT_FALSE(res2.has_value());
+}
+
+TEST_F(key_value_view_test, remove_existing_async) {
+    auto all_done = std::make_shared<std::promise<bool>>();
+
+    kv_view.put_if_absent_async(nullptr, test_key_type(42), test_value_type("foo"), [&](ignite_result<bool> &&res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        if (!res.value())
+            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insertion")));
+
+        kv_view.remove_async(nullptr, test_key_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+    });
+
+    auto res = all_done->get_future().get();
+    ASSERT_TRUE(res);
+}
+
+TEST_F(key_value_view_test, remove_exact_nonexisting) {
+    auto res = kv_view.remove(nullptr, test_key_type(1), test_value_type("foo"));
+    ASSERT_FALSE(res);
+}
+
+TEST_F(key_value_view_test, remove_exact_existing) {
+    auto res = kv_view.put_if_absent(nullptr, test_key_type(1), test_value_type("foo"));
+    ASSERT_TRUE(res);
+
+    res = kv_view.remove(nullptr, test_key_type(1), test_value_type("bar"));
+    ASSERT_FALSE(res);
+
+    res = kv_view.remove(nullptr, test_key_type(1), test_value_type("foo"));
+    ASSERT_TRUE(res);
+
+    auto res2 = kv_view.get(nullptr, test_key_type(1));
+    ASSERT_FALSE(res2.has_value());
+}
+
+TEST_F(key_value_view_test, remove_exact_existing_async) {
+    auto key = test_key_type(42);
+    auto val = test_value_type("foo");
+
+    auto all_done = std::make_shared<std::promise<bool>>();
+
+    auto res = kv_view.put_if_absent(nullptr, key, val);
+    ASSERT_TRUE(res);
+
+    kv_view.remove_async(nullptr, key, test_value_type("bar"), [&](auto res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        if (res.value())
+            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected false on second remove")));
+
+        kv_view.remove_async(
+            nullptr, key, val, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+    });
+
+    auto res2 = all_done->get_future().get();
+    ASSERT_TRUE(res2);
+}
+
 //TEST_F(key_value_view_test, get_and_remove_nonexisting) {
 //    auto res = kv_view.get_and_replace(nullptr, test_key_type(42), test_value_type("foo"));
 //    ASSERT_FALSE(res.has_value());

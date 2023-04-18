@@ -262,7 +262,7 @@ public:
      * @param key Key.
      * @return A value indicating whether a record with the specified key was deleted.
      */
-    IGNITE_API bool remove(transaction *tx, const value_type &key) {
+    IGNITE_API bool remove(transaction *tx, const key_type &key) {
         return sync<bool>([this, tx, &key](auto callback) { remove_async(tx, key, std::move(callback)); });
     }
 
@@ -703,56 +703,60 @@ public:
             [this, tx, &key, &value](auto callback) { put_if_absent_async(tx, key, value, std::move(callback)); });
     }
 
-//    /**
-//     * Removes a value with the specified key asynchronously.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param key Key.
-//     * @param callback Callback that is called on operation completion. Called with
-//     *   a value indicating whether a record with the specified key was deleted.
-//     */
-//    void remove_async(transaction *tx, const key_type &key, ignite_callback<bool> callback);
-//
-//    /**
-//     * Removes a value with the specified key.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param key Key.
-//     * @return A value indicating whether a record with the specified key was deleted.
-//     */
-//    bool remove(transaction *tx, const value_type &key) {
-//        return sync<bool>([this, tx, &key](auto callback) { remove_async(tx, key, std::move(callback)); });
-//    }
-//
-//    /**
-//     * Asynchronously removes a value with a given key from the table only if it is equal to the specified value.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param key Key.
-//     * @param value Value.
-//     * @param callback Callback that is called on operation completion. Called with
-//     *   a value indicating whether a record with the specified key was deleted.
-//     */
-//    void remove_async(
-//        transaction *tx, const key_type &key, const value_type &value, ignite_callback<bool> callback);
-//
-//    /**
-//     * Removes a value with a given key from the table only if it is equal to the specified value.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param key Key.
-//     * @param value Value.
-//     * @return A value indicating whether a record with the specified key was
-//     *   deleted.
-//     */
-//    bool remove(transaction *tx, const key_type &key, const value_type &value) {
-//        return sync<bool>(
-//            [this, tx, &key, &value](auto callback) { remove_async(tx, key, value, std::move(callback)); });
-//    }
+    /**
+     * Removes a value with the specified key asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key Key.
+     * @param callback Callback that is called on operation completion. Called with
+     *   a value indicating whether a record with the specified key was deleted.
+     */
+    void remove_async(transaction *tx, const key_type &key, ignite_callback<bool> callback) {
+        m_delegate.remove_async(tx, convert_to_tuple(key), std::move(callback));
+    }
+
+    /**
+     * Removes a value with the specified key.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key Key.
+     * @return A value indicating whether a record with the specified key was deleted.
+     */
+    bool remove(transaction *tx, const key_type &key) {
+        return sync<bool>([this, tx, &key](auto callback) { remove_async(tx, key, std::move(callback)); });
+    }
+
+    /**
+     * Asynchronously removes a value with a given key from the table only if it is equal to the specified value.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key Key.
+     * @param value Value.
+     * @param callback Callback that is called on operation completion. Called with
+     *   a value indicating whether a record with the specified key was deleted.
+     */
+    void remove_async(
+        transaction *tx, const key_type &key, const value_type &value, ignite_callback<bool> callback) {
+        m_delegate.remove_async(tx, convert_to_tuple(key), convert_to_tuple(value), std::move(callback));
+    }
+
+    /**
+     * Removes a value with a given key from the table only if it is equal to the specified value.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key Key.
+     * @param value Value.
+     * @return A value indicating whether a record with the specified key was
+     *   deleted.
+     */
+    bool remove(transaction *tx, const key_type &key, const value_type &value) {
+        return sync<bool>(
+            [this, tx, &key, &value](auto callback) { remove_async(tx, key, value, std::move(callback)); });
+    }
 
     /**
      * Removes values with given keys from the table asynchronously. If one or
