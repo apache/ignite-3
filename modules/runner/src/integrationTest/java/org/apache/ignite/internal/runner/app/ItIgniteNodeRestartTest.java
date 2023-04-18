@@ -117,7 +117,6 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
@@ -435,12 +434,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         vault.putName(name).join();
 
         nodeCfgMgr.start();
-
-        try {
-            nodeCfgMgr.bootstrap(configFile);
-        } catch (Exception e) {
-            throw new IgniteException("Unable to parse user-specific configuration.", e);
-        }
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
