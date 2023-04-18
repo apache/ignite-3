@@ -26,10 +26,6 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.after;
-import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Set;
@@ -55,8 +51,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         distributionZoneManager.start();
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
-
         assertLogicalTopVer(1L);
 
         assertLogicalTopology(clusterNodes, keyValueStorage);
@@ -71,8 +65,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(1L));
 
         distributionZoneManager.start();
-
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
 
         assertLogicalTopVer(2L);
 
@@ -89,8 +81,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         distributionZoneManager.start();
 
-        verify(keyValueStorage, after(500).never()).invoke(any());
-
         assertLogicalTopVer(2L);
 
         assertLogicalTopology(null, keyValueStorage);
@@ -105,8 +95,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(3L));
 
         distributionZoneManager.start();
-
-        verify(keyValueStorage, after(500).never()).invoke(any());
 
         assertLogicalTopVer(3L);
 

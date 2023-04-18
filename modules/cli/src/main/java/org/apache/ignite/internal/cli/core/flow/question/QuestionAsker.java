@@ -49,4 +49,14 @@ public class QuestionAsker {
         }
         return askQuestion(question, input, answers);
     }
+
+    /**
+     * Ask for input.
+     *
+     * @param question text of question.
+     * @return value of answer.
+     */
+    public String askQuestion(String question) {
+        return readWriter.readAnswer(question);
+    }
 }

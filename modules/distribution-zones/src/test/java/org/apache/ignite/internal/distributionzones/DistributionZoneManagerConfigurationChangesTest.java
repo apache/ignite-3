@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZone;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZonesChangeTriggerKey;
@@ -34,12 +35,9 @@ import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -56,6 +54,7 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.NetworkAddress;
@@ -105,6 +104,9 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         vaultMgr = new VaultManager(new InMemoryVaultService());
         assertThat(vaultMgr.put(zonesLogicalTopologyKey(), toBytes(nodes)), willCompleteSuccessfully());
 
+        when(vaultMgr.get(zonesLogicalTopologyVersionKey()))
+                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyVersionKey(), longToBytes(0))));
+
         LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
 
         Set<LogicalNode> logicalTopology = nodes.stream()
@@ -112,11 +114,13 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
                 .collect(toSet());
 
         when(logicalTopologyService.logicalTopologyOnLeader())
-                .thenReturn(completedFuture(new LogicalTopologySnapshot(1, logicalTopology)));
+                .thenReturn(completedFuture(new LogicalTopologySnapshot(0, logicalTopology)));
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
 
         metaStorageManager = StandaloneMetaStorageManager.create(vaultMgr, keyValueStorage);
+
+        metaStorageManager.put(zonesLogicalTopologyVersionKey(), longToBytes(0));
 
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
@@ -192,8 +196,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
-
         assertZonesChangeTriggerKey(100, 1, keyValueStorage);
 
         assertDataNodesForZone(1, null, keyValueStorage);
@@ -208,8 +210,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         keyValueStorage.put(zonesChangeTriggerKey(1).bytes(), longToBytes(100));
 
         distributionZoneManager.dropZone(ZONE_NAME).get();
-
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
 
         assertDataNodesForZone(1, nodes, keyValueStorage);
     }

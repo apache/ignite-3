@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.client.sql.ClientSqlRow;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -214,7 +213,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
 
     @NotNull
     private SqlRow getRow(Object... vals) {
-        return new ClientSqlRow(List.of(vals), metadata());
+        return new FakeSqlRow(List.of(vals), metadata());
     }
 
     private static class ColumnOrigin implements ColumnMetadata.ColumnOrigin {

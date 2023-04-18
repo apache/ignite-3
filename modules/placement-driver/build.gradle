@@ -22,8 +22,9 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 dependencies {
-    implementation project(':ignite-metastorage-api')
+    api project(':ignite-placement-driver-api')
 
+    implementation project(':ignite-metastorage-api')
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-raft-api')

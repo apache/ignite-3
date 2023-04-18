@@ -28,6 +28,7 @@ dependencies {
     implementation libs.netty.common
     implementation libs.netty.buffer
     implementation libs.netty.codec
+    implementation libs.jetbrains.annotations
 
     testAnnotationProcessor libs.jmh.annotation.processor
     testImplementation project(':ignite-core')

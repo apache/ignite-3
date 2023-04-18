@@ -19,17 +19,22 @@ package org.apache.ignite.internal.metastorage.server.raft;
 
 import java.io.Serializable;
 import java.util.Collection;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.command.GetAndPutAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndPutCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndRemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndRemoveCommand;
+import org.apache.ignite.internal.metastorage.command.HybridTimestampMessage;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
+import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
+import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.command.PutAllCommand;
 import org.apache.ignite.internal.metastorage.command.PutCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveCommand;
+import org.apache.ignite.internal.metastorage.command.SyncTimeCommand;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.ConditionType;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
@@ -46,6 +51,8 @@ import org.apache.ignite.internal.metastorage.server.RevisionCondition;
 import org.apache.ignite.internal.metastorage.server.Statement;
 import org.apache.ignite.internal.metastorage.server.TombstoneCondition;
 import org.apache.ignite.internal.metastorage.server.ValueCondition;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
+import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 
@@ -53,10 +60,13 @@ import org.apache.ignite.internal.raft.service.CommandClosure;
  * Class containing some common logic for Meta Storage Raft group listeners.
  */
 class MetaStorageWriteHandler {
+    private static final MetaStorageCommandsFactory META_STORAGE_COMMANDS_FACTORY = new MetaStorageCommandsFactory();
     private final KeyValueStorage storage;
+    private final ClusterTimeImpl clusterTime;
 
-    MetaStorageWriteHandler(KeyValueStorage storage) {
+    MetaStorageWriteHandler(KeyValueStorage storage, ClusterTimeImpl clusterTime) {
         this.storage = storage;
+        this.clusterTime = clusterTime;
     }
 
     /**
@@ -121,8 +131,17 @@ class MetaStorageWriteHandler {
             MultiInvokeCommand cmd = (MultiInvokeCommand) command;
 
             clo.result(storage.invoke(toIf(cmd.iif())));
+        } else if (command instanceof SyncTimeCommand) {
+            clusterTime.updateSafeTime(((SyncTimeCommand) command).safeTime().asHybridTimestamp());
+
+            clo.result(null);
         } else {
             assert false : "Command was not found [cmd=" + command + ']';
+        }
+
+        if (command instanceof MetaStorageWriteCommand) {
+            // Every MetaStorageWriteCommand holds safe time that we should set as the cluster time.
+            clusterTime.updateSafeTime(((MetaStorageWriteCommand) command).safeTime().asHybridTimestamp());
         }
     }
 
@@ -230,5 +249,21 @@ class MetaStorageWriteHandler {
             default:
                 throw new IllegalArgumentException("Unexpected revision condition type " + type);
         }
+    }
+
+    void beforeApply(Command command) {
+        if (command instanceof MetaStorageWriteCommand) {
+            // Initiator sends us a timestamp to adjust to.
+            // Alter command by setting safe time based on the adjusted clock.
+            MetaStorageWriteCommand writeCommand = (MetaStorageWriteCommand) command;
+
+            clusterTime.adjust(writeCommand.initiatorTime().asHybridTimestamp());
+
+            writeCommand.safeTime(hybridTimestamp(clusterTime.now()));
+        }
+    }
+
+    private static HybridTimestampMessage hybridTimestamp(HybridTimestamp ts) {
+        return META_STORAGE_COMMANDS_FACTORY.hybridTimestampMessage().physical(ts.getPhysical()).logical(ts.getLogical()).build();
     }
 }

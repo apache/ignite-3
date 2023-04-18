@@ -80,7 +80,7 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
         if (type == AuthenticationType.BASIC) {
             BasicAuthenticationProvider basicAuthProvider = (BasicAuthenticationProvider) provider;
             change.convert(BasicAuthenticationProviderChange.class)
-                    .changeLogin(basicAuthProvider.login())
+                    .changeUsername(basicAuthProvider.username())
                     .changePassword(basicAuthProvider.password())
                     .changeName(provider.name());
         } else {

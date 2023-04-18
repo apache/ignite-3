@@ -31,14 +31,9 @@ public class DefaultFlowable<T> implements Flowable<T> {
 
     private final Throwable cause;
 
-    DefaultFlowable(T body, Throwable cause) {
+    private DefaultFlowable(T body, Throwable cause) {
         this.body = body;
         this.cause = cause;
-    }
-
-    @Override
-    public boolean hasError() {
-        return cause != null;
     }
 
     @Override
@@ -49,11 +44,6 @@ public class DefaultFlowable<T> implements Flowable<T> {
     @Override
     public T value() {
         return body;
-    }
-
-    @Override
-    public boolean hasResult() {
-        return body != null;
     }
 
     @Override
@@ -100,8 +90,6 @@ public class DefaultFlowable<T> implements Flowable<T> {
      */
     public static class DefaultFlowOutputBuilder<T> {
 
-        private Class<T> type;
-
         private T body;
 
         private Throwable cause;
@@ -112,10 +100,8 @@ public class DefaultFlowable<T> implements Flowable<T> {
          * @param body call output body.
          * @return invoked builder instance {@link DefaultCallOutput.DefaultCallOutputBuilder}.
          */
-        @SuppressWarnings("unchecked")
         public DefaultFlowOutputBuilder<T> body(T body) {
             this.body = body;
-            type = body == null ? null : (Class<T>) body.getClass();
             return this;
         }
 

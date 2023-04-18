@@ -427,8 +427,6 @@ public class StorageUpdateHandler {
 
         TableSchemaAwareIndexStorage index = indexes.get().get(indexId);
 
-        assert index != null : "indexId=" + indexId + ", partitionId=" + partitionId;
-
         RowId lastRowId = null;
 
         for (UUID rowUuid : rowUuids) {

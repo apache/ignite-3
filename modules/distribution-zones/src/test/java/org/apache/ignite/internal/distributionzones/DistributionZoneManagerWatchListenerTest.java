@@ -62,7 +62,9 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
 
         distributionZoneManager.alterZone(
                 DEFAULT_ZONE_NAME,
-                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
+                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                        .dataNodesAutoAdjustScaleUp(0)
+                        .build()
         ).get();
 
         //first event

@@ -598,7 +598,7 @@ public class ItRebalanceDistributedTest {
 
             Path dir = workDir.resolve(name);
 
-            vaultManager = createVault(dir);
+            vaultManager = createVault(name, dir);
 
             Path configPath = workDir.resolve(testInfo.getDisplayName());
             nodeCfgMgr = new ConfigurationManager(
@@ -663,7 +663,8 @@ public class ItRebalanceDistributedTest {
                     raftManager,
                     testInfo.getTestMethod().get().isAnnotationPresent(UseRocksMetaStorage.class)
                             ? new RocksDbKeyValueStorage(nodeName, resolveDir(dir, "metaStorage"))
-                            : new SimpleInMemoryKeyValueStorage(nodeName)
+                            : new SimpleInMemoryKeyValueStorage(nodeName),
+                    hybridClock
             );
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
@@ -882,8 +883,8 @@ public class ItRebalanceDistributedTest {
     /**
      * Starts the Vault component.
      */
-    private static VaultManager createVault(Path workDir) {
-        return new VaultManager(new PersistentVaultService(resolveDir(workDir, "vault")));
+    private static VaultManager createVault(String nodeName, Path workDir) {
+        return new VaultManager(new PersistentVaultService(nodeName, resolveDir(workDir, "vault")));
     }
 
     private static Path resolveDir(Path workDir, String dirName) {

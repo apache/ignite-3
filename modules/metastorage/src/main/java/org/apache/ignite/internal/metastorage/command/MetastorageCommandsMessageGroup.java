@@ -67,4 +67,10 @@ public interface MetastorageCommandsMessageGroup {
 
     /** Message type for {@link GetPrefixCommand}. */
     short GET_PREFIX = 61;
+
+    /** Message type for {@link HybridTimestampMessage}. */
+    short HYBRID_TS = 70;
+
+    /** Message type for {@link SyncTimeCommand}. */
+    short SYNC_TIME = 71;
 }

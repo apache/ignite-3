@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.NoSuchElementException;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
 import org.apache.ignite.lang.IgniteException;
@@ -84,7 +85,7 @@ public class ClientTableTest extends AbstractClientTableTest {
         assertEquals(DEFAULT_NAME, iter.next());
 
         assertFalse(iter.hasNext());
-        assertNull(iter.next());
+        assertThrows(NoSuchElementException.class, iter::next);
 
         assertTupleEquals(tuple, resTuple);
     }
@@ -308,10 +309,10 @@ public class ClientTableTest extends AbstractClientTableTest {
         assertNotNull(table.get(null, tuple(2L)));
 
         assertEquals(3L, skippedTuples[0].longValue("id"));
-        assertNull(skippedTuples[0].stringValue("name"));
+        assertEquals(-1, skippedTuples[0].columnIndex("name"));
 
         assertEquals(4L, skippedTuples[1].longValue("id"));
-        assertNull(skippedTuples[1].stringValue("name"));
+        assertEquals(-1, skippedTuples[1].columnIndex("name"));
     }
 
     @Test

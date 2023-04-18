@@ -68,6 +68,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
@@ -88,6 +89,7 @@ import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -173,6 +175,8 @@ public class ItMetaStorageServiceTest {
 
         private final KeyValueStorage mockStorage;
 
+        private final ClusterTimeImpl clusterTime;
+
         private RaftGroupService metaStorageRaftService;
 
         private MetaStorageService metaStorageService;
@@ -180,12 +184,16 @@ public class ItMetaStorageServiceTest {
         Node(ClusterService clusterService, RaftConfiguration raftConfiguration, Path dataPath) {
             this.clusterService = clusterService;
 
+            HybridClock clock = new HybridClockImpl();
+
             this.raftManager = new Loza(
                     clusterService,
                     raftConfiguration,
                     dataPath.resolve(name()),
-                    new HybridClockImpl()
+                    clock
             );
+
+            this.clusterTime = new ClusterTimeImpl(new IgniteSpinBusyLock(), clock);
 
             this.mockStorage = mock(KeyValueStorage.class);
         }
@@ -200,7 +208,12 @@ public class ItMetaStorageServiceTest {
 
             metaStorageRaftService = raftService.join();
 
-            metaStorageService = new MetaStorageServiceImpl(clusterService.nodeName(), metaStorageRaftService, new IgniteSpinBusyLock());
+            metaStorageService = new MetaStorageServiceImpl(
+                    clusterService.nodeName(),
+                    metaStorageRaftService,
+                    new IgniteSpinBusyLock(),
+                    clusterTime
+            );
         }
 
         String name() {
@@ -216,7 +229,7 @@ public class ItMetaStorageServiceTest {
 
             assert peer != null;
 
-            var listener = new MetaStorageListener(mockStorage);
+            var listener = new MetaStorageListener(mockStorage, clusterTime);
 
             var raftNodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, peer);
 

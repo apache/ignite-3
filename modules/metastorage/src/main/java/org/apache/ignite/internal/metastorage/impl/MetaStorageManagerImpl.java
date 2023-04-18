@@ -35,6 +35,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -49,10 +50,13 @@ import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -107,6 +111,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /** Prevents double stopping of the component. */
     private final AtomicBoolean isStopped = new AtomicBoolean();
 
+    private final ClusterTimeImpl clusterTime;
+
     private volatile long appliedRevision;
 
     /**
@@ -118,6 +124,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      * @param logicalTopologyService Logical topology service.
      * @param raftMgr Raft manager.
      * @param storage Storage. This component owns this resource and will manage its lifecycle.
+     * @param clock A hybrid logical clock.
      */
     public MetaStorageManagerImpl(
             VaultManager vaultMgr,
@@ -125,7 +132,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             ClusterManagementGroupManager cmgMgr,
             LogicalTopologyService logicalTopologyService,
             RaftManager raftMgr,
-            KeyValueStorage storage
+            KeyValueStorage storage,
+            HybridClock clock
     ) {
         this.vaultMgr = vaultMgr;
         this.clusterService = clusterService;
@@ -133,6 +141,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         this.cmgMgr = cmgMgr;
         this.logicalTopologyService = logicalTopologyService;
         this.storage = storage;
+        this.clusterTime = new ClusterTimeImpl(busyLock, clock);
     }
 
     private CompletableFuture<MetaStorageServiceImpl> initializeMetaStorage(Set<String> metaStorageNodes) {
@@ -141,6 +150,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         CompletableFuture<RaftGroupService> raftServiceFuture;
 
         try {
+            RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig = new RaftNodeDisruptorConfiguration("metastorage", 1);
+
             // We need to configure the replication protocol differently whether this node is a synchronous or asynchronous replica.
             if (metaStorageNodes.contains(thisNodeName)) {
                 PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageNodes);
@@ -152,8 +163,15 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 raftServiceFuture = raftMgr.startRaftGroupNode(
                         new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                         configuration,
-                        new MetaStorageListener(storage),
-                        new MetaStorageRaftGroupEventsListener(busyLock, clusterService, logicalTopologyService, metaStorageSvcFut)
+                        new MetaStorageListener(storage, clusterTime),
+                        new MetaStorageRaftGroupEventsListener(
+                                busyLock,
+                                clusterService,
+                                logicalTopologyService,
+                                metaStorageSvcFut,
+                                clusterTime
+                        ),
+                        ownFsmCallerExecutorDisruptorConfig
                 );
             } else {
                 PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageNodes, Set.of(thisNodeName));
@@ -165,15 +183,16 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 raftServiceFuture = raftMgr.startRaftGroupNode(
                         new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                         configuration,
-                        new MetaStorageListener(storage),
-                        RaftGroupEventsListener.noopLsnr
+                        new MetaStorageListener(storage, clusterTime),
+                        RaftGroupEventsListener.noopLsnr,
+                        ownFsmCallerExecutorDisruptorConfig
                 );
             }
         } catch (NodeStoppingException e) {
             return CompletableFuture.failedFuture(e);
         }
 
-        return raftServiceFuture.thenApply(raftService -> new MetaStorageServiceImpl(thisNodeName, raftService, busyLock));
+        return raftServiceFuture.thenApply(raftService -> new MetaStorageServiceImpl(thisNodeName, raftService, busyLock, clusterTime));
     }
 
     @Override
@@ -220,6 +239,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         busyLock.block();
+
+        clusterTime.stopLeaderTimer();
 
         cancelOrConsume(metaStorageSvcFut, MetaStorageServiceImpl::close);
 
@@ -603,6 +624,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    @TestOnly
+    ClusterTime clusterTime() {
+        return clusterTime;
     }
 
     @TestOnly

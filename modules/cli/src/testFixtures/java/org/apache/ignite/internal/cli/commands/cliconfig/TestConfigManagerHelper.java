@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.cli.commands.cliconfig;
 
+import static java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE;
+import static java.nio.file.attribute.PosixFilePermission.OWNER_READ;
+import static java.nio.file.attribute.PosixFilePermission.OWNER_WRITE;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -24,13 +28,18 @@ import java.io.InputStream;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.file.Files;
+import java.nio.file.attribute.PosixFilePermission;
+import java.util.Set;
 import org.apache.ignite.internal.cli.config.ConfigManager;
+import org.apache.ignite.internal.cli.util.OperatingSystem;
 
 /**
  * Test factory for {@link ConfigManager}.
  */
 public class TestConfigManagerHelper {
     private static final String EMPTY = "empty.ini";
+    private static final String EMPTY_SECRET = "empty_secret.ini";
     private static final String ONE_SECTION_WITH_DEFAULT_PROFILE = "one_section_with_default_profile.ini";
     private static final String TWO_SECTION_WITH_DEFAULT_PROFILE = "two_section_with_default_profile.ini";
     private static final String TWO_SECTION_WITHOUT_DEFAULT_PROFILE = "two_section_without_default_profile.ini";
@@ -38,8 +47,21 @@ public class TestConfigManagerHelper {
 
     private static final String CLUSTER_URL_NON_DEFAULT = "cluster_url_non_default.ini";
 
+    private static final String CLUSTER_URL_SSL = "cluster_url_ssl.ini";
+
     public static File createEmptyConfig() {
         return copyResourceToTempFile(EMPTY);
+    }
+
+    /** Creates and returns the empty secret file config. */
+    public static File createEmptySecretConfig() {
+        File file = copyResourceToTempFile(EMPTY_SECRET);
+        try {
+            setFilePermissions(file, Set.of(OWNER_READ, OWNER_WRITE, OWNER_EXECUTE));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return file;
     }
 
     public static File createOneSectionWithDefaultProfile() {
@@ -62,6 +84,10 @@ public class TestConfigManagerHelper {
         return copyResourceToTempFile(CLUSTER_URL_NON_DEFAULT);
     }
 
+    public static File createClusterUrlSsl() {
+        return copyResourceToTempFile(CLUSTER_URL_SSL);
+    }
+
     /**
      * Helper method to copy file from the classpath to the temporary file which will be deleted on exit.
      *
@@ -82,6 +108,12 @@ public class TestConfigManagerHelper {
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private static void setFilePermissions(File file, Set<PosixFilePermission> perms) throws IOException {
+        if (OperatingSystem.current() != OperatingSystem.WINDOWS) {
+            Files.setPosixFilePermissions(file.toPath(), perms);
         }
     }
 }
