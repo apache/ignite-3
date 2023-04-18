@@ -175,16 +175,16 @@ public class LeaseUpdater {
      * Finds a node that can be the leaseholder.
      *
      * @param assignments Replication group assignment.
-     * @param proposed Proposed consistent id, found out of a lease negotiation. The parameter might be {@code null}.
+     * @param proposedConsistentId Proposed consistent id, found out of a lease negotiation. The parameter might be {@code null}.
      * @return Cluster node, or {@code null} if no node in assignments can be the leaseholder.
      */
-    private ClusterNode nextLeaseHolder(Set<Assignment> assignments, @Nullable String proposed) {
+    private ClusterNode nextLeaseHolder(Set<Assignment> assignments, @Nullable String proposedConsistentId) {
         //TODO: IGNITE-18879 Implement more intellectual algorithm to choose a node.
         String consistentId = null;
 
         for (Assignment assignment : assignments) {
-            if (assignment.consistentId().equals(proposed)) {
-                consistentId = proposed;
+            if (assignment.consistentId().equals(proposedConsistentId)) {
+                consistentId = proposedConsistentId;
 
                 break;
             } else if (consistentId == null || consistentId.hashCode() > assignment.consistentId().hashCode()) {
