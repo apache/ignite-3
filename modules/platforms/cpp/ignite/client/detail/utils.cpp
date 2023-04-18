@@ -293,7 +293,7 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
         case ignite_type::BYTE_ARRAY: {
             claim_type_and_scale(builder, ignite_type::BYTE_ARRAY);
             auto &data = value.get<std::vector<std::byte>>();
-            builder.claim(ignite_type::BYTE_ARRAY, data);
+            builder.claim_bytes(data);
             break;
         }
         case ignite_type::DECIMAL: {
@@ -404,7 +404,7 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
         case ignite_type::BYTE_ARRAY: {
             append_type_and_scale(builder, ignite_type::BYTE_ARRAY);
             auto &data = value.get<std::vector<std::byte>>();
-            builder.append(ignite_type::BYTE_ARRAY, data);
+            builder.append_bytes(data);
             break;
         }
         case ignite_type::DECIMAL: {

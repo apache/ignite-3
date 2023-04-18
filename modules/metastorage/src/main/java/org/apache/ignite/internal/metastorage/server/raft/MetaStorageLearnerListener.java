@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -34,9 +35,9 @@ public class MetaStorageLearnerListener implements RaftGroupListener {
 
     private final MetaStorageWriteHandler writeHandler;
 
-    public MetaStorageLearnerListener(KeyValueStorage storage) {
+    public MetaStorageLearnerListener(KeyValueStorage storage, ClusterTimeImpl clusterTime) {
         this.storage = storage;
-        this.writeHandler = new MetaStorageWriteHandler(storage);
+        this.writeHandler = new MetaStorageWriteHandler(storage, clusterTime);
     }
 
     @Override

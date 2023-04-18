@@ -248,7 +248,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         partialNode = new ArrayList<>();
 
-        VaultManager vault = createVault(dir);
+        VaultManager vault = createVault(name, dir);
 
         ConfigurationModules modules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
 
@@ -320,7 +320,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 cmgManager,
                 new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
                 raftMgr,
-                new RocksDbKeyValueStorage(name, dir.resolve("metastorage"))
+                new RocksDbKeyValueStorage(name, dir.resolve("metastorage")),
+                hybridClock
         );
 
         var cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vault);
@@ -533,7 +534,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Starts the Vault component.
      */
-    private static VaultManager createVault(Path workDir) {
+    private static VaultManager createVault(String nodeName, Path workDir) {
         Path vaultPath = workDir.resolve(Paths.get("vault"));
 
         try {
@@ -542,7 +543,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             throw new IgniteInternalException(e);
         }
 
-        return new VaultManager(new PersistentVaultService(vaultPath));
+        return new VaultManager(new PersistentVaultService(nodeName, vaultPath));
     }
 
     /**
@@ -782,8 +783,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             res2.close();
         }
 
-        // TODO: Uncomment after IGNITE-18203
-        /*stopNode(0);
+        stopNode(0);
 
         ignite1 = startNode(0);
 
@@ -791,7 +791,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             ResultSet<SqlRow> res3 = session1.execute(null, sql);
 
             assertEquals(intRes, res3.next().intValue(0));
-        }*/
+        }
     }
 
     /**

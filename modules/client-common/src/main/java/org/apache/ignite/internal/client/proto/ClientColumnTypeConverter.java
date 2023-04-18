@@ -24,12 +24,12 @@ import org.apache.ignite.sql.ColumnType;
  */
 public class ClientColumnTypeConverter {
     /**
-     * Converts column type to wire code.
+     * Converts SQL column type to wire code.
      *
      * @param columnType Column type.
      * @return Wire code.
      */
-    public static int columnTypeToOrdinal(ColumnType columnType) {
+    public static int sqlColumnTypeToOrdinal(ColumnType columnType) {
         switch (columnType) {
             case BOOLEAN:
                 return 0;
@@ -97,12 +97,12 @@ public class ClientColumnTypeConverter {
     }
 
     /**
-     * Converts wire type code to column type.
+     * Converts wire SQL type code to column type.
      *
      * @param ordinal Type code.
      * @return Column type.
      */
-    public static ColumnType ordinalToColumnType(int ordinal) {
+    public static ColumnType ordinalToSqlColumnType(int ordinal) {
         switch (ordinal) {
             case 0:
                 return ColumnType.BOOLEAN;
@@ -166,6 +166,76 @@ public class ClientColumnTypeConverter {
 
             default:
                 throw new IllegalArgumentException("Invalid column type code: " + ordinal);
+        }
+    }
+
+    /**
+     * Converts client data type ({@link ClientDataType}) code to column type.
+     *
+     * @param ordinal Type code.
+     * @return Column type.
+     */
+    public static ColumnType clientDataTypeToSqlColumnType(int ordinal) {
+        switch (ordinal) {
+            case ClientDataType.BOOLEAN:
+                return ColumnType.BOOLEAN;
+
+            case ClientDataType.INT8:
+                return ColumnType.INT8;
+
+            case ClientDataType.INT16:
+                return ColumnType.INT16;
+
+            case ClientDataType.INT32:
+                return ColumnType.INT32;
+
+            case ClientDataType.INT64:
+                return ColumnType.INT64;
+
+            case ClientDataType.FLOAT:
+                return ColumnType.FLOAT;
+
+            case ClientDataType.DOUBLE:
+                return ColumnType.DOUBLE;
+
+            case ClientDataType.DECIMAL:
+                return ColumnType.DECIMAL;
+
+            case ClientDataType.DATE:
+                return ColumnType.DATE;
+
+            case ClientDataType.TIME:
+                return ColumnType.TIME;
+
+            case ClientDataType.DATETIME:
+                return ColumnType.DATETIME;
+
+            case ClientDataType.TIMESTAMP:
+                return ColumnType.TIMESTAMP;
+
+            case ClientDataType.UUID:
+                return ColumnType.UUID;
+
+            case ClientDataType.BITMASK:
+                return ColumnType.BITMASK;
+
+            case ClientDataType.STRING:
+                return ColumnType.STRING;
+
+            case ClientDataType.BYTES:
+                return ColumnType.BYTE_ARRAY;
+
+            case ClientDataType.PERIOD:
+                return ColumnType.PERIOD;
+
+            case ClientDataType.DURATION:
+                return ColumnType.DURATION;
+
+            case ClientDataType.NUMBER:
+                return ColumnType.NUMBER;
+
+            default:
+                throw new IllegalArgumentException("Invalid ClientDataType code: " + ordinal);
         }
     }
 }

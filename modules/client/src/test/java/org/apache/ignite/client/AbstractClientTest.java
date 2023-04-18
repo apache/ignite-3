@@ -141,7 +141,7 @@ public abstract class AbstractClientTest {
             Ignite ignite,
             String nodeName
     ) {
-        return new TestServer(port, portRange, idleTimeout, ignite, null, null, nodeName, clusterId);
+        return new TestServer(port, portRange, idleTimeout, ignite, null, null, nodeName, clusterId, null);
     }
 
     /**

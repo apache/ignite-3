@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.core.flow.builder;
 
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cli.core.call.Call;
@@ -73,7 +74,7 @@ public final class Flows {
      * @return {@link FlowBuilder} which started from constant flow.
      */
     public static <T> FlowBuilder<Void, T> from(T value) {
-        return from(unused -> value);
+        return new FlowBuilderImpl<>(input -> Flowable.success(value));
     }
 
     /**
@@ -118,16 +119,15 @@ public final class Flows {
      * @return new {@link FlowBuilder}.
      */
     public static <I, O> FlowBuilder<I, O> question(String question, List<QuestionAnswer<I, O>> answers) {
-        return new FlowBuilderImpl<>(input -> Flowable.success(QuestionAskerFactory
-                .newQuestionAsker().askQuestion(question, input.value(), answers)));
+        return new FlowBuilderImpl<>(questionFlow(question, answers));
     }
 
     /**
-     * Create new {@link FlowBuilder} which starts from yes/no question and pass the result of the @{code onAccept}
+     * Create new {@link FlowBuilder} which starts from yes/no question and pass the result of the {@code onAccept}
      * call on positive answer or interrupts the flow on negative answer.
      *
      * @param question question text.
-     * @param onAccept callback to call on positive answer
+     * @param onAccept callback to call on positive answer.
      * @param <I> input type.
      * @param <O> output type.
      * @return new {@link FlowBuilder}.
@@ -140,17 +140,49 @@ public final class Flows {
     }
 
     /**
-     * Create new {@link FlowBuilder} which starts from yes/no question and pass the result of the @{code onAccept}
+     * Create new {@link FlowBuilder} which starts from yes/no question and pass the result of the {@code onAccept}
      * call on positive answer or interrupts the flow on negative answer.
      *
      * @param question question UI component.
-     * @param onAccept callback to call on positive answer
+     * @param onAccept callback to call on positive answer.
      * @param <I> input type.
      * @param <O> output type.
      * @return new {@link FlowBuilder}.
      */
     public static <I, O> FlowBuilder<I, O> acceptQuestion(QuestionUiComponent question, Supplier<O> onAccept) {
         return acceptQuestion(question.render(), onAccept);
+    }
+
+    /**
+     * Create new {@link Flow} which asks questions and returns the result of answer.
+     *
+     * @param question question text.
+     * @param answers all possible answers.
+     * @param <I> input type.
+     * @param <O> output type.
+     * @return new {@link Flow}.
+     */
+    public static <I, O> Flow<I, O> questionFlow(String question, List<QuestionAnswer<I, O>> answers) {
+        return input -> Flowable.success(QuestionAskerFactory
+                .newQuestionAsker().askQuestion(question, input.value(), answers));
+    }
+
+    /**
+     * Create new {@link Flow} which asks yes/no question, passes the input to the {@code onAccept} handler
+     * on positive answer or returns an input on negative answer.
+     *
+     * @param question question UI component.
+     * @param onAccept callback to call on positive answer.
+     * @param <I> input type.
+     * @return new {@link Flow}.
+     */
+    public static <I> Flow<I, I> acceptQuestionFlow(QuestionUiComponent question, Consumer<I> onAccept) {
+        return questionFlow(question.render(),
+                List.of(new AcceptedQuestionAnswer<>((a, i) -> {
+                    onAccept.accept(i);
+                    return i;
+                }), new QuestionAnswer<>(s -> true, (a, i) -> i))
+        );
     }
 
     /**

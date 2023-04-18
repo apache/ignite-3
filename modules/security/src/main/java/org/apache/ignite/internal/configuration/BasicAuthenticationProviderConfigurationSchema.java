@@ -24,9 +24,9 @@ import org.apache.ignite.configuration.annotation.Value;
 @PolymorphicConfigInstance(AuthenticationProviderConfigurationSchema.TYPE_BASIC)
 public class BasicAuthenticationProviderConfigurationSchema extends AuthenticationProviderConfigurationSchema {
 
-    /** Login. */
+    /** Username. */
     @Value
-    public String login;
+    public String username;
 
     /** Password. */
     @Value

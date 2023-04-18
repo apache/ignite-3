@@ -42,8 +42,9 @@ import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
-import org.apache.ignite.internal.rest.api.cluster.ClusterStateDto;
-import org.apache.ignite.internal.rest.authentication.AuthProviderFactory;
+import org.apache.ignite.internal.rest.api.cluster.ClusterState;
+import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
+import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -134,7 +135,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
 
         // Then
         assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
-        assertThat(getProblem(thrown).detail(), containsString("Login must not be empty"));
+        assertThat(getProblem(thrown).detail(), containsString("Username must not be empty"));
     }
 
     @Test
@@ -151,7 +152,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
                 + "        {\n"
                 + "          \"name\": \"basic\",\n"
                 + "          \"type\": \"basic\",\n"
-                + "          \"login\": \"admin\"\n"
+                + "          \"username\": \"admin\"\n"
                 + "        }\n"
                 + "      ]\n"
                 + "    }\n"
@@ -180,7 +181,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
                 + "      \"providers\": [\n"
                 + "        {\n"
                 + "          \"name\": \"basic\",\n"
-                + "          \"login\": \"admin\",\n"
+                + "          \"username\": \"admin\",\n"
                 + "          \"password\": \"admin\"\n"
                 + "        }\n"
                 + "      ]\n"
@@ -210,7 +211,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
                 + "      \"providers\": [\n"
                 + "        {\n"
                 + "          \"type\": \"basic\",\n"
-                + "          \"login\": \"admin\",\n"
+                + "          \"username\": \"admin\",\n"
                 + "          \"password\": \"admin\"\n"
                 + "        }\n"
                 + "      ]\n"
@@ -231,7 +232,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
     void testInitAlreadyInitializedWithAnotherNodes() {
         // Given cluster is not initialized
         HttpClientResponseException thrownBeforeInit = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().retrieve("state", ClusterStateDto.class));
+                () -> client.toBlocking().retrieve("state", ClusterState.class));
 
         // Then status is 404: there is no "state"
         assertThat(thrownBeforeInit.getStatus(), is(equalTo(HttpStatus.NOT_FOUND)));
@@ -261,8 +262,8 @@ public class ItClusterManagementControllerTest extends RestTestBase {
         assertThat(cluster.get(0).startFuture(), willCompleteSuccessfully());
 
         // When get cluster state
-        ClusterStateDto state =
-                client.toBlocking().retrieve("state", ClusterStateDto.class);
+        ClusterState state =
+                client.toBlocking().retrieve("state", ClusterState.class);
 
         // Then cluster state is valid
         assertThat(state.msNodes(), is(equalTo(List.of(cluster.get(0).clusterService().nodeName()))));
@@ -303,8 +304,14 @@ public class ItClusterManagementControllerTest extends RestTestBase {
 
     @Factory
     @Bean
-    @Replaces(AuthProviderFactory.class)
-    public AuthProviderFactory authProviderFactory() {
-        return new AuthProviderFactory(authenticationConfiguration);
+    @Replaces(AuthenticationProviderFactory.class)
+    public AuthenticationProviderFactory authProviderFactory() {
+        return new AuthenticationProviderFactory(authenticationManager());
+    }
+
+    private AuthenticationManagerImpl authenticationManager() {
+        AuthenticationManagerImpl manager = new AuthenticationManagerImpl();
+        authenticationConfiguration.listen(manager);
+        return manager;
     }
 }
