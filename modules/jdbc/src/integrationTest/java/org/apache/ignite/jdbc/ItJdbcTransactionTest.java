@@ -160,10 +160,10 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
      */
     @Test
     public void testExecuteUpdate() throws Exception {
-        checkUpdate((conn, off, cnt) -> {
+        checkUpdate((conn, start, cnt) -> {
             try (Statement stmt = conn.createStatement()) {
-                for (int id = off; id < off + cnt; id++) {
-                    stmt.executeUpdate(String.format(SQL_INSERT, id, "name-" + id));
+                for (int i = start; i < start + cnt; i++) {
+                    stmt.executeUpdate(String.format(SQL_INSERT, i, "name-" + i));
                 }
             }
         });
@@ -179,11 +179,11 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
      */
     @Test
     public void testExecuteUpdatePrepared() throws Exception {
-        checkUpdate((conn, off, cnt) -> {
+        checkUpdate((conn, start, cnt) -> {
             try (PreparedStatement pstmt = conn.prepareStatement(SQL_INSERT_PREPARED)) {
-                for (int id = off; id < off + cnt; id++) {
-                    pstmt.setInt(1, id);
-                    pstmt.setString(2, "name-" + id);
+                for (int i = start; i < start + cnt; i++) {
+                    pstmt.setInt(1, i);
+                    pstmt.setString(2, "name-" + i);
 
                     pstmt.executeUpdate();
                 }
@@ -201,10 +201,10 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
      */
     @Test
     public void testBatch() throws Exception {
-        checkUpdate((conn, off, cnt) -> {
+        checkUpdate((conn, start, cnt) -> {
             try (Statement stmt = conn.createStatement()) {
-                for (int id = off; id < off + cnt; id++) {
-                    stmt.addBatch(String.format(SQL_INSERT, id, "name-" + id));
+                for (int i = start; i < start + cnt; i++) {
+                    stmt.addBatch(String.format(SQL_INSERT, i, "name-" + i));
                 }
 
                 stmt.executeBatch();
@@ -222,11 +222,11 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
      */
     @Test
     public void testBatchPrepared() throws Exception {
-        checkUpdate((conn, off, cnt) -> {
+        checkUpdate((conn, start, cnt) -> {
             try (PreparedStatement pstmt = conn.prepareStatement(SQL_INSERT_PREPARED)) {
-                for (int id = off; id < off + cnt; id++) {
-                    pstmt.setInt(1, id);
-                    pstmt.setString(2, "name-" + id);
+                for (int i = start; i < start + cnt; i++) {
+                    pstmt.setInt(1, i);
+                    pstmt.setString(2, "name-" + i);
 
                     pstmt.addBatch();
                 }
@@ -240,25 +240,25 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
      * Ensures that data updates made in an explicit transaction can be rolled back and are
      * not visible outside of an active transaction until they are committed.
      *
-     * @param updateOp Update operation.
+     * @param batchInsert Batch insert operation.
      * @throws SQLException If failed.
      */
-    private void checkUpdate(TestJdbcOperation updateOp) throws SQLException {
+    private void checkUpdate(TestJdbcBatchInsertOperation batchInsert) throws SQLException {
         // Check rollback.
-        checkTxResult(updateOp, false);
+        checkTxResult(batchInsert, false);
 
         // Check commit.
-        checkTxResult(updateOp, true);
+        checkTxResult(batchInsert, true);
     }
 
     /**
      * Performs update operations and checks the result of committing or rolling back a transaction.
      *
-     * @param updateOp Update operation.
+     * @param batchInsert Batch insert operation.
      * @param commit {@code True} to check transaction commit, {@code false} to check rollback.
      * @throws SQLException If failed.
      */
-    private void checkTxResult(TestJdbcOperation updateOp, boolean commit) throws SQLException {
+    private void checkTxResult(TestJdbcBatchInsertOperation batchInsert, boolean commit) throws SQLException {
         try (Connection conn = DriverManager.getConnection(URL)) {
             conn.setAutoCommit(false);
 
@@ -268,7 +268,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
             for (int id = 0; id < iterations; id++) {
                 int offset = rowsCnt * id;
 
-                updateOp.run(conn, offset, rowsCnt);
+                batchInsert.run(conn, offset, rowsCnt);
                 assertEquals(offset + rowsCnt, rowsCount(conn));
 
                 // Ensures that the changes are not visible outside of the transaction.
@@ -284,6 +284,8 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
             int expCnt = commit ? iterations * rowsCnt : 0;
 
             assertEquals(expCnt, rowsCount(conn));
+
+            conn.rollback();
             assertEquals(expCnt, rowsCount(AbstractJdbcSelfTest.conn));
         }
     }
@@ -306,7 +308,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
     }
 
     @FunctionalInterface
-    private interface TestJdbcOperation {
-        void run(Connection conn, Integer offset, Integer count) throws SQLException;
+    private interface TestJdbcBatchInsertOperation {
+        void run(Connection conn, Integer startRowId, Integer rowsCount) throws SQLException;
     }
 }
