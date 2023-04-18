@@ -26,7 +26,7 @@ using Security;
 /// </summary>
 public class BasicAuthenticatorTests : IgniteTestsBase
 {
-    private const string EnableAuthenticationJob = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$EnableAuthenticationJob";
+    private const string EnableAuthnJob = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$EnableAuthenticationJob";
 
     private bool _authnEnabled;
 
@@ -76,22 +76,18 @@ public class BasicAuthenticatorTests : IgniteTestsBase
         await client.Tables.GetTablesAsync();
     }
 
-    private static IgniteClientConfiguration GetConfig(bool enableAuthn)
-    {
-        var cfg = GetConfig();
-        cfg.RetryPolicy = new RetryNonePolicy();
-
-        if (enableAuthn)
+    private static IgniteClientConfiguration GetConfig(bool enableAuthn) =>
+        new(GetConfig())
         {
-            cfg.Authenticator = new BasicAuthenticator
-            {
-                Username = "user-1",
-                Password = "password-1"
-            };
-        }
-
-        return cfg;
-    }
+            RetryPolicy = new RetryNonePolicy(),
+            Authenticator = enableAuthn
+                ? new BasicAuthenticator
+                {
+                    Username = "user-1",
+                    Password = "password-1"
+                }
+                : null
+        };
 
     private async Task EnableAuthn(bool enable)
     {
@@ -105,7 +101,7 @@ public class BasicAuthenticatorTests : IgniteTestsBase
 
         try
         {
-            await client.Compute.ExecuteAsync<object>(nodes, EnableAuthenticationJob, enable ? 1 : 0);
+            await client.Compute.ExecuteAsync<object>(nodes, EnableAuthnJob, enable ? 1 : 0);
         }
         catch (IgniteClientConnectionException)
         {
