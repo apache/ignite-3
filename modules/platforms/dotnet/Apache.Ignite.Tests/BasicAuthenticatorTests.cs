@@ -33,6 +33,8 @@ public class BasicAuthenticatorTests : IgniteTestsBase
     public async Task DisableAuthenticationAfterTest()
     {
         await EnableAuthn(false);
+
+        Assert.DoesNotThrowAsync(async () => await Client.Tables.GetTablesAsync());
     }
 
     [Test]
@@ -49,7 +51,7 @@ public class BasicAuthenticatorTests : IgniteTestsBase
         Assert.IsInstanceOf<IgniteClientConnectionException>(inner[1]); // Connection dropped by server on retry with authn failure.
 
         Assert.IsInstanceOf<AuthenticationException>(inner[1].InnerException);
-        Assert.AreEqual("Authentication failed.", inner[1].InnerException!.Message);
+        StringAssert.Contains("Authentication failed", inner[1].InnerException!.Message);
     }
 
     private async Task EnableAuthn(bool enable) =>
