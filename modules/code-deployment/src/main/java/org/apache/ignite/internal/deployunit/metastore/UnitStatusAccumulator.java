@@ -24,11 +24,13 @@ import org.apache.ignite.internal.deployunit.UnitStatus.UnitStatusBuilder;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.key.UnitMetaSerializer;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.util.subscription.AccumulateException;
+import org.apache.ignite.internal.util.subscription.Accumulator;
 
 /**
  * Unit status accumulator.
  */
-public class UnitStatusAccumulator implements Accumulator<UnitStatus> {
+public class UnitStatusAccumulator implements Accumulator<Entry, UnitStatus> {
     private final String id;
 
     private UnitStatusBuilder builder;

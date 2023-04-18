@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.metastore;
+package org.apache.ignite.internal.util.subscription;
 
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
