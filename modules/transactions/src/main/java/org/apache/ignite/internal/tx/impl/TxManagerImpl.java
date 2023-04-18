@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TO_OLD_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.util.Comparator;
 import java.util.List;
@@ -69,9 +69,9 @@ public class TxManagerImpl implements TxManager {
     @TestOnly
     private final ConcurrentHashMap<UUID, TxState> states = new ConcurrentHashMap<>();
 
-    /** Future of a read-only transaction by it {@link ReadOnlyTxId}. */
-    private final ConcurrentNavigableMap<ReadOnlyTxId, CompletableFuture<Void>> readOnlyTxFutureById = new ConcurrentSkipListMap<>(
-            Comparator.comparing(ReadOnlyTxId::getReadTimestamp).thenComparing(ReadOnlyTxId::getTxId)
+    /** Future of a read-only transaction by it {@link TxIdAndTimestamp}. */
+    private final ConcurrentNavigableMap<TxIdAndTimestamp, CompletableFuture<Void>> readOnlyTxFutureById = new ConcurrentSkipListMap<>(
+            Comparator.comparing(TxIdAndTimestamp::getReadTimestamp).thenComparing(TxIdAndTimestamp::getTxId)
     );
 
     /**
@@ -116,12 +116,12 @@ public class TxManagerImpl implements TxManager {
         try {
             HybridTimestamp lowWatermark = this.lowWatermark.get();
 
-            readOnlyTxFutureById.compute(new ReadOnlyTxId(readTimestamp, txId), (readOnlyTxId, readOnlyTxFuture) -> {
-                assert readOnlyTxFuture == null : "previous transaction has not completed yet: " + readOnlyTxId;
+            readOnlyTxFutureById.compute(new TxIdAndTimestamp(readTimestamp, txId), (txIdAndTimestamp, readOnlyTxFuture) -> {
+                assert readOnlyTxFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
 
                 if (lowWatermark != null && readTimestamp.compareTo(lowWatermark) <= 0) {
                     throw new IgniteInternalException(
-                            TX_READ_ONLY_TO_OLD_ERR,
+                            TX_READ_ONLY_TOO_OLD_ERR,
                             "Timestamp read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
                             readTimestamp, lowWatermark
                     );
@@ -226,10 +226,10 @@ public class TxManagerImpl implements TxManager {
         return lockManager;
     }
 
-    CompletableFuture<Void> completeReadOnlyTransactionFuture(ReadOnlyTxId readOnlyTxId) {
-        CompletableFuture<Void> readOnlyTxFuture = readOnlyTxFutureById.remove(readOnlyTxId);
+    CompletableFuture<Void> completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {
+        CompletableFuture<Void> readOnlyTxFuture = readOnlyTxFutureById.remove(txIdAndTimestamp);
 
-        assert readOnlyTxFuture != null : readOnlyTxId;
+        assert readOnlyTxFuture != null : txIdAndTimestamp;
 
         readOnlyTxFuture.complete(null);
 
@@ -258,7 +258,7 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public CompletableFuture<Void> getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(HybridTimestamp timestamp) {
-        ReadOnlyTxId upperBound = new ReadOnlyTxId(timestamp, new UUID(Long.MAX_VALUE, Long.MAX_VALUE));
+        TxIdAndTimestamp upperBound = new TxIdAndTimestamp(timestamp, new UUID(Long.MAX_VALUE, Long.MAX_VALUE));
 
         List<CompletableFuture<Void>> readOnlyTxFutures = List.copyOf(readOnlyTxFutureById.headMap(upperBound, true).values());
 

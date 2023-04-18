@@ -93,6 +93,6 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             return completedFuture(null);
         }
 
-        return ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new ReadOnlyTxId(readTimestamp, id()));
+        return ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()));
     }
 }

@@ -133,7 +133,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         IgniteInternalException exception = assertThrows(IgniteInternalException.class, () -> txManager.begin(true));
 
-        assertEquals(Transactions.TX_READ_ONLY_TO_OLD_ERR, exception.code());
+        assertEquals(Transactions.TX_READ_ONLY_TOO_OLD_ERR, exception.code());
     }
 
     @Test

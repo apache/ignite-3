@@ -24,7 +24,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Read-only transaction ID.
  */
-class ReadOnlyTxId {
+class TxIdAndTimestamp {
     /** Start timestamp of the transaction. */
     private final HybridTimestamp readTimestamp;
 
@@ -37,7 +37,7 @@ class ReadOnlyTxId {
      * @param readTimestamp Start timestamp of the transaction.
      * @param txId Transaction ID.
      */
-    ReadOnlyTxId(HybridTimestamp readTimestamp, UUID txId) {
+    TxIdAndTimestamp(HybridTimestamp readTimestamp, UUID txId) {
         this.readTimestamp = readTimestamp;
         this.txId = txId;
     }
@@ -66,13 +66,20 @@ class ReadOnlyTxId {
             return false;
         }
 
-        ReadOnlyTxId that = (ReadOnlyTxId) o;
+        TxIdAndTimestamp that = (TxIdAndTimestamp) o;
 
         return readTimestamp.equals(that.readTimestamp) && txId.equals(that.txId);
     }
 
     @Override
+    public int hashCode() {
+        int result = readTimestamp.hashCode();
+        result = 31 * result + txId.hashCode();
+        return result;
+    }
+
+    @Override
     public String toString() {
-        return S.toString(ReadOnlyTxId.class, this);
+        return S.toString(TxIdAndTimestamp.class, this);
     }
 }

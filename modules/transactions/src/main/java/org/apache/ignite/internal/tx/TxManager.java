@@ -48,7 +48,7 @@ public interface TxManager extends IgniteComponent {
      * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
      *      Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
      * @return The started transaction.
-     * @throws IgniteInternalException with {@link Transactions#TX_READ_ONLY_TO_OLD_ERR} if transaction much older than the data available
+     * @throws IgniteInternalException with {@link Transactions#TX_READ_ONLY_TOO_OLD_ERR} if transaction much older than the data available
      *      in the tables.
      */
     InternalTransaction begin(boolean readOnly);
@@ -139,7 +139,7 @@ public interface TxManager extends IgniteComponent {
     void updateLowWatermark(HybridTimestamp newLowWatermark);
 
     /**
-     * Returns the future of all read-only transactions witch less or equals the timestamp.
+     * Returns the future of all read-only transactions with read timestamp less or equals the given timestamp.
      *
      * @param timestamp Timestamp.
      */
