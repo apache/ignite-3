@@ -29,6 +29,8 @@ public class BasicAuthenticatorTests : IgniteTestsBase
 {
     private const string EnableAuthenticationJob = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$EnableAuthenticationJob";
 
+    private bool _authnEnabled;
+
     [TearDown]
     public async Task DisableAuthenticationAfterTest()
     {
@@ -54,6 +56,23 @@ public class BasicAuthenticatorTests : IgniteTestsBase
         StringAssert.Contains("Authentication failed", inner[1].InnerException!.Message);
     }
 
-    private async Task EnableAuthn(bool enable) =>
-        await Client.Compute.ExecuteAsync<object>(await Client.GetClusterNodesAsync(), EnableAuthenticationJob, enable ? 1 : 0);
+    private async Task EnableAuthn(bool enable)
+    {
+        var cfg = GetConfig();
+
+        if (_authnEnabled)
+        {
+            cfg.Authenticator = new BasicAuthenticator
+            {
+                Username = "user-1",
+                Password = "password-1"
+            };
+        }
+
+        using var client = await IgniteClient.StartAsync(cfg);
+
+        await client.Compute.ExecuteAsync<object>(await client.GetClusterNodesAsync(), EnableAuthenticationJob, enable ? 1 : 0);
+
+        _authnEnabled = enable;
+    }
 }
