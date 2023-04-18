@@ -21,8 +21,14 @@ import com.tngtech.archunit.core.importer.Location;
 import java.nio.file.Path;
 import java.util.Set;
 
+/**
+ * Provide location providers for arch tests.
+ */
 public class LocationProvider {
 
+    /**
+     * Location provider for a root. Include all modules.
+     */
     public static class RootLocationProvider implements com.tngtech.archunit.junit.LocationProvider {
         @Override
         public Set<Location> get(Class<?> testClass) {
