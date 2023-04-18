@@ -574,7 +574,7 @@ public class PlatformTestNodeRunner {
                                     });
                                 }
                             }
-                    ));
+                    )).join();
 
             return null;
         }
