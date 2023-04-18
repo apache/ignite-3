@@ -169,5 +169,12 @@ namespace Apache.Ignite
         /// See <see cref="SslStreamFactory"/>.
         /// </summary>
         public ISslStreamFactory? SslStreamFactory { get; set; }
+
+        /// <summary>
+        /// Gets or sets the authenticator.
+        /// <para />
+        /// See <see cref="BasicAuthenticator"/>.
+        /// </summary>
+        public IAuthenticator? Authenticator { get; set; }
     }
 }
