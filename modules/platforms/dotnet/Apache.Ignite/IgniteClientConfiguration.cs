@@ -172,7 +172,7 @@ namespace Apache.Ignite
         public ISslStreamFactory? SslStreamFactory { get; set; }
 
         /// <summary>
-        /// Gets or sets the authenticator.
+        /// Gets or sets the authenticator. When null, no authentication is performed.
         /// <para />
         /// See <see cref="BasicAuthenticator"/>.
         /// </summary>
