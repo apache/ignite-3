@@ -824,6 +824,36 @@ public:
         });
     }
 
+    /**
+     * Gets and removes a value associated with the given key asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key Key.
+     * @param callback Callback that is called on operation completion. Called with
+     *   a removed record or @c std::nullopt if it did not exist.
+     */
+    void get_and_remove_async(
+        transaction *tx, const key_type &key, ignite_callback<std::optional<value_type>> callback) {
+        m_delegate.get_and_remove_async(tx, convert_to_tuple(key),
+            [callback = std::move(callback)] (auto res) {
+                callback(convert_result<value_type>(std::move(res)));
+            });
+    }
+
+    /**
+     * Gets and removes a value associated with the given key.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key key.
+     * @return A removed record or @c std::nullopt if it did not exist.
+     */
+    std::optional<value_type> get_and_remove(transaction *tx, const key_type &key) {
+        return sync<std::optional<value_type>>(
+            [this, tx, &key](auto callback) { get_and_remove_async(tx, key, std::move(callback)); });
+    }
+
 private:
     /**
      * Constructor

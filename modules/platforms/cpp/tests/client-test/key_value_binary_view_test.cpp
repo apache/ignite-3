@@ -770,7 +770,7 @@ TEST_F(key_value_binary_view_test, remove_exact_empty_throws) {
 }
 
 TEST_F(key_value_binary_view_test, get_and_remove_nonexisting) {
-    auto res = kv_view.get_and_replace(nullptr, get_tuple(42), get_tuple("foo"));
+    auto res = kv_view.get_and_remove(nullptr, get_tuple(42));
     ASSERT_FALSE(res.has_value());
 
     auto res_tuple = kv_view.get(nullptr, get_tuple(42));
