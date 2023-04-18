@@ -18,6 +18,7 @@
 namespace Apache.Ignite;
 
 using System;
+using Internal.Proto;
 
 /// <summary>
 /// Basic authenticator with username and password.
@@ -50,7 +51,7 @@ public class BasicAuthenticator : IAuthenticator
     }
 
     /// <inheritdoc />
-    public string Type => "basic";
+    public string Type => HandshakeExtensions.AuthenticationTypeBasic;
 
     /// <inheritdoc />
     public object Identity => Username;

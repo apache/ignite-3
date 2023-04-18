@@ -87,6 +87,7 @@ namespace Apache.Ignite
             HeartbeatInterval = other.HeartbeatInterval;
             ReconnectInterval = other.ReconnectInterval;
             SslStreamFactory = other.SslStreamFactory;
+            Authenticator = other.Authenticator;
         }
 
         /// <summary>
