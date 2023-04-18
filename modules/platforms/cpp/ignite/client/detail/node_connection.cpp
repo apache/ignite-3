@@ -130,8 +130,10 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
         return {ignite_error("Unsupported server version: " + ver.to_string())};
 
     auto err = protocol::read_error(reader);
-    if (err)
+    if (err) {
+        m_logger->log_warning("Handshake error: " + err.value().what_str());
         return {ignite_error(err.value())};
+    }
 
     (void) reader.read_int64(); // TODO: IGNITE-17606 Implement heartbeats
     (void) reader.read_string_nullable(); // Cluster node ID. Needed for partition-aware compute.

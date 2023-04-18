@@ -38,21 +38,30 @@ void ignite_client::start_async(ignite_client_configuration configuration, std::
 ignite_client ignite_client::start(ignite_client_configuration configuration, std::chrono::milliseconds timeout) {
     auto impl = std::make_shared<detail::ignite_client_impl>(std::move(configuration));
 
-    auto promise = std::make_shared<std::promise<void>>();
+    auto promise = std::make_shared<std::promise<ignite_result<void>>>();
     auto future = promise->get_future();
 
     impl->start([impl, promise](ignite_result<void> res) mutable {
         if (!res) {
-            impl->stop();
-            promise->set_exception(std::make_exception_ptr(res.error()));
-        } else
-            promise->set_value();
+            try {
+                impl->stop();
+            } catch (...) {
+                // Ignoring errors during client stop, as we stop a client with error anyway.
+            }
+        }
+        promise->set_value(std::move(res));
     });
 
     auto status = future.wait_for(timeout);
     if (status == std::future_status::timeout) {
         impl->stop();
         throw ignite_error("Can not establish connection within timeout");
+    } else {
+        assert(status == std::future_status::ready);
+        auto res = future.get();
+        if (res.has_error()) {
+            throw res.error();
+        }
     }
 
     return ignite_client(std::move(impl));
