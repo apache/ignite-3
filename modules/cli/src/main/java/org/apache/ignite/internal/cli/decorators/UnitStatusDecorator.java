@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.cli.decorators;
 
-import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.ansi;
-
+import com.jakewharton.fliptables.FlipTable;
 import org.apache.ignite.internal.cli.call.unit.UnitStatusRecord;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
@@ -27,10 +26,9 @@ import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 public class UnitStatusDecorator implements Decorator<UnitStatusRecord, TerminalOutput> {
     @Override
     public TerminalOutput decorate(UnitStatusRecord record) {
-        return () -> ansi(
-                "[id: %s, versions: %s]",
-                record.id(),
-                record.versionToDeploymentInfo().keySet()
+        return () -> FlipTable.of(new String[]{"version", "status"},
+                record.versionToDeploymentInfo().entrySet().stream()
+                .map(e -> new String[] {e.getKey(), e.getValue().getStatus().getValue()}).toArray(String[][]::new)
         );
     }
 }
