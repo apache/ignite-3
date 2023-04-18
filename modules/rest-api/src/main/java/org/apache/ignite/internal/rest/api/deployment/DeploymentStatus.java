@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit;
+package org.apache.ignite.internal.rest.api.deployment;
+
+import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
  * Status of deployment process.
  */
+@Schema
 public enum DeploymentStatus {
     /** Unit deployment is in progress. */
     UPLOADING,
