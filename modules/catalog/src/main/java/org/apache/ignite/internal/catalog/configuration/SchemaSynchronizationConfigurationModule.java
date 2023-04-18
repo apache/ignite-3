@@ -15,23 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.config;
+package org.apache.ignite.internal.catalog.configuration;
 
-import static org.apache.ignite.internal.cli.config.ConfigConstants.getConfigFile;
-import static org.apache.ignite.internal.cli.config.ConfigConstants.getSecretConfigFile;
-
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
+import com.google.auto.service.AutoService;
+import java.util.Collection;
+import java.util.Set;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**
- * Provider for {@link ConfigManager}.
+ * {@link ConfigurationModule} for distributed (cluster-wide) configuration of Schema Synchronization.
  */
-@Singleton
-public class CachedConfigManagerProvider implements ConfigManagerProvider {
-    private final ConfigManager configManager = new IniConfigManager(getConfigFile(), getSecretConfigFile());
+@AutoService(ConfigurationModule.class)
+public class SchemaSynchronizationConfigurationModule implements ConfigurationModule {
+    @Override
+    public ConfigurationType type() {
+        return ConfigurationType.DISTRIBUTED;
+    }
 
     @Override
-    public ConfigManager get() {
-        return configManager;
+    public Collection<RootKey<?, ?>> rootKeys() {
+        return Set.of(SchemaSynchronizationConfiguration.KEY);
     }
 }

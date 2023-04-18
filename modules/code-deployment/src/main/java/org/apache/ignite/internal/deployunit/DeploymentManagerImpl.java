@@ -20,10 +20,10 @@ package org.apache.ignite.internal.deployunit;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
-import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
-import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
-import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.OBSOLETE;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.REMOVING;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 
 import java.io.IOException;
 import java.io.InputStream;

@@ -397,7 +397,7 @@ public class ItGeneratedRestClientTest {
         List<UnitStatus> units = deploymentApi.units();
         assertThat(units, hasSize(1));
         assertThat(units.get(0).getId(), equalTo("test.unit.id"));
-        assertThat(units.get(0).getVersionToConsistentIds().values(), not(empty()));
+        assertThat(units.get(0).getVersionToDeploymentInfo().values(), not(empty()));
 
         assertThat(deploymentApi.versions("test.unit.id"), contains("1.0.0"));
 

@@ -791,6 +791,32 @@ components:
           type: string
           description: Unique cluster name.
       description: Unique tag that identifies the cluster.
+    DeploymentInfo:
+      required:
+      - consistentIds
+      - status
+      type: object
+      properties:
+        status:
+          allOf:
+          - $ref: '#/components/schemas/DeploymentStatus'
+          - type: object
+            description: Current unit status.
+        consistentIds:
+          type: array
+          items:
+            type: string
+            description: Map from unit version to node consistent id where unit is
+              deployed.
+      description: Rest representation of class with deployment unit information.
+    DeploymentStatus:
+      type: string
+      description: Current unit status.
+      enum:
+      - UPLOADING
+      - DEPLOYED
+      - OBSOLETE
+      - REMOVING
     InitCommand:
       type: object
       properties:
@@ -946,18 +972,19 @@ components:
       - STARTED
       - STOPPING
     UnitStatus:
+      required:
+      - id
+      - versionToDeploymentInfo
       type: object
       properties:
         id:
           type: string
           description: Unit identifier.
-        versionToConsistentIds:
+        versionToDeploymentInfo:
           type: object
           additionalProperties:
-            type: array
-            items:
-              type: string
-          description: Map from unit version to node consistent id where unit is deployed.
+            $ref: '#/components/schemas/DeploymentInfo'
+          description: Map from unit version to unit deployment status.
       description: Unit status.
     Void:
       type: object

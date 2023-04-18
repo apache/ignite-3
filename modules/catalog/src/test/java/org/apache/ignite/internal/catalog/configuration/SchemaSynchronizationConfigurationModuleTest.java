@@ -15,21 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit;
+package org.apache.ignite.internal.catalog.configuration;
 
-/**
- * Status of deployment process.
- */
-public enum DeploymentStatus {
-    /** Unit deployment is in progress. */
-    UPLOADING,
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.is;
 
-    /** Unit is deployed on the cluster. */
-    DEPLOYED,
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.junit.jupiter.api.Test;
 
-    /** Remove command was initiated for the unit and it will be removed soon. */
-    OBSOLETE,
+class SchemaSynchronizationConfigurationModuleTest {
+    private final ConfigurationModule module = new SchemaSynchronizationConfigurationModule();
 
-    /** Unit removal from the cluster is in progress. */
-    REMOVING
+    @Test
+    void typeIsDistributed() {
+        assertThat(module.type(), is(ConfigurationType.DISTRIBUTED));
+    }
+
+    @Test
+    void rootKeysAreAsExpected() {
+        assertThat(module.rootKeys(), contains(SchemaSynchronizationConfiguration.KEY));
+    }
 }

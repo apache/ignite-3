@@ -15,23 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.config;
+package org.apache.ignite.internal.rest.api.deployment;
 
-import static org.apache.ignite.internal.cli.config.ConfigConstants.getConfigFile;
-import static org.apache.ignite.internal.cli.config.ConfigConstants.getSecretConfigFile;
-
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
- * Provider for {@link ConfigManager}.
+ * Status of deployment process.
  */
-@Singleton
-public class CachedConfigManagerProvider implements ConfigManagerProvider {
-    private final ConfigManager configManager = new IniConfigManager(getConfigFile(), getSecretConfigFile());
+@Schema
+public enum DeploymentStatus {
+    /** Unit deployment is in progress. */
+    UPLOADING,
 
-    @Override
-    public ConfigManager get() {
-        return configManager;
-    }
+    /** Unit is deployed on the cluster. */
+    DEPLOYED,
+
+    /** Remove command was initiated for the unit and it will be removed soon. */
+    OBSOLETE,
+
+    /** Unit removal from the cluster is in progress. */
+    REMOVING
 }

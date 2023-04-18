@@ -106,8 +106,8 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
         UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
 
         assertThat(status.id(), is(id));
-        assertThat(status.versionToConsistentIds().keySet(), equalTo(Set.of(version)));
-        assertThat(status.versionToConsistentIds().get(version), hasItem(CLUSTER_NODE_NAMES.get(0)));
+        assertThat(status.versionToDeploymentInfo().keySet(), equalTo(Set.of(version)));
+        assertThat(status.versionToDeploymentInfo().get(version).consistentIds(), hasItem(CLUSTER_NODE_NAMES.get(0)));
     }
 
     @Test
@@ -140,8 +140,8 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
 
         String version = Version.LATEST.render();
         assertThat(status.id(), is(id));
-        assertThat(status.versionToConsistentIds().keySet(), equalTo(Set.of(version)));
-        assertThat(status.versionToConsistentIds().get(version), hasItem(CLUSTER_NODE_NAMES.get(0)));
+        assertThat(status.versionToDeploymentInfo().keySet(), equalTo(Set.of(version)));
+        assertThat(status.versionToDeploymentInfo().get(version).consistentIds(), hasItem(CLUSTER_NODE_NAMES.get(0)));
     }
 
     @Test
