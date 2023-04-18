@@ -74,10 +74,6 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
     public void testAutoCommitModeChange() throws SQLException {
         try (Connection conn = DriverManager.getConnection(URL)) {
             assertTrue(conn.getAutoCommit());
-            conn.setAutoCommit(true);
-
-            conn.setAutoCommit(false);
-            conn.setAutoCommit(false);
 
             int expRowsCount = 3;
             String sqlUpdate = "insert into TEST (ID) values (1), (2), (3)";
@@ -86,6 +82,11 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
                 conn.setAutoCommit(false);
 
                 assertEquals(expRowsCount, stmt.executeUpdate(sqlUpdate));
+                assertEquals(expRowsCount, rowsCount(conn));
+                assertEquals(0, rowsCount(AbstractJdbcSelfTest.conn));
+
+                // Ensures that switching to the same mode will not change anything.
+                conn.setAutoCommit(false);
                 assertEquals(expRowsCount, rowsCount(conn));
                 assertEquals(0, rowsCount(AbstractJdbcSelfTest.conn));
 
@@ -162,7 +163,11 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
     @Test
     public void testExecuteUpdate() throws Exception {
         try (Statement stmt = conn.createStatement()) {
-            checkUpdate(2, 1, (id, ignore) -> stmt.executeUpdate(String.format(SQL_INSERT, id, "name-" + id)));
+            checkUpdate((off, cnt) -> {
+                for (int i = off; i < off + cnt; i++) {
+                    stmt.executeUpdate(String.format(SQL_INSERT, i, "name-" + i));
+                }
+            });
         }
     }
 
@@ -177,11 +182,13 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
     @Test
     public void testExecuteUpdatePrepared() throws Exception {
         try (PreparedStatement pstmt = conn.prepareStatement(SQL_INSERT_PREPARED)) {
-            checkUpdate(2, 1, (id, ignore) -> {
-                pstmt.setInt(1, id);
-                pstmt.setString(2, "name-" + id);
+            checkUpdate((off, cnt) -> {
+                for (int i = off; i < off + cnt; i++) {
+                    pstmt.setInt(1, i);
+                    pstmt.setString(2, "name-" + i);
 
-                assertEquals(1, pstmt.executeUpdate());
+                    pstmt.executeUpdate();
+                }
             });
         }
     }
@@ -197,7 +204,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
     @Test
     public void testBatch() throws Exception {
         try (Statement stmt = conn.createStatement()) {
-            checkUpdate(5, 10, (off, cnt) -> {
+            checkUpdate((off, cnt) -> {
                 for (int i = off; i < off + cnt; i++) {
                     stmt.addBatch(String.format(SQL_INSERT, i, "name-" + i));
                 }
@@ -218,7 +225,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
     @Test
     public void testBatchPrepared() throws Exception {
         try (PreparedStatement pstmt = conn.prepareStatement(SQL_INSERT_PREPARED)) {
-            checkUpdate(5, 10, (off, cnt) -> {
+            checkUpdate((off, cnt) -> {
                 for (int i = off; i < off + cnt; i++) {
                     pstmt.setInt(1, i);
                     pstmt.setString(2, "name-" + i);
@@ -235,38 +242,37 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
      * Ensures that data updates made in an explicit transaction can be rolled back and are
      * not visible outside of an active transaction until they are committed.
      *
-     * @param ops Number of operations.
-     * @param rowsPerOp Number of rows per operation.
-     * @param batchOp Update operation.
+     * @param updateOp Update operation.
      * @throws SQLException If failed.
      */
-    private void checkUpdate(int ops, int rowsPerOp, BiConsumerX<Integer, Integer> batchOp) throws SQLException {
+    private void checkUpdate(TestJdbcOperation<Integer, Integer> updateOp) throws SQLException {
         conn.setAutoCommit(false);
 
         // Check rollback.
-        checkTxResult(ops, rowsPerOp, batchOp, false);
+        checkTxResult(updateOp, false);
 
         // Check commit.
-        checkTxResult(ops, rowsPerOp, batchOp, true);
+        checkTxResult(updateOp, true);
     }
 
     /**
      * Performs update operations and checks the result of committing or rolling back a transaction.
      *
-     * @param ops Number of operations.
-     * @param rowsPerOp Number of rows per operation.
-     * @param batchOp Update operation.
+     * @param update Update operation.
      * @param commit {@code True} to check transaction commit, {@code false} to check rollback.
      * @throws SQLException If failed.
      */
-    private void checkTxResult(int ops, int rowsPerOp, BiConsumerX<Integer, Integer> batchOp, boolean commit) throws SQLException {
+    private void checkTxResult(TestJdbcOperation<Integer, Integer> update, boolean commit) throws SQLException {
         // Creating another connection to ensure that the changes are not visible outside of the transaction.
         try (Connection conn0 = DriverManager.getConnection(URL)) {
-            for (int i = 0; i < ops; i++) {
-                int off = rowsPerOp * i;
+            int rowsCnt = 5;
+            int iterations = 2;
 
-                batchOp.accept(off, rowsPerOp);
-                assertEquals(off + rowsPerOp, rowsCount(conn));
+            for (int i = 0; i < iterations; i++) {
+                int offset = rowsCnt * i;
+
+                update.run(offset, rowsCnt);
+                assertEquals(offset + rowsCnt, rowsCount(conn));
                 assertEquals(0, rowsCount(conn0));
             }
 
@@ -276,7 +282,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
                 conn.rollback();
             }
 
-            int expCnt = commit ? ops * rowsPerOp : 0;
+            int expCnt = commit ? iterations * rowsCnt : 0;
 
             assertEquals(expCnt, rowsCount(conn));
             assertEquals(expCnt, rowsCount(conn0));
@@ -301,7 +307,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
     }
 
     @FunctionalInterface
-    private interface BiConsumerX<T, U> {
-        void accept(T t, U u) throws SQLException;
+    private interface TestJdbcOperation<T, U> {
+        void run(T t, U u) throws SQLException;
     }
 }
