@@ -59,7 +59,7 @@ public class Example {
      * Use case 1: a simple one. The table has the structure [ [id int, orgId int] // key [name varchar, lastName varchar, decimal salary,
      * int department] // value ] We show how to use the raw TableRow and a mapped class.
      */
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19300")
     @ParameterizedTest
     @MethodSource("tableFactory")
     public void useCase1(Table t) {
@@ -118,7 +118,7 @@ public class Example {
      * Use case 2: using simple KV mappings The table has structure is [ [id int, orgId int] // key [name varchar, lastName varchar, decimal
      * salary, int department] // value ].
      */
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19300")
     @ParameterizedTest
     @MethodSource("tableFactory")
     public void useCase2(Table t) {
@@ -158,7 +158,7 @@ public class Example {
      * Use case 3: Single table strategy for inherited objects. The table has structure is [ [id long] // key [owner varchar, cardNumber
      * long, expYear int, expMonth int, accountNum long, bankName varchar] // value ]
      */
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19300")
     @ParameterizedTest
     @MethodSource("tableFactory")
     public void useCase3(Table t) {
@@ -218,7 +218,7 @@ public class Example {
      * Use case 4: Conditional serialization. The table has structure is [ [id int, orgId int] // key [owner varchar, type int,
      * conditionalDetails byte[]] // value ]
      */
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19300")
     @ParameterizedTest
     @MethodSource("tableFactory")
     public void useCase4(Table t) {
@@ -305,7 +305,7 @@ public class Example {
      * upgradedObject byte[], int department] // value ] Where {@code originalObject} is some value that was originally put to the column,
      * {@code upgradedObject} is a version 2 of the object, and department is an extracted field.
      */
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19300")
     @ParameterizedTest
     @MethodSource("tableFactory")
     public void useCase5(Table t) {
@@ -403,7 +403,7 @@ public class Example {
      * Use case 6: a simple one. The table has the structure [ [id long] // key [name varchar, lastName varchar, decimal salary, int
      * department] // value ] We show how to use the raw TableRow and a mapped class.
      */
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19300")
     @ParameterizedTest
     @MethodSource("tableFactory")
     public void useCase6(Table t) {
@@ -439,7 +439,7 @@ public class Example {
      * Use case 7: a simple one. The table has the structure [ [byte[]] // key [name varchar, lastName varchar, decimal salary, int
      * department] // value ] We show how to use the raw TableRow and a mapped class.
      */
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19300")
     @ParameterizedTest
     @MethodSource("tableFactory")
     public void useCase7(Table t) {
@@ -461,7 +461,7 @@ public class Example {
     /**
      * Use case 8: Here we show how to use mapper to represent the same data in different ways.
      */
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19300")
     @ParameterizedTest
     @MethodSource("tableFactory")
     public void useCase8(Table t) {
@@ -645,6 +645,9 @@ public class Example {
      *
      * @param t Table.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19300")
+    @ParameterizedTest
+    @MethodSource("tableFactory")
     public void useCase9(Table t) {
         // Now assume that we have some POJO classes to deserialize the binary objects.
         class Emploee {

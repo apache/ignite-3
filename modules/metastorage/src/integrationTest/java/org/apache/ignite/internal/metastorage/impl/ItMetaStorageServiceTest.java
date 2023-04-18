@@ -841,7 +841,7 @@ public class ItMetaStorageServiceTest {
     /**
      * Tests {@link MetaStorageService#get(ByteArray)}.
      */
-    @Disabled // TODO: IGNITE-14693 Add tests for exception handling logic.
+    @Disabled("IGNITE-14693 Add tests for exception handling logic.")
     @Test
     public void testGetThatThrowsCompactedException() {
         Node node = startNodes(1).get(0);
@@ -854,7 +854,7 @@ public class ItMetaStorageServiceTest {
     /**
      * Tests {@link MetaStorageService#get(ByteArray)}.
      */
-    @Disabled // TODO: IGNITE-14693 Add tests for exception handling logic.
+    @Disabled("IGNITE-14693 Add tests for exception handling logic.")
     @Test
     public void testGetThatThrowsOperationTimeoutException() {
         Node node = startNodes(1).get(0);
