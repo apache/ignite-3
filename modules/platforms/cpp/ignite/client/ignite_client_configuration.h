@@ -131,7 +131,7 @@ public:
     /**
      * Sets the authenticator.
      *
-     * @param authenticator Authenticator.
+     * @param authenticator Authenticator. Do not use authentication if authenticator is @c nullptr.
      */
     void set_authenticator(std::shared_ptr<ignite_client_authenticator> authenticator) {
         m_authenticator = std::move(authenticator);

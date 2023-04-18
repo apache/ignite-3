@@ -22,7 +22,7 @@
 namespace ignite {
 
 /**
- * Ignite client authenticator.
+ * Ignite client authenticator. Provides authentication information during handshake.
  */
 class ignite_client_authenticator {
 public:

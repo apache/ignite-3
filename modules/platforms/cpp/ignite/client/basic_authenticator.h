@@ -24,7 +24,9 @@
 namespace ignite {
 
 /**
- * Basic authenticator.
+ * Basic authenticator with username and password.
+ *
+ * Credentials are sent to the server in plain text, unless SSL/TLS is enabled.
  */
 class basic_authenticator : public ignite_client_authenticator {
 public:
@@ -39,7 +41,7 @@ public:
      *
      * @return Authenticator type.
      */
-    const std::string& get_type() const override {
+    [[nodiscard]] const std::string& get_type() const override {
         return TYPE;
     }
 
