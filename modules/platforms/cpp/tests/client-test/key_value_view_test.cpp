@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 
+#include "all_fields_type.h"
 #include "ignite_runner_suite.h"
+
 #include "tests/test-common/test_utils.h"
 
 #include "ignite/client/ignite_client.h"
@@ -732,50 +734,54 @@ TEST_F(key_value_view_test, remove_all_exact_empty) {
     EXPECT_TRUE(res.empty());
 }
 
-//TEST_F(key_value_view_test, types_test) {
-//    auto table = m_client.get_tables().get_table(TABLE_NAME_ALL_COLUMNS);
-//    kv_view = table->get_key_value_binary_view();
-//
-//    ignite_tuple inserted{
-//        {"str", "test"},
-//        {"int8", std::int8_t(1)},
-//        {"int16", std::int16_t(2)},
-//        {"int32", std::int32_t(3)},
-//        {"int64", std::int64_t(4)},
-//        {"float", .5f},
-//        {"double", .6},
-//        {"uuid", uuid(0x123e4567e89b12d3, 0x7456426614174000)},
-//        {"date", ignite_date(2023, 2, 7)},
-//        {"bitmask", bit_array(16, true)},
-//        {"time", ignite_time(17, 4, 12, 3543634)},
-//        {"time2", ignite_time(17, 4, 12, 3543634)},
-//        {"datetime", ignite_date_time({2020, 7, 28}, {2, 15, 52, 6349879})},
-//        {"datetime2", ignite_date_time({2020, 7, 28}, {2, 15, 52, 6349879})},
-//        {"timestamp", ignite_timestamp(3875238472, 248760634)},
-//        {"timestamp2", ignite_timestamp(3875238472, 248760634)},
-//        {"blob", std::vector<std::byte>{std::byte(1), std::byte(2), std::byte(42)}},
-//        {"decimal", big_decimal(123456789098765)},
-//    };
-//
-//    kv_view.put(nullptr, test_key_type(42), inserted);
-//    auto res = kv_view.get(nullptr, test_key_type(42));
-//
-//    ASSERT_TRUE(res.has_value());
-//    ASSERT_EQ(res->column_count(), inserted.column_count() + 1);
-//
-//    EXPECT_EQ(42, res->get<std::int64_t>("key"));
-//
-//    for (int i = 0; i < inserted.column_count(); ++i) {
-//        const auto &column = inserted.column_name(i);
-//
-//        if (column == "time2") {
-//            EXPECT_EQ(res->get(column), primitive{ignite_time(17, 4, 12)});
-//        } else if (column == "datetime2") {
-//            EXPECT_EQ(res->get(column), primitive{ignite_date_time({2020, 7, 28}, {2, 15, 52, 6000000})});
-//        } else if (column == "timestamp2") {
-//            EXPECT_EQ(res->get(column), primitive{ignite_timestamp(3875238472, 248700000)});
-//        } else {
-//            EXPECT_EQ(res->get(column), inserted.get(column));
-//        }
-//    }
-//}
+TEST_F(key_value_view_test, types_test) {
+    auto table = m_client.get_tables().get_table(TABLE_NAME_ALL_COLUMNS);
+    auto kv_view = table->get_key_value_view<test_key_type, all_fields_type>();
+
+    all_fields_type inserted;
+    inserted.m_key = 42;
+    inserted.m_str = "test";
+    inserted.m_int8 = 1;
+    inserted.m_int16 = 2;
+    inserted.m_int32 = 3;
+    inserted.m_int64 = 4;
+    inserted.m_float = .5f;
+    inserted.m_double = .6f;
+    inserted.m_uuid = {0x123e4567e89b12d3, 0x7456426614174000};
+    inserted.m_date = {2023, 2, 7};
+    inserted.m_bitmask = bit_array{16, true};
+    inserted.m_time = {17, 4, 12, 3543634};
+    inserted.m_time2 = {17, 4, 12, 3543634};
+    inserted.m_datetime = {{2020, 7, 28}, {2, 15, 52, 6349879}};
+    inserted.m_datetime2 = {{2020, 7, 28}, {2, 15, 52, 6349879}};
+    inserted.m_timestamp = {3875238472, 248760634};
+    inserted.m_timestamp2 = {3875238472, 248760634};
+    inserted.m_blob = {std::byte(1), std::byte(2), std::byte(42)};
+    inserted.m_decimal = big_decimal{123456789098765};
+
+    kv_view.put(nullptr, test_key_type(42), inserted);
+    auto res = kv_view.get(nullptr, test_key_type(42));
+
+    ASSERT_TRUE(res.has_value());
+
+    EXPECT_EQ(inserted.m_key, res->m_key);
+    EXPECT_EQ(inserted.m_str, res->m_str);
+    EXPECT_EQ(inserted.m_int8, res->m_int8);
+    EXPECT_EQ(inserted.m_int16, res->m_int16);
+    EXPECT_EQ(inserted.m_int32, res->m_int32);
+    EXPECT_EQ(inserted.m_int64, res->m_int64);
+    EXPECT_EQ(inserted.m_float, res->m_float);
+    EXPECT_EQ(inserted.m_double, res->m_double);
+    EXPECT_EQ(inserted.m_uuid, res->m_uuid);
+    EXPECT_EQ(inserted.m_date, res->m_date);
+    EXPECT_EQ(inserted.m_bitmask, res->m_bitmask);
+    EXPECT_EQ(inserted.m_time, res->m_time);
+    EXPECT_EQ(inserted.m_datetime, res->m_datetime);
+    EXPECT_EQ(inserted.m_timestamp, res->m_timestamp);
+    EXPECT_EQ(inserted.m_blob, res->m_blob);
+    EXPECT_EQ(inserted.m_decimal, res->m_decimal);
+
+    EXPECT_EQ(ignite_time(17, 4, 12), res->m_time2);
+    EXPECT_EQ(ignite_date_time({2020, 7, 28}, {2, 15, 52, 6000000}), res->m_datetime2);
+    EXPECT_EQ(ignite_timestamp(3875238472, 248700000), res->m_timestamp2);
+}
