@@ -21,10 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl.LOGICAL_TOPOLOGY_KEY;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertLogicalTopology;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
+import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertLogicalTopologyVersion;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
@@ -51,7 +48,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         distributionZoneManager.start();
 
-        assertLogicalTopVer(1L);
+        assertLogicalTopologyVersion(1L, keyValueStorage);
 
         assertLogicalTopology(clusterNodes, keyValueStorage);
     }
@@ -66,7 +63,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         distributionZoneManager.start();
 
-        assertLogicalTopVer(2L);
+        assertLogicalTopologyVersion(2L, keyValueStorage);
 
         assertLogicalTopology(clusterNodes, keyValueStorage);
     }
@@ -81,7 +78,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         distributionZoneManager.start();
 
-        assertLogicalTopVer(2L);
+        assertLogicalTopologyVersion(2L, keyValueStorage);
 
         assertLogicalTopology(null, keyValueStorage);
     }
@@ -96,7 +93,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         distributionZoneManager.start();
 
-        assertLogicalTopVer(3L);
+        assertLogicalTopologyVersion(3L, keyValueStorage);
 
         assertLogicalTopology(null, keyValueStorage);
     }
@@ -117,7 +114,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         assertLogicalTopology(clusterNodes2, keyValueStorage);
 
-        assertLogicalTopVer(2L);
+        assertLogicalTopologyVersion(2L, keyValueStorage);
     }
 
     @Test
@@ -131,7 +128,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
         distributionZoneManager.start();
 
         // Wait for Zone Manager to initialize Meta Storage on start.
-        assertLogicalTopVer(1L);
+        assertLogicalTopologyVersion(1L, keyValueStorage);
 
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(4L));
 
@@ -141,7 +138,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         assertLogicalTopology(clusterNodes, keyValueStorage);
 
-        assertLogicalTopVer(4L);
+        assertLogicalTopologyVersion(4L, keyValueStorage);
     }
 
     @Test
@@ -164,7 +161,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         assertLogicalTopology(clusterNodes2, keyValueStorage);
 
-        assertLogicalTopVer(3L);
+        assertLogicalTopologyVersion(3L, keyValueStorage);
     }
 
     @Test
@@ -182,7 +179,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
         distributionZoneManager.start();
 
         // Wait for Zone Manager to initialize Meta Storage on start.
-        assertLogicalTopVer(2L);
+        assertLogicalTopologyVersion(2L, keyValueStorage);
 
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(4L));
 
@@ -190,7 +187,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         assertLogicalTopology(clusterNodes, keyValueStorage);
 
-        assertLogicalTopVer(4L);
+        assertLogicalTopologyVersion(4L, keyValueStorage);
     }
 
     @Test
@@ -213,7 +210,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         assertLogicalTopology(clusterNodes2, keyValueStorage);
 
-        assertLogicalTopVer(10L);
+        assertLogicalTopologyVersion(10L, keyValueStorage);
     }
 
     @Test
@@ -238,28 +235,12 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         assertLogicalTopology(clusterNodes, keyValueStorage);
 
-        assertLogicalTopVer(11L);
+        assertLogicalTopologyVersion(11L, keyValueStorage);
     }
 
     private void mockCmgLocalNodes(long version, Set<LogicalNode> clusterNodes) {
         LogicalTopologySnapshot logicalTopologySnapshot = new LogicalTopologySnapshot(version, clusterNodes);
 
         when(cmgManager.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));
-    }
-
-    private void assertLogicalTopVer(long topVer) throws InterruptedException {
-        byte[] key = zonesLogicalTopologyVersionKey().bytes();
-
-        boolean success = waitForCondition(() -> {
-            byte[] versionBytes = keyValueStorage.get(key).value();
-
-            return versionBytes != null && bytesToLong(versionBytes) == topVer;
-        }, 1000);
-
-        if (!success) {
-            byte[] versionBytes = keyValueStorage.get(key).value();
-
-            assertThat(versionBytes == null ? null : bytesToLong(versionBytes), is(topVer));
-        }
     }
 }

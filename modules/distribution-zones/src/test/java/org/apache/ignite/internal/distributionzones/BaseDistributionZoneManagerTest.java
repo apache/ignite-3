@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -84,13 +86,15 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
         components.add(metaStorageManager);
 
-        cmgManager = mock(ClusterManagementGroupManager.class);
-
         clusterStateStorage = new TestClusterStateStorage();
 
         components.add(clusterStateStorage);
 
         topology = new LogicalTopologyImpl(clusterStateStorage);
+
+        cmgManager = mock(ClusterManagementGroupManager.class);
+
+        when(cmgManager.logicalTopology()).thenReturn(completedFuture(topology.getLogicalTopology()));
 
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
@@ -107,7 +111,9 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     public void tearDown() throws Exception {
-        components.add(distributionZoneManager);
+        if (distributionZoneManager != null) {
+            components.add(distributionZoneManager);
+        }
 
         Collections.reverse(components);
 

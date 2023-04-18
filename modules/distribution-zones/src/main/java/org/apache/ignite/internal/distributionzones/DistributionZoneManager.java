@@ -232,6 +232,9 @@ public class DistributionZoneManager implements IgniteComponent {
     private final WatchListener dataNodesWatchListener;
 
     // TODO: This is a temporary solution until https://issues.apache.org/jira/browse/IGNITE-19104 is resolved.
+    /**
+     * This future is completed when Logical Topology related keys are saved in Meta Storage on this component start.
+     */
     private final CompletableFuture<Void> startFuture = new CompletableFuture<>();
 
     /**
@@ -724,7 +727,12 @@ public class DistributionZoneManager implements IgniteComponent {
 
             // TODO: revisit this approach, see https://issues.apache.org/jira/browse/IGNITE-19104.
             initDataNodesFromVaultManager()
-                    .thenCompose(v -> initLogicalTopologyAndVersionInMetaStorageOnStart());
+                    .thenCompose(v -> initLogicalTopologyAndVersionInMetaStorageOnStart())
+                    .whenComplete((v, e) -> {
+                        if (e != null) {
+                            startFuture.completeExceptionally(e);
+                        }
+                    });
         } finally {
             busyLock.leaveBusy();
         }

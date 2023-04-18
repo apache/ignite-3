@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -149,6 +150,23 @@ public class DistributionZonesTestUtil {
                 zonesLogicalTopologyKey().bytes(),
                 ByteUtils::fromBytes,
                 nodes,
+                1000
+        );
+    }
+
+    /**
+     * Asserts {@link DistributionZonesUtil#zonesLogicalTopologyVersionKey()} value.
+     *
+     * @param topVer Topology version.
+     * @param keyValueStorage Key-value storage.
+     * @throws InterruptedException If thread was interrupted.
+     */
+    public static void assertLogicalTopologyVersion(long topVer, KeyValueStorage keyValueStorage) throws InterruptedException {
+        assertValueInStorage(
+                keyValueStorage,
+                zonesLogicalTopologyVersionKey().bytes(),
+                ByteUtils::bytesToLong,
+                topVer,
                 1000
         );
     }

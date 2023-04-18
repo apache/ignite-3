@@ -22,17 +22,19 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZone;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,8 +42,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -56,8 +61,8 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
+import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -811,8 +816,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         topology.removeNodes(Set.of(NODE_1));
 
-
-
         assertTrue(waitForCondition(() -> zoneState.scaleDownTask() != null, 1000L));
 
         distributionZoneManager.alterZone(
@@ -823,7 +826,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         assertTrue(waitForCondition(() -> zoneState.scaleDownTask().isCancelled(), 1000L));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testScaleUpDidNotChangeDataNodesWhenTriggerKeyWasConcurrentlyChanged() throws Exception {
         mockCmgLocalNodes();
@@ -840,29 +842,29 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertZoneScaleDownChangeTriggerKey(1, 1, keyValueStorage);
 
+        doAnswer(invocation -> {
+            If iif = invocation.getArgument(0);
+
+            // Emulate a situation when one of the scale up keys gets concurrently updated during a Meta Storage invoke. We then expect
+            // that the invoke call will be retried.
+            byte[] key = zoneScaleUpChangeTriggerKey(1).bytes();
+
+            if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(key, k))) {
+                keyValueStorage.put(key, longToBytes(100));
+            }
+
+            return invocation.callRealMethod();
+        }).when(keyValueStorage).invoke(any());
+
         topology.putNode(NODE_1);
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
-
-        //        lenient().doAnswer(invocationClose -> {
-        //            // First invoke of data nodes propagation on scale up do not pass because of trigger key revision condition.
-        //            // We had scaleUpChangeTriggerKey = 1 from ms, but after that it was changed to 100, so on the next call
-        //            // invoke won't be even triggered because event become stale.
-        //            keyValueStorage.put(zoneScaleUpChangeTriggerKey(1).bytes(), longToBytes(100));
-        //
-        //            Iif iif = invocationClose.getArgument(0);
-        //
-        //            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).build();
-        //
-        //            return metaStorageService.run(multiInvokeCommand);
-        //        }).when(metaStorageManager).invoke(any());
 
         assertZoneScaleUpChangeTriggerKey(100, 1, keyValueStorage);
 
         assertDataNodesForZone(1, Set.of(), keyValueStorage);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testScaleDownDidNotChangeDataNodesWhenTriggerKeyWasConcurrentlyChanged() throws Exception {
         topology.putNode(NODE_1);
@@ -883,22 +885,21 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertZoneScaleDownChangeTriggerKey(1, 1, keyValueStorage);
 
+        doAnswer(invocation -> {
+            If iif = invocation.getArgument(0);
+
+            // Emulate a situation when one of the scale down keys gets concurrently updated during a Meta Storage invoke. We then expect
+            // that the invoke call will be retried.
+            byte[] key = zoneScaleDownChangeTriggerKey(1).bytes();
+
+            if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(key, k))) {
+                keyValueStorage.put(key, longToBytes(100));
+            }
+
+            return invocation.callRealMethod();
+        }).when(keyValueStorage).invoke(any());
+
         topology.removeNodes(Set.of(NODE_1));
-
-        //        keyValueStorage.put(zoneScaleDownChangeTriggerKey(1).bytes(), longToBytes(100));
-
-        //        lenient().doAnswer(invocationClose -> {
-        //            // First invoke of data nodes propagation on scale down do not pass because of trigger key revision condition.
-        //            // We had scaleDownChangeTriggerKey = 1 from ms, but after that it was changed to 100, so on the next call
-        //            // invoke won't be even triggered because event become stale.
-        //            keyValueStorage.put(zoneScaleDownChangeTriggerKey(1).bytes(), longToBytes(100));
-        //
-        //            Iif iif = invocationClose.getArgument(0);
-        //
-        //            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).build();
-        //
-        //            return metaStorageService.run(multiInvokeCommand);
-        //        }).when(metaStorageManager).invoke(any());
 
         assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
 
@@ -1424,16 +1425,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         byte[] newLogicalTopology = toBytes(nodesNames);
 
-        CompletableFuture<Void> putFuture = vaultMgr.put(zonesLogicalTopologyKey(), newLogicalTopology);
-
-        assertThat(putFuture, willCompleteSuccessfully());
-
-        // Put a fake key to increase Meta Storage revision. Distribution zone manager does not behave well when Vault has some data for
-        // recovery, but Meta Storage revision is 0.
-        var fakeKey = new ByteArray("foo");
-
-        CompletableFuture<Boolean> invokeFuture = metaStorageManager.invoke(notExists(fakeKey), put(fakeKey, fakeKey.bytes()), noop());
-
-        assertThat(invokeFuture, willBe(true));
+        assertThat(vaultMgr.put(zonesLogicalTopologyKey(), newLogicalTopology), willCompleteSuccessfully());
     }
 }
