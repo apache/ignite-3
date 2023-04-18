@@ -410,6 +410,15 @@ public class LocalFileConfigurationStorageTest {
         ));
     }
 
+    /** Read configuration when inner node configured with partial content (some fields are empty). */
+    @Test
+    void innerNodeWithPartialContent() throws Exception {
+        String content = "top: { inner.boolVal: true }";
+        Files.write(getConfigFile(), content.getBytes(StandardCharsets.UTF_8));
+
+        storage.readDataOnRecovery().get();
+    }
+
     private String configFileContent() throws IOException {
         return Files.readString(getConfigFile());
     }
@@ -439,7 +448,7 @@ public class LocalFileConfigurationStorageTest {
         public short ignore = 1;
     }
 
-    /** Inner config to test that it won't be saved to tge file if not changed by the user.*/
+    /** Inner config to test that it won't be saved to the file if not changed by the user.*/
     @Config
     public static class InnerConfigurationSchema {
         @Value(hasDefault = true)
@@ -447,6 +456,9 @@ public class LocalFileConfigurationStorageTest {
 
         @Value(hasDefault = true)
         public boolean boolVal = false;
+
+        @ConfigValue
+        public NamedListConfigurationSchema someConfigurationValue;
     }
 
     /** Named list element node that contains another named list. */

@@ -136,6 +136,10 @@ public class ConfigurationFlattener {
                 return null;
             }
 
+            if (oldNode == null && newNode == null) {
+                return null;
+            }
+
             if (oldNode == null) {
                 visitAsymmetricInnerNode(newNode, false);
             } else if (oldNode.schemaType() != newNode.schemaType()) {

@@ -232,10 +232,10 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
     @Override
     public void close() {
+        futureTracker.cancelInFlightFutures();
+
         IgniteUtils.shutdownAndAwaitTermination(workerThreadPool, 10, TimeUnit.SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(notificationsThreadPool, 10, TimeUnit.SECONDS);
-
-        futureTracker.cancelInFlightFutures();
     }
 
     private void saveConfigFile() {
