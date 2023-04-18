@@ -103,7 +103,7 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
     @DisplayName("Should display correct status after deploy")
     void deployAndStatusCheck() {
         // When undeploy non-existing unit
-        execute("unit", "deploy", "test.unit.id.5", "--version", "1.0.0", "--path", path);
+        execute("unit", "deploy", "test.unit.id.5", "--version", "1.0.0", "--path", testFile);
 
         // Then
         assertAll(

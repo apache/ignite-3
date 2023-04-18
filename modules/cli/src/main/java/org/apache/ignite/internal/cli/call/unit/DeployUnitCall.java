@@ -67,17 +67,13 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
             return completedFuture(DefaultCallOutput.failure(new FileNotFoundException(path.toString())));
         }
         List<File> files;
-        if (Files.isDirectory(path)) {
-            try (Stream<Path> stream = Files.list(path)) {
-                files = stream
-                        .filter(Files::isRegularFile)
-                        .map(Path::toFile)
-                        .collect(Collectors.toList());
-            } catch (IOException e) {
-                return completedFuture(DefaultCallOutput.failure(e));
-            }
-        } else {
-            files = List.of(path.toFile());
+        try (Stream<Path> stream = Files.walk(path, 1)) {
+            files = stream
+                    .filter(Files::isRegularFile)
+                    .map(Path::toFile)
+                    .collect(Collectors.toList());
+        } catch (IOException e) {
+            return completedFuture(DefaultCallOutput.failure(e));
         }
 
         TrackingCallback<Boolean> callback = new TrackingCallback<>(tracker);
