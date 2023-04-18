@@ -606,8 +606,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
                         SqlException.class,
                         "DDL doesn't support transactions."
                 );
-            }
-            finally {
+            } finally {
                 tx.rollback();
             }
         }

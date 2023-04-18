@@ -283,10 +283,14 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         {
             Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
-            assertThrowsWithCause(() -> ses.execute(tx, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)"),
-                    SqlException.class,
-                    "DDL doesn't support transactions."
-            );
+            try {
+                assertThrowsWithCause(() -> ses.execute(tx, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)"),
+                        SqlException.class,
+                        "DDL doesn't support transactions."
+                );
+            } finally {
+                tx.rollback();
+            }
         }
 
         TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
