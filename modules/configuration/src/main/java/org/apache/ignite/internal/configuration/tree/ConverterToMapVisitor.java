@@ -38,7 +38,8 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     /** Include internal configuration nodes (private configuration extensions). */
     private final boolean includeInternal;
 
-    private final boolean skipNullValues;
+    /** Skip nulls, empty Maps and empty lists. */
+    private final boolean skipEmptyValues;
 
     /** Stack with intermediate results. Used to store values during recursive calls. */
     private final Deque<Object> deque = new ArrayDeque<>();
@@ -47,11 +48,11 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
      * Constructor.
      *
      * @param includeInternal Include internal configuration nodes (private configuration extensions).
-     * @param skipNullValues Skip null values.
+     * @param skipEmptyValues Skip empty values.
      */
-    public ConverterToMapVisitor(boolean includeInternal, boolean skipNullValues) {
+    public ConverterToMapVisitor(boolean includeInternal, boolean skipEmptyValues) {
         this.includeInternal = includeInternal;
-        this.skipNullValues = skipNullValues;
+        this.skipEmptyValues = skipEmptyValues;
     }
 
     /**
@@ -82,7 +83,7 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     /** {@inheritDoc} */
     @Override
     public Object visitInnerNode(String key, InnerNode node) {
-        if (skipNullValues && node == null) {
+        if (skipEmptyValues && node == null) {
             return null;
         }
 
@@ -102,6 +103,9 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     /** {@inheritDoc} */
     @Override
     public Object visitNamedListNode(String key, NamedListNode<?> node) {
+        if (skipEmptyValues && node.size() == 0)
+            return null;
+
         List<Object> list = new ArrayList<>(node.size());
 
         deque.push(list);
@@ -128,14 +132,23 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     private void addToParent(String key, Object val) {
         Object parent = deque.peek();
 
+        if (skipEmptyValues && val == null)
+            return;
+
         if (parent instanceof Map) {
-            if (skipNullValues && val == null)
-                return;
+            if (skipEmptyValues && val instanceof Map) {
+                Map<?, ?> map = (Map<?, ?>) val;
+                if (map.isEmpty())
+                    return;
+            }
 
             ((Map<String, Object>) parent).put(key, val);
         } else if (parent instanceof List) {
-            if (skipNullValues && val == null)
-                return;
+            if (skipEmptyValues && val instanceof List) {
+                List<?> list = (List<?>) val;
+                if (list.isEmpty())
+                    return;
+            }
 
             ((Collection<Object>) parent).add(val);
         }

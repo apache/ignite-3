@@ -58,7 +58,7 @@ public class LocalFileConfigurationStorageTest {
 
     private static final String CONFIG_NAME = "ignite-config.conf";
 
-    private static ConfigurationTreeGenerator treeGenerator = new ConfigurationTreeGenerator(List.of(TopConfiguration.KEY));
+    private static ConfigurationTreeGenerator treeGenerator;
 
     @WorkDirectory
     private Path tmpDir;
@@ -69,13 +69,14 @@ public class LocalFileConfigurationStorageTest {
 
     @BeforeAll
     public static void beforeAll() {
-        treeGenerator = new ConfigurationTreeGenerator(List.of(TopConfiguration.KEY));
+        treeGenerator = new ConfigurationTreeGenerator(
+                List.of(TopConfiguration.KEY, TopEmptyConfiguration.KEY)
+        );
     }
 
-    /** Nullifies {@link #treeGenerator} to prevent memory leak from having runtime ClassLoader accessible from GC root. */
     @AfterAll
-    public static void afterAll() {
-        treeGenerator = null;
+    public static void afterAll() throws Exception {
+        treeGenerator.close();
     }
 
     private Path getConfigFile() {
@@ -132,7 +133,14 @@ public class LocalFileConfigurationStorageTest {
         // When
         var storageValues = readAllLatest();
 
-        // Then
+        // Then the map has updated values
+        //
+        // top.namedList.<generatedUUID>.strVal  -> strVal1
+        // top.namedList.<generatedUUID>.intVal  -> -1
+        // top.namedList.<generatedUUID>.<name>  -> name1
+        // top.namedList.<ids>.name1             -> "<generatedUUID>"
+        // top.namedList.<generatedUUID>.<order> -> 0
+
         assertThat(storageValues, allOf(aMapWithSize(5), hasValue(-1)));
         assertThat(storageValues, allOf(aMapWithSize(5), hasValue("strVal1")));
 
@@ -200,7 +208,6 @@ public class LocalFileConfigurationStorageTest {
         // And
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
-                        + "    namedList=[]\n"
                         + "    shortVal=3\n"
                         + "}\n"
         ));
@@ -322,7 +329,6 @@ public class LocalFileConfigurationStorageTest {
         // And entity removed from file
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
-                        + "    namedList=[]\n"
                         + "    shortVal=3\n"
                         + "}\n"
         ));
@@ -422,6 +428,14 @@ public class LocalFileConfigurationStorageTest {
 
         @Value(hasDefault = true)
         public short shortVal = 1;
+    }
+
+
+    /** Empty root that is needed to test empty configuration root rendering to file. */
+    @ConfigurationRoot(rootName = "emptyTop")
+    public static class TopEmptyConfigurationSchema {
+        @Value(hasDefault = true)
+        public short ignore = 1;
     }
 
     @Config
