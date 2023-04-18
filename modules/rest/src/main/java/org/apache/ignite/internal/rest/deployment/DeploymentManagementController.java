@@ -47,7 +47,7 @@ public class DeploymentManagementController implements DeploymentCodeApi {
     @Override
     public CompletableFuture<Boolean> deploy(String unitId, String unitVersion, Publisher<CompletedFileUpload> unitContent) {
         CompletableFuture<DeploymentUnit> result = new CompletableFuture<>();
-        unitContent.subscribe(new CompetedFileUploadSubscriber(result));
+        unitContent.subscribe(new CompletedFileUploadSubscriber(result));
         return result.thenCompose(deploymentUnit -> deployment.deployAsync(unitId, parseVersion(unitVersion), deploymentUnit));
     }
 

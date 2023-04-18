@@ -31,7 +31,7 @@ import org.reactivestreams.Subscription;
  * Implementation of {@link Subscriber} based on {@link CompletedFileUpload} which will collect uploaded files to the
  * {@link DeploymentUnit}.
  */
-class CompetedFileUploadSubscriber implements Subscriber<CompletedFileUpload> {
+class CompletedFileUploadSubscriber implements Subscriber<CompletedFileUpload> {
     private final CompletableFuture<DeploymentUnit> result;
 
     private final Map<String, InputStream> content = new HashMap<>();
@@ -43,7 +43,7 @@ class CompetedFileUploadSubscriber implements Subscriber<CompletedFileUpload> {
      *
      * @param result Result future.
      */
-    CompetedFileUploadSubscriber(CompletableFuture<DeploymentUnit> result) {
+    CompletedFileUploadSubscriber(CompletableFuture<DeploymentUnit> result) {
         this.result = result;
     }
 
