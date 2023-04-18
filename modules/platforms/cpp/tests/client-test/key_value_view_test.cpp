@@ -642,6 +642,44 @@ TEST_F(key_value_view_test, get_and_remove_existing_async) {
     EXPECT_EQ(val1.val, res->val);
 }
 
+TEST_F(key_value_view_test, contains) {
+    auto res = kv_view.contains(nullptr, test_key_type(1));
+    ASSERT_FALSE(res);
+
+    res = kv_view.put_if_absent(nullptr, test_key_type(1), test_value_type("foo"));
+    ASSERT_TRUE(res);
+
+    res = kv_view.contains(nullptr, test_key_type(1));
+    ASSERT_TRUE(res);
+}
+
+TEST_F(key_value_view_test, contains_async) {
+    auto all_done = std::make_shared<std::promise<bool>>();
+
+    kv_view.contains_async(nullptr, test_key_type(1), [&](ignite_result<bool> &&res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        if (res.value())
+            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected to not contain")));
+
+        kv_view.put_if_absent_async(nullptr, test_key_type(1), test_value_type("foo"), [&](ignite_result<bool> &&res) {
+            if (!check_and_set_operation_error(*all_done, res))
+                return;
+
+            if (!res.value())
+                all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insert")));
+
+            kv_view.contains_async(nullptr, test_key_type(1), [&](ignite_result<bool> &&res) {
+                result_set_promise(*all_done, std::move(res));
+            });
+        });
+    });
+
+    auto res = all_done->get_future().get();
+    ASSERT_TRUE(res);
+}
+
 TEST_F(key_value_view_test, remove_all_nonexisting_keys_return_all) {
     std::vector<test_key_type> non_existing = {test_key_type(1), test_key_type(2)};
     auto res = kv_view.remove_all(nullptr, non_existing);

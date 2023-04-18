@@ -567,30 +567,30 @@ public:
         });
     }
 
-//    /**
-//     * Asynchronously determines if the table contains a value for the specified key.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param key Key.
-//     * @param callback Callback which is called on success with value
-//     *   indicating whether value exists or not.
-//     */
-//    void contains_async(transaction *tx, const key_type &key, ignite_callback<bool> callback) {
-//        m_delegate.contains_async(tx, convert_to_tuple(key), std::move(callback));
-//    }
-//
-//    /**
-//     * Determines if the table contains an entry for the specified key.
-//     *
-//     * @param tx Optional transaction. If nullptr implicit transaction for this
-//     *   single operation is used.
-//     * @param key Key.
-//     * @return Value indicating whether value exists or not.
-//     */
-//    [[nodiscard]] bool contains(transaction *tx, const key_type &key) {
-//        return sync<bool>([this, tx, &key](auto callback) { contains_async(tx, key, std::move(callback)); });
-//    }
+    /**
+     * Asynchronously determines if the table contains a value for the specified key.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key Key.
+     * @param callback Callback which is called on success with value
+     *   indicating whether value exists or not.
+     */
+    void contains_async(transaction *tx, const key_type &key, ignite_callback<bool> callback) {
+        m_delegate.contains_async(tx, convert_to_tuple(key), std::move(callback));
+    }
+
+    /**
+     * Determines if the table contains an entry for the specified key.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key Key.
+     * @return Value indicating whether value exists or not.
+     */
+    [[nodiscard]] bool contains(transaction *tx, const key_type &key) {
+        return sync<bool>([this, tx, &key](auto callback) { contains_async(tx, key, std::move(callback)); });
+    }
 
     /**
      * Puts a value with a given key asynchronously.
