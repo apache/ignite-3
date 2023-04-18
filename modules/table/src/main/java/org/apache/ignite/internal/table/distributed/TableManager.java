@@ -163,6 +163,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtil;
+import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -319,6 +320,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final MvGc mvGc;
 
+    private final LowWatermark lowWatermark;
+
     /**
      * Creates a new table manager.
      *
@@ -336,6 +339,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
      *         volatile tables.
      * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
+     * @param vaultManager Vault manager.
      */
     public TableManager(
             String nodeName,
@@ -357,7 +361,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             HybridClock clock,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
-            TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory
+            TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
+            VaultManager vaultManager
     ) {
         this.tablesCfg = tablesCfg;
         this.distributionZonesConfiguration = distributionZonesConfiguration;
@@ -423,11 +428,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         assignmentsSwitchRebalanceListener = createAssignmentsSwitchRebalanceListener();
 
         mvGc = new MvGc(nodeName, tablesCfg);
+
+        lowWatermark = new LowWatermark(nodeName, tablesCfg.lowWatermark(), clock, txManager, vaultManager, mvGc);
     }
 
     @Override
     public void start() {
         mvGc.start();
+
+        lowWatermark.start();
 
         distributionZonesConfiguration.distributionZones().any().replicas().listen(this::onUpdateReplicas);
 
@@ -974,7 +983,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return raftGroupOptions;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() {
         if (!stopGuard.compareAndSet(false, true)) {
@@ -993,6 +1001,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v1));
 
         cleanUpTablesResources(tablesToStop);
+
+        try {
+            IgniteUtils.closeAllManually(lowWatermark, mvGc);
+        } catch (Throwable t) {
+            LOG.error("Failed to close internal components", t);
+        }
 
         shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS);

@@ -277,12 +277,15 @@ public class RepeatedFinishReadWriteTransactionTest {
 
         @Override
         public void start() {
-
         }
 
         @Override
-        public void stop() throws Exception {
+        public void stop() {
+        }
 
+        @Override
+        public CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark) {
+            return completedFuture(null);
         }
     }
 }
