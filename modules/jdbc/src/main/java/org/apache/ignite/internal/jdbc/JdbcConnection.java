@@ -406,7 +406,7 @@ public class JdbcConnection implements Connection {
         closed = true;
 
         if (!autoCommit) {
-            handler().finishTxAsync(connectionId, false);
+            finishTx(false);
         }
 
         synchronized (stmtsMux) {

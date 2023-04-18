@@ -284,8 +284,6 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
             int expCnt = commit ? iterations * rowsCnt : 0;
 
             assertEquals(expCnt, rowsCount(conn));
-
-            conn.rollback();
             assertEquals(expCnt, rowsCount(AbstractJdbcSelfTest.conn));
         }
     }
