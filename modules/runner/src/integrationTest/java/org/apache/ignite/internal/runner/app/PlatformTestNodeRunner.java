@@ -556,19 +556,23 @@ public class PlatformTestNodeRunner {
     private static class EnableAuthenticationJob implements ComputeJob<Void> {
         @Override
         public Void execute(JobExecutionContext context, Object... args) {
-            Integer enable = (Integer) args[0];
+            boolean enable = ((Integer) args[0]) != 0;
             @SuppressWarnings("resource") IgniteImpl ignite = (IgniteImpl) context.ignite();
 
             ignite.clusterConfiguration().change(
                     root -> root.changeRoot(SecurityConfiguration.KEY).changeAuthentication(
                             change -> {
-                                change.changeEnabled(enable != 0);
-                                change.changeProviders().create("basic", authenticationProviderChange -> {
-                                    authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
-                                            .changeUsername("user-1")
-                                            .changePassword("password-1")
-                                            .changeName("basic");
-                                });
+                                change.changeEnabled(enable);
+                                change.changeProviders().delete("basic");
+
+                                if (enable) {
+                                    change.changeProviders().create("basic", authenticationProviderChange -> {
+                                        authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
+                                                .changeUsername("user-1")
+                                                .changePassword("password-1")
+                                                .changeName("basic");
+                                    });
+                                }
                             }
                     ));
 
