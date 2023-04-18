@@ -18,6 +18,7 @@
 namespace Apache.Ignite;
 
 using System;
+using Internal.Common;
 using Internal.Proto;
 
 /// <summary>
@@ -26,7 +27,7 @@ using Internal.Proto;
 /// Credentials are sent to the server in plain text, unless SSL/TLS is enabled - see
 /// <see cref="IgniteClientConfiguration.SslStreamFactory"/>.
 /// </summary>
-public class BasicAuthenticator : IAuthenticator
+public sealed class BasicAuthenticator : IAuthenticator
 {
     private string _username = string.Empty;
 
@@ -58,4 +59,10 @@ public class BasicAuthenticator : IAuthenticator
 
     /// <inheritdoc />
     public object Secret => Password;
+
+    /// <inheritdoc />
+    public override string ToString() =>
+        new IgniteToStringBuilder(GetType())
+            .Append(Username) // Password is not included intentionally.
+            .ToString();
 }
