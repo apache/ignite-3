@@ -19,6 +19,7 @@ package org.apache.ignite.internal;
 
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaConstructor;
+import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchCondition;
@@ -38,6 +39,7 @@ import org.apache.ignite.lang.LocationProvider.RootLocationProvider;
  */
 @AnalyzeClasses(
         packages = "org.apache.ignite",
+        importOptions = ImportOption.DoNotIncludeTests.class,
         locations = RootLocationProvider.class)
 public class IgniteExceptionArchTest {
     @SuppressWarnings("unused")
