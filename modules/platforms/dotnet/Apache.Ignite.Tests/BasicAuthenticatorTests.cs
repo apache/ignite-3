@@ -66,6 +66,16 @@ public class BasicAuthenticatorTests : IgniteTestsBase
         Assert.AreEqual(ErrorGroups.Authentication.CommonAuthentication, inner.Code);
     }
 
+    [Test]
+    public async Task TestAuthnOnClientAndServer()
+    {
+        await EnableAuthn(true);
+
+        using var client = await IgniteClient.StartAsync(GetConfig(true));
+        await client.GetClusterNodesAsync();
+        await client.Tables.GetTablesAsync();
+    }
+
     private static IgniteClientConfiguration GetConfig(bool enableAuthn)
     {
         var cfg = GetConfig();
