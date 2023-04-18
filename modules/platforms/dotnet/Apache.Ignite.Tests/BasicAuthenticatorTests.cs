@@ -39,6 +39,12 @@ public class BasicAuthenticatorTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestAuthnOnClientNoAuthnOnServer()
+    {
+        await Task.Delay(1);
+    }
+
+    [Test]
     public async Task TestAuthnOnServerNoAuthnOnClient()
     {
         await EnableAuthn(true);
@@ -50,12 +56,12 @@ public class BasicAuthenticatorTests : IgniteTestsBase
         Assert.AreEqual(ErrorGroups.Authentication.CommonAuthentication, inner.Code);
     }
 
-    private async Task EnableAuthn(bool enable)
+    private static IgniteClientConfiguration GetConfig(bool enableAuthn)
     {
         var cfg = GetConfig();
         cfg.RetryPolicy = new RetryNonePolicy();
 
-        if (_authnEnabled)
+        if (enableAuthn)
         {
             cfg.Authenticator = new BasicAuthenticator
             {
@@ -64,7 +70,17 @@ public class BasicAuthenticatorTests : IgniteTestsBase
             };
         }
 
-        using var client = await IgniteClient.StartAsync(cfg);
+        return cfg;
+    }
+
+    private async Task EnableAuthn(bool enable)
+    {
+        if (enable == _authnEnabled)
+        {
+            return;
+        }
+
+        using var client = await IgniteClient.StartAsync(GetConfig(_authnEnabled));
         var nodes = await client.GetClusterNodesAsync();
 
         // As a result of this call, the client will be disconnected from the server due to authn config change.
