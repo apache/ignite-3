@@ -17,6 +17,7 @@
 
 #include "ignite_runner_suite.h"
 
+#include <ignite/client/basic_authenticator.h>
 #include <ignite/client/ignite_client.h>
 #include <ignite/client/ignite_client_configuration.h>
 
@@ -42,4 +43,58 @@ TEST_F(client_test, get_configuration) {
 
     EXPECT_EQ(cfg.get_endpoints(), cfg2.get_endpoints());
     EXPECT_EQ(cfg.get_connection_limit(), cfg2.get_connection_limit());
+}
+
+TEST_F(client_test, basic_authentication_success) {
+    ignite_client_configuration cfg{get_node_addrs()};
+    cfg.set_logger(get_logger());
+
+    std::shared_ptr<basic_authenticator> authenticator;
+    authenticator->set_identity("test_username");
+    authenticator->set_secret("test_password");
+    cfg.set_authenticator(authenticator);
+
+    auto client = ignite_client::start(cfg, std::chrono::seconds(30));
+}
+
+TEST_F(client_test, basic_authentication_wrong_username) {
+    ignite_client_configuration cfg{get_node_addrs()};
+    cfg.set_logger(get_logger());
+
+    std::shared_ptr<basic_authenticator> authenticator;
+    authenticator->set_identity("wrong_username");
+    authenticator->set_secret("wrong_password");
+    cfg.set_authenticator(authenticator);
+
+    EXPECT_THROW(
+        {
+            try {
+                (void) ignite_client::start(cfg, std::chrono::seconds(30));
+            } catch (const ignite_error &e) {
+                EXPECT_STREQ("Key tuple can not be empty", e.what());
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(client_test, basic_authentication_wrong_password) {
+    ignite_client_configuration cfg{get_node_addrs()};
+    cfg.set_logger(get_logger());
+
+    std::shared_ptr<basic_authenticator> authenticator;
+    authenticator->set_identity("test_username");
+    authenticator->set_secret("wrong_password");
+    cfg.set_authenticator(authenticator);
+
+    EXPECT_THROW(
+        {
+            try {
+                (void) ignite_client::start(cfg, std::chrono::seconds(30));
+            } catch (const ignite_error &e) {
+                EXPECT_STREQ("Key tuple can not be empty", e.what());
+                throw;
+            }
+        },
+        ignite_error);
 }
