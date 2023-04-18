@@ -44,9 +44,15 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Class to manage the low watermark.
+ *
+ * <p>Low watermark is the node's local time, which ensures that read-only transactions have completed by this time, and new read-only
+ * transactions will only be created after this time, and we can safely delete obsolete/garbage data such as: obsolete versions of table
+ * rows, remote indexes, remote tables, etc.
+ *
+ * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-91%3A+Transaction+protocol">IEP-91</a>
  */
-public class LowWatermarkManager implements ManuallyCloseable {
-    private static final IgniteLogger LOG = Loggers.forClass(LowWatermarkManager.class);
+public class LowWatermark implements ManuallyCloseable {
+    private static final IgniteLogger LOG = Loggers.forClass(LowWatermark.class);
 
     static final ByteArray LOW_WATERMARK_VAULT_KEY = new ByteArray("low-watermark");
 
@@ -79,7 +85,7 @@ public class LowWatermarkManager implements ManuallyCloseable {
      * @param txManager Transaction manager.
      * @param vaultManager Vault manager.
      */
-    public LowWatermarkManager(
+    public LowWatermark(
             String nodeName,
             LowWatermarkConfiguration lowWatermarkConfig,
             HybridClock clock,
@@ -113,6 +119,8 @@ public class LowWatermarkManager implements ManuallyCloseable {
 
                         HybridTimestamp lowWatermark = ByteUtils.fromBytes(vaultEntry.value());
 
+                        txManager.updateLowWatermark(lowWatermark);
+
                         this.lowWatermark.set(lowWatermark);
 
                         runGcAndScheduleUpdateLowWatermarkBusy(lowWatermark);
@@ -125,6 +133,7 @@ public class LowWatermarkManager implements ManuallyCloseable {
                                 LOG.error("Error getting low watermark", throwable);
 
                                 // TODO: IGNITE-16899 Perhaps we need to fail the node by FailureHandler
+                                inBusyLock(busyLock, this::scheduleUpdateLowWatermarkBusy);
                             }
                         } else {
                             LOG.info(
@@ -164,9 +173,14 @@ public class LowWatermarkManager implements ManuallyCloseable {
         inBusyLock(busyLock, () -> {
             HybridTimestamp lowWatermarkCandidate = createNewLowWatermarkCandidate();
 
-            txManager.updateLowerBoundToStartNewReadOnlyTransaction(lowWatermarkCandidate);
+            // Update the low watermark for read-only transactions so that new transactions cannot be created less than or equal to the new
+            // candidate.
+            txManager.updateLowWatermark(lowWatermarkCandidate);
 
-            txManager.getFutureAllReadOnlyTransactions(lowWatermarkCandidate)
+            // Wait until all the read-only transactions are finished before the new candidate, since no new RO transactions could be
+            // created, then we can safely promote the candidate as a new low watermark, store it in vault, and we can safely start cleaning
+            // up the stale/junk data in the tables.
+            txManager.getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(lowWatermarkCandidate)
                     .thenCompose(unused -> inBusyLock(
                             busyLock,
                             () -> vaultManager.put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(lowWatermarkCandidate)))
@@ -215,9 +229,9 @@ public class LowWatermarkManager implements ManuallyCloseable {
     HybridTimestamp createNewLowWatermarkCandidate() {
         HybridTimestamp now = clock.now();
 
-        long newPhysicalTime = now.getPhysical() - lowWatermarkConfig.dataAvailabilityTime().value() - getMaxClockSkew();
-
-        HybridTimestamp lowWatermarkCandidate = new HybridTimestamp(newPhysicalTime, now.getLogical());
+        HybridTimestamp lowWatermarkCandidate = now.addPhysicalTime(
+                -lowWatermarkConfig.dataAvailabilityTime().value() - getMaxClockSkew()
+        );
 
         HybridTimestamp lowWatermark = this.lowWatermark.get();
 

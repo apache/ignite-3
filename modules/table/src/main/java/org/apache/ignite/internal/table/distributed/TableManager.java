@@ -320,7 +320,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final MvGc mvGc;
 
-    private final LowWatermarkManager lowWatermarkManager;
+    private final LowWatermark lowWatermark;
 
     /**
      * Creates a new table manager.
@@ -429,14 +429,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         mvGc = new MvGc(nodeName, tablesCfg);
 
-        lowWatermarkManager = new LowWatermarkManager(nodeName, tablesCfg.lowWatermark(), clock, txManager, vaultManager, mvGc);
+        lowWatermark = new LowWatermark(nodeName, tablesCfg.lowWatermark(), clock, txManager, vaultManager, mvGc);
     }
 
     @Override
     public void start() {
         mvGc.start();
 
-        lowWatermarkManager.start();
+        lowWatermark.start();
 
         distributionZonesConfiguration.distributionZones().any().replicas().listen(this::onUpdateReplicas);
 
@@ -1003,7 +1003,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         cleanUpTablesResources(tablesToStop);
 
         try {
-            IgniteUtils.closeAllManually(lowWatermarkManager, mvGc);
+            IgniteUtils.closeAllManually(lowWatermark, mvGc);
         } catch (Throwable t) {
             LOG.error("Failed to close internal components", t);
         }

@@ -27,7 +27,14 @@ import org.apache.ignite.configuration.validation.Range;
  */
 @Config
 public class LowWatermarkConfigurationSchema {
-    /** Data availability time (in milliseconds). */
+    /**
+     * Data availability time (in milliseconds), after they have been removed.
+     *
+     * <p>It is also used for read-only transactions that can read data in the past.
+     *
+     * <p>Value is used when calculating the new low watermark, which at the time of the update is calculated as
+     * {@code now() - dataAvailabilityTime()}.
+     */
     @Range(min = 0)
     @Value(hasDefault = true)
     public long dataAvailabilityTime = TimeUnit.MINUTES.toMillis(45);

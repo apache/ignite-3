@@ -127,47 +127,47 @@ public class TxManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testUpdateLowerBoundToStartNewReadOnlyTransaction() {
+    void testUpdateLowerWatermark() {
         when(clock.now()).thenReturn(new HybridTimestamp(10, 10));
 
-        txManager.updateLowerBoundToStartNewReadOnlyTransaction(new HybridTimestamp(10, 11));
+        txManager.updateLowWatermark(new HybridTimestamp(10, 11));
 
         IgniteInternalException exception = assertThrows(IgniteInternalException.class, () -> txManager.begin(true));
 
-        assertEquals(Transactions.TX_READ_ONLY_CREATING_ERR, exception.code());
+        assertEquals(Transactions.TX_READ_ONLY_TO_OLD_ERR, exception.code());
 
         // Let's check the removed lower bound.
-        txManager.updateLowerBoundToStartNewReadOnlyTransaction(null);
+        txManager.updateLowWatermark(null);
 
         assertDoesNotThrow(() -> txManager.begin(true));
     }
 
     @Test
-    void testGetFutureReadOnlyTransactions() {
+    void testGetFutureAllReadOnlyTransactionsWhichLessOrEqualTo() {
         // Let's check the absence of transactions.
-        assertThat(txManager.getFutureAllReadOnlyTransactions(clock.now()), willSucceedFast());
+        assertThat(txManager.getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(clock.now()), willSucceedFast());
 
         InternalTransaction rwTx0 = txManager.begin(false);
 
         InternalTransaction roTx0 = txManager.begin(true);
         InternalTransaction roTx1 = txManager.begin(true);
 
-        CompletableFuture<Void> readOnlyTxsFutures = txManager.getFutureAllReadOnlyTransactions(roTx1.readTimestamp());
-        assertFalse(readOnlyTxsFutures.isDone());
+        CompletableFuture<Void> readOnlyTxsFuture = txManager.getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(roTx1.readTimestamp());
+        assertFalse(readOnlyTxsFuture.isDone());
 
         assertThat(rwTx0.commitAsync(), willSucceedFast());
-        assertFalse(readOnlyTxsFutures.isDone());
+        assertFalse(readOnlyTxsFuture.isDone());
 
         assertThat(roTx0.commitAsync(), willSucceedFast());
-        assertFalse(readOnlyTxsFutures.isDone());
+        assertFalse(readOnlyTxsFuture.isDone());
 
         assertThat(roTx1.rollbackAsync(), willSucceedFast());
-        assertTrue(readOnlyTxsFutures.isDone());
+        assertTrue(readOnlyTxsFuture.isDone());
 
         // Let's check only RW transactions.
         txManager.begin(false);
         txManager.begin(false);
 
-        assertThat(txManager.getFutureAllReadOnlyTransactions(clock.now()), willSucceedFast());
+        assertThat(txManager.getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(clock.now()), willSucceedFast());
     }
 }

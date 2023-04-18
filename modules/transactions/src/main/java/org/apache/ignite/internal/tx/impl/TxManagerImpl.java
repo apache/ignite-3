@@ -18,8 +18,9 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_CREATING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TO_OLD_ERR;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,6 +29,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -42,7 +45,6 @@ import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -67,11 +69,19 @@ public class TxManagerImpl implements TxManager {
     @TestOnly
     private final ConcurrentHashMap<UUID, TxState> states = new ConcurrentHashMap<>();
 
-    /** Future of a read-only transaction by its read timestamp. */
-    private final ConcurrentNavigableMap<HybridTimestamp, CompletableFuture<Void>> readOnlyTxFutureByReadTs = new ConcurrentSkipListMap<>();
+    /** Future of a read-only transaction by it {@link ReadOnlyTxId}. */
+    private final ConcurrentNavigableMap<ReadOnlyTxId, CompletableFuture<Void>> readOnlyTxFutureById = new ConcurrentSkipListMap<>(
+            Comparator.comparing(ReadOnlyTxId::getReadTimestamp).thenComparing(ReadOnlyTxId::getTxId)
+    );
 
-    /** Lower bound (exclusive) the timestamps for starting new read-only transactions, {@code null} means there is no lower bound. */
-    private final AtomicReference<HybridTimestamp> lowerBoundTsToStartNewReadOnlyTx = new AtomicReference<>();
+    /**
+     * Low watermark, does not allow creating read-only transactions less than or equal to this value, {@code null} means it has never been
+     * updated yet.
+     */
+    private final AtomicReference<HybridTimestamp> lowWatermark = new AtomicReference<>();
+
+    /** Lock to update and read the low watermark. */
+    private final ReadWriteLock lowWatermarkReadWriteLock = new ReentrantReadWriteLock();
 
     /**
      * The constructor.
@@ -101,23 +111,29 @@ public class TxManagerImpl implements TxManager {
 
         HybridTimestamp readTimestamp = clock.now();
 
-        readOnlyTxFutureByReadTs.compute(readTimestamp, (timestamp, readOnlyTxFuture) -> {
-            assert readOnlyTxFuture == null : "previous transaction has not completed yet: " + readTimestamp;
+        lowWatermarkReadWriteLock.readLock().lock();
 
-            HybridTimestamp lowerBound = lowerBoundTsToStartNewReadOnlyTx.get();
+        try {
+            HybridTimestamp lowWatermark = this.lowWatermark.get();
 
-            if (lowerBound != null && readTimestamp.compareTo(lowerBound) <= 0) {
-                throw new IgniteInternalException(
-                        TX_READ_ONLY_CREATING_ERR,
-                        "Timestamp read-only transaction must be greater than the lower bound: [txTimestamp={}, lowerBound={}]",
-                        readTimestamp, lowerBound
-                );
-            }
+            readOnlyTxFutureById.compute(new ReadOnlyTxId(readTimestamp, txId), (readOnlyTxId, readOnlyTxFuture) -> {
+                assert readOnlyTxFuture == null : "previous transaction has not completed yet: " + readOnlyTxId;
 
-            return new CompletableFuture<>();
-        });
+                if (lowWatermark != null && readTimestamp.compareTo(lowWatermark) <= 0) {
+                    throw new IgniteInternalException(
+                            TX_READ_ONLY_TO_OLD_ERR,
+                            "Timestamp read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
+                            readTimestamp, lowWatermark
+                    );
+                }
 
-        return new ReadOnlyTransactionImpl(this, txId, readTimestamp);
+                return new CompletableFuture<>();
+            });
+
+            return new ReadOnlyTransactionImpl(this, txId, readTimestamp);
+        } finally {
+            lowWatermarkReadWriteLock.readLock().unlock();
+        }
     }
 
     @Override
@@ -210,22 +226,41 @@ public class TxManagerImpl implements TxManager {
         return lockManager;
     }
 
-    void completeReadOnlyTransactionFuture(HybridTimestamp txTimestamp) {
-        CompletableFuture<Void> readOnlyTxFuture = readOnlyTxFutureByReadTs.remove(txTimestamp);
+    CompletableFuture<Void> completeReadOnlyTransactionFuture(ReadOnlyTxId readOnlyTxId) {
+        CompletableFuture<Void> readOnlyTxFuture = readOnlyTxFutureById.remove(readOnlyTxId);
 
-        assert readOnlyTxFuture != null : txTimestamp;
+        assert readOnlyTxFuture != null : readOnlyTxId;
 
         readOnlyTxFuture.complete(null);
+
+        return readOnlyTxFuture;
     }
 
     @Override
-    public void updateLowerBoundToStartNewReadOnlyTransaction(@Nullable HybridTimestamp lowerBound) {
-        lowerBoundTsToStartNewReadOnlyTx.set(lowerBound);
+    public void updateLowWatermark(HybridTimestamp newLowWatermark) {
+        lowWatermarkReadWriteLock.writeLock().lock();
+
+        try {
+            lowWatermark.updateAndGet(previousLowWatermark -> {
+                if (previousLowWatermark == null) {
+                    return newLowWatermark;
+                }
+
+                assert newLowWatermark.compareTo(previousLowWatermark) > 0 :
+                        "lower watermark should be growing: [previous=" + previousLowWatermark + ", new=" + newLowWatermark + ']';
+
+                return newLowWatermark;
+            });
+        } finally {
+            lowWatermarkReadWriteLock.writeLock().unlock();
+        }
     }
 
     @Override
-    public CompletableFuture<Void> getFutureAllReadOnlyTransactions(HybridTimestamp timestamp) {
-        List<CompletableFuture<Void>> readOnlyTxFutures = List.copyOf(readOnlyTxFutureByReadTs.headMap(timestamp, true).values());
+    public CompletableFuture<Void> getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(HybridTimestamp timestamp) {
+        ReadOnlyTxId upperBound = new ReadOnlyTxId(timestamp, new UUID(Long.MAX_VALUE, Long.MAX_VALUE));
+
+        List<CompletableFuture<Void>> readOnlyTxFutures = List.copyOf(readOnlyTxFutureById.headMap(upperBound, true).values());
 
         return allOf(readOnlyTxFutures.toArray(CompletableFuture[]::new));
     }

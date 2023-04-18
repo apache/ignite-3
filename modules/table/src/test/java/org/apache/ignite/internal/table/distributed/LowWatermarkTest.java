@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.table.distributed.LowWatermarkManager.LOW_WATERMARK_VAULT_KEY;
+import static org.apache.ignite.internal.table.distributed.LowWatermark.LOW_WATERMARK_VAULT_KEY;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
@@ -57,10 +57,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 
 /**
- * For {@link LowWatermarkManager} testing.
+ * For {@link LowWatermark} testing.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class LowWatermarkManagerTest {
+public class LowWatermarkTest {
     @InjectConfiguration
     private LowWatermarkConfiguration lowWatermarkConfig;
 
@@ -72,16 +72,16 @@ public class LowWatermarkManagerTest {
 
     private final MvGc mvGc = mock(MvGc.class);
 
-    private LowWatermarkManager lowWatermarkManager;
+    private LowWatermark lowWatermark;
 
     @BeforeEach
     void setUp() {
-        lowWatermarkManager = new LowWatermarkManager("test", lowWatermarkConfig, clock, txManager, vaultManager, mvGc);
+        lowWatermark = new LowWatermark("test", lowWatermarkConfig, clock, txManager, vaultManager, mvGc);
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        lowWatermarkManager.close();
+        lowWatermark.close();
     }
 
     @Test
@@ -89,10 +89,10 @@ public class LowWatermarkManagerTest {
         // Let's check the start with no low watermark in vault.
         when(vaultManager.get(LOW_WATERMARK_VAULT_KEY)).thenReturn(completedFuture(null));
 
-        lowWatermarkManager.start();
+        lowWatermark.start();
 
         verify(mvGc, never()).updateLowWatermark(any(HybridTimestamp.class));
-        assertNull(lowWatermarkManager.getLowWatermark());
+        assertNull(lowWatermark.getLowWatermark());
 
         // Let's check the start with an existing low watermark in vault.
         HybridTimestamp lowWatermark = new HybridTimestamp(10, 10);
@@ -100,10 +100,10 @@ public class LowWatermarkManagerTest {
         when(vaultManager.get(LOW_WATERMARK_VAULT_KEY))
                 .thenReturn(completedFuture(new VaultEntry(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(lowWatermark))));
 
-        lowWatermarkManager.start();
+        this.lowWatermark.start();
 
         verify(mvGc).updateLowWatermark(lowWatermark);
-        assertEquals(lowWatermark, lowWatermarkManager.getLowWatermark());
+        assertEquals(lowWatermark, this.lowWatermark.getLowWatermark());
     }
 
     @Test
@@ -112,7 +112,7 @@ public class LowWatermarkManagerTest {
 
         assertThat(lowWatermarkConfig.dataAvailabilityTime().update(100L), willSucceedFast());
 
-        HybridTimestamp newLowWatermarkCandidate = lowWatermarkManager.createNewLowWatermarkCandidate();
+        HybridTimestamp newLowWatermarkCandidate = lowWatermark.createNewLowWatermarkCandidate();
 
         assertThat(newLowWatermarkCandidate.getPhysical(), lessThanOrEqualTo(1_000L - 100));
         assertEquals(500L, newLowWatermarkCandidate.getLogical());
@@ -124,25 +124,25 @@ public class LowWatermarkManagerTest {
 
         when(clock.now()).thenReturn(now);
 
-        when(txManager.getFutureAllReadOnlyTransactions(any(HybridTimestamp.class))).thenReturn(completedFuture(null));
+        when(txManager.getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(any(HybridTimestamp.class))).thenReturn(completedFuture(null));
 
         when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
 
-        // Made a predictable candidate to make it easier to test.
-        HybridTimestamp newLowWatermarkCandidate = lowWatermarkManager.createNewLowWatermarkCandidate();
+        // Make a predictable candidate to make it easier to test.
+        HybridTimestamp newLowWatermarkCandidate = lowWatermark.createNewLowWatermarkCandidate();
 
-        lowWatermarkManager.updateLowWatermark();
+        lowWatermark.updateLowWatermark();
 
         InOrder inOrder = inOrder(txManager, vaultManager, mvGc);
 
-        inOrder.verify(txManager).updateLowerBoundToStartNewReadOnlyTransaction(newLowWatermarkCandidate);
-        inOrder.verify(txManager).getFutureAllReadOnlyTransactions(newLowWatermarkCandidate);
+        inOrder.verify(txManager).updateLowWatermark(newLowWatermarkCandidate);
+        inOrder.verify(txManager).getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(newLowWatermarkCandidate);
 
         inOrder.verify(vaultManager).put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(newLowWatermarkCandidate));
 
         inOrder.verify(mvGc).updateLowWatermark(newLowWatermarkCandidate);
 
-        assertEquals(newLowWatermarkCandidate, lowWatermarkManager.getLowWatermark());
+        assertEquals(newLowWatermarkCandidate, lowWatermark.getLowWatermark());
     }
 
     /**
@@ -160,27 +160,27 @@ public class LowWatermarkManagerTest {
         CompletableFuture<Void> finishGetAllReadOnlyTransactions = new CompletableFuture<>();
 
         try {
-            when(txManager.getFutureAllReadOnlyTransactions(any(HybridTimestamp.class))).then(invocation -> {
+            when(txManager.getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(any(HybridTimestamp.class))).then(invocation -> {
                 startGetAllReadOnlyTransactions.countDown();
 
                 return finishGetAllReadOnlyTransactions;
             });
 
-            lowWatermarkManager.start();
+            lowWatermark.start();
 
             // Let's check that it hasn't been called more than once in parallel.
             assertFalse(startGetAllReadOnlyTransactions.await(1, TimeUnit.SECONDS));
 
             // Let's check that it was called only once.
             assertEquals(1, startGetAllReadOnlyTransactions.getCount());
-            verify(txManager).getFutureAllReadOnlyTransactions(any(HybridTimestamp.class));
+            verify(txManager).getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(any(HybridTimestamp.class));
 
             finishGetAllReadOnlyTransactions.complete(null);
 
             // Let's make sure that the second time we also went to update the low watermark.
             assertTrue(startGetAllReadOnlyTransactions.await(1, TimeUnit.SECONDS));
 
-            assertNotNull(lowWatermarkManager.getLowWatermark());
+            assertNotNull(lowWatermark.getLowWatermark());
         } finally {
             finishGetAllReadOnlyTransactions.complete(null);
         }

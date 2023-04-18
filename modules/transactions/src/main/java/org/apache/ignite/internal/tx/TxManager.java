@@ -48,8 +48,8 @@ public interface TxManager extends IgniteComponent {
      * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
      *      Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
      * @return The started transaction.
-     * @throws IgniteInternalException with {@link Transactions#TX_READ_ONLY_CREATING_ERR} if there is an error when creating a read-only
-     *      transaction.
+     * @throws IgniteInternalException with {@link Transactions#TX_READ_ONLY_TO_OLD_ERR} if transaction much older than the data available
+     *      in the tables.
      */
     InternalTransaction begin(boolean readOnly);
 
@@ -130,18 +130,18 @@ public interface TxManager extends IgniteComponent {
     int finished();
 
     /**
-     * Updates the lower bound (exclusive) of the timestamp to start new read-only transactions.
+     * Updates the low watermark, the value is expected to only increase.
      *
-     * <p>All new read-only transactions will have to start strictly greater this lower bound.
+     * <p>All new read-only transactions will need to be created with a read time greater than this value.
      *
-     * @param lowerBound New lower bound, {@code null} if there is no lower bound.
+     * @param newLowWatermark New low watermark.
      */
-    void updateLowerBoundToStartNewReadOnlyTransaction(@Nullable HybridTimestamp lowerBound);
+    void updateLowWatermark(HybridTimestamp newLowWatermark);
 
     /**
-     * Returns the future of all read-only transactions up to the timestamp.
+     * Returns the future of all read-only transactions witch less or equals the timestamp.
      *
      * @param timestamp Timestamp.
      */
-    CompletableFuture<Void> getFutureAllReadOnlyTransactions(HybridTimestamp timestamp);
+    CompletableFuture<Void> getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(HybridTimestamp timestamp);
 }

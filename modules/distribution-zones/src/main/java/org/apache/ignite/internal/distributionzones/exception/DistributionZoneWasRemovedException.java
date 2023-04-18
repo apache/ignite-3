@@ -32,7 +32,7 @@ public class DistributionZoneWasRemovedException extends IgniteInternalException
      * @param zoneId Zone id.
      */
     public DistributionZoneWasRemovedException(int zoneId) {
-        super(ZONE_NOT_FOUND_ERR, "Distribution zone is not found [zoneId=" + zoneId + ']', null);
+        super(ZONE_NOT_FOUND_ERR, "Distribution zone is not found [zoneId=" + zoneId + ']');
     }
 
     /**

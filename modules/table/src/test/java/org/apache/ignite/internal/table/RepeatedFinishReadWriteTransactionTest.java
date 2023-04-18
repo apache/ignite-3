@@ -284,12 +284,12 @@ public class RepeatedFinishReadWriteTransactionTest {
         }
 
         @Override
-        public void updateLowerBoundToStartNewReadOnlyTransaction(@Nullable HybridTimestamp lowerBound) {
+        public void updateLowWatermark(HybridTimestamp newLowWatermark) {
         }
 
         @Override
-        public CompletableFuture<Void> getFutureAllReadOnlyTransactions(HybridTimestamp timestamp) {
-            return null;
+        public CompletableFuture<Void> getFutureAllReadOnlyTransactionsWhichLessOrEqualTo(HybridTimestamp timestamp) {
+            return completedFuture(null);
         }
     }
 }
