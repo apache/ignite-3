@@ -557,7 +557,7 @@ public class PlatformTestNodeRunner {
         @Override
         public Void execute(JobExecutionContext context, Object... args) {
             Boolean enable = (Boolean) args[0];
-            IgniteImpl ignite = (IgniteImpl) context.ignite();
+            @SuppressWarnings("resource") IgniteImpl ignite = (IgniteImpl) context.ignite();
 
             ignite.clusterConfiguration().change(
                     root -> root.changeRoot(SecurityConfiguration.KEY).changeAuthentication(
