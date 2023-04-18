@@ -232,7 +232,7 @@ public class LeaseUpdater {
                             }
 
                             // New lease is granting.
-                            writeNewLeasInMetaStorage(grpId, lease, candidate);
+                            writeNewLeaseInMetaStorage(grpId, lease, candidate);
                         }
                     }
 
@@ -249,7 +249,7 @@ public class LeaseUpdater {
                         // leaseholders at all.
                         if (isLeaseOutdated(lease)) {
                             // New lease is granting.
-                            writeNewLeasInMetaStorage(grpId, lease, candidate);
+                            writeNewLeaseInMetaStorage(grpId, lease, candidate);
                         } else if (lease.isAccepted() && candidate.equals(lease.getLeaseholder())) {
                             // Old lease is renewing.
                             prolongLeaseInMetaStorage(grpId, lease);
@@ -272,7 +272,7 @@ public class LeaseUpdater {
          * @param lease Old lease to apply CAS in Meta storage.
          * @param candidate Lease candidate.
          */
-        private void writeNewLeasInMetaStorage(ReplicationGroupId grpId, Lease lease, ClusterNode candidate) {
+        private void writeNewLeaseInMetaStorage(ReplicationGroupId grpId, Lease lease, ClusterNode candidate) {
             var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
 
             HybridTimestamp startTs = clock.now();
