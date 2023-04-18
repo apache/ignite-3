@@ -103,9 +103,19 @@ public class BasicAuthenticatorTests : IgniteTestsBase
         using var client = await IgniteClient.StartAsync(GetConfig(_authnEnabled));
         var nodes = await client.GetClusterNodesAsync();
 
-        // As a result of this call, the client will be disconnected from the server due to authn config change.
-        Assert.ThrowsAsync<IgniteClientConnectionException>(
-            async () => await client.Compute.ExecuteAsync<object>(nodes, EnableAuthenticationJob, enable ? 1 : 0));
+        try
+        {
+            await client.Compute.ExecuteAsync<object>(nodes, EnableAuthenticationJob, enable ? 1 : 0);
+        }
+        catch (IgniteClientConnectionException)
+        {
+            // Ignore.
+            // As a result of this call, the client may be disconnected from the server due to authn config change.
+        }
+
+        // Wait for the server to apply the configuration change and drop the client connection.
+        // ReSharper disable once AccessToDisposedClosure
+        TestUtils.WaitForCondition(() => client.GetConnections().Count == 0, 3000);
 
         _authnEnabled = enable;
     }
