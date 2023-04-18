@@ -39,6 +39,10 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientDataType;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.configuration.AuthenticationConfigurationSchema;
+import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
+import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -553,7 +557,20 @@ public class PlatformTestNodeRunner {
         @Override
         public Void execute(JobExecutionContext context, Object... args) {
             Boolean enable = (Boolean) args[0];
-            Ignite ignite = context.ignite();
+            IgniteImpl ignite = (IgniteImpl) context.ignite();
+
+            ignite.clusterConfiguration().change(
+                    root -> root.changeRoot(SecurityConfiguration.KEY).changeAuthentication(
+                            change -> {
+                                change.changeEnabled(true);
+                                change.changeProviders().create("basic", authenticationProviderChange -> {
+                                    authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
+                                            .changeUsername("user-1")
+                                            .changePassword("password-1")
+                                            .changeName("basic");
+                                });
+                            }
+                    ));
 
             return null;
         }
