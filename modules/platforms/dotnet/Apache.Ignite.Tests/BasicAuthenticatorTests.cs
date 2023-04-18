@@ -44,17 +44,11 @@ public class BasicAuthenticatorTests : IgniteTestsBase
     {
         await EnableAuthn(true);
 
-        var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await Client.Tables.GetTablesAsync());
+        var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await IgniteClient.StartAsync(GetConfig()));
+        var inner = (AuthenticationException)ex!.InnerException!;
 
-        // TODO
-        // var inner = ((AggregateException)ex!.InnerException!).InnerExceptions;
-        // Assert.AreEqual(2, inner.Count);
-        //
-        // Assert.IsInstanceOf<IgniteClientConnectionException>(inner[0]); // Connection dropped by server on authn config change.
-        // Assert.IsInstanceOf<IgniteClientConnectionException>(inner[1]); // Connection dropped by server on retry with authn failure.
-        //
-        // Assert.IsInstanceOf<AuthenticationException>(inner[1].InnerException);
-        // StringAssert.Contains("Authentication failed", inner[1].InnerException!.Message);
+        StringAssert.Contains("Authentication failed", inner.Message);
+        Assert.AreEqual(ErrorGroups.Authentication.CommonAuthentication, inner.Code);
     }
 
     private async Task EnableAuthn(bool enable)
