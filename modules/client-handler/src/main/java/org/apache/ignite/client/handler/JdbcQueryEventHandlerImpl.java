@@ -422,7 +422,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         private final PropertiesHolder properties = PropertiesHelper.emptyHolder();
 
         private volatile @Nullable SessionId sessionId;
-        private volatile boolean closed;
+        private boolean closed;
         private @Nullable Transaction tx;
 
         JdbcConnectionContext(
@@ -481,10 +481,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
 
         <T> CompletableFuture<T> doInSession(SessionAwareAction<T> action) {
-            if (closed) {
-                return CompletableFuture.failedFuture(new IgniteInternalException(CONNECTION_ERR, "Connection is closed"));
-            }
-
             SessionId potentiallyNotCreatedSessionId = this.sessionId;
 
             if (potentiallyNotCreatedSessionId == null) {
@@ -514,6 +510,10 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         private SessionId recreateSession(@Nullable SessionId expectedSessionId) {
             synchronized (mux) {
+                if (closed) {
+                    throw new IgniteInternalException(CONNECTION_ERR, "Connection is closed");
+                }
+
                 SessionId actualSessionId = sessionId;
 
                 // session was recreated by another thread
