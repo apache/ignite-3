@@ -124,7 +124,7 @@ public:
      *
      * @return Authenticator
      */
-    [[nodiscard]] std::shared_ptr<ignite_client_authenticator> get_authenticator() {
+    [[nodiscard]] std::shared_ptr<ignite_client_authenticator> get_authenticator() const {
         return m_authenticator;
     }
 
