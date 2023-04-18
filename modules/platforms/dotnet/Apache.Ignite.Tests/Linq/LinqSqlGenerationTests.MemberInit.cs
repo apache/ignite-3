@@ -17,11 +17,8 @@
 
 namespace Apache.Ignite.Tests.Linq;
 
-using System.Collections.Generic;
 using System.Linq;
-using Internal.Linq;
 using NUnit.Framework;
-using Table;
 
 /// <summary>
 /// Tests MemberInit.
@@ -43,6 +40,7 @@ public partial class LinqSqlGenerationTests
         "select _T0.KEY, _T0.VAL, _T0.VAL as VAL1 from PUBLIC.tbl1 as _T0",
         q => q.Select(p => new CustomProjectionRecord(p.Key, p.Val) { Val1 = p.Val }).ToList());
 
+    // ReSharper disable UnusedAutoPropertyAccessor.Local
     private class CustomProjection
     {
         public long Key { get; set; }
@@ -50,6 +48,7 @@ public partial class LinqSqlGenerationTests
         public string? Value { get; set; }
     }
 
+    // ReSharper disable NotAccessedPositionalProperty.Local
     private record CustomProjectionRecord(long Key, string? Val)
     {
         public string? Val1 { get; set; }
