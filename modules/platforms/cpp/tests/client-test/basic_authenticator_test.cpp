@@ -21,6 +21,7 @@
 #include <ignite/client/ignite_client.h>
 #include <ignite/client/ignite_client_configuration.h>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -38,6 +39,13 @@ public:
 
     /** Correct password */
     inline static const std::string CORRECT_PASSWORD{"password-1"};
+
+    /**
+     * Tear down.
+     */
+    void TearDown() override {
+        set_authentication_enabled(false);
+    }
 
     /**
      * Get default configuration.
@@ -77,19 +85,79 @@ public:
     static ignite_client_configuration get_configuration_correct() {
         return get_configuration(CORRECT_USERNAME, CORRECT_PASSWORD);
     }
+
+    /**
+     * Change cluster authentication state.
+     *
+     * @param enable Authentication enabled.
+     */
+    void set_authentication_enabled(bool enable) {
+        if (m_auth_enabled == enable)
+            return;
+
+        ignite_client_configuration cfg = m_auth_enabled ? get_configuration_correct() : get_configuration();
+
+        try {
+            auto client = ignite_client::start(cfg, std::chrono::seconds(30));
+            auto nodes = client.get_cluster_nodes();
+            client.get_compute().execute(nodes, ENABLE_AUTHN_JOB, {enable ? 1 : 0});
+        } catch (const ignite_error&) {
+            // Ignore.
+            // As a result of this call, the client may be disconnected from the server due to authn config change.
+        }
+
+        // Wait for the server to apply the configuration change and drop the client connection.
+        std::this_thread::sleep_for(std::chrono::seconds(3));
+
+        m_auth_enabled = enable;
+    }
+
+private:
+    /** Authentication enabled. */
+    bool m_auth_enabled{false};
 };
 
+TEST_F(client_test, basic_authentication_disabled_on_server) {
+    set_authentication_enabled(false);
+    EXPECT_THROW(
+        {
+            try {
+                (void) ignite_client::start(get_configuration_correct(), std::chrono::seconds(30));
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Authentication failed"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(client_test, basic_authentication_disabled_on_client) {
+    set_authentication_enabled(true);
+    EXPECT_THROW(
+        {
+            try {
+                (void) ignite_client::start(get_configuration(), std::chrono::seconds(30));
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Authentication failed"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
 TEST_F(client_test, basic_authentication_success) {
+    set_authentication_enabled(true);
     auto client = ignite_client::start(get_configuration_correct(), std::chrono::seconds(30));
 }
 
 TEST_F(client_test, basic_authentication_wrong_username) {
+    set_authentication_enabled(true);
     EXPECT_THROW(
         {
             try {
                 (void) ignite_client::start(get_configuration("Lorem Ipsum", "bla"), std::chrono::seconds(30));
             } catch (const ignite_error &e) {
-                EXPECT_STREQ("Key tuple can not be empty", e.what());
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Authentication failed"));
                 throw;
             }
         },
@@ -97,12 +165,13 @@ TEST_F(client_test, basic_authentication_wrong_username) {
 }
 
 TEST_F(client_test, basic_authentication_wrong_password) {
+    set_authentication_enabled(true);
     EXPECT_THROW(
         {
             try {
                 (void) ignite_client::start(get_configuration(CORRECT_USERNAME, "wrong"), std::chrono::seconds(30));
             } catch (const ignite_error &e) {
-                EXPECT_STREQ("Key tuple can not be empty", e.what());
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Authentication failed"));
                 throw;
             }
         },
