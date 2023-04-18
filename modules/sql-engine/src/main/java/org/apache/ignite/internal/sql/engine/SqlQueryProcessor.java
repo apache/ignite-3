@@ -592,7 +592,13 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     /** Performs additional validation of a parsed statement. **/
-    private static void validateParsedStatement(QueryContext context, InternalTransaction outerTx, ParseResult parseResult, SqlNode node, Object[] params) {
+    private static void validateParsedStatement(
+            QueryContext context,
+            InternalTransaction outerTx,
+            ParseResult parseResult,
+            SqlNode node,
+            Object[] params
+    ) {
         Set<SqlQueryType> allowedTypes = context.allowedQueryTypes();
         SqlQueryType queryType = Commons.getQueryType(node);
 
