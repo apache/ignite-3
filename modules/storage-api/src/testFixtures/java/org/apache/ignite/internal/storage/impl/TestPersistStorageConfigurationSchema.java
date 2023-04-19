@@ -15,21 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration.storage;
+package org.apache.ignite.internal.storage.impl;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
 
 /**
- * An annotation to check that the {@link DataStorageConfigurationSchema data storage} is known, i.e. its {@link
- * DataStorageConfigurationSchema#name name} is not {@link UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE "unknown"}.
- *
- * <p>Can be applied to a {@link ConfigValue}.
+ * Test persistent storage configuration to fix the configuration loading issues in the test modules,
+ * where the real 'aipersist' is not available.
+ * This issue appears during the loading configuration for default distribution zone with the default data storage configuration.
  */
-@Target(ElementType.FIELD)
-@Retention(RetentionPolicy.RUNTIME)
-public @interface KnownDataStorage {
+@PolymorphicConfigInstance("aipersist")
+public class TestPersistStorageConfigurationSchema extends DataStorageConfigurationSchema {
+    /** Data region. */
+    @Value(hasDefault = true)
+    public String dataRegion = "none";
 }

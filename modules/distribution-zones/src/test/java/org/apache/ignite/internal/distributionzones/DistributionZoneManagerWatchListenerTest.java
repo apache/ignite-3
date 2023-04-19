@@ -71,6 +71,7 @@ import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -113,7 +114,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
                 Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
-                List.of()
+                List.of(TestPersistStorageConfigurationSchema.class)
         );
 
         zonesConfiguration = clusterCfgMgr.configurationRegistry()

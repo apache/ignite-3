@@ -15,17 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration.storage;
-
-import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
-
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 /**
- * Configuration schema of an unknown data storage.
+ * Enumerates the options for CREATE ZONE and ALTER ZONE statements.
  */
-@PolymorphicConfigInstance(UNKNOWN_DATA_STORAGE)
-public class UnknownDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
-    /** Default data storage name. */
-    public static final String UNKNOWN_DATA_STORAGE = "unknown";
+public enum ZoneOptionEnum {
+    /** Number of partitions. */
+    PARTITIONS,
+
+    /** Number of replicas. */
+    REPLICAS,
+
+    /** Affinity function name. */
+    AFFINITY_FUNCTION,
+
+    /** An expression to filter data nodes. */
+    DATA_NODES_FILTER,
+
+    /** Data nodes auto adjust timeout. */
+    DATA_NODES_AUTO_ADJUST,
+
+    /** Data nodes scale up auto adjust timeout. */
+    DATA_NODES_AUTO_ADJUST_SCALE_UP,
+
+    /** Data nodes scale down auto adjust timeout. */
+    DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
+
+    /** Data storage engine. */
+    DATA_STORAGE_ENGINE
 }
