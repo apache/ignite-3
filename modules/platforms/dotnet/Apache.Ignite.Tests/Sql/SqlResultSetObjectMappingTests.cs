@@ -115,6 +115,16 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestSelectUuid()
+    {
+        var resultSet = await Client.Sql.ExecuteAsync<Guid>(null, "select MAX(UUID) from TBL_ALL_COLUMNS_SQL WHERE UUID <> ?", Guid.Empty);
+        var rows = await resultSet.ToListAsync();
+
+        Assert.AreEqual(1, rows.Count);
+        Assert.AreEqual(new Guid(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, Count), rows[0]);
+    }
+
+    [Test]
     public async Task TestSelectNullIntoNonNullablePrimitiveTypeThrows()
     {
         var resultSet = await Client.Sql.ExecuteAsync<int>(null, "select INT32 from TBL_ALL_COLUMNS_SQL");
