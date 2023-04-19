@@ -66,7 +66,19 @@ import org.jetbrains.annotations.Nullable;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class TypeUtils {
-    private static final TypeUtils INSTANCE = new TypeUtils();
+    private TypeUtils() {
+        supportedParamClasses = Arrays.stream(ColumnType.values()).map(ColumnType::columnTypeToClass).collect(Collectors.toSet());
+
+        supportedParamClasses.add(boolean.class);
+        supportedParamClasses.add(byte.class);
+        supportedParamClasses.add(short.class);
+        supportedParamClasses.add(int.class);
+        supportedParamClasses.add(long.class);
+        supportedParamClasses.add(float.class);
+        supportedParamClasses.add(double.class);
+        supportedParamClasses.add(char[].class);
+        supportedParamClasses.add(char.class);
+    }
 
     private static final Set<SqlTypeName> CONVERTABLE_TYPES = EnumSet.of(
             SqlTypeName.DATE,
@@ -91,31 +103,19 @@ public class TypeUtils {
             SqlTypeName.INTERVAL_YEAR_MONTH
     );
 
-    private Set<Class<?>> correctParamClasses;
+    private Set<Class<?>> supportedParamClasses;
 
-    {
-        {
-            correctParamClasses = Arrays.stream(ColumnType.values()).map(ColumnType::columnTypeToClass).collect(Collectors.toSet());
-
-            correctParamClasses.add(boolean.class);
-            correctParamClasses.add(byte.class);
-            correctParamClasses.add(short.class);
-            correctParamClasses.add(int.class);
-            correctParamClasses.add(long.class);
-            correctParamClasses.add(float.class);
-            correctParamClasses.add(double.class);
-            correctParamClasses.add(char[].class);
-            correctParamClasses.add(char.class);
-        }
+    private static class LazyHolder {
+        static final TypeUtils INSTANCE = new TypeUtils();
     }
 
     public static TypeUtils instance() {
-        return INSTANCE;
+        return LazyHolder.INSTANCE;
     }
 
     /** Return {@code true} if supplied object is suitable as dynamic parameter. */
     public boolean correctParamInstance(Object param) {
-        return param == null || correctParamClasses.contains(param.getClass());
+        return param == null || supportedParamClasses.contains(param.getClass());
     }
 
     /**
