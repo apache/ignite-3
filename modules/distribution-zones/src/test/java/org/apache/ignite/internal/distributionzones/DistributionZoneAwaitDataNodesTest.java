@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -46,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -57,6 +59,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfigurationSchema;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneWasRemovedException;
@@ -529,7 +532,10 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testInitializedDataNodesOnZoneManagerStart() throws Exception {
-        Set<String> dataNodes = Set.of("node0", "node1");
+        Set<String> dataNodes0 = Set.of("node0", "node1");
+
+        Set<NodeWithAttributes> dataNodes = Set.of(new NodeWithAttributes("node0", emptyMap()),
+                new NodeWithAttributes("node1", emptyMap()));
 
         Map<ByteArray, byte[]> valEntries = new HashMap<>();
 
@@ -547,7 +553,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
         startZoneManager(10);
 
-        assertEquals(dataNodes, distributionZoneManager.topologyVersionedDataNodes(DEFAULT_ZONE_ID, 2)
+        assertEquals(dataNodes0, distributionZoneManager.topologyVersionedDataNodes(DEFAULT_ZONE_ID, 2)
                 .get(3, SECONDS));
     }
 
@@ -564,10 +570,14 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
     }
 
     private void setLogicalTopologyInMetaStorage(Set<String> nodes, long topVer) {
+        Set<NodeWithAttributes> nodesWithAttributes = nodes.stream()
+                .map(n -> new NodeWithAttributes(n, emptyMap()))
+                .collect(Collectors.toSet());
+
         CompletableFuture<Boolean> invokeFuture = metaStorageManager.invoke(
                 Conditions.exists(zonesLogicalTopologyKey()),
                 List.of(
-                        Operations.put(zonesLogicalTopologyKey(), toBytes(nodes)),
+                        Operations.put(zonesLogicalTopologyKey(), toBytes(nodesWithAttributes)),
                         Operations.put(zonesLogicalTopologyVersionKey(), longToBytes(topVer))
                 ),
                 List.of(Operations.noop())

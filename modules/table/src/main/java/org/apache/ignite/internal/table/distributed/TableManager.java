@@ -85,6 +85,7 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -1851,7 +1852,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
 
-                    Set<String> dataNodes = dataNodes(ByteUtils.fromBytes(dataNodesBytes));
+                    Set<String> dataNodes = dataNodes(ByteUtils.fromBytes(dataNodesBytes)).stream()
+                            .map(NodeWithAttributes::nodeName)
+                            .collect(Collectors.toSet());
 
                     for (int i = 0; i < tables.value().size(); i++) {
                         TableView tableView = tables.value().get(i);

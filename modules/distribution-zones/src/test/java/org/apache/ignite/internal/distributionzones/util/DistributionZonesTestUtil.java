@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.distributionzones.util;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,6 +35,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,10 +44,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetCommand;
 import org.apache.ignite.internal.metastorage.command.HybridTimestampMessage;
@@ -60,9 +68,10 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.vault.VaultEntry;
+import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -90,7 +99,30 @@ public class DistributionZonesTestUtil {
                         return clusterNodes == null;
                     }
 
-                    Set<String> res = DistributionZonesUtil.dataNodes(ByteUtils.fromBytes(dataNodes));
+                    Set<String> res = DistributionZonesUtil.dataNodes(ByteUtils.fromBytes(dataNodes)).stream()
+                            .map(NodeWithAttributes::nodeName)
+                            .collect(Collectors.toSet());
+
+                    return res.equals(clusterNodes);
+                },
+                2000
+        ));
+    }
+
+    public static void assertDataNodesForZoneWithAttributes(
+            int zoneId,
+            @Nullable Set<NodeWithAttributes> clusterNodes,
+            KeyValueStorage keyValueStorage
+    ) throws InterruptedException {
+        assertTrue(waitForCondition(
+                () -> {
+                    byte[] dataNodes = keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value();
+
+                    if (dataNodes == null) {
+                        return clusterNodes == null;
+                    }
+
+                    Set<NodeWithAttributes> res = DistributionZonesUtil.dataNodes(ByteUtils.fromBytes(dataNodes));
 
                     return res.equals(clusterNodes);
                 },
@@ -173,7 +205,7 @@ public class DistributionZonesTestUtil {
     ) throws InterruptedException {
         byte[] nodes = clusterNodes == null
                 ? null
-                : toBytes(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
+                : toBytes(clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.nodeAttributes())).collect(Collectors.toSet()));
 
         assertTrue(waitForCondition(() -> Arrays.equals(keyValueStorage.get(zonesLogicalTopologyKey().bytes()).value(), nodes), 1000));
     }
@@ -336,5 +368,33 @@ public class DistributionZonesTestUtil {
                     entry -> new EntryImpl(entry.key(), entry.value(), entry.revision(), entry.updateCounter())
             );
         }).when(metaStorageManager).get(any());
+    }
+
+    public static void mockVaultZonesLogicalTopologyKey(Set<LogicalNode> nodes, VaultManager vaultMgr) {
+        Set<NodeWithAttributes> nodesWithAttributes = nodes.stream()
+                .map(n -> new NodeWithAttributes(n.name(), n.nodeAttributes()))
+                .collect(Collectors.toSet());
+
+        byte[] newLogicalTopology = toBytes(nodesWithAttributes);
+
+        when(vaultMgr.get(zonesLogicalTopologyKey()))
+                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), newLogicalTopology)));
+    }
+
+    public static void watchListenerOnUpdate(Set<String> nodes, long rev, WatchListener topologyWatchListener) {
+        byte[] newTopology = toBytes(nodes.stream()
+                .map(n -> new NodeWithAttributes(n, Collections.emptyMap()))
+                .collect(Collectors.toSet()));
+        byte[] newTopVer = longToBytes(1L);
+
+        Entry topology = new EntryImpl(zonesLogicalTopologyKey().bytes(), newTopology, rev, 1);
+        Entry topVer = new EntryImpl(zonesLogicalTopologyVersionKey().bytes(), newTopVer, rev, 1);
+
+        EntryEvent topologyEvent = new EntryEvent(null, topology);
+        EntryEvent topVerEvent = new EntryEvent(null, topVer);
+
+        WatchEvent evt = new WatchEvent(List.of(topologyEvent, topVerEvent), rev);
+
+        topologyWatchListener.onUpdate(evt);
     }
 }

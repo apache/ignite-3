@@ -29,6 +29,8 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZone;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.mockMetaStorageListener;
+import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.mockVaultZonesLogicalTopologyKey;
+import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.watchListenerOnUpdate;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -46,6 +48,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -54,8 +57,10 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
@@ -75,6 +80,8 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -199,7 +206,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
     @Test
     void testDataNodesOfDefaultZoneUpdatedOnWatchListenerEvent() throws Exception {
-        mockVaultZonesLogicalTopologyKey(Set.of());
+        mockVaultZonesLogicalTopologyKey(Set.of(), vaultMgr);
 
         mockCmgLocalNodes();
 
@@ -216,7 +223,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         Set<String> nodes = Set.of("node1", "node2");
 
-        watchListenerOnUpdate(nodes, 2);
+        watchListenerOnUpdate(nodes, 2, topologyWatchListener);
 
         verify(keyValueStorage, timeout(1000).times(3)).invoke(any());
 
@@ -226,7 +233,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         nodes = Set.of("node1", "node3");
 
-        watchListenerOnUpdate(nodes, 3);
+        watchListenerOnUpdate(nodes, 3, topologyWatchListener);
 
         verify(keyValueStorage, timeout(1000).times(4)).invoke(any());
 
@@ -239,7 +246,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         nodes = Collections.emptySet();
 
-        watchListenerOnUpdate(nodes, 4);
+        watchListenerOnUpdate(nodes, 4, topologyWatchListener);
 
         verify(keyValueStorage, timeout(1000).times(4)).invoke(any());
 
@@ -251,7 +258,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
     @Test
     void testStaleWatchEvent() throws Exception {
-        mockVaultZonesLogicalTopologyKey(Set.of());
+        mockVaultZonesLogicalTopologyKey(Set.of(), vaultMgr);
 
         mockCmgLocalNodes();
 
@@ -268,7 +275,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         Set<String> nodes = Set.of("node1", "node2");
 
-        watchListenerOnUpdate(nodes, revision);
+        watchListenerOnUpdate(nodes, revision, topologyWatchListener);
 
         // two invokes on start, and invoke for update scale up won't be triggered, because revision == zoneScaleUpChangeTriggerKey
         verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
@@ -282,9 +289,12 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         keyValueStorage.put(zonesChangeTriggerKey(DEFAULT_ZONE_ID).bytes(), longToBytes(revision));
 
-        Set<String> nodes = Set.of("node1", "node2");
+        Set<LogicalNode> nodes = Set.of(
+                new LogicalNode(new ClusterNode("node1", "node1", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap()),
+                new LogicalNode(new ClusterNode("node2", "node2", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap())
+        );
 
-        mockVaultZonesLogicalTopologyKey(nodes);
+        mockVaultZonesLogicalTopologyKey(nodes, vaultMgr);
 
         mockVaultAppliedRevision(revision);
 
@@ -301,9 +311,12 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     void testDataNodesUpdatedOnZoneManagerStart() throws InterruptedException {
         mockVaultAppliedRevision(2);
 
-        Set<String> nodes = Set.of("node1", "node2");
+        Set<LogicalNode> nodes = Set.of(
+                new LogicalNode(new ClusterNode("node1", "node1", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap()),
+                new LogicalNode(new ClusterNode("node2", "node2", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap())
+        );
 
-        mockVaultZonesLogicalTopologyKey(nodes);
+        mockVaultZonesLogicalTopologyKey(nodes, vaultMgr);
 
         mockCmgLocalNodes();
 
@@ -311,7 +324,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
 
-        assertDataNodesForZone(DEFAULT_ZONE_ID, nodes, keyValueStorage);
+        assertDataNodesForZone(DEFAULT_ZONE_ID, nodes.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
     }
 
     @Test
@@ -328,28 +341,6 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         assertNull(keyValueStorage.get(zoneDataNodesKey(DEFAULT_ZONE_ID).bytes()).value());
         assertNull(keyValueStorage.get(zoneDataNodesKey(1).bytes()).value());
-    }
-
-    private void mockVaultZonesLogicalTopologyKey(Set<String> nodes) {
-        byte[] newLogicalTopology = toBytes(nodes);
-
-        when(vaultMgr.get(zonesLogicalTopologyKey()))
-                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), newLogicalTopology)));
-    }
-
-    private void watchListenerOnUpdate(Set<String> nodes, long rev) {
-        byte[] newTopology = toBytes(nodes);
-        byte[] newTopVer = longToBytes(1L);
-
-        Entry topology = new EntryImpl(zonesLogicalTopologyKey().bytes(), newTopology, rev, 1);
-        Entry topVer = new EntryImpl(zonesLogicalTopologyVersionKey().bytes(), newTopVer, rev, 1);
-
-        EntryEvent topologyEvent = new EntryEvent(null, topology);
-        EntryEvent topVerEvent = new EntryEvent(null, topVer);
-
-        WatchEvent evt = new WatchEvent(List.of(topologyEvent, topVerEvent), rev);
-
-        topologyWatchListener.onUpdate(evt);
     }
 
     private void mockVaultAppliedRevision(long revision) {

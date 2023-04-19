@@ -19,6 +19,7 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -39,6 +40,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
@@ -187,7 +190,7 @@ public class DistributionZonesUtil {
      * The key needed for processing the events about logical topology changes.
      * Needed for the defencing against stale updates of logical topology nodes.
      */
-    static ByteArray zonesLogicalTopologyVersionKey() {
+    public static ByteArray zonesLogicalTopologyVersionKey() {
         return DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY;
     }
 
@@ -307,10 +310,14 @@ public class DistributionZonesUtil {
      * @param topologyVersion Logical topology version.
      * @return Update command for the meta storage.
      */
-    static Update updateLogicalTopologyAndVersion(Set<String> logicalTopology, long topologyVersion) {
+    static Update updateLogicalTopologyAndVersion(Set<LogicalNode> logicalTopology, long topologyVersion) {
+        Set<NodeWithAttributes> topologyFromCmg = logicalTopology.stream()
+                .map(n -> new NodeWithAttributes(n.name(), n.nodeAttributes()))
+                .collect(toSet());
+
         return ops(
                 put(zonesLogicalTopologyVersionKey(), ByteUtils.longToBytes(topologyVersion)),
-                put(zonesLogicalTopologyKey(), ByteUtils.toBytes(logicalTopology))
+                put(zonesLogicalTopologyKey(), ByteUtils.toBytes(topologyFromCmg))
         ).yield(true);
     }
 
@@ -322,20 +329,20 @@ public class DistributionZonesUtil {
      *                     Joining increases the counter, leaving decreases.
      * @return Returns a set of data nodes retrieved from data nodes map, which value is more than 0.
      */
-    public static Set<String> dataNodes(Map<String, Integer> dataNodesMap) {
-        return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Map.Entry::getKey).collect(Collectors.toSet());
+    public static Set<NodeWithAttributes> dataNodes(Map<NodeWithAttributes, Integer> dataNodesMap) {
+        return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Map.Entry::getKey).collect(toSet());
     }
 
     /**
-     * Returns a map from a set of data nodes. This map has the following structure: node name is mapped to integer,
+     * Returns a map from a set of data nodes. This map has the following structure: node is mapped to integer,
      * integer represents how often node joined or leaved topology. In this case, set of nodes is interpreted as nodes
      * that joined topology, so all mappings will be node -> 1.
      *
      * @param dataNodes Set of data nodes.
      * @return Returns a map from a set of data nodes.
      */
-    public static Map<String, Integer> toDataNodesMap(Set<String> dataNodes) {
-        Map<String, Integer> dataNodesMap = new HashMap<>();
+    public static Map<NodeWithAttributes, Integer> toDataNodesMap(Set<NodeWithAttributes> dataNodes) {
+        Map<NodeWithAttributes, Integer> dataNodesMap = new HashMap<>();
 
         dataNodes.forEach(n -> dataNodesMap.merge(n, 1, Integer::sum));
 
@@ -348,7 +355,7 @@ public class DistributionZonesUtil {
      * @param dataNodesEntry Meta storage entry with data nodes.
      * @return Data nodes.
      */
-    static Map<String, Integer> extractDataNodes(Entry dataNodesEntry) {
+    static Map<NodeWithAttributes, Integer> extractDataNodes(Entry dataNodesEntry) {
         if (!dataNodesEntry.empty()) {
             return fromBytes(dataNodesEntry.value());
         } else {

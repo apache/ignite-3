@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
@@ -58,6 +59,7 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -442,7 +444,9 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
         byte[] newLogicalTopology;
 
         if (nodes != null) {
-            newLogicalTopology = toBytes(toDataNodesMap(nodes));
+            newLogicalTopology = toBytes(toDataNodesMap(nodes.stream()
+                    .map(n -> new NodeWithAttributes(n, emptyMap()))
+                    .collect(Collectors.toSet())));
         } else {
             newLogicalTopology = null;
         }

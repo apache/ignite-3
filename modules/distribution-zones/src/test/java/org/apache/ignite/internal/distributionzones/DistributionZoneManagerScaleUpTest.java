@@ -29,10 +29,12 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZone;
+import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZoneWithAttributes;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.mockMetaStorageListener;
+import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.watchListenerOnUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -69,20 +71,17 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneChange;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
-import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
@@ -114,6 +113,12 @@ public class DistributionZoneManagerScaleUpTest {
     private static final LogicalNode NODE_2 = new LogicalNode("2", "B", new NetworkAddress("localhost", 123));
 
     private static final LogicalNode NODE_3 = new LogicalNode("3", "C", new NetworkAddress("localhost", 123));
+
+    private static final NodeWithAttributes A  = new NodeWithAttributes("A", Collections.emptyMap());
+    private static final NodeWithAttributes B  = new NodeWithAttributes("B", Collections.emptyMap());
+    private static final NodeWithAttributes C  = new NodeWithAttributes("C", Collections.emptyMap());
+    private static final NodeWithAttributes D  = new NodeWithAttributes("D", Collections.emptyMap());
+    private static final NodeWithAttributes E  = new NodeWithAttributes("E", Collections.emptyMap());
 
 
     private DistributionZoneManager distributionZoneManager;
@@ -259,7 +264,11 @@ public class DistributionZoneManagerScaleUpTest {
 
         assertZoneScaleUpChangeTriggerKey(1, 1, keyValueStorage);
 
-        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+        watchListenerOnUpdate(
+                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                2,
+                topologyWatchListener
+        );
 
         assertDataNodesForZone(1, clusterNodes2.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
     }
@@ -286,7 +295,11 @@ public class DistributionZoneManagerScaleUpTest {
 
         mockVaultZonesLogicalTopologyKey(clusterNodes);
 
-        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 3);
+        watchListenerOnUpdate(
+                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                3,
+                topologyWatchListener
+        );
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
         assertDataNodesForZone(zoneId, clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
@@ -323,7 +336,11 @@ public class DistributionZoneManagerScaleUpTest {
 
         assertZoneScaleDownChangeTriggerKey(1, 1, keyValueStorage);
 
-        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+        watchListenerOnUpdate(
+                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                2,
+                topologyWatchListener
+        );
 
         assertDataNodesForZone(1, clusterNodes2.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
     }
@@ -354,7 +371,11 @@ public class DistributionZoneManagerScaleUpTest {
                 new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
         ).get();
 
-        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+        watchListenerOnUpdate(
+                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                2,
+                topologyWatchListener
+        );
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodesNames2, keyValueStorage);
     }
@@ -388,7 +409,11 @@ public class DistributionZoneManagerScaleUpTest {
                 new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME).dataNodesAutoAdjustScaleDown(0).build()
         ).get();
 
-        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+        watchListenerOnUpdate(
+                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                2,
+                topologyWatchListener
+        );
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodesNames2, keyValueStorage);
     }
@@ -423,7 +448,11 @@ public class DistributionZoneManagerScaleUpTest {
 
         distributionZoneManager.dropZone(ZONE_NAME).get();
 
-        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+        watchListenerOnUpdate(
+                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                2,
+                topologyWatchListener
+        );
 
         assertNotEqualsDataNodesForZone(1, clusterNodesNames2);
     }
@@ -459,7 +488,11 @@ public class DistributionZoneManagerScaleUpTest {
 
         distributionZoneManager.dropZone(ZONE_NAME).get();
 
-        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+        watchListenerOnUpdate(
+                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                2,
+                topologyWatchListener
+        );
 
         assertNotEqualsDataNodesForZone(1, clusterNodesNames2);
     }
@@ -480,7 +513,7 @@ public class DistributionZoneManagerScaleUpTest {
 
         distributionZoneManager.scheduleTimers(
                 zoneView,
-                Set.of("D"),
+                Set.of(D),
                 Set.of(),
                 2,
                 (zoneId, revision) -> {
@@ -506,7 +539,7 @@ public class DistributionZoneManagerScaleUpTest {
 
         distributionZoneManager.scheduleTimers(
                 zoneView,
-                Set.of("E"),
+                Set.of(E),
                 Set.of(),
                 3,
                 (zoneId, revision) -> {
@@ -542,7 +575,7 @@ public class DistributionZoneManagerScaleUpTest {
 
         assertZoneScaleUpChangeTriggerKey(3, 1, keyValueStorage);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "C", "D", "E"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, C, D, E), keyValueStorage);
 
         out2.countDown();
 
@@ -554,7 +587,7 @@ public class DistributionZoneManagerScaleUpTest {
         // Assert that nothing has been changed.
         assertZoneScaleUpChangeTriggerKey(3, 1, keyValueStorage);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "C", "D", "E"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, C, D, E), keyValueStorage);
     }
 
     @Test
@@ -574,7 +607,7 @@ public class DistributionZoneManagerScaleUpTest {
         distributionZoneManager.scheduleTimers(
                 zoneView,
                 Set.of(),
-                Set.of("B"),
+                Set.of(B),
                 2,
                 (t1, t2) -> null,
                 (zoneId, revision) -> {
@@ -600,7 +633,7 @@ public class DistributionZoneManagerScaleUpTest {
         distributionZoneManager.scheduleTimers(
                 zoneView,
                 Set.of(),
-                Set.of("C"),
+                Set.of(C),
                 3,
                 (t1, t2) -> null,
                 (zoneId, revision) -> {
@@ -635,7 +668,7 @@ public class DistributionZoneManagerScaleUpTest {
 
         assertZoneScaleDownChangeTriggerKey(3, 1, keyValueStorage);
 
-        assertDataNodesForZone(1, Set.of("A"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A), keyValueStorage);
 
         out2.countDown();
 
@@ -647,7 +680,7 @@ public class DistributionZoneManagerScaleUpTest {
         // Assert that nothing has been changed.
         assertZoneScaleDownChangeTriggerKey(3, 1, keyValueStorage);
 
-        assertDataNodesForZone(1, Set.of("A"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A), keyValueStorage);
     }
 
     @Test
@@ -665,7 +698,7 @@ public class DistributionZoneManagerScaleUpTest {
 
         distributionZoneManager.scheduleTimers(
                 zoneView,
-                Set.of("D"),
+                Set.of(D),
                 Set.of(),
                 2,
                 (zoneId, revision) -> {
@@ -688,7 +721,7 @@ public class DistributionZoneManagerScaleUpTest {
 
         distributionZoneManager.scheduleTimers(
                 zoneView,
-                Set.of("E"),
+                Set.of(E),
                 Set.of(),
                 3,
                 (zoneId, revision) -> {
@@ -714,14 +747,14 @@ public class DistributionZoneManagerScaleUpTest {
 
         assertZoneScaleUpChangeTriggerKey(2, 1, keyValueStorage);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "C", "D"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, C, D), keyValueStorage);
 
         // Second task is run and we await that data nodes will be changed from ["A", "B", "C", "D"] to ["A", "B", "C", "D", "E"]
         in2.countDown();
 
         assertZoneScaleUpChangeTriggerKey(3, 1, keyValueStorage);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "C", "D", "E"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, C, D, E), keyValueStorage);
 
         out1.countDown();
     }
@@ -742,7 +775,7 @@ public class DistributionZoneManagerScaleUpTest {
         distributionZoneManager.scheduleTimers(
                 zoneView,
                 Set.of(),
-                Set.of("B"),
+                Set.of(B),
                 2,
                 (t1, t2) -> null,
                 (zoneId, revision) -> {
@@ -765,7 +798,7 @@ public class DistributionZoneManagerScaleUpTest {
         distributionZoneManager.scheduleTimers(
                 zoneView,
                 Set.of(),
-                Set.of("C"),
+                Set.of(C),
                 3,
                 (t1, t2) -> null,
                 (zoneId, revision) -> {
@@ -790,14 +823,14 @@ public class DistributionZoneManagerScaleUpTest {
 
         assertZoneScaleDownChangeTriggerKey(2, 1, keyValueStorage);
 
-        assertDataNodesForZone(1, Set.of("A", "C"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, C), keyValueStorage);
 
         // Second task is run and we await that data nodes will be changed from ["A", "C"] to ["A"]
         in2.countDown();
 
         assertZoneScaleDownChangeTriggerKey(3, 1, keyValueStorage);
 
-        assertDataNodesForZone(1, Set.of("A"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A), keyValueStorage);
 
         out1.countDown();
     }
@@ -824,7 +857,11 @@ public class DistributionZoneManagerScaleUpTest {
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
 
-        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+        watchListenerOnUpdate(
+                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                2,
+                topologyWatchListener
+        );
 
         assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
     }
@@ -851,7 +888,11 @@ public class DistributionZoneManagerScaleUpTest {
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
 
-        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+        watchListenerOnUpdate(
+                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                2,
+                topologyWatchListener
+        );
 
         assertDataNodesForZone(1, Set.of(), keyValueStorage);
 
@@ -885,7 +926,11 @@ public class DistributionZoneManagerScaleUpTest {
 
         topology.removeNodes(Set.of(NODE_1));
 
-        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+        watchListenerOnUpdate(
+                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                2,
+                topologyWatchListener
+        );
 
         assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
 
@@ -903,9 +948,9 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
-        zoneState.nodesToAddToDataNodes(Set.of("E"), 4);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 3);
+        zoneState.nodesToAddToDataNodes(Set.of(E), 4);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 3);
 
@@ -928,7 +973,7 @@ public class DistributionZoneManagerScaleUpTest {
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 15);
 
         assertTrue(zoneState.topologyAugmentationMap().isEmpty());
-        assertDataNodesForZone(1, Set.of("A", "B", "D", "E"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, D, E), keyValueStorage);
     }
 
     @Test
@@ -957,7 +1002,11 @@ public class DistributionZoneManagerScaleUpTest {
 
         assertNull(zoneState.scaleUpTask());
 
-        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+        watchListenerOnUpdate(
+                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                2,
+                topologyWatchListener
+        );
 
         assertTrue(waitForCondition(() -> zoneState.scaleUpTask() != null, 1000L));
 
@@ -995,7 +1044,11 @@ public class DistributionZoneManagerScaleUpTest {
 
         topology.removeNodes(Set.of(NODE_1));
 
-        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+        watchListenerOnUpdate(
+                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                2,
+                topologyWatchListener
+        );
 
         assertTrue(waitForCondition(() -> zoneState.scaleDownTask() != null, 1000L));
 
@@ -1044,7 +1097,11 @@ public class DistributionZoneManagerScaleUpTest {
             return metaStorageService.run(multiInvokeCommand);
         }).when(metaStorageManager).invoke(any());
 
-        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+        watchListenerOnUpdate(
+                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                2,
+                topologyWatchListener
+        );
 
         assertZoneScaleUpChangeTriggerKey(100, 1, keyValueStorage);
 
@@ -1088,7 +1145,11 @@ public class DistributionZoneManagerScaleUpTest {
             return metaStorageService.run(multiInvokeCommand);
         }).when(metaStorageManager).invoke(any());
 
-        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+        watchListenerOnUpdate(
+                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                2,
+                topologyWatchListener
+        );
 
         assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
 
@@ -1101,13 +1162,13 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 3);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "D"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, D), keyValueStorage);
     }
 
     @Test
@@ -1116,13 +1177,13 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 3);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "D"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, D), keyValueStorage);
     }
 
     @Test
@@ -1131,13 +1192,13 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 3);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 3);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "D"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, D), keyValueStorage);
     }
 
     @Test
@@ -1146,13 +1207,13 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 3);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 3);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "D"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, D), keyValueStorage);
     }
 
     @Test
@@ -1161,14 +1222,14 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(D), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 3);
-        assertDataNodesForZone(1, Set.of("A", "B", "C", "D"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, C, D), keyValueStorage);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "C"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, C), keyValueStorage);
     }
 
     @Test
@@ -1177,13 +1238,13 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(D), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 3);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "C"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, C), keyValueStorage);
     }
 
     @Test
@@ -1192,13 +1253,13 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
-        zoneState.nodesToAddToDataNodes(Set.of("C"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 3);
+        zoneState.nodesToAddToDataNodes(Set.of(C), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 3);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "C"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, C), keyValueStorage);
     }
 
     @Test
@@ -1207,13 +1268,13 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
-        zoneState.nodesToAddToDataNodes(Set.of("C"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 3);
+        zoneState.nodesToAddToDataNodes(Set.of(C), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 3);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "C"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, C), keyValueStorage);
     }
 
     @Test
@@ -1222,14 +1283,14 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 7);
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 9);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(D), 7);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "C", "D"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, C, D), keyValueStorage);
     }
 
     @Test
@@ -1238,14 +1299,14 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 7);
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 9);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(D), 7);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 9);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "C", "D"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, C, D), keyValueStorage);
     }
 
     @Test
@@ -1254,16 +1315,16 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(D), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
 
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 9);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 9);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "C", "D"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, C, D), keyValueStorage);
     }
 
     @Test
@@ -1272,14 +1333,14 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
-        zoneState.nodesToAddToDataNodes(Set.of("C"), 7);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 9);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 3);
+        zoneState.nodesToAddToDataNodes(Set.of(C), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
 
-        assertDataNodesForZone(1, Set.of("A", "B"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B), keyValueStorage);
     }
 
     @Test
@@ -1288,14 +1349,14 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
-        zoneState.nodesToAddToDataNodes(Set.of("C"), 7);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 9);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 3);
+        zoneState.nodesToAddToDataNodes(Set.of(C), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
 
-        assertDataNodesForZone(1, Set.of("A", "B"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B), keyValueStorage);
     }
 
     @Test
@@ -1304,14 +1365,14 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
-        zoneState.nodesToAddToDataNodes(Set.of("C"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 3);
+        zoneState.nodesToAddToDataNodes(Set.of(C), 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
 
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 9);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
 
-        assertDataNodesForZone(1, Set.of("A", "B"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B), keyValueStorage);
     }
 
     @Test
@@ -1320,15 +1381,15 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 7);
-        zoneState.nodesToAddToDataNodes(Set.of("E"), 9);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(D), 7);
+        zoneState.nodesToAddToDataNodes(Set.of(E), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "C", "E"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, C, E), keyValueStorage);
     }
 
     @Test
@@ -1337,14 +1398,14 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 7);
-        zoneState.nodesToAddToDataNodes(Set.of("E"), 9);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(D), 7);
+        zoneState.nodesToAddToDataNodes(Set.of(E), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 9);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "C", "E"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, C, E), keyValueStorage);
     }
 
     @Test
@@ -1353,14 +1414,14 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(D), 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
 
-        zoneState.nodesToAddToDataNodes(Set.of("E"), 9);
+        zoneState.nodesToAddToDataNodes(Set.of(E), 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 9);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "C", "E"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, C, E), keyValueStorage);
     }
 
     @Test
@@ -1369,14 +1430,14 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
-        zoneState.nodesToAddToDataNodes(Set.of("C"), 7);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("B"), 9);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 3);
+        zoneState.nodesToAddToDataNodes(Set.of(C), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(B), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
 
-        assertDataNodesForZone(1, Set.of("A", "C"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, C), keyValueStorage);
     }
 
     @Test
@@ -1385,14 +1446,14 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
-        zoneState.nodesToAddToDataNodes(Set.of("C"), 7);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("B"), 9);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 3);
+        zoneState.nodesToAddToDataNodes(Set.of(C), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(B), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
 
-        assertDataNodesForZone(1, Set.of("A", "C"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, C), keyValueStorage);
     }
 
     @Test
@@ -1401,14 +1462,14 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
-        zoneState.nodesToAddToDataNodes(Set.of("C"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 3);
+        zoneState.nodesToAddToDataNodes(Set.of(C), 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
 
-        zoneState.nodesToRemoveFromDataNodes(Set.of("B"), 9);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(B), 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
 
-        assertDataNodesForZone(1, Set.of("A", "C"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, C), keyValueStorage);
     }
 
     @Test
@@ -1417,14 +1478,14 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 7);
-        zoneState.nodesToAddToDataNodes(Set.of("C"), 9);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 7);
+        zoneState.nodesToAddToDataNodes(Set.of(C), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "C", "D"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, C, D), keyValueStorage);
     }
 
     @Test
@@ -1433,14 +1494,14 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 7);
-        zoneState.nodesToAddToDataNodes(Set.of("C"), 9);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 7);
+        zoneState.nodesToAddToDataNodes(Set.of(C), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 9);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "C", "D"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, C, D), keyValueStorage);
     }
 
     @Test
@@ -1449,14 +1510,14 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
 
-        zoneState.nodesToAddToDataNodes(Set.of("C"), 9);
+        zoneState.nodesToAddToDataNodes(Set.of(C), 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 9);
 
-        assertDataNodesForZone(1, Set.of("A", "B", "C", "D"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B, C, D), keyValueStorage);
     }
 
     @Test
@@ -1465,14 +1526,14 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 7);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 9);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 3);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(D), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
 
-        assertDataNodesForZone(1, Set.of("A", "B"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B), keyValueStorage);
     }
 
     @Test
@@ -1481,14 +1542,14 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 7);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 9);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 3);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(D), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
 
-        assertDataNodesForZone(1, Set.of("A", "B"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B), keyValueStorage);
     }
 
     @Test
@@ -1497,40 +1558,41 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
-        zoneState.nodesToAddToDataNodes(Set.of("D"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C), 3);
+        zoneState.nodesToAddToDataNodes(Set.of(D), 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
 
-        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 9);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(D), 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
 
-        assertDataNodesForZone(1, Set.of("A", "B"), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, Set.of(A, B), keyValueStorage);
     }
 
     @Test
     void testZoneStateAddRemoveNodesPreservesDuplicationsOfNodes() {
         ZoneState zoneState = new ZoneState(new ScheduledThreadPoolExecutor(1));
 
-        zoneState.nodesToAddToDataNodes(Set.of("A", "B"), 1);
-        zoneState.nodesToAddToDataNodes(Set.of("A", "B"), 2);
+        zoneState.nodesToAddToDataNodes(Set.of(A, B), 1);
+        zoneState.nodesToAddToDataNodes(Set.of(A, B), 2);
 
-        List<String> nodes = zoneState.nodesToBeAddedToDataNodes(0, 2);
+        List<NodeWithAttributes> nodes = zoneState.nodesToBeAddedToDataNodes(0, 2);
 
-        Collections.sort(nodes);
-        assertEquals(List.of("A", "A", "B", "B"), nodes);
+        nodes.sort((a, b) -> a.nodeName.compareTo(b.nodeName()));
 
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C", "D"), 3);
-        zoneState.nodesToRemoveFromDataNodes(Set.of("C", "D"), 4);
+        assertEquals(List.of(A, A, B, B), nodes);
+
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C, D), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of(C, D), 4);
 
         nodes = zoneState.nodesToBeRemovedFromDataNodes(2, 4);
 
-        Collections.sort(nodes);
+        nodes.sort((a, b) -> a.nodeName.compareTo(b.nodeName()));
 
-        assertEquals(List.of("C", "C", "D", "D"), nodes);
+        assertEquals(List.of(C, C, D, D), nodes);
     }
 
     /**
-     * Creates a zone with the auto adjust scale up scale down trigger equals to 0 and the data nodes equals ["A", "B", "C"].
+     * Creates a zone with the auto adjust scale up scale down trigger equals to 0 and the data nodes equals ["A", B, "C"].
      *
      * @throws Exception when something goes wrong.
      */
@@ -1578,7 +1640,7 @@ public class DistributionZoneManagerScaleUpTest {
                         return clusterNodes == null;
                     }
 
-                    Set<String> res = DistributionZonesUtil.dataNodes(ByteUtils.fromBytes(dataNodes));
+                    Set<NodeWithAttributes> res = DistributionZonesUtil.dataNodes(ByteUtils.fromBytes(dataNodes));
 
                     return res.equals(clusterNodes);
                 },
@@ -1590,29 +1652,16 @@ public class DistributionZoneManagerScaleUpTest {
         when(metaStorageManager.appliedRevision()).thenReturn(revision);
     }
 
-    private void watchListenerOnUpdate(Set<String> nodes, long rev) {
-        byte[] newTopology = toBytes(nodes);
-        byte[] newTopVer = longToBytes(1L);
-
-        Entry topology = new EntryImpl(zonesLogicalTopologyKey().bytes(), newTopology, rev, 1);
-        Entry topVer = new EntryImpl(zonesLogicalTopologyVersionKey().bytes(), newTopVer, rev, 1);
-
-        EntryEvent topologyEvent = new EntryEvent(null, topology);
-        EntryEvent topVerEvent = new EntryEvent(null, topVer);
-
-        WatchEvent evt = new WatchEvent(List.of(topologyEvent, topVerEvent), rev);
-
-        topologyWatchListener.onUpdate(evt);
-    }
-
     private void mockCmgLocalNodes() {
         when(cmgManager.logicalTopology()).thenReturn(completedFuture(topology.getLogicalTopology()));
     }
 
     private void mockVaultZonesLogicalTopologyKey(Set<LogicalNode> nodes) {
-        Set<String> nodesNames = nodes.stream().map(ClusterNode::name).collect(Collectors.toSet());
+        Set<NodeWithAttributes> nodesWithAttributes = nodes.stream()
+                .map(n -> new NodeWithAttributes(n.name(), n.nodeAttributes()))
+                .collect(Collectors.toSet());
 
-        byte[] newLogicalTopology = toBytes(nodesNames);
+        byte[] newLogicalTopology = toBytes(nodesWithAttributes);
 
         when(vaultMgr.get(zonesLogicalTopologyKey()))
                 .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), newLogicalTopology)));

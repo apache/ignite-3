@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZone;
+import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZoneWithAttributes;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZonesChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -38,6 +39,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -46,6 +48,7 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -68,7 +71,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     private static final String NEW_ZONE_NAME = "zone2";
 
-    private static final Set<String> nodes = Set.of("name1");
+    private static final Set<NodeWithAttributes> nodes = Set.of(new NodeWithAttributes("name1", Collections.emptyMap()));
 
     private DistributionZoneManager distributionZoneManager;
 
@@ -153,7 +156,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
-        assertDataNodesForZone(1, nodes, keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, nodes, keyValueStorage);
 
         assertZoneScaleUpChangeTriggerKey(1, 1, keyValueStorage);
 
@@ -164,7 +167,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     void testZoneDeleteRemovesMetaStorageKey() throws Exception {
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
-        assertDataNodesForZone(1, nodes, keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, nodes, keyValueStorage);
 
         distributionZoneManager.dropZone(ZONE_NAME).get();
 
@@ -201,12 +204,12 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     void testZoneDeleteDoNotRemoveMetaStorageKey() throws Exception {
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
-        assertDataNodesForZone(1, nodes, keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, nodes, keyValueStorage);
 
         keyValueStorage.put(zonesChangeTriggerKey(1).bytes(), longToBytes(100));
 
         distributionZoneManager.dropZone(ZONE_NAME).get();
 
-        assertDataNodesForZone(1, nodes, keyValueStorage);
+        assertDataNodesForZoneWithAttributes(1, nodes, keyValueStorage);
     }
 }
