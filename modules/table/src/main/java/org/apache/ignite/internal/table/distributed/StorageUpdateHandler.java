@@ -325,19 +325,6 @@ public class StorageUpdateHandler {
     }
 
     /**
-     * Tries removing partition's oldest stale entry and its indexes.
-     *
-     * @param lowWatermark Low watermark for the vacuum.
-     * @return {@code true} if an entry was garbage collected, {@code false} if there was nothing to collect.
-     * @see MvPartitionStorage#pollForVacuum(HybridTimestamp)
-     */
-    public boolean vacuum(HybridTimestamp lowWatermark) {
-        // TODO: IGNITE-19290 надо подумать над этим, но обязательно выполнять только после достижения безопасного времени !!!
-        // TODO: IGNITE-19290 скорее всего надо будет переписать на ваккумный батч, но может и не нужно будет, подумаем.
-        return storage.runConsistently(() -> internalVacuum(lowWatermark));
-    }
-
-    /**
      * Tries removing {@code count} oldest stale entries and their indexes.
      *
      * <p>Waits for partition safe time equal to low watermark.
@@ -348,7 +335,6 @@ public class StorageUpdateHandler {
      *      be left.
      */
     public CompletableFuture<Boolean> vacuumBatch(HybridTimestamp lowWatermark, int count) {
-        // TODO: IGNITE-19290 может еще не закончили
         return safeTimeTracker.waitFor(lowWatermark).thenApply(unused -> {
             for (int i = 0; i < count; i++) {
                 if (!storage.runConsistently(() -> internalVacuum(lowWatermark))) {
