@@ -26,14 +26,19 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -399,6 +404,106 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         assertEquals(1, sql(anotherTx, "select * from test").size());
 
         anotherTx.commit();
+    }
+
+    @Test
+    public void testSingleColumnTable() {
+        //String zoneSql = "create zone test_zone with partitions=1, replicas=3;";
+        // with primary_zone='TEST_ZONE'
+        String tabName1 = "myTbl";
+
+        String tabName2 = "myTbl2Cols";
+
+        sql("CREATE TABLE " + tabName1 + " (id INT PRIMARY KEY)");
+//        sql("INSERT INTO " + tabName1 + " VALUES (0), (0), (1)");
+
+//        if (true)
+//            return;
+
+        sql("CREATE TABLE " + tabName2 + " (id INT PRIMARY KEY, val INT)");
+//        sql("INSERT INTO " + tabName2 + " VALUES (0, 0), (1, 1), (1, 2)");
+
+        Ignite ignite = CLUSTER_NODES.get(0);
+
+//        ignite.transactions().runInTransaction(tx -> {
+//            List<List<Object>> rows = sql(tx, "SELECT count(*) from " + tabName1);
+//            assertEquals(2L, rows.get(0).get(0));
+//        });
+
+        Table tab = ignite.tables().table(tabName1);
+        Table tab2 = ignite.tables().table(tabName2);
+
+//        tab.recordView().upsert(null, Tuple.create().set("id", 1));
+//        tab.recordView().upsert(null, Tuple.create().set("id", 1));
+        tab.keyValueView(Integer.class, Void.class).put(null, 1, null);
+        tab.keyValueView(Integer.class, Void.class).put(null, 1, null);
+
+
+//        tab2.recordView().upsert(null, Tuple.create().set("id", 1).set("val", 1));
+//        tab2.recordView().upsert(null, Tuple.create().set("id", 1).set("val", 2));
+        tab2.keyValueView(Integer.class, Integer.class).put(null, 1, 1);
+        tab2.keyValueView(Integer.class, Integer.class).put(null, 1, 2);
+
+//        tab2.recordView().upsert(null, Tuple.create().set("id", 1));
+//        tab2.recordView().upsert(null, Tuple.create().set("id", 1));
+//        tab2.keyValueView(Integer.class, Void.class).put(null, 1, null);
+
+        System.out.println(">xxx> RECORD VIEW SINGLE");
+        checkOp(ignite, tx -> {
+            Object obj = tab.recordView().get(tx, Tuple.create().set("id", 1));
+
+            if (obj != null)
+                System.out.println(">xxx> cls=" + obj.getClass().getSimpleName() + " " + obj);
+        });
+
+        System.out.println(">xxx> KV VIEW SINGLE");
+
+        checkOp(ignite, tx -> {
+            Object obj = tab.keyValueView().get(tx, Tuple.create().set("id", 1));
+
+            if (obj != null)
+                System.out.println(">xxx> cls=" + obj.getClass().getSimpleName() + " " + obj);
+        });
+
+        System.out.println(">xxx> RECORD VIEW DOUBLE");
+        checkOp(ignite, tx -> {
+            Object obj = tab2.recordView().get(tx, Tuple.create().set("id", 1));
+
+            if (obj != null)
+                System.out.println(">xxx> cls=" + obj.getClass().getSimpleName() + " " + obj);
+        });
+
+        System.out.println(">xxx> KV VIEW DOUBLE");
+
+        checkOp(ignite, tx -> {
+            Object obj = tab2.keyValueView().get(tx, Tuple.create().set("id", 1));
+
+            if (obj != null)
+                System.out.println(">xxx> cls=" + obj.getClass().getSimpleName() + " " + obj);
+        });
+
+        System.out.println(">xxx> tab1 " + sql("SELECT * from " + tabName1));
+        System.out.println(">xxx> tab2 " + sql("SELECT * from " + tabName2));
+
+//        ignite.transactions().runInTransaction(tx -> {
+//            List<List<Object>> rows = sql(tx, "SELECT * from " + tabName1);
+//
+//            assertEquals(10, rows.size(), rows.toString());
+//        });
+    }
+
+    private void checkOp(Ignite ignite, Consumer<Transaction> op) {
+        System.out.println(">xxx> no transaction");
+
+        op.accept(null);;
+
+        System.out.println(">xxx> RW transaction");
+
+        ignite.transactions().runInTransaction(op);
+
+        System.out.println(">xxx> RO transaction");
+
+        ignite.transactions().runInTransaction(op, new TransactionOptions().readOnly(true));
     }
 
     @Test
