@@ -347,7 +347,7 @@ public class StorageUpdateHandler {
      * @return Future batch processing, will return {@code false} if there is no garbage left otherwise {@code true} and garbage may still
      *      be left.
      */
-    CompletableFuture<Boolean> vacuumBatch(HybridTimestamp lowWatermark, int count) {
+    public CompletableFuture<Boolean> vacuumBatch(HybridTimestamp lowWatermark, int count) {
         // TODO: IGNITE-19290 может еще не закончили
         return safeTimeTracker.waitFor(lowWatermark).thenApply(unused -> {
             for (int i = 0; i < count; i++) {

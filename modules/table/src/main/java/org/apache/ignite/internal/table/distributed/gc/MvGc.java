@@ -195,7 +195,7 @@ public class MvGc implements ManuallyCloseable {
 
     private void scheduleGcForStorage(TablePartitionId tablePartitionId) {
         executor.submit(() -> inBusyLock(() -> {
-            CompletableFuture<Void> future = new CompletableFuture<>();
+            CompletableFuture<Void> currentGcFuture = new CompletableFuture<>();
 
             GcStorageHandler storageHandler = storageHandlerByPartitionId.compute(tablePartitionId, (tablePartId, gcStorageHandler) -> {
                 if (gcStorageHandler == null) {
@@ -206,7 +206,7 @@ public class MvGc implements ManuallyCloseable {
                 CompletableFuture<Void> inProgressFuture = gcStorageHandler.gcInProgressFuture.get();
 
                 if (inProgressFuture == null || inProgressFuture.isDone()) {
-                    boolean casResult = gcStorageHandler.gcInProgressFuture.compareAndSet(inProgressFuture, future);
+                    boolean casResult = gcStorageHandler.gcInProgressFuture.compareAndSet(inProgressFuture, currentGcFuture);
 
                     assert casResult : tablePartId;
                 } else {
@@ -221,34 +221,42 @@ public class MvGc implements ManuallyCloseable {
                 return;
             }
 
-            if (storageHandler.gcInProgressFuture.get() != future) {
+            if (storageHandler.gcInProgressFuture.get() != currentGcFuture) {
                 // Someone in parallel is already collecting garbage, we will try once again after completion of gcInProgressFuture.
                 return;
             }
 
             try {
-                for (int i = 0; i < GC_BATCH_SIZE; i++) {
-                    HybridTimestamp lowWatermark = lowWatermarkReference.get();
+                HybridTimestamp lowWatermark = lowWatermarkReference.get();
 
-                    assert lowWatermark != null : tablePartitionId;
+                assert lowWatermark != null : tablePartitionId;
 
-                    // If storage has been deleted or there is no garbage, then for now we will stop collecting garbage for this storage.
-                    if (!storageHandlerByPartitionId.containsKey(tablePartitionId)
-                            || !storageHandler.storageUpdateHandler.vacuum(lowWatermark)) {
-                        return;
-                    }
+                // If the storage has been deleted, then garbage collection is no longer necessary.
+                if (!storageHandlerByPartitionId.containsKey(tablePartitionId)) {
+                    currentGcFuture.complete(null);
+
+                    return;
                 }
+
+                storageHandler.storageUpdateHandler.vacuumBatch(lowWatermark, GC_BATCH_SIZE)
+                        .whenComplete((isLeftGarbage, throwable) -> {
+                            if (throwable != null) {
+                                currentGcFuture.completeExceptionally(throwable);
+
+                                return;
+                            }
+
+                            currentGcFuture.complete(null);
+
+                            // If there is garbage left and the storage has not been deleted, then we will schedule the next garbage
+                            // collection.
+                            if (isLeftGarbage && storageHandlerByPartitionId.containsKey(tablePartitionId)) {
+                                scheduleGcForStorage(tablePartitionId);
+                            }
+                        });
             } catch (Throwable t) {
-                future.completeExceptionally(t);
-
-                return;
-            } finally {
-                if (!future.isCompletedExceptionally()) {
-                    future.complete(null);
-                }
+                currentGcFuture.completeExceptionally(t);
             }
-
-            scheduleGcForStorage(tablePartitionId);
         }));
     }
 

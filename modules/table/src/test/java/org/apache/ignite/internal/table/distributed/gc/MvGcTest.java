@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.gc;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
@@ -28,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -187,7 +189,7 @@ public class MvGcTest {
 
     @Test
     void testCountInvokeVacuum() throws Exception {
-        CountDownLatch latch = new CountDownLatch(MvGc.GC_BATCH_SIZE + 2);
+        CountDownLatch latch = new CountDownLatch(2);
 
         StorageUpdateHandler storageUpdateHandler = createWithCountDownOnVacuum(latch);
 
@@ -352,7 +354,7 @@ public class MvGcTest {
             CompletableFuture<Void> future,
             @Nullable HybridTimestamp exp
     ) {
-        when(storageUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
+        when(storageUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt())).then(invocation -> {
             if (exp != null) {
                 try {
                     assertEquals(exp, invocation.getArgument(0));
@@ -365,17 +367,17 @@ public class MvGcTest {
                 future.complete(null);
             }
 
-            return false;
+            return completedFuture(false);
         });
     }
 
     private StorageUpdateHandler createWithCountDownOnVacuum(CountDownLatch latch) {
         StorageUpdateHandler storageUpdateHandler = mock(StorageUpdateHandler.class);
 
-        when(storageUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
+        when(storageUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt())).then(invocation -> {
             latch.countDown();
 
-            return latch.getCount() > 0;
+            return completedFuture(latch.getCount() > 0);
         });
 
         return storageUpdateHandler;
@@ -384,12 +386,12 @@ public class MvGcTest {
     private StorageUpdateHandler createWithWaitFinishVacuum(CompletableFuture<Void> startFuture, CompletableFuture<Void> finishFuture) {
         StorageUpdateHandler storageUpdateHandler = mock(StorageUpdateHandler.class);
 
-        when(storageUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
+        when(storageUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt())).then(invocation -> {
             startFuture.complete(null);
 
             finishFuture.get(1, TimeUnit.SECONDS);
 
-            return false;
+            return completedFuture(false);
         });
 
         return storageUpdateHandler;
@@ -404,11 +406,11 @@ public class MvGcTest {
     private StorageUpdateHandler createWithCountDownOnVacuumWithoutNextBatch(CountDownLatch latch) {
         StorageUpdateHandler storageUpdateHandler = mock(StorageUpdateHandler.class);
 
-        when(storageUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
+        when(storageUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt())).then(invocation -> {
             latch.countDown();
 
             // So that there is no processing of the next batch.
-            return false;
+            return completedFuture(false);
         });
 
         return storageUpdateHandler;
