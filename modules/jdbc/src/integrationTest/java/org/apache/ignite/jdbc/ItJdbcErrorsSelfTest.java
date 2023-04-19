@@ -148,12 +148,10 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18985")
     @Test
-    public void testDdlWithDisabledAutoCommit() {
-        try {
-            conn.setAutoCommit(false);
+    public void testDdlWithDisabledAutoCommit() throws SQLException {
+        conn.setAutoCommit(false);
 
-            Statement stmt = conn.createStatement();
-
+        try (Statement stmt = conn.createStatement()) {
             stmt.executeUpdate("CREATE TABLE test2 (id int primary key, val varchar)");
 
             fail("SQLException is expected");
