@@ -39,6 +39,8 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientDataType;
+import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
+import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -542,6 +544,37 @@ public class PlatformTestNodeRunner {
             } catch (TupleMarshallerException e) {
                 throw new RuntimeException(e);
             }
+        }
+    }
+
+    /**
+     * Compute job that enables or disables client authentication.
+     */
+    @SuppressWarnings({"unused"}) // Used by platform tests.
+    private static class EnableAuthenticationJob implements ComputeJob<Void> {
+        @Override
+        public Void execute(JobExecutionContext context, Object... args) {
+            boolean enable = ((Integer) args[0]) != 0;
+            @SuppressWarnings("resource") IgniteImpl ignite = (IgniteImpl) context.ignite();
+
+            ignite.clusterConfiguration().change(
+                    root -> root.changeRoot(SecurityConfiguration.KEY).changeAuthentication(
+                            change -> {
+                                change.changeEnabled(enable);
+                                change.changeProviders().delete("basic");
+
+                                if (enable) {
+                                    change.changeProviders().create("basic", authenticationProviderChange -> {
+                                        authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
+                                                .changeUsername("user-1")
+                                                .changePassword("password-1")
+                                                .changeName("basic");
+                                    });
+                                }
+                            }
+                    )).join();
+
+            return null;
         }
     }
 }

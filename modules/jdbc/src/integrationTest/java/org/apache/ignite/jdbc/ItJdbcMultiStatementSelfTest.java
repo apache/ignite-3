@@ -81,6 +81,10 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         execute("CREATE TABLE ONE (id INT PRIMARY KEY, VAL VARCHAR);;"
                 + "CREATE INDEX T_IDX ON ONE(val)"
                 + ";;UPDATE ONE SET VAL = 'SOME';;;  ");
+
+        // TODO: IGNITE-19150 We are waiting for schema synchronization to avoid races to create and destroy indexes
+        // org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest.waitForIndexBuild
+
         execute("DROP INDEX T_IDX ;;  ;;"
                 + "UPDATE ONE SET VAL = 'SOME'");
     }

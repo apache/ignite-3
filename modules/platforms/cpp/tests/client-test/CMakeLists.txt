@@ -25,6 +25,7 @@ set(SOURCES
     ignite_client_test.cpp
     ignite_runner_suite.h
     key_value_binary_view_test.cpp
+    key_value_view_test.cpp
     main.cpp
     record_binary_view_test.cpp
     record_view_test.cpp

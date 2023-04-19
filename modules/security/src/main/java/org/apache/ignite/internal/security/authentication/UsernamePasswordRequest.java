@@ -24,24 +24,24 @@ import org.jetbrains.annotations.Nullable;
  */
 public class UsernamePasswordRequest implements AuthenticationRequest<String, String> {
 
-    private final String login;
+    private final String username;
 
     private final String password;
 
     public UsernamePasswordRequest() {
-        login = null;
+        username = null;
         password = null;
     }
 
-    public UsernamePasswordRequest(String login, String password) {
-        this.login = login;
+    public UsernamePasswordRequest(String username, String password) {
+        this.username = username;
         this.password = password;
     }
 
     @Nullable
     @Override
     public String getIdentity() {
-        return login;
+        return username;
     }
 
     @Nullable

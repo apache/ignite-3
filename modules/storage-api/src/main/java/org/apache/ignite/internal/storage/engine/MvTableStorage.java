@@ -291,4 +291,15 @@ public interface MvTableStorage extends ManuallyCloseable {
      *      for another reason.
      */
     CompletableFuture<Void> clearPartition(int partitionId);
+
+    /**
+     * Returns an already created Index (either Sorted or Hash) with the given name or {@code null} if it does not exist.
+     *
+     * @param partitionId Partition ID.
+     * @param indexId Index ID.
+     * @return Index Storage.
+     * @throws StorageException If the given partition does not exist.
+     */
+    // TODO: IGNITE-19112 Change or get rid of
+    @Nullable IndexStorage getIndex(int partitionId, UUID indexId);
 }

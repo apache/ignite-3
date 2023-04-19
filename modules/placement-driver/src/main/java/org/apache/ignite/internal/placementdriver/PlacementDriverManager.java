@@ -19,6 +19,7 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -30,6 +31,7 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
@@ -38,6 +40,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -49,7 +52,7 @@ import org.jetbrains.annotations.TestOnly;
  * The another role of the manager is providing a node, which is leaseholder at the moment, for a particular replication group.
  */
 public class PlacementDriverManager implements IgniteComponent {
-    static final String PLACEMENTDRIVER_PREFIX = "placementdriver.lease.";
+    public static final String PLACEMENTDRIVER_PREFIX = "placementdriver.lease.";
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -118,6 +121,7 @@ public class PlacementDriverManager implements IgniteComponent {
         this.raftClientFuture = new CompletableFuture<>();
         this.leaseTracker = new LeaseTracker(vaultManager, metaStorageMgr);
         this.leaseUpdater = new LeaseUpdater(
+                clusterService,
                 vaultManager,
                 metaStorageMgr,
                 logicalTopologyService,
@@ -165,13 +169,20 @@ public class PlacementDriverManager implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void beforeNodeStop() {
-        withRaftClientIfPresent(c -> {
-            c.unsubscribeLeader().join();
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+        try {
+            withRaftClientIfPresent(c -> {
+                c.unsubscribeLeader().join();
 
-            leaseUpdater.deInit();
-        });
+                leaseUpdater.deInit();
+            });
 
-        leaseTracker.stopTrack();
+            leaseTracker.stopTrack();
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /** {@inheritDoc} */
@@ -195,10 +206,17 @@ public class PlacementDriverManager implements IgniteComponent {
     }
 
     private void onLeaderChange(ClusterNode leader, Long term) {
-        if (leader.equals(clusterService.topologyService().localMember())) {
-            takeOverActiveActor();
-        } else {
-            stepDownActiveActor();
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+        try {
+            if (leader.equals(clusterService.topologyService().localMember())) {
+                takeOverActiveActor();
+            } else {
+                stepDownActiveActor();
+            }
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 

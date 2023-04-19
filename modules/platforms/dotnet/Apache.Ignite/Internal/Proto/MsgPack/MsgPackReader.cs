@@ -25,6 +25,7 @@ using BinaryTuple;
 /// <summary>
 /// MsgPack reader.
 /// </summary>
+// ReSharper disable PatternIsRedundant
 internal ref struct MsgPackReader
 {
     private readonly ReadOnlySpan<byte> _span;

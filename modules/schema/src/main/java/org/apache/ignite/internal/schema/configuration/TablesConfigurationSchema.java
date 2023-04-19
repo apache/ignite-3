@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
@@ -53,4 +54,8 @@ public class TablesConfigurationSchema {
     /** Number of garbage collector threads. */
     @Value(hasDefault = true)
     public int gcThreads = Runtime.getRuntime().availableProcessors();
+
+    /** Low watermark configuration. */
+    @ConfigValue
+    public LowWatermarkConfigurationSchema lowWatermark;
 }

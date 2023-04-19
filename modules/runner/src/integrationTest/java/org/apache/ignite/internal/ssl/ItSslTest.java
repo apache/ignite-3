@@ -45,25 +45,32 @@ import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.TestInstance.Lifecycle;
 
 /** SSL support integration test. */
+@TestInstance(Lifecycle.PER_CLASS)
 public class ItSslTest extends IgniteIntegrationTest {
 
     private static String password;
 
-    private static String trustStorePath;
+    private String trustStorePath;
 
-    private static String keyStorePath;
+    private String keyStorePath;
+
+    private Cluster cluster;
+
+    @WorkDirectory
+    private static Path WORK_DIR;
 
     @BeforeAll
-    static void beforeAll() {
+    void beforeAll() {
         password = "changeit";
         trustStorePath = getResourcePath(ItSslTest.class, "ssl/truststore.jks");
         keyStorePath = getResourcePath(ItSslTest.class, "ssl/keystore.p12");
@@ -71,8 +78,8 @@ public class ItSslTest extends IgniteIntegrationTest {
 
     @Nested
     @DisplayName("Given SSL disabled on the cluster")
+    @TestInstance(Lifecycle.PER_CLASS)
     class ClusterWithoutSsl {
-
         @Language("JSON")
         String sslDisabledBoostrapConfig = "{\n"
                 + "  network: {\n"
@@ -85,17 +92,13 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "  }\n"
                 + "}";
 
-        @WorkDirectory
-        private Path workDir;
-        private Cluster cluster;
-
-        @BeforeEach
+        @BeforeAll
         void setUp(TestInfo testInfo) {
-            cluster = new Cluster(testInfo, workDir, sslDisabledBoostrapConfig);
+            cluster = new Cluster(testInfo, WORK_DIR, sslDisabledBoostrapConfig);
             cluster.startAndInit(2);
         }
 
-        @AfterEach
+        @AfterAll
         void tearDown() {
             cluster.shutdown();
         }
@@ -158,8 +161,8 @@ public class ItSslTest extends IgniteIntegrationTest {
 
     @Nested
     @DisplayName("Given SSL enabled on the cluster")
+    @TestInstance(Lifecycle.PER_CLASS)
     class ClusterWithSsl {
-
         @Language("JSON")
         String sslEnabledBoostrapConfig = "{\n"
                 + "  network: {\n"
@@ -189,17 +192,13 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "  }\n"
                 + "}";
 
-        @WorkDirectory
-        private Path workDir;
-        private Cluster cluster;
-
-        @BeforeEach
+        @BeforeAll
         void setUp(TestInfo testInfo) {
-            cluster = new Cluster(testInfo, workDir, sslEnabledBoostrapConfig);
+            cluster = new Cluster(testInfo, WORK_DIR, sslEnabledBoostrapConfig);
             cluster.startAndInit(2);
         }
 
-        @AfterEach
+        @AfterAll
         void tearDown() {
             cluster.shutdown();
         }
@@ -263,21 +262,17 @@ public class ItSslTest extends IgniteIntegrationTest {
 
     @Nested
     @DisplayName("Given SSL enabled on the cluster and specific cipher enabled")
+    @TestInstance(Lifecycle.PER_CLASS)
     class ClusterWithSslCustomCipher {
-
         String sslEnabledWithCipherBoostrapConfig = createBoostrapConfig("TLS_AES_256_GCM_SHA384");
 
-        @WorkDirectory
-        private Path workDir;
-        private Cluster cluster;
-
-        @BeforeEach
+        @BeforeAll
         void setUp(TestInfo testInfo) {
-            cluster = new Cluster(testInfo, workDir, sslEnabledWithCipherBoostrapConfig);
+            cluster = new Cluster(testInfo, WORK_DIR, sslEnabledWithCipherBoostrapConfig);
             cluster.startAndInit(2);
         }
 
-        @AfterEach
+        @AfterAll
         void tearDown() {
             cluster.shutdown();
         }
@@ -377,8 +372,8 @@ public class ItSslTest extends IgniteIntegrationTest {
 
     @Nested
     @DisplayName("Given SSL enabled client auth is set to require on the cluster")
+    @TestInstance(Lifecycle.PER_CLASS)
     class ClusterWithSslAndClientAuth {
-
         @Language("JSON")
         String sslEnabledBoostrapConfig = "{\n"
                 + "  network: {\n"
@@ -415,17 +410,13 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "  }\n"
                 + "}";
 
-        @WorkDirectory
-        private Path workDir;
-        private Cluster cluster;
-
-        @BeforeEach
+        @BeforeAll
         void setUp(TestInfo testInfo) {
-            cluster = new Cluster(testInfo, workDir, sslEnabledBoostrapConfig);
+            cluster = new Cluster(testInfo, WORK_DIR, sslEnabledBoostrapConfig);
             cluster.startAndInit(2);
         }
 
-        @AfterEach
+        @AfterAll
         void tearDown() {
             cluster.shutdown();
         }
@@ -515,8 +506,8 @@ public class ItSslTest extends IgniteIntegrationTest {
 
     @Test
     @DisplayName("Cluster is not initialized when nodes are configured with incompatible ciphers")
-    void incompatibleCiphersNodes(@WorkDirectory Path workDir, TestInfo testInfo) {
-        Cluster cluster = new Cluster(testInfo, workDir);
+    void incompatibleCiphersNodes(TestInfo testInfo) {
+        Cluster cluster = new Cluster(testInfo, WORK_DIR);
 
         String sslEnabledWithCipher1BoostrapConfig = createBoostrapConfig("TLS_AES_256_GCM_SHA384");
         String sslEnabledWithCipher2BoostrapConfig = createBoostrapConfig("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384");
@@ -543,7 +534,7 @@ public class ItSslTest extends IgniteIntegrationTest {
     }
 
     @Language("JSON")
-    private static String createBoostrapConfig(String ciphers) {
+    private String createBoostrapConfig(String ciphers) {
         return "{\n"
                 + "  network: {\n"
                 + "    ssl : {"

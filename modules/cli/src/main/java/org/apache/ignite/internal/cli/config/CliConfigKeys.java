@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.cli.config;
 
+import static java.util.stream.Collectors.toUnmodifiableSet;
+
+import java.util.Set;
+
 /** CLI config keys and constants. */
 public enum CliConfigKeys {
 
@@ -41,8 +45,8 @@ public enum CliConfigKeys {
     /** Default JDBC URL property name. */
     JDBC_URL(Constants.JDBC_URL),
 
-    /** Basic authentication login. */
-    BASIC_AUTHENTICATION_LOGIN(Constants.BASIC_AUTHENTICATION_LOGIN),
+    /** Basic authentication username. */
+    BASIC_AUTHENTICATION_USERNAME(Constants.BASIC_AUTHENTICATION_USERNAME),
 
     /** Basic authentication password. */
     BASIC_AUTHENTICATION_PASSWORD(Constants.BASIC_AUTHENTICATION_PASSWORD);
@@ -51,6 +55,23 @@ public enum CliConfigKeys {
 
     public String value() {
         return value;
+    }
+
+    /**
+     * Returns all secret config keys.
+     */
+    public static Set<String> secretConfigKeys() {
+        return Set.of(
+                        REST_KEY_STORE_PASSWORD,
+                        REST_KEY_STORE_PATH,
+                        REST_TRUST_STORE_PASSWORD,
+                        REST_TRUST_STORE_PATH,
+                        BASIC_AUTHENTICATION_USERNAME,
+                        BASIC_AUTHENTICATION_PASSWORD
+                )
+                .stream()
+                .map(CliConfigKeys::value)
+                .collect(toUnmodifiableSet());
     }
 
     /** Constants for CLI config. */
@@ -69,7 +90,7 @@ public enum CliConfigKeys {
 
         public static final String JDBC_URL = "ignite.jdbc-url";
 
-        public static final String BASIC_AUTHENTICATION_LOGIN = "ignite.auth.basic.login";
+        public static final String BASIC_AUTHENTICATION_USERNAME = "ignite.auth.basic.username";
 
         public static final String BASIC_AUTHENTICATION_PASSWORD = "ignite.auth.basic.password";
     }

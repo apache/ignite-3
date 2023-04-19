@@ -380,7 +380,8 @@ public class IgniteImpl implements Ignite {
                 cmgMgr,
                 logicalTopologyService,
                 raftMgr,
-                new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH))
+                new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH)),
+                clock
         );
 
         this.cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vaultMgr);
@@ -488,7 +489,8 @@ public class IgniteImpl implements Ignite {
                 volatileLogStorageFactoryCreator,
                 clock,
                 outgoingSnapshotsManager,
-                topologyAwareRaftGroupServiceFactory
+                topologyAwareRaftGroupServiceFactory,
+                vaultMgr
         );
 
         indexManager = new IndexManager(name, tablesConfiguration, schemaManager, distributedTblMgr, clusterSvc);
@@ -514,6 +516,11 @@ public class IgniteImpl implements Ignite {
 
         compute = new IgniteComputeImpl(clusterSvc.topologyService(), distributedTblMgr, computeComponent);
 
+        authenticationManager = createAuthenticationManager();
+
+        AuthenticationConfiguration authenticationConfiguration = clusterConfigRegistry.getConfiguration(SecurityConfiguration.KEY)
+                .authentication();
+
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
@@ -525,8 +532,10 @@ public class IgniteImpl implements Ignite {
                 sql,
                 () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag().clusterId()),
                 metricManager,
-                new ClientHandlerMetricSource()
-        );
+                new ClientHandlerMetricSource(),
+                authenticationManager,
+                authenticationConfiguration
+                );
 
         deploymentManager = new DeploymentManagerImpl(clusterSvc,
                 metaStorageMgr,
@@ -534,7 +543,6 @@ public class IgniteImpl implements Ignite {
                 nodeConfigRegistry.getConfiguration(DeploymentConfiguration.KEY),
                 cmgMgr);
 
-        authenticationManager = createAuthenticationManager();
         restComponent = createRestComponent(name);
     }
 

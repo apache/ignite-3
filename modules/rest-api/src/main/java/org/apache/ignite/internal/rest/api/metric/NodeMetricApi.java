@@ -26,6 +26,7 @@ import io.micronaut.http.annotation.Produces;
 import io.micronaut.security.annotation.Secured;
 import io.micronaut.security.rules.SecurityRule;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -66,18 +67,21 @@ public interface NodeMetricApi {
 
     /** List metric sources. */
     @Operation(operationId = "listNodeMetricSources", description = "Gets a list of all available metric sources.")
-    @ApiResponse(responseCode = "200", description = "Returned a list of metric sources.")
+    @ApiResponse(responseCode = "200", description = "Returned a list of metric sources.",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON,
+                    array = @ArraySchema(schema = @Schema(implementation = MetricSource.class))))
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @Produces(MediaType.APPLICATION_JSON)
     @Get("source")
-    Collection<MetricSourceDto> listMetricSources();
+    Collection<MetricSource> listMetricSources();
 
     /** List metric sets. */
     @Operation(operationId = "listNodeMetricSets", description = "Gets a list of all enabled metric sets.")
-    @ApiResponse(responseCode = "200", description = "Returned a list of metric sets.")
+    @ApiResponse(responseCode = "200", description = "Returned a list of metric sets.",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON,
+                    array = @ArraySchema(schema = @Schema(implementation = MetricSet.class))))
     @ApiResponse(responseCode = "500", description = "Internal error",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Get("set")
-    Collection<MetricSetDto> listMetricSets();
+    Collection<MetricSet> listMetricSets();
 }

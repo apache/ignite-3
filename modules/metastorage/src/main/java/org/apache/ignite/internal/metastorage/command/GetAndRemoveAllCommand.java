@@ -17,36 +17,16 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Get and remove all command for MetaStorageCommandListener that removes entries for given keys and retrieves previous entries.
  */
 @Transferable(MetastorageCommandsMessageGroup.GET_AND_REMOVE_ALL)
-public interface GetAndRemoveAllCommand extends WriteCommand {
+public interface GetAndRemoveAllCommand extends MetaStorageWriteCommand {
     /**
      * Returns the keys collection. Couldn't be {@code null}.
      */
     List<byte[]> keys();
-
-    /**
-     * Static constructor.
-     *
-     * @param commandsFactory Commands factory.
-     * @param keys The keys collection. Couldn't be {@code null}.
-     */
-    static GetAndRemoveAllCommand getAndRemoveAllCommand(MetaStorageCommandsFactory commandsFactory, Set<ByteArray> keys) {
-        List<byte[]> keysList = new ArrayList<>(keys.size());
-
-        for (ByteArray key : keys) {
-            keysList.add(key.bytes());
-        }
-
-        return commandsFactory.getAndRemoveAllCommand().keys(keysList).build();
-    }
 }

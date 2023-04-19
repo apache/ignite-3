@@ -345,13 +345,17 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @return A future.
      */
     private CompletableFuture<?> onIndexDrop(ConfigurationNotificationEvent<TableIndexView> evt) {
-        UUID idxId = evt.oldValue().id();
+        TableIndexView tableIndexView = evt.oldValue();
 
-        UUID tableId = evt.oldValue().tableId();
+        UUID idxId = tableIndexView.id();
+
+        UUID tableId = tableIndexView.tableId();
+
+        long causalityToken = evt.storageRevision();
 
         if (!busyLock.enterBusy()) {
             fireEvent(IndexEvent.DROP,
-                    new IndexEventParameters(evt.storageRevision(), tableId, idxId),
+                    new IndexEventParameters(causalityToken, tableId, idxId),
                     new NodeStoppingException()
             );
 
@@ -359,16 +363,18 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         try {
-            CompletableFuture<?> eventFuture = fireEvent(IndexEvent.DROP, new IndexEventParameters(evt.storageRevision(), tableId, idxId));
+            CompletableFuture<?> fireEventFuture = fireEvent(IndexEvent.DROP, new IndexEventParameters(causalityToken, tableId, idxId));
 
-            CompletableFuture<?> dropTableFuture = tableManager.tableAsync(evt.storageRevision(), tableId)
+            CompletableFuture<?> dropIndexFuture = tableManager.tableAsync(causalityToken, tableId)
                     .thenAccept(table -> {
                         if (table != null) { // in case of DROP TABLE the table will be removed first
+                            indexBuilder.stopIndexBuild(tableIndexView, table);
+
                             table.unregisterIndex(idxId);
                         }
                     });
 
-            return allOf(eventFuture, dropTableFuture);
+            return allOf(fireEventFuture, dropIndexFuture);
         } finally {
             busyLock.leaveBusy();
         }
