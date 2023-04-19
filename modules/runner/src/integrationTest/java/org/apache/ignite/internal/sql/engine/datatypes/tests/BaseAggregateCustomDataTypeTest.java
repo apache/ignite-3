@@ -66,9 +66,7 @@ public abstract class BaseAggregateCustomDataTypeTest<T extends Comparable<T>> e
         checkQuery("SELECT MAX(test_key) FROM t").returns(max).check();
     }
 
-    /**
-     * Test {@code GROUP BY}.
-     */
+    /** {@code GROUP BY}.*/
     @Test
     public void testGroupBy() {
         T min = orderedValues.first();
@@ -84,9 +82,7 @@ public abstract class BaseAggregateCustomDataTypeTest<T extends Comparable<T>> e
                 .check();
     }
 
-    /**
-     * Test {@code GROUP BY} {@code HAVING}.
-     */
+    /** {@code GROUP BY} {@code HAVING}. */
     @ParameterizedTest
     @MethodSource("having")
     public void testGroupByHaving(TestTypeArguments<T> arguments) {

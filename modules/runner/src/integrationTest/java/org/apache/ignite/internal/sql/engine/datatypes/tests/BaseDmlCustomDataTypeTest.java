@@ -37,9 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 public abstract class BaseDmlCustomDataTypeTest<T extends Comparable<T>> extends BaseCustomDataTypeTest<T> {
 
-    /**
-     * {@code INSERT}.
-     */
+    /** {@code INSERT}. */
     @ParameterizedTest
     @MethodSource("dml")
     public void testInsert(TestTypeArguments<T> arguments) {
@@ -48,9 +46,7 @@ public abstract class BaseDmlCustomDataTypeTest<T extends Comparable<T>> extends
         checkQuery("SELECT test_key FROM t WHERE id=1").returns(arguments.value(0)).check();
     }
 
-    /**
-     * {@code INSERT} with dynamic parameters.
-     */
+    /** {@code INSERT} with dynamic parameters.*/
     @ParameterizedTest
     @MethodSource("dml")
     public void testInsertDynamicParameter(TestTypeArguments<T> arguments) {
@@ -61,9 +57,7 @@ public abstract class BaseDmlCustomDataTypeTest<T extends Comparable<T>> extends
         checkQuery("SELECT test_key FROM t WHERE id=1").returns(value1).check();
     }
 
-    /**
-     * {@code DELETE} by key.
-     */
+    /** {@code DELETE} by key. */
     @Test
     public void testDelete() {
         T value1 = values.get(0);
@@ -77,9 +71,7 @@ public abstract class BaseDmlCustomDataTypeTest<T extends Comparable<T>> extends
         checkQuery("SELECT id FROM t").returns(2).returns(3).check();
     }
 
-    /**
-     * {@code UPDATE}.
-     */
+    /** {@code UPDATE}. */
     @ParameterizedTest
     @MethodSource("dml")
     public void testUpdate(TestTypeArguments<T> arguments) {
@@ -96,9 +88,7 @@ public abstract class BaseDmlCustomDataTypeTest<T extends Comparable<T>> extends
                 .check();
     }
 
-    /**
-     * {@code UPDATE} with dynamic parameter.
-     */
+    /** {@code UPDATE} with dynamic parameter.*/
     @ParameterizedTest
     @MethodSource("dml")
     public void testUpdateWithDynamicParameter(TestTypeArguments<T> arguments) {
@@ -115,9 +105,7 @@ public abstract class BaseDmlCustomDataTypeTest<T extends Comparable<T>> extends
                 .check();
     }
 
-    /**
-     * Type mismatch in {@code INSERT}s {@code VALUES}.
-     */
+    /** Type mismatch in {@code INSERT}s {@code VALUES}.*/
     @ParameterizedTest
     @MethodSource("convertedFrom")
     public void testDisallowMismatchTypesOnInsert(TestTypeArguments<T> arguments) {

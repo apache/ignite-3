@@ -31,6 +31,7 @@ import java.util.UUID;
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-19128")
 public class ItUuidIndexTest extends BaseIndexCustomDataTypeTest<UUID> {
 
+    /** {@inheritDoc} **/
     @Override
     protected CustomDataTypeTestSpec<UUID> getTypeSpec() {
         return CustomDataTypeTestSpecs.UUID_TYPE;

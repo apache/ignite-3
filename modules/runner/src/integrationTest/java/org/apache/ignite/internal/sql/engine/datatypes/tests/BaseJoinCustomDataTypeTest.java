@@ -28,15 +28,13 @@ import java.util.stream.Stream;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 /**
- * Tests for {@code JOIN} operator for a custom data type.
+ * Test cases for {@code JOIN} operator for a custom data type.
  *
  * @param <T> A storage type for a custom data type.
  */
 public abstract class BaseJoinCustomDataTypeTest<T extends Comparable<T>> extends BaseCustomDataTypeTest<T> {
 
-    /**
-     * Creates join tables.
-     */
+    /** Creates join tables. */
     @BeforeAll
     public void createJoinTables() {
         Stream<TestTypeArguments<T>> args = TestTypeArguments.unary(testTypeSpec, dataSamples, dataSamples.min());
@@ -57,6 +55,7 @@ public abstract class BaseJoinCustomDataTypeTest<T extends Comparable<T>> extend
         });
     }
 
+    /** Equijoins. Joins with equality predicate in condition. */
     @ParameterizedTest
     @MethodSource("equiJoin")
     public void testEquiJoin(TestTypeArguments<T> arguments, String joinType) {
@@ -82,6 +81,7 @@ public abstract class BaseJoinCustomDataTypeTest<T extends Comparable<T>> extend
         });
     }
 
+    /** Non equijoins. Joins with non equality predicate in condition. */
     @ParameterizedTest
     @MethodSource("nonEquiJoin")
     public void testNonEquijoin(TestTypeArguments<T> arguments, String joinExpr) {
@@ -99,6 +99,7 @@ public abstract class BaseJoinCustomDataTypeTest<T extends Comparable<T>> extend
         checkQuery(join).check();
     }
 
+    /** Antijoin. Join with {@code not equals} in condition. */
     @ParameterizedTest
     @MethodSource("nonEquiJoin")
     public void testAntiJoin(TestTypeArguments<T> arguments, String joinExpr) {

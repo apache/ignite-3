@@ -17,11 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -30,7 +26,7 @@ import java.util.stream.Stream;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 /**
- * Tests with indexed custom data type column.
+ * Tests for indexes with custom data type columns.
  *
  * @param <T> A storage type for a custom data type.
  */

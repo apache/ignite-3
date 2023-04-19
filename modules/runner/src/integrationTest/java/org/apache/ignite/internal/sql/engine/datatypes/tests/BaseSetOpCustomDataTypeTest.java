@@ -20,14 +20,14 @@ package org.apache.ignite.internal.sql.engine.datatypes.tests;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for set operators for custom data type.
+ * Test cases for set operators for custom data type.
  *
  * @param <T> A storage type for a custom data type.
  */
 public abstract class BaseSetOpCustomDataTypeTest<T extends Comparable<T>> extends BaseCustomDataTypeTest<T> {
 
     /**
-     * Test for {@code UNION} operator.
+     * {@code UNION} operator.
      */
     @Test
     public void testUnion() {
@@ -45,7 +45,7 @@ public abstract class BaseSetOpCustomDataTypeTest<T extends Comparable<T>> exten
     }
 
     /**
-     * Test for {@code UNION ALL} operator.
+     * {@code UNION ALL} operator.
      */
     @Test
     public void testUnionAll() {
@@ -66,7 +66,7 @@ public abstract class BaseSetOpCustomDataTypeTest<T extends Comparable<T>> exten
     }
 
     /**
-     * Test for {@code INTERSECT} operator.
+     * {@code INTERSECT} operator.
      */
     @Test
     public void testIntersect() {
@@ -86,7 +86,7 @@ public abstract class BaseSetOpCustomDataTypeTest<T extends Comparable<T>> exten
     }
 
     /**
-     * Test for {@code INTERSECT} and {@code INTERSECT ALL} operators.
+     * {@code INTERSECT} and {@code INTERSECT ALL} operators.
      */
     @Test
     public void testIntersectAll() {
@@ -106,7 +106,7 @@ public abstract class BaseSetOpCustomDataTypeTest<T extends Comparable<T>> exten
     }
 
     /**
-     * Test for {@code EXCEPT} operator.
+     * {@code EXCEPT} operator.
      */
     @Test
     public void testExcept() {
@@ -132,7 +132,7 @@ public abstract class BaseSetOpCustomDataTypeTest<T extends Comparable<T>> exten
     }
 
     /**
-     * Test for {@code EXCEPT ALL} operator.
+     * {@code EXCEPT ALL} operator.
      */
     @Test
     public void testExceptAll() {

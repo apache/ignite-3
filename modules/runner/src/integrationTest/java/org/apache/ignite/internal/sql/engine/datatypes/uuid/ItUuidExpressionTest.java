@@ -30,9 +30,7 @@ import java.util.UUID;
  */
 public class ItUuidExpressionTest extends BaseExpressionCustomDataTypeTest<UUID> {
 
-    /**
-     * Test {@code RAND_UUID} function.
-     */
+    /** Test {@code RAND_UUID} function.*/
     @Test
     public void testRand() {
         checkQuery("SELECT RAND_UUID()").columnTypes(UUID.class).check();

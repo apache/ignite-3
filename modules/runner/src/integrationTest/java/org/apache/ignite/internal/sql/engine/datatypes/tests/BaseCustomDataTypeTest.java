@@ -42,7 +42,7 @@ import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Base class for test for {@link IgniteCustomType custom data type}.
+ * Base class for test cases for {@link IgniteCustomType custom data type}.
  *
  * <p>Usage:
  * <ul>

@@ -31,9 +31,7 @@ import static org.apache.ignite.lang.IgniteStringFormatter.format;
  */
 public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> extends BaseCustomDataTypeTest<T> {
 
-    /**
-     * Test case a query with no predicate.
-     */
+    /** No predicate. */
     @Test
     public void testSelect() {
         runSql("INSERT INTO t VALUES(1, $0)");
@@ -44,9 +42,7 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
                 .check();
     }
 
-    /**
-     * Test case for querying an empty table.
-     */
+    /** Query against an empty table. */
     @Test
     public void testSelectFromEmpty() {
         checkQuery("SELECT id, test_key FROM t")
@@ -55,9 +51,7 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
                 .check();
     }
 
-    /**
-     * Test for equality predicate.
-     */
+    /** Test for equality predicate. */
     @ParameterizedTest
     @MethodSource("eq")
     public void testEqCondition(TestTypeArguments<T> arguments) {
@@ -80,9 +74,7 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
                 .check();
     }
 
-    /**
-     * Test for equality predicate with dynamic parameter.
-     */
+    /** Test for equality predicate with dynamic parameter. */
     @ParameterizedTest
     @MethodSource("eq")
     public void testEqConditionWithDynamicParameters(TestTypeArguments<T> arguments) {
@@ -109,9 +101,7 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
         return TestTypeArguments.unary(testTypeSpec, dataSamples, values.get(0));
     }
 
-    /**
-     * Test case for predicate with {@code IN} expression.
-     */
+    /** {@code IN} expression. */
     @Test
     public void testIn() {
         runSql("INSERT INTO t VALUES(1, $0)");
@@ -124,9 +114,7 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
                 .check();
     }
 
-    /**
-     * Test case for predicate with {@code IN} expression with dynamic parameters.
-     */
+    /** {@code IN} expression with dynamic parameters. */
     @Test
     public void testInWithDynamicParamsCondition() {
         T value1 = values.get(0);
@@ -146,9 +134,7 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
                 .check();
     }
 
-    /**
-     * Test case for predicate with {@code NOT IN} expression with dynamic parameters.
-     */
+    /** {@code NOT IN} expression with dynamic parameters. */
     @Test
     public void testNotInWithDynamicParamsCondition() {
         T value1 = values.get(0);
@@ -166,9 +152,7 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
                 .check();
     }
 
-    /**
-     * Test case for predicate with {@code NOT IN} expression.
-     */
+    /** {@code NOT IN} expression. */
     @Test
     public void testNotIn() {
         runSql("INSERT INTO t VALUES(1, $0)");
@@ -180,9 +164,7 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
                 .check();
     }
 
-    /**
-     * {@code IN} operator with dynamic parameters.
-     */
+    /** {@code IN} operator with dynamic parameters. */
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18924")
     public void testInWithDynamicParamsConditionNoCasts() {
@@ -200,9 +182,7 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
                 .check();
     }
 
-    /**
-     * {@code BETWEEN} operator.
-     */
+    /** {@code BETWEEN} operator. */
     @ParameterizedTest
     @MethodSource("between")
     public void testBetweenCondition(TestTypeArguments<T> arguments) {
@@ -235,9 +215,7 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
         return TestTypeArguments.nary(testTypeSpec, dataSamples, value1, value2, value3);
     }
 
-    /**
-     * Test case for {@code IS NOT DISTINCT FROM} predicate in {@code WHERE clause}.
-     */
+    /** {@code IS NOT DISTINCT FROM} predicate.*/
     @ParameterizedTest
     @MethodSource("distinctFrom")
     public void testIsNotDistinctFrom(TestTypeArguments<T> arguments) {
@@ -256,7 +234,7 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
     }
 
     /**
-     * Test case for {@code IS NOT DISTINCT FROM} predicate in {@code WHERE clause} with dynamic parameters.
+     * {@code IS NOT DISTINCT FROM} predicate in {@code WHERE clause} with dynamic parameters.
      */
     @ParameterizedTest
     @MethodSource("distinctFrom")
@@ -275,9 +253,7 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
                 .check();
     }
 
-    /**
-     * Test case for {@code IS DISTINCT FROM} in {@code WHERE clause}.
-     */
+    /** {@code IS DISTINCT FROM} in {@code WHERE clause}. */
     @ParameterizedTest
     @MethodSource("distinctFrom")
     public void testIsDistinctFrom(TestTypeArguments<T> arguments) {
@@ -301,9 +277,7 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
         return TestTypeArguments.unary(testTypeSpec, dataSamples, values.get(1));
     }
 
-    /**
-     * Asc ordering.
-     */
+    /** Ascending ordering.*/
     @Test
     public void testAscOrdering() {
         T min = orderedValues.first();
@@ -321,9 +295,7 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
                 .check();
     }
 
-    /**
-     * Desc ordering.
-     */
+    /** Descending ordering. */
     @Test
     public void testDescOrdering() {
         T min = orderedValues.first();
@@ -337,9 +309,7 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
         checkQuery("SELECT id FROM t ORDER BY test_key DESC").returns(3).returns(2).returns(1).check();
     }
 
-    /**
-     * Test {@code WHERE} clause.
-     */
+    /** Predicate in {@code WHERE} clause. */
     @ParameterizedTest
     @MethodSource("filter")
     public void testFilter(TestTypeArguments<T> arguments) {
@@ -356,9 +326,7 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
                 .check();
     }
 
-    /**
-     * Test {@code WHERE} clause with dynamic parameters.
-     */
+    /** Predicate in {@code WHERE} clause with dynamic parameter. */
     @ParameterizedTest
     @MethodSource("filter")
     public void testFilterWithDynamicParameters(TestTypeArguments<T> arguments) {

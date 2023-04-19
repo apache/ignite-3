@@ -19,14 +19,7 @@ package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
 import org.apache.calcite.sql.type.SqlTypeName;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.NavigableSet;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.function.Function;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
