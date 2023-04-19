@@ -12,9 +12,9 @@ paths:
     post:
       tags:
       - clusterManagement
+      summary: Initializes cluster.
       description: Initializes a new cluster.
       operationId: init
-      parameters: []
       requestBody:
         content:
           application/json:
@@ -44,9 +44,9 @@ paths:
     get:
       tags:
       - clusterManagement
+      summary: Returns cluster state.
       description: Returns current cluster status.
       operationId: clusterState
-      parameters: []
       responses:
         "200":
           description: Cluster status returned.
@@ -71,9 +71,9 @@ paths:
     get:
       tags:
       - topology
+      summary: Cluster logical topology.
       description: Gets information about logical cluster topology.
       operationId: logical
-      parameters: []
       responses:
         "200":
           description: Logical topology returned.
@@ -100,9 +100,9 @@ paths:
     get:
       tags:
       - topology
+      summary: Cluster physical topology.
       description: Gets information about physical cluster topology.
       operationId: physical
-      parameters: []
       responses:
         "200":
           description: Physical topology returned.
@@ -122,9 +122,9 @@ paths:
     get:
       tags:
       - clusterConfiguration
+      summary: Returns cluster configuration in HOCON format.
       description: Gets the current configuration of the cluster.
       operationId: getClusterConfiguration
-      parameters: []
       responses:
         "200":
           description: Received cluster configuration.
@@ -153,10 +153,10 @@ paths:
     patch:
       tags:
       - clusterConfiguration
+      summary: Updates cluster configuration in HOCON format.
       description: Updates cluster configuration. New configuration should be provided
         in HOCON format.
       operationId: updateClusterConfiguration
-      parameters: []
       requestBody:
         description: The cluster configuration to update.
         content:
@@ -168,7 +168,7 @@ paths:
         "200":
           description: Configuration updated.
           content:
-            application/problem+json:
+            application/json:
               schema:
                 $ref: '#/components/schemas/Void'
         "500":
@@ -193,6 +193,7 @@ paths:
     get:
       tags:
       - clusterConfiguration
+      summary: Returns configuration in HOCON format represented by path.
       description: Gets the configuration on the specific path. Configuration is in
         HOCON format
       operationId: getClusterConfigurationByPath
@@ -232,9 +233,9 @@ paths:
     get:
       tags:
       - nodeConfiguration
+      summary: Returns node configuration in HOCON format.
       description: Gets node configuration in HOCON format.
       operationId: getNodeConfiguration
-      parameters: []
       responses:
         "200":
           description: Full node configuration.
@@ -257,10 +258,10 @@ paths:
     patch:
       tags:
       - nodeConfiguration
+      summary: Updates node configuration in HOCON format.
       description: Updates node configuration. New configuration should be provided
         in HOCON format.
       operationId: updateNodeConfiguration
-      parameters: []
       requestBody:
         description: The node configuration to update.
         content:
@@ -272,7 +273,7 @@ paths:
         "200":
           description: Configuration successfully updated.
           content:
-            application/problem+json:
+            application/json:
               schema:
                 $ref: '#/components/schemas/Void'
         "500":
@@ -291,6 +292,7 @@ paths:
     get:
       tags:
       - nodeConfiguration
+      summary: Returns configuration in HOCON format represented by path.
       description: "Gets a configuration of a specific node, in HOCON format."
       operationId: getNodeConfigurationByPath
       parameters:
@@ -323,9 +325,9 @@ paths:
     get:
       tags:
       - deployment
+      summary: All units status REST method.
       description: All units statuses.
       operationId: units
-      parameters: []
       responses:
         "200":
           description: All statuses returned successfully.
@@ -344,9 +346,9 @@ paths:
     post:
       tags:
       - deployment
+      summary: Deploy unit REST method.
       description: Deploys provided unit to the cluster.
       operationId: deployUnit
-      parameters: []
       requestBody:
         content:
           multipart/form-data:
@@ -357,16 +359,12 @@ paths:
               type: object
               properties:
                 unitId:
-                  required:
-                  - "true"
                   type: string
                   description: The ID of the deployment unit.
                 unitVersion:
                   type: string
                   description: The version of the deployment unit.
                 unitContent:
-                  required:
-                  - "true"
                   type: string
                   description: The code to deploy.
                   format: binary
@@ -394,6 +392,7 @@ paths:
     get:
       tags:
       - deployment
+      summary: Find unit by node consistent id.
       description: Returns the status of units that are deployed on the node.
       operationId: byConsistentId
       parameters:
@@ -401,8 +400,6 @@ paths:
         in: path
         required: true
         schema:
-          required:
-          - "true"
           type: string
           description: The consistent deployment unit identifier.
       responses:
@@ -424,6 +421,7 @@ paths:
     delete:
       tags:
       - deployment
+      summary: Undeploy latest unit REST method.
       description: Undeploys the latest unit with the provided unitId.
       operationId: undeployLatestUnit
       parameters:
@@ -431,8 +429,6 @@ paths:
         in: path
         required: true
         schema:
-          required:
-          - "true"
           type: string
           description: The ID of the deployment unit.
       responses:
@@ -458,6 +454,7 @@ paths:
     get:
       tags:
       - deployment
+      summary: Unit status REST method.
       description: Returns the status of the unit with the provided identifier.
       operationId: status
       parameters:
@@ -465,8 +462,6 @@ paths:
         in: path
         required: true
         schema:
-          required:
-          - "true"
           type: string
           description: The ID of the deployment unit.
       responses:
@@ -492,6 +487,7 @@ paths:
     get:
       tags:
       - deployment
+      summary: Versions of unit REST method.
       description: Returns all versions of the unit with the provided unit identifier.
       operationId: versions
       parameters:
@@ -499,8 +495,6 @@ paths:
         in: path
         required: true
         schema:
-          required:
-          - "true"
           type: string
           description: The ID of the deployment unit.
       responses:
@@ -528,6 +522,7 @@ paths:
     delete:
       tags:
       - deployment
+      summary: Undeploy unit REST method.
       description: Undeploys the unit with provided unitId and unitVersion.
       operationId: undeployUnit
       parameters:
@@ -535,16 +530,12 @@ paths:
         in: path
         required: true
         schema:
-          required:
-          - "true"
           type: string
           description: The ID of the deployment unit.
       - name: unitVersion
         in: path
         required: true
         schema:
-          required:
-          - "true"
           type: string
           description: The version of the deployment unit.
       responses:
@@ -570,9 +561,9 @@ paths:
     post:
       tags:
       - nodeMetric
+      summary: Disable metric source.
       description: Disables the specified metric source.
       operationId: disableNodeMetric
-      parameters: []
       requestBody:
         content:
           text/plain:
@@ -598,9 +589,9 @@ paths:
     post:
       tags:
       - nodeMetric
+      summary: Enable metric source.
       description: Enables the specified metric source.
       operationId: enableNodeMetric
-      parameters: []
       requestBody:
         content:
           text/plain:
@@ -626,9 +617,9 @@ paths:
     get:
       tags:
       - nodeMetric
+      summary: List metric sets.
       description: Gets a list of all enabled metric sets.
       operationId: listNodeMetricSets
-      parameters: []
       responses:
         "200":
           description: Returned a list of metric sets.
@@ -648,9 +639,9 @@ paths:
     get:
       tags:
       - nodeMetric
+      summary: List metric sources.
       description: Gets a list of all available metric sources.
       operationId: listNodeMetricSources
-      parameters: []
       responses:
         "200":
           description: Returned a list of metric sources.
@@ -672,7 +663,6 @@ paths:
       - nodeManagement
       description: Gets current network status.
       operationId: nodeState
-      parameters: []
       responses:
         "200":
           description: Current node status.
@@ -692,7 +682,6 @@ paths:
       - nodeManagement
       description: Gets the version of Apache Ignite the node uses.
       operationId: nodeVersion
-      parameters: []
       responses:
         "200":
           description: Node version.
@@ -719,7 +708,7 @@ components:
           description: A list of authentication providers.
           items:
             $ref: '#/components/schemas/AuthenticationProviderConfig'
-      description: REST representation of AuthenticationConfig.
+      description: Authentication configuration.
     AuthenticationProviderConfig:
       type: object
       description: Configuration for the authentication provider.
@@ -732,15 +721,15 @@ components:
     BasicAuthenticationProviderConfig:
       type: object
       properties:
+        name:
+          type: string
+          description: Provider name.
         username:
           type: string
           description: Username.
         password:
           type: string
           description: Password.
-        name:
-          type: string
-          description: Provider name.
         type:
           type: string
       description: Configuration for basic authentication.
@@ -754,9 +743,16 @@ components:
           type: string
           description: Unique cluster name.
         address:
-          $ref: '#/components/schemas/NetworkAddress'
+          description: Network address of this node.
+          allOf:
+          - $ref: '#/components/schemas/NetworkAddress'
+          - type: object
+            description: Cluster network address information.
         metadata:
-          $ref: '#/components/schemas/NodeMetadata'
+          allOf:
+          - $ref: '#/components/schemas/NodeMetadata'
+          - type: object
+            description: Node metadata information.
       description: Information about the cluster node.
     ClusterState:
       type: object
@@ -777,7 +773,10 @@ components:
           type: string
           description: Version of Apache Ignite that the cluster was created on.
         clusterTag:
-          $ref: '#/components/schemas/ClusterTag'
+          allOf:
+          - $ref: '#/components/schemas/ClusterTag'
+          - type: object
+            description: Unique tag that identifies the cluster.
       description: Information about current cluster state.
     ClusterTag:
       type: object
@@ -790,6 +789,32 @@ components:
           type: string
           description: Unique cluster name.
       description: Unique tag that identifies the cluster.
+    DeploymentInfo:
+      required:
+      - consistentIds
+      - status
+      type: object
+      properties:
+        status:
+          allOf:
+          - $ref: '#/components/schemas/DeploymentStatus'
+          - type: object
+            description: Current unit status.
+        consistentIds:
+          type: array
+          items:
+            type: string
+            description: Map from unit version to node consistent id where unit is
+              deployed.
+      description: Rest representation of class with deployment unit information.
+    DeploymentStatus:
+      type: string
+      description: Current unit status.
+      enum:
+      - UPLOADING
+      - DEPLOYED
+      - OBSOLETE
+      - REMOVING
     InitCommand:
       type: object
       properties:
@@ -807,7 +832,10 @@ components:
           type: string
           description: The name of the cluster.
         authenticationConfig:
-          $ref: '#/components/schemas/AuthenticationConfig'
+          allOf:
+          - $ref: '#/components/schemas/AuthenticationConfig'
+          - type: object
+            description: Authentication configuration.
       description: Cluster initialization configuration.
     InvalidParam:
       type: object
@@ -820,18 +848,16 @@ components:
           description: The issue with the parameter.
       description: Information about invalid request parameter.
     Metric:
-      required:
-      - name
       type: object
       properties:
         name:
           type: string
-          description: Returns the metric name.
+          description: Metric name.
         desc:
           type: string
-          description: Returns the metric description.
+          description: Metric description.
           nullable: true
-      description: REST representation of Metric.
+      description: Metric representation.
     MetricSet:
       required:
       - metrics
@@ -839,18 +865,14 @@ components:
       type: object
       properties:
         name:
-          required:
-          - "true"
           type: string
           description: Metric set name.
         metrics:
-          required:
-          - "true"
           type: array
-          description: A list of metrics.
+          description: Metrics.
           items:
             $ref: '#/components/schemas/Metric'
-      description: REST representation of MetricSet.
+      description: Metrics set representation.
     MetricSource:
       required:
       - enabled
@@ -858,13 +880,9 @@ components:
       type: object
       properties:
         name:
-          required:
-          - "true"
           type: string
           description: Metric source name.
         enabled:
-          required:
-          - "true"
           type: boolean
           description: "If True, the metric is tracked. Otherwise, the metric is not\
             \ tracked."
@@ -896,13 +914,19 @@ components:
           format: int32
       description: Node metadata information.
     NodeState:
+      required:
+      - name
+      - state
       type: object
       properties:
         name:
           type: string
           description: Unique node name.
         state:
-          $ref: '#/components/schemas/State'
+          allOf:
+          - $ref: '#/components/schemas/State'
+          - type: object
+            description: Node status.
       description: Node state.
     Problem:
       type: object
@@ -948,20 +972,17 @@ components:
     UnitStatus:
       required:
       - id
-      - versionToConsistentIds
+      - versionToDeploymentInfo
       type: object
       properties:
         id:
           type: string
-          description: Returns unit identifier.
-        versionToConsistentIds:
+          description: Unit identifier.
+        versionToDeploymentInfo:
           type: object
           additionalProperties:
-            type: array
-            items:
-              type: string
-          description: Returns the map of existing unit versions mapped to the list
-            of node consistent ids where these units are deployed.
+            $ref: '#/components/schemas/DeploymentInfo'
+          description: Map from unit version to unit deployment status.
       description: Unit status.
     Void:
       type: object

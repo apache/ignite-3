@@ -120,7 +120,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    public void ddl() {
+    public void ddl() throws Exception {
         IgniteSql sql = CLUSTER_NODES.get(0).sql();
         Session ses = sql.createSession();
 
@@ -160,6 +160,9 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
                 "CREATE INDEX TEST_IDX ON TEST(VAL1)"
         );
         checkDdl(false, ses, "CREATE INDEX IF NOT EXISTS TEST_IDX ON TEST(VAL1)");
+
+        // TODO: IGNITE-19150 We are waiting for schema synchronization to avoid races to create and destroy indexes
+        waitForIndexBuild("TEST", "TEST_IDX");
 
         checkDdl(true, ses, "DROP INDEX TESt_iDX");
         checkDdl(true, ses, "CREATE INDEX TEST_IDX1 ON TEST(VAL0)");
@@ -593,6 +596,40 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
             AsyncResultSet ars = await(ses.executeAsync(null, "SELECT * FROM TEST"));
             await(ars.closeAsync());
             assertThrowsWithCause(() -> await(ars.fetchNextPage()), CursorClosedException.class);
+        }
+    }
+
+    /**
+     * DDL is non-transactional.
+     */
+    @Test
+    public void ddlInTransaction() {
+        Session ses = igniteSql().createSession();
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        {
+            Transaction tx = igniteTx().begin();
+            try {
+                assertThrowsWithCause(() -> await(ses.executeAsync(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")),
+                        SqlException.class,
+                        "DDL doesn't support transactions."
+                );
+            } finally {
+                tx.rollback();
+            }
+        }
+        {
+            Transaction tx = igniteTx().begin();
+            AsyncResultSet<SqlRow> res = await(ses.executeAsync(tx, "INSERT INTO TEST VALUES (?, ?)", -1, -1));
+            assertEquals(1, res.affectedRows());
+
+            assertThrowsWithCause(() -> await(ses.executeAsync(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")),
+                    SqlException.class,
+                    "DDL doesn't support transactions."
+            );
+            tx.commit();
+
+            assertEquals(1, sql("SELECT ID FROM TEST WHERE ID = -1").size());
         }
     }
 

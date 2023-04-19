@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
 /**
  * Data class with deployment unit information.

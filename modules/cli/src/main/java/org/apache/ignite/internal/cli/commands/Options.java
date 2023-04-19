@@ -215,6 +215,9 @@ public enum Options {
         /** JDBC URL option description. */
         public static final String JDBC_URL_OPTION_DESC = "JDBC url to ignite cluster";
 
+        /** JDBC URL option description key. */
+        public static final String JDBC_URL_KEY = CliConfigKeys.Constants.JDBC_URL;
+
         /** SQL script file option long name. */
         public static final String SCRIPT_FILE_OPTION = "--script-file";
 

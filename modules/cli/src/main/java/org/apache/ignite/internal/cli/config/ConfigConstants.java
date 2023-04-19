@@ -40,9 +40,19 @@ public final class ConfigConstants {
     private static final String CONFIG_FILE_NAME = "defaults";
 
     /**
+     * Secret configuration file name.
+     */
+    private static final String SECRET_CONFIG_FILE_NAME = "secrets";
+
+    /**
      * Environment variable which points to the configuration file.
      */
     private static final String IGNITE_CLI_CONFIG_FILE = "IGNITE_CLI_CONFIG_FILE";
+
+    /**
+     * Environment variable which points to the secret configuration file.
+     */
+    private static final String IGNITE_CLI_SECRET_CONFIG_FILE = "IGNITE_CLI_SECRET_CONFIG_FILE";
 
     /**
      * Environment variable which points to the CLI logs folder.
@@ -54,28 +64,12 @@ public final class ConfigConstants {
      */
     public static final String CURRENT_PROFILE = "current_profile";
 
-    /**
-     * Default cluster or node URL property name.
-     */
-    public static final String CLUSTER_URL = "ignite.cluster-endpoint-url";
-
-    /**
-     * Default JDBC URL property name.
-     */
-    public static final String JDBC_URL = "ignite.jdbc-url";
-
-    /**
-     * Last connected URL property name.
-     */
-    public static final String LAST_CONNECTED_URL = "ignite.last-connected-url";
-
     private ConfigConstants() {
     }
 
     /**
-     * Gets the {@link File} with user-specific configuration file.
-     * The file location can be overridden using {@code IGNITE_CLI_CONFIG_FILE} environment variable,
-     * otherwise base directory is specified by the
+     * Gets the {@link File} with user-specific configuration file. The file location can be overridden using
+     * {@link ConfigConstants#IGNITE_CLI_CONFIG_FILE} environment variable, otherwise base directory is specified by the
      * <a href="https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG Base Directory Specification</a>
      * and the configuration file name is {@code ignitecli/defaults} under the base directory.
      *
@@ -87,6 +81,22 @@ public final class ConfigConstants {
             return new File(configFile);
         }
         return getConfigRoot().resolve(PARENT_FOLDER_NAME).resolve(CONFIG_FILE_NAME).toFile();
+    }
+
+    /**
+     * Gets the {@link File} with user-specific configuration file. The file location can be overridden using
+     * {@link ConfigConstants#IGNITE_CLI_SECRET_CONFIG_FILE} environment variable, otherwise base directory is specified by the
+     * <a href="https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG Base Directory Specification</a>
+     * and the configuration file name is {@code ignitecli/secrets} under the base directory.
+     *
+     * @return configuration file.
+     */
+    public static File getSecretConfigFile() {
+        String configFile = System.getenv(IGNITE_CLI_SECRET_CONFIG_FILE);
+        if (configFile != null) {
+            return new File(configFile);
+        }
+        return getConfigRoot().resolve(PARENT_FOLDER_NAME).resolve(SECRET_CONFIG_FILE_NAME).toFile();
     }
 
     private static Path getConfigRoot() {

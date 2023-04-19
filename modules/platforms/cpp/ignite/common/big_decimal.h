@@ -59,8 +59,7 @@ public:
      * @param val Integer value.
      */
     explicit big_decimal(int64_t val)
-        : m_scale(0)
-        , m_magnitude(val) {}
+        : m_magnitude(val) {}
 
     /**
      * Integer constructor with scale.
@@ -89,8 +88,7 @@ public:
      * @param len String length.
      */
     big_decimal(const char *val, int32_t len)
-        : m_scale(0)
-        , m_magnitude(0) {
+        : m_magnitude(0) {
         assign_string(val, len);
     }
 
@@ -100,8 +98,7 @@ public:
      * @param val String to assign.
      */
     explicit big_decimal(const std::string &val)
-        : m_scale(0)
-        , m_magnitude(0) {
+        : m_magnitude(0) {
         assign_string(val);
     }
 
@@ -135,8 +132,9 @@ public:
      * @return int64_t value.
      */
     [[nodiscard]] int64_t to_int64() const {
-        if (m_scale == 0)
+        if (m_scale == 0) {
             return m_magnitude.to_int64();
+        }
 
         big_decimal zeroScaled;
 

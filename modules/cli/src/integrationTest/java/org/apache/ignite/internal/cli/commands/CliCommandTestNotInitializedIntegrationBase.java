@@ -29,7 +29,6 @@ import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
-import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
@@ -86,7 +85,7 @@ public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationT
     @BeforeEach
     public void setUp(TestInfo testInfo) throws Exception {
         super.setUp(testInfo);
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createIntegrationTests());
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createIntegrationTests());
         cmd = new CommandLine(getCommandClass(), new MicronautFactory(context))
                 .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
         cmd.setDefaultValueProvider(configDefaultValueProvider);

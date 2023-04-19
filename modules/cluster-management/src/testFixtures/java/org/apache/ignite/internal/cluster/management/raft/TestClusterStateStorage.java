@@ -19,13 +19,13 @@ package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -128,11 +128,6 @@ public class TestClusterStateStorage implements ClusterStateStorage {
         } finally {
             lock.readLock().unlock();
         }
-    }
-
-    private static boolean startsWith(byte[] key, byte[] prefix) {
-        return key.length >= prefix.length
-                && Arrays.equals(key, 0, prefix.length, prefix, 0, prefix.length);
     }
 
     @Override

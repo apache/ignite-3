@@ -19,26 +19,10 @@ package org.apache.ignite.internal.sql.engine;
 
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -78,9 +62,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
 
         sql(IgniteStringFormatter.format("CREATE INDEX {} ON {} (i1)", INDEX_NAME, TABLE_NAME));
 
-        // TODO: IGNITE-18733
-        waitForIndex(INDEX_NAME);
-
+        // TODO: IGNITE-19150 We are waiting for schema synchronization to avoid races to create and destroy indexes
         waitForIndexBuild(TABLE_NAME, INDEX_NAME);
 
         assertQuery(IgniteStringFormatter.format("SELECT * FROM {} WHERE i1 > 0", TABLE_NAME))
@@ -104,40 +86,5 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
                 .peek(Assertions::assertNotNull)
                 .map(objects -> objects.stream().map(Object::toString).collect(joining(", ", "(", ")")))
                 .collect(joining(", "));
-    }
-
-    private void waitForIndexBuild(String tableName, String indexName) throws Exception {
-        for (Ignite clusterNode : CLUSTER_NODES) {
-            CompletableFuture<Table> tableFuture = clusterNode.tables().tableAsync(tableName);
-
-            assertThat(tableFuture, willCompleteSuccessfully());
-
-            TableImpl tableImpl = (TableImpl) tableFuture.join();
-
-            InternalTable internalTable = tableImpl.internalTable();
-
-            UUID indexId = ((IgniteImpl) clusterNode).clusterConfiguration()
-                    .getConfiguration(TablesConfiguration.KEY)
-                    .indexes()
-                    .get(INDEX_NAME.toUpperCase())
-                    .id()
-                    .value();
-
-            assertNotNull(indexId, "table=" + tableName + ", index=" + indexName);
-
-            for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
-                RaftGroupService raftGroupService = internalTable.partitionRaftGroupService(partitionId);
-
-                Stream<Peer> allPeers = Stream.concat(Stream.of(raftGroupService.leader()), raftGroupService.peers().stream());
-
-                if (allPeers.map(Peer::consistentId).noneMatch(clusterNode.name()::equals)) {
-                    continue;
-                }
-
-                IndexStorage index = internalTable.storage().getOrCreateIndex(partitionId, indexId);
-
-                assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, 10_000));
-            }
-        }
     }
 }

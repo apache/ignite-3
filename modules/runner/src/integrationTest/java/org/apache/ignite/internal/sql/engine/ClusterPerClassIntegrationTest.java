@@ -36,8 +36,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
@@ -45,11 +48,16 @@ import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -467,5 +475,47 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                 () -> CLUSTER_NODES.stream().map(node -> getIndexConfiguration(node, indexName)).allMatch(Objects::nonNull),
                 10_000)
         );
+    }
+
+    /**
+     * Waits for the index to be built on all nodes.
+     *
+     * @param tableName Table name.
+     * @param indexName Index name.
+     * @throws Exception If failed.
+     */
+    public static void waitForIndexBuild(String tableName, String indexName) throws Exception {
+        // TODO: IGNITE-18733 We are waiting for the synchronization of schemes
+        for (Ignite clusterNode : CLUSTER_NODES) {
+            CompletableFuture<Table> tableFuture = clusterNode.tables().tableAsync(tableName);
+
+            assertThat(tableFuture, willCompleteSuccessfully());
+
+            TableImpl tableImpl = (TableImpl) tableFuture.join();
+
+            InternalTable internalTable = tableImpl.internalTable();
+
+            assertTrue(
+                    waitForCondition(() -> getIndexConfiguration(clusterNode, indexName) != null, 10, TimeUnit.SECONDS.toMillis(10)),
+                    String.format("node=%s, tableName=%s, indexName=%s", clusterNode.name(), tableName, indexName)
+            );
+
+            UUID indexId = getIndexConfiguration(clusterNode, indexName).id().value();
+
+            for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
+                RaftGroupService raftGroupService = internalTable.partitionRaftGroupService(partitionId);
+
+                Stream<Peer> allPeers = Stream.concat(Stream.of(raftGroupService.leader()), raftGroupService.peers().stream());
+
+                // Let's check if there is a node in the partition assignments.
+                if (allPeers.map(Peer::consistentId).noneMatch(clusterNode.name()::equals)) {
+                    continue;
+                }
+
+                IndexStorage index = internalTable.storage().getOrCreateIndex(partitionId, indexId);
+
+                assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, TimeUnit.SECONDS.toMillis(10)));
+            }
+        }
     }
 }

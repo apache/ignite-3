@@ -46,18 +46,23 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.command.HybridTimestampMessage;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
+import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -109,7 +114,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                 Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
-                List.of()
+                List.of(PersistentPageMemoryDataStorageConfigurationSchema.class)
         );
 
         clusterService = mock(ClusterService.class);
@@ -122,9 +127,12 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
 
-        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage);
+        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, mock(ClusterTimeImpl.class));
 
         RaftGroupService metaStorageService = mock(RaftGroupService.class);
+
+        HybridTimestampMessage mockTsMessage = mock(HybridTimestampMessage.class);
+        when(mockTsMessage.asHybridTimestamp()).thenReturn(new HybridTimestamp(10, 10));
 
         // Delegate directly to listener.
         lenient().doAnswer(
@@ -132,6 +140,10 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                     Command cmd = invocationClose.getArgument(0);
 
                     long commandIndex = raftIndex.incrementAndGet();
+
+                    if (cmd instanceof MetaStorageWriteCommand) {
+                        ((MetaStorageWriteCommand) cmd).safeTime(mockTsMessage);
+                    }
 
                     CompletableFuture<Serializable> res = new CompletableFuture<>();
 

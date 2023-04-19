@@ -401,13 +401,13 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
          *
          * <p>Distribution single
          */
-        CASE_18_3("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val1, val0 ORDER BY val0, val1", schema(single())),
+        CASE_18_3("SELECT val1, val0, COUNT(*) cnt FROM test GROUP BY val1, val0 ORDER BY val0, val1", schema(single())),
         /**
          * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val1, val0 ORDER BY val0, val1.
          *
          * <p>Distribution hash(0)
          */
-        CASE_18_3A("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val1, val0 ORDER BY val0, val1", schema(hash())),
+        CASE_18_3A("SELECT val1, val0, COUNT(*) cnt FROM test GROUP BY val1, val0 ORDER BY val0, val1", schema(hash())),
 
         /**
          * SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0.

@@ -81,9 +81,22 @@ public:
     /**
      * Gets the key-value binary view.
      *
-     * @return Record binary view.
+     * @return Key-value binary view.
      */
     [[nodiscard]] IGNITE_API key_value_view<ignite_tuple, ignite_tuple> get_key_value_binary_view() const noexcept;
+
+    /**
+     * Gets the key-value view.
+     *
+     * Template functions @c convert_to_tuple() and @c convert_from_tuple() should be specialized for the types K and V.
+     * @see See type_mapping.h for details.
+     *
+     * @return Key-value view.
+     */
+    template<typename K, typename V>
+    [[nodiscard]] key_value_view<K, V> get_key_value_view() const noexcept {
+        return key_value_view<K, V>{get_key_value_binary_view()};
+    }
 
 private:
     /**

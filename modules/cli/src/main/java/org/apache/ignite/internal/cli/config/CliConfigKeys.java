@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.cli.config;
 
+import static java.util.stream.Collectors.toUnmodifiableSet;
+
+import java.util.Set;
+
 /** CLI config keys and constants. */
 public enum CliConfigKeys {
 
@@ -51,6 +55,23 @@ public enum CliConfigKeys {
 
     public String value() {
         return value;
+    }
+
+    /**
+     * Returns all secret config keys.
+     */
+    public static Set<String> secretConfigKeys() {
+        return Set.of(
+                        REST_KEY_STORE_PASSWORD,
+                        REST_KEY_STORE_PATH,
+                        REST_TRUST_STORE_PASSWORD,
+                        REST_TRUST_STORE_PATH,
+                        BASIC_AUTHENTICATION_USERNAME,
+                        BASIC_AUTHENTICATION_PASSWORD
+                )
+                .stream()
+                .map(CliConfigKeys::value)
+                .collect(toUnmodifiableSet());
     }
 
     /** Constants for CLI config. */

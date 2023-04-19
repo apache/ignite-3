@@ -46,6 +46,7 @@ import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAl
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneBindTableException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
@@ -77,7 +78,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
                 Set.of(FilterValidator.INSTANCE),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
-                List.of()
+                List.of(TestPersistStorageConfigurationSchema)
         );
 
         registry.start();
@@ -176,7 +177,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
                 new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
         ).get(5, TimeUnit.SECONDS);
 
-        CompletableFuture<Void> fut;
+        CompletableFuture<Integer> fut;
 
         fut = distributionZoneManager.createZone(
                 new Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
@@ -421,7 +422,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     public void testCreateZoneWithWrongAutoAdjust() {
         Exception e = null;
 
-        CompletableFuture<Void> fut = distributionZoneManager.createZone(new Builder(ZONE_NAME)
+        CompletableFuture<Integer> fut = distributionZoneManager.createZone(new Builder(ZONE_NAME)
                 .dataNodesAutoAdjust(-10).build());
 
         try {
@@ -441,7 +442,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     public void testCreateZoneWithWrongSeparatedAutoAdjust1() {
         Exception e = null;
 
-        CompletableFuture<Void> fut = distributionZoneManager.createZone(new Builder(ZONE_NAME)
+        CompletableFuture<Integer> fut = distributionZoneManager.createZone(new Builder(ZONE_NAME)
                 .dataNodesAutoAdjustScaleUp(-100).dataNodesAutoAdjustScaleDown(1).build());
 
         try {
@@ -461,7 +462,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     public void testCreateZoneWithWrongSeparatedAutoAdjust2() {
         Exception e = null;
 
-        CompletableFuture<Void> fut = distributionZoneManager.createZone(new Builder(ZONE_NAME)
+        CompletableFuture<Integer> fut = distributionZoneManager.createZone(new Builder(ZONE_NAME)
                 .dataNodesAutoAdjustScaleUp(1).dataNodesAutoAdjustScaleDown(-100).build());
 
         try {
@@ -481,7 +482,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     public void testCreateZoneWithNullConfiguration() {
         Exception e = null;
 
-        CompletableFuture<Void> fut = distributionZoneManager.createZone(null);
+        CompletableFuture<Integer> fut = distributionZoneManager.createZone(null);
 
         try {
             fut.get(5, TimeUnit.SECONDS);
@@ -645,7 +646,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     public void testTryCreateDefaultZone() {
         Exception e = null;
 
-        CompletableFuture<Void> fut = distributionZoneManager.createZone(
+        CompletableFuture<Integer> fut = distributionZoneManager.createZone(
                 new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME).build()
         );
 

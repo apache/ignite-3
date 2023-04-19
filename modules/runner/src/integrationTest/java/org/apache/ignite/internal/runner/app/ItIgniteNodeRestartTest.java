@@ -326,7 +326,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 cmgManager,
                 new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
                 raftMgr,
-                new RocksDbKeyValueStorage(name, dir.resolve("metastorage"))
+                new RocksDbKeyValueStorage(name, dir.resolve("metastorage")),
+                hybridClock
         );
 
         var cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vault);
@@ -347,7 +348,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         Path storagePath = getPartitionsStorePath(dir);
 
         DataStorageManager dataStorageManager = new DataStorageManager(
-                clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
+                clusterCfgMgr.configurationRegistry().getConfiguration(DistributionZonesConfiguration.KEY),
                 dataStorageModules.createStorageEngines(
                         name,
                         clusterCfgMgr.configurationRegistry(),
@@ -401,7 +402,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 view -> new LocalLogStorageFactory(),
                 hybridClock,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
-                topologyAwareRaftGroupServiceFactory
+                topologyAwareRaftGroupServiceFactory,
+                vault
         );
 
         var indexManager = new IndexManager(name, tablesConfiguration, schemaManager, tableManager, clusterSvc);

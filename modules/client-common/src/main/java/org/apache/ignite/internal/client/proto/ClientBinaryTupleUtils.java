@@ -40,6 +40,9 @@ import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -51,102 +54,11 @@ import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.table.Tuple;
 
 /**
  * Client binary tuple utils.
  */
 public class ClientBinaryTupleUtils {
-    /**
-     * Reads a binary tuple column and sets the value in the specified tuple.
-     *
-     * @param reader         Binary tuple reader.
-     * @param readerIndex    Column index in the binary tuple.
-     * @param tuple          Target tuple.
-     * @param columnName     Column name.
-     * @param clientDataType Client data type (see {@link ClientDataType}).
-     */
-    public static void readAndSetColumnValue(
-            BinaryTupleReader reader,
-            int readerIndex,
-            Tuple tuple,
-            String columnName,
-            int clientDataType,
-            int decimalScale) {
-        if (reader.hasNullValue(readerIndex)) {
-            tuple.set(columnName, null);
-            return;
-        }
-
-        switch (clientDataType) {
-            case INT8:
-                tuple.set(columnName, reader.byteValue(readerIndex));
-                break;
-
-            case INT16:
-                tuple.set(columnName, reader.shortValue(readerIndex));
-                break;
-
-            case INT32:
-                tuple.set(columnName, reader.intValue(readerIndex));
-                break;
-
-            case INT64:
-                tuple.set(columnName, reader.longValue(readerIndex));
-                break;
-
-            case FLOAT:
-                tuple.set(columnName, reader.floatValue(readerIndex));
-                break;
-
-            case DOUBLE:
-                tuple.set(columnName, reader.doubleValue(readerIndex));
-                break;
-
-            case DECIMAL:
-                tuple.set(columnName, reader.decimalValue(readerIndex, decimalScale));
-                break;
-
-            case UUID:
-                tuple.set(columnName, reader.uuidValue(readerIndex));
-                break;
-
-            case STRING:
-                tuple.set(columnName, reader.stringValue(readerIndex));
-                break;
-
-            case BYTES:
-                tuple.set(columnName, reader.bytesValue(readerIndex));
-                break;
-
-            case BITMASK:
-                tuple.set(columnName, reader.bitmaskValue(readerIndex));
-                break;
-
-            case NUMBER:
-                tuple.set(columnName, reader.numberValue(readerIndex));
-                break;
-
-            case DATE:
-                tuple.set(columnName, reader.dateValue(readerIndex));
-                break;
-
-            case TIME:
-                tuple.set(columnName, reader.timeValue(readerIndex));
-                break;
-
-            case DATETIME:
-                tuple.set(columnName, reader.dateTimeValue(readerIndex));
-                break;
-
-            case TIMESTAMP:
-                tuple.set(columnName, reader.timestampValue(readerIndex));
-                break;
-
-            default:
-                throw unsupportedTypeException(clientDataType);
-        }
-    }
 
     /**
      * Reads an object from binary tuple at the specified index.
@@ -283,6 +195,19 @@ public class ClientBinaryTupleUtils {
         } else if (obj instanceof Instant) {
             appendTypeAndScale(builder, TIMESTAMP);
             builder.appendTimestamp((Instant) obj);
+        } else if (obj instanceof Timestamp) {
+            appendTypeAndScale(builder, DATETIME);
+            Timestamp timeStamp = (Timestamp) obj;
+            LocalDateTime localDateTime = timeStamp.toLocalDateTime();
+            builder.appendDateTime(localDateTime);
+        } else if (obj instanceof Date) {
+            appendTypeAndScale(builder, DATE);
+            Date date = (Date) obj;
+            builder.appendDate(date.toLocalDate());
+        } else if (obj instanceof Time) {
+            appendTypeAndScale(builder, TIME);
+            Time time = (Time) obj;
+            builder.appendTime(time.toLocalTime());
         } else if (obj instanceof BigInteger) {
             appendTypeAndScale(builder, NUMBER);
             builder.appendNumber((BigInteger) obj);
