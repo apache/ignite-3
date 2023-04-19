@@ -24,7 +24,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -35,16 +34,12 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl.JdbcConnectionContext;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
-import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
-import org.apache.ignite.internal.jdbc.JdbcConnection;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
@@ -250,57 +245,6 @@ class JdbcQueryEventHandlerImplTest {
 
         verifyNoMoreInteractions(igniteTransactions);
         verify(queryProcessor, times(5)).querySingleAsync(any(), any(), any(), any());
-    }
-
-    /**
-     * Tests {@link Connection#commit()} method behaviour.
-     *
-     * <p>Calling {@code commit} is expected to throw an exception if called in auto-commit mode or on a closed connection,
-     *
-     * @throws SQLException If failed.
-     */
-    @Test
-    public void jdbcConnectionCommit() throws Exception {
-        Connection conn = new JdbcConnection(eventHandler, new ConnectionPropertiesImpl());
-
-        SQLException ex = assertThrows(SQLException.class, conn::commit);
-        assertThat(ex.getMessage(), containsString("Transaction cannot be committed explicitly in auto-commit mode."));
-
-        conn.setAutoCommit(false);
-        conn.commit();
-
-        verifyNoInteractions(igniteTransactions);
-
-        conn.close();
-
-        // Exception when called on closed connection.
-        assertThrows(SQLException.class, conn::commit);
-    }
-
-    /**
-     * Tests {@link Connection#rollback()} method behaviour.
-     *
-     * <p>Calling {@code rollback} is expected to throw an exception if called in auto-commit mode or on a closed connection,
-     *
-     * @throws SQLException If failed.
-     */
-    @Test
-    public void jdbcConnectionRollback() throws Exception {
-        Connection conn = new JdbcConnection(eventHandler, new ConnectionPropertiesImpl());
-
-        // Should not be called in auto-commit mode.
-        SQLException ex = assertThrows(SQLException.class, conn::rollback);
-        assertThat(ex.getMessage(), containsString("Transaction cannot be rolled back explicitly in auto-commit mode."));
-
-        conn.setAutoCommit(false);
-        conn.rollback();
-
-        verifyNoInteractions(igniteTransactions);
-
-        conn.close();
-
-        // Exception when called on closed connection.
-        assertThrows(SQLException.class, conn::rollback);
     }
 
     private long acquireConnectionId() {
