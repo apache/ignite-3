@@ -449,6 +449,8 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
     }
 
     private void startZoneManager() throws Exception {
+        // Watches are deployed before distributionZoneManager start in order to update Meta Storage revision before
+        // distributionZoneManager's recovery.
         metaStorageManager.deployWatches();
 
         // Bump Meta Storage applied revision by modifying a fake key. DistributionZoneManager breaks on start of Vault is not empty, but
