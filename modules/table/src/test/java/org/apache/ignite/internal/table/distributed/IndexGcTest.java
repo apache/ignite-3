@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
@@ -43,7 +42,7 @@ public class IndexGcTest extends IndexBaseTest {
         addWrite(storageUpdateHandler, rowUuid, row);
         commitWrite(rowId);
 
-        assertThat(storageUpdateHandler.vacuumBatch(now(), 1), willBe(true));
+        assertTrue(storageUpdateHandler.vacuum(now()));
 
         assertEquals(1, getRowVersions(rowId).size());
         // Newer entry has the same index value, so it should not be removed.
@@ -71,13 +70,13 @@ public class IndexGcTest extends IndexBaseTest {
 
         HybridTimestamp afterCommits = now();
 
-        assertThat(storageUpdateHandler.vacuumBatch(afterCommits, 1), willBe(true));
+        assertTrue(storageUpdateHandler.vacuum(afterCommits));
 
         // row1 should still be in the index, because second write was identical to the first.
         assertTrue(inAllIndexes(row1));
 
-        assertThat(storageUpdateHandler.vacuumBatch(afterCommits, 1), willBe(true));
-        assertThat(storageUpdateHandler.vacuumBatch(afterCommits, 1), willBe(false));
+        assertTrue(storageUpdateHandler.vacuum(afterCommits));
+        assertFalse(storageUpdateHandler.vacuum(afterCommits));
 
         assertEquals(1, getRowVersions(rowId).size());
         // Older entries have different indexes, should be removed.
@@ -104,8 +103,8 @@ public class IndexGcTest extends IndexBaseTest {
 
         HybridTimestamp afterCommits = now();
 
-        assertThat(storageUpdateHandler.vacuumBatch(afterCommits, 1), willBe(true));
-        assertThat(storageUpdateHandler.vacuumBatch(afterCommits, 1), willBe(false));
+        assertTrue(storageUpdateHandler.vacuum(afterCommits));
+        assertFalse(storageUpdateHandler.vacuum(afterCommits));
 
         assertEquals(0, getRowVersions(rowId).size());
         // The last entry was a tombstone, so no indexes should be left.
@@ -130,8 +129,8 @@ public class IndexGcTest extends IndexBaseTest {
 
         HybridTimestamp afterCommits = now();
 
-        assertThat(storageUpdateHandler.vacuumBatch(afterCommits, 1), willBe(true));
-        assertThat(storageUpdateHandler.vacuumBatch(afterCommits, 1), willBe(false));
+        assertTrue(storageUpdateHandler.vacuum(afterCommits));
+        assertFalse(storageUpdateHandler.vacuum(afterCommits));
 
         assertEquals(1, getRowVersions(rowId).size());
         assertTrue(inAllIndexes(row));
@@ -155,9 +154,9 @@ public class IndexGcTest extends IndexBaseTest {
 
         HybridTimestamp afterCommits = now();
 
-        assertThat(storageUpdateHandler.vacuumBatch(afterCommits, 1), willBe(true));
-        assertThat(storageUpdateHandler.vacuumBatch(afterCommits, 1), willBe(true));
-        assertThat(storageUpdateHandler.vacuumBatch(afterCommits, 1), willBe(false));
+        assertTrue(storageUpdateHandler.vacuum(afterCommits));
+        assertTrue(storageUpdateHandler.vacuum(afterCommits));
+        assertFalse(storageUpdateHandler.vacuum(afterCommits));
 
         assertEquals(0, getRowVersions(rowId).size());
         assertTrue(notInAnyIndex(row));

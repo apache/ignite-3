@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -132,8 +131,8 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
             addWriteCommitted(partitionDataStorage, rowId1, null, clock.now());
 
             runRace(
-                    () -> assertThat(storageUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2), willSucceedFast()),
-                    () -> assertThat(storageUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2), willSucceedFast())
+                    () -> storageUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2),
+                    () -> storageUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2)
             );
 
             assertNull(partitionDataStorage.getStorage().closestRowId(RowId.lowestRowId(PARTITION_ID)));

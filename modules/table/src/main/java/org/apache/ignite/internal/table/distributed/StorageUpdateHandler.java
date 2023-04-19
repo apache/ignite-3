@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -211,8 +210,8 @@ public class StorageUpdateHandler {
         executeBatchGc(lowWatermark);
     }
 
-    private void executeBatchGc(@Nullable HybridTimestamp newLwm) {
-        if (newLwm == null) {
+    void executeBatchGc(@Nullable HybridTimestamp newLwm) {
+        if (newLwm == null || newLwm.compareTo(safeTimeTracker.current()) < 0) {
             return;
         }
 
@@ -325,25 +324,29 @@ public class StorageUpdateHandler {
     }
 
     /**
-     * Tries removing {@code count} oldest stale entries and their indexes.
+     * Tries removing partition's oldest stale entry and its indexes.
      *
-     * <p>Waits for partition safe time equal to low watermark.
+     * @param lowWatermark Low watermark for the vacuum.
+     * @return {@code true} if an entry was garbage collected, {@code false} if there was nothing to collect.
+     * @see MvPartitionStorage#pollForVacuum(HybridTimestamp)
+     */
+    public boolean vacuum(HybridTimestamp lowWatermark) {
+        return storage.runConsistently(() -> internalVacuum(lowWatermark));
+    }
+
+    /**
+     * Tries removing {@code count} oldest stale entries and their indexes.
+     * If there's less entries that can be removed, then exits prematurely.
      *
      * @param lowWatermark Low watermark for the vacuum.
      * @param count Count of entries to GC.
-     * @return Future batch processing, will return {@code false} if there is no garbage left otherwise {@code true} and garbage may still
-     *      be left.
      */
-    public CompletableFuture<Boolean> vacuumBatch(HybridTimestamp lowWatermark, int count) {
-        return safeTimeTracker.waitFor(lowWatermark).thenApply(unused -> {
-            for (int i = 0; i < count; i++) {
-                if (!storage.runConsistently(() -> internalVacuum(lowWatermark))) {
-                    return false;
-                }
+    void vacuumBatch(HybridTimestamp lowWatermark, int count) {
+        for (int i = 0; i < count; i++) {
+            if (!storage.runConsistently(() -> internalVacuum(lowWatermark))) {
+                break;
             }
-
-            return true;
-        });
+        }
     }
 
     /**
@@ -428,5 +431,12 @@ public class StorageUpdateHandler {
         assert lastRowId != null || finish : "indexId=" + indexId + ", partitionId=" + partitionId;
 
         index.storage().setNextRowIdToBuild(finish ? null : lastRowId.increment());
+    }
+
+    /**
+     * Returns the partition safe time tracker.
+     */
+    public PendingComparableValuesTracker<HybridTimestamp> getSafeTimeTracker() {
+        return safeTimeTracker;
     }
 }

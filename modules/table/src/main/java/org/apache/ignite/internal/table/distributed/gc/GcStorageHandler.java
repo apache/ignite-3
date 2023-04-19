@@ -29,7 +29,7 @@ class GcStorageHandler {
     /**
      * Handler of multi-versioned partition storage and its indexes for garbage collection.
      *
-     * @see StorageUpdateHandler#vacuumBatch(HybridTimestamp, int)
+     * @see StorageUpdateHandler#vacuum(HybridTimestamp)
      */
     final StorageUpdateHandler storageUpdateHandler;
 

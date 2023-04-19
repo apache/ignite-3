@@ -238,7 +238,22 @@ public class MvGc implements ManuallyCloseable {
                     return;
                 }
 
-                storageHandler.storageUpdateHandler.vacuumBatch(lowWatermark, GC_BATCH_SIZE)
+                StorageUpdateHandler storageUpdateHandler = storageHandler.storageUpdateHandler;
+
+                // We can only start garbage collection when the partition safe time is reached.
+                storageUpdateHandler.getSafeTimeTracker()
+                        .waitFor(lowWatermark)
+                        .thenApplyAsync(unused -> {
+                            for (int i = 0; i < GC_BATCH_SIZE; i++) {
+                                // If the storage has been deleted or there is no garbage, then we will stop.
+                                if (!storageHandlerByPartitionId.containsKey(tablePartitionId)
+                                        || !storageUpdateHandler.vacuum(lowWatermark)) {
+                                    return false;
+                                }
+                            }
+
+                            return true;
+                        }, executor)
                         .whenComplete((isLeftGarbage, throwable) -> {
                             if (throwable != null) {
                                 currentGcFuture.completeExceptionally(throwable);

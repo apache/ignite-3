@@ -20,10 +20,8 @@ package org.apache.ignite.internal.table.distributed;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
@@ -37,7 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -122,52 +119,53 @@ public class StorageUpdateHandlerTest {
     }
 
     @Test
-    void testVacuumBatch() {
-        PartitionDataStorage partitionStorage = mock(PartitionDataStorage.class);
+    void testVacuum() {
+        PartitionDataStorage partitionStorage = createPartitionDataStorage();
 
-        when(partitionStorage.scanVersions(any(RowId.class))).thenReturn(CursorUtils.emptyCursor());
-
-        when(partitionStorage.runConsistently(any(WriteClosure.class)))
-                .then(invocation -> ((WriteClosure<?>) invocation.getArgument(0)).execute());
-
-        TableIndexStoragesSupplier indexes = mock(TableIndexStoragesSupplier.class);
-
-        StorageUpdateHandler storageUpdateHandler = createStorageUpdateHandler(partitionStorage, indexes);
+        StorageUpdateHandler storageUpdateHandler = createStorageUpdateHandler(partitionStorage, mock(TableIndexStoragesSupplier.class));
 
         HybridTimestamp lowWatermark = new HybridTimestamp(100, 100);
 
-        CompletableFuture<Void> startWaitSafeTime = new CompletableFuture<>();
-        CompletableFuture<Void> finishWaitSafeTime = new CompletableFuture<>();
-
-        when(safeTimeTracker.waitFor(lowWatermark)).then(invocation -> {
-            startWaitSafeTime.complete(null);
-
-            return finishWaitSafeTime;
-        });
-
-        CompletableFuture<Boolean> vacuumBatchFuture = storageUpdateHandler.vacuumBatch(lowWatermark, 2);
-
-        assertThat(startWaitSafeTime, willSucceedFast());
-
-        assertFalse(vacuumBatchFuture.isDone());
-        verify(partitionStorage, never()).pollForVacuum(lowWatermark);
-        verify(indexes, never()).get();
-
-        finishWaitSafeTime.complete(null);
-
-        assertThat(vacuumBatchFuture, willBe(false));
+        assertFalse(storageUpdateHandler.vacuum(lowWatermark));
         verify(partitionStorage).pollForVacuum(lowWatermark);
-
         // Let's check that StorageUpdateHandler#vacuumBatch returns true.
-        clearInvocations(partitionStorage, indexes);
+        clearInvocations(partitionStorage);
 
         BinaryRowAndRowId binaryRowAndRowId = new BinaryRowAndRowId(mock(BinaryRow.class), new RowId(PARTITION_ID));
 
+        when(partitionStorage.scanVersions(any(RowId.class))).thenReturn(CursorUtils.emptyCursor());
         when(partitionStorage.pollForVacuum(lowWatermark)).thenReturn(binaryRowAndRowId);
 
-        assertThat(storageUpdateHandler.vacuumBatch(lowWatermark, 3), willBe(true));
-        verify(partitionStorage, times(3)).pollForVacuum(lowWatermark);
-        verify(indexes, times(3)).get();
+        assertTrue(storageUpdateHandler.vacuum(lowWatermark));
+        verify(partitionStorage).pollForVacuum(lowWatermark);
+    }
+
+    @Test
+    void testExecuteBatchGc() {
+        PartitionDataStorage partitionStorage = createPartitionDataStorage();
+
+        StorageUpdateHandler storageUpdateHandler = createStorageUpdateHandler(partitionStorage, mock(TableIndexStoragesSupplier.class));
+
+        // Let's check that if lwm is {@code null} then nothing will happen.
+        storageUpdateHandler.executeBatchGc(null);
+
+        verify(partitionStorage, never()).pollForVacuum(any(HybridTimestamp.class));
+
+        // Let's check that if lvm is less than the safe time, then nothing will happen.
+        safeTimeTracker.update(new HybridTimestamp(10, 10));
+
+        storageUpdateHandler.executeBatchGc(new HybridTimestamp(9, 9));
+
+        verify(partitionStorage, never()).pollForVacuum(any(HybridTimestamp.class));
+
+        // Let's check that if lvm is equal to or greater than the safe time, then garbage collection will be executed.
+        storageUpdateHandler.executeBatchGc(new HybridTimestamp(10, 10));
+
+        verify(partitionStorage, times(1)).pollForVacuum(any(HybridTimestamp.class));
+
+        storageUpdateHandler.executeBatchGc(new HybridTimestamp(11, 11));
+
+        verify(partitionStorage, times(2)).pollForVacuum(any(HybridTimestamp.class));
     }
 
     private static TableSchemaAwareIndexStorage createIndexStorage() {
@@ -194,5 +192,14 @@ public class StorageUpdateHandlerTest {
 
             when(partitionStorage.scanVersions(rowId)).thenReturn(Cursor.fromIterable(readResults));
         }
+    }
+
+    private static PartitionDataStorage createPartitionDataStorage() {
+        PartitionDataStorage partitionStorage = mock(PartitionDataStorage.class);
+
+        when(partitionStorage.runConsistently(any(WriteClosure.class)))
+                .then(invocation -> ((WriteClosure<?>) invocation.getArgument(0)).execute());
+
+        return partitionStorage;
     }
 }
