@@ -29,6 +29,8 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
@@ -220,10 +222,15 @@ public class PlacementDriverManager implements IgniteComponent {
         }
     }
 
+    /** The logger. */
+    private static IgniteLogger LOG = Loggers.forClass(PlacementDriverManager.class);
+
     /**
      * Takes over active actor of placement driver group.
      */
     private void takeOverActiveActor() {
+        LOG.info("Active actor is starting.");
+
         isActiveActor = true;
 
         leaseUpdater.activate();
@@ -234,6 +241,8 @@ public class PlacementDriverManager implements IgniteComponent {
      * Steps down as active actor.
      */
     private void stepDownActiveActor() {
+        LOG.info("Active actor is stopping.");
+
         isActiveActor = false;
 
         leaseUpdater.deactivate();

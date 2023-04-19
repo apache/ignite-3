@@ -665,4 +665,14 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             subscriber.onError(new NodeStoppingException());
         }
     }
+
+    /**
+     * Gets Meta storage service for test purpose.
+     *
+     * @return Meta storage service.
+     */
+    @TestOnly
+    public MetaStorageServiceImpl getService() {
+        return metaStorageSvcFut.join();
+    }
 }
