@@ -71,7 +71,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationNodeAlreadyExistException;
 import org.apache.ignite.configuration.ConfigurationNodeDoesNotExistException;
@@ -230,12 +229,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
     /** Watch listener for data nodes keys. */
     private final WatchListener dataNodesWatchListener;
-
-    // TODO: This is a temporary solution until https://issues.apache.org/jira/browse/IGNITE-19104 is resolved.
-    /**
-     * This future is completed when Logical Topology related keys are saved in Meta Storage on this component start.
-     */
-    private final CompletableFuture<Void> startFuture = new CompletableFuture<>();
 
     /**
      * Creates a new distribution zone manager.
@@ -725,22 +718,12 @@ public class DistributionZoneManager implements IgniteComponent {
             metaStorageManager.registerPrefixWatch(zoneLogicalTopologyPrefix(), topologyWatchListener);
             metaStorageManager.registerPrefixWatch(zonesDataNodesPrefix(), dataNodesWatchListener);
 
-            // TODO: revisit this approach, see https://issues.apache.org/jira/browse/IGNITE-19104.
-            initDataNodesFromVaultManager()
-                    .thenCompose(v -> initLogicalTopologyAndVersionInMetaStorageOnStart())
-                    .whenComplete((v, e) -> {
-                        if (e != null) {
-                            startFuture.completeExceptionally(e);
-                        }
-                    });
+            initDataNodesFromVaultManager();
+
+            initLogicalTopologyAndVersionInMetaStorageOnStart();
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    @TestOnly
-    public CompletableFuture<Void> startFuture() {
-        return startFuture;
     }
 
     /**
@@ -1054,7 +1037,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * Initialises {@link DistributionZonesUtil#zonesLogicalTopologyKey()} and
      * {@link DistributionZonesUtil#zonesLogicalTopologyVersionKey()} from meta storage on the start of {@link DistributionZoneManager}.
      */
-    private CompletableFuture<Void> initLogicalTopologyAndVersionInMetaStorageOnStart() {
+    private void initLogicalTopologyAndVersionInMetaStorageOnStart() {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -1064,7 +1047,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             CompletableFuture<LogicalTopologySnapshot> logicalTopologyFuture = logicalTopologyService.logicalTopologyOnLeader();
 
-            return logicalTopologyFuture.thenCombine(zonesTopologyVersionFuture, (snapshot, topVerEntry) -> {
+            logicalTopologyFuture.thenAcceptBoth(zonesTopologyVersionFuture, (snapshot, topVerEntry) -> {
                 if (!busyLock.enterBusy()) {
                     throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
                 }
@@ -1086,8 +1069,16 @@ public class DistributionZoneManager implements IgniteComponent {
                                 ops().yield(false)
                         );
 
-                        return metaStorageManager.invoke(iff).thenAccept(res -> {
-                            if (res.getAsBoolean()) {
+                        metaStorageManager.invoke(iff).whenComplete((res, e) -> {
+                            if (e != null) {
+                                LOG.error(
+                                        "Failed to initialize distribution zones' logical topology "
+                                                + "and version keys [topology = {}, version = {}]",
+                                        e,
+                                        Arrays.toString(topologyFromCmg.toArray()),
+                                        topologyVersionFromCmg
+                                );
+                            } else if (res.getAsBoolean()) {
                                 LOG.debug(
                                         "Distribution zones' logical topology and version keys were initialised "
                                                 + "[topology = {}, version = {}]",
@@ -1103,15 +1094,11 @@ public class DistributionZoneManager implements IgniteComponent {
                                 );
                             }
                         });
-                    } else {
-                        startFuture.complete(null);
-
-                        return CompletableFuture.<Void>completedFuture(null);
                     }
                 } finally {
                     busyLock.leaveBusy();
                 }
-            }).thenCompose(Function.identity());
+            });
         } finally {
             busyLock.leaveBusy();
         }
@@ -1121,69 +1108,57 @@ public class DistributionZoneManager implements IgniteComponent {
      * Initialises data nodes of distribution zones in meta storage
      * from {@link DistributionZonesUtil#zonesLogicalTopologyKey()} in vault.
      */
-    private CompletableFuture<Void> initDataNodesFromVaultManager() {
+    private void initDataNodesFromVaultManager() {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
-            return vaultMgr.get(zonesLogicalTopologyKey())
-                    .thenAccept(vaultEntry -> {
-                        if (!busyLock.enterBusy()) {
-                            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
-                        }
+            long appliedRevision = metaStorageManager.appliedRevision();
 
-                        try {
-                            long appliedRevision = metaStorageManager.appliedRevision();
+            lastScaleUpRevision = appliedRevision;
 
-                            lastScaleUpRevision = appliedRevision;
+            lastScaleDownRevision = appliedRevision;
 
-                            lastScaleDownRevision = appliedRevision;
+            VaultEntry topVerEntry = vaultMgr.get(zonesLogicalTopologyVersionKey()).join();
 
-                            VaultEntry topVerEntry = vaultMgr.get(zonesLogicalTopologyVersionKey()).join();
+            if (topVerEntry != null && topVerEntry.value() != null) {
+                topVerTracker.update(bytesToLong(topVerEntry.value()));
+            }
 
-                            if (topVerEntry != null && topVerEntry.value() != null) {
-                                topVerTracker.update(bytesToLong(topVerEntry.value()));
-                            }
+            VaultEntry topologyEntry = vaultMgr.get(zonesLogicalTopologyKey()).join();
 
-                            VaultEntry topologyEntry = vaultMgr.get(zonesLogicalTopologyKey()).join();
+            if (topologyEntry != null && topologyEntry.value() != null) {
+                logicalTopology = fromBytes(topologyEntry.value());
 
-                            if (topologyEntry != null && topologyEntry.value() != null) {
-                                logicalTopology = fromBytes(topologyEntry.value());
+                // init keys and data nodes for default zone
+                saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+                        DEFAULT_ZONE_ID,
+                        appliedRevision,
+                        logicalTopology
+                );
 
-                                // init keys and data nodes for default zone
-                                saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                                        DEFAULT_ZONE_ID,
-                                        appliedRevision,
-                                        logicalTopology
-                                );
+                zonesConfiguration.distributionZones().value().forEach(zone -> {
+                    int zoneId = zone.zoneId();
 
-                                zonesConfiguration.distributionZones().value().forEach(zone -> {
-                                    int zoneId = zone.zoneId();
+                    saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+                            zoneId,
+                            appliedRevision,
+                            logicalTopology
+                    );
+                });
+            }
 
-                                    saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                                            zoneId,
-                                            appliedRevision,
-                                            logicalTopology
-                                    );
-                                });
-                            }
+            zonesState.values().forEach(zoneState -> {
+                zoneState.scaleUpRevisionTracker().update(lastScaleUpRevision);
 
-                            zonesState.values().forEach(zoneState -> {
-                                zoneState.scaleUpRevisionTracker().update(lastScaleUpRevision);
+                zoneState.scaleDownRevisionTracker().update(lastScaleDownRevision);
 
-                                zoneState.scaleDownRevisionTracker().update(lastScaleDownRevision);
+                zoneState.nodes(logicalTopology);
+            });
 
-                                zoneState.nodes(logicalTopology);
-                            });
-
-                            assert topologyEntry == null || topologyEntry.value() == null || logicalTopology.equals(
-                                    fromBytes(topologyEntry.value()))
-                                    : "Initial value of logical topology was changed after initialization from the vault manager.";
-                        } finally {
-                            busyLock.leaveBusy();
-                        }
-                    });
+            assert topologyEntry == null || topologyEntry.value() == null || logicalTopology.equals(fromBytes(topologyEntry.value()))
+                    : "Initial value of logical topology was changed after initialization from the vault manager.";
         } finally {
             busyLock.leaveBusy();
         }
@@ -1266,8 +1241,6 @@ public class DistributionZoneManager implements IgniteComponent {
                     DistributionZoneView defaultZoneView = zonesConfiguration.value().defaultDistributionZone();
 
                     scheduleTimers(defaultZoneView, addedNodes, removedNodes, revision);
-
-                    startFuture.complete(null);
 
                     return completedFuture(null);
                 } finally {

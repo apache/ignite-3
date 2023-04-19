@@ -635,8 +635,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
 
-
-
         assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
     }
 
@@ -1365,13 +1363,10 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         ));
     }
 
-    // TODO: this is a workaround for a race described in https://issues.apache.org/jira/browse/IGNITE-19104.
     private void startDistributionZoneManager() throws NodeStoppingException {
         distributionZoneManager.start();
 
         metaStorageManager.deployWatches();
-
-        assertThat(distributionZoneManager.startFuture(), willCompleteSuccessfully());
     }
 
     private void setLogicalTopologyInMetaStorage(Set<String> nodes) {

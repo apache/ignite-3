@@ -460,8 +460,6 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
 
         distributionZoneManager.start();
 
-        assertThat(distributionZoneManager.startFuture(), willCompleteSuccessfully());
-
         distributionZoneManager.alterZone(
                         DEFAULT_ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)

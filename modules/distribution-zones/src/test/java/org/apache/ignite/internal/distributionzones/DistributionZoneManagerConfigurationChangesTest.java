@@ -135,8 +135,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         metaStorageManager.deployWatches();
 
-        assertThat(distributionZoneManager.startFuture(), willCompleteSuccessfully());
-
         clearInvocations(keyValueStorage);
     }
 

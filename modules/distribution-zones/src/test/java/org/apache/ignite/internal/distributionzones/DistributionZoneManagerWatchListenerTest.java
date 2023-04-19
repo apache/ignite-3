@@ -183,12 +183,9 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
         assertThat(invokeFuture, willBe(true));
     }
 
-    // TODO: this is a workaround for a race described in https://issues.apache.org/jira/browse/IGNITE-19104.
     private void startDistributionZoneManager() throws NodeStoppingException {
         distributionZoneManager.start();
 
         metaStorageManager.deployWatches();
-
-        assertThat(distributionZoneManager.startFuture(), willCompleteSuccessfully());
     }
 }
