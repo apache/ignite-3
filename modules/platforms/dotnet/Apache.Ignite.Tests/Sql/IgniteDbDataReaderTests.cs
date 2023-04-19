@@ -117,7 +117,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
     {
         await using var reader = await ExecuteReader();
 
-        Assert.AreEqual(14, reader.FieldCount);
+        Assert.AreEqual(15, reader.FieldCount);
 
         Assert.AreEqual(1, reader.GetInt64("KEY"));
         Assert.AreEqual("v-1", reader.GetString("STR"));
@@ -133,7 +133,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         Assert.AreEqual(Instant.ToDateTimeUtc(), reader.GetDateTime("TIMESTAMP"));
         Assert.AreEqual(8.7m, reader.GetDecimal("DECIMAL"));
         Assert.AreEqual(2, reader.GetBytes("BLOB", 0, null!, 0, 0));
-        Assert.AreEqual(Guid.Empty, reader.GetGuid("UUID"));
+        Assert.AreEqual(Guid, reader.GetGuid("UUID"));
     }
 
     [Test]
@@ -377,7 +377,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
 
         ReadOnlyCollection<DbColumn> schema = async ? await reader.GetColumnSchemaAsync() : reader.GetColumnSchema();
 
-        Assert.AreEqual(14, schema.Count);
+        Assert.AreEqual(15, schema.Count);
 
         Assert.AreEqual("KEY", schema[0].ColumnName);
         Assert.AreEqual(0, schema[0].ColumnOrdinal);
@@ -440,7 +440,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         var values = new object[reader.FieldCount];
         var count = reader.GetValues(values);
 
-        var expected = new object[] { 1, "v-1", 2, 3, 4, 5, 6.5f, 7.5d, LocalDate, LocalTime, LocalDateTime, Instant, Bytes, 8.7m };
+        var expected = new object[] { 1, "v-1", 2, 3, 4, 5, 6.5f, 7.5d, LocalDate, LocalTime, LocalDateTime, Instant, Bytes, 8.7m, Guid };
 
         CollectionAssert.AreEqual(expected, values);
         Assert.AreEqual(reader.FieldCount, count);
@@ -578,7 +578,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         foreach (DbDataRecord row in reader)
         {
             // DbDataRecord delegates to methods in DbDataReader, no need to test everything here.
-            Assert.AreEqual(14, row.FieldCount);
+            Assert.AreEqual(15, row.FieldCount);
             Assert.AreEqual("KEY", row.GetName(0));
         }
     }
@@ -634,7 +634,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         var dt = new DataTable();
         dt.Load(reader);
 
-        Assert.AreEqual(14, dt.Columns.Count);
+        Assert.AreEqual(15, dt.Columns.Count);
         Assert.AreEqual(9, dt.Rows.Count);
     }
 
