@@ -25,6 +25,7 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
+import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.decorators.UnitListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -47,6 +48,7 @@ public class UnitListCommand extends BaseCommand implements Callable<Integer> {
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)
                 .decorator(new UnitListDecorator())
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list units", "ignite cluster init"))
                 .build().runPipeline();
     }
 }

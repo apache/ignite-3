@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.raft.server;
 
-import java.util.concurrent.CountDownLatch;
+import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.RaftMetaStorageFactory;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
@@ -39,9 +39,8 @@ public class RaftGroupOptions {
     /** Raft meta storage factory. */
     private RaftMetaStorageFactory raftMetaStorageFactory;
 
-    /** Nullable latch that will be completed when storage is ready to process user requests. */
-    @Nullable
-    private CountDownLatch storageReadyLatch;
+    /** Configuration of own striped disruptor for FSMCaller service of raft node, {@code null} means use shared disruptor. */
+    private @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig;
 
     /**
      * Returns default options as defined by classic Raft (so stores are persistent).
@@ -134,17 +133,17 @@ public class RaftGroupOptions {
     }
 
     /**
-     * Returns the latch that will be completed when storage is ready to process user requests.
+     * Returns configuration of own striped disruptor for FSMCaller service of raft node, {@code null} means use shared disruptor.
      */
-    public CountDownLatch getStorageReadyLatch() {
-        return storageReadyLatch;
+    public @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig() {
+        return ownFsmCallerExecutorDisruptorConfig;
     }
 
     /**
-     * Adds storage ready latch to options.
+     * Sets configuration of own striped disruptor for FSMCaller service of raft node.
      */
-    public RaftGroupOptions setStorageReadyLatch(CountDownLatch storageReadyLatch) {
-        this.storageReadyLatch = storageReadyLatch;
+    public RaftGroupOptions ownFsmCallerExecutorDisruptorConfig(RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig) {
+        this.ownFsmCallerExecutorDisruptorConfig = ownFsmCallerExecutorDisruptorConfig;
 
         return this;
     }

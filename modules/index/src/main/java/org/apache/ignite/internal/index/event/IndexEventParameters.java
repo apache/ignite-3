@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.index.event;
 
 import java.util.UUID;
-import org.apache.ignite.internal.index.Index;
+import org.apache.ignite.internal.index.IndexDescriptor;
 import org.apache.ignite.internal.manager.EventParameters;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,44 +26,49 @@ import org.jetbrains.annotations.Nullable;
  * Index event parameters. There are properties which associate with a particular index.
  */
 public class IndexEventParameters extends EventParameters {
+    /** Table identifier. */
+    private final UUID tableId;
+
     /** Index identifier. */
     private final UUID indexId;
 
     /** Index instance. */
-    private final @Nullable Index<?> index;
+    private final @Nullable IndexDescriptor indexDescriptor;
 
     /**
      * Constructor.
      *
      * @param revision Causality token.
-     * @param index An index instance.
+     * @param tableId Table identifier.
+     * @param indexId Index identifier.
      */
-    public IndexEventParameters(long revision, Index<?> index) {
-        this(revision, index.id(), index);
+    public IndexEventParameters(long revision, UUID tableId, UUID indexId) {
+        this(revision, tableId, indexId, null);
     }
 
     /**
      * Constructor.
      *
      * @param revision Causality token.
-     * @param indexId An index identifier.
+     * @param tableId Table identifier.
+     * @param indexId Index identifier.
+     * @param indexDescriptor Index descriptor.
      */
-    public IndexEventParameters(long revision, UUID indexId) {
-        this(revision, indexId, null);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param revision Causality token.
-     * @param indexId An index identifier.
-     * @param index An index instance.
-     */
-    private IndexEventParameters(long revision, UUID indexId, @Nullable Index<?> index) {
+    public IndexEventParameters(long revision, UUID tableId, UUID indexId, @Nullable IndexDescriptor indexDescriptor) {
         super(revision);
 
+        this.tableId = tableId;
         this.indexId = indexId;
-        this.index = index;
+        this.indexDescriptor = indexDescriptor;
+    }
+
+    /**
+     * Returns an identifier of the table this event relates to.
+     *
+     * @return An id of the table.
+     */
+    public UUID tableId() {
+        return tableId;
     }
 
     /**
@@ -80,7 +85,7 @@ public class IndexEventParameters extends EventParameters {
      *
      * @return An index.
      */
-    public @Nullable Index<?> index() {
-        return index;
+    public @Nullable IndexDescriptor indexDescriptor() {
+        return indexDescriptor;
     }
 }

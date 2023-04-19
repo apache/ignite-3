@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.util.Map;
@@ -28,6 +29,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -91,14 +93,14 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
     /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
-        addDataRegion(engineConfig.defaultRegion());
+        addDataRegion(DEFAULT_DATA_REGION_NAME);
 
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
         engineConfig.regions().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<VolatilePageMemoryDataRegionView> ctx) {
-                addDataRegion(ctx.config(VolatilePageMemoryDataRegionConfiguration.class));
+                addDataRegion(ctx.newName(VolatilePageMemoryDataRegionView.class));
 
                 return completedFuture(null);
             }
@@ -129,22 +131,26 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public VolatilePageMemoryTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg)
+    public VolatilePageMemoryTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg,
+            DistributionZoneConfiguration distributionZoneCfg)
             throws StorageException {
         VolatilePageMemoryDataStorageView dataStorageView = (VolatilePageMemoryDataStorageView) tableCfg.dataStorage().value();
 
-        return new VolatilePageMemoryTableStorage(tableCfg, tablesCfg, regions.get(dataStorageView.dataRegion()), destructionExecutor);
+        return new VolatilePageMemoryTableStorage(tableCfg, tablesCfg, distributionZoneCfg,
+                regions.get(dataStorageView.dataRegion()), destructionExecutor);
     }
 
     /**
      * Creates, starts and adds a new data region to the engine.
      *
-     * @param dataRegionConfig Data region configuration.
+     * @param name Data region name.
      */
-    private void addDataRegion(VolatilePageMemoryDataRegionConfiguration dataRegionConfig) {
-        int pageSize = engineConfig.pageSize().value();
+    private void addDataRegion(String name) {
+        VolatilePageMemoryDataRegionConfiguration dataRegionConfig = DEFAULT_DATA_REGION_NAME.equals(name)
+                ? engineConfig.defaultRegion()
+                : engineConfig.regions().get(name);
 
-        String name = dataRegionConfig.name().value();
+        int pageSize = engineConfig.pageSize().value();
 
         VolatilePageMemoryDataRegion dataRegion = new VolatilePageMemoryDataRegion(
                 dataRegionConfig,

@@ -69,6 +69,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.Lock;
@@ -131,7 +132,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
                 PK_INDEX_ID,
-                new TestHashIndexStorage(null),
+                new TestHashIndexStorage(PART_ID, null),
                 row2HashKeyConverter
         );
         pkStorage = new Lazy<>(() -> hashIndexStorage);
@@ -146,7 +147,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(
                 SORTED_INDEX_ID,
-                new TestSortedIndexStorage(
+                new TestSortedIndexStorage(PART_ID,
                         new SortedIndexDescriptor(
                                 SORTED_INDEX_ID,
                                 List.of(new SortedIndexColumnDescriptor(
@@ -189,7 +190,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new StorageUpdateHandler(
                         PART_ID,
                         new TestPartitionDataStorage(TEST_MV_PARTITION_STORAGE),
-                        () -> Map.of(pkStorage.get().id(), pkStorage.get()),
+                        DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get())),
                         dsCfg
                 ),
                 peer -> true,

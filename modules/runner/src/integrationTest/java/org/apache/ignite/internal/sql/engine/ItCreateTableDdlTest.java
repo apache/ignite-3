@@ -26,12 +26,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
- * Integration test for set op (EXCEPT, INTERSECT).
+ * Integration test for CREATE TABLE DDL command.
  */
 public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     /**
@@ -145,5 +146,13 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
 
         assertEquals(1, colocationColumns.length);
         assertEquals("Id0", colocationColumns[0].name());
+    }
+
+    @Test
+    public void doNotAllowFunctionsInNonPkColumns() {
+        SqlException t = assertThrows(SqlException.class,
+                () -> sql("create table t (id varchar primary key, val varchar default gen_random_uuid)"));
+
+        assertThat(t.getMessage(), containsString("Functional defaults are not supported for non-primary key columns"));
     }
 }

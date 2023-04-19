@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -113,6 +114,8 @@ public class SqlSchemaManagerTest {
     public void setup() {
         Mockito.reset(tableManager);
 
+        when(tableManager.tableAsync(anyLong(), eq(tableId))).thenReturn(completedFuture(table));
+
         testRevisionRegister = new TestRevisionRegister();
 
         sqlSchemaManager = new SqlSchemaManagerImpl(
@@ -129,8 +132,6 @@ public class SqlSchemaManagerTest {
 
     @Test
     public void testOnTableDroppedHandler() {
-        when(table.name()).thenReturn("T");
-
         InternalTable mock = mock(InternalTable.class);
         when(mock.tableId()).thenReturn(tableId);
         when(mock.name()).thenReturn("T");
@@ -142,10 +143,18 @@ public class SqlSchemaManagerTest {
 
         when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaRegistry));
 
-        sqlSchemaManager.onTableCreated("PUBLIC", table, testRevisionRegister.actualToken() + 1);
+        sqlSchemaManager.onTableCreated("PUBLIC", tableId, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
+
+        TestHashIndex testHashIndex = TestHashIndex.create(List.of("ID"), "pk_idx", tableId);
+
         sqlSchemaManager.onIndexCreated(
-                TestHashIndex.create(List.of("ID"), "pk_idx", tableId), testRevisionRegister.actualToken() + 1);
+                testHashIndex.tableId(),
+                testHashIndex.id(),
+                testHashIndex.descriptor(),
+                testRevisionRegister.actualToken() + 1
+        );
+
         testRevisionRegister.moveForward();
 
         Table schemaTable = sqlSchemaManager.schema("PUBLIC").getTable("T");
@@ -154,7 +163,7 @@ public class SqlSchemaManagerTest {
         IgniteTableImpl igniteTable = assertInstanceOf(IgniteTableImpl.class, schemaTable);
         assertEquals(tableId, igniteTable.table().tableId());
 
-        sqlSchemaManager.onTableDropped("PUBLIC", table.name(), testRevisionRegister.actualToken() + 1);
+        sqlSchemaManager.onTableDropped("PUBLIC", tableId, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
         assertNull(sqlSchemaManager.schema("PUBLIC").getTable("T"));
@@ -172,24 +181,28 @@ public class SqlSchemaManagerTest {
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
         when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaRegistry));
 
-        sqlSchemaManager.onTableCreated("PUBLIC", table, testRevisionRegister.actualToken() + 1);
+        sqlSchemaManager.onTableCreated("PUBLIC", tableId, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
+        TestHashIndex testHashIndex = TestHashIndex.create(List.of("ID"), "pk_idx", tableId);
+
         sqlSchemaManager.onIndexCreated(
-                TestHashIndex.create(List.of("ID"), "pk_idx", tableId), testRevisionRegister.actualToken() + 1);
+                testHashIndex.tableId(),
+                testHashIndex.id(),
+                testHashIndex.descriptor(),
+                testRevisionRegister.actualToken() + 1
+        );
+
         testRevisionRegister.moveForward();
 
         assertEquals(1, ((IgniteTableImpl) sqlSchemaManager.schema("PUBLIC").getTable("T")).indexes().size());
 
         IndexDescriptor descMock = mock(IndexDescriptor.class);
         when(descMock.columns()).thenReturn(List.of());
+        when(descMock.name()).thenReturn("PUBLIC.I");
 
-        when(index.name()).thenReturn("PUBLIC.I");
-        when(index.id()).thenReturn(indexId);
-        when(index.tableId()).thenReturn(tableId);
-        when(index.descriptor()).thenReturn(descMock);
+        sqlSchemaManager.onIndexCreated(tableId, indexId, descMock, testRevisionRegister.actualToken() + 1);
 
-        sqlSchemaManager.onIndexCreated(index, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
         IgniteSchema schema = sqlSchemaManager.schema("PUBLIC").unwrap(IgniteSchema.class);
@@ -203,7 +216,7 @@ public class SqlSchemaManagerTest {
         assertEquals(igniteTable.id(), igniteIndex.index().tableId());
         assertSame(igniteIndex, igniteTable.indexes().get("PUBLIC.I"));
 
-        sqlSchemaManager.onIndexDropped("PUBLIC", indexId, testRevisionRegister.actualToken() + 1);
+        sqlSchemaManager.onIndexDropped("PUBLIC", igniteTable.id(), indexId, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
         assertNull(sqlSchemaManager.schema("PUBLIC").unwrap(IgniteSchema.class).index(indexId));
@@ -224,26 +237,30 @@ public class SqlSchemaManagerTest {
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
         when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaRegistry));
 
-        sqlSchemaManager.onTableCreated("PUBLIC", table, testRevisionRegister.actualToken() + 1);
-        testRevisionRegister.moveForward();
-        sqlSchemaManager.onIndexCreated(
-                TestHashIndex.create(List.of("ID"), "pk_idx", tableId), testRevisionRegister.actualToken() + 1);
+        sqlSchemaManager.onTableCreated("PUBLIC", table.tableId(), testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
-        IndexDescriptor descMock = mock(IndexDescriptor.class);
-        when(descMock.columns()).thenReturn(List.of());
+        TestHashIndex testHashIndex = TestHashIndex.create(List.of("ID"), "pk_idx", tableId);
+
+        sqlSchemaManager.onIndexCreated(
+                testHashIndex.tableId(),
+                testHashIndex.id(),
+                testHashIndex.descriptor(),
+                testRevisionRegister.actualToken() + 1
+        );
+
+        testRevisionRegister.moveForward();
 
         String idxName = "I";
 
-        when(index.name()).thenReturn(idxName);
-        when(index.id()).thenReturn(indexId);
-        when(index.tableId()).thenReturn(tableId);
-        when(index.descriptor()).thenReturn(descMock);
+        IndexDescriptor descMock = mock(IndexDescriptor.class);
+        when(descMock.columns()).thenReturn(List.of());
+        when(descMock.name()).thenReturn(idxName);
 
         {
             SchemaPlus schema1 = sqlSchemaManager.schema("PUBLIC");
 
-            sqlSchemaManager.onIndexCreated(index, testRevisionRegister.actualToken() + 1);
+            sqlSchemaManager.onIndexCreated(tableId, indexId, descMock, testRevisionRegister.actualToken() + 1);
             testRevisionRegister.moveForward();
 
             SchemaPlus schema2 = sqlSchemaManager.schema("PUBLIC");
@@ -259,7 +276,7 @@ public class SqlSchemaManagerTest {
             assertNotNull(((IgniteTable) schema2.getTable("T")).getIndex(idxName));
         }
         {
-            sqlSchemaManager.onIndexDropped("PUBLIC", indexId, testRevisionRegister.actualToken() + 1);
+            sqlSchemaManager.onIndexDropped("PUBLIC", table.tableId(), indexId, testRevisionRegister.actualToken() + 1);
             SchemaPlus schema1 = sqlSchemaManager.schema("PUBLIC");
             testRevisionRegister.moveForward();
 

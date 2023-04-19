@@ -89,6 +89,15 @@ enum class client_operation {
     /** Rollback transaction. */
     TX_ROLLBACK = 45,
 
+    /** Execute compute job. */
+    COMPUTE_EXECUTE = 47,
+
+    /** Get cluster nodes. */
+    CLUSTER_GET_NODES = 48,
+
+    /** Execute compute job. */
+    COMPUTE_EXECUTE_COLOCATED = 49,
+
     /** Execute SQL query. */
     SQL_EXEC = 50,
 

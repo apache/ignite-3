@@ -22,13 +22,17 @@ import io.micronaut.http.multipart.CompletedFileUpload;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.deployment.IgniteDeployment;
-import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.deployunit.DeploymentUnit;
+import org.apache.ignite.internal.deployunit.IgniteDeployment;
+import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentCodeApi;
-import org.apache.ignite.internal.rest.api.deployment.UnitStatusDto;
+import org.apache.ignite.internal.rest.api.deployment.DeploymentInfo;
+import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 
 /**
  * Implementation of {@link DeploymentCodeApi}.
@@ -46,7 +50,7 @@ public class DeploymentManagementController implements DeploymentCodeApi {
         try {
             DeploymentUnit deploymentUnit = toDeploymentUnit(unitContent);
             if (unitVersion == null || unitVersion.isBlank()) {
-                return deployment.deployAsync(unitId, deploymentUnit);
+                return deployment.deployAsync(unitId, Version.LATEST, deploymentUnit);
             }
             return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit);
         } catch (IOException e) {
@@ -65,8 +69,8 @@ public class DeploymentManagementController implements DeploymentCodeApi {
     }
 
     @Override
-    public CompletableFuture<Collection<UnitStatusDto>> units() {
-        return deployment.unitsAsync().thenApply(statuses -> statuses.stream().map(UnitStatusDto::fromUnitStatus)
+    public CompletableFuture<Collection<UnitStatus>> units() {
+        return deployment.unitsAsync().thenApply(statuses -> statuses.stream().map(DeploymentManagementController::fromUnitStatus)
                 .collect(Collectors.toList()));
     }
 
@@ -77,14 +81,14 @@ public class DeploymentManagementController implements DeploymentCodeApi {
     }
 
     @Override
-    public CompletableFuture<UnitStatusDto> status(String unitId) {
-        return deployment.statusAsync(unitId).thenApply(UnitStatusDto::fromUnitStatus);
+    public CompletableFuture<UnitStatus> status(String unitId) {
+        return deployment.statusAsync(unitId).thenApply(DeploymentManagementController::fromUnitStatus);
     }
 
     @Override
-    public CompletableFuture<Collection<UnitStatusDto>> findByConsistentId(String consistentId) {
+    public CompletableFuture<Collection<UnitStatus>> findByConsistentId(String consistentId) {
         return deployment.findUnitByConsistentIdAsync(consistentId)
-                .thenApply(units -> units.stream().map(UnitStatusDto::fromUnitStatus)
+                .thenApply(units -> units.stream().map(DeploymentManagementController::fromUnitStatus)
                         .collect(Collectors.toList()));
     }
 
@@ -102,5 +106,21 @@ public class DeploymentManagementController implements DeploymentCodeApi {
                 return is;
             }
         };
+    }
+
+    /**
+     * Mapper method.
+     *
+     * @param status Unit status.
+     * @return Unit status DTO.
+     */
+    public static UnitStatus fromUnitStatus(org.apache.ignite.internal.deployunit.UnitStatus status) {
+        Map<String, DeploymentInfo> versionToDeploymentStatus = new HashMap<>();
+        Set<Version> versions = status.versions();
+        for (Version version : versions) {
+            DeploymentInfo info = new DeploymentInfo(status.status(version), status.consistentIds(version));
+            versionToDeploymentStatus.put(version.render(), info);
+        }
+        return new UnitStatus(status.id(), versionToDeploymentStatus);
     }
 }

@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.table.distributed.gc;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -259,9 +259,9 @@ public class MvGcTest {
 
         assertThat(removeStorageFuture, willTimeoutFast());
 
-        finishInvokeVacuumMethodFuture.completeExceptionally(new RuntimeException("form test"));
+        finishInvokeVacuumMethodFuture.completeExceptionally(new IllegalStateException("from test"));
 
-        assertThat(removeStorageFuture, willFailFast(RuntimeException.class));
+        assertThat(removeStorageFuture, willThrowFast(IllegalStateException.class));
     }
 
     @Test
@@ -387,7 +387,7 @@ public class MvGcTest {
         when(storageUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
             startFuture.complete(null);
 
-            assertThat(finishFuture, willCompleteSuccessfully());
+            finishFuture.get(1, TimeUnit.SECONDS);
 
             return false;
         });

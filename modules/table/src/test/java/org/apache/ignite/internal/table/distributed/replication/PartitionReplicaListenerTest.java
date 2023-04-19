@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.distributed.replication;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -103,6 +103,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
@@ -295,11 +296,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                 pkIndexId,
-                new TestHashIndexStorage(null),
+                new TestHashIndexStorage(partId, null),
                 row2Tuple
         ));
 
-        SortedIndexStorage indexStorage = new TestSortedIndexStorage(new SortedIndexDescriptor(sortedIndexId, List.of(
+        SortedIndexStorage indexStorage = new TestSortedIndexStorage(partId, new SortedIndexDescriptor(sortedIndexId, List.of(
                 new SortedIndexColumnDescriptor("intVal", NativeTypes.INT32, false, true)
         )));
 
@@ -307,7 +308,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         hashIndexStorage = new TableSchemaAwareIndexStorage(
                 hashIndexId,
-                new TestHashIndexStorage(new HashIndexDescriptor(hashIndexId, List.of(
+                new TestHashIndexStorage(partId, new HashIndexDescriptor(hashIndexId, List.of(
                         new HashIndexColumnDescriptor("intVal", NativeTypes.INT32, false)
                 ))),
                 row -> null
@@ -336,7 +337,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new StorageUpdateHandler(
                         partId,
                         partitionDataStorage,
-                        () -> Map.of(pkStorage.get().id(), pkStorage.get()),
+                        DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get())),
                         dsCfg
                 ),
                 peer -> localNode.name().equals(peer.consistentId()),
@@ -1036,7 +1037,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         // Check that one more write after cleanup is discarded.
         CompletableFuture<?> writeAfterCleanupFuture = partitionReplicaListener.invoke(updatingRequestSupplier.get());
-        assertThat(writeAfterCleanupFuture, willFailFast(TransactionException.class));
+        assertThat(writeAfterCleanupFuture, willThrowFast(TransactionException.class));
     }
 
     @Test

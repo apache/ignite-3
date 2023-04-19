@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raftsnapshot;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest.waitForIndex;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -29,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.net.ConnectException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +45,7 @@ import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
@@ -50,7 +53,6 @@ import java.util.logging.Logger;
 import java.util.stream.IntStream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.Cluster;
-import org.apache.ignite.internal.Cluster.NodeKnockout;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -58,15 +60,17 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.jul.NoOpHandler;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NetworkMessage;
@@ -121,11 +125,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      */
     private static final String DEFAULT_STORAGE_ENGINE = "<default>";
 
-    /**
-     * {@link NodeKnockout} that is used by tests that are indifferent for the knockout strategy being used.
-     */
-    private static final NodeKnockout DEFAULT_KNOCKOUT = NodeKnockout.PARTITION_NETWORK;
-
     @WorkDirectory
     private Path workDir;
 
@@ -163,21 +162,25 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     /**
-     * Executes the given action, retrying it up to a few times if a transient failure occurs (like node unavailability).
+     * Executes the given action, retrying it up to a few times if a transient failure occurs (like node unavailability) or
+     * until {@code shouldStop} returns {@code true}, in that case this method throws {@link UnableToRetry} exception.
      */
-    private static <T> T withRetry(Supplier<T> action) {
-        // TODO: IGNITE-18423 remove this retry machinery when the networking bug is fixed as replication timeout seems to be caused by it.
-
-        int maxAttempts = 4;
+    private static <T> T withRetry(Supplier<T> action, Predicate<RuntimeException> shouldStop) {
+        int maxAttempts = 5;
         int sleepMillis = 500;
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 return action.get();
             } catch (RuntimeException e) {
+                if (shouldStop.test(e)) {
+                    throw new UnableToRetry(e);
+                }
                 if (attempt < maxAttempts && isTransientFailure(e)) {
-                    LOG.warn("Attempt " + attempt + " failed, going to retry", e);
+                    LOG.warn("Attempt {} failed, going to retry", e, attempt);
                 } else {
+                    LOG.error("Attempt {} failed, not going to retry anymore, rethrowing", e, attempt);
+
                     throw e;
                 }
             }
@@ -196,15 +199,48 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         throw new AssertionError("Should not reach here");
     }
 
+    /**
+     * Executes the given UPDATE/INSERT statement until it succeed or receives duplicate key error.
+     */
+    private void executeDmlWithRetry(int nodeIndex, String statement) {
+        // We should retry a DML statement until we either succeed or receive a duplicate key error.
+        // The number of attempts is bounded because we know that node is going to recover.
+        Predicate<RuntimeException> stopOnDuplicateKeyError = (e) -> {
+            if (e instanceof IgniteException) {
+                IgniteException ie = (IgniteException) e;
+                return ie.code() == Sql.DUPLICATE_KEYS_ERR;
+            } else {
+                return false;
+            }
+        };
+
+        try {
+            withRetry(() -> {
+                cluster.doInSession(nodeIndex, session -> {
+                    executeUpdate(statement, session);
+                });
+                return null;
+            }, stopOnDuplicateKeyError);
+
+        } catch (UnableToRetry ignore) {
+            // Duplicate key exception was caught.
+        }
+    }
+
     private static boolean isTransientFailure(RuntimeException e) {
         return hasCause(e, ReplicationTimeoutException.class, null)
                 || hasCause(e, IgniteInternalException.class, "Failed to send message to node")
                 || hasCause(e, IgniteInternalCheckedException.class, "Failed to execute query, node left")
-                || hasCause(e, SqlValidatorException.class, "Object 'TEST' not found");
+                || hasCause(e, SqlValidatorException.class, "Object 'TEST' not found")
+                // TODO: remove after https://issues.apache.org/jira/browse/IGNITE-18848 is implemented.
+                || hasCause(e, StorageRebalanceException.class, "process of rebalancing")
+                || hasCause(e, ConnectException.class, null);
     }
 
     private <T> T queryWithRetry(int nodeIndex, String sql, Function<ResultSet<SqlRow>, T> extractor) {
-        return withRetry(() -> cluster.query(nodeIndex, sql, extractor));
+        Predicate<RuntimeException> retryForever = (e) -> false;
+        // TODO: IGNITE-18423 remove this retry machinery when the networking bug is fixed as replication timeout seems to be caused by it.
+        return withRetry(() -> cluster.query(nodeIndex, sql, extractor), retryForever);
     }
 
     /**
@@ -223,30 +259,33 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     /**
-     * Tests that a leader successfully feeds a follower with a RAFT snapshot (using {@link NodeKnockout#STOP} strategy
-     * to knock-out the follower to make it require a snapshot installation).
+     * Tests that a leader successfully feeds a follower with a RAFT snapshot.
      */
     @Test
-    @Disabled("Enable when the IGNITE-18170 deadlock is fixed")
-    void leaderFeedsFollowerWithSnapshotWithKnockoutStop() throws Exception {
-        testLeaderFeedsFollowerWithSnapshot(Cluster.NodeKnockout.STOP, DEFAULT_STORAGE_ENGINE);
+    void leaderFeedsFollowerWithSnapshot() throws Exception {
+        testLeaderFeedsFollowerWithSnapshot(DEFAULT_STORAGE_ENGINE);
     }
 
     /**
-     * Tests that a leader successfully feeds a follower with a RAFT snapshot (using {@link NodeKnockout#PARTITION_NETWORK} strategy
-     * to knock-out the follower to make it require a snapshot installation).
+     * Tests that a leader successfully feeds a follower with a RAFT snapshot on any of the supported storage engines.
      */
-    @Test
-    void leaderFeedsFollowerWithSnapshotWithKnockoutPartitionNetwork() throws Exception {
-        testLeaderFeedsFollowerWithSnapshot(Cluster.NodeKnockout.PARTITION_NETWORK, DEFAULT_STORAGE_ENGINE);
+    // TODO: IGNITE-18481 - make sure we don't forget to add new storage engines here
+    @ParameterizedTest
+    @ValueSource(strings = {
+            RocksDbStorageEngine.ENGINE_NAME,
+            PersistentPageMemoryStorageEngine.ENGINE_NAME
+            // TODO: uncomment when https://issues.apache.org/jira/browse/IGNITE-19234 is fixed
+//            VolatilePageMemoryStorageEngine.ENGINE_NAME
+    })
+    void leaderFeedsFollowerWithSnapshot(String storageEngine) throws Exception {
+        testLeaderFeedsFollowerWithSnapshot(storageEngine);
     }
 
     /**
-     * Tests that a leader successfully feeds a follower with a RAFT snapshot (using the given {@link NodeKnockout} strategy
-     * to knock-out the follower to make it require a snapshot installation and the given storage engine).
+     * Tests that a leader successfully feeds a follower with a RAFT snapshot (using the given storage engine).
      */
-    private void testLeaderFeedsFollowerWithSnapshot(NodeKnockout knockout, String storageEngine) throws Exception {
-        feedNode2WithSnapshotOfOneRow(knockout, storageEngine);
+    private void testLeaderFeedsFollowerWithSnapshot(String storageEngine) throws Exception {
+        feedNode2WithSnapshotOfOneRow(storageEngine);
 
         transferLeadershipOnSolePartitionTo(2);
 
@@ -255,50 +294,42 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         assertThat(rows, is(List.of(new IgniteBiTuple<>(1, "one"))));
     }
 
-    private void feedNode2WithSnapshotOfOneRow(NodeKnockout knockout) throws InterruptedException {
-        feedNode2WithSnapshotOfOneRow(knockout, DEFAULT_STORAGE_ENGINE);
+    private void feedNode2WithSnapshotOfOneRow() throws InterruptedException {
+        feedNode2WithSnapshotOfOneRow(DEFAULT_STORAGE_ENGINE);
     }
 
-    private void feedNode2WithSnapshotOfOneRow(NodeKnockout knockout, String storageEngine) throws InterruptedException {
-        prepareClusterForInstallingSnapshotToNode2(knockout, storageEngine);
+    private void feedNode2WithSnapshotOfOneRow(String storageEngine) throws InterruptedException {
+        prepareClusterForInstallingSnapshotToNode2(storageEngine);
 
-        reanimateNode2AndWaitForSnapshotInstalled(knockout);
+        reanimateNode2AndWaitForSnapshotInstalled();
     }
 
     /**
      * Transfer the cluster to a state in which, when node 2 is reanimated from being knocked-out, the only partition
      * of the only table (called TEST) is transferred to it using RAFT snapshot installation mechanism.
-     *
-     * @param knockout The knock-out strategy that was used to knock-out node 2 and that will be used to reanimate it.
-     * @see NodeKnockout
      */
-    private void prepareClusterForInstallingSnapshotToNode2(NodeKnockout knockout) throws InterruptedException {
-        prepareClusterForInstallingSnapshotToNode2(knockout, DEFAULT_STORAGE_ENGINE);
+    private void prepareClusterForInstallingSnapshotToNode2() throws InterruptedException {
+        prepareClusterForInstallingSnapshotToNode2(DEFAULT_STORAGE_ENGINE);
     }
 
     /**
      * Transfer the cluster to a state in which, when node 2 is reanimated from being knocked-out, the only partition
      * of the only table (called TEST) is transferred to it using RAFT snapshot installation mechanism.
      *
-     * @param knockout The knock-out strategy that should be used to knock-out node 2.
      * @param storageEngine Storage engine for the TEST table.
-     * @see NodeKnockout
      */
-    private void prepareClusterForInstallingSnapshotToNode2(NodeKnockout knockout, String storageEngine) throws InterruptedException {
-        prepareClusterForInstallingSnapshotToNode2(knockout, storageEngine, theCluster -> {});
+    private void prepareClusterForInstallingSnapshotToNode2(String storageEngine) throws InterruptedException {
+        prepareClusterForInstallingSnapshotToNode2(storageEngine, theCluster -> {});
     }
 
     /**
      * Transfer the cluster to a state in which, when node 2 is reanimated from being knocked-out, the only partition
      * of the only table (called TEST) is transferred to it using RAFT snapshot installation mechanism.
      *
-     * @param knockout The knock-out strategy that should be used to knock-out node 2.
      * @param storageEngine Storage engine for the TEST table.
      * @param doOnClusterAfterInit Action executed just after the cluster is started and initialized.
-     * @see NodeKnockout
      */
     private void prepareClusterForInstallingSnapshotToNode2(
-            NodeKnockout knockout,
             String storageEngine,
             Consumer<Cluster> doOnClusterAfterInit
     ) throws InterruptedException {
@@ -312,22 +343,28 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         transferLeadershipOnSolePartitionTo(0);
 
-        cluster.knockOutNode(2, knockout);
+        knockoutNode(2);
 
-        cluster.doInSession(0, session -> {
-            executeUpdate("insert into test(key, value) values (1, 'one')", session);
-        });
+        executeDmlWithRetry(0, "insert into test(key, value) values (1, 'one')");
 
         // Make sure AppendEntries from leader to follower is impossible, making the leader to use InstallSnapshot.
-        causeLogTruncationOnSolePartitionLeader();
+        causeLogTruncationOnSolePartitionLeader(0);
+    }
+
+    private void knockoutNode(int nodeIndex) {
+        cluster.stopNode(nodeIndex);
     }
 
     private void createTestTableWith3Replicas(String storageEngine) throws InterruptedException {
+        String zoneSql = "create zone test_zone with partitions=1, replicas=3;";
         String sql = "create table test (key int primary key, value varchar(20))"
                 + (DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? "" : " engine " + storageEngine)
-                + " with partitions=1, replicas=3";
+                + " with primary_zone='TEST_ZONE'";
+
+        waitForIndex("test_PK");
 
         cluster.doInSession(0, session -> {
+            executeUpdate(zoneSql, session);
             executeUpdate(sql, session);
         });
 
@@ -354,19 +391,19 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * with AppendEntries (because the leader does not already have the index that is required to send AppendEntries
      * to the lagging follower), so the leader will have to send InstallSnapshot instead.
      */
-    private void causeLogTruncationOnSolePartitionLeader() throws InterruptedException {
+    private void causeLogTruncationOnSolePartitionLeader(int expectedLeaderNodeIndex) throws InterruptedException {
         // Doing this twice because first snapshot creation does not trigger log truncation.
-        doSnapshotOnSolePartitionLeader();
-        doSnapshotOnSolePartitionLeader();
+        doSnapshotOnSolePartitionLeader(expectedLeaderNodeIndex);
+        doSnapshotOnSolePartitionLeader(expectedLeaderNodeIndex);
     }
 
     /**
      * Causes a RAFT snapshot to be taken on the RAFT leader of the sole table partition that exists in the cluster.
      */
-    private void doSnapshotOnSolePartitionLeader() throws InterruptedException {
+    private void doSnapshotOnSolePartitionLeader(int expectedLeaderNodeIndex) throws InterruptedException {
         TablePartitionId tablePartitionId = solePartitionId();
 
-        doSnapshotOn(tablePartitionId);
+        doSnapshotOn(tablePartitionId, expectedLeaderNodeIndex);
     }
 
     /**
@@ -394,8 +431,13 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     /**
      * Takes a RAFT snapshot on the leader of the RAFT group corresponding to the given table partition.
      */
-    private void doSnapshotOn(TablePartitionId tablePartitionId) throws InterruptedException {
+    private void doSnapshotOn(TablePartitionId tablePartitionId, int expectedLeaderNodeIndex) throws InterruptedException {
         RaftGroupService raftGroupService = cluster.leaderServiceFor(tablePartitionId);
+
+        assertThat(
+                "Unexpected leadership change",
+                raftGroupService.getServerId().getConsistentId(), is(cluster.node(expectedLeaderNodeIndex).name())
+        );
 
         CountDownLatch snapshotLatch = new CountDownLatch(1);
         AtomicReference<Status> snapshotStatus = new AtomicReference<>();
@@ -414,15 +456,15 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * Reanimates (that is, reverts the effects of a knock out) node 2 and waits until a RAFT snapshot is installed
      * on it for the sole table partition in the cluster.
      */
-    private void reanimateNode2AndWaitForSnapshotInstalled(NodeKnockout knockout) throws InterruptedException {
-        reanimateNodeAndWaitForSnapshotInstalled(2, knockout);
+    private void reanimateNode2AndWaitForSnapshotInstalled() throws InterruptedException {
+        reanimateNodeAndWaitForSnapshotInstalled(2);
     }
 
     /**
      * Reanimates (that is, reverts the effects of a knock out) a node with the given index and waits until a RAFT snapshot is installed
      * on it for the sole table partition in the cluster.
      */
-    private void reanimateNodeAndWaitForSnapshotInstalled(int nodeIndex, NodeKnockout knockout) throws InterruptedException {
+    private void reanimateNodeAndWaitForSnapshotInstalled(int nodeIndex) throws InterruptedException {
         CountDownLatch snapshotInstalledLatch = new CountDownLatch(1);
 
         var handler = new NoOpHandler() {
@@ -437,12 +479,16 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         replicatorLogger.addHandler(handler);
 
         try {
-            cluster.reanimateNode(nodeIndex, knockout);
+            reanimateNode(nodeIndex);
 
             assertTrue(snapshotInstalledLatch.await(60, TimeUnit.SECONDS), "Did not install a snapshot in time");
         } finally {
             replicatorLogger.removeHandler(handler);
         }
+    }
+
+    private void reanimateNode(int nodeIndex) {
+        cluster.startNode(nodeIndex);
     }
 
     private void transferLeadershipOnSolePartitionTo(int nodeIndex) throws InterruptedException {
@@ -497,33 +543,17 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     /**
      * Tests that, if first part of a transaction (everything before COMMIT) arrives using AppendEntries, and later the whole
      * partition state arrives in a RAFT snapshot, then the transaction is seen as committed (i.e. its effects are seen).
-     *
-     * <p>{@link NodeKnockout#STOP} is used to knock out the follower which will accept the snapshot.
      */
     @Test
-    @Disabled("Enable when the IGNITE-18170 deadlock is resolved")
-    void txSemanticsIsMaintainedWithKnockoutStop() throws Exception {
-        txSemanticsIsMaintainedAfterInstallingSnapshot(Cluster.NodeKnockout.STOP);
+    void txSemanticsIsMaintained() throws Exception {
+        txSemanticsIsMaintainedAfterInstallingSnapshot();
     }
 
     /**
      * Tests that, if first part of a transaction (everything before COMMIT) arrives using AppendEntries, and later the whole
      * partition state arrives in a RAFT snapshot, then the transaction is seen as committed (i.e. its effects are seen).
-     *
-     * <p>{@link NodeKnockout#PARTITION_NETWORK} is used to knock out the follower which will accept the snapshot.
      */
-    @Test
-    void txSemanticsIsMaintainedWithKnockoutPartitionNetwork() throws Exception {
-        txSemanticsIsMaintainedAfterInstallingSnapshot(Cluster.NodeKnockout.PARTITION_NETWORK);
-    }
-
-    /**
-     * Tests that, if first part of a transaction (everything before COMMIT) arrives using AppendEntries, and later the whole
-     * partition state arrives in a RAFT snapshot, then the transaction is seen as committed (i.e. its effects are seen).
-     *
-     * <p>The given {@link NodeKnockout} is used to knock out the follower which will accept the snapshot.
-     */
-    private void txSemanticsIsMaintainedAfterInstallingSnapshot(NodeKnockout knockout) throws Exception {
+    private void txSemanticsIsMaintainedAfterInstallingSnapshot() throws Exception {
         cluster.startAndInit(3);
 
         createTestTableWith3Replicas(DEFAULT_STORAGE_ENGINE);
@@ -536,15 +566,15 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         cluster.doInSession(0, session -> {
             executeUpdate("insert into test(key, value) values (1, 'one')", session, tx);
 
-            cluster.knockOutNode(2, knockout);
+            knockoutNode(2);
 
             tx.commit();
         });
 
         // Make sure AppendEntries from leader to follower is impossible, making the leader to use InstallSnapshot.
-        causeLogTruncationOnSolePartitionLeader();
+        causeLogTruncationOnSolePartitionLeader(0);
 
-        reanimateNode2AndWaitForSnapshotInstalled(knockout);
+        reanimateNode2AndWaitForSnapshotInstalled();
 
         transferLeadershipOnSolePartitionTo(2);
 
@@ -554,27 +584,13 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     /**
-     * Tests that a leader successfully feeds a follower with a RAFT snapshot on any of the supported storage engines.
-     */
-    // TODO: IGNITE-18481 - make sure we don't forget to add new storage engines here
-    @ParameterizedTest
-    @ValueSource(strings = {
-            RocksDbStorageEngine.ENGINE_NAME,
-            PersistentPageMemoryStorageEngine.ENGINE_NAME,
-            VolatilePageMemoryStorageEngine.ENGINE_NAME
-    })
-    void leaderFeedsFollowerWithSnapshot(String storageEngine) throws Exception {
-        testLeaderFeedsFollowerWithSnapshot(DEFAULT_KNOCKOUT, storageEngine);
-    }
-
-    /**
      * Tests that entries can still be added to a follower using AppendEntries after it gets fed with a RAFT snapshot.
      */
     @Test
-    @Disabled("Enable when IGNITE-18485 is fixed")
     void entriesKeepAppendedAfterSnapshotInstallation() throws Exception {
-        feedNode2WithSnapshotOfOneRow(DEFAULT_KNOCKOUT);
+        feedNode2WithSnapshotOfOneRow();
 
+        // this should be possibly replaced with executeDmlWithRetry.
         cluster.doInSession(0, session -> {
             executeUpdate("insert into test(key, value) values (2, 'two')", session);
         });
@@ -595,9 +611,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     // TODO: IGNITE-18423 - enable when ReplicationTimeoutException is fixed
     @Disabled("IGNITE-18423")
     void entriesKeepAppendedDuringSnapshotInstallation() throws Exception {
-        NodeKnockout knockout = DEFAULT_KNOCKOUT;
-
-        prepareClusterForInstallingSnapshotToNode2(knockout);
+        prepareClusterForInstallingSnapshotToNode2();
 
         AtomicBoolean installedSnapshot = new AtomicBoolean(false);
         AtomicInteger lastLoadedKey = new AtomicInteger();
@@ -612,7 +626,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             }
         });
 
-        reanimateNode2AndWaitForSnapshotInstalled(knockout);
+        reanimateNode2AndWaitForSnapshotInstalled();
 
         installedSnapshot.set(true);
 
@@ -634,22 +648,22 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     // TODO: IGNITE-18423 - enable when ReplicationTimeoutException is fixed
     @Disabled("IGNITE-18423")
     void nodeCanInstallSnapshotsAfterSnapshotInstalledToIt() throws Exception {
-        feedNode2WithSnapshotOfOneRow(DEFAULT_KNOCKOUT);
+        feedNode2WithSnapshotOfOneRow();
 
         // The leader (0) has fed the follower (2). Now, change roles: the new leader will be node 2, it will feed node 0.
 
         transferLeadershipOnSolePartitionTo(2);
 
-        cluster.knockOutNode(0, DEFAULT_KNOCKOUT);
+        knockoutNode(0);
 
         cluster.doInSession(2, session -> {
             executeUpdate("insert into test(key, value) values (2, 'two')", session);
         });
 
         // Make sure AppendEntries from leader to follower is impossible, making the leader to use InstallSnapshot.
-        causeLogTruncationOnSolePartitionLeader();
+        causeLogTruncationOnSolePartitionLeader(2);
 
-        reanimateNodeAndWaitForSnapshotInstalled(0, DEFAULT_KNOCKOUT);
+        reanimateNodeAndWaitForSnapshotInstalled(0);
 
         transferLeadershipOnSolePartitionTo(0);
 
@@ -664,11 +678,11 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      */
     @Test
     void snapshotInstallationRepeatsOnTimeout() throws Exception {
-        prepareClusterForInstallingSnapshotToNode2(DEFAULT_KNOCKOUT, DEFAULT_STORAGE_ENGINE, theCluster -> {
+        prepareClusterForInstallingSnapshotToNode2(DEFAULT_STORAGE_ENGINE, theCluster -> {
             theCluster.node(0).dropMessages(dropFirstSnapshotMetaResponse());
         });
 
-        reanimateNode2AndWaitForSnapshotInstalled(DEFAULT_KNOCKOUT);
+        reanimateNode2AndWaitForSnapshotInstalled();
     }
 
     private BiPredicate<String, NetworkMessage> dropFirstSnapshotMetaResponse() {
@@ -678,8 +692,10 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     private BiPredicate<String, NetworkMessage> dropFirstSnapshotMetaResponse(AtomicBoolean sentSnapshotMetaResponse) {
+        String node2Name = cluster.node(2).name();
+
         return (targetConsistentId, message) -> {
-            if (Objects.equals(targetConsistentId, cluster.node(2).name()) && message instanceof SnapshotMetaResponse) {
+            if (Objects.equals(targetConsistentId, node2Name) && message instanceof SnapshotMetaResponse) {
                 return sentSnapshotMetaResponse.compareAndSet(false, true);
             } else {
                 return false;
@@ -688,8 +704,10 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     private BiPredicate<String, NetworkMessage> dropSnapshotMetaResponse(CompletableFuture<Void> sentFirstSnapshotMetaResponse) {
+        String node2Name = cluster.node(2).name();
+
         return (targetConsistentId, message) -> {
-            if (Objects.equals(targetConsistentId, cluster.node(2).name()) && message instanceof SnapshotMetaResponse) {
+            if (Objects.equals(targetConsistentId, node2Name) && message instanceof SnapshotMetaResponse) {
                 sentFirstSnapshotMetaResponse.complete(null);
 
                 // Always drop.
@@ -733,7 +751,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         snapshotExecutorLogger.addHandler(snapshotInstallFailedDueToIdenticalRetryHandler);
 
         try {
-            prepareClusterForInstallingSnapshotToNode2(DEFAULT_KNOCKOUT, DEFAULT_STORAGE_ENGINE, theCluster -> {
+            prepareClusterForInstallingSnapshotToNode2(DEFAULT_STORAGE_ENGINE, theCluster -> {
                 BiPredicate<String, NetworkMessage> dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed = (recipientId, message) ->
                         message instanceof ActionRequest
                                 && ((ActionRequest) message).command() instanceof SafeTimeSyncCommand
@@ -747,7 +765,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
                 theCluster.node(2).dropMessages(dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed);
             });
 
-            reanimateNode2AndWaitForSnapshotInstalled(DEFAULT_KNOCKOUT);
+            reanimateNode2AndWaitForSnapshotInstalled();
         } finally {
             snapshotExecutorLogger.removeHandler(snapshotInstallFailedDueToIdenticalRetryHandler);
         }
@@ -757,7 +775,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     void testChangeLeaderOnInstallSnapshotInMiddle() throws Exception {
         CompletableFuture<Void> sentSnapshotMetaResponseFormNode1Future = new CompletableFuture<>();
 
-        prepareClusterForInstallingSnapshotToNode2(NodeKnockout.PARTITION_NETWORK, DEFAULT_STORAGE_ENGINE, cluster -> {
+        prepareClusterForInstallingSnapshotToNode2(DEFAULT_STORAGE_ENGINE, cluster -> {
             // Let's hang the InstallSnapshot in the "middle" from the leader with index 1.
             cluster.node(1).dropMessages(dropSnapshotMetaResponse(sentSnapshotMetaResponseFormNode1Future));
         });
@@ -765,14 +783,14 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         // Change the leader and truncate its log so that InstallSnapshot occurs instead of AppendEntries.
         transferLeadershipOnSolePartitionTo(1);
 
-        causeLogTruncationOnSolePartitionLeader();
+        causeLogTruncationOnSolePartitionLeader(1);
 
         CompletableFuture<Void> installSnapshotSuccessfulFuture = new CompletableFuture<>();
 
         listenForSnapshotInstalledSuccessFromLogger(0, 2, installSnapshotSuccessfulFuture);
 
         // Return node 2.
-        cluster.reanimateNode(2, NodeKnockout.PARTITION_NETWORK);
+        reanimateNode(2);
 
         // Waiting for the InstallSnapshot from node 2 to hang in the "middle".
         assertThat(sentSnapshotMetaResponseFormNode1Future, willSucceedIn(1, TimeUnit.MINUTES));
@@ -831,7 +849,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     void testChangeLeaderDuringSnapshotInstallationToLeaderWithEnoughLog() throws Exception {
         CompletableFuture<Void> sentSnapshotMetaResponseFormNode0Future = new CompletableFuture<>();
 
-        prepareClusterForInstallingSnapshotToNode2(NodeKnockout.PARTITION_NETWORK, DEFAULT_STORAGE_ENGINE, cluster -> {
+        prepareClusterForInstallingSnapshotToNode2(DEFAULT_STORAGE_ENGINE, cluster -> {
             // Let's hang the InstallSnapshot in the "middle" from the leader with index 0.
             cluster.node(0).dropMessages(dropSnapshotMetaResponse(sentSnapshotMetaResponseFormNode0Future));
         });
@@ -841,7 +859,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         listenForSnapshotInstalledSuccessFromLogger(1, 2, installSnapshotSuccessfulFuture);
 
         // Return node 2.
-        cluster.reanimateNode(2, NodeKnockout.PARTITION_NETWORK);
+        reanimateNode(2);
 
         // Waiting for the InstallSnapshot from node 2 to hang in the "middle".
         assertThat(sentSnapshotMetaResponseFormNode0Future, willSucceedIn(1, TimeUnit.MINUTES));
@@ -863,5 +881,18 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         List<IgniteBiTuple<Integer, String>> rows = queryWithRetry(2, "select * from test", ItTableRaftSnapshotsTest::readRows);
 
         assertThat(rows, is(List.of(new IgniteBiTuple<>(1, "one"))));
+    }
+
+    /**
+     * This exception is thrown to indicate that an operation can not possibly succeed after some error condition.
+     * For example there is no reason to retry an operation that inserts a certain key after receiving a duplicate key error.
+     */
+    private static final class UnableToRetry extends RuntimeException {
+
+        private static final long serialVersionUID = -504618429083573198L;
+
+        private UnableToRetry(Throwable cause) {
+            super(cause);
+        }
     }
 }

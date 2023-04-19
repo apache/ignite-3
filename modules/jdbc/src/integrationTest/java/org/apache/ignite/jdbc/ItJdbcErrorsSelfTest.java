@@ -64,19 +64,19 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
         conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
 
         try (Statement stmt = conn.createStatement()) {
-            stmt.execute(
+            stmt.executeUpdate(
                     "CREATE TABLE CITIES ("
                             + "ID   INT PRIMARY KEY,"
                             + "NAME VARCHAR)"
             );
 
-            SQLException ex = assertThrows(SQLException.class, () -> stmt.execute("non sql stuff"));
+            SQLException ex = assertThrows(SQLException.class, () -> stmt.executeUpdate("non sql stuff"));
 
             assertTrue(ex.getMessage().contains("Failed to parse query"));
         }
 
         try (Statement stmt = conn.createStatement()) {
-            stmt.execute(
+            stmt.executeUpdate(
                     "CREATE TABLE ACCOUNTS ("
                             + "    ACCOUNT_ID INT PRIMARY KEY,"
                             + "    CITY_ID    INT,"
@@ -85,7 +85,10 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
                             + "    BALANCE    DOUBLE)"
             );
 
-            SQLException ex = assertThrows(SQLException.class, () -> stmt.execute("CREATE TABLE ACCOUNTS (ACCOUNT_ID INT PRIMARY KEY)"));
+            SQLException ex = assertThrows(
+                    SQLException.class,
+                    () -> stmt.executeUpdate("CREATE TABLE ACCOUNTS (ACCOUNT_ID INT PRIMARY KEY)")
+            );
 
             assertTrue(ex.getMessage().contains("Table already exists"));
         }

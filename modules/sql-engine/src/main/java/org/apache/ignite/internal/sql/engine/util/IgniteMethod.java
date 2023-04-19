@@ -98,7 +98,11 @@ public enum IgniteMethod {
     IS_NOT_DISTINCT_FROM(Objects.class, "equals", Object.class, Object.class),
 
     /** See {@link UUID#randomUUID()}. */
-    RAND_UUID(UUID.class, "randomUUID");
+    RAND_UUID(UUID.class, "randomUUID"),
+
+    /** See {@link IgniteSqlFunctions#genRandomUuid()}. */
+    // TODO This function should removed when https://issues.apache.org/jira/browse/IGNITE-19103 is complete.
+    GEN_RANDOM_UUID(IgniteSqlFunctions.class, "genRandomUuid");
 
     private final Method method;
 

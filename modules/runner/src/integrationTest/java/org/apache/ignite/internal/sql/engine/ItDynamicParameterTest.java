@@ -36,6 +36,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -62,9 +63,8 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
     @EnumSource(value = ColumnType.class,
             //    https://issues.apache.org/jira/browse/IGNITE-18789
             //    https://issues.apache.org/jira/browse/IGNITE-18414
-            //    https://issues.apache.org/jira/browse/IGNITE-18415
             //    https://issues.apache.org/jira/browse/IGNITE-18345
-            names = {"DECIMAL", "NUMBER", "UUID", "BITMASK", "DURATION", "DATETIME", "TIMESTAMP", "DATE", "TIME", "PERIOD"},
+            names = {"DECIMAL", "NUMBER", "BITMASK", "DURATION", "DATETIME", "TIMESTAMP", "DATE", "TIME", "PERIOD"},
             mode = Mode.EXCLUDE
     )
     void testMetadataTypesForDynamicParameters(ColumnType type) {
@@ -243,7 +243,7 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
     }
 
     private static void assertUnexpectedNumberOfParameters(String query, Object... params) {
-        CalciteContextException err = assertThrows(CalciteContextException.class, () -> {
+        SqlException err = assertThrows(SqlException.class, () -> {
             assertQuery(query).withParams(params).check();
         }, "query: " + query);
 

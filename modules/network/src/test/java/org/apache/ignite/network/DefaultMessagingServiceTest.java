@@ -19,8 +19,10 @@ package org.apache.ignite.network;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -33,16 +35,20 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.messages.AllTypesMessageImpl;
 import org.apache.ignite.internal.network.messages.TestMessage;
+import org.apache.ignite.internal.network.messages.TestMessageImpl;
+import org.apache.ignite.internal.network.messages.TestMessageSerializationFactory;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
-import org.apache.ignite.internal.network.recovery.RecoveryClientHandhakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
@@ -51,7 +57,10 @@ import org.apache.ignite.internal.network.serialization.UserObjectSerializationC
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.network.serialization.MessageDeserializer;
+import org.apache.ignite.network.serialization.MessageSerializationFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.network.serialization.MessageSerializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -63,6 +72,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class DefaultMessagingServiceTest {
     private static final int SENDER_PORT = 2001;
     private static final int RECEIVER_PORT = 2002;
+
+    private static final ChannelType TEST_CHANNEL = ChannelType.register(Short.MAX_VALUE, "Test");
 
     @Mock
     private TopologyService topologyService;
@@ -133,6 +144,109 @@ class DefaultMessagingServiceTest {
         }
     }
 
+    @Test
+    public void sendMessagesOneChannel() throws Exception {
+        AtomicBoolean release = new AtomicBoolean(false);
+        MessageSerializer<TestMessage> serializer = new TestMessageSerializationFactory(
+                new TestMessagesFactory()).createSerializer();
+        Serializer longWaitSerializer = new Serializer(TestMessageImpl.GROUP_TYPE, TestMessageImpl.TYPE,
+                (message, writer) -> release.get()
+                        && serializer.writeMessage((TestMessage) message, writer));
+        try (Services services = createMessagingService(
+                senderNode,
+                senderNetworkConfig,
+                () -> {},
+                mockSerializationRegistry(longWaitSerializer));
+                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig, () -> {})
+        ) {
+            CountDownLatch latch = new CountDownLatch(2);
+            receiverServices.messagingService.addMessageHandler(
+                    TestMessageTypes.class,
+                    (message, sender, correlationId) -> latch.countDown()
+            );
+
+            services.messagingService.send(receiverNode, TestMessageImpl.builder().build());
+            services.messagingService.send(receiverNode, AllTypesMessageImpl.builder().build());
+
+            assertThat(latch.getCount(), is(2L));
+            release.set(true);
+            assertTrue(latch.await(1, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    public void sendMessagesTwoChannels() throws Exception {
+        AtomicBoolean release = new AtomicBoolean(false);
+        MessageSerializer<TestMessage> serializer = new TestMessageSerializationFactory(
+                new TestMessagesFactory()).createSerializer();
+        Serializer longWaitSerializer = new Serializer(TestMessageImpl.GROUP_TYPE, TestMessageImpl.TYPE,
+                (message, writer) -> release.get()
+                        && serializer.writeMessage((TestMessage) message, writer));
+        try (Services services = createMessagingService(
+                senderNode,
+                senderNetworkConfig,
+                () -> {},
+                mockSerializationRegistry(longWaitSerializer));
+                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig, () -> {})
+        ) {
+            CountDownLatch latch = new CountDownLatch(2);
+            receiverServices.messagingService.addMessageHandler(
+                    TestMessageTypes.class,
+                    (message, sender, correlationId) -> latch.countDown()
+            );
+
+            services.messagingService.send(receiverNode, TestMessageImpl.builder().build());
+            services.messagingService.send(receiverNode, TEST_CHANNEL, AllTypesMessageImpl.builder().build());
+
+            await().timeout(1, TimeUnit.SECONDS)
+                    .until(() -> latch.getCount() == 1);
+
+            release.set(true);
+            assertTrue(latch.await(1, TimeUnit.SECONDS));
+        }
+    }
+
+    private static MessageSerializationRegistry mockSerializationRegistry(Serializer... serializers) {
+        MessageSerializationRegistry defaultRegistry = defaultSerializationRegistry();
+
+        MessageSerializationRegistry wrapper = new MessageSerializationRegistry() {
+            @Override
+            public MessageSerializationRegistry registerFactory(short groupType, short messageType,
+                    MessageSerializationFactory<?> factory) {
+                return this;
+            }
+
+            @Override
+            public <T extends NetworkMessage> MessageSerializer<T> createSerializer(short groupType, short messageType) {
+                for (Serializer serializer : serializers) {
+                    if (serializer.groupType == groupType && serializer.messageType == messageType) {
+                        return (MessageSerializer<T>) serializer.serializer;
+                    }
+                }
+                return defaultRegistry.createSerializer(groupType, messageType);
+            }
+
+            @Override
+            public <T extends NetworkMessage> MessageDeserializer<T> createDeserializer(short groupType, short messageType) {
+                return defaultRegistry.createDeserializer(groupType, messageType);
+            }
+        };
+
+        return wrapper;
+    }
+
+    private static class Serializer {
+        private final short groupType;
+        private final short messageType;
+        private final MessageSerializer<? extends NetworkMessage> serializer;
+
+        private Serializer(short groupType, short messageType, MessageSerializer<? extends NetworkMessage> serializer) {
+            this.groupType = groupType;
+            this.messageType = messageType;
+            this.serializer = serializer;
+        }
+    }
+
     private static void awaitQuietly(CountDownLatch latch) {
         try {
             latch.await();
@@ -146,6 +260,15 @@ class DefaultMessagingServiceTest {
     }
 
     private Services createMessagingService(ClusterNode node, NetworkConfiguration networkConfig, Runnable beforeHandshake) {
+        return createMessagingService(node, networkConfig, beforeHandshake, messageSerializationRegistry);
+    }
+
+    private Services createMessagingService(
+            ClusterNode node,
+            NetworkConfiguration networkConfig,
+            Runnable beforeHandshake,
+            MessageSerializationRegistry registry
+    ) {
         ClassDescriptorRegistry classDescriptorRegistry = new ClassDescriptorRegistry();
         ClassDescriptorFactory classDescriptorFactory = new ClassDescriptorFactory(classDescriptorRegistry);
         UserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(classDescriptorRegistry, classDescriptorFactory);
@@ -158,7 +281,7 @@ class DefaultMessagingServiceTest {
         );
 
         SerializationService serializationService = new SerializationService(
-                messageSerializationRegistry,
+                registry,
                 new UserObjectSerializationContext(classDescriptorRegistry, classDescriptorFactory, marshaller)
         );
 
@@ -182,10 +305,13 @@ class DefaultMessagingServiceTest {
         return new Services(connectionManager, messagingService);
     }
 
-    private static RecoveryClientHandhakeManagerFactory clientHandshakeManagerFactoryAdding(Runnable beforeHandshake) {
-        return new RecoveryClientHandhakeManagerFactory() {
+    private static RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactoryAdding(Runnable beforeHandshake) {
+        return new RecoveryClientHandshakeManagerFactory() {
             @Override
-            public RecoveryClientHandshakeManager create(UUID launchId, String consistentId, short connectionId,
+            public RecoveryClientHandshakeManager create(
+                    UUID launchId,
+                    String consistentId,
+                    short connectionId,
                     RecoveryDescriptorProvider recoveryDescriptorProvider) {
                 return new RecoveryClientHandshakeManager(launchId, consistentId, connectionId, recoveryDescriptorProvider) {
                     @Override

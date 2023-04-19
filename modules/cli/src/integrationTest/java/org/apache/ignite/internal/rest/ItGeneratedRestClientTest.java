@@ -51,7 +51,8 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
-import org.apache.ignite.internal.cli.core.ApiClientFactory;
+import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -71,10 +72,13 @@ import org.apache.ignite.rest.client.model.MetricSource;
 import org.apache.ignite.rest.client.model.NodeState;
 import org.apache.ignite.rest.client.model.Problem;
 import org.apache.ignite.rest.client.model.UnitStatus;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -82,6 +86,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @MicronautTest(rebuildContext = true)
+@TestInstance(Lifecycle.PER_CLASS)
 public class ItGeneratedRestClientTest {
     /** Start network port for test nodes. */
     private static final int BASE_PORT = 3344;
@@ -89,12 +94,12 @@ public class ItGeneratedRestClientTest {
     /** Start rest server port. */
     private static final int BASE_REST_PORT = 10300;
 
+    @WorkDirectory
+    private static Path WORK_DIR;
+
     private final List<String> clusterNodeNames = new ArrayList<>();
 
     private final List<Ignite> clusterNodes = new ArrayList<>();
-
-    @WorkDirectory
-    private Path workDir;
 
     private ClusterConfigurationApi clusterConfigurationApi;
 
@@ -129,7 +134,7 @@ public class ItGeneratedRestClientTest {
                 + "}";
     }
 
-    @BeforeEach
+    @BeforeAll
     void setUp(TestInfo testInfo) {
         List<CompletableFuture<Ignite>> futures = IntStream.range(0, 3)
                 .mapToObj(i -> startNodeAsync(testInfo, i))
@@ -166,7 +171,7 @@ public class ItGeneratedRestClientTest {
         objectMapper = new ObjectMapper();
     }
 
-    @AfterEach
+    @AfterAll
     void tearDown() throws Exception {
         List<AutoCloseable> closeables = clusterNodeNames.stream()
                 .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
@@ -282,6 +287,7 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19235")
     void initCluster() {
         assertDoesNotThrow(() -> {
             // in fact, this is the second init that means nothing but just testing that the second init does not throw and exception
@@ -333,7 +339,6 @@ public class ItGeneratedRestClientTest {
         assertThat(nodeState, is(notNullValue()));
         assertThat(nodeState.getState(), is(notNullValue()));
         assertThat(nodeState.getName(), is(firstNodeName));
-
     }
 
     @Test
@@ -352,12 +357,18 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void nodeMetricList() throws ApiException {
+    void nodeMetricSourcesList() throws ApiException {
         List<MetricSource> metricSources = List.of(
-                new MetricSource().name("jvm").enabled(false)
+                new MetricSource().name("jvm").enabled(false),
+                new MetricSource().name("client.handler").enabled(false)
         );
 
-        assertThat(nodeMetricApi.listNodeMetrics(), containsInAnyOrder(metricSources.toArray()));
+        assertThat(nodeMetricApi.listNodeMetricSources(), containsInAnyOrder(metricSources.toArray()));
+    }
+
+    @Test
+    void nodeMetricSetsList() throws ApiException {
+        assertThat(nodeMetricApi.listNodeMetricSets(), empty());
     }
 
     @Test
@@ -382,7 +393,7 @@ public class ItGeneratedRestClientTest {
         List<UnitStatus> units = deploymentApi.units();
         assertThat(units, hasSize(1));
         assertThat(units.get(0).getId(), equalTo("test.unit.id"));
-        assertThat(units.get(0).getVersionToConsistentIds().values(), not(empty()));
+        assertThat(units.get(0).getVersionToDeploymentInfo().values(), not(empty()));
 
         assertThat(deploymentApi.versions("test.unit.id"), contains("1.0.0"));
 
@@ -406,7 +417,7 @@ public class ItGeneratedRestClientTest {
 
     private File emptyFile() {
         try {
-            return Files.createTempFile(workDir, "empty", "file").toFile();
+            return Files.createTempFile(WORK_DIR, "empty", "file").toFile();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -417,7 +428,7 @@ public class ItGeneratedRestClientTest {
 
         clusterNodeNames.add(nodeName);
 
-        return IgnitionManager.start(nodeName, buildConfig(index), workDir.resolve(nodeName));
+        return TestIgnitionManager.start(nodeName, buildConfig(index), WORK_DIR.resolve(nodeName));
     }
 }
 

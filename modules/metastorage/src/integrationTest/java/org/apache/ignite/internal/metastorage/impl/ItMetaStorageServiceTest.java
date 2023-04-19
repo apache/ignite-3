@@ -30,9 +30,9 @@ import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.metastorage.impl.ItMetaStorageServiceTest.ServerConditionMatcher.cond;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToValue;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -69,6 +69,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
@@ -90,6 +91,7 @@ import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageLearnerListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -177,6 +179,8 @@ public class ItMetaStorageServiceTest {
 
         private final KeyValueStorage mockStorage;
 
+        private final ClusterTimeImpl clusterTime;
+
         private RaftGroupService metaStorageRaftService;
 
         private MetaStorageService metaStorageService;
@@ -184,12 +188,16 @@ public class ItMetaStorageServiceTest {
         Node(ClusterService clusterService, RaftConfiguration raftConfiguration, Path dataPath) {
             this.clusterService = clusterService;
 
+            HybridClock clock = new HybridClockImpl();
+
             this.raftManager = new Loza(
                     clusterService,
                     raftConfiguration,
                     dataPath.resolve(name()),
-                    new HybridClockImpl()
+                    clock
             );
+
+            this.clusterTime = new ClusterTimeImpl(new IgniteSpinBusyLock(), clock);
 
             this.mockStorage = mock(KeyValueStorage.class);
         }
@@ -206,11 +214,11 @@ public class ItMetaStorageServiceTest {
 
             ClusterNode node = clusterService.topologyService().localMember();
 
-            metaStorageService = new MetaStorageServiceImpl(metaStorageRaftService, new IgniteSpinBusyLock(), node);
+            metaStorageService = new MetaStorageServiceImpl(metaStorageRaftService, new IgniteSpinBusyLock(), node, clusterTime);
         }
 
         String name() {
-            return clusterService.localConfiguration().getName();
+            return clusterService.nodeName();
         }
 
         private CompletableFuture<RaftGroupService> startRaftService(PeersAndLearners configuration) {
@@ -222,7 +230,9 @@ public class ItMetaStorageServiceTest {
 
             assert peer != null;
 
-            RaftGroupListener listener = isLearner ? new MetaStorageLearnerListener(mockStorage) : new MetaStorageListener(mockStorage);
+            RaftGroupListener listener = isLearner
+                    ? new MetaStorageLearnerListener(mockStorage, clusterTime)
+                    : new MetaStorageListener(mockStorage, clusterTime);
 
             var raftNodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, peer);
 
@@ -670,7 +680,7 @@ public class ItMetaStorageServiceTest {
         CompletableFuture<List<Entry>> future =
                 subscribeToList(node.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null));
 
-        assertThat(future, willFailFast(NoSuchElementException.class));
+        assertThat(future, willThrowFast(NoSuchElementException.class));
     }
 
     /**
@@ -929,8 +939,8 @@ public class ItMetaStorageServiceTest {
 
         closeCursorLatch.countDown();
 
-        assertThat(node0Subscriber0.result, willFailFast(NoSuchElementException.class));
-        assertThat(node0Subscriber1.result, willFailFast(NoSuchElementException.class));
+        assertThat(node0Subscriber0.result, willThrowFast(NoSuchElementException.class));
+        assertThat(node0Subscriber1.result, willThrowFast(NoSuchElementException.class));
         assertThat(node1Subscriber0.result, willBe(EXPECTED_RESULT_ENTRY));
     }
 

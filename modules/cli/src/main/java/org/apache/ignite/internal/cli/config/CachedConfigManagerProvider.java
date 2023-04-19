@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.cli.config;
 
+import static org.apache.ignite.internal.cli.config.ConfigConstants.getConfigFile;
+import static org.apache.ignite.internal.cli.config.ConfigConstants.getSecretConfigFile;
+
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
 
@@ -25,7 +28,7 @@ import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
  */
 @Singleton
 public class CachedConfigManagerProvider implements ConfigManagerProvider {
-    private final ConfigManager configManager = new IniConfigManager(CliConfigKeys.getConfigFile());
+    private final ConfigManager configManager = new IniConfigManager(getConfigFile(), getSecretConfigFile());
 
     @Override
     public ConfigManager get() {

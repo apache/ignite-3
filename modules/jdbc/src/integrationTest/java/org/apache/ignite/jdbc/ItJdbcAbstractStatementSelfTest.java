@@ -50,14 +50,14 @@ public abstract class ItJdbcAbstractStatementSelfTest extends AbstractJdbcSelfTe
     @BeforeAll
     public static void createTable() throws Exception {
         try (Statement s = conn.createStatement()) {
-            s.execute(CREATE_TABLE_SQL);
+            s.executeUpdate(CREATE_TABLE_SQL);
         }
     }
 
     @AfterAll
     public static void drop() throws Exception {
         try (Statement s = conn.createStatement()) {
-            s.execute("DROP TABLE public.person;");
+            s.executeUpdate("DROP TABLE public.person;");
         }
     }
 }

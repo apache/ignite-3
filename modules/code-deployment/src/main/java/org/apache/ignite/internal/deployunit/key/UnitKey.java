@@ -20,6 +20,7 @@ package org.apache.ignite.internal.deployunit.key;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Base64.Encoder;
+import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.lang.ByteArray;
 
 /**
@@ -61,14 +62,14 @@ public final class UnitKey {
      * @param version Required unit version.
      * @return Key in {@link ByteArray} format.
      */
-    public static ByteArray key(String id, String version) {
+    public static ByteArray key(String id, Version version) {
         StringBuilder sb = new StringBuilder(UNITS_PREFIX);
         Encoder encoder = Base64.getEncoder();
         if (id != null) {
             sb.append(encoder.encodeToString(id.getBytes(StandardCharsets.UTF_8)));
             if (version != null) {
                 sb.append(":");
-                sb.append(encoder.encodeToString(version.getBytes(StandardCharsets.UTF_8)));
+                sb.append(encoder.encodeToString(version.render().getBytes(StandardCharsets.UTF_8)));
             }
         }
         return new ByteArray(sb.toString());

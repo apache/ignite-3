@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.schema.configuration.index.TableIndexCo
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
@@ -156,6 +157,11 @@ public interface MvTableStorage extends ManuallyCloseable {
     TablesConfiguration tablesConfiguration();
 
     /**
+     * Returns the distribution zone configuration.
+     */
+    DistributionZoneConfiguration distributionZoneConfiguration();
+
+    /**
      * Starts the storage.
      *
      * @throws StorageException If an error has occurred during the start of the storage.
@@ -285,4 +291,15 @@ public interface MvTableStorage extends ManuallyCloseable {
      *      for another reason.
      */
     CompletableFuture<Void> clearPartition(int partitionId);
+
+    /**
+     * Returns an already created Index (either Sorted or Hash) with the given name or {@code null} if it does not exist.
+     *
+     * @param partitionId Partition ID.
+     * @param indexId Index ID.
+     * @return Index Storage.
+     * @throws StorageException If the given partition does not exist.
+     */
+    // TODO: IGNITE-19112 Change or get rid of
+    @Nullable IndexStorage getIndex(int partitionId, UUID indexId);
 }

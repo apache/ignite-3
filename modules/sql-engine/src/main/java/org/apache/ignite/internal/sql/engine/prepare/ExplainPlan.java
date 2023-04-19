@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 import java.util.List;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -44,8 +45,8 @@ public class  ExplainPlan implements QueryPlan {
     }
 
     /** {@inheritDoc} */
-    @Override public Type type() {
-        return Type.EXPLAIN;
+    @Override public SqlQueryType type() {
+        return SqlQueryType.EXPLAIN;
     }
 
     /** {@inheritDoc} */

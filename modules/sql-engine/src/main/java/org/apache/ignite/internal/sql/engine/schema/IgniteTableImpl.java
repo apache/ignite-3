@@ -74,6 +74,7 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
@@ -492,6 +493,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
 
             Object value = hnd.get(colDesc.logicalIndex(), row);
 
+            // TODO Remove this check when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
             assert value != RexImpTable.DEFAULT_VALUE_PLACEHOLDER;
 
             if (value == null) {
@@ -539,15 +541,21 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         @Override
         public Double getRowCount() {
             if (statReqCnt.getAndIncrement() % STATS_CLI_UPDATE_THRESHOLD == 0) {
-                int parts = table.storage().configuration().partitions().value();
+                int parts = table.storage().distributionZoneConfiguration().partitions().value();
 
                 long size = 0L;
 
                 for (int p = 0; p < parts; ++p) {
                     @Nullable MvPartitionStorage part = table.storage().getMvPartition(p);
 
-                    if (part != null) {
+                    if (part == null) {
+                        continue;
+                    }
+
+                    try {
                         size += part.rowsCount();
+                    } catch (StorageRebalanceException ignore) {
+                        // No-op.
                     }
                 }
 

@@ -36,9 +36,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
@@ -46,11 +48,17 @@ import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -74,9 +82,6 @@ import org.junit.jupiter.api.TestInstance;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterPerClassIntegrationTest.class);
-
-    /** Timeout should be big enough to prevent premature session expiration. */
-    private static final long SESSION_IDLE_TIMEOUT = TimeUnit.SECONDS.toMillis(60);
 
     /** Test default table name. */
     protected static final String DEFAULT_TABLE_NAME = "person";
@@ -133,7 +138,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
             String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr);
 
-            futures.add(IgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName)));
+            futures.add(TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName)));
         }
 
         String metaStorageNodeName = testNodeName(testInfo, 0);
@@ -233,6 +238,20 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
+     * Returns table index configuration of the given index at the given node, or {@code null} if no such index exists.
+     *
+     * @param node  A node.
+     * @param indexName  An index.
+     * @return  An index configuration.
+     */
+    public static @Nullable TableIndexConfiguration getIndexConfiguration(Ignite node, String indexName) {
+        return ((IgniteImpl) node).clusterConfiguration()
+                .getConfiguration(TablesConfiguration.KEY)
+                .indexes()
+                .get(indexName.toUpperCase());
+    }
+
+    /**
      * Executes the query and validates any asserts passed to the builder.
      *
      * @param qry Query to execute.
@@ -292,8 +311,10 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param partitions Partitions count.
      */
     protected static Table createTable(String name, int replicas, int partitions) {
+        sql(IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={};",
+                "ZONE_" + name.toUpperCase(), replicas, partitions));
         sql(IgniteStringFormatter.format("CREATE TABLE IF NOT EXISTS {} (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE) "
-                + "WITH replicas={}, partitions={}", name, replicas, partitions));
+                + "WITH PRIMARY_ZONE='{}'", name, "ZONE_" + name.toUpperCase()));
 
         return CLUSTER_NODES.get(0).tables().table(name);
     }
@@ -406,12 +427,10 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     protected static List<List<Object>> sql(@Nullable Transaction tx, String sql, Object... args) {
         var queryEngine = ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
 
-        SessionId sessionId = queryEngine.createSession(SESSION_IDLE_TIMEOUT, PropertiesHolder.fromMap(
-                Map.of(QueryProperty.DEFAULT_SCHEMA, "PUBLIC")
-        ));
+        SessionId sessionId = queryEngine.createSession(PropertiesHelper.emptyHolder());
 
         try {
-            var context = tx != null ? QueryContext.of(tx) : QueryContext.of();
+            var context = QueryContext.create(SqlQueryType.ALL, tx);
 
             return getAllFromCursor(
                     await(queryEngine.querySingleAsync(sessionId, context, sql, args))
@@ -444,7 +463,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         );
     }
 
-    protected static void waitForIndex(String indexName) throws InterruptedException {
+    /**
+     * Waits for all nodes in the cluster to have the given index in the configuration.
+     *
+     * @param indexName  An index.
+     */
+    public static void waitForIndex(String indexName) throws InterruptedException {
         // FIXME: Wait for the index to be created on all nodes,
         //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18733 to avoid missed updates to the index.
         assertTrue(waitForCondition(
@@ -453,10 +477,45 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         );
     }
 
-    private static @Nullable TableIndexConfiguration getIndexConfiguration(Ignite node, String indexName) {
-        return ((IgniteImpl) node).clusterConfiguration()
-                .getConfiguration(TablesConfiguration.KEY)
-                .indexes()
-                .get(indexName.toUpperCase());
+    /**
+     * Waits for the index to be built on all nodes.
+     *
+     * @param tableName Table name.
+     * @param indexName Index name.
+     * @throws Exception If failed.
+     */
+    public static void waitForIndexBuild(String tableName, String indexName) throws Exception {
+        // TODO: IGNITE-18733 We are waiting for the synchronization of schemes
+        for (Ignite clusterNode : CLUSTER_NODES) {
+            CompletableFuture<Table> tableFuture = clusterNode.tables().tableAsync(tableName);
+
+            assertThat(tableFuture, willCompleteSuccessfully());
+
+            TableImpl tableImpl = (TableImpl) tableFuture.join();
+
+            InternalTable internalTable = tableImpl.internalTable();
+
+            assertTrue(
+                    waitForCondition(() -> getIndexConfiguration(clusterNode, indexName) != null, 10, TimeUnit.SECONDS.toMillis(10)),
+                    String.format("node=%s, tableName=%s, indexName=%s", clusterNode.name(), tableName, indexName)
+            );
+
+            UUID indexId = getIndexConfiguration(clusterNode, indexName).id().value();
+
+            for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
+                RaftGroupService raftGroupService = internalTable.partitionRaftGroupService(partitionId);
+
+                Stream<Peer> allPeers = Stream.concat(Stream.of(raftGroupService.leader()), raftGroupService.peers().stream());
+
+                // Let's check if there is a node in the partition assignments.
+                if (allPeers.map(Peer::consistentId).noneMatch(clusterNode.name()::equals)) {
+                    continue;
+                }
+
+                IndexStorage index = internalTable.storage().getOrCreateIndex(partitionId, indexId);
+
+                assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, TimeUnit.SECONDS.toMillis(10)));
+            }
+        }
     }
 }

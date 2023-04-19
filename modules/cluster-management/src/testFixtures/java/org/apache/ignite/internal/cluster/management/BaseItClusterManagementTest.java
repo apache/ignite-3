@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -54,6 +55,9 @@ public class BaseItClusterManagementTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private static SecurityConfiguration securityConfiguration;
 
+    @InjectConfiguration
+    private static NodeAttributesConfiguration nodeAttributes;
+
     protected static List<MockNode> createNodes(int numNodes, TestInfo testInfo, Path workDir) {
         StaticNodeFinder nodeFinder = createNodeFinder(numNodes);
 
@@ -65,7 +69,9 @@ public class BaseItClusterManagementTest extends BaseIgniteAbstractTest {
                         workDir.resolve("node" + i),
                         raftConfiguration,
                         cmgConfiguration,
-                        securityConfiguration
+                        securityConfiguration,
+                        nodeAttributes
+
                 ))
                 .collect(toList());
     }
@@ -78,7 +84,8 @@ public class BaseItClusterManagementTest extends BaseIgniteAbstractTest {
                 workDir.resolve("node" + cluster.size()),
                 raftConfiguration,
                 cmgConfiguration,
-                securityConfiguration
+                securityConfiguration,
+                nodeAttributes
         );
 
         cluster.add(node);

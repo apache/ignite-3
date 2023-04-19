@@ -42,6 +42,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import org.apache.ignite.client.IgniteClientAuthenticator;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
@@ -77,6 +79,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** Config. */
     private final ClientChannelConfiguration cfg;
+
+    /** Metrics. */
+    private final ClientMetricSource metrics;
 
     /** Protocol context. */
     private volatile ProtocolContext protocolCtx;
@@ -117,11 +122,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /**
      * Constructor.
      *
-     * @param cfg     Config.
+     * @param cfg Config.
+     * @param metrics Metrics.
      */
-    private TcpClientChannel(ClientChannelConfiguration cfg) {
+    private TcpClientChannel(ClientChannelConfiguration cfg, ClientMetricSource metrics) {
         validateConfiguration(cfg);
         this.cfg = cfg;
+        this.metrics = metrics;
 
         log = ClientUtils.logger(cfg.clientConfiguration(), TcpClientChannel.class);
 
@@ -153,7 +160,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 .thenApplyAsync(unused -> {
                     // Netty has a built-in IdleStateHandler to detect idle connections (used on the server side).
                     // However, to adjust the heartbeat interval dynamically, we have to use a timer here.
-                    heartbeatTimer = initHeartbeat(cfg.clientConfiguration().heartbeatInterval());
+                    if (protocolCtx != null) {
+                        heartbeatTimer = initHeartbeat(cfg.clientConfiguration().heartbeatInterval());
+                    }
 
                     return this;
                 }, asyncContinuationExecutor);
@@ -164,24 +173,34 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      *
      * @param cfg Configuration.
      * @param connMgr Connection manager.
+     * @param metrics Metrics.
      * @return Channel.
      */
-    static CompletableFuture<ClientChannel> createAsync(ClientChannelConfiguration cfg, ClientConnectionMultiplexer connMgr) {
+    static CompletableFuture<ClientChannel> createAsync(
+            ClientChannelConfiguration cfg,
+            ClientConnectionMultiplexer connMgr,
+            ClientMetricSource metrics) {
         //noinspection resource - returned from method.
-        return new TcpClientChannel(cfg).initAsync(connMgr);
+        return new TcpClientChannel(cfg, metrics).initAsync(connMgr);
     }
 
     /** {@inheritDoc} */
     @Override
     public void close() {
-        close(null);
+        close(null, true);
     }
 
     /**
      * Close the channel with cause.
      */
-    private void close(@Nullable Exception cause) {
+    private void close(@Nullable Exception cause, boolean graceful) {
         if (closed.compareAndSet(false, true)) {
+            if (cause != null && (cause instanceof TimeoutException || cause.getCause() instanceof TimeoutException)) {
+                metrics.connectionsLostTimeoutIncrement();
+            } else if (!graceful) {
+                metrics.connectionsLostIncrement();
+            }
+
             // Disconnect can happen before we initialize the timer.
             var timer = heartbeatTimer;
 
@@ -215,7 +234,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             log.debug("Connection closed [remoteAddress=" + cfg.getAddress() + ']');
         }
 
-        close(e);
+        close(e, false);
     }
 
     /** {@inheritDoc} */
@@ -242,7 +261,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /**
-     * Constructor.
+     * Sends request.
      *
      * @param opCode        Operation code.
      * @param payloadWriter Payload writer to stream or {@code null} if request has no payload.
@@ -256,8 +275,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         ClientRequestFuture fut = new ClientRequestFuture();
-
         pendingReqs.put(id, fut);
+
+        metrics.requestsActiveIncrement();
 
         PayloadOutputChannel payloadCh = new PayloadOutputChannel(this, new ClientMessagePacker(sock.getBuffer()));
 
@@ -274,6 +294,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             write(req).addListener(f -> {
                 if (!f.isSuccess()) {
                     fut.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, "Failed to send request", f.cause()));
+                    pendingReqs.remove(id);
+                    metrics.requestsActiveDecrement();
+                } else {
+                    metrics.requestsSentIncrement();
                 }
             });
 
@@ -285,6 +309,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             // Close buffer manually on fail. Successful write closes the buffer automatically.
             payloadCh.close();
             pendingReqs.remove(id);
+
+            metrics.requestsActiveDecrement();
 
             throw IgniteException.wrap(t);
         }
@@ -348,6 +374,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected response ID [%s]", resId));
         }
 
+        metrics.requestsActiveDecrement();
+
         int flags = unpacker.unpackInt();
 
         if (ResponseFlags.getPartitionAssignmentChangedFlag(flags)) {
@@ -362,12 +390,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         if (unpacker.tryUnpackNil()) {
             pendingReq.complete(unpacker);
+            metrics.requestsCompletedIncrement();
         } else {
             IgniteException err = readError(unpacker);
-
             unpacker.close();
 
             pendingReq.completeExceptionally(err);
+            metrics.requestsFailedIncrement();
         }
     }
 
@@ -452,7 +481,22 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             fut.orTimeout(connectTimeout, TimeUnit.MILLISECONDS);
         }
 
-        return fut.thenCompose(res -> handshakeRes(res, ver));
+        return fut
+                .thenCompose(res -> handshakeRes(res, ver))
+                .handle((res, err) -> {
+                    if (err != null) {
+                        if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
+                            metrics.handshakesFailedTimeoutIncrement();
+                            throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake timeout", err);
+                        } else {
+                            metrics.handshakesFailedIncrement();
+                        }
+
+                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", err);
+                    }
+
+                    return res;
+                });
     }
 
     /**
@@ -471,7 +515,23 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         req.packInt(2); // Client type: general purpose.
 
         req.packBinaryHeader(0); // Features.
-        req.packMapHeader(0); // Extensions.
+
+        IgniteClientAuthenticator authenticator = cfg.clientConfiguration().authenticator();
+
+        if (authenticator != null) {
+            req.packMapHeader(3); // Extensions.
+
+            req.packString(HandshakeExtension.AUTHENTICATION_TYPE.key());
+            req.packString(authenticator.type());
+
+            req.packString(HandshakeExtension.AUTHENTICATION_IDENTITY.key());
+            packAuthnObj(req, authenticator.identity());
+
+            req.packString(HandshakeExtension.AUTHENTICATION_SECRET.key());
+            packAuthnObj(req, authenticator.secret());
+        } else {
+            req.packMapHeader(0); // Extensions.
+        }
 
         return write(req);
     }
@@ -562,6 +622,16 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         return Math.min(configuredInterval, recommendedHeartbeatInterval);
     }
 
+    private static void packAuthnObj(ClientMessagePacker packer, Object obj) {
+        if (obj == null) {
+            packer.packNil();
+        } else if (obj instanceof String) {
+            packer.packString((String) obj);
+        } else {
+            throw new IllegalArgumentException("Unsupported authentication object type: " + obj.getClass().getName());
+        }
+    }
+
     /**
      * Client request future.
      */
@@ -593,7 +663,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                                     if (e instanceof TimeoutException) {
                                         log.warn("Heartbeat timeout, closing the channel [remoteAddress=" + cfg.getAddress() + ']');
 
-                                        close((TimeoutException) e);
+                                        close(new IgniteClientConnectionException(CONNECTION_ERR, "Heartbeat timeout", e), false);
                                     }
 
                                     return null;

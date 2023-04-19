@@ -44,25 +44,19 @@ import org.apache.ignite.internal.rest.constants.MediaType;
 @Secured(SecurityRule.IS_AUTHENTICATED)
 @Tag(name = "nodeConfiguration")
 public interface NodeConfigurationApi {
-
     /**
      * Returns node configuration in HOCON format. This is represented as a plain text.
      *
      * @return the whole node configuration in HOCON format.
      */
     @Operation(operationId = "getNodeConfiguration", description = "Gets node configuration in HOCON format.")
-    @ApiResponse(responseCode = "200",
-            content = @Content(mediaType = MediaType.TEXT_PLAIN,
-                    schema = @Schema(type = "string")),
-            description = "Whole node configuration.")
+    @ApiResponse(responseCode = "200", description = "Full node configuration.",
+            content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")))
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "400", description = "Incorrect configuration.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @Produces({
-            MediaType.TEXT_PLAIN,
-            MediaType.PROBLEM_JSON
-    })
+    @Produces(MediaType.PROBLEM_JSON)
     @Get
     String getConfiguration();
 
@@ -75,17 +69,13 @@ public interface NodeConfigurationApi {
     @Operation(operationId = "getNodeConfigurationByPath",
             description = "Gets a configuration of a specific node, in HOCON format.")
     @ApiResponse(responseCode = "200",
-            content = @Content(mediaType = MediaType.TEXT_PLAIN,
-                    schema = @Schema(type = "string")),
+            content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
             description = "Returned node configuration.")
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "400", description = "Incorrect configuration.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @Produces({
-            MediaType.TEXT_PLAIN,
-            MediaType.PROBLEM_JSON
-    })
+    @Produces(MediaType.PROBLEM_JSON)
     @Get("/{path}")
     String getConfigurationByPath(@PathVariable("path") @Parameter(required = true,
             description = "Configuration tree address. For example: `element.subelement`.") String path);
@@ -103,7 +93,6 @@ public interface NodeConfigurationApi {
     @ApiResponse(responseCode = "400", description = "Incorrect configuration.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.TEXT_PLAIN)
-    @Produces(MediaType.PROBLEM_JSON)
     @Patch
     CompletableFuture<Void> updateConfiguration(
             @Body @RequestBody(description = "The node configuration to update.") String updatedConfiguration

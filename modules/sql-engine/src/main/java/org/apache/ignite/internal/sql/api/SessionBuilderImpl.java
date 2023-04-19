@@ -21,8 +21,10 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
-import org.apache.ignite.internal.sql.engine.property.Property;
+import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.session.SessionProperty;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
 import org.jetbrains.annotations.Nullable;
@@ -45,7 +47,7 @@ public class SessionBuilderImpl implements SessionBuilder {
 
     private int pageSize = Session.DEFAULT_PAGE_SIZE;
 
-    private final Map<Property<?>, Object> props;
+    private final Map<String, Object> props;
 
     /**
      * Session builder constructor.
@@ -53,7 +55,7 @@ public class SessionBuilderImpl implements SessionBuilder {
      * @param qryProc SQL query processor.
      * @param props Initial properties.
      */
-    SessionBuilderImpl(QueryProcessor qryProc, Map<Property<?>, Object> props) {
+    SessionBuilderImpl(QueryProcessor qryProc, Map<String, Object> props) {
         this.qryProc = qryProc;
         this.props = props;
     }
@@ -123,11 +125,7 @@ public class SessionBuilderImpl implements SessionBuilder {
     /** {@inheritDoc} */
     @Override
     public SessionBuilder property(String name, @Nullable Object value) {
-        var prop = QueryProperty.byName(name);
-
-        if (prop != null) {
-            props.put(prop, value);
-        }
+        props.put(name, value);
 
         return this;
     }
@@ -135,14 +133,13 @@ public class SessionBuilderImpl implements SessionBuilder {
     /** {@inheritDoc} */
     @Override
     public Session build() {
-        var propsHolder = PropertiesHolder.fromMap(
-                Map.of(
-                        QueryProperty.QUERY_TIMEOUT, queryTimeout,
-                        QueryProperty.DEFAULT_SCHEMA, schema
-                )
-        );
+        PropertiesHolder propsHolder = PropertiesHelper.newBuilder()
+                .set(SessionProperty.IDLE_TIMEOUT, sessionTimeout)
+                .set(QueryProperty.QUERY_TIMEOUT, queryTimeout)
+                .set(QueryProperty.DEFAULT_SCHEMA, schema)
+                .build();
 
-        var sessionId = qryProc.createSession(sessionTimeout, propsHolder);
+        SessionId sessionId = qryProc.createSession(propsHolder);
 
         return new SessionImpl(
                 sessionId,

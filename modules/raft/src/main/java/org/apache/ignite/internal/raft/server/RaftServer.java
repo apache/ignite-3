@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft.server;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -74,6 +75,14 @@ public interface RaftServer extends IgniteComponent {
             RaftGroupListener lsnr,
             RaftGroupOptions groupOptions
     );
+
+    /**
+     * Returns a future, which complete when the raft node is ready and committed updates are applied.
+     *
+     * @param groupId Raft group ID.
+     * @return A future to last applied revision on start.
+     */
+    CompletableFuture<Long> raftNodeReadyFuture(ReplicationGroupId groupId);
 
     /**
      * Stops a given local Raft node if it exists.

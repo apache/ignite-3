@@ -19,7 +19,6 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 
@@ -32,14 +31,20 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.security.authentication.AuthenticationManager;
+import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -60,6 +65,8 @@ public class TestServer implements AutoCloseable {
 
     private final String nodeName;
 
+    private final ClientHandlerMetricSource metrics;
+
     /**
      * Constructor.
      *
@@ -74,7 +81,17 @@ public class TestServer implements AutoCloseable {
             long idleTimeout,
             Ignite ignite
     ) {
-        this(port, portRange, idleTimeout, ignite, null, null, null, UUID.randomUUID());
+        this(
+                port,
+                portRange,
+                idleTimeout,
+                ignite,
+                null,
+                null,
+                null,
+                UUID.randomUUID(),
+                null
+        );
     }
 
     /**
@@ -93,7 +110,8 @@ public class TestServer implements AutoCloseable {
             @Nullable Function<Integer, Boolean> shouldDropConnection,
             @Nullable Function<Integer, Integer> responseDelay,
             @Nullable String nodeName,
-            UUID clusterId
+            UUID clusterId,
+            @Nullable AuthenticationConfiguration authenticationConfiguration
     ) {
         cfg = new ConfigurationRegistry(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
@@ -126,11 +144,14 @@ public class TestServer implements AutoCloseable {
         Mockito.when(clusterService.topologyService().getByConsistentId(anyString())).thenAnswer(
                 i -> getClusterNode(i.getArgument(0, String.class)));
 
-        IgniteCompute compute = mock(IgniteCompute.class);
-        Mockito.when(compute.execute(any(), anyString(), any())).thenReturn(CompletableFuture.completedFuture(nodeName));
-        Mockito.when(
-                compute.executeColocated(anyString(), any(), anyString(), any())).thenReturn(CompletableFuture.completedFuture(nodeName));
+        IgniteCompute compute = new FakeCompute(nodeName);
 
+        metrics = new ClientHandlerMetricSource();
+        metrics.enable();
+
+        AuthenticationConfiguration authenticationConfigToApply = authenticationConfiguration == null
+                ? mock(AuthenticationConfiguration.class)
+                : authenticationConfiguration;
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
                         ignite,
@@ -140,7 +161,9 @@ public class TestServer implements AutoCloseable {
                         responseDelay,
                         clusterService,
                         compute,
-                        clusterId)
+                        clusterId,
+                        metrics,
+                        authenticationConfigToApply)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
@@ -150,8 +173,12 @@ public class TestServer implements AutoCloseable {
                         clusterService,
                         bootstrapFactory,
                         ignite.sql(),
-                        () -> CompletableFuture.completedFuture(clusterId)
-                );
+                        () -> CompletableFuture.completedFuture(clusterId),
+                        mock(MetricManager.class),
+                        metrics,
+                        authenticationManager(authenticationConfigToApply),
+                        authenticationConfigToApply
+                        );
 
         module.start();
     }
@@ -187,6 +214,15 @@ public class TestServer implements AutoCloseable {
         return getNodeId(nodeName);
     }
 
+    /**
+     * Gets metrics.
+     *
+     * @return Metrics.
+     */
+    public ClientHandlerMetricSource metrics() {
+        return metrics;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
@@ -201,5 +237,11 @@ public class TestServer implements AutoCloseable {
 
     private static String getNodeId(String name) {
         return name + "-id";
+    }
+
+    private AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) {
+        AuthenticationManagerImpl authenticationManager = new AuthenticationManagerImpl();
+        authenticationConfiguration.listen(authenticationManager);
+        return authenticationManager;
     }
 }

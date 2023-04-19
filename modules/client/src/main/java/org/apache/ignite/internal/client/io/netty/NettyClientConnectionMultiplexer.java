@@ -46,6 +46,7 @@ import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.SslConfiguration;
+import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
@@ -62,12 +63,15 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
 
     private final Bootstrap bootstrap;
 
+    private final ClientMetricSource metrics;
+
     /**
      * Constructor.
      */
-    public NettyClientConnectionMultiplexer() {
+    public NettyClientConnectionMultiplexer(ClientMetricSource metrics) {
         workerGroup = new NioEventLoopGroup();
         bootstrap = new Bootstrap();
+        this.metrics = metrics;
     }
 
     /** {@inheritDoc} */
@@ -116,7 +120,6 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
         } catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | IOException | UnrecoverableKeyException e) {
             throw new IgniteException(CLIENT_SSL_CONFIGURATION_ERR, "Client SSL configuration error: " + e.getMessage(), e);
         }
-
     }
 
     private static KeyManagerFactory loadKeyManagerFactory(SslConfiguration ssl)
@@ -183,7 +186,13 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
 
         connectFut.addListener(f -> {
             if (f.isSuccess()) {
-                NettyClientConnection conn = new NettyClientConnection(((ChannelFuture) f).channel(), msgHnd, stateHnd);
+                metrics.connectionsEstablishedIncrement();
+                metrics.connectionsActiveIncrement();
+
+                ChannelFuture chFut = (ChannelFuture) f;
+                chFut.channel().closeFuture().addListener(unused -> metrics.connectionsActiveDecrement());
+
+                NettyClientConnection conn = new NettyClientConnection(chFut.channel(), msgHnd, stateHnd, metrics);
 
                 fut.complete(conn);
             } else {

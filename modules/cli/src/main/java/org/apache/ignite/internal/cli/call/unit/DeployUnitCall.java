@@ -23,7 +23,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.concurrent.CompletableFuture;
 import okhttp3.Call;
-import org.apache.ignite.internal.cli.core.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.call.AsyncCall;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
@@ -31,6 +30,7 @@ import org.apache.ignite.internal.cli.core.call.ProgressTracker;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.exception.UnitAlreadyExistsException;
 import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
+import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
 import org.apache.ignite.rest.client.api.DeploymentApi;
@@ -89,6 +89,10 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
         if (exception instanceof ApiException) {
             ApiException apiException = (ApiException) exception;
             if (apiException.getCode() == 409) {
+                // special case when cluster is not initialized
+                if (apiException.getResponseBody().contains("Cluster is not initialized")) {
+                    return DefaultCallOutput.failure(new IgniteCliApiException(exception, input.clusterUrl()));
+                }
                 return DefaultCallOutput.failure(new UnitAlreadyExistsException(input.id(), input.version()));
             }
         }

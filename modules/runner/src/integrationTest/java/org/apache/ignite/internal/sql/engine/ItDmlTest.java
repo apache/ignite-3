@@ -555,4 +555,43 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
             this.expectedVal = expectedVal;
         }
     }
+
+    @Test
+    public void testInsertMultipleDefaults() {
+        sql("CREATE TABLE integers(i INTEGER PRIMARY KEY, j INTEGER DEFAULT 2)");
+
+        sql("INSERT INTO integers VALUES (1, DEFAULT)");
+
+        assertQuery("SELECT i, j FROM integers").returns(1, 2).check();
+
+        sql("INSERT INTO integers VALUES (2, 3), (3, DEFAULT), (4, 4), (5, DEFAULT)");
+
+        assertQuery("SELECT i, j FROM integers ORDER BY i")
+                .returns(1, 2)
+                .returns(2, 3)
+                .returns(3, 2)
+                .returns(4, 4)
+                .returns(5, 2)
+                .check();
+    }
+
+    @Test
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void testInsertMultipleDefaultsWithImplicitPk() {
+        sql("CREATE TABLE integers(i INTEGER, j INTEGER DEFAULT 2)");
+
+        sql("INSERT INTO integers VALUES (1, DEFAULT)");
+
+        assertQuery("SELECT i, j FROM integers").returns(1, 2).check();
+
+        sql("INSERT INTO integers VALUES (2, 3), (3, DEFAULT), (4, 4), (5, DEFAULT)");
+
+        assertQuery("SELECT i, j FROM integers ORDER BY i")
+                .returns(1, 2)
+                .returns(2, 3)
+                .returns(3, 2)
+                .returns(4, 4)
+                .returns(5, 2)
+                .check();
+    }
 }

@@ -20,6 +20,8 @@ package org.apache.ignite.internal.inmemory;
 import static ca.seinesoftware.hamcrest.path.PathMatcher.exists;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -230,6 +232,8 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createTableWithMaxOneInMemoryEntryAllowed(String tableName) {
+        int zoneId = await(createZone(node(0).distributionZoneManager(), "zone1", 1, DEFAULT_PARTITION_COUNT));
+
         TableDefinition tableDef = SchemaBuilders.tableBuilder("PUBLIC", tableName).columns(
                 SchemaBuilders.column("ID", ColumnType.INT32).build(),
                 SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build()
@@ -237,7 +241,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
         await(((TableManager) node(0).tables()).createTableAsync(tableName, tableChange -> {
             SchemaConfigurationConverter.convert(tableDef, tableChange)
-                    .changePartitions(1)
+                    .changeZoneId(zoneId)
                     .changeDataStorage(storageChange -> {
                         storageChange.convert(VolatilePageMemoryDataStorageChange.class);
                     });

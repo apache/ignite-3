@@ -20,8 +20,8 @@ package org.apache.ignite.internal.storage;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -50,6 +50,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -109,7 +110,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
      *
      * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
      */
-    protected final void initialize(StorageEngine storageEngine, TablesConfiguration tablesConfig) {
+    protected final void initialize(StorageEngine storageEngine, TablesConfiguration tablesConfig,
+            DistributionZoneConfiguration distributionZoneConfiguration) {
         createTestTable(getTableConfig(tablesConfig));
         createTestIndexes(tablesConfig);
 
@@ -117,7 +119,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         this.storageEngine.start();
 
-        this.tableStorage = createMvTableStorage(tablesConfig);
+        this.tableStorage = createMvTableStorage(tablesConfig, distributionZoneConfiguration);
 
         this.tableStorage.start();
 
@@ -133,8 +135,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         );
     }
 
-    protected MvTableStorage createMvTableStorage(TablesConfiguration tablesConfig) {
-        return storageEngine.createMvTable(getTableConfig(tablesConfig), tablesConfig);
+    protected MvTableStorage createMvTableStorage(TablesConfiguration tablesConfig,
+            DistributionZoneConfiguration distributionZoneConfiguration) {
+        return storageEngine.createMvTable(getTableConfig(tablesConfig), tablesConfig, distributionZoneConfiguration);
     }
 
     private TableConfiguration getTableConfig(TablesConfiguration tablesConfig) {
@@ -548,7 +551,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         mvPartitionStorage.close();
 
-        assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willFailFast(StorageRebalanceException.class));
+        assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willThrowFast(StorageRebalanceException.class));
     }
 
     @Test
@@ -593,7 +596,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(tableStorage.destroy(), willCompleteSuccessfully());
 
         // Let's check that after restarting the table we will have an empty partition.
-        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration());
+        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration(),
+                tableStorage.distributionZoneConfiguration());
 
         tableStorage.start();
 
@@ -631,7 +635,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Restart storages.
         tableStorage.stop();
 
-        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration());
+        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration(), tableStorage.distributionZoneConfiguration());
 
         tableStorage.start();
 
@@ -704,8 +708,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(tableStorage.startRebalancePartition(PARTITION_ID + 1), willCompleteSuccessfully());
 
         try {
-            assertThat(tableStorage.clearPartition(PARTITION_ID), willFailFast(StorageClosedException.class));
-            assertThat(tableStorage.clearPartition(PARTITION_ID + 1), willFailFast(StorageRebalanceException.class));
+            assertThat(tableStorage.clearPartition(PARTITION_ID), willThrowFast(StorageClosedException.class));
+            assertThat(tableStorage.clearPartition(PARTITION_ID + 1), willThrowFast(StorageRebalanceException.class));
         } finally {
             assertThat(tableStorage.abortRebalancePartition(PARTITION_ID + 1), willCompleteSuccessfully());
         }
@@ -727,6 +731,70 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
 
         assertThat(tableStorage.destroyPartition(PARTITION_ID), willCompleteSuccessfully());
+    }
+
+    @Test
+    void testNextRowIdToBuilt() {
+        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        IndexStorage hashIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx.id());
+        IndexStorage sortedIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id());
+
+        assertThat(hashIndexStorage.getNextRowIdToBuild(), equalTo(RowId.lowestRowId(PARTITION_ID)));
+        assertThat(sortedIndexStorage.getNextRowIdToBuild(), equalTo(RowId.lowestRowId(PARTITION_ID)));
+
+        RowId rowId0 = new RowId(PARTITION_ID);
+        RowId rowId1 = new RowId(PARTITION_ID);
+
+        mvPartitionStorage.runConsistently(() -> {
+            hashIndexStorage.setNextRowIdToBuild(rowId0);
+            sortedIndexStorage.setNextRowIdToBuild(rowId1);
+
+            return null;
+        });
+
+        assertThat(hashIndexStorage.getNextRowIdToBuild(), equalTo(rowId0));
+        assertThat(sortedIndexStorage.getNextRowIdToBuild(), equalTo(rowId1));
+    }
+
+    @Test
+    void testNextRowIdToBuiltAfterRestart() {
+        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        IndexStorage hashIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx.id());
+        IndexStorage sortedIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id());
+
+        RowId rowId0 = new RowId(PARTITION_ID);
+        RowId rowId1 = new RowId(PARTITION_ID);
+
+        mvPartitionStorage.runConsistently(() -> {
+            hashIndexStorage.setNextRowIdToBuild(rowId0);
+            sortedIndexStorage.setNextRowIdToBuild(rowId1);
+
+            return null;
+        });
+
+        assertThat(mvPartitionStorage.flush(), willCompleteSuccessfully());
+
+        // Restart storages.
+        tableStorage.stop();
+
+        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration(), tableStorage.distributionZoneConfiguration());
+
+        tableStorage.start();
+
+        getOrCreateMvPartition(PARTITION_ID);
+
+        IndexStorage hashIndexStorageRestarted = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx.id());
+        IndexStorage sortedIndexStorageRestarted = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id());
+
+        if (tableStorage.isVolatile()) {
+            assertThat(hashIndexStorageRestarted.getNextRowIdToBuild(), equalTo(RowId.lowestRowId(PARTITION_ID)));
+            assertThat(sortedIndexStorageRestarted.getNextRowIdToBuild(), equalTo(RowId.lowestRowId(PARTITION_ID)));
+        } else {
+            assertThat(hashIndexStorageRestarted.getNextRowIdToBuild(), equalTo(rowId0));
+            assertThat(sortedIndexStorageRestarted.getNextRowIdToBuild(), equalTo(rowId1));
+        }
     }
 
     private static void createTestIndexes(TablesConfiguration tablesConfig) {
@@ -823,7 +891,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     private int getPartitionIdOutOfRange() {
-        return tableStorage.configuration().partitions().value();
+        return tableStorage.distributionZoneConfiguration().partitions().value();
     }
 
     private void startRebalanceWithChecks(

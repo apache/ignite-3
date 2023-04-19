@@ -534,6 +534,18 @@ public class ClientMessageUnpacker implements AutoCloseable {
 
     /**
      * Reads a binary value.
+     *
+     * @return Payload bytes.
+     */
+    public byte[] readBinary() {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        var length = unpackBinaryHeader();
+        return readPayload(length);
+    }
+
+    /**
+     * Reads a binary value.
      * NOTE: Exposes internal pooled buffer to avoid copying. The buffer is not valid after current instance is closed.
      *
      * @return Payload bytes.

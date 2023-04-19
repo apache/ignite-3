@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.storage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -34,12 +35,14 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -74,6 +77,9 @@ public class ItDistributedConfigurationStorageTest {
     @InjectConfiguration
     private static SecurityConfiguration securityConfiguration;
 
+    @InjectConfiguration
+    private static NodeAttributesConfiguration nodeAttributes;
+
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
      */
@@ -98,7 +104,7 @@ public class ItDistributedConfigurationStorageTest {
         Node(TestInfo testInfo, Path workDir) {
             var addr = new NetworkAddress("localhost", 10000);
 
-            vaultManager = new VaultManager(new PersistentVaultService(workDir.resolve("vault")));
+            vaultManager = new VaultManager(new PersistentVaultService(testNodeName(testInfo, addr.port()), workDir.resolve("vault")));
 
             clusterService = ClusterServiceTestUtils.clusterService(
                     testInfo,
@@ -106,7 +112,9 @@ public class ItDistributedConfigurationStorageTest {
                     new StaticNodeFinder(List.of(addr))
             );
 
-            raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
+            HybridClock clock = new HybridClockImpl();
+
+            raftManager = new Loza(clusterService, raftConfiguration, workDir, clock);
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
@@ -121,7 +129,9 @@ public class ItDistributedConfigurationStorageTest {
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    distributedConfigurationUpdater);
+                    distributedConfigurationUpdater,
+                    nodeAttributes
+            );
 
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
@@ -129,7 +139,8 @@ public class ItDistributedConfigurationStorageTest {
                     cmgManager,
                     new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
                     raftManager,
-                    new SimpleInMemoryKeyValueStorage(name())
+                    new SimpleInMemoryKeyValueStorage(name()),
+                    clock
             );
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
@@ -178,7 +189,7 @@ public class ItDistributedConfigurationStorageTest {
         }
 
         String name() {
-            return clusterService.localConfiguration().getName();
+            return clusterService.nodeName();
         }
     }
 
@@ -203,7 +214,7 @@ public class ItDistributedConfigurationStorageTest {
             assertThat(node.cfgStorage.writeConfigurationRevision(0, 1), willCompleteSuccessfully());
 
             assertTrue(waitForCondition(
-                    () -> node.metaStorageManager.appliedRevision(DistributedConfigurationStorage.WATCH_ID).join() != 0,
+                    () -> node.metaStorageManager.appliedRevision() != 0,
                     3000
             ));
         } finally {

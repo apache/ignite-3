@@ -58,7 +58,7 @@ public partial class LinqTests
     }
 
     [Test]
-    [Ignore("IGNITE-18274")]
+    [Ignore("IGNITE-14589")]
     public void TestRemainder()
     {
         TestOpDouble(x => x.Key % 3d, 1.0d, "select (_T0.KEY % ?) from");
@@ -273,7 +273,7 @@ public partial class LinqTests
         TestOpString(
             x => Regex.Replace(x.Val!, @"V-(\d+)", "V$1", RegexOptions.IgnoreCase | RegexOptions.Multiline),
             "V9",
-            @"select regexp_replace(_T0.VAL, ?, ?, 1, 1, ?) from PUBLIC.TBL1 as _T0, Parameters=V-(\d+), V$1, im");
+            @"select regexp_replace(_T0.VAL, ?, ?, 1, 1, ?) from PUBLIC.TBL1 as _T0, Parameters = [ V-(\d+), V$1, im ]");
     }
 
     private static void TestOp<T, TRes>(IRecordView<T> view, Expression<Func<T, TRes>> expr, TRes expectedRes, string expectedQuery)

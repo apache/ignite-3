@@ -47,6 +47,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sqllogic.SqlLogicTestEnvironment.RestartMode;
 import org.apache.ignite.internal.sqllogic.SqlScriptRunner.RunnerRuntime;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -59,7 +60,6 @@ import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DynamicContainer;
 import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.DynamicTest;
@@ -141,7 +141,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(SystemPropertiesExtension.class)
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
 @SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql")
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-18000")
 public class ItSqlLogicTest extends IgniteIntegrationTest {
     private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
 
@@ -322,7 +321,7 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
 
                     String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr);
 
-                    return IgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
+                    return TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
                 })
                 .collect(toList());
 

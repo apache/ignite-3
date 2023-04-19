@@ -196,13 +196,15 @@ public class RestComponent implements IgniteComponent {
         RestSslView restSslView = restConfiguration.ssl().value();
         boolean sslEnabled = restSslView.enabled();
 
+        Map<String, Object> result = new HashMap<>();
+        result.put("micronaut.server.port", port);
+        result.put("ignite.endpoints.filter-non-initialized", "true");
+
         if (sslEnabled) {
             KeyStoreView keyStore = restSslView.keyStore();
             boolean dualProtocol = restConfiguration.dualProtocol().value();
 
-            Map<String, Object> result = new HashMap<>();
             // Micronaut is not going to handle requests on that port, but it's required
-            result.put("micronaut.server.port", port);
             result.put("micronaut.server.dual-protocol", dualProtocol);
             result.put("micronaut.server.ssl.port", sslPort);
             if (!restSslView.ciphers().isBlank()) {
@@ -224,11 +226,9 @@ public class RestComponent implements IgniteComponent {
             result.put("micronaut.server.ssl.trust-store.path", "file:" + trustStore.path());
             result.put("micronaut.server.ssl.trust-store.password", trustStore.password());
             result.put("micronaut.server.ssl.trust-store.type", trustStore.type());
-
-            return result;
-        } else {
-            return Map.of("micronaut.server.port", port);
         }
+
+        return result;
     }
 
     private Map<String, Object> authProperties() {

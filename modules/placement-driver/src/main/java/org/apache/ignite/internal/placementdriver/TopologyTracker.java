@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -95,7 +96,7 @@ public class TopologyTracker {
             return null;
         }
 
-        for (ClusterNode node : logicalTopologySnap0.nodes()) {
+        for (LogicalNode node : logicalTopologySnap0.nodes()) {
             if (node.name().equals(consistentId)) {
                 return node;
             }
@@ -109,12 +110,12 @@ public class TopologyTracker {
      */
     private class TopologyListener implements LogicalTopologyEventListener {
         @Override
-        public void onNodeJoined(ClusterNode joinedNode, LogicalTopologySnapshot newTopology) {
+        public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
             onUpdate(newTopology);
         }
 
         @Override
-        public void onNodeLeft(ClusterNode leftNode, LogicalTopologySnapshot newTopology) {
+        public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
             onUpdate(newTopology);
         }
 

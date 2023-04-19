@@ -239,10 +239,6 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /** A hybrid clock */
     private HybridClock clock = new HybridClockImpl();
 
-    /** Nullable latch that will be completed when storage is ready to process user requests. */
-    @Nullable
-    private CountDownLatch storageReadyLatch;
-
     /**
      * Amount of Disruptors that will handle the RAFT server.
      */
@@ -641,7 +637,6 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setRpcInstallSnapshotTimeout(this.getRpcInstallSnapshotTimeout());
         nodeOptions.setElectionTimeoutStrategy(this.getElectionTimeoutStrategy());
         nodeOptions.setClock(this.getClock());
-        nodeOptions.setStorageReadyLatch(this.getStorageReadyLatch());
 
         return nodeOptions;
     }
@@ -680,13 +675,5 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setElectionTimeoutStrategy(TimeoutStrategy electionTimeoutStrategy) {
         this.electionTimeoutStrategy = electionTimeoutStrategy;
-    }
-
-    public CountDownLatch getStorageReadyLatch() {
-        return storageReadyLatch;
-    }
-
-    public void setStorageReadyLatch(CountDownLatch storageReadyLatch) {
-        this.storageReadyLatch = storageReadyLatch;
     }
 }

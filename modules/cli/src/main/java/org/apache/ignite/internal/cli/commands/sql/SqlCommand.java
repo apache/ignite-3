@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands.sql;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_KEY;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_SHORT;
@@ -39,9 +40,7 @@ import org.apache.ignite.internal.cli.core.call.StringCallInput;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import org.apache.ignite.internal.cli.core.exception.handler.SqlExceptionHandler;
-import org.apache.ignite.internal.cli.decorators.PlainTableDecorator;
 import org.apache.ignite.internal.cli.decorators.SqlQueryResultDecorator;
-import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import org.apache.ignite.internal.cli.sql.SqlManager;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
@@ -54,7 +53,7 @@ import picocli.CommandLine.Parameters;
 @Command(name = "sql", description = "Executes SQL query")
 public class SqlCommand extends BaseCommand implements Callable<Integer> {
     @Option(names = {JDBC_URL_OPTION, JDBC_URL_OPTION_SHORT}, required = true,
-            descriptionKey = "ignite.jdbc-url", description = JDBC_URL_OPTION_DESC)
+            descriptionKey = JDBC_URL_KEY, description = JDBC_URL_OPTION_DESC)
     private String jdbc;
 
     @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
@@ -86,12 +85,11 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
     public Integer call() {
         try (SqlManager sqlManager = new SqlManager(jdbc)) {
             String executeCommand = execOptions.file != null ? extract(execOptions.file) : execOptions.command;
-            TableDecorator tableDecorator = plain ? new PlainTableDecorator() : new TableDecorator();
             return CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
                     .inputProvider(() -> new StringCallInput(executeCommand))
                     .output(spec.commandLine().getOut())
                     .errOutput(spec.commandLine().getErr())
-                    .decorator(new SqlQueryResultDecorator(tableDecorator))
+                    .decorator(new SqlQueryResultDecorator(plain))
                     .verbose(verbose)
                     .build().runPipeline();
         } catch (SQLException e) {

@@ -51,8 +51,7 @@ public abstract class AbstractExamplesTest extends IgniteAbstractTest {
         CompletableFuture<Ignite> igniteFuture = IgnitionManager.start(
                 TEST_NODE_NAME,
                 Path.of("config", "ignite-config.conf"),
-                workDir,
-                null
+                workDir
         );
 
         InitParameters initParameters = InitParameters.builder()

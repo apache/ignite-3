@@ -84,7 +84,7 @@ public class ItJdbcSslTest extends CliSslClientConnectorIntegrationTestBase {
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputContains("Connection failed"),
-                () -> assertErrOutputContains("Failed to send handshake request")
+                () -> assertErrOutputContains("Handshake error")
         );
     }
 
@@ -107,7 +107,7 @@ public class ItJdbcSslTest extends CliSslClientConnectorIntegrationTestBase {
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputContains("Connection failed"),
-                () -> assertErrOutputContains("Channel is closed")
+                () -> assertErrOutputContains("Handshake error")
         );
     }
 

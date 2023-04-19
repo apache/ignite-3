@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.engine;
 
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
@@ -49,7 +50,9 @@ public interface StorageEngine {
      *
      * @param tableCfg Table configuration.
      * @param tablesCfg Tables configuration.
+     * @param distributionZoneCfg Distribution zone configuration.
      * @throws StorageException If an error has occurs while creating the table.
      */
-    MvTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg) throws StorageException;
+    MvTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg,
+            DistributionZoneConfiguration distributionZoneCfg) throws StorageException;
 }

@@ -17,11 +17,8 @@
 
 package org.apache.ignite.internal.testframework.matchers;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.equalTo;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -31,7 +28,6 @@ import java.util.concurrent.TimeoutException;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link Matcher} that awaits for the given future to complete and then forwards the result to the nested {@code matcher}.
@@ -50,18 +46,12 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
     private final TimeUnit timeoutTimeUnit;
 
     /**
-     * Class of throwable that should be the cause of fail if the future should fail. If {@code null}, the future should be completed
-     * successfully.
-     */
-    private final Class<? extends Throwable> causeOfFail;
-
-    /**
      * Constructor.
      *
      * @param matcher Matcher to forward the result of the completable future.
      */
     private CompletableFutureMatcher(Matcher<T> matcher) {
-        this(matcher, DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS, null);
+        this(matcher, DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
     /**
@@ -70,19 +60,11 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
      * @param matcher Matcher to forward the result of the completable future.
      * @param timeout Timeout.
      * @param timeoutTimeUnit {@link TimeUnit} for timeout.
-     * @param causeOfFail If {@code null}, the future should be completed successfully, otherwise it specifies the class of cause
-     *                    throwable.
      */
-    private CompletableFutureMatcher(
-            Matcher<T> matcher,
-            int timeout,
-            TimeUnit timeoutTimeUnit,
-            @Nullable Class<? extends Throwable> causeOfFail
-    ) {
+    private CompletableFutureMatcher(Matcher<T> matcher, int timeout, TimeUnit timeoutTimeUnit) {
         this.matcher = matcher;
         this.timeout = timeout;
         this.timeoutTimeUnit = timeoutTimeUnit;
-        this.causeOfFail = causeOfFail;
     }
 
     /** {@inheritDoc} */
@@ -91,19 +73,9 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
         try {
             T res = item.get(timeout, timeoutTimeUnit);
 
-            if (causeOfFail != null) {
-                fail("The future was supposed to fail, but it completed successfully.");
-            }
-
             return matcher.matches(res);
         } catch (InterruptedException | ExecutionException | TimeoutException | CancellationException e) {
-            if (causeOfFail != null) {
-                assertTrue(hasCause(e, causeOfFail, null));
-
-                return true;
-            } else {
-                throw new AssertionError(e);
-            }
+            throw new AssertionError(e);
         }
     }
 
@@ -147,71 +119,7 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
      * @return matcher.
      */
     public static CompletableFutureMatcher<Object> willSucceedIn(int time, TimeUnit timeUnit) {
-        return new CompletableFutureMatcher<>(anything(), time, timeUnit, null);
-    }
-
-    /**
-     * Creates a matcher that matches a future that completes exceptionally and decently fast.
-     *
-     * @param cause The class of cause throwable.
-     * @return matcher.
-     */
-    public static CompletableFutureMatcher<Object> willFailFast(Class<? extends Throwable> cause) {
-        return willFailIn(1, TimeUnit.SECONDS, cause);
-    }
-
-    /**
-     * Creates a matcher that matches a future that completes exceptionally within the given timeout.
-     *
-     * @param time Timeout.
-     * @param timeUnit Time unit for timeout.
-     * @param cause The class of cause throwable.
-     * @return matcher.
-     */
-    public static CompletableFutureMatcher<Object> willFailIn(int time, TimeUnit timeUnit, Class<? extends Throwable> cause) {
-        assert cause != null;
-
-        return new CompletableFutureMatcher<>(anything(), time, timeUnit, cause);
-    }
-
-    /**
-     * Creates a matcher that matches a future that <strong>not</strong> completes decently fast.
-     *
-     * @return matcher.
-     */
-    public static CompletableFutureMatcher<Object> willTimeoutFast() {
-        return willTimeoutIn(250, TimeUnit.MILLISECONDS);
-    }
-
-    /**
-     * Creates a matcher that matches a future that <strong>not</strong> completes within the given timeout.
-     *
-     * @param time Timeout.
-     * @param timeUnit Time unit for timeout.
-     * @return matcher.
-     */
-    public static CompletableFutureMatcher<Object> willTimeoutIn(int time, TimeUnit timeUnit) {
-        return new CompletableFutureMatcher<>(anything(), time, timeUnit, TimeoutException.class);
-    }
-
-    /**
-     * Creates a matcher that matches a future that will be cancelled and decently fast.
-     *
-     * @return matcher.
-     */
-    public static CompletableFutureMatcher<Object> willBeCancelledFast() {
-        return willBeCancelledIn(1, TimeUnit.SECONDS);
-    }
-
-    /**
-     * Creates a matcher that matches a future that will be cancelled within the given timeout.
-     *
-     * @param time Timeout.
-     * @param timeUnit Time unit for timeout.
-     * @return matcher.
-     */
-    public static CompletableFutureMatcher<Object> willBeCancelledIn(int time, TimeUnit timeUnit) {
-        return new CompletableFutureMatcher<>(anything(), time, timeUnit, CancellationException.class);
+        return new CompletableFutureMatcher<>(anything(), time, timeUnit);
     }
 
     /**

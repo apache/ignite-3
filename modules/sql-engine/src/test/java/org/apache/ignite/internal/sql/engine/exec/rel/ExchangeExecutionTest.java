@@ -20,8 +20,10 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.ArrayDeque;
@@ -51,13 +53,18 @@ import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.trait.AllNodes;
+import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.IgniteTestUtils.PredicateMatcher;
+import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
+import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.util.NonReentrantLock;
+import org.hamcrest.CustomMatcher;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -80,6 +87,10 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
     private static final Comparator<Object[]> COMPARATOR = Comparator.comparingInt(o -> (Integer) o[0]);
 
     private static final Map<String, QueryTaskExecutor> executors = new HashMap<>();
+
+    public static final CustomMatcher<Object[]> ODD_KEY_MATCHER = new PredicateMatcher<>(e -> ((int) (e[0])) % 2 != 0, "odd key");
+
+    public static final CustomMatcher<Object[]> EVEN_KEY_MATCHER = new PredicateMatcher<>(e -> ((int) (e[0])) % 2 == 0, "even key");
 
     private final Map<String, MailboxRegistry> mailboxes = new HashMap<>();
     private final Map<String, ExchangeService> exchangeServices = new HashMap<>();
@@ -246,7 +257,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
             BatchedResult<Object[]> res = await(root.requestNextAsync(2));
 
             assertThat(res.items(), hasSize(1));
-            assertThat(res.items().get(0), equalTo(new Object[]{1, 1}));
+            assertThat(res.items().get(0), equalTo(new Object[]{1, 0}));
 
             // now slow down another node because we don't want it to send valid
             // batch as response to rewind
@@ -263,11 +274,185 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
             assertThat(res.items(), hasSize(1));
             // expected value here is 10 because that is how DataProvider is implemented:
             // after every rewind the value is multiplied by 10
-            assertThat(res.items().get(0), equalTo(new Object[]{10, 10}));
+            assertThat(res.items().get(0), equalTo(new Object[]{1, 1}));
         } finally {
             node1DataProvider.resume();
             node2DataProvider.resume();
         }
+    }
+
+    /**
+     * The test checks requests with correlates from different downstreams are handled properly.
+     */
+    @Test
+    public void outboxRewindability() {
+        UUID queryId = UUID.randomUUID();
+        String dataNodeName = "DATA_NODE";
+
+        ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME, dataNodeName));
+
+        TestDataProvider nodeDataProvider = new TestDataProvider(1200);
+        ClusterNode dataNode = new ClusterNode(dataNodeName, dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
+
+        createSourceFragmentMultiTarget(
+                queryId,
+                dataNode,
+                serviceFactory,
+                nodeDataProvider
+        );
+
+        RewindableAsyncRoot<Object[], Object[]> root1 = createRootFragment(
+                queryId,
+                0,
+                ROOT_NODE,
+                List.of(dataNodeName),
+                false,
+                serviceFactory
+        );
+
+        RewindableAsyncRoot<Object[], Object[]> root2 = createRootFragment(
+                queryId,
+                0,
+                ANOTHER_NODE,
+                List.of(dataNodeName),
+                false,
+                serviceFactory
+        );
+
+        // Request from root1 with shared state.
+        await(root1.rewind());
+        BatchedResult<Object[]> res = await(root1.requestNextAsync(300));
+
+        assertThat(res.items(), hasSize(300));
+        assertThat(res.items().get(0), equalTo(new Object[]{1, 0}));
+
+        // Rewind root1.
+        await(root1.rewind());
+        res = await(root1.requestNextAsync(300));
+
+        assertThat(res.items(), hasSize(300));
+        assertThat(res.items().get(0), equalTo(new Object[]{1, 1}));
+
+        // Continue from root1.
+        res = await(root1.requestNextAsync(500));
+
+        assertThat(res.items(), hasSize(300));
+        assertThat(res.items().get(0), equalTo(new Object[]{601, 1}));
+
+        // Request from root2 with shared state.
+        await(root2.rewind());
+        res = await(root2.requestNextAsync(300));
+
+        assertThat(res.items(), hasSize(300));
+        assertThat(res.items().get(0), equalTo(new Object[]{2, 2}));
+    }
+
+    /**
+     * This test verifies that races between batches from previous requests and rewinds are handled properly,
+     * when requested from different downstreams.
+     */
+    @Test
+    public void racesBetweenRewindAndBatchesRequestWithCorrelates() {
+        UUID queryId = UUID.randomUUID();
+        String dataNodeName = "DATA_NODE";
+
+        ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME, dataNodeName));
+
+        TestDataProvider nodeDataProvider = new TestDataProvider(8000);
+        ClusterNode dataNode = new ClusterNode(dataNodeName, dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
+
+        createSourceFragmentMultiTarget(
+                queryId,
+                dataNode,
+                serviceFactory,
+                nodeDataProvider
+        );
+
+        RewindableAsyncRoot<Object[], Object[]> root = createRootFragment(
+                queryId,
+                0,
+                ROOT_NODE,
+                List.of(dataNodeName),
+                false,
+                serviceFactory
+        );
+
+        RewindableAsyncRoot<Object[], Object[]> root2 = createRootFragment(
+                queryId,
+                0,
+                ANOTHER_NODE,
+                List.of(dataNodeName),
+                false,
+                serviceFactory
+        );
+
+        // Here, the both Root1 and Root2 nodes are "root" nodes just for simplicity. They represents the same physical plan node
+        // with 'hash' distribution and they are parts of the same execution tree residing on different nodes.
+        // In real world, these nodes will have a common real root node.
+        //
+        // We must fetch all either the available data from a root, or rewind from a root.
+        // Otherwise, it leads to both root1ReqFut and root2ReqFut futures hanging, because one of roots stops requesting next batches,
+        // while another root is waiting for rewind infinitely.
+        // Seems, the only case when hanging is possible - the downstream contains e.g. a LimitNode and the limit has been hit, and
+        // the query is about to finish.
+
+        // Force root1 put correlates into the request.
+        await(root.rewind());
+        // Root1 starts fetching data.
+        BatchedResult<Object[]> res = await(root.requestNextAsync(500));
+
+        assertThat(res.items(), hasSize(500));
+        assertThat(res.items().get(0), equalTo(new Object[]{1, 0}));
+        assertThat(res.items(), everyItem(ODD_KEY_MATCHER));
+
+        // Late root2 rewind, which forces root2 to put correlates into the request.
+        assertThat(root2.rewind(), CompletableFutureMatcher.willSucceedFast());
+
+        // Root1 continues fetching data.
+        res = await(root.requestNextAsync(500));
+
+        assertThat(res.items(), hasSize(500));
+        assertThat(res.items().get(0), equalTo(new Object[]{1001, 0}));
+        assertThat(res.items(), everyItem(ODD_KEY_MATCHER));
+
+        // Root2 request should wait for rewind.
+        CompletableFuture<BatchedResult<Object[]>> root2ReqFut = root2.requestNextAsync(500);
+        assertThat(root2ReqFut, CompletableFutureExceptionMatcher.willTimeoutFast());
+
+        // Root1 continues fetching the data.
+        res = await(root.requestNextAsync(500));
+        assertThat(res.items(), hasSize(500));
+        assertThat(res.items().get(0), equalTo(new Object[]{2001, 0}));
+        assertThat(res.items(), everyItem(ODD_KEY_MATCHER));
+
+        // Rewind root1
+        assertFalse(root2ReqFut.isDone());
+        await(root.rewind());
+
+        // Root1 request enqueued wait for rewind, root2 become active.
+        CompletableFuture<BatchedResult<Object[]>> root1ReqFut = root.requestNextAsync(500);
+        assertThat(root1ReqFut, CompletableFutureExceptionMatcher.willTimeoutFast());
+
+        // Root2 can fetch the data.
+        res = await(root2ReqFut);
+        assertThat(res.items(), hasSize(500));
+        assertThat(res.items().get(0), equalTo(new Object[]{2, 1}));
+        assertThat(res.items(), everyItem(EVEN_KEY_MATCHER));
+
+        // Root1 is still waiting for rewind.
+        assertFalse(root1ReqFut.isDone());
+
+        // Fetching all the data from root2.
+        while (res.hasMore()) {
+            res = await(root2.requestNextAsync(500));
+            assertThat(res.items(), everyItem(EVEN_KEY_MATCHER));
+        }
+
+        // Now, root1 can fetch data.
+        res = await(root1ReqFut);
+        assertThat(res.items(), hasSize(500));
+        assertThat(res.items().get(0), equalTo(new Object[]{1, 2}));
+        assertThat(res.items(), everyItem(ODD_KEY_MATCHER));
     }
 
     private RewindableAsyncRoot<Object[], Object[]> createRootFragment(
@@ -347,6 +532,53 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         return outbox;
     }
 
+    private Outbox<?> createSourceFragmentMultiTarget(
+            UUID queryId,
+            ClusterNode localNode,
+            ClusterServiceFactory serviceFactory,
+            DataProvider<Object[]> dataProvider
+    ) {
+        QueryTaskExecutor taskExecutor = getOrCreateTaskExecutor(localNode.name());
+
+        ExecutionContext<Object[]> sourceCtx = TestBuilders.executionContext()
+                .queryId(queryId)
+                .executor(taskExecutor)
+                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, true, null, null, Long2ObjectMaps.emptyMap()))
+                .localNode(localNode)
+                .build();
+
+        MailboxRegistry mailboxRegistry = mailboxes.computeIfAbsent(localNode.name(), name -> new MailboxRegistryImpl());
+        ExchangeService exchangeService = exchangeServices.computeIfAbsent(localNode.name(), name ->
+                createExchangeService(taskExecutor, serviceFactory.forNode(localNode.name()), mailboxRegistry));
+
+        Outbox<Object[]> outbox = new Outbox<>(
+                sourceCtx, exchangeService, mailboxRegistry, SOURCE_FRAGMENT_ID,
+                TARGET_FRAGMENT_ID,
+                new Destination<>() {
+                    @Override
+                    public List<String> targets(Object[] row) {
+                        if ((int) row[0] % 2 != 0) {
+                            return List.of(ROOT_NODE_NAME);
+                        } else {
+                            return List.of(ANOTHER_NODE_NAME);
+                        }
+                    }
+
+                    @Override
+                    public List<String> targets() {
+                        return List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME);
+                    }
+                }
+        );
+        mailboxRegistry.register(outbox);
+
+        ScanNode<Object[]> source = new ScanNode<>(sourceCtx, dataProvider);
+
+        outbox.register(source);
+
+        return outbox;
+    }
+
     private static ExchangeService createExchangeService(
             QueryTaskExecutor taskExecutor,
             ClusterService clusterService,
@@ -398,14 +630,19 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         }
 
         CompletableFuture<?> rewind() {
-            IgniteTestUtils.setFieldValue(this, AsyncRootNode.class, "waiting", 0);
-            IgniteTestUtils.setFieldValue(this, AsyncRootNode.class, "closed", false);
-
-            ((ArrayDeque<?>) IgniteTestUtils.getFieldValue(this, AsyncRootNode.class, "buff")).clear();
-
             AbstractNode<?> source = (AbstractNode<?>) IgniteTestUtils.getFieldValue(this, AsyncRootNode.class, "source");
 
-            return source.context().submit(source::rewind, source::onError);
+            return source.context().submit(
+                    () -> {
+                        IgniteTestUtils.setFieldValue(this, AsyncRootNode.class, "waiting", 0);
+                        IgniteTestUtils.setFieldValue(this, AsyncRootNode.class, "closed", false);
+
+                        ((ArrayDeque<?>) IgniteTestUtils.getFieldValue(this, AsyncRootNode.class, "buff")).clear();
+
+                        source.rewind();
+                    },
+                    this::onError
+            );
         }
     }
 
@@ -415,7 +652,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
 
         private final int times;
 
-        private int multiplier = 1;
+        private int rewindCnt;
 
         TestDataProvider(int times) {
             this.times = times;
@@ -435,9 +672,9 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         /** {@inheritDoc} */
         @Override
         public Iterator<Object[]> iterator() {
-            int multiplier = this.multiplier;
+            int value = this.rewindCnt;
 
-            this.multiplier *= 10;
+            this.rewindCnt++;
 
             return new Iterator<>() {
                 private int counter;
@@ -457,15 +694,15 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
 
                     lock.lock();
 
-                    int rowValue;
+                    int key;
                     try {
-                        rowValue = (1 + counter) * multiplier;
+                        key = (1 + counter);
                         counter++;
                     } finally {
                         lock.unlock();
                     }
 
-                    return new Object[]{rowValue, rowValue};
+                    return new Object[]{key, value};
                 }
             };
         }

@@ -33,7 +33,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -86,7 +88,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         assertThat(cluster.get(0).clusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
         assertThat(cluster.get(1).clusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
 
-        ClusterNode[] expectedTopology = currentPhysicalTopology();
+        LogicalNode[] expectedTopology = toLogicalNodes(currentPhysicalTopology());
 
         assertThat(cluster.get(0).logicalTopologyNodes(), will(containsInAnyOrder(expectedTopology)));
         assertThat(cluster.get(1).logicalTopologyNodes(), will(containsInAnyOrder(expectedTopology)));
@@ -133,7 +135,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         assertThat(cluster.get(0).clusterManager().metaStorageNodes(), will(containsInAnyOrder(aliveNodes)));
 
-        assertThat(cluster.get(0).logicalTopologyNodes(), will(containsInAnyOrder(currentPhysicalTopology())));
+        assertThat(cluster.get(0).logicalTopologyNodes(), will(containsInAnyOrder(toLogicalNodes(currentPhysicalTopology()))));
     }
 
     /**
@@ -160,7 +162,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         waitForLogicalTopology();
 
-        ClusterNode[] expectedTopology = currentPhysicalTopology();
+        LogicalNode[] expectedTopology = toLogicalNodes(currentPhysicalTopology());
 
         assertThat(cluster.get(0).logicalTopologyNodes(), will(containsInAnyOrder(expectedTopology)));
         assertThat(cluster.get(1).logicalTopologyNodes(), will(containsInAnyOrder(expectedTopology)));
@@ -225,7 +227,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
             assertThat(node.startFuture(), willCompleteSuccessfully());
         }
 
-        assertThat(cluster.get(0).logicalTopologyNodes(), will(containsInAnyOrder(currentPhysicalTopology())));
+        assertThat(cluster.get(0).logicalTopologyNodes(), will(containsInAnyOrder(toLogicalNodes(currentPhysicalTopology()))));
     }
 
     /**
@@ -246,8 +248,8 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         assertThat(node.startFuture(), willCompleteSuccessfully());
 
-        assertThat(node.logicalTopologyNodes(), will(containsInAnyOrder(currentPhysicalTopology())));
-        assertThat(node.validatedNodes(), will(containsInAnyOrder(currentPhysicalTopology())));
+        assertThat(node.logicalTopologyNodes(), will(containsInAnyOrder(toLogicalNodes(currentPhysicalTopology()))));
+        assertThat(node.validatedNodes(), will(containsInAnyOrder(toLogicalNodes(currentPhysicalTopology()))));
     }
 
     /**
@@ -261,7 +263,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         initCluster(cmgNodes, cmgNodes);
 
-        assertThat(cluster.get(0).logicalTopologyNodes(), will(containsInAnyOrder(currentPhysicalTopology())));
+        assertThat(cluster.get(0).logicalTopologyNodes(), will(containsInAnyOrder(toLogicalNodes(currentPhysicalTopology()))));
 
         MockNode nodeToStop = cluster.remove(1);
 
@@ -269,8 +271,8 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         waitForLogicalTopology();
 
-        assertThat(cluster.get(0).logicalTopologyNodes(), will(containsInAnyOrder(currentPhysicalTopology())));
-        assertThat(cluster.get(0).validatedNodes(), will(containsInAnyOrder(currentPhysicalTopology())));
+        assertThat(cluster.get(0).logicalTopologyNodes(), will(containsInAnyOrder(toLogicalNodes(currentPhysicalTopology()))));
+        assertThat(cluster.get(0).validatedNodes(), will(containsInAnyOrder(toLogicalNodes(currentPhysicalTopology()))));
     }
 
     /**
@@ -412,10 +414,14 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         assertTrue(waitForCondition(() -> nonCmgTopology.getLogicalTopology().nodes().size() == 2, 10_000));
     }
 
-    private ClusterNode[] currentPhysicalTopology() {
+    private List<ClusterNode> currentPhysicalTopology() {
         return cluster.stream()
                 .map(MockNode::localMember)
-                .toArray(ClusterNode[]::new);
+                .collect(Collectors.toList());
+    }
+
+    private static LogicalNode[] toLogicalNodes(List<ClusterNode> clusterNodes) {
+        return clusterNodes.stream().map(LogicalNode::new).toArray(LogicalNode[]::new);
     }
 
     private String[] clusterNodeNames() {
@@ -426,7 +432,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
     private void waitForLogicalTopology() throws InterruptedException {
         assertTrue(waitForCondition(() -> {
-            CompletableFuture<Set<ClusterNode>> logicalTopology = cluster.get(0).logicalTopologyNodes();
+            CompletableFuture<Set<LogicalNode>> logicalTopology = cluster.get(0).logicalTopologyNodes();
 
             assertThat(logicalTopology, willCompleteSuccessfully());
 

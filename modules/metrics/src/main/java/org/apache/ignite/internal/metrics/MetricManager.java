@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metrics;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
@@ -44,7 +45,7 @@ import org.jetbrains.annotations.VisibleForTesting;
  */
 public class MetricManager implements IgniteComponent {
     /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(MetricManager.class);
+    private final IgniteLogger log;
 
     /** Metric registry. */
     private final MetricRegistry registry;
@@ -62,8 +63,18 @@ public class MetricManager implements IgniteComponent {
      * Constructor.
      */
     public MetricManager() {
+        this(Loggers.forClass(MetricManager.class));
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param log Logger.
+     */
+    public MetricManager(IgniteLogger log) {
         registry = new MetricRegistry();
         metricsProvider = new MetricProvider(registry);
+        this.log = log;
     }
 
     /**
@@ -95,11 +106,27 @@ public class MetricManager implements IgniteComponent {
 
         MetricView conf = metricConfiguration.value();
 
-        for (String exporterName : conf.exporters().namedListKeys()) {
-            checkAndStartExporter(exporterName, metricConfiguration.exporters().get(exporterName).value());
+        for (ExporterView exporter : conf.exporters()) {
+            checkAndStartExporter(exporter.exporterName(), exporter);
         }
 
         metricConfiguration.exporters().listenElements(new ExporterConfigurationListener());
+    }
+
+    /**
+     * Starts component with default configuration.
+     *
+     * @param exporters Exporters.
+     */
+    public void start(Iterable<MetricExporter<?>> exporters) {
+        this.availableExporters = new HashMap<>();
+
+        for (MetricExporter<?> exporter : exporters) {
+            exporter.start(metricsProvider, null);
+
+            availableExporters.put(exporter.name(), exporter);
+            enabledMetricExporters.put(exporter.name(), exporter);
+        }
     }
 
     /** {@inheritDoc} */
@@ -237,9 +264,8 @@ public class MetricManager implements IgniteComponent {
 
             enabledMetricExporters.put(exporter.name(), exporter);
         } else {
-            LOG.warn("Received configuration for unknown metric exporter with the name '" + exporterName + "'");
+            log.warn("Received configuration for unknown metric exporter with the name '" + exporterName + "'");
         }
-
     }
 
     private class ExporterConfigurationListener implements ConfigurationNamedListListener<ExporterView> {

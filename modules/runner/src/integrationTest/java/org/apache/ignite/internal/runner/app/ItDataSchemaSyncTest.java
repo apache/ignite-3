@@ -43,6 +43,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -108,7 +109,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     @BeforeEach
     void beforeEach() {
         List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
-                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
                 .collect(toList());
 
         String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
@@ -178,7 +179,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         CompletableFuture<Ignite> ignite1Fut = nodesBootstrapCfg.entrySet().stream()
                 .filter(k -> k.getKey().equals(nodeToStop))
-                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
                 .findFirst().get();
 
         ignite1 = (IgniteImpl) ignite1Fut.get();
@@ -252,7 +253,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         CompletableFuture<Ignite> ignite1Fut = nodesBootstrapCfg.entrySet().stream()
                 .filter(k -> k.getKey().equals(nodeToStop))
-                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
                 .findFirst().get();
 
         ignite1 = ignite1Fut.get();

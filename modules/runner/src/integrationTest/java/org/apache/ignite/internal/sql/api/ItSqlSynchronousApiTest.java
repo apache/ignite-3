@@ -93,7 +93,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    public void ddl() {
+    public void ddl() throws Exception {
         IgniteSql sql = igniteSql();
         Session ses = sql.createSession();
 
@@ -133,6 +133,9 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
                 "CREATE INDEX TEST_IDX ON TEST(VAL1)"
         );
         checkDdl(false, ses, "CREATE INDEX IF NOT EXISTS TEST_IDX ON TEST(VAL1)");
+
+        // TODO: IGNITE-19150 We are waiting for schema synchronization to avoid races to create and destroy indexes
+        waitForIndexBuild("TEST", "TEST_IDX");
 
         checkDdl(true, ses, "DROP INDEX TESt_iDX");
         checkDdl(true, ses, "CREATE INDEX TEST_IDX1 ON TEST(VAL0)");
@@ -246,7 +249,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         assertThrowsWithCause(
                 () -> ses.execute(null, "SELECT 1; SELECT 2"),
                 SqlException.class,
-                "Multiple statements aren't allowed"
+                "Multiple statements are not allowed"
         );
 
         // Planning error.
@@ -309,7 +312,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         assertThrowsWithCause(
                 () -> ses.executeBatch(null, "SELECT * FROM TEST", args),
                 SqlException.class,
-                "Unexpected number of query parameters. Provided 2 but there is only 0 dynamic parameter(s)"
+                "Invalid SQL statement type in the batch"
         );
 
         assertThrowsWithCause(

@@ -59,4 +59,8 @@ public class ClientConnectorConfigurationSchema {
     @ConfigValue
     @SslConfigurationValidator
     public SslConfigurationSchema ssl;
+
+    /** Metrics. */
+    @Value(hasDefault = true)
+    public final boolean metricsEnabled = false;
 }

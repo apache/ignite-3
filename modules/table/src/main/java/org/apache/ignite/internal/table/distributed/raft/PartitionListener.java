@@ -30,6 +30,7 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -48,6 +49,7 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
+import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
@@ -82,32 +84,36 @@ public class PartitionListener implements RaftGroupListener {
     /** Safe time tracker. */
     private final PendingComparableValuesTracker<HybridTimestamp> safeTime;
 
+    /** Storage index tracker. */
+    private final PendingComparableValuesTracker<Long> storageIndexTracker;
+
     /**
      * The constructor.
      *
      * @param partitionDataStorage The storage.
      * @param safeTime Safe time tracker.
+     * @param storageIndexTracker Storage index tracker.
      */
     public PartitionListener(
             PartitionDataStorage partitionDataStorage,
             StorageUpdateHandler storageUpdateHandler,
             TxStateStorage txStateStorage,
-            PendingComparableValuesTracker<HybridTimestamp> safeTime
+            PendingComparableValuesTracker<HybridTimestamp> safeTime,
+            PendingComparableValuesTracker<Long> storageIndexTracker
     ) {
         this.storage = partitionDataStorage;
         this.storageUpdateHandler = storageUpdateHandler;
         this.txStateStorage = txStateStorage;
         this.safeTime = safeTime;
+        this.storageIndexTracker = storageIndexTracker;
 
         // TODO: IGNITE-18502 Implement a pending update storage
-        try (PartitionTimestampCursor cursor = partitionDataStorage.getStorage().scan(HybridTimestamp.MAX_VALUE)) {
-            if (cursor != null) {
-                while (cursor.hasNext()) {
-                    ReadResult readResult = cursor.next();
+        try (PartitionTimestampCursor cursor = partitionDataStorage.scan(HybridTimestamp.MAX_VALUE)) {
+            while (cursor.hasNext()) {
+                ReadResult readResult = cursor.next();
 
-                    if (readResult.isWriteIntent()) {
-                        txsPendingRowIds.computeIfAbsent(readResult.transactionId(), key -> new HashSet()).add(readResult.rowId());
-                    }
+                if (readResult.isWriteIntent()) {
+                    txsPendingRowIds.computeIfAbsent(readResult.transactionId(), key -> new HashSet<>()).add(readResult.rowId());
                 }
             }
         }
@@ -161,6 +167,8 @@ public class PartitionListener implements RaftGroupListener {
                     handleTxCleanupCommand((TxCleanupCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof SafeTimeSyncCommand) {
                     handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof BuildIndexCommand) {
+                    handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
@@ -168,6 +176,16 @@ public class PartitionListener implements RaftGroupListener {
                 clo.result(null);
             } catch (IgniteInternalException e) {
                 clo.result(e);
+            } catch (CompletionException e) {
+                clo.result(e.getCause());
+            } catch (Throwable t) {
+                LOG.error(
+                        "Unknown error while processing command [commandIndex={}, commandTerm={}, command={}]",
+                        t,
+                        clo.index(), clo.index(), command
+                );
+
+                throw t;
             } finally {
                 storage.releasePartitionSnapshotsReadLock();
             }
@@ -179,6 +197,8 @@ public class PartitionListener implements RaftGroupListener {
 
                 safeTime.update(safeTimePropagatingCommand.safeTime().asHybridTimestamp());
             }
+
+            storageIndexTracker.update(commandIndex);
         });
     }
 
@@ -192,18 +212,6 @@ public class PartitionListener implements RaftGroupListener {
     private void handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return;
-        }
-
-        TxMeta txMeta = txStateStorage.get(cmd.txId());
-
-        if (txMeta != null && (txMeta.txState() == COMMITED || txMeta.txState() == ABORTED)) {
-            storage.runConsistently(() -> {
-                storage.lastApplied(commandIndex, commandTerm);
-
-                return null;
-            });
-
             return;
         }
 
@@ -227,15 +235,6 @@ public class PartitionListener implements RaftGroupListener {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return;
-        }
-
-        TxMeta txMeta = txStateStorage.get(cmd.txId());
-        if (txMeta != null && (txMeta.txState() == COMMITED || txMeta.txState() == ABORTED)) {
-            storage.runConsistently(() -> {
-                storage.lastApplied(commandIndex, commandTerm);
-
-                return null;
-            });
         }
 
         storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), rowIds -> {
@@ -436,5 +435,34 @@ public class PartitionListener implements RaftGroupListener {
     @TestOnly
     public MvPartitionStorage getMvStorage() {
         return storage.getStorage();
+    }
+
+    /**
+     * Handler for the {@link BuildIndexCommand}.
+     *
+     * @param cmd Command.
+     * @param commandIndex RAFT index of the command.
+     * @param commandTerm RAFT term of the command.
+     */
+    void handleBuildIndexCommand(BuildIndexCommand cmd, long commandIndex, long commandTerm) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        storage.runConsistently(() -> {
+            storageUpdateHandler.buildIndex(cmd.indexId(), cmd.rowIds(), cmd.finish());
+
+            storage.lastApplied(commandIndex, commandTerm);
+
+            return null;
+        });
+
+        if (cmd.finish()) {
+            LOG.info(
+                    "Finish building the index: [tableId={}, partitionId={}, indexId={}]",
+                    cmd.tablePartitionId().tableId(), cmd.tablePartitionId().partitionId(), cmd.indexId()
+            );
+        }
     }
 }

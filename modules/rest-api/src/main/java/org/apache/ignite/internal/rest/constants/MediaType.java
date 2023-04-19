@@ -38,7 +38,8 @@ public final class MediaType {
      */
     public static final String TEXT_PLAIN = "text/plain";
 
-    public static final String OCTET_STREAM = "application/octet-stream";
-
+    /**
+     * multipart/form-data media type.
+     */
     public static final String FORM_DATA = "multipart/form-data";
 }

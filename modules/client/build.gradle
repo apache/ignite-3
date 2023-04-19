@@ -23,8 +23,9 @@ dependencies {
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-binary-tuple')
-    api project(':ignite-client-common')
+    implementation project(':ignite-client-common')
     implementation project(':ignite-marshaller-common')
+    implementation project(':ignite-metrics')
 
     implementation libs.jetbrains.annotations
     implementation libs.msgpack.core
@@ -37,6 +38,7 @@ dependencies {
 
     annotationProcessor libs.auto.service
 
+    testAnnotationProcessor libs.jmh.annotation.processor
     testImplementation libs.jetbrains.annotations
     testImplementation project(':ignite-client-handler')
     testImplementation project(':ignite-configuration')
@@ -47,6 +49,8 @@ dependencies {
     testImplementation project(':ignite-raft-api')
     testImplementation project(':ignite-transactions')
     testImplementation project(':ignite-storage-api')
+    testImplementation project(':ignite-security')
+    testImplementation project(':ignite-metrics')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation libs.hamcrest.core
@@ -54,6 +58,7 @@ dependencies {
     testImplementation libs.mockito.junit
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
+    testImplementation libs.jmh.core
 }
 
 def archTestDir = "$buildDir/archtest"

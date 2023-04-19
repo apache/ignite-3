@@ -17,18 +17,21 @@
 
 #pragma once
 
-#include "ignite/client/sql/sql_column_type.h"
-#include "ignite/common/big_decimal.h"
-#include "ignite/common/big_integer.h"
-#include "ignite/common/bit_array.h"
-#include "ignite/common/ignite_date.h"
-#include "ignite/common/ignite_date_time.h"
-#include "ignite/common/ignite_error.h"
-#include "ignite/common/ignite_time.h"
-#include "ignite/common/ignite_timestamp.h"
-#include "ignite/common/uuid.h"
+#include <ignite/common/big_decimal.h>
+#include <ignite/common/big_integer.h>
+#include <ignite/common/bit_array.h>
+#include <ignite/common/ignite_date.h>
+#include <ignite/common/ignite_date_time.h>
+#include <ignite/common/ignite_duration.h>
+#include <ignite/common/ignite_error.h>
+#include <ignite/common/ignite_period.h>
+#include <ignite/common/ignite_time.h>
+#include <ignite/common/ignite_timestamp.h>
+#include <ignite/common/ignite_type.h>
+#include <ignite/common/uuid.h>
 
 #include <cstdint>
+#include <optional>
 #include <type_traits>
 #include <variant>
 #include <vector>
@@ -42,6 +45,16 @@ class primitive {
 public:
     // Default
     primitive() = default;
+
+    /**
+     * Null constructor.
+     */
+    primitive(std::nullptr_t) {} // NOLINT(google-explicit-constructor)
+
+    /**
+     * Null option constructor.
+     */
+    primitive(std::nullopt_t) {} // NOLINT(google-explicit-constructor)
 
     /**
      * Constructor for boolean value.
@@ -197,6 +210,22 @@ public:
         : m_value(value) {}
 
     /**
+     * Constructor for period value.
+     *
+     * @param value Value.
+     */
+    primitive(ignite_period value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
+
+    /**
+     * Constructor for duration value.
+     *
+     * @param value Value.
+     */
+    primitive(ignite_duration value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
+
+    /**
      * Constructor for bitmask value.
      *
      * @param value Value.
@@ -229,6 +258,8 @@ public:
             || std::is_same_v<T, ignite_date_time> // DateTime
             || std::is_same_v<T, ignite_time> // Time
             || std::is_same_v<T, ignite_timestamp> // Timestamp
+            || std::is_same_v<T, ignite_period> // Period
+            || std::is_same_v<T, ignite_duration> // Duration
             || std::is_same_v<T, bit_array> // Bit Array
         ) {
             return std::get<T>(m_value);
@@ -238,11 +269,22 @@ public:
     }
 
     /**
+     * Check whether element is null.
+     *
+     * @return Value indicating whether element is null.
+     */
+    [[nodiscard]] bool is_null() const noexcept { return m_value.index() == 0; }
+
+    /**
      * Get primitive type.
      *
      * @return Primitive type.
      */
-    [[nodiscard]] column_type get_type() const { return static_cast<column_type>(m_value.index()); }
+    [[nodiscard]] ignite_type get_type() const noexcept {
+        if (is_null())
+            return ignite_type::UNDEFINED;
+        return static_cast<ignite_type>(m_value.index() - 1);
+    }
 
     /**
      * @brief Comparison operator.
@@ -267,11 +309,9 @@ public:
     }
 
 private:
-    /** Unsupported type. */
-    typedef void *unsupported_type;
-
     /** Value type. */
-    typedef std::variant<bool, // Bool = 0
+    typedef std::variant<std::nullptr_t,
+        bool, // Bool = 0
         std::int8_t, // Int8 = 1
         std::int16_t, // Int16 = 2
         std::int32_t, // Int32 = 3
@@ -287,8 +327,8 @@ private:
         bit_array, // Bitmask = 13
         std::string, // String = 14
         std::vector<std::byte>, // Bytes = 15
-        unsupported_type, // Period = 16
-        unsupported_type, // Duration = 17
+        ignite_period, // Period = 16
+        ignite_duration, // Duration = 17
         big_integer // Big Integer = 18
         >
         value_type;

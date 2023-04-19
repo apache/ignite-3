@@ -255,7 +255,7 @@ public class NettyClientTest {
 
         /** Constructor. */
         private MockClientHandshakeManager(Channel channel) {
-            this.sender = new NettySender(channel, "", "");
+            this.sender = new NettySender(channel, "", "", (short) 0);
         }
 
         /** {@inheritDoc} */

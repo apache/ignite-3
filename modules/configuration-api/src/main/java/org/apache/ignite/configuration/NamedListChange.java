@@ -103,7 +103,7 @@ public interface NamedListChange<VIEWT, CHANGET extends VIEWT> extends NamedList
      * Element with key {@code oldKey} must exist and key {@code newKey} must not.
      * Error will occur if {@code newKey} has just been deleted on the same
      * {@link NamedListChange} instance (to distinguish between
-     * {@link ConfigurationNamedListListener#onRename(String, String, ConfigurationNotificationEvent)} and
+     * {@link ConfigurationNamedListListener#onRename(ConfigurationNotificationEvent)} and
      * {@link ConfigurationNamedListListener#onUpdate(ConfigurationNotificationEvent)} on {@code newKey}).
      *
      * @param oldKey Key for the value to be updated.

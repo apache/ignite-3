@@ -34,7 +34,10 @@ public class InvalidParam {
     private final String reason;
 
     @JsonCreator
-    public InvalidParam(@JsonProperty("name") String name, @JsonProperty("reason") String reason) {
+    public InvalidParam(
+            @JsonProperty("name") String name,
+            @JsonProperty("reason") String reason
+    ) {
         this.name = name;
         this.reason = reason;
     }

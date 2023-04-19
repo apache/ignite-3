@@ -50,13 +50,11 @@ import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * The class has tests of cluster recovery when no all committed RAFT commands applied to the state machine.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-19043")
 public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassIntegrationTest {
 
     private final Object[][] dataSet = {
@@ -191,8 +189,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
             tx.commit();
         } finally {
-            //TODO: IGNITE-18324 Nothing do in the rollback invocation when a transaction is committed.
-            //tx.rollback();
+            tx.rollback();
         }
 
         stopNodes();

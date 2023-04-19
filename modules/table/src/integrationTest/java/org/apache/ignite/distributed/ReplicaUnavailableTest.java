@@ -17,9 +17,13 @@
 
 package org.apache.ignite.distributed;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.NODE_PORT_BASE;
 import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.startNode;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
@@ -29,11 +33,14 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -46,6 +53,7 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -53,7 +61,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -69,6 +76,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     );
 
     private final TableMessagesFactory tableMessagesFactory = new TableMessagesFactory();
+
+    private final ReplicaMessagesFactory replicaMessageFactory = new ReplicaMessagesFactory();
 
     private final TestInfo testInfo;
 
@@ -111,7 +120,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18868")
     public void testWithReplicaStartedAfterRequestSending() throws Exception {
         ClusterNode clusterNode = clusterService.topologyService().localMember();
 
@@ -126,14 +134,25 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class,
                 (message, sender, correlationId) -> {
                     try {
-                        replicaManager.startReplica(tablePartitionId, request0 -> CompletableFuture.completedFuture(null));
+                        replicaManager.startReplica(
+                                tablePartitionId,
+                                completedFuture(null),
+                                request0 -> completedFuture(replicaMessageFactory.replicaResponse()
+                                        .result(Integer.valueOf(5))
+                                        .build()),
+                                mock(TopologyAwareRaftGroupService.class),
+                                new PendingComparableValuesTracker<>(0L));
                     } catch (NodeStoppingException e) {
                         throw new RuntimeException(e);
                     }
                 }
         );
 
-        replicaService.invoke(clusterNode, request).get(10, TimeUnit.SECONDS);
+        CompletableFuture<ReplicaResponse> respFur = replicaService.invoke(clusterNode, request);
+
+        assertThat(respFur, willSucceedIn(10, TimeUnit.SECONDS));
+
+        assertEquals(5, respFur.get().result());
     }
 
     @Test

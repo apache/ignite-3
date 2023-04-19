@@ -27,6 +27,10 @@
 #include <mutex>
 #include <unordered_map>
 
+namespace ignite {
+class table;
+}
+
 namespace ignite::detail {
 
 /**
@@ -228,7 +232,7 @@ public:
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
-     * @param key A record with key columns set..
+     * @param key A record with key columns set.
      * @param callback Callback that is called on operation completion. Called with
      *   a value indicating whether a record with the specified key was deleted.
      */
@@ -283,6 +287,21 @@ public:
      */
     void remove_all_exact_async(
         transaction *tx, std::vector<ignite_tuple> records, ignite_callback<std::vector<ignite_tuple>> callback);
+
+    /**
+     * Extract implementation from facade.
+     *
+     * @param tb Table.
+     * @return Implementation.
+     */
+    [[nodiscard]] static std::shared_ptr<table_impl> from_facade(table &tb);
+
+    /**
+     * Get table ID.
+     *
+     * @return ID.
+     */
+    [[nodiscard]] uuid get_id() const { return m_id; }
 
 private:
     /**

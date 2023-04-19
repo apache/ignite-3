@@ -24,15 +24,13 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.rest.api.cluster.ClusterNodeDto;
-import org.apache.ignite.internal.rest.api.cluster.NetworkAddressDto;
-import org.apache.ignite.internal.rest.api.cluster.NodeMetadataDto;
+import org.apache.ignite.internal.rest.api.cluster.ClusterNode;
+import org.apache.ignite.internal.rest.api.cluster.NetworkAddress;
+import org.apache.ignite.internal.rest.api.cluster.NodeMetadata;
 import org.apache.ignite.internal.rest.api.cluster.TopologyApi;
 import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.TopologyService;
 
 /**
@@ -51,13 +49,13 @@ public class TopologyController implements TopologyApi {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<ClusterNodeDto> physicalTopology() {
+    public Collection<ClusterNode> physicalTopology() {
         return toClusterNodeDtos(topologyService.allMembers());
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<ClusterNodeDto>> logicalTopology() {
+    public CompletableFuture<Collection<ClusterNode>> logicalTopology() {
         // TODO: IGNITE-18277 - return an object containing both nodes and topology version.
 
         return cmgManager.clusterState()
@@ -69,24 +67,28 @@ public class TopologyController implements TopologyApi {
                     return cmgManager.logicalTopology();
                 })
                 .thenApply(LogicalTopologySnapshot::nodes)
-                .thenApply(TopologyController::toClusterNodeDtos);
+                .thenApply(TopologyController::toClusterNodeDtosFromLogicalNodes);
     }
 
-    private static List<ClusterNodeDto> toClusterNodeDtos(Collection<ClusterNode> nodes) {
+    private static List<ClusterNode> toClusterNodeDtos(Collection<org.apache.ignite.network.ClusterNode> nodes) {
         return nodes.stream().map(TopologyController::toClusterNodeDto).collect(toList());
     }
 
-    private static ClusterNodeDto toClusterNodeDto(ClusterNode node) {
-        NetworkAddress addr = node.address();
-
-        var addrDto = new NetworkAddressDto(addr.host(), addr.port());
-        return new ClusterNodeDto(node.id(), node.name(), addrDto, toNodeMetadataDto(node.nodeMetadata()));
+    private static List<ClusterNode> toClusterNodeDtosFromLogicalNodes(Collection<LogicalNode> nodes) {
+        return nodes.stream().map(TopologyController::toClusterNodeDto).collect(toList());
     }
 
-    private static NodeMetadataDto toNodeMetadataDto(NodeMetadata metadata) {
+    private static ClusterNode toClusterNodeDto(org.apache.ignite.network.ClusterNode node) {
+        org.apache.ignite.network.NetworkAddress addr = node.address();
+
+        var addrDto = new NetworkAddress(addr.host(), addr.port());
+        return new ClusterNode(node.id(), node.name(), addrDto, toNodeMetadataDto(node.nodeMetadata()));
+    }
+
+    private static NodeMetadata toNodeMetadataDto(org.apache.ignite.network.NodeMetadata metadata) {
         if (metadata == null) {
             return null;
         }
-        return new NodeMetadataDto(metadata.restHost(), metadata.httpPort(), metadata.httpsPort());
+        return new NodeMetadata(metadata.restHost(), metadata.httpPort(), metadata.httpsPort());
     }
 }

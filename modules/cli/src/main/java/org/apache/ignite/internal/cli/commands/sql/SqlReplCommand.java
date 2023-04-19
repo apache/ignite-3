@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands.sql;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_KEY;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_SHORT;
@@ -47,11 +48,10 @@ import org.apache.ignite.internal.cli.core.repl.Repl;
 import org.apache.ignite.internal.cli.core.repl.executor.RegistryCommandExecutor;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
 import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
-import org.apache.ignite.internal.cli.decorators.PlainTableDecorator;
 import org.apache.ignite.internal.cli.decorators.SqlQueryResultDecorator;
-import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import org.apache.ignite.internal.cli.sql.SqlManager;
 import org.apache.ignite.internal.cli.sql.SqlSchemaProvider;
+import org.apache.ignite.internal.util.StringUtils;
 import org.jline.reader.impl.completer.AggregateCompleter;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
@@ -64,7 +64,7 @@ import picocli.CommandLine.Parameters;
 @Command(name = "sql", description = "Executes SQL query")
 public class SqlReplCommand extends BaseCommand implements Runnable {
     @Option(names = {JDBC_URL_OPTION, JDBC_URL_OPTION_SHORT}, required = true,
-            descriptionKey = "ignite.jdbc-url", description = JDBC_URL_OPTION_DESC)
+            descriptionKey = JDBC_URL_KEY, description = JDBC_URL_OPTION_DESC)
     private String jdbc;
 
     @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
@@ -74,7 +74,7 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
     private ExecOptions execOptions;
 
     private static class ExecOptions {
-        @Parameters(index = "0", description = "SQL query to execute")
+        @Parameters(index = "0", description = "SQL query to execute", defaultValue = Option.NULL_VALUE)
         private String command;
 
         @Option(names = {SCRIPT_FILE_OPTION, SCRIPT_FILE_OPTION_SHORT}, description = SCRIPT_FILE_OPTION_SHORT)
@@ -99,7 +99,7 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
     public void run() {
         try (SqlManager sqlManager = new SqlManager(jdbc)) {
             // When passing white space to this command, picocli will treat it as a positional argument
-            if (execOptions == null || (execOptions.command != null && execOptions.command.isBlank())) {
+            if (execOptions == null || (StringUtils.nullOrBlank(execOptions.command) && execOptions.file == null)) {
                 SqlSchemaProvider schemaProvider = new SqlSchemaProvider(sqlManager::getMetadata);
                 schemaProvider.initStateAsync();
 
@@ -111,10 +111,13 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
                         .withCommandClass(SqlReplTopLevelCliCommand.class)
                         .withCallExecutionPipelineProvider(provider(sqlManager))
                         .withHistoryFileName("sqlhistory")
+                        .withAutosuggestionsWidgets()
                         .build());
             } else {
                 String executeCommand = execOptions.file != null ? extract(execOptions.file) : execOptions.command;
-                createSqlExecPipeline(sqlManager, executeCommand).runPipeline();
+                if (executeCommand != null) {
+                    createSqlExecPipeline(sqlManager, executeCommand).runPipeline();
+                }
             }
         } catch (SQLException e) {
             new SqlExceptionHandler().handle(ExceptionWriter.fromPrintWriter(spec.commandLine().getErr()), e);
@@ -128,12 +131,11 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
     }
 
     private CallExecutionPipeline<?, ?> createSqlExecPipeline(SqlManager sqlManager, String line) {
-        TableDecorator tableDecorator = plain ? new PlainTableDecorator() : new TableDecorator();
         return CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
                 .inputProvider(() -> new StringCallInput(line))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
-                .decorator(new SqlQueryResultDecorator(tableDecorator))
+                .decorator(new SqlQueryResultDecorator(plain))
                 .verbose(verbose)
                 .build();
     }

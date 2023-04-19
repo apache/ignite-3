@@ -27,6 +27,8 @@ import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
 import java.util.Arrays;
@@ -37,12 +39,16 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetCommand;
+import org.apache.ignite.internal.metastorage.command.HybridTimestampMessage;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
+import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
@@ -162,12 +168,26 @@ public class DistributionZonesTestUtil {
      * @throws InterruptedException If thread was interrupted.
      */
     public static void assertLogicalTopology(
-            @Nullable Set<ClusterNode> clusterNodes,
+            @Nullable Set<LogicalNode> clusterNodes,
             KeyValueStorage keyValueStorage
     ) throws InterruptedException {
         byte[] nodes = clusterNodes == null
                 ? null
                 : toBytes(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
+
+        assertTrue(waitForCondition(() -> Arrays.equals(keyValueStorage.get(zonesLogicalTopologyKey().bytes()).value(), nodes), 1000));
+    }
+
+    /**
+     * Asserts {@link DistributionZonesUtil#zonesLogicalTopologyKey()} value.
+     *
+     * @param clusterNodes Expected cluster nodes' names.
+     * @param keyValueStorage Key-value storage.
+     * @throws InterruptedException If thread was interrupted.
+     */
+    public static void assertLogicalTopologyWithNodeNames(@Nullable Set<String> clusterNodes, KeyValueStorage keyValueStorage)
+            throws InterruptedException {
+        byte[] nodes = clusterNodes == null ? null : toBytes(clusterNodes);
 
         assertTrue(waitForCondition(() -> Arrays.equals(keyValueStorage.get(zonesLogicalTopologyKey().bytes()).value(), nodes), 1000));
     }
@@ -185,10 +205,17 @@ public class DistributionZonesTestUtil {
             MetaStorageListener metaStorageListener,
             RaftGroupService metaStorageService,
             MetaStorageManager metaStorageManager) {
+        HybridTimestampMessage mockTsMessage = mock(HybridTimestampMessage.class);
+        when(mockTsMessage.asHybridTimestamp()).thenReturn(new HybridTimestamp(10, 10));
+
         // Delegate directly to listener.
         lenient().doAnswer(
                 invocationClose -> {
                     Command cmd = invocationClose.getArgument(0);
+
+                    if (cmd instanceof MetaStorageWriteCommand) {
+                        ((MetaStorageWriteCommand) cmd).safeTime(mockTsMessage);
+                    }
 
                     long commandIndex = raftIndex.incrementAndGet();
 

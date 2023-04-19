@@ -28,6 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
@@ -55,6 +57,8 @@ public class TestMvTableStorage implements MvTableStorage {
 
     private final TableConfiguration tableCfg;
 
+    private final DistributionZoneConfiguration distributionZoneCfg;
+
     private final TablesConfiguration tablesCfg;
 
     /**
@@ -70,7 +74,7 @@ public class TestMvTableStorage implements MvTableStorage {
         }
 
         TestSortedIndexStorage getOrCreateStorage(Integer partitionId) {
-            return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestSortedIndexStorage(descriptor));
+            return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestSortedIndexStorage(id, descriptor));
         }
     }
 
@@ -87,16 +91,18 @@ public class TestMvTableStorage implements MvTableStorage {
         }
 
         TestHashIndexStorage getOrCreateStorage(Integer partitionId) {
-            return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestHashIndexStorage(descriptor));
+            return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestHashIndexStorage(id, descriptor));
         }
     }
 
     /** Constructor. */
-    public TestMvTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
+    public TestMvTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg,
+            DistributionZoneConfiguration distributionZoneCfg) {
         this.tableCfg = tableCfg;
         this.tablesCfg = tablesCfg;
+        this.distributionZoneCfg = distributionZoneCfg;
 
-        mvPartitionStorages = new MvPartitionStorages<>(tableCfg.value());
+        mvPartitionStorages = new MvPartitionStorages<>(tableCfg.value(), distributionZoneCfg.value());
     }
 
     @Override
@@ -197,6 +203,11 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
+    public DistributionZoneConfiguration distributionZoneConfiguration() {
+        return distributionZoneCfg;
+    }
+
+    @Override
     public void start() throws StorageException {
     }
 
@@ -271,6 +282,27 @@ public class TestMvTableStorage implements MvTableStorage {
 
             return completedFuture(null);
         });
+    }
+
+    @Override
+    public @Nullable IndexStorage getIndex(int partitionId, UUID indexId) {
+        if (mvPartitionStorages.get(partitionId) == null) {
+            throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+        }
+
+        HashIndices hashIndices = hashIndicesById.get(indexId);
+
+        if (hashIndices != null) {
+            return hashIndices.storageByPartitionId.get(partitionId);
+        }
+
+        SortedIndices sortedIndices = sortedIndicesById.get(indexId);
+
+        if (sortedIndices != null) {
+            return sortedIndices.storageByPartitionId.get(partitionId);
+        }
+
+        return null;
     }
 
     private Stream<TestHashIndexStorage> testHashIndexStorageStream(Integer partitionId) {

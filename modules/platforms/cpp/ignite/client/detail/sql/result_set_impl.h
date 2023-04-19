@@ -21,7 +21,7 @@
 #include "ignite/client/detail/utils.h"
 #include "ignite/client/sql/result_set_metadata.h"
 #include "ignite/client/table/ignite_tuple.h"
-#include "ignite/schema/binary_tuple_parser.h"
+#include "ignite/tuple/binary_tuple_parser.h"
 
 #include <cstdint>
 
@@ -218,7 +218,7 @@ private:
 
             auto name = protocol::unpack_object<std::string>(arr.ptr[0]);
             auto nullable = protocol::unpack_object<bool>(arr.ptr[1]);
-            auto typ = column_type(protocol::unpack_object<std::int32_t>(arr.ptr[2]));
+            auto typ = ignite_type(protocol::unpack_object<std::int32_t>(arr.ptr[2]));
             auto scale = protocol::unpack_object<std::int32_t>(arr.ptr[3]);
             auto precision = protocol::unpack_object<std::int32_t>(arr.ptr[4]);
 

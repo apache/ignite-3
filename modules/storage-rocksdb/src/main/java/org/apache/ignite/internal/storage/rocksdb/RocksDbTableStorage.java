@@ -35,7 +35,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -43,12 +46,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
@@ -56,6 +59,7 @@ import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.ColumnFamilyType;
@@ -95,6 +99,11 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     /** Indexes configuration. */
     private final TablesConfiguration tablesCfg;
+
+    /**
+     * Distribution zone configuration.
+     */
+    private final DistributionZoneConfiguration distributionZoneCfg;
 
     /** Data region for the table. */
     private final RocksDbDataRegion dataRegion;
@@ -148,13 +157,15 @@ public class RocksDbTableStorage implements MvTableStorage {
             Path tablePath,
             RocksDbDataRegion dataRegion,
             TableConfiguration tableCfg,
-            TablesConfiguration tablesCfg
+            TablesConfiguration tablesCfg,
+            DistributionZoneConfiguration distributionZoneConfiguration
     ) {
         this.engine = engine;
         this.tablePath = tablePath;
         this.tableCfg = tableCfg;
         this.dataRegion = dataRegion;
         this.tablesCfg = tablesCfg;
+        this.distributionZoneCfg = distributionZoneConfiguration;
     }
 
     /**
@@ -203,6 +214,11 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
+    public DistributionZoneConfiguration distributionZoneConfiguration() {
+        return distributionZoneCfg;
+    }
+
+    @Override
     public void start() throws StorageException {
         inBusyLock(busyLock, () -> {
             flusher = new RocksDbFlusher(
@@ -234,6 +250,8 @@ public class RocksDbTableStorage implements MvTableStorage {
             try {
                 db = RocksDB.open(dbOptions, tablePath.toAbsolutePath().toString(), cfDescriptors, cfHandles);
 
+                Map<UUID, ColumnFamily> sortedIndexColumnFamilyByIndexId = new HashMap<>();
+
                 // read all existing Column Families from the db and parse them according to type: meta, partition data or index.
                 for (ColumnFamilyHandle cfHandle : cfHandles) {
                     ColumnFamily cf = ColumnFamily.wrap(db, cfHandle);
@@ -260,17 +278,12 @@ public class RocksDbTableStorage implements MvTableStorage {
                             break;
 
                         case SORTED_INDEX:
-                            UUID indexId = sortedIndexId(cf.name());
-
-                            var indexDescriptor = new SortedIndexDescriptor(indexId, tablesCfg.value());
-
-                            sortedIndices.put(indexId, new SortedIndex(cf, indexDescriptor));
+                            sortedIndexColumnFamilyByIndexId.put(sortedIndexId(cf.name()), cf);
 
                             break;
 
                         default:
-                            throw new StorageException("Unidentified column family [name=" + cf.name() + ", table="
-                                    + getTableName() + ']');
+                            throw new StorageException("Unidentified column family [name={}, table={}]", cf.name(), getTableName());
                     }
                 }
 
@@ -278,12 +291,21 @@ public class RocksDbTableStorage implements MvTableStorage {
                 assert partitionCf != null;
                 assert hashIndexCf != null;
 
+                for (Entry<UUID, ColumnFamily> entry : sortedIndexColumnFamilyByIndexId.entrySet()) {
+                    UUID indexId = entry.getKey();
+
+                    var indexDescriptor = new SortedIndexDescriptor(indexId, tablesCfg.value());
+
+                    sortedIndices.put(indexId, new SortedIndex(entry.getValue(), indexDescriptor, meta));
+                }
+
                 flusher.init(db, cfHandles);
             } catch (RocksDBException e) {
                 throw new StorageException("Failed to initialize RocksDB instance", e);
             }
 
-            MvPartitionStorages<RocksDbMvPartitionStorage> mvPartitionStorages = new MvPartitionStorages<>(tableCfg.value());
+            MvPartitionStorages<RocksDbMvPartitionStorage> mvPartitionStorages =
+                    new MvPartitionStorages<>(tableCfg.value(), distributionZoneConfiguration().value());
 
             for (int partitionId : meta.getPartitionIds()) {
                 // There is no need to wait for futures, since there will be no parallel operations yet.
@@ -310,9 +332,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         }
 
         try {
-            TableView tableCfgView = configuration().value();
-
-            for (int partitionId = 0; partitionId < tableCfgView.partitions(); partitionId++) {
+            for (int partitionId = 0; partitionId < distributionZoneCfg.partitions().value(); partitionId++) {
                 RocksDbMvPartitionStorage partition = mvPartitionStorages.get(partitionId);
 
                 if (partition != null) {
@@ -472,7 +492,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
         flusher.addColumnFamily(columnFamily.handle());
 
-        return new SortedIndex(columnFamily, indexDescriptor);
+        return new SortedIndex(columnFamily, indexDescriptor, meta);
     }
 
     @Override
@@ -481,13 +501,13 @@ public class RocksDbTableStorage implements MvTableStorage {
             HashIndex storages = hashIndices.computeIfAbsent(indexId, id -> {
                 var indexDescriptor = new HashIndexDescriptor(indexId, tablesCfg.value());
 
-                return new HashIndex(hashIndexCf, indexDescriptor);
+                return new HashIndex(hashIndexCf, indexDescriptor, meta);
             });
 
             RocksDbMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 
             if (partitionStorage == null) {
-                throw new StorageException(String.format("Partition ID %d does not exist", partitionId));
+                throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
             }
 
             return storages.getOrCreateStorage(partitionStorage);
@@ -721,5 +741,28 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     private List<RocksDbSortedIndexStorage> getSortedIndexStorages(int partitionId) {
         return sortedIndices.values().stream().map(indexes -> indexes.get(partitionId)).filter(Objects::nonNull).collect(toList());
+    }
+
+    @Override
+    public @Nullable IndexStorage getIndex(int partitionId, UUID indexId) {
+        return inBusyLock(busyLock, () -> {
+            if (mvPartitionStorages.get(partitionId) == null) {
+                throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+            }
+
+            HashIndex hashIndex = hashIndices.get(indexId);
+
+            if (hashIndex != null) {
+                return hashIndex.get(partitionId);
+            }
+
+            SortedIndex sortedIndex = sortedIndices.get(indexId);
+
+            if (sortedIndex != null) {
+                return sortedIndex.get(partitionId);
+            }
+
+            return (IndexStorage) null;
+        });
     }
 }

@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.18)
 project(Ignite.C++ VERSION 3 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -149,7 +149,7 @@ include(ignite_test)
 
 # Add common libraries along with their unit tests if any.
 add_subdirectory(ignite/common)
-add_subdirectory(ignite/schema)
+add_subdirectory(ignite/tuple)
 
 # Add client libraries.
 if (${ENABLE_CLIENT})

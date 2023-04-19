@@ -528,7 +528,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     public void testUuidMetadata() throws SQLException {
         try (Connection con = DriverManager.getConnection(URL)) {
             try (Statement stmt = con.createStatement()) {
-                stmt.execute("CREATE TABLE UUIDS(id INT PRIMARY KEY, uuid_val UUID)");
+                stmt.executeUpdate("CREATE TABLE UUIDS(id INT PRIMARY KEY, uuid_val UUID)");
 
                 // Result set metadata
                 try (ResultSet rs = stmt.executeQuery("SELECT uuid_val FROM UUIDS")) {

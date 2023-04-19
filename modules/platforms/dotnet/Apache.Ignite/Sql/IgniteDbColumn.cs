@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Sql;
 
 using System.Data.Common;
+using Internal.Common;
 using Internal.Sql;
 
 /// <summary>
@@ -46,4 +47,16 @@ public sealed class IgniteDbColumn : DbColumn
     /// Gets Ignite-specific column metadata.
     /// </summary>
     public IColumnMetadata ColumnMetadata { get; }
+
+    /// <inheritdoc />
+    public override string ToString() =>
+        new IgniteToStringBuilder(GetType())
+            .Append(ColumnName)
+            .Append(ColumnOrdinal)
+            .Append(DataTypeName)
+            .Append(AllowDBNull)
+            .Append(NumericPrecision)
+            .Append(NumericScale)
+            .Append(ColumnMetadata)
+            .Build();
 }

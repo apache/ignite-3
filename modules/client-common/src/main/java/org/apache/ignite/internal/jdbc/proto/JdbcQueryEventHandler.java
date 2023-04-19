@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
@@ -37,29 +38,38 @@ import org.apache.ignite.internal.jdbc.proto.event.Response;
  */
 public interface JdbcQueryEventHandler {
     /**
+     * Create connection context on a server and returns connection identity.
+     *
+     * @return A future representing result of the operation.
+     */
+    CompletableFuture<JdbcConnectResult> connect();
+
+    /**
      * {@link JdbcQueryExecuteRequest} command handler.
      *
+     * @param connectionId Identifier of the connection.
      * @param req Execute query request.
      * @return Result future.
      */
-    CompletableFuture<? extends Response> queryAsync(JdbcQueryExecuteRequest req);
+    CompletableFuture<? extends Response> queryAsync(long connectionId, JdbcQueryExecuteRequest req);
 
     /**
      * {@link JdbcBatchExecuteRequest} command handler.
      *
+     * @param connectionId Identifier of the connection.
      * @param req Batch query request.
      * @return Result future.
      */
-    CompletableFuture<JdbcBatchExecuteResult> batchAsync(JdbcBatchExecuteRequest req);
+    CompletableFuture<JdbcBatchExecuteResult> batchAsync(long connectionId, JdbcBatchExecuteRequest req);
 
     /**
      * {@link JdbcBatchPreparedStmntRequest} command handler.
      *
+     * @param connectionId The identifier of the connection.
      * @param req Batch query request.
      * @return Result future.
      */
-    CompletableFuture<JdbcBatchExecuteResult> batchPrepStatementAsync(
-            JdbcBatchPreparedStmntRequest req);
+    CompletableFuture<JdbcBatchExecuteResult> batchPrepStatementAsync(long connectionId, JdbcBatchPreparedStmntRequest req);
 
     /**
      * {@link JdbcMetaTablesRequest} command handler.

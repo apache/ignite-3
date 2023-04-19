@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
@@ -33,9 +34,9 @@ class DistributionZoneConfigurationParametersTest {
         DistributionZoneConfigurationParameters zoneCfg = new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build();
 
         assertEquals(ZONE_NAME, zoneCfg.name());
-        assertEquals(null, zoneCfg.dataNodesAutoAdjust());
-        assertEquals(null, zoneCfg.dataNodesAutoAdjustScaleUp());
-        assertEquals(null, zoneCfg.dataNodesAutoAdjustScaleDown());
+        assertNull(zoneCfg.dataNodesAutoAdjust());
+        assertNull(zoneCfg.dataNodesAutoAdjustScaleUp());
+        assertNull(zoneCfg.dataNodesAutoAdjustScaleDown());
     }
 
     @Test
@@ -46,8 +47,8 @@ class DistributionZoneConfigurationParametersTest {
 
         assertEquals(ZONE_NAME, zoneCfg.name());
         assertEquals(100, zoneCfg.dataNodesAutoAdjust());
-        assertEquals(null, zoneCfg.dataNodesAutoAdjustScaleUp());
-        assertEquals(null, zoneCfg.dataNodesAutoAdjustScaleDown());
+        assertNull(zoneCfg.dataNodesAutoAdjustScaleUp());
+        assertNull(zoneCfg.dataNodesAutoAdjustScaleDown());
     }
 
     @Test
@@ -57,9 +58,9 @@ class DistributionZoneConfigurationParametersTest {
                 .build();
 
         assertEquals(ZONE_NAME, zoneCfg.name());
-        assertEquals(null, zoneCfg.dataNodesAutoAdjust());
+        assertNull(zoneCfg.dataNodesAutoAdjust());
         assertEquals(100, zoneCfg.dataNodesAutoAdjustScaleUp());
-        assertEquals(null, zoneCfg.dataNodesAutoAdjustScaleDown());
+        assertNull(zoneCfg.dataNodesAutoAdjustScaleDown());
     }
 
     @Test
@@ -69,9 +70,19 @@ class DistributionZoneConfigurationParametersTest {
                 .build();
 
         assertEquals(ZONE_NAME, zoneCfg.name());
-        assertEquals(null, zoneCfg.dataNodesAutoAdjust());
-        assertEquals(null, zoneCfg.dataNodesAutoAdjustScaleUp());
+        assertNull(zoneCfg.dataNodesAutoAdjust());
+        assertNull(zoneCfg.dataNodesAutoAdjustScaleUp());
         assertEquals(100, zoneCfg.dataNodesAutoAdjustScaleDown());
+    }
+
+    @Test
+    public void testFilter() {
+        DistributionZoneConfigurationParameters zoneCfg = new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
+                .filter("['nodeAttributes'][?(@.['region'] == 'EU')]")
+                .build();
+
+        assertEquals(ZONE_NAME, zoneCfg.name());
+        assertEquals("['nodeAttributes'][?(@.['region'] == 'EU')]", zoneCfg.filter());
     }
 
     @Test

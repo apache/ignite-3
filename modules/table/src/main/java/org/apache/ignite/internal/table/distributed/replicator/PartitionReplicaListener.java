@@ -43,7 +43,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -205,75 +204,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final CompletableFuture<SchemaRegistry> schemaFut;
 
-    /** Nullable latch that will be completed when storage is ready to process user requests. */
-    @Nullable
-    private final CountDownLatch storageReadyLatch;
-
-    /**
-     * The constructor.
-     *
-     * @param mvDataStorage Data storage.
-     * @param raftClient Raft client.
-     * @param txManager Transaction manager.
-     * @param lockManager Lock manager.
-     * @param partId Partition id.
-     * @param tableId Table id.
-     * @param indexesLockers Index lock helper objects.
-     * @param pkIndexStorage Pk index storage.
-     * @param secondaryIndexStorages Secondary index storages.
-     * @param hybridClock Hybrid clock.
-     * @param safeTime Safe time clock.
-     * @param txStateStorage Transaction state storage.
-     * @param placementDriver Placement driver.
-     * @param storageUpdateHandler Handler that processes updates writing them to storage.
-     * @param isLocalPeerChecker Function for checking that the given peer is local.
-     * @param schemaFut Table schema.
-     * @param storageReadyLatch Nullable latch that will be completed when storage is ready to process user requests.
-     */
-    public PartitionReplicaListener(
-            MvPartitionStorage mvDataStorage,
-            RaftGroupService raftClient,
-            TxManager txManager,
-            LockManager lockManager,
-            Executor scanRequestExecutor,
-            int partId,
-            UUID tableId,
-            Supplier<Map<UUID, IndexLocker>> indexesLockers,
-            Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
-            Supplier<Map<UUID, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
-            HybridClock hybridClock,
-            PendingComparableValuesTracker<HybridTimestamp> safeTime,
-            TxStateStorage txStateStorage,
-            PlacementDriver placementDriver,
-            StorageUpdateHandler storageUpdateHandler,
-            Function<Peer, Boolean> isLocalPeerChecker,
-            CompletableFuture<SchemaRegistry> schemaFut,
-            CountDownLatch storageReadyLatch
-    ) {
-        this.mvDataStorage = mvDataStorage;
-        this.raftClient = raftClient;
-        this.txManager = txManager;
-        this.lockManager = lockManager;
-        this.scanRequestExecutor = scanRequestExecutor;
-        this.partId = partId;
-        this.tableId = tableId;
-        this.indexesLockers = indexesLockers;
-        this.pkIndexStorage = pkIndexStorage;
-        this.secondaryIndexStorages = secondaryIndexStorages;
-        this.hybridClock = hybridClock;
-        this.safeTime = safeTime;
-        this.txStateStorage = txStateStorage;
-        this.placementDriver = placementDriver;
-        this.isLocalPeerChecker = isLocalPeerChecker;
-        this.storageUpdateHandler = storageUpdateHandler;
-        this.schemaFut = schemaFut;
-        this.storageReadyLatch = storageReadyLatch;
-
-        this.replicationGroupId = new TablePartitionId(tableId, partId);
-
-        cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
-    }
-
     /**
      * The constructor.
      *
@@ -330,7 +260,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.isLocalPeerChecker = isLocalPeerChecker;
         this.storageUpdateHandler = storageUpdateHandler;
         this.schemaFut = schemaFut;
-        this.storageReadyLatch = null;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
@@ -339,15 +268,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     @Override
     public CompletableFuture<?> invoke(ReplicaRequest request) {
-        try {
-            if (storageReadyLatch != null) {
-                storageReadyLatch.await();
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IgniteInternalException("Interrupted while awaiting the storage initialization.", e);
-        }
-
         if (request instanceof TxStateReplicaRequest) {
             return processTxStateReplicaRequest((TxStateReplicaRequest) request);
         }
@@ -387,7 +307,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReadOnlyScanRetrieveBatchReplicaRequest) {
             return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request, isPrimary);
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
-            return processReplicaSafeTimeSyncRequest((ReplicaSafeTimeSyncRequest) request);
+            return processReplicaSafeTimeSyncRequest((ReplicaSafeTimeSyncRequest) request, isPrimary);
         } else {
             throw new UnsupportedReplicaRequestException(request.getClass());
         }
@@ -622,9 +542,16 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Handler to process {@link ReplicaSafeTimeSyncRequest}.
      *
      * @param request Request.
+     * @param isPrimary Whether is primary replica.
      * @return Future.
      */
-    private CompletableFuture<Void> processReplicaSafeTimeSyncRequest(ReplicaSafeTimeSyncRequest request) {
+    private CompletableFuture<Void> processReplicaSafeTimeSyncRequest(ReplicaSafeTimeSyncRequest request, Boolean isPrimary) {
+        requireNonNull(isPrimary);
+
+        if (!isPrimary) {
+            return completedFuture(null);
+        }
+
         return raftClient.run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTime(hybridTimestamp(hybridClock.now())).build());
     }
 
@@ -2071,7 +1998,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 }
                             }
                     );
-        } else if (request instanceof ReadOnlyReplicaRequest) {
+        } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
             return raftClient.refreshAndGetLeaderWithTerm().thenApply(replicaAndTerm -> isLocalPeerChecker.apply(replicaAndTerm.leader()));
         } else {
             return completedFuture(null);

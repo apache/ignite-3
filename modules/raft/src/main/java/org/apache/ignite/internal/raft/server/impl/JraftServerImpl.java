@@ -30,7 +30,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -162,7 +164,7 @@ public class JraftServerImpl implements RaftServer {
         this.opts.setSharedPools(true);
 
         if (opts.getServerName() == null) {
-            this.opts.setServerName(service.localConfiguration().getName());
+            this.opts.setServerName(service.nodeName());
         }
 
         /*
@@ -185,7 +187,7 @@ public class JraftServerImpl implements RaftServer {
 
         startGroupInProgressMonitors = Collections.unmodifiableList(monitors);
 
-        commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.localConfiguration().getSerializationRegistry());
+        commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.serializationRegistry());
         serviceEventInterceptor = new RaftServiceEventInterceptor();
     }
 
@@ -395,16 +397,17 @@ public class JraftServerImpl implements RaftServer {
             // Thread pools are shared by all raft groups.
             NodeOptions nodeOptions = opts.copy();
 
-            // TODO: IGNITE-17083 - Do not create paths for volatile stores at all when we get rid of snapshot storage on FS.
+            nodeOptions.setLogUri(nodeIdStr(nodeId));
+
             Path serverDataPath = getServerDataPath(nodeId);
 
-            try {
-                Files.createDirectories(serverDataPath);
-            } catch (IOException e) {
-                throw new IgniteInternalException(e);
+            if (!groupOptions.volatileStores()) {
+                try {
+                    Files.createDirectories(serverDataPath);
+                } catch (IOException e) {
+                    throw new IgniteInternalException(e);
+                }
             }
-
-            nodeOptions.setLogUri(nodeIdStr(nodeId));
 
             nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
 
@@ -413,8 +416,6 @@ public class JraftServerImpl implements RaftServer {
             nodeOptions.setFsm(new DelegatingStateMachine(lsnr, commandsMarshaller));
 
             nodeOptions.setRaftGrpEvtsLsnr(new RaftGroupEventsListenerAdapter(nodeId.groupId(), serviceEventInterceptor, evLsnr));
-
-            nodeOptions.setStorageReadyLatch(groupOptions.getStorageReadyLatch());
 
             LogStorageFactory logStorageFactory = groupOptions.getLogStorageFactory() == null
                     ? this.logStorageFactory : groupOptions.getLogStorageFactory();
@@ -446,7 +447,8 @@ public class JraftServerImpl implements RaftServer {
                     PeerId.fromPeer(nodeId.peer()),
                     nodeOptions,
                     rpcServer,
-                    nodeManager
+                    nodeManager,
+                    groupOptions.ownFsmCallerExecutorDisruptorConfig()
             );
 
             server.start();
@@ -455,6 +457,14 @@ public class JraftServerImpl implements RaftServer {
 
             return true;
         }
+    }
+
+    @Override
+    public CompletableFuture<Long> raftNodeReadyFuture(ReplicationGroupId groupId) {
+        RaftGroupService jraftNode = nodes.entrySet().stream().filter(entry -> entry.getKey().groupId().equals(groupId))
+                .map(Entry::getValue).findAny().get();
+
+        return jraftNode.getApplyCommittedFuture();
     }
 
     @Override

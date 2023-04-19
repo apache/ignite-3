@@ -52,6 +52,7 @@ import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
@@ -95,22 +96,23 @@ public class ItConnectionManagerTest {
         int port1 = 4000;
         int port2 = 4001;
 
-        ConnectionManagerWrapper manager1 = startManager(port1);
-        ConnectionManagerWrapper manager2 = startManager(port2);
 
-        var fut = new CompletableFuture<NetworkMessage>();
+        try (ConnectionManagerWrapper manager1 = startManager(port1);
+                ConnectionManagerWrapper manager2 = startManager(port2)) {
+            var fut = new CompletableFuture<NetworkMessage>();
 
-        manager2.connectionManager.addListener((obj) -> fut.complete(obj.message()));
+            manager2.connectionManager.addListener((obj) -> fut.complete(obj.message()));
 
-        NettySender sender = manager1.openChannelTo(manager2).get(3, TimeUnit.SECONDS);
+            NettySender sender = manager1.openChannelTo(manager2).get(3, TimeUnit.SECONDS);
 
-        TestMessage testMessage = messageFactory.testMessage().msg(msgText).build();
+            TestMessage testMessage = messageFactory.testMessage().msg(msgText).build();
 
-        sender.send(new OutNetworkObject(testMessage, Collections.emptyList())).get(3, TimeUnit.SECONDS);
+            sender.send(new OutNetworkObject(testMessage, Collections.emptyList())).get(3, TimeUnit.SECONDS);
 
-        NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
+            NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
 
-        assertEquals(msgText, ((TestMessage) receivedMessage).msg());
+            assertEquals(msgText, ((TestMessage) receivedMessage).msg());
+        }
     }
 
     /**
@@ -127,40 +129,40 @@ public class ItConnectionManagerTest {
         int port1 = 4000;
         int port2 = 4001;
 
-        ConnectionManagerWrapper manager1 = startManager(port1);
-        ConnectionManagerWrapper manager2 = startManager(port2);
+        try (ConnectionManagerWrapper manager1 = startManager(port1);
+                ConnectionManagerWrapper manager2 = startManager(port2)) {
+            var fut = new CompletableFuture<NetworkMessage>();
 
-        var fut = new CompletableFuture<NetworkMessage>();
+            manager1.connectionManager.addListener((obj) -> fut.complete(obj.message()));
 
-        manager1.connectionManager.addListener((obj) -> fut.complete(obj.message()));
+            NettySender senderFrom1to2 = manager1.openChannelTo(manager2).get(3, TimeUnit.SECONDS);
 
-        NettySender senderFrom1to2 = manager1.openChannelTo(manager2).get(3, TimeUnit.SECONDS);
+            // Ensure a handshake has finished on both sides by sending a message.
+            // TODO: IGNITE-16947 When the recovery protocol is implemented replace this with simple
+            // CompletableFuture#get called on the send future.
+            var messageReceivedOn2 = new CompletableFuture<Void>();
 
-        // Ensure a handshake has finished on both sides by sending a message.
-        // TODO: IGNITE-16947 When the recovery protocol is implemented replace this with simple
-        // CompletableFuture#get called on the send future.
-        var messageReceivedOn2 = new CompletableFuture<Void>();
+            // If the message is received, that means that the handshake was successfully performed.
+            manager2.connectionManager.addListener((message) -> messageReceivedOn2.complete(null));
 
-        // If the message is received, that means that the handshake was successfully performed.
-        manager2.connectionManager.addListener((message) -> messageReceivedOn2.complete(null));
+            senderFrom1to2.send(new OutNetworkObject(testMessage, Collections.emptyList()));
 
-        senderFrom1to2.send(new OutNetworkObject(testMessage, Collections.emptyList()));
+            messageReceivedOn2.get(3, TimeUnit.SECONDS);
 
-        messageReceivedOn2.get(3, TimeUnit.SECONDS);
+            NettySender senderFrom2to1 = manager2.openChannelTo(manager1).get(3, TimeUnit.SECONDS);
 
-        NettySender senderFrom2to1 = manager2.openChannelTo(manager1).get(3, TimeUnit.SECONDS);
+            InetSocketAddress clientLocalAddress = (InetSocketAddress) senderFrom1to2.channel().localAddress();
 
-        InetSocketAddress clientLocalAddress = (InetSocketAddress) senderFrom1to2.channel().localAddress();
+            InetSocketAddress clientRemoteAddress = (InetSocketAddress) senderFrom2to1.channel().remoteAddress();
 
-        InetSocketAddress clientRemoteAddress = (InetSocketAddress) senderFrom2to1.channel().remoteAddress();
+            assertEquals(clientLocalAddress, clientRemoteAddress);
 
-        assertEquals(clientLocalAddress, clientRemoteAddress);
+            senderFrom2to1.send(new OutNetworkObject(testMessage, Collections.emptyList())).get(3, TimeUnit.SECONDS);
 
-        senderFrom2to1.send(new OutNetworkObject(testMessage, Collections.emptyList())).get(3, TimeUnit.SECONDS);
+            NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
 
-        NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
-
-        assertEquals(msgText, ((TestMessage) receivedMessage).msg());
+            assertEquals(msgText, ((TestMessage) receivedMessage).msg());
+        }
     }
 
     /**
@@ -250,9 +252,7 @@ public class ItConnectionManagerTest {
     public void testConnectMisconfiguredServer() throws Exception {
         ConnectionManagerWrapper client = startManager(4000);
 
-        ConnectionManagerWrapper server = startManager(4001, mockSerializationRegistry());
-
-        try {
+        try (ConnectionManagerWrapper server = startManager(4001, mockSerializationRegistry())) {
             client.openChannelTo(server).get(3, TimeUnit.SECONDS);
         } catch (ExecutionException e) {
             assertThat(e.getCause(), isA(IOException.class));
@@ -266,9 +266,7 @@ public class ItConnectionManagerTest {
     public void testConnectMisconfiguredClient() throws Exception {
         ConnectionManagerWrapper client = startManager(4000, mockSerializationRegistry());
 
-        ConnectionManagerWrapper server = startManager(4001);
-
-        try {
+        try (ConnectionManagerWrapper server = startManager(4001)) {
             client.openChannelTo(server).get(3, TimeUnit.SECONDS);
         } catch (ExecutionException e) {
             assertThat(e.getCause(), isA(DecoderException.class));
@@ -376,7 +374,12 @@ public class ItConnectionManagerTest {
         }
 
         OrderingFuture<NettySender> openChannelTo(ConnectionManagerWrapper recipient) {
-            return connectionManager.channel(recipient.connectionManager.consistentId(), recipient.connectionManager.localAddress());
+            return connectionManager.channel(
+                    recipient.connectionManager.consistentId(),
+                    ChannelType.DEFAULT,
+                    recipient.connectionManager.localAddress()
+            );
         }
+
     }
 }

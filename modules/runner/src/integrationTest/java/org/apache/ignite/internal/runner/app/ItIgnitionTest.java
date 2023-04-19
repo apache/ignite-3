@@ -17,18 +17,14 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.net.URL;
-import java.net.URLConnection;
-import java.net.URLStreamHandler;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -38,12 +34,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.Ignition;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
-import org.apache.ignite.internal.app.IgnitionImpl;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -136,22 +129,22 @@ class ItIgnitionTest extends IgniteIntegrationTest {
     @Test
     void testNodesStartWithBootstrapConfiguration() {
         for (Map.Entry<String, String> e : nodesBootstrapCfg.entrySet()) {
-            startNode(e.getKey(), name -> IgnitionManager.start(name, e.getValue(), workDir.resolve(name)));
+            startNode(e.getKey(), name -> {
+                Path nodeWorkDir = workDir.resolve(name);
+                Path configPath = nodeWorkDir.resolve("ignite-config.conf");
+                try {
+                    Files.createDirectories(nodeWorkDir);
+                    Files.writeString(configPath, e.getValue());
+                } catch (IOException ex) {
+                    throw new RuntimeException(ex);
+                }
+                return IgnitionManager.start(name, configPath, nodeWorkDir);
+            });
         }
 
-        Assertions.assertEquals(3, startedNodes.size());
+        assertEquals(3, startedNodes.size());
 
         startedNodes.forEach(Assertions::assertNotNull);
-    }
-
-    /**
-     * Check that Ignition.start() with bootstrap configuration returns Ignite instance.
-     */
-    @Test
-    void testNodeStartWithoutBootstrapConfiguration(TestInfo testInfo) {
-        startNode(testNodeName(testInfo, 47500), name -> IgnitionManager.start(name, null, workDir.resolve(name)));
-
-        Assertions.assertNotNull(startedNodes.get(0));
     }
 
     /**
@@ -159,36 +152,14 @@ class ItIgnitionTest extends IgniteIntegrationTest {
      */
     @Test
     void testErrorWhenStartNodeWithInvalidConfiguration() {
-        try {
-            startNode("invalid-config-name", name -> IgnitionManager.start(name, "{Invalid-Configuration}", workDir.resolve(name)));
-
-            fail();
-        } catch (Throwable t) {
-            assertTrue(IgniteTestUtils.hasCause(t,
-                    IgniteException.class,
-                    "Unable to parse user-specific configuration"
-            ));
-        }
-    }
-
-    /**
-     * Tests scenario when we try to start node with URL configuration.
-     */
-    @Test
-    void testStartNodeWithUrlConfig() throws Exception {
-        Ignition ign = new IgnitionImpl();
-
-        String nodeName = "node-url-config";
-
-        String cfg = "{\n"
-                + "  network: {\n"
-                + "    port: " + PORTS[0] + "\n"
-                + "  }\n"
-                + "}";
-
-        URL url = buildUrl("testURL.txt", cfg);
-
-        startNode(nodeName, name -> ign.start(nodeName, url, workDir.resolve(nodeName)));
+        assertThrowsWithCause(
+                () -> startNode(
+                        "invalid-config-name",
+                        name -> IgnitionManager.start(name, Path.of("no-such-path"), workDir.resolve(name))
+                ),
+                IgniteException.class,
+                "Config file doesn't exist"
+        );
     }
 
     private void startNode(String nodeName, Function<String, CompletableFuture<Ignite>> starter) {
@@ -210,39 +181,4 @@ class ItIgnitionTest extends IgniteIntegrationTest {
         startedNodes.add(future.join());
     }
 
-    /**
-     * Test URL with content in memory.
-     *
-     * @param path URL path.
-     * @param data Data is available by URL.
-     * @return URL.
-     * @throws Exception If failed.
-     */
-    private URL buildUrl(String path, String data) throws Exception {
-        URLStreamHandler handler = new URLStreamHandler() {
-            private final byte[] content = data.getBytes(StandardCharsets.UTF_8);
-
-            @Override
-            protected URLConnection openConnection(URL url) {
-                return new URLConnection(url) {
-                    @Override
-                    public void connect() {
-                        connected = true;
-                    }
-
-                    @Override
-                    public long getContentLengthLong() {
-                        return content.length;
-                    }
-
-                    @Override
-                    public InputStream getInputStream() {
-                        return new ByteArrayInputStream(content);
-                    }
-                };
-            }
-        };
-
-        return new URL("memory", "", -1, path, handler);
-    }
 }

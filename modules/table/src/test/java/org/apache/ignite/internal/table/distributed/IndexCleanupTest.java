@@ -36,7 +36,7 @@ public class IndexCleanupTest extends IndexBaseTest {
     @EnumSource(AddWrite.class)
     void testAbort(AddWrite writer) {
         UUID rowUuid = UUID.randomUUID();
-        RowId rowId = new RowId(1, rowUuid);
+        RowId rowId = new RowId(PARTITION_ID, rowUuid);
 
         BinaryRow row = defaultRow();
 
@@ -59,7 +59,7 @@ public class IndexCleanupTest extends IndexBaseTest {
     @EnumSource(AddWrite.class)
     void testTombstoneCleansUpIndexes(AddWrite writer) {
         UUID rowUuid = UUID.randomUUID();
-        RowId rowId = new RowId(1, rowUuid);
+        RowId rowId = new RowId(PARTITION_ID, rowUuid);
 
         BinaryRow row = defaultRow();
 
@@ -88,7 +88,7 @@ public class IndexCleanupTest extends IndexBaseTest {
     @EnumSource(AddWrite.class)
     void testAbortTombstone(AddWrite writer) {
         UUID rowUuid = UUID.randomUUID();
-        RowId rowId = new RowId(1, rowUuid);
+        RowId rowId = new RowId(PARTITION_ID, rowUuid);
 
         BinaryRow row = defaultRow();
 
@@ -108,8 +108,8 @@ public class IndexCleanupTest extends IndexBaseTest {
     void testAbortConsecutiveTxWithMatchingIndexes(AddWrite writer) {
         UUID rowUuid1 = UUID.randomUUID();
         UUID rowUuid2 = UUID.randomUUID();
-        RowId rowId1 = new RowId(1, rowUuid1);
-        RowId rowId2 = new RowId(1, rowUuid2);
+        RowId rowId1 = new RowId(PARTITION_ID, rowUuid1);
+        RowId rowId2 = new RowId(PARTITION_ID, rowUuid2);
 
         var key1 = new TestKey(1, "foo");
         var key2 = new TestKey(2, "baz");
@@ -141,9 +141,9 @@ public class IndexCleanupTest extends IndexBaseTest {
     @EnumSource(AddWrite.class)
     void testAbortConsecutiveTxWithMatchingIndexesSameRow(AddWrite writer) {
         UUID rowUuid = UUID.randomUUID();
-        RowId rowId = new RowId(1, rowUuid);
+        RowId rowId = new RowId(PARTITION_ID, rowUuid);
 
-        var key = new TestKey(1, "foo");
+        var key = new TestKey(PARTITION_ID, "foo");
 
         BinaryRow row1 = binaryRow(key, new TestValue(2, "bar"));
         BinaryRow row2 = binaryRow(key, new TestValue(3, "baz"));
@@ -165,7 +165,7 @@ public class IndexCleanupTest extends IndexBaseTest {
     @EnumSource(AddWrite.class)
     void testIndexNotRemovedOnTombstone(AddWrite writer) {
         UUID rowUuid = UUID.randomUUID();
-        RowId rowId = new RowId(1, rowUuid);
+        RowId rowId = new RowId(PARTITION_ID, rowUuid);
 
         BinaryRow row = defaultRow();
 
@@ -186,7 +186,7 @@ public class IndexCleanupTest extends IndexBaseTest {
     @EnumSource(AddWrite.class)
     void testIndexNotRemovedWhileAbortingIfPreviousVersionExists(AddWrite writer) {
         UUID rowUuid = UUID.randomUUID();
-        RowId rowId = new RowId(1, rowUuid);
+        RowId rowId = new RowId(PARTITION_ID, rowUuid);
 
         BinaryRow row = defaultRow();
 
@@ -207,7 +207,7 @@ public class IndexCleanupTest extends IndexBaseTest {
     @EnumSource(AddWrite.class)
     void testIndexNotRemovedWhileWritingIfPreviousVersionExists(AddWrite writer) {
         UUID rowUuid = UUID.randomUUID();
-        RowId rowId = new RowId(1, rowUuid);
+        RowId rowId = new RowId(PARTITION_ID, rowUuid);
 
         BinaryRow row = defaultRow();
 
@@ -227,7 +227,7 @@ public class IndexCleanupTest extends IndexBaseTest {
     @EnumSource(AddWrite.class)
     void testIndexNotRemovedWhileWritingIfMultiplePreviousVersionsExists(AddWrite writer) {
         UUID rowUuid = UUID.randomUUID();
-        RowId rowId = new RowId(1, rowUuid);
+        RowId rowId = new RowId(PARTITION_ID, rowUuid);
 
         BinaryRow row = defaultRow();
 

@@ -84,7 +84,6 @@ public abstract class BaseMvStoragesTest {
         }
     }
 
-
     protected static IndexRow indexRow(IndexDescriptor indexDescriptor, BinaryRow binaryRow, RowId rowId) {
         int[] columnIndexes = indexDescriptor.columns().stream()
                 .mapToInt(indexColumnDescriptor -> {

@@ -58,17 +58,18 @@ public class ItCorrelatesTest extends ClusterPerClassIntegrationTest {
     }
 
     /**
-     * Tests resolving of collisions in correlates.
+     * Tests resolving of collisions in correlates with correlate variables in the left hand.
      */
     @Test
-    public void testCorrelatesCollision() throws InterruptedException {
+    public void testCorrelatesCollisionLeft() throws InterruptedException {
         sql("CREATE TABLE test1 (a INTEGER PRIMARY KEY, b INTEGER)");
-        sql("INSERT INTO test1 VALUES (11, 1), (12, 2), (13, 3)");
         sql("CREATE TABLE test2 (a INTEGER PRIMARY KEY, c INTEGER)");
-        sql("INSERT INTO test2 VALUES (11, 1), (12, 1), (13, 4)");
 
         waitForIndex("TEST1_PK");
         waitForIndex("TEST2_PK");
+
+        sql("INSERT INTO test1 VALUES (11, 1), (12, 2), (13, 3)");
+        sql("INSERT INTO test2 VALUES (11, 1), (12, 1), (13, 4)");
 
         // Collision by correlate variables in the left hand.
         assertQuery("SELECT * FROM test1 WHERE "
@@ -76,6 +77,21 @@ public class ItCorrelatesTest extends ClusterPerClassIntegrationTest {
                 + "AND NOT EXISTS(SELECT * FROM test2 WHERE test1.a=test2.a AND test1.b<test2.c)")
                 .returns(12, 2)
                 .check();
+    }
+
+    /**
+     * Tests resolving of collisions in correlates with correlate variables in both, left and right hands.
+     */
+    @Test
+    public void testCorrelatesCollisionRight() throws InterruptedException {
+        sql("CREATE TABLE test1 (a INTEGER PRIMARY KEY, b INTEGER)");
+        sql("CREATE TABLE test2 (a INTEGER PRIMARY KEY, c INTEGER)");
+
+        waitForIndex("TEST1_PK");
+        waitForIndex("TEST2_PK");
+
+        sql("INSERT INTO test1 VALUES (11, 1), (12, 2), (13, 3)");
+        sql("INSERT INTO test2 VALUES (11, 1), (12, 1), (13, 4)");
 
         // Collision by correlate variables in both, left and right hands.
         assertQuery("SELECT * FROM test1 WHERE "

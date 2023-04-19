@@ -20,19 +20,20 @@ package org.apache.ignite.internal.rest.api.cluster;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.internal.rest.api.cluster.authentication.AuthenticationConfigDto;
+import org.apache.ignite.internal.rest.api.cluster.authentication.AuthenticationConfig;
 import org.apache.ignite.internal.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * REST command for initializing a cluster.
  */
-@Schema(description = "Cluster initialization data.")
+@Schema(description = "Cluster initialization configuration.")
 public class InitCommand {
     @Schema(description = "A list of RAFT metastorage nodes.")
     private final Collection<String> metaStorageNodes;
@@ -44,7 +45,7 @@ public class InitCommand {
     private final String clusterName;
 
     @Schema(description = "Authentication configuration.")
-    private final AuthenticationConfigDto authenticationConfig;
+    private final AuthenticationConfig authenticationConfig;
 
     /**
      * Constructor.
@@ -54,13 +55,13 @@ public class InitCommand {
             @JsonProperty("metaStorageNodes") Collection<String> metaStorageNodes,
             @JsonProperty("cmgNodes") @Nullable Collection<String> cmgNodes,
             @JsonProperty("clusterName") String clusterName,
-            @JsonProperty("authenticationConfig") AuthenticationConfigDto authenticationConfig
+            @JsonProperty("authenticationConfig") AuthenticationConfig authenticationConfig
     ) {
         Objects.requireNonNull(metaStorageNodes);
         Objects.requireNonNull(clusterName);
 
         if (metaStorageNodes.isEmpty()) {
-            throw new IllegalArgumentException("Meta Storage node names list must not be empty");
+            throw new IllegalArgumentException("Meta Storage node names list must not be empty.");
         }
 
         if (metaStorageNodes.stream().anyMatch(StringUtils::nullOrBlank)) {
@@ -72,7 +73,7 @@ public class InitCommand {
         }
 
         if (clusterName.isBlank()) {
-            throw new IllegalArgumentException("Cluster name must not be empty");
+            throw new IllegalArgumentException("Cluster name must not be empty.");
         }
 
         this.metaStorageNodes = List.copyOf(metaStorageNodes);
@@ -81,23 +82,23 @@ public class InitCommand {
         this.authenticationConfig = authenticationConfig;
     }
 
-    @JsonProperty
+    @JsonGetter("metaStorageNodes")
     public Collection<String> metaStorageNodes() {
         return metaStorageNodes;
     }
 
-    @JsonProperty
+    @JsonGetter("cmgNodes")
     public Collection<String> cmgNodes() {
         return cmgNodes;
     }
 
-    @JsonProperty
+    @JsonGetter("clusterName")
     public String clusterName() {
         return clusterName;
     }
 
-    @JsonProperty
-    public AuthenticationConfigDto authenticationConfig() {
+    @JsonGetter("authenticationConfig")
+    public AuthenticationConfig authenticationConfig() {
         return authenticationConfig;
     }
 

@@ -34,7 +34,6 @@ namespace ignite::detail {
 class sql_impl {
 public:
     // Default
-    ~sql_impl() = default;
     sql_impl(sql_impl &&) noexcept = default;
     sql_impl &operator=(sql_impl &&) noexcept = default;
 

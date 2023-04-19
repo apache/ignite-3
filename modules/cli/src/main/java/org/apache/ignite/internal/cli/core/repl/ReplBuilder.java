@@ -49,6 +49,8 @@ public class ReplBuilder {
 
     private boolean tailTipWidgetsEnabled;
 
+    private boolean autosuggestionsWidgetsEnabled;
+
     private Runnable onStart = () -> {};
 
     /**
@@ -67,6 +69,7 @@ public class ReplBuilder {
                 completer,
                 historyFileName,
                 tailTipWidgetsEnabled,
+                autosuggestionsWidgetsEnabled,
                 onStart
         );
     }
@@ -142,6 +145,11 @@ public class ReplBuilder {
 
     public ReplBuilder withTailTipWidgets() {
         this.tailTipWidgetsEnabled = true;
+        return this;
+    }
+
+    public ReplBuilder withAutosuggestionsWidgets() {
+        this.autosuggestionsWidgetsEnabled = true;
         return this;
     }
 }

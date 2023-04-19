@@ -31,13 +31,17 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
+import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
+import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.lang.IgniteException;
@@ -69,6 +73,12 @@ public class ClientHandlerModule implements IgniteComponent {
     /** Cluster ID supplier. */
     private final Supplier<CompletableFuture<UUID>> clusterIdSupplier;
 
+    /** Metrics. */
+    private final ClientHandlerMetricSource metrics;
+
+    /** Metric manager. */
+    private final MetricManager metricManager;
+
     /** Cluster ID. */
     private UUID clusterId;
 
@@ -87,16 +97,25 @@ public class ClientHandlerModule implements IgniteComponent {
     /** Netty bootstrap factory. */
     private final NettyBootstrapFactory bootstrapFactory;
 
+    private final AuthenticationManager authenticationManager;
+
+    private final AuthenticationConfiguration authenticationConfiguration;
+
     /**
      * Constructor.
      *
-     * @param queryProcessor     Sql query processor.
-     * @param igniteTables       Ignite.
+     * @param queryProcessor Sql query processor.
+     * @param igniteTables Ignite.
      * @param igniteTransactions Transactions.
-     * @param registry           Configuration registry.
-     * @param igniteCompute      Compute.
-     * @param clusterService     Cluster.
-     * @param bootstrapFactory   Bootstrap factory.
+     * @param registry Configuration registry.
+     * @param igniteCompute Compute.
+     * @param clusterService Cluster.
+     * @param bootstrapFactory Bootstrap factory.
+     * @param sql SQL.
+     * @param clusterIdSupplier ClusterId supplier.
+     * @param metricManager Metric manager.
+     * @param authenticationManager Authentication manager.
+     * @param authenticationConfiguration Authentication configuration.
      */
     public ClientHandlerModule(
             QueryProcessor queryProcessor,
@@ -107,7 +126,11 @@ public class ClientHandlerModule implements IgniteComponent {
             ClusterService clusterService,
             NettyBootstrapFactory bootstrapFactory,
             IgniteSql sql,
-            Supplier<CompletableFuture<UUID>> clusterIdSupplier) {
+            Supplier<CompletableFuture<UUID>> clusterIdSupplier,
+            MetricManager metricManager,
+            ClientHandlerMetricSource metrics,
+            AuthenticationManager authenticationManager,
+            AuthenticationConfiguration authenticationConfiguration) {
         assert igniteTables != null;
         assert registry != null;
         assert queryProcessor != null;
@@ -116,6 +139,10 @@ public class ClientHandlerModule implements IgniteComponent {
         assert bootstrapFactory != null;
         assert sql != null;
         assert clusterIdSupplier != null;
+        assert metricManager != null;
+        assert metrics != null;
+        assert authenticationManager != null;
+        assert authenticationConfiguration != null;
 
         this.queryProcessor = queryProcessor;
         this.igniteTables = igniteTables;
@@ -126,6 +153,10 @@ public class ClientHandlerModule implements IgniteComponent {
         this.bootstrapFactory = bootstrapFactory;
         this.sql = sql;
         this.clusterIdSupplier = clusterIdSupplier;
+        this.metricManager = metricManager;
+        this.metrics = metrics;
+        this.authenticationManager = authenticationManager;
+        this.authenticationConfiguration = authenticationConfiguration;
     }
 
     /** {@inheritDoc} */
@@ -135,8 +166,16 @@ public class ClientHandlerModule implements IgniteComponent {
             throw new IgniteException("ClientHandlerModule is already started.");
         }
 
+        var configuration = registry.getConfiguration(ClientConnectorConfiguration.KEY).value();
+
+        metricManager.registerSource(metrics);
+
+        if (configuration.metricsEnabled()) {
+            metrics.enable();
+        }
+
         try {
-            channel = startEndpoint().channel();
+            channel = startEndpoint(configuration).channel();
             clusterId = clusterIdSupplier.get().join();
         } catch (InterruptedException e) {
             throw new IgniteException(e);
@@ -146,6 +185,8 @@ public class ClientHandlerModule implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
+        metricManager.unregisterSource(metrics);
+
         if (channel != null) {
             channel.close().await();
 
@@ -170,13 +211,12 @@ public class ClientHandlerModule implements IgniteComponent {
     /**
      * Starts the endpoint.
      *
+     * @param configuration Configuration.
      * @return Channel future.
      * @throws InterruptedException If thread has been interrupted during the start.
      * @throws IgniteException      When startup has failed.
      */
-    private ChannelFuture startEndpoint() throws InterruptedException {
-        var configuration = registry.getConfiguration(ClientConnectorConfiguration.KEY).value();
-
+    private ChannelFuture startEndpoint(ClientConnectorView configuration) throws InterruptedException {
         int desiredPort = configuration.port();
         int portRange = configuration.portRange();
 
@@ -200,7 +240,7 @@ public class ClientHandlerModule implements IgniteComponent {
                                     configuration.idleTimeout(), 0, 0, TimeUnit.MILLISECONDS);
 
                             ch.pipeline().addLast(idleStateHandler);
-                            ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeout()));
+                            ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeout(), metrics));
                         }
 
                         if (sslContext != null) {
@@ -209,15 +249,9 @@ public class ClientHandlerModule implements IgniteComponent {
 
                         ch.pipeline().addLast(
                                 new ClientMessageDecoder(),
-                                new ClientInboundMessageHandler(
-                                        igniteTables,
-                                        igniteTransactions,
-                                        queryProcessor,
-                                        configuration,
-                                        igniteCompute,
-                                        clusterService,
-                                        sql,
-                                        clusterId));
+                                createInboundMessageHandler(configuration));
+
+                        metrics.connectionsInitiatedIncrement();
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
@@ -250,4 +284,21 @@ public class ClientHandlerModule implements IgniteComponent {
 
         return ch.closeFuture();
     }
+
+    private ClientInboundMessageHandler createInboundMessageHandler(ClientConnectorView configuration) {
+        ClientInboundMessageHandler clientInboundMessageHandler = new ClientInboundMessageHandler(
+                igniteTables,
+                igniteTransactions,
+                queryProcessor,
+                configuration,
+                igniteCompute,
+                clusterService,
+                sql,
+                clusterId,
+                metrics,
+                authenticationManager);
+        authenticationConfiguration.listen(clientInboundMessageHandler);
+        return clientInboundMessageHandler;
+    }
+
 }

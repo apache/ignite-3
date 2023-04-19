@@ -44,4 +44,8 @@ public class DeployUnitMessageTypes {
      * Message type for {@link UndeployUnitResponse}.
      */
     public static final short UNDEPLOY_UNIT_RESPONSE = 3;
+
+    public static final short STOP_DEPLOY_REQUEST = 4;
+
+    public static final short STOP_DEPLOY_RESPONSE = 5;
 }

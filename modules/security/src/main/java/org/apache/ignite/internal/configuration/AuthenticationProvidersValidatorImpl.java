@@ -35,20 +35,19 @@ public class AuthenticationProvidersValidatorImpl implements
 
     @Override
     public void validate(AuthenticationProvidersValidator annotation, ValidationContext<NamedListView<AuthenticationProviderView>> ctx) {
-        NamedListView<AuthenticationProviderView> providers = ctx.getNewValue();
-        providers.namedListKeys()
-                .forEach(it -> validateProvider(it, providers.get(it), ctx));
-
+        for (AuthenticationProviderView provider : ctx.getNewValue()) {
+            validateProvider(provider.name(), provider, ctx);
+        }
     }
 
-    private void validateProvider(String key, AuthenticationProviderView view,
+    private static void validateProvider(String key, AuthenticationProviderView view,
             ValidationContext<NamedListView<AuthenticationProviderView>> ctx) {
         try {
             AuthenticationType authenticationType = AuthenticationType.parse(view.type());
             if (authenticationType == AuthenticationType.BASIC) {
                 BasicAuthenticationProviderView basicAuthProviderView = (BasicAuthenticationProviderView) view;
-                if (StringUtils.nullOrBlank(basicAuthProviderView.login())) {
-                    ctx.addIssue(new ValidationIssue(key, "Login must not be blank"));
+                if (StringUtils.nullOrBlank(basicAuthProviderView.username())) {
+                    ctx.addIssue(new ValidationIssue(key, "Username must not be blank"));
                 }
                 if (StringUtils.nullOrBlank(basicAuthProviderView.password())) {
                     ctx.addIssue(new ValidationIssue(key, "Password must not be blank"));

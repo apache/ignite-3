@@ -25,10 +25,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.ItAbstractListenerSnapshotTest;
@@ -69,7 +71,8 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
     public void beforeFollowerStop(RaftGroupService service, RaftServer server) throws Exception {
         ClusterNode followerNode = getNode(server);
 
-        metaStorage = new MetaStorageServiceImpl(service, new IgniteSpinBusyLock(), followerNode);
+        metaStorage = new MetaStorageServiceImpl(service, new IgniteSpinBusyLock(), followerNode,
+                new ClusterTimeImpl(new IgniteSpinBusyLock(), new HybridClockImpl()));
 
         // Put some data in the metastorage
         metaStorage.put(FIRST_KEY, FIRST_VALUE).get();
@@ -135,7 +138,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
     /** {@inheritDoc} */
     @Override
     public RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath, int index) {
-        String nodeName = service.localConfiguration().getName();
+        String nodeName = service.nodeName();
 
         KeyValueStorage storage = storageByName.computeIfAbsent(nodeName, name -> {
             var s = new RocksDbKeyValueStorage(name, listenerPersistencePath);
@@ -145,7 +148,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
             return s;
         });
 
-        return new MetaStorageListener(storage);
+        return new MetaStorageListener(storage, new ClusterTimeImpl(new IgniteSpinBusyLock(), new HybridClockImpl()));
     }
 
     /** {@inheritDoc} */

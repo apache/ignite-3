@@ -22,7 +22,6 @@ import io.micronaut.http.annotation.Consumes;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Post;
-import io.micronaut.http.annotation.Produces;
 import io.micronaut.security.annotation.Secured;
 import io.micronaut.security.rules.SecurityRule;
 import io.swagger.v3.oas.annotations.Operation;
@@ -47,16 +46,12 @@ public interface ClusterManagementApi {
     @Get("state")
     @Operation(operationId = "clusterState", description = "Returns current cluster status.")
     @ApiResponse(responseCode = "200", description = "Cluster status returned.",
-            content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ClusterStateDto.class)))
-    @ApiResponse(responseCode = "404", description = "Cluster state not found. Most likely, the cluster is not initialized.",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ClusterState.class)))
+    @ApiResponse(responseCode = "404", description = "Cluster status not found. Most likely, the cluster is not initialized.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @Produces({
-            MediaType.APPLICATION_JSON,
-            MediaType.PROBLEM_JSON
-    })
-    CompletableFuture<ClusterStateDto> clusterState();
+    CompletableFuture<ClusterState> clusterState();
 
     /**
      * Initializes cluster.

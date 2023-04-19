@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.Collections.emptySet;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
@@ -39,6 +41,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,20 +58,28 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.command.HybridTimestampMessage;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
+import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -81,6 +92,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Outgo
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.utils.RebalanceUtil;
+import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -112,6 +124,12 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
     private TablesConfiguration tablesConfiguration;
 
+    @InjectConfiguration
+            ("mock.distributionZones {"
+                    + "zone0 = { partitions = 1, replicas = 128, zoneId = 1},"
+                    + "zone1 = { partitions = 2, replicas = 128, zoneId = 2}}")
+    private DistributionZonesConfiguration distributionZonesConfiguration;
+
     private WatchListener watchListener;
 
     private TableManager tableManager;
@@ -129,14 +147,16 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
         MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
 
         doAnswer(invocation -> {
-            WatchListener listener = invocation.getArgument(1);
+            ByteArray key = invocation.getArgument(0);
 
-            if (watchListener == null) {
-                watchListener = listener;
+            WatchListener watchListener = invocation.getArgument(1);
+
+            if (Arrays.equals(key.bytes(), zoneDataNodesKey().bytes())) {
+                this.watchListener = watchListener;
             }
 
             return null;
-        }).when(metaStorageManager).registerPrefixWatch(any(), any());
+        }).when(metaStorageManager).registerExactWatch(any(), any());
 
         tablesConfiguration = mock(TablesConfiguration.class);
 
@@ -146,14 +166,21 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
 
-        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage);
+        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, mock(ClusterTimeImpl.class));
 
         RaftGroupService metaStorageService = mock(RaftGroupService.class);
+
+        HybridTimestampMessage mockTsMessage = mock(HybridTimestampMessage.class);
+        when(mockTsMessage.asHybridTimestamp()).thenReturn(new HybridTimestamp(10, 10));
 
         // Delegate directly to listener.
         lenient().doAnswer(
                 invocationClose -> {
                     Command cmd = invocationClose.getArgument(0);
+
+                    if (cmd instanceof MetaStorageWriteCommand) {
+                        ((MetaStorageWriteCommand) cmd).safeTime(mockTsMessage);
+                    }
 
                     long commandIndex = raftIndex.incrementAndGet();
 
@@ -209,10 +236,16 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
             return ret;
         });
 
+        VaultManager vaultManager = mock(VaultManager.class);
+
+        when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
+        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
+
         tableManager = new TableManager(
                 "node1",
                 (x) -> {},
                 tablesConfiguration,
+                distributionZonesConfiguration,
                 clusterService,
                 null,
                 null,
@@ -227,7 +260,9 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
                 mock(SchemaManager.class),
                 null,
                 null,
-                mock(OutgoingSnapshotsManager.class)
+                mock(OutgoingSnapshotsManager.class),
+                mock(TopologyAwareRaftGroupServiceFactory.class),
+                vaultManager
         );
     }
 
@@ -242,12 +277,12 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
     @Test
     void dataNodesTriggersAssignmentsChanging() {
-        IgniteBiTuple<TableView, ExtendedTableConfiguration> table0 = mockTable(0, 1, 0);
-        IgniteBiTuple<TableView, ExtendedTableConfiguration> table1 = mockTable(1, 2, 0);
-        IgniteBiTuple<TableView, ExtendedTableConfiguration> table2 = mockTable(2, 1, 1);
-        IgniteBiTuple<TableView, ExtendedTableConfiguration> table3 = mockTable(3, 2, 1);
-        IgniteBiTuple<TableView, ExtendedTableConfiguration> table4 = mockTable(4, 1, 1);
-        IgniteBiTuple<TableView, ExtendedTableConfiguration> table5 = mockTable(5, 2, 1);
+        IgniteBiTuple<TableView, ExtendedTableConfiguration> table0 = mockTable(0, 1);
+        IgniteBiTuple<TableView, ExtendedTableConfiguration> table1 = mockTable(1, 1);
+        IgniteBiTuple<TableView, ExtendedTableConfiguration> table2 = mockTable(2, 2);
+        IgniteBiTuple<TableView, ExtendedTableConfiguration> table3 = mockTable(3, 2);
+        IgniteBiTuple<TableView, ExtendedTableConfiguration> table4 = mockTable(4, 2);
+        IgniteBiTuple<TableView, ExtendedTableConfiguration> table5 = mockTable(5, 2);
 
         List<IgniteBiTuple<TableView, ExtendedTableConfiguration>> mockedTables =
                 List.of(table0, table1, table2, table3, table4, table5);
@@ -258,20 +293,20 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         Set<String> nodes = Set.of("node0", "node1", "node2");
 
-        watchListenerOnUpdate(1, nodes, 1);
+        watchListenerOnUpdate(2, nodes, 1);
 
         Map<Integer, Set<String>> zoneNodes = new HashMap<>();
 
-        zoneNodes.put(1, nodes);
+        zoneNodes.put(2, nodes);
 
         checkAssignments(mockedTables, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
-        verify(keyValueStorage, timeout(1000).times(6)).invoke(any());
+        verify(keyValueStorage, timeout(1000).times(8)).invoke(any());
     }
 
     @Test
     void sequentialAssignmentsChanging() {
-        IgniteBiTuple<TableView, ExtendedTableConfiguration> table = mockTable(0, 1, 1);
+        IgniteBiTuple<TableView, ExtendedTableConfiguration> table = mockTable(0, 1);
 
         List<IgniteBiTuple<TableView, ExtendedTableConfiguration>> mockedTables = List.of(table);
 
@@ -305,7 +340,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
     @Test
     void sequentialEmptyAssignmentsChanging() {
-        IgniteBiTuple<TableView, ExtendedTableConfiguration> table = mockTable(0, 1, 1);
+        IgniteBiTuple<TableView, ExtendedTableConfiguration> table = mockTable(0, 1);
 
         List<IgniteBiTuple<TableView, ExtendedTableConfiguration>> mockedTables = List.of(table);
 
@@ -341,7 +376,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
     @Test
     void staleDataNodesEvent() {
-        IgniteBiTuple<TableView, ExtendedTableConfiguration> table = mockTable(0, 1, 1);
+        IgniteBiTuple<TableView, ExtendedTableConfiguration> table = mockTable(0, 1);
 
         List<IgniteBiTuple<TableView, ExtendedTableConfiguration>> mockedTables = List.of(table);
 
@@ -381,8 +416,10 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
     ) {
         for (int i = 0; i < mockedTables.size(); i++) {
             TableView tableView = mockedTables.get(i).get1();
+            DistributionZoneConfiguration distributionZoneConfiguration =
+                    getZoneById(distributionZonesConfiguration, tableView.zoneId());
 
-            for (int j = 0; j < tableView.partitions(); j++) {
+            for (int j = 0; j < distributionZoneConfiguration.partitions().value(); j++) {
                 TablePartitionId partId = new TablePartitionId(new UUID(0, i), j);
 
                 byte[] actualAssignmentsBytes = keyValueStorage.get(assignmentFunction.apply(partId).bytes()).value();
@@ -391,7 +428,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
                 if (expectedNodes != null) {
                     Set<String> expectedAssignments =
-                            calculateAssignmentForPartition(expectedNodes, j, tableView.replicas())
+                            calculateAssignmentForPartition(expectedNodes, j, distributionZoneConfiguration.replicas().value())
                                     .stream().map(assignment -> assignment.consistentId()).collect(Collectors.toSet());
 
                     assertNotNull(actualAssignmentsBytes);
@@ -427,12 +464,12 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
         watchListener.onUpdate(evt);
     }
 
-    private IgniteBiTuple<TableView, ExtendedTableConfiguration> mockTable(int tableNum, int partNum, int zoneId) {
+    private IgniteBiTuple<TableView, ExtendedTableConfiguration> mockTable(int tableNum, int zoneId) {
         TableView tableView = mock(TableView.class);
+        DistributionZoneView distributionZoneView = getZoneById(distributionZonesConfiguration, zoneId).value();
+
         when(tableView.zoneId()).thenReturn(zoneId);
         when(tableView.name()).thenReturn("table" + tableNum);
-        when(tableView.replicas()).thenReturn(1);
-        when(tableView.partitions()).thenReturn(partNum);
 
         ExtendedTableConfiguration tableCfg = mock(ExtendedTableConfiguration.class);
         ConfigurationValue valueId = mock(ConfigurationValue.class);
@@ -441,7 +478,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         List<Set<Assignment>> tableAssignments = new ArrayList<>();
 
-        for (int i = 0; i < partNum; i++) {
+        for (int i = 0; i < distributionZoneView.partitions(); i++) {
             tableAssignments.add(Set.of(Assignment.forPeer("fakeAssignment")));
         }
 
@@ -477,7 +514,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         ExtendedTableConfiguration tableCfg = mock(ExtendedTableConfiguration.class);
         when(tables.any()).thenReturn(tableCfg);
-        when(tableCfg.replicas()).thenReturn(mock(ConfigurationValue.class));
+
         when(tableCfg.assignments()).thenReturn(mock(ConfigurationValue.class));
 
         when(tablesConfiguration.tables()).thenReturn(tables);

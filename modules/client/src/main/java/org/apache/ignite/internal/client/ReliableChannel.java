@@ -43,7 +43,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.ClientOperationType;
@@ -64,7 +63,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class ReliableChannel implements AutoCloseable {
     /** Channel factory. */
-    private final BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, CompletableFuture<ClientChannel>> chFactory;
+    private final ClientChannelFactory chFactory;
+
+    /** Metrics. */
+    private final ClientMetricSource metrics;
 
     /** Client channel holders for each configured address. */
     private volatile List<ClientChannelHolder> channels;
@@ -117,13 +119,16 @@ public final class ReliableChannel implements AutoCloseable {
      * @param chFactory Channel factory.
      * @param clientCfg Client config.
      */
-    ReliableChannel(BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, CompletableFuture<ClientChannel>> chFactory,
-            IgniteClientConfiguration clientCfg) {
+    ReliableChannel(
+            ClientChannelFactory chFactory,
+            IgniteClientConfiguration clientCfg,
+            ClientMetricSource metrics) {
         this.clientCfg = Objects.requireNonNull(clientCfg, "clientCfg");
         this.chFactory = Objects.requireNonNull(chFactory, "chFactory");
         this.log = ClientUtils.logger(clientCfg, ReliableChannel.class);
+        this.metrics = metrics;
 
-        connMgr = new NettyClientConnectionMultiplexer();
+        connMgr = new NettyClientConnectionMultiplexer(metrics);
         connMgr.start(clientCfg);
     }
 
@@ -132,8 +137,6 @@ public final class ReliableChannel implements AutoCloseable {
     public synchronized void close() {
         closed = true;
 
-        connMgr.stop();
-
         List<ClientChannelHolder> holders = channels;
 
         if (holders != null) {
@@ -141,6 +144,8 @@ public final class ReliableChannel implements AutoCloseable {
                 hld.close();
             }
         }
+
+        connMgr.stop();
     }
 
     /**
@@ -576,6 +581,10 @@ public final class ReliableChannel implements AutoCloseable {
             }
         }
 
+        if (res) {
+            metrics.requestsRetriedIncrement();
+        }
+
         return res;
     }
 
@@ -773,7 +782,7 @@ public final class ReliableChannel implements AutoCloseable {
                             new IgniteClientConnectionException(CONNECTION_ERR, "Reconnect is not allowed due to applied throttling"));
                 }
 
-                chFut0 = chFactory.apply(chCfg, connMgr).thenApply(ch -> {
+                chFut0 = chFactory.create(chCfg, connMgr, metrics).thenApply(ch -> {
                     var oldClusterId = clusterId.compareAndExchange(null, ch.protocolContext().clusterId());
 
                     if (oldClusterId != null && !oldClusterId.equals(ch.protocolContext().clusterId())) {

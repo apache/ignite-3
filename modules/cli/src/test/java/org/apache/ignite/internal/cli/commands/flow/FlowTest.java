@@ -314,6 +314,16 @@ class FlowTest {
         assertThat(out.toString(), equalTo("fizz1" + System.lineSeparator()));
     }
 
+    @Test
+    void testHandlers() {
+        String value = "foo";
+        Exception exception = new Exception();
+        Flows.from(value)
+                .onSuccess(result -> assertThat(result, equalTo(value)))
+                .then(input -> Flowable.failure(exception))
+                .onFailure(ex -> assertThat(ex, equalTo(exception)))
+                .start();
+    }
 
     private void bindAnswers(String... answers) throws IOException {
         Files.writeString(input, String.join("\n", answers) + "\n");

@@ -49,6 +49,15 @@ public class HybridClockImpl implements HybridClock {
         this.latestTime = new HybridTimestamp(Clock.systemUTC().instant().toEpochMilli(), 0);
     }
 
+    /**
+     * The constructor which initializes the latest time to some initial time.
+     *
+     * @param initialTime Initial time.
+     */
+    public HybridClockImpl(HybridTimestamp initialTime) {
+        this.latestTime = initialTime;
+    }
+
     /** {@inheritDoc} */
     @Override
     public HybridTimestamp now() {

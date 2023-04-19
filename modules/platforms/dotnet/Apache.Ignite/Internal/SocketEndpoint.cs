@@ -48,7 +48,12 @@ namespace Apache.Ignite.Internal
             set
             {
                 Debug.Assert(value != null, "value != null");
+
+                var oldValue = _socket;
+
                 _socket = value;
+
+                oldValue?.Dispose();
             }
         }
 

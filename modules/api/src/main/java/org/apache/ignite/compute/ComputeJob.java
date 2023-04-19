@@ -18,17 +18,18 @@
 package org.apache.ignite.compute;
 
 /**
- * A Compute job that may be executed on an Ignite node (or a few nodes, or on the whole cluster).
+ * A Compute job that may be executed on a single Ignite node, on several nodes, or on the entire cluster.
  *
- * @param <R> job result type
+ * @param <R> Job result type.
  */
+
 public interface ComputeJob<R> {
     /**
      * Executes the job on an Ignite node.
      *
-     * @param context  context
-     * @param args     job arguments
-     * @return job result
+     * @param context  The execution context.
+     * @param args     Job arguments.
+     * @return Job result.
      */
     R execute(JobExecutionContext context, Object... args);
 }

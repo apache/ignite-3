@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.cli.config;
 
-import java.io.File;
-import java.nio.file.Path;
+import static java.util.stream.Collectors.toUnmodifiableSet;
+
+import java.util.Set;
 
 /** CLI config keys and constants. */
 public enum CliConfigKeys {
@@ -42,12 +43,35 @@ public enum CliConfigKeys {
     REST_KEY_STORE_PASSWORD(Constants.REST_KEY_STORE_PASSWORD),
 
     /** Default JDBC URL property name. */
-    JDBC_URL(Constants.JDBC_URL);
+    JDBC_URL(Constants.JDBC_URL),
+
+    /** Basic authentication username. */
+    BASIC_AUTHENTICATION_USERNAME(Constants.BASIC_AUTHENTICATION_USERNAME),
+
+    /** Basic authentication password. */
+    BASIC_AUTHENTICATION_PASSWORD(Constants.BASIC_AUTHENTICATION_PASSWORD);
 
     private final String value;
 
     public String value() {
         return value;
+    }
+
+    /**
+     * Returns all secret config keys.
+     */
+    public static Set<String> secretConfigKeys() {
+        return Set.of(
+                        REST_KEY_STORE_PASSWORD,
+                        REST_KEY_STORE_PATH,
+                        REST_TRUST_STORE_PASSWORD,
+                        REST_TRUST_STORE_PATH,
+                        BASIC_AUTHENTICATION_USERNAME,
+                        BASIC_AUTHENTICATION_PASSWORD
+                )
+                .stream()
+                .map(CliConfigKeys::value)
+                .collect(toUnmodifiableSet());
     }
 
     /** Constants for CLI config. */
@@ -66,52 +90,12 @@ public enum CliConfigKeys {
 
         public static final String JDBC_URL = "ignite.jdbc-url";
 
-        /** Environment variable which points to the base directory for configuration files according to XDG spec. */
-        private static final String XDG_CONFIG_HOME = "XDG_CONFIG_HOME";
+        public static final String BASIC_AUTHENTICATION_USERNAME = "ignite.auth.basic.username";
 
-        /** Subdirectory name under the base configuration directory for ignite configuration files. */
-        private static final String PARENT_FOLDER_NAME = "ignitecli";
-
-        /** Main configuration file name. */
-        private static final String CONFIG_FILE_NAME = "defaults";
-
-        /** Environment variable which points to the configuration file. */
-        private static final String IGNITE_CLI_CONFIG_FILE = "IGNITE_CLI_CONFIG_FILE";
-
-        /** Environment variable which points to the CLI logs folder. */
-        public static final String IGNITE_CLI_LOGS_DIR = "IGNITE_CLI_LOGS_DIR";
-
-        /** Current profile property name. */
-        public static final String CURRENT_PROFILE = "current_profile";
+        public static final String BASIC_AUTHENTICATION_PASSWORD = "ignite.auth.basic.password";
     }
 
     CliConfigKeys(String value) {
         this.value = value;
-    }
-
-    /**
-     * Gets the {@link File} with user-specific configuration file.
-     * The file location can be overridden using {@code IGNITE_CLI_CONFIG_FILE} environment variable,
-     * otherwise base directory is specified by the
-     * <a href="https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG Base Directory Specification</a>
-     * and the configuration file name is {@code ignitecli/defaults} under the base directory.
-     *
-     * @return configuration file.
-     */
-    public static File getConfigFile() {
-        String configFile = System.getenv(Constants.IGNITE_CLI_CONFIG_FILE);
-        if (configFile != null) {
-            return new File(configFile);
-        }
-        return getConfigRoot().resolve(Constants.PARENT_FOLDER_NAME).resolve(Constants.CONFIG_FILE_NAME).toFile();
-    }
-
-    private static Path getConfigRoot() {
-        String xdgConfigHome = System.getenv(Constants.XDG_CONFIG_HOME);
-        if (xdgConfigHome != null) {
-            return Path.of(xdgConfigHome);
-        } else {
-            return Path.of(System.getProperty("user.home"), ".config");
-        }
     }
 }

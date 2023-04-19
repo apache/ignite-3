@@ -19,9 +19,13 @@ package org.apache.ignite.internal.rest.metrics;
 
 import io.micronaut.http.annotation.Controller;
 import java.util.Collection;
+import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.rest.api.metric.MetricSourceDto;
+import org.apache.ignite.internal.rest.api.metric.Metric;
+import org.apache.ignite.internal.rest.api.metric.MetricSet;
+import org.apache.ignite.internal.rest.api.metric.MetricSource;
 import org.apache.ignite.internal.rest.api.metric.NodeMetricApi;
 import org.apache.ignite.internal.rest.metrics.exception.MetricNotFoundException;
 
@@ -53,9 +57,21 @@ public class NodeMetricController implements NodeMetricApi {
     }
 
     @Override
-    public Collection<MetricSourceDto> list() {
+    public Collection<MetricSource> listMetricSources() {
         return metricManager.metricSources().stream()
-                .map(source -> new MetricSourceDto(source.name(), source.enabled()))
+                .map(source -> new MetricSource(source.name(), source.enabled()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public Collection<MetricSet> listMetricSets() {
+        return metricManager.metricSnapshot().get1().values().stream()
+                .map(metricSet -> {
+                    List<Metric> metricDtos = StreamSupport.stream(metricSet.spliterator(), false)
+                            .map(metric -> new Metric(metric.name(), metric.description()))
+                            .collect(Collectors.toList());
+                    return new MetricSet(metricSet.name(), metricDtos);
+                })
                 .collect(Collectors.toList());
     }
 }

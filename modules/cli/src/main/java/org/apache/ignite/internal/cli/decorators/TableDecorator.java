@@ -21,11 +21,18 @@ import com.jakewharton.fliptables.FlipTableConverters;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.sql.table.Table;
+import org.apache.ignite.internal.cli.util.PlainTableRenderer;
 
 /**
  * Implementation of {@link Decorator} for {@link Table}.
  */
 public class TableDecorator implements Decorator<Table, TerminalOutput> {
+    private final boolean plain;
+
+    public TableDecorator(boolean plain) {
+        this.plain = plain;
+    }
+
     /**
      * Transform {@link Table} to {@link TerminalOutput}.
      *
@@ -34,6 +41,10 @@ public class TableDecorator implements Decorator<Table, TerminalOutput> {
      */
     @Override
     public TerminalOutput decorate(Table table) {
-        return () -> FlipTableConverters.fromObjects(table.header(), table.content());
+        if (plain) {
+            return () -> PlainTableRenderer.render(table.header(), table.content());
+        } else {
+            return () -> FlipTableConverters.fromObjects(table.header(), table.content());
+        }
     }
 }
