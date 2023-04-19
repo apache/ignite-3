@@ -23,7 +23,11 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Test cases for aggregate functions for custom data type.
@@ -62,24 +66,71 @@ public abstract class BaseAggregateCustomDataTypeTest<T extends Comparable<T>> e
         checkQuery("SELECT MAX(test_key) FROM t").returns(max).check();
     }
 
-
-    /** {@code SOME} aggregate function. */
+    /**
+     * Test {@code GROUP BY}.
+     */
     @Test
-    public void testSome() {
+    public void testGroupBy() {
         T min = orderedValues.first();
         T mid = orderedValues.higher(min);
         T max = orderedValues.last();
 
         insertValues();
 
-        // TODO: SOME supports both type and types this type can be converted from
-        String query = format("SELECT test_key, SOME(test_key = '{}'::<type>) FROM t GROUP BY test_key ORDER BY test_key", max);
+        checkQuery("SELECT ANY_VALUE(id) as o, test_key FROM t GROUP BY test_key ORDER BY o")
+                .returns(1, min)
+                .returns(2, mid)
+                .returns(3, max)
+                .check();
+    }
+
+    /**
+     * Test {@code GROUP BY} {@code HAVING}.
+     */
+    @ParameterizedTest
+    @MethodSource("having")
+    public void testGroupByHaving(TestTypeArguments<T> arguments) {
+        insertValues();
+
+        String query = format("SELECT ANY_VALUE(id), test_key FROM t GROUP BY test_key HAVING test_key = {}",
+                arguments.valueExpr(0));
+
+        checkQuery(query)
+                .returns(1, orderedValues.first())
+                .check();
+    }
+
+    private Stream<TestTypeArguments<T>> having() {
+        T min = orderedValues.first();
+
+        return TestTypeArguments.unary(testTypeSpec, dataSamples, min);
+    }
+
+    /** {@code SOME} aggregate function. */
+    @ParameterizedTest
+    @MethodSource("some")
+    public void testSome(TestTypeArguments<T> arguments) {
+        T min = orderedValues.first();
+        T mid = orderedValues.higher(min);
+        T max = orderedValues.last();
+
+        insertValues();
+
+        String query = format(
+                "SELECT test_key, SOME(test_key = {}) FROM t GROUP BY test_key ORDER BY test_key",
+                arguments.valueExpr(0));
 
         checkQuery(query)
                 .returns(min, false)
                 .returns(mid, false)
                 .returns(max, true)
                 .check();
+    }
+
+    private Stream<TestTypeArguments<T>> some() {
+        T max = orderedValues.last();
+
+        return TestTypeArguments.unary(testTypeSpec, dataSamples, max);
     }
 
     /** {@code ANY_VALUE} aggregate function. */
@@ -93,8 +144,6 @@ public abstract class BaseAggregateCustomDataTypeTest<T extends Comparable<T>> e
         List<Object> row = rows.get(0);
         assertThat(values, hasItem((T) row.get(0)));
     }
-
-    // TODO: GROUP BY clauses?
 
     private void insertValues() {
         runSql("INSERT INTO t VALUES(1, $0)");

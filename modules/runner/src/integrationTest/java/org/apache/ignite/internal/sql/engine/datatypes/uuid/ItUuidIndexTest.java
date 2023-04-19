@@ -15,21 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.datatypes;
+package org.apache.ignite.internal.sql.engine.datatypes.uuid;
 
 import java.util.UUID;
-import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseSetOpCustomDataTypeTest;
+
+import org.apache.ignite.internal.sql.engine.datatypes.CustomDataTypeTestSpecs;
+import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseIndexCustomDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.CustomDataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.junit.jupiter.api.Disabled;
 
 /**
- * Tests for set operators for {@link UuidType UUID data type}.
+ * Tests for queries that use indexes with {@link UuidType UUID data type}.
  */
-public class ItUuidSetOpTest extends BaseSetOpCustomDataTypeTest<UUID> {
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-19128")
+public class ItUuidIndexTest extends BaseIndexCustomDataTypeTest<UUID> {
 
-    /** {@inheritDoc} */
     @Override
     protected CustomDataTypeTestSpec<UUID> getTypeSpec() {
         return CustomDataTypeTestSpecs.UUID_TYPE;
     }
+
 }

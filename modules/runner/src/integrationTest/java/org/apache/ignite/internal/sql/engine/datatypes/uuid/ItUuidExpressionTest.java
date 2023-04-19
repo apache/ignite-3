@@ -15,23 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.datatypes;
+package org.apache.ignite.internal.sql.engine.datatypes.uuid;
 
 import java.util.UUID;
-import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseIndexCustomDataTypeTest;
+
+import org.apache.ignite.internal.sql.engine.datatypes.CustomDataTypeTestSpecs;
+import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseExpressionCustomDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.CustomDataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 /**
- * Tests for queries that use indexes with {@link UuidType UUID data type}.
+ * Tests for expressions for {@link UuidType UUID data type}.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-19128")
-public class ItUuidIndexTest extends BaseIndexCustomDataTypeTest<UUID> {
+public class ItUuidExpressionTest extends BaseExpressionCustomDataTypeTest<UUID> {
 
+    /**
+     * Test {@code RAND_UUID} function.
+     */
+    @Test
+    public void testRand() {
+        checkQuery("SELECT RAND_UUID()").columnTypes(UUID.class).check();
+    }
+
+    /** {@inheritDoc} **/
     @Override
     protected CustomDataTypeTestSpec<UUID> getTypeSpec() {
         return CustomDataTypeTestSpecs.UUID_TYPE;
     }
-
 }

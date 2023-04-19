@@ -255,7 +255,6 @@ public abstract class BaseExpressionCustomDataTypeTest<T extends Comparable<T>> 
         return TestTypeArguments.nary(testTypeSpec, dataSamples, value2, value1, value3);
     }
 
-
     /**
      * {@code TYPE_OF} function.
      */

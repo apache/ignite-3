@@ -167,9 +167,7 @@ public abstract class BaseCustomDataTypeTest<T extends Comparable<T>> extends Cl
             @Override
             public String createQuery() {
                 String templateQuery = template.createQuery();
-                String replace = templateQuery.replace("<type>", typeSpec.typeName());
-                System.err.println("QUERY: " + replace);
-                return replace;
+                return templateQuery.replace("<type>", typeSpec.typeName());
             }
         };
     }

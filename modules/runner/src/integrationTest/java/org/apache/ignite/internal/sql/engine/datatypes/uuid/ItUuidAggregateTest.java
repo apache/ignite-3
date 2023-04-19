@@ -15,19 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.datatypes;
+package org.apache.ignite.internal.sql.engine.datatypes.uuid;
 
 import java.util.UUID;
-import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseJoinCustomDataTypeTest;
+
+import org.apache.ignite.internal.sql.engine.datatypes.CustomDataTypeTestSpecs;
+import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseAggregateCustomDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.CustomDataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 
 /**
- * Tests for {@code JOIN} operator for {@link UuidType UUID data type}.
+ * Tests for aggregates for {@link UuidType UUID data type}.
  */
-public class ItUuidJoinTest extends BaseJoinCustomDataTypeTest<UUID> {
+public class ItUuidAggregateTest extends BaseAggregateCustomDataTypeTest<UUID> {
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc} **/
     @Override
     protected CustomDataTypeTestSpec<UUID> getTypeSpec() {
         return CustomDataTypeTestSpecs.UUID_TYPE;
