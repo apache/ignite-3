@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.emptySet;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
@@ -35,17 +34,13 @@ import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfigurationSchema;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneWasRemovedException;
@@ -435,12 +430,8 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
 
         assertThat(vaultMgr.putAll(valEntries), willCompleteSuccessfully());
 
-        Collection<LogicalNode> nodes = new ArrayList<>();
-
-        nodes.add(new LogicalNode(new ClusterNode("node0", "node0", new NetworkAddress("local", 1))));
-        nodes.add(new LogicalNode(new ClusterNode("node1", "node1", new NetworkAddress("local", 1))));
-
-        when(cmgManager.logicalTopology()).thenReturn(completedFuture(new LogicalTopologySnapshot(3, nodes)));
+        topology.putNode(new LogicalNode(new ClusterNode("node0", "node0", new NetworkAddress("local", 1))));
+        topology.putNode(new LogicalNode(new ClusterNode("node1", "node1", new NetworkAddress("local", 1))));
 
         startZoneManager();
 

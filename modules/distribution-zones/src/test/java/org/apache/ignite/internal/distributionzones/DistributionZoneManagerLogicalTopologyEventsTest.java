@@ -17,13 +17,11 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl.LOGICAL_TOPOLOGY_KEY;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertLogicalTopologyVersion;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.when;
 
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -42,22 +40,19 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testMetaStorageKeysInitializedOnStartWhenTopVerEmpty() throws Exception {
-        Set<LogicalNode> clusterNodes = Set.of(NODE_1);
-
-        mockCmgLocalNodes(1L, clusterNodes);
+        topology.putNode(NODE_1);
 
         distributionZoneManager.start();
 
         assertLogicalTopologyVersion(1L, keyValueStorage);
 
-        assertLogicalTopology(clusterNodes, keyValueStorage);
+        assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
     }
 
     @Test
     void testMetaStorageKeysInitializedOnStartWhenTopVerIsLessThanCmgTopVer() throws Exception {
-        Set<LogicalNode> clusterNodes = Set.of(NODE_1);
-
-        mockCmgLocalNodes(2L, clusterNodes);
+        topology.putNode(NODE_1);
+        topology.putNode(NODE_2);
 
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(1L));
 
@@ -65,15 +60,11 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         assertLogicalTopologyVersion(2L, keyValueStorage);
 
-        assertLogicalTopology(clusterNodes, keyValueStorage);
+        assertLogicalTopology(Set.of(NODE_1, NODE_2), keyValueStorage);
     }
 
     @Test
     void testMetaStorageKeysInitializedOnStartWhenTopVerEqualsToCmgTopVer() throws Exception {
-        Set<LogicalNode> clusterNodes = Set.of(NODE_1);
-
-        mockCmgLocalNodes(2L, clusterNodes);
-
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(2L));
 
         distributionZoneManager.start();
@@ -85,10 +76,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testMetaStorageKeysInitializedOnStartWhenTopVerGreaterThanCmgTopVer() throws Exception {
-        Set<LogicalNode> clusterNodes = Set.of(NODE_1);
-
-        mockCmgLocalNodes(2L, clusterNodes);
-
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(3L));
 
         distributionZoneManager.start();
@@ -101,10 +88,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
     @Test
     void testNodeAddingUpdatesLogicalTopologyInMetaStorage() throws Exception {
         topology.putNode(NODE_1);
-
-        Set<LogicalNode> clusterNodes = Set.of(NODE_1);
-
-        mockCmgLocalNodes(1L, clusterNodes);
 
         distributionZoneManager.start();
 
@@ -122,8 +105,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
         topology.putNode(NODE_1);
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1);
-
-        mockCmgLocalNodes(1L, clusterNodes);
 
         distributionZoneManager.start();
 
@@ -149,8 +130,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1, NODE_2);
 
-        mockCmgLocalNodes(2L, clusterNodes);
-
         distributionZoneManager.start();
 
         assertLogicalTopology(clusterNodes, keyValueStorage);
@@ -174,8 +153,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1, NODE_2);
 
-        mockCmgLocalNodes(2L, clusterNodes);
-
         distributionZoneManager.start();
 
         // Wait for Zone Manager to initialize Meta Storage on start.
@@ -195,8 +172,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
         topology.putNode(NODE_1);
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1);
-
-        mockCmgLocalNodes(2L, clusterNodes);
 
         distributionZoneManager.start();
 
@@ -219,8 +194,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
-        mockCmgLocalNodes(2L, clusterNodes);
-
         distributionZoneManager.start();
 
         assertLogicalTopology(clusterNodes, keyValueStorage);
@@ -236,11 +209,5 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
         assertLogicalTopology(clusterNodes, keyValueStorage);
 
         assertLogicalTopologyVersion(11L, keyValueStorage);
-    }
-
-    private void mockCmgLocalNodes(long version, Set<LogicalNode> clusterNodes) {
-        LogicalTopologySnapshot logicalTopologySnapshot = new LogicalTopologySnapshot(version, clusterNodes);
-
-        when(cmgManager.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));
     }
 }

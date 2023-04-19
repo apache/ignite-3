@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
@@ -44,7 +43,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -90,8 +88,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         mockVaultZonesLogicalTopologyKey(clusterNodes);
 
-        mockCmgLocalNodes();
-
         startDistributionZoneManager();
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
@@ -115,8 +111,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     @Test
     void testDataNodesPropagationAfterScaleUpTriggeredOnNewCluster() throws Exception {
         topology.putNode(NODE_1);
-
-        mockCmgLocalNodes();
 
         startDistributionZoneManager();
 
@@ -145,8 +139,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         mockVaultZonesLogicalTopologyKey(clusterNodes);
 
-        mockCmgLocalNodes();
-
         startDistributionZoneManager();
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodesNames, keyValueStorage);
@@ -174,8 +166,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
         mockVaultZonesLogicalTopologyKey(clusterNodes);
-
-        mockCmgLocalNodes();
 
         startDistributionZoneManager();
 
@@ -208,8 +198,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         mockVaultZonesLogicalTopologyKey(clusterNodes);
 
-        mockCmgLocalNodes();
-
         startDistributionZoneManager();
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodesNames, keyValueStorage);
@@ -236,8 +224,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
         mockVaultZonesLogicalTopologyKey(clusterNodes);
-
-        mockCmgLocalNodes();
 
         startDistributionZoneManager();
 
@@ -270,8 +256,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         Set<LogicalNode> clusterNodes = Set.of(NODE_1, NODE_2);
 
         mockVaultZonesLogicalTopologyKey(clusterNodes);
-
-        mockCmgLocalNodes();
 
         startDistributionZoneManager();
 
@@ -635,8 +619,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
     @Test
     void testEmptyDataNodesOnStart() throws Exception {
-        mockCmgLocalNodes();
-
         startDistributionZoneManager();
 
         assertLogicalTopology(Set.of(), keyValueStorage);
@@ -661,8 +643,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testUpdateZoneScaleUpTriggersDataNodePropagation() throws Exception {
-        mockCmgLocalNodes();
-
         startDistributionZoneManager();
 
         assertLogicalTopology(Set.of(), keyValueStorage);
@@ -695,8 +675,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         topology.putNode(NODE_1);
 
         mockVaultZonesLogicalTopologyKey(Set.of(NODE_1));
-
-        mockCmgLocalNodes();
 
         startDistributionZoneManager();
 
@@ -758,8 +736,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
     @Test
     void testScaleUpSetToMaxInt() throws Exception {
-        mockCmgLocalNodes();
-
         startDistributionZoneManager();
 
         assertLogicalTopology(Set.of(), keyValueStorage);
@@ -796,8 +772,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         mockVaultZonesLogicalTopologyKey(Set.of(NODE_1));
 
-        mockCmgLocalNodes();
-
         startDistributionZoneManager();
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
@@ -828,8 +802,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
     @Test
     void testScaleUpDidNotChangeDataNodesWhenTriggerKeyWasConcurrentlyChanged() throws Exception {
-        mockCmgLocalNodes();
-
         startDistributionZoneManager();
 
         assertLogicalTopology(Set.of(), keyValueStorage);
@@ -870,8 +842,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         topology.putNode(NODE_1);
 
         mockVaultZonesLogicalTopologyKey(Set.of(NODE_1));
-
-        mockCmgLocalNodes();
 
         startDistributionZoneManager();
 
@@ -1355,8 +1325,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         mockVaultZonesLogicalTopologyKey(clusterNodes);
 
-        mockCmgLocalNodes();
-
         startDistributionZoneManager();
 
         distributionZoneManager.createZone(
@@ -1414,10 +1382,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         );
 
         assertThat(invokeFuture, willBe(true));
-    }
-
-    private void mockCmgLocalNodes() {
-        when(cmgManager.logicalTopology()).thenReturn(completedFuture(topology.getLogicalTopology()));
     }
 
     private void mockVaultZonesLogicalTopologyKey(Set<LogicalNode> nodes) {

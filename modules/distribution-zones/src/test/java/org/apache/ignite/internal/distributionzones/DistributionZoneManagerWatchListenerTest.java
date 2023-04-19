@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
@@ -34,7 +33,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.Set;
@@ -53,8 +51,6 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testDataNodesOfDefaultZoneUpdatedOnWatchListenerEvent() throws Exception {
-        mockCmgLocalNodes();
-
         startDistributionZoneManager();
 
         // First invoke happens on distributionZoneManager start.
@@ -109,8 +105,6 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
     void testStaleWatchEvent() throws Exception {
         mockVaultZonesLogicalTopologyKey(Set.of());
 
-        mockCmgLocalNodes();
-
         startDistributionZoneManager();
 
         distributionZoneManager.alterZone(
@@ -142,8 +136,6 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
 
         mockVaultZonesLogicalTopologyKey(nodes);
 
-        mockCmgLocalNodes();
-
         distributionZoneManager.start();
 
         verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
@@ -157,8 +149,6 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
 
         mockVaultZonesLogicalTopologyKey(nodes);
 
-        mockCmgLocalNodes();
-
         distributionZoneManager.start();
 
         verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
@@ -168,8 +158,6 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
 
     @Test
     void testLogicalTopologyIsNullOnZoneManagerStart1() {
-        mockCmgLocalNodes();
-
         distributionZoneManager.start();
 
         // 1 invoke because only invoke to zones logical topology happens
@@ -202,9 +190,5 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
         metaStorageManager.deployWatches();
 
         assertThat(distributionZoneManager.startFuture(), willCompleteSuccessfully());
-    }
-
-    private void mockCmgLocalNodes() {
-        when(cmgManager.logicalTopology()).thenReturn(completedFuture(topology.getLogicalTopology()));
     }
 }

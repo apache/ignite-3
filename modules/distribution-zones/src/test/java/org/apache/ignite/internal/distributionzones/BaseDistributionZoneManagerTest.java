@@ -58,8 +58,6 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     protected DistributionZonesConfiguration zonesConfiguration;
 
-    protected ClusterManagementGroupManager cmgManager;
-
     protected DistributionZoneManager distributionZoneManager;
 
     protected SimpleInMemoryKeyValueStorage keyValueStorage;
@@ -92,9 +90,9 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
         topology = new LogicalTopologyImpl(clusterStateStorage);
 
-        cmgManager = mock(ClusterManagementGroupManager.class);
+        ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
-        when(cmgManager.logicalTopology()).thenReturn(completedFuture(topology.getLogicalTopology()));
+        when(cmgManager.logicalTopology()).thenAnswer(invocation -> completedFuture(topology.getLogicalTopology()));
 
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
