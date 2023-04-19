@@ -116,7 +116,7 @@ public abstract class BaseDmlCustomDataTypeTest<T extends Comparable<T>> extends
     }
 
     /**
-     * Type mismatch in {@code INSERT}.
+     * Type mismatch in {@code INSERT}s {@code VALUES}.
      */
     @ParameterizedTest
     @MethodSource("convertedFrom")
@@ -127,7 +127,7 @@ public abstract class BaseDmlCustomDataTypeTest<T extends Comparable<T>> extends
     }
 
     /**
-     * Type mismatch in {@code INSERT}.
+     * Type mismatch in {@code INSERT}s {@code VALUES} with dynamic parameters.
      */
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18831")
