@@ -109,7 +109,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
      */
     @Test
     public void testExecuteUpdate() throws Exception {
-        checkUpdate((conn, start, cnt) -> {
+        checkRollbackAndCommit((conn, start, cnt) -> {
             try (Statement stmt = conn.createStatement()) {
                 for (int i = start; i < start + cnt; i++) {
                     stmt.executeUpdate(String.format(SQL_INSERT, i, "name-" + i));
@@ -128,7 +128,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
      */
     @Test
     public void testExecuteUpdatePrepared() throws Exception {
-        checkUpdate((conn, start, cnt) -> {
+        checkRollbackAndCommit((conn, start, cnt) -> {
             try (PreparedStatement pstmt = conn.prepareStatement(SQL_INSERT_PREPARED)) {
                 for (int i = start; i < start + cnt; i++) {
                     pstmt.setInt(1, i);
@@ -150,7 +150,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
      */
     @Test
     public void testBatch() throws Exception {
-        checkUpdate((conn, start, cnt) -> {
+        checkRollbackAndCommit((conn, start, cnt) -> {
             try (Statement stmt = conn.createStatement()) {
                 for (int i = start; i < start + cnt; i++) {
                     stmt.addBatch(String.format(SQL_INSERT, i, "name-" + i));
@@ -171,7 +171,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
      */
     @Test
     public void testBatchPrepared() throws Exception {
-        checkUpdate((conn, start, cnt) -> {
+        checkRollbackAndCommit((conn, start, cnt) -> {
             try (PreparedStatement pstmt = conn.prepareStatement(SQL_INSERT_PREPARED)) {
                 for (int i = start; i < start + cnt; i++) {
                     pstmt.setInt(1, i);
@@ -192,7 +192,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
      * @param batchInsert Batch insert operation.
      * @throws SQLException If failed.
      */
-    private void checkUpdate(TestJdbcBatchInsertOperation batchInsert) throws SQLException {
+    private void checkRollbackAndCommit(TestJdbcBatchInsertOperation batchInsert) throws SQLException {
         // Check rollback.
         checkTxResult(batchInsert, false);
 
