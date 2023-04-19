@@ -129,7 +129,10 @@ public final class TestDataSamples<T extends Comparable<T>> {
                 String error = format("Duplicate values can not be present: {} type: {}. Values: {}", value, typeName, values);
                 throw new IllegalArgumentException(error);
             }
-            values.add(value);
+
+            if (!values.contains(value)) {
+                values.add(value);
+            }
 
             return this;
         }

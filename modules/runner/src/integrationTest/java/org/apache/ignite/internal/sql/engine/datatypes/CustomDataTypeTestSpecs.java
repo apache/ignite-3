@@ -56,8 +56,7 @@ public final class CustomDataTypeTestSpecs {
             TestDataSamples.Builder<UUID> samples = TestDataSamples.builder();
 
             samples.add(values, SqlTypeName.VARCHAR, String::valueOf);
-            // TODO: Add char(36) samples?
-            // samples.add(values, SqlTypeName.CHAR, String::valueOf);
+            samples.add(values, SqlTypeName.CHAR, String::valueOf);
 
             return samples.build();
         }
