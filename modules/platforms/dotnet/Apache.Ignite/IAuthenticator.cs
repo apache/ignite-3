@@ -15,21 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit;
+namespace Apache.Ignite;
 
-/**
- * Status of deployment process.
- */
-public enum DeploymentStatus {
-    /** Unit deployment is in progress. */
-    UPLOADING,
+/// <summary>
+/// Ignite client authenticator. Provides authentication information during server handshake.
+/// </summary>
+public interface IAuthenticator
+{
+    /// <summary>
+    /// Gets the authenticator type.
+    /// </summary>
+    string Type { get; }
 
-    /** Unit is deployed on the cluster. */
-    DEPLOYED,
+    /// <summary>
+    /// Gets the identity.
+    /// </summary>
+    object Identity { get; }
 
-    /** Remove command was initiated for the unit and it will be removed soon. */
-    OBSOLETE,
-
-    /** Unit removal from the cluster is in progress. */
-    REMOVING
+    /// <summary>
+    /// Gets the secret.
+    /// </summary>
+    object Secret { get; }
 }

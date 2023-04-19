@@ -42,7 +42,7 @@ public class DistributionZoneNotFoundException extends IgniteInternalException {
      * @param zoneId Zone id.
      */
     public DistributionZoneNotFoundException(int zoneId) {
-        super(ZONE_NOT_FOUND_ERR, "Distribution zone is not found [zoneId=" + zoneId + ']', null);
+        super(ZONE_NOT_FOUND_ERR, "Distribution zone is not found [zoneId=" + zoneId + ']');
     }
 
     /**

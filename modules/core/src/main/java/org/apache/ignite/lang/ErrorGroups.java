@@ -273,6 +273,9 @@ public class ErrorGroups {
 
         /** Tx state storage rebalancing error. */
         public static final int TX_STATE_STORAGE_REBALANCE_ERR = TX_ERR_GROUP.registerErrorCode(10);
+
+        /** Error occurred when trying to create a read-only transaction with a timestamp older than the data available in the tables. */
+        public static final int TX_READ_ONLY_TOO_OLD_ERR = TX_ERR_GROUP.registerErrorCode(11);
     }
 
     /** Replicator error group. */

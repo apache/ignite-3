@@ -17,26 +17,26 @@
 
 package org.apache.ignite.internal.cli.call.unit;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.ignite.rest.client.model.DeploymentInfo;
 
 /** Unit status record. */
 public class UnitStatusRecord {
     private final String id;
-    private final Map<String, List<String>> versionToConsistentIds;
+    private final Map<String, DeploymentInfo> versionToDeploymentInfo;
 
-    UnitStatusRecord(String id, Map<String, List<String>> versionToConsistentIds) {
+    UnitStatusRecord(String id, Map<String, DeploymentInfo> versionToDeploymentInfo) {
         this.id = id;
-        this.versionToConsistentIds = versionToConsistentIds;
+        this.versionToDeploymentInfo = versionToDeploymentInfo;
     }
 
     public String id() {
         return id;
     }
 
-    public Map<String, List<String>> versionToConsistentIds() {
-        return versionToConsistentIds;
+    public Map<String, DeploymentInfo> versionToDeploymentInfo() {
+        return versionToDeploymentInfo;
     }
 
     @Override
@@ -48,19 +48,19 @@ public class UnitStatusRecord {
             return false;
         }
         UnitStatusRecord that = (UnitStatusRecord) o;
-        return Objects.equals(id, that.id) && Objects.equals(versionToConsistentIds, that.versionToConsistentIds);
+        return Objects.equals(id, that.id) && Objects.equals(versionToDeploymentInfo, that.versionToDeploymentInfo);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, versionToConsistentIds);
+        return Objects.hash(id, versionToDeploymentInfo);
     }
 
     @Override
     public String toString() {
         return "UnitStatusRecord{"
                 + "id='" + id + '\''
-                + ", versionToConsistentIds=" + versionToConsistentIds
+                + ", versionToDeploymentInfo=" + versionToDeploymentInfo
                 + '}';
     }
 }

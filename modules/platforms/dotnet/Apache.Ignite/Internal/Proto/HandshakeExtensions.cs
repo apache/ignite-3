@@ -15,20 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.decorators;
+namespace Apache.Ignite.Internal.Proto;
 
-import com.jakewharton.fliptables.FlipTable;
-import org.apache.ignite.internal.cli.call.unit.UnitStatusRecord;
-import org.apache.ignite.internal.cli.core.decorator.Decorator;
-import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
+/// <summary>
+/// Handshake extensions.
+/// </summary>
+internal static class HandshakeExtensions
+{
+    /// <summary>
+    /// Authentication type extension.
+    /// </summary>
+    public const string AuthenticationType = "authn-type";
 
-/** Decorator for {@link UnitStatusRecord}. */
-public class UnitStatusDecorator implements Decorator<UnitStatusRecord, TerminalOutput> {
-    @Override
-    public TerminalOutput decorate(UnitStatusRecord record) {
-        return () -> FlipTable.of(new String[]{"version", "status"},
-                record.versionToDeploymentInfo().entrySet().stream()
-                .map(e -> new String[] {e.getKey(), e.getValue().getStatus().getValue()}).toArray(String[][]::new)
-        );
-    }
+    /// <summary>
+    /// Authentication identity extension.
+    /// </summary>
+    public const string AuthenticationIdentity = "authn-identity";
+
+    /// <summary>
+    /// Authentication secret extension.
+    /// </summary>
+    public const string AuthenticationSecret = "authn-secret";
+
+    /// <summary>
+    /// Basic authentication type name.
+    /// </summary>
+    public const string AuthenticationTypeBasic = "basic";
 }

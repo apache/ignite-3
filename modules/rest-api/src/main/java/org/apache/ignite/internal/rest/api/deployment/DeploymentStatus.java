@@ -15,20 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.decorators;
+package org.apache.ignite.internal.rest.api.deployment;
 
-import com.jakewharton.fliptables.FlipTable;
-import org.apache.ignite.internal.cli.call.unit.UnitStatusRecord;
-import org.apache.ignite.internal.cli.core.decorator.Decorator;
-import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
+import io.swagger.v3.oas.annotations.media.Schema;
 
-/** Decorator for {@link UnitStatusRecord}. */
-public class UnitStatusDecorator implements Decorator<UnitStatusRecord, TerminalOutput> {
-    @Override
-    public TerminalOutput decorate(UnitStatusRecord record) {
-        return () -> FlipTable.of(new String[]{"version", "status"},
-                record.versionToDeploymentInfo().entrySet().stream()
-                .map(e -> new String[] {e.getKey(), e.getValue().getStatus().getValue()}).toArray(String[][]::new)
-        );
-    }
+/**
+ * Status of deployment process.
+ */
+@Schema
+public enum DeploymentStatus {
+    /** Unit deployment is in progress. */
+    UPLOADING,
+
+    /** Unit is deployed on the cluster. */
+    DEPLOYED,
+
+    /** Remove command was initiated for the unit and it will be removed soon. */
+    OBSOLETE,
+
+    /** Unit removal from the cluster is in progress. */
+    REMOVING
 }
