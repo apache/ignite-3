@@ -1,0 +1,104 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.sql.engine.datatypes.tests;
+
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.util.List;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Test cases for aggregate functions for custom data type.
+ *
+ * @param <T> A storage type for a custom data type.
+ */
+public abstract class BaseAggregateCustomDataTypeTest<T extends Comparable<T>> extends BaseCustomDataTypeTest<T> {
+
+    /** {@code COUNT} aggregate function. */
+    @Test
+    public void testCount() {
+        insertValues();
+
+        checkQuery("SELECT COUNT(test_key) FROM t")
+                .returns((long) values.size())
+                .check();
+    }
+
+    /** {@code MIN} aggregate function. */
+    @Test
+    public void testMin() {
+        T min = orderedValues.first();
+
+        insertValues();
+
+        checkQuery("SELECT MIN(test_key) FROM t").returns(min).check();
+    }
+
+    /** {@code MAX} aggregate function. */
+    @Test
+    public void testMax() {
+        T max = orderedValues.last();
+
+        insertValues();
+
+        checkQuery("SELECT MAX(test_key) FROM t").returns(max).check();
+    }
+
+
+    /** {@code SOME} aggregate function. */
+    @Test
+    public void testSome() {
+        T min = orderedValues.first();
+        T mid = orderedValues.higher(min);
+        T max = orderedValues.last();
+
+        insertValues();
+
+        // TODO: SOME supports both type and types this type can be converted from
+        String query = format("SELECT test_key, SOME(test_key = '{}'::<type>) FROM t GROUP BY test_key ORDER BY test_key", max);
+
+        checkQuery(query)
+                .returns(min, false)
+                .returns(mid, false)
+                .returns(max, true)
+                .check();
+    }
+
+    /** {@code ANY_VALUE} aggregate function. */
+    @Test
+    public void testAnyValue() {
+        insertValues();
+
+        List<List<Object>> rows = runSql("SELECT ANY_VALUE(test_key) FROM t");
+        assertEquals(1, rows.size());
+
+        List<Object> row = rows.get(0);
+        assertThat(values, hasItem((T) row.get(0)));
+    }
+
+    // TODO: GROUP BY clauses?
+
+    private void insertValues() {
+        runSql("INSERT INTO t VALUES(1, $0)");
+        runSql("INSERT INTO t VALUES(2, $1)");
+        runSql("INSERT INTO t VALUES(3, $2)");
+    }
+}
