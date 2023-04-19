@@ -17,18 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
-import java.util.Objects;
-import java.util.stream.Stream;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+
+import java.util.Objects;
+import java.util.stream.Stream;
+
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Test cases for custom data type in expressions.

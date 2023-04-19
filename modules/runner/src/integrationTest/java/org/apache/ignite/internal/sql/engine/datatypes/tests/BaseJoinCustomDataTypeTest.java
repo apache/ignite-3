@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
-
-import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+
+import java.util.stream.Stream;
+
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 /**
  * Tests for {@code JOIN} operator for a custom data type.

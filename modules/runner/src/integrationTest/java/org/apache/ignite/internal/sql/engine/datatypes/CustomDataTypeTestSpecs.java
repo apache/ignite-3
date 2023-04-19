@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
-
-import java.util.UUID;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.CustomDataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.TestDataSamples;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
+
+import java.util.UUID;
+
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 /**
  * Defines {@link CustomDataTypeTestSpec test specs} for data types.

@@ -17,14 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import java.util.List;
-import java.util.NavigableSet;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
@@ -39,6 +31,15 @@ import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+
+import java.util.List;
+import java.util.NavigableSet;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Stream;
+
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Base class for test for {@link IgniteCustomType custom data type}.

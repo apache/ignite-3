@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import org.apache.calcite.sql.type.SqlTypeName;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -28,7 +28,8 @@ import java.util.NavigableSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.Function;
-import org.apache.calcite.sql.type.SqlTypeName;
+
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 /**
  * Values used in tests.

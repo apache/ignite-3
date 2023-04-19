@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.uuid;
 
-import java.util.UUID;
-
 import org.apache.ignite.internal.sql.engine.datatypes.CustomDataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseIndexCustomDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.CustomDataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.junit.jupiter.api.Disabled;
+
+import java.util.UUID;
 
 /**
  * Tests for queries that use indexes with {@link UuidType UUID data type}.
