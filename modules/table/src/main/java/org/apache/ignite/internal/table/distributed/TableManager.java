@@ -1352,9 +1352,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             } else {
                 cmgMgr.logicalTopology()
                         .thenCompose(cmgTopology -> {
-                            int zoneId = distributionZoneManager.getZoneId(zoneName);
+                            try {
+                                int zoneId = distributionZoneManager.getZoneId(zoneName);
 
-                            distributionZoneManager.topologyVersionedDataNodes(zoneId, cmgTopology.version())
+                                distributionZoneManager.topologyVersionedDataNodes(zoneId, cmgTopology.version())
                                         .thenCompose(dataNodes -> {
                                             tablesCfg.change(tablesChange -> tablesChange.changeTables(tablesListChange -> {
                                                 if (tablesListChange.get(name) != null) {
@@ -1387,7 +1388,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                                     // Affinity assignments calculation.
                                                     extConfCh.changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
-                                                            dataNodes,
+                                                            baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
                                                             distributionZoneConfiguration.partitions().value(),
                                                             distributionZoneConfiguration.replicas().value())));
                                                 });
@@ -1410,9 +1411,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             return null;
                                         });
 
+                            } catch (Exception e) {
+                                tblFut.completeExceptionally(e);
+                            }
                             return null;
                         });
-
             }
         });
 
