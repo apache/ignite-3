@@ -151,19 +151,19 @@ public class StorageUpdateHandlerTest {
 
         verify(partitionStorage, never()).pollForVacuum(any(HybridTimestamp.class));
 
-        // Let's check that if lvm is less than the safe time, then nothing will happen.
+        // Let's check that if lvm is greater than the safe time, then nothing will happen.
         safeTimeTracker.update(new HybridTimestamp(10, 10));
 
-        storageUpdateHandler.executeBatchGc(new HybridTimestamp(9, 9));
+        storageUpdateHandler.executeBatchGc(new HybridTimestamp(11, 1));
 
         verify(partitionStorage, never()).pollForVacuum(any(HybridTimestamp.class));
 
-        // Let's check that if lvm is equal to or greater than the safe time, then garbage collection will be executed.
+        // Let's check that if lvm is equal to or less than the safe time, then garbage collection will be executed.
         storageUpdateHandler.executeBatchGc(new HybridTimestamp(10, 10));
 
         verify(partitionStorage, times(1)).pollForVacuum(any(HybridTimestamp.class));
 
-        storageUpdateHandler.executeBatchGc(new HybridTimestamp(11, 11));
+        storageUpdateHandler.executeBatchGc(new HybridTimestamp(9, 9));
 
         verify(partitionStorage, times(2)).pollForVacuum(any(HybridTimestamp.class));
     }

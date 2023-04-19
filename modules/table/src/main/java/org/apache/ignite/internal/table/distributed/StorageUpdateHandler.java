@@ -211,7 +211,7 @@ public class StorageUpdateHandler {
     }
 
     void executeBatchGc(@Nullable HybridTimestamp newLwm) {
-        if (newLwm == null || newLwm.compareTo(safeTimeTracker.current()) < 0) {
+        if (newLwm == null || safeTimeTracker.current().compareTo(newLwm) < 0) {
             return;
         }
 
