@@ -539,7 +539,6 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
                 zoneName,
                 tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(
                         cols).withPrimaryKey("key").build(), tblCh)
-                        .changeZoneId(zoneId)
         ));
     }
 

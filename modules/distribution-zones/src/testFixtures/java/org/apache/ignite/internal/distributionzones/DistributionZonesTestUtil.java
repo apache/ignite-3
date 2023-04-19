@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
 
@@ -37,7 +39,9 @@ public class DistributionZonesTestUtil {
             DistributionZoneManager zoneManager, String zoneName, int partitions, int replicas) {
         var distributionZoneCfgBuilder = new Builder(zoneName)
                 .replicas(replicas)
-                .partitions(partitions);
+                .partitions(partitions)
+                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE);
         var distributionZoneCfg = distributionZoneCfgBuilder.build();
 
         return zoneManager.createZone(distributionZoneCfg).thenApply((v) -> zoneManager.getZoneId(zoneName));
