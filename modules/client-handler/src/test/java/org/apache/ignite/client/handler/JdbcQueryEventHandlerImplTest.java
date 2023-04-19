@@ -37,16 +37,20 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl.JdbcConnectionContext;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -188,6 +192,36 @@ class JdbcQueryEventHandlerImplTest {
         verify(queryProcessor).createSession(any());
         verify(queryProcessor).querySingleAsync(eq(expectedSessionId), any(), any(), any());
         verifyNoMoreInteractions(queryProcessor);
+    }
+
+    @Test
+    public void contextClosedDuringBatchQuery() throws Exception {
+        int timeout = 30;
+        CountDownLatch startTxLatch = new CountDownLatch(1);
+        CountDownLatch registryCloseLatch = new CountDownLatch(1);
+        long connectionId = acquireConnectionId();
+
+        when(igniteTransactions.begin()).thenAnswer(v -> {
+            registryCloseLatch.countDown();
+            assertThat(startTxLatch.await(timeout, TimeUnit.SECONDS), is(true));
+
+            return null;
+        });
+
+        CompletableFuture<JdbcBatchExecuteResult> fut = IgniteTestUtils.runAsync(() ->
+                eventHandler.batchAsync(connectionId, new JdbcBatchExecuteRequest("x", List.of("QUERY"), false)).get()
+        );
+
+        assertThat(registryCloseLatch.await(timeout, TimeUnit.SECONDS), is(true));
+        resourceRegistry.close();
+
+        startTxLatch.countDown();
+
+        JdbcBatchExecuteResult res = fut.get();
+
+        assertThat(res.status(), is(STATUS_FAILED));
+        assertThat(res.hasResults(), is(false));
+        assertThat(res.err(), containsString("Connection is closed"));
     }
 
     @Test
