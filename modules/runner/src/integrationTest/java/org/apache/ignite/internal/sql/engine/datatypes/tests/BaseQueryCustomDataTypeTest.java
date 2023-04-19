@@ -55,10 +55,36 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
     }
 
     /**
+     * Test for equality predicate.
+     */
+    @ParameterizedTest
+    @MethodSource("eq")
+    public void testEqCondition(TestTypeArguments<T> arguments) {
+        T value1 = values.get(0);
+        T value2 = values.get(1);
+
+        runSql("INSERT INTO t VALUES(1, ?)", value1);
+        runSql("INSERT INTO t VALUES(2, ?)", value2);
+        runSql("INSERT INTO t VALUES(3, ?)", value1);
+
+        String query = format("SELECT id FROM t where test_key = {} ORDER BY id", arguments.valueExpr(0));
+        checkQuery(query)
+                .returns(1)
+                .returns(3)
+                .check();
+
+        String query2 = format("SELECT id FROM t where test_key != {} ORDER BY id", arguments.valueExpr(0));
+        checkQuery(query2)
+                .returns(2)
+                .check();
+    }
+
+    /**
      * Test for equality predicate with dynamic parameter.
      */
-    @Test
-    public void testEqCondition() {
+    @ParameterizedTest
+    @MethodSource("eq")
+    public void testEqConditionWithDynamicParameters(TestTypeArguments<T> arguments) {
         T value1 = values.get(0);
         T value2 = values.get(1);
 
@@ -67,31 +93,19 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
         runSql("INSERT INTO t VALUES(3, ?)", value1);
 
         checkQuery("SELECT id FROM t where test_key = ? ORDER BY id")
-                .withParams(value1)
+                .withParams(arguments.value(0))
                 .returns(1)
                 .returns(3)
                 .check();
 
         checkQuery("SELECT id FROM t where test_key != ? ORDER BY id")
-                .withParams(value1)
+                .withParams(arguments.value(0))
                 .returns(2)
                 .check();
     }
 
-    /**
-     * Test for equality predicate with expression that has "literal" value.
-     */
-    @Test
-    public void testEqExpressionWithLiteral() {
-        T value1 = values.get(0);
-        T value2 = values.get(1);
-
-        runSql("INSERT INTO t VALUES(1, ?)", value1);
-        runSql("INSERT INTO t VALUES(2, ?)", value2);
-
-        checkQuery("SELECT * FROM t WHERE test_key = $0")
-                .columnTypes(Integer.class, storageType)
-                .check();
+    private Stream<TestTypeArguments<T>> eq() {
+        return TestTypeArguments.unary(testTypeSpec, dataSamples, values.get(0));
     }
 
     /**
@@ -165,12 +179,14 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
                 .check();
     }
 
+    /**
+     * {@code IN} operator with dynamic parameters.
+     */
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18924")
     public void testInWithDynamicParamsConditionNoCasts() {
         T value1 = values.get(0);
         T value2 = values.get(1);
-        T value3 = values.get(2);
 
         runSql("INSERT INTO t VALUES(1, $0)");
         runSql("INSERT INTO t VALUES(2, $1)");
@@ -183,8 +199,10 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
                 .check();
     }
 
+    /**
+     * {@code BETWEEN} operator.
+     */
     @ParameterizedTest
-    // TODO: Replace with correct method
     @MethodSource("between")
     public void testBetweenCondition(TestTypeArguments<T> arguments) {
         T min = orderedValues.first();
@@ -194,8 +212,6 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
         runSql("INSERT INTO t VALUES(1, ?)", min);
         runSql("INSERT INTO t VALUES(2, ?)", mid);
         runSql("INSERT INTO t VALUES(3, ?)", max);
-
-        System.err.println(arguments.value(0) + "/" + arguments.value(1));
 
         checkQuery("SELECT id FROM t WHERE test_key BETWEEN ? AND ? ORDER BY id")
                 .withParams(arguments.value(0), arguments.value(1))
@@ -221,8 +237,9 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
     /**
      * Test case for {@code IS NOT DISTINCT FROM} predicate in {@code WHERE clause}.
      */
-    @Test
-    public void testIsNotDistinctFrom() {
+    @ParameterizedTest
+    @MethodSource("distinctFrom")
+    public void testIsNotDistinctFrom(TestTypeArguments<T> arguments) {
         T value1 = values.get(0);
         T value2 = values.get(1);
         T value3 = values.get(2);
@@ -231,8 +248,28 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
         runSql("INSERT INTO t VALUES(2, ?)", value2);
         runSql("INSERT INTO t VALUES(3, ?)", value3);
 
-        checkQuery("SELECT id FROM t where test_key IS NOT DISTINCT FROM CAST(? as <type>)")
-                .withParams(value2.toString())
+        String query = format("SELECT id FROM t where test_key IS NOT DISTINCT FROM {}", arguments.valueExpr(0));
+        checkQuery(query)
+                .returns(2)
+                .check();
+    }
+
+    /**
+     * Test case for {@code IS NOT DISTINCT FROM} predicate in {@code WHERE clause} with dynamic parameters.
+     */
+    @ParameterizedTest
+    @MethodSource("distinctFrom")
+    public void testIsNotDistinctFromWithDynamicParameters(TestTypeArguments<T> arguments) {
+        T value1 = values.get(0);
+        T value2 = values.get(1);
+        T value3 = values.get(2);
+
+        runSql("INSERT INTO t VALUES(1, ?)", value1);
+        runSql("INSERT INTO t VALUES(2, ?)", value2);
+        runSql("INSERT INTO t VALUES(3, ?)", value3);
+
+        checkQuery("SELECT id FROM t where test_key IS NOT DISTINCT FROM ?")
+                .withParams(arguments.value(0))
                 .returns(2)
                 .check();
     }
@@ -240,8 +277,9 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
     /**
      * Test case for {@code IS DISTINCT FROM} in {@code WHERE clause}.
      */
-    @Test
-    public void testIsDistinctFrom() {
+    @ParameterizedTest
+    @MethodSource("distinctFrom")
+    public void testIsDistinctFrom(TestTypeArguments<T> arguments) {
         T value1 = values.get(0);
         T value2 = values.get(1);
         T value3 = values.get(2);
@@ -250,11 +288,16 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
         runSql("INSERT INTO t VALUES(2, ?)", value2);
         runSql("INSERT INTO t VALUES(3, ?)", value3);
 
-        checkQuery("SELECT id FROM t where test_key IS DISTINCT FROM CAST(? as UUID)")
-                .withParams(value2.toString())
+        String query = format("SELECT id FROM t where test_key IS DISTINCT FROM {}", arguments.valueExpr(0));
+
+        checkQuery(query)
                 .returns(1)
                 .returns(3)
                 .check();
+    }
+
+    private Stream<TestTypeArguments<T>> distinctFrom() {
+        return TestTypeArguments.unary(testTypeSpec, dataSamples, values.get(1));
     }
 
     /**
@@ -293,26 +336,46 @@ public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> exten
         checkQuery("SELECT id FROM t ORDER BY test_key DESC").returns(3).returns(2).returns(1).check();
     }
 
-
+    /**
+     * Test {@code WHERE} clause.
+     */
     @ParameterizedTest
     @MethodSource("filter")
     public void testFilter(TestTypeArguments<T> arguments) {
-        String query = format("SELECT * FROM t WHERE t.test_key > {}", arguments.valueExpr(0));
+        String query = format("SELECT id FROM t WHERE t.test_key > {}", arguments.valueExpr(0));
 
-        checkQuery(query).check();
+        T value1 = orderedValues.first();
+        T value2 = orderedValues.last();
+
+        runSql("INSERT INTO t VALUES(1, ?)", value1);
+        runSql("INSERT INTO t VALUES(2, ?)", value2);
+
+        checkQuery(query)
+                .returns(2)
+                .check();
+    }
+
+    /**
+     * Test {@code WHERE} clause with dynamic parameters.
+     */
+    @ParameterizedTest
+    @MethodSource("filter")
+    public void testFilterWithDynamicParameters(TestTypeArguments<T> arguments) {
+        String query = format("SELECT id FROM t WHERE t.test_key > ?");
+
+        T value1 = orderedValues.first();
+        T value2 = orderedValues.last();
+
+        runSql("INSERT INTO t VALUES(1, ?)", value1);
+        runSql("INSERT INTO t VALUES(2, ?)", value2);
+
+        checkQuery(query)
+                .withParams(arguments.value(0))
+                .returns(2)
+                .check();
     }
 
     private Stream<TestTypeArguments<T>> filter() {
         return TestTypeArguments.unary(testTypeSpec, dataSamples, dataSamples.min());
-    }
-
-    private void insertValues() {
-        T value1 = values.get(0);
-        T value2 = values.get(1);
-        T value3 = values.get(2);
-
-        runSql("INSERT INTO t VALUES(1, ?)", value1);
-        runSql("INSERT INTO t VALUES(2, ?)", value2);
-        runSql("INSERT INTO t VALUES(3, ?)", value3);
     }
 }

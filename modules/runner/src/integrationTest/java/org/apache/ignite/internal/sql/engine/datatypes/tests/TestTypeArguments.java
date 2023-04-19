@@ -252,6 +252,7 @@ public final class TestTypeArguments<T extends Comparable<T>> {
      *     V3       | R_type2     | R3_2        |
      * </pre>
      */
+    @SafeVarargs
     public static <T extends Comparable<T>> Stream<TestTypeArguments<T>> nary(CustomDataTypeTestSpec<T> typeSpec,
             TestDataSamples<T> samples, T lhs, T... rhs) {
 
