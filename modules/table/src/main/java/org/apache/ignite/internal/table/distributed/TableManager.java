@@ -1388,7 +1388,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                                     // Affinity assignments calculation.
                                                     extConfCh.changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
-                                                            baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
+                                                            dataNodes,
                                                             distributionZoneConfiguration.partitions().value(),
                                                             distributionZoneConfiguration.replicas().value())));
                                                 });
