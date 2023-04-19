@@ -15,18 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.ssl;
+package org.apache.ignite.internal.cli.commands.sql;
 
-import org.apache.ignite.internal.NodeConfig;
 import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
 
-/**
- * Test base for SSL tests with client connector. The cluster is initialized with SSL enabled for clients.
- */
-public class CliSslClientConnectorIntegrationTestBase extends CliCommandTestInitializedIntegrationBase {
-
+/** Base class for testing CLI sql command which creates a table before each test. */
+public class CliSqlCommandTestBase extends CliCommandTestInitializedIntegrationBase {
+    @BeforeEach
     @Override
-    protected String nodeBootstrapConfigTemplate() {
-        return NodeConfig.CLIENT_CONNECTOR_SSL_BOOTSTRAP_CONFIG;
+    public void setUp(TestInfo testInfo) throws Exception {
+        super.setUp(testInfo);
+        createAndPopulateTable();
+    }
+
+    @AfterEach
+    void tearDown() {
+        dropAllTables();
     }
 }

@@ -15,18 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.ssl;
+package org.apache.ignite.internal.cli.commands.sql;
 
-import org.apache.ignite.internal.NodeConfig;
-import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
-/**
- * Test base for SSL tests with client connector. The cluster is initialized with SSL enabled for clients.
- */
-public class CliSslClientConnectorIntegrationTestBase extends CliCommandTestInitializedIntegrationBase {
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
-    @Override
-    protected String nodeBootstrapConfigTemplate() {
-        return NodeConfig.CLIENT_CONNECTOR_SSL_BOOTSTRAP_CONFIG;
+class ItSqlConnectTest extends CliSqlConnectCommandTestBase {
+
+    @Test
+    @DisplayName("Should succeed after connect")
+    void jdbcOkAfterConnect() {
+        // Given connected state
+        execute("connect");
+
+        // When
+        execute("sql", "select * from person");
+
+        // Then the query is executed successfully
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertOutputIsNotEmpty,
+                this::assertErrOutputIsEmpty
+        );
     }
 }

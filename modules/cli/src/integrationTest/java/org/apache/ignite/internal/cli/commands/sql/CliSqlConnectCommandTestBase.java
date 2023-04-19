@@ -15,18 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.ssl;
+package org.apache.ignite.internal.cli.commands.sql;
 
-import org.apache.ignite.internal.NodeConfig;
-import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
+import jakarta.inject.Inject;
+import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
+import org.apache.ignite.internal.cli.core.repl.SessionDefaultValueProvider;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
 
-/**
- * Test base for SSL tests with client connector. The cluster is initialized with SSL enabled for clients.
- */
-public class CliSslClientConnectorIntegrationTestBase extends CliCommandTestInitializedIntegrationBase {
+/** Base class for testing CLI REPL sql command in the connected state. */
+public class CliSqlConnectCommandTestBase extends CliSqlCommandTestBase {
+    @Inject
+    private SessionDefaultValueProvider defaultValueProvider;
+
+    @BeforeEach
+    @Override
+    public void setUp(TestInfo testInfo) throws Exception {
+        super.setUp(testInfo);
+        commandLine().setDefaultValueProvider(defaultValueProvider);
+    }
 
     @Override
-    protected String nodeBootstrapConfigTemplate() {
-        return NodeConfig.CLIENT_CONNECTOR_SSL_BOOTSTRAP_CONFIG;
+    protected Class<?> getCommandClass() {
+        return TopLevelCliReplCommand.class;
     }
+
 }

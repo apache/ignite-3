@@ -256,6 +256,7 @@ public interface ConnectionProperties {
 
     /**
      * Basic authentication username.
+     *
      * @return Basic authentication username.
      */
     String getBasicAuthUsername();
@@ -269,6 +270,7 @@ public interface ConnectionProperties {
 
     /**
      * Basic authentication password.
+     *
      * @return Basic authentication password.
      */
     String getBasicAuthPassword();
