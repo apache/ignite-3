@@ -57,7 +57,9 @@ public class DistributionZonesTestUtil {
      */
     public static CompletableFuture<Void> alterZoneReplicas(DistributionZoneManager zoneManager, String zoneName, int replicas) {
         var distributionZoneCfgBuilder = new Builder(zoneName)
-                .replicas(replicas);
+                .replicas(replicas)
+                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE);
 
         return zoneManager.alterZone(zoneName, distributionZoneCfgBuilder.build());
     }
