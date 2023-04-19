@@ -28,6 +28,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.stream.Stream;
+
 /**
  * A set of test cases for DML operations.
  *
@@ -35,41 +37,28 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public abstract class BaseDmlCustomDataTypeTest<T extends Comparable<T>> extends BaseCustomDataTypeTest<T> {
 
-    @Test
-    public void testInsert() {
-        T value1 = values.get(0);
+    /**
+     * {@code INSERT}.
+     */
+    @ParameterizedTest
+    @MethodSource("dml")
+    public void testInsert(TestTypeArguments<T> arguments) {
+        runSql(format("INSERT INTO t VALUES (1, {})", arguments.valueExpr(0)));
 
-        runSql("INSERT INTO t VALUES (1, ?)", value1);
-
-        checkQuery("SELECT test_key FROM t WHERE id=1").returns(value1).check();
+        checkQuery("SELECT test_key FROM t WHERE id=1").returns(arguments.value(0)).check();
     }
 
-    @Test
-    public void testInsertCast() {
-        T value1 = values.get(0);
+    /**
+     * {@code INSERT} with dynamic parameters.
+     */
+    @ParameterizedTest
+    @MethodSource("dml")
+    public void testInsertDynamicParameter(TestTypeArguments<T> arguments) {
+        T value1 = arguments.value(0);
 
-        runSql(format("INSERT INTO t VALUES (1, '{}'::<type>)", value1));
-
-        checkQuery("SELECT test_key FROM t WHERE id=1").returns(value1).check();
-    }
-
-    @Test
-    public void testInsertWithTypeCoercion() {
-        T value1 = values.get(0);
-
-        runSql("INSERT INTO t VALUES (1, ?)", value1.toString());
+        runSql("INSERT INTO t VALUES (1, ?)", arguments.value(0));
 
         checkQuery("SELECT test_key FROM t WHERE id=1").returns(value1).check();
-    }
-
-
-    @Test
-    public void testInsertLiteralWithTypeCoercion() {
-        T value1 = values.get(0);
-
-        runSql(format("INSERT INTO t VALUES (1, '{}')", value1));
-
-        checkQuery("SELECT test_key FROM t WHERE id=1").columnTypes(storageType).returns(value1).check();
     }
 
     /**
@@ -88,38 +77,15 @@ public abstract class BaseDmlCustomDataTypeTest<T extends Comparable<T>> extends
         checkQuery("SELECT id FROM t").returns(2).returns(3).check();
     }
 
-
     /**
-     * {@code UPDATE} with a new value of the same type.
-     */
-    @Test
-    public void testUpdate() {
-        T value2 = values.get(1);
-
-        runSql("INSERT INTO t VALUES (1, $0)");
-
-        checkQuery("UPDATE t SET test_key = ? WHERE id=1")
-                .withParams(value2)
-                .returns(1L)
-                .check();
-
-        checkQuery("SELECT test_key FROM t WHERE id=1")
-                .returns(value2)
-                .check();
-    }
-
-    /**
-     * {@code UPDATE} a column of a custom data type with value of a type that can be converted to it.
+     * {@code UPDATE}.
      */
     @ParameterizedTest
-    @MethodSource("convertedFrom")
-    // TODO: Merge with testUpdate when argLiteral is implemented.
-    public void testUpdateWithTypeCoercion(TestTypeArguments<T> arguments) {
-        // Insert column T with a string value are possible to allow CASTs from STRING to T.
+    @MethodSource("dml")
+    public void testUpdate(TestTypeArguments<T> arguments) {
         String insert = format("INSERT INTO t VALUES (1, {})", arguments.valueExpr(0));
         runSql(insert);
 
-        // Update column T with a string value are possible to allow CASTs from STRING to T.
         checkQuery("UPDATE t SET test_key = ? WHERE id=1")
                 .withParams(arguments.argValue(0))
                 .returns(1L)
@@ -130,15 +96,39 @@ public abstract class BaseDmlCustomDataTypeTest<T extends Comparable<T>> extends
                 .check();
     }
 
-    @Test
-    public void testDisallowMismatchTypesOnInsert() {
-        T value1 = values.get(0);
+    /**
+     * {@code UPDATE} with dynamic parameter.
+     */
+    @ParameterizedTest
+    @MethodSource("dml")
+    public void testUpdateWithDynamicParameter(TestTypeArguments<T> arguments) {
+        String insert = format("INSERT INTO t VALUES (1, {})", arguments.valueExpr(0));
+        runSql(insert);
 
-        var query = format("INSERT INTO t (id, test_key) VALUES (10, null), (20, '{}')", value1);
+        checkQuery("UPDATE t SET test_key = ? WHERE id=1")
+                .withParams(arguments.argValue(0))
+                .returns(1L)
+                .check();
+
+        checkQuery("SELECT test_key FROM t WHERE id=1")
+                .returns(arguments.value(0))
+                .check();
+    }
+
+    /**
+     * Type mismatch in {@code INSERT}.
+     */
+    @ParameterizedTest
+    @MethodSource("convertedFrom")
+    public void testDisallowMismatchTypesOnInsert(TestTypeArguments<T> arguments) {
+        var query = format("INSERT INTO t (id, test_key) VALUES (10, null), (20, {})", arguments.valueExpr(0));
         var t = assertThrows(CalciteContextException.class, () -> runSql(query));
         assertThat(t.getMessage(), containsString("Values passed to VALUES operator must have compatible types"));
     }
 
+    /**
+     * Type mismatch in {@code INSERT}.
+     */
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18831")
     public void testDisallowMismatchTypesOnInsertDynamicParam() {
@@ -147,5 +137,9 @@ public abstract class BaseDmlCustomDataTypeTest<T extends Comparable<T>> extends
         var query = "INSERT INTO t (id, test_key) VALUES (1, null), (2, ?)";
         var t = assertThrows(CalciteContextException.class, () -> runSql(query, value1));
         assertThat(t.getMessage(), containsString("Values passed to VALUES operator must have compatible types"));
+    }
+
+    private Stream<TestTypeArguments<T>> dml() {
+        return TestTypeArguments.unary(testTypeSpec, dataSamples, values.get(0));
     }
 }
