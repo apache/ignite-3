@@ -25,7 +25,6 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -287,38 +286,11 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     @Test
-    public void createTableWithEngine() {
-        SqlNode node = parse("create table my_table(id int, val varchar) engine test_engine_name");
-
-        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
-
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
-
-        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
-        assertThat(createTable.engineName().names, is(List.of("TEST_ENGINE_NAME")));
-    }
-
-    @Test
-    public void createTableWithoutEngine() {
-        SqlNode node = parse("create table my_table(id int, val varchar)");
-
-        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
-
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
-
-        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
-        assertThat(createTable.engineName(), nullValue());
-    }
-
-    @Test
     public void createTableWithOptions() {
         String query = "create table my_table(id int) with"
                 + " replicas=2,"
                 + " partitions=3,"
-                + " primary_zone='zone123',"
-                + " dataRegion='default',"
-                + " \"pageSize\"=1024,"
-                + " \"persistent\"=true";
+                + " primary_zone='zone123'";
 
         SqlNode node = parse(query);
 
@@ -329,9 +301,6 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThatOptionPresent(createTable.createOptionList().getList(), "REPLICAS", 2);
         assertThatOptionPresent(createTable.createOptionList().getList(), "PARTITIONS", 3);
         assertThatOptionPresent(createTable.createOptionList().getList(), "PRIMARY_ZONE", "zone123");
-        assertThatOptionPresent(createTable.createOptionList().getList(), "DATAREGION", "default");
-        assertThatOptionPresent(createTable.createOptionList().getList(), "pageSize", 1024);
-        assertThatOptionPresent(createTable.createOptionList().getList(), "persistent", true);
     }
 
     @Test

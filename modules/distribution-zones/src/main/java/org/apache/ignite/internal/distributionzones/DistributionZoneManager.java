@@ -287,7 +287,7 @@ public class DistributionZoneManager implements IgniteComponent {
      *      or distribution zone name is {@code DEFAULT_ZONE_NAME},
      *      {@link NodeStoppingException} if the node is stopping.
      */
-    public CompletableFuture<Void> createZone(DistributionZoneConfigurationParameters distributionZoneCfg) {
+    public CompletableFuture<Integer> createZone(DistributionZoneConfigurationParameters distributionZoneCfg) {
         if (distributionZoneCfg == null) {
             return failedFuture(new IllegalArgumentException("Distribution zone configuration is null"));
         }
@@ -303,7 +303,9 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            CompletableFuture<Void> fut = new CompletableFuture<>();
+            CompletableFuture<Integer> fut = new CompletableFuture<>();
+
+            int[] zoneIdContainer = new int[1];
 
             zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
                 try {
@@ -312,6 +314,12 @@ public class DistributionZoneManager implements IgniteComponent {
                             zoneChange.changePartitions(DEFAULT_PARTITION_COUNT);
                         } else {
                             zoneChange.changePartitions(distributionZoneCfg.partitions());
+                        }
+
+                        if (distributionZoneCfg.dataStorageChangeConsumer() == null) {
+                            zoneChange.changeDataStorage(ch -> ch.convert(zonesConfiguration.defaultDataStorage().value()));
+                        } else {
+                            zoneChange.changeDataStorage(distributionZoneCfg.dataStorageChangeConsumer());
                         }
 
                         if (distributionZoneCfg.replicas() == null) {
@@ -347,6 +355,7 @@ public class DistributionZoneManager implements IgniteComponent {
                         zonesChange.changeGlobalIdCounter(intZoneId);
 
                         zoneChange.changeZoneId(intZoneId);
+                        zoneIdContainer[0] = intZoneId;
                     });
                 } catch (ConfigurationNodeAlreadyExistException e) {
                     throw new DistributionZoneAlreadyExistsException(distributionZoneCfg.name(), e);
@@ -360,7 +369,7 @@ public class DistributionZoneManager implements IgniteComponent {
                                     ConfigurationValidationException.class)
                     );
                 } else {
-                    fut.complete(null);
+                    fut.complete(zoneIdContainer[0]);
                 }
             });
 
@@ -949,6 +958,11 @@ public class DistributionZoneManager implements IgniteComponent {
 
         if (distributionZoneCfg.partitions() != null) {
             zoneChange.changePartitions(distributionZoneCfg.partitions());
+        }
+
+        if (distributionZoneCfg.dataStorageChangeConsumer() != null) {
+            zoneChange.changeDataStorage(
+                    distributionZoneCfg.dataStorageChangeConsumer());
         }
 
         if (distributionZoneCfg.filter() != null) {

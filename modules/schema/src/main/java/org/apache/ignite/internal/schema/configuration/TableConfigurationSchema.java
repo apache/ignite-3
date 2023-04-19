@@ -24,8 +24,6 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Range;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.storage.KnownDataStorage;
 
 /**
  * Table configuration schema class.
@@ -45,11 +43,6 @@ public class TableConfigurationSchema {
     /** Distribution zone id. */
     @Value(hasDefault = true)
     public int zoneId = 0;
-
-    /** Data storage configuration. */
-    @KnownDataStorage
-    @ConfigValue
-    public DataStorageConfigurationSchema dataStorage;
 
     /** Columns configuration. */
     @NamedConfigValue

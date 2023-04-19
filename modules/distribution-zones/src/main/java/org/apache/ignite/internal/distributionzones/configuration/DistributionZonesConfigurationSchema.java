@@ -27,6 +27,7 @@ import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.ExceptKeys;
+import org.apache.ignite.internal.schema.configuration.storage.ExistingDataStorage;
 
 /**
  * Distribution zones configuration schema.
@@ -46,4 +47,9 @@ public class DistributionZonesConfigurationSchema {
     @ExceptKeys(DEFAULT_ZONE_NAME)
     @NamedConfigValue
     public DistributionZoneConfigurationSchema distributionZones;
+
+    /** Default data storage for zones. */
+    @ExistingDataStorage
+    @Value(hasDefault = true)
+    public String defaultDataStorage = "aipersist";
 }
