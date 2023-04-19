@@ -24,7 +24,6 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.schema.configuration.index.IndexValidator;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.storage.ExistingDataStorage;
 
 /**
  * Tables configuration schema.
@@ -45,11 +44,6 @@ public class TablesConfigurationSchema {
     @NamedConfigValue
     @IndexValidator
     public TableIndexConfigurationSchema indexes;
-
-    /** Default data storage for tables. */
-    @ExistingDataStorage
-    @Value(hasDefault = true)
-    public String defaultDataStorage = "aipersist";
 
     /** Number of garbage collector threads. */
     @Value(hasDefault = true)

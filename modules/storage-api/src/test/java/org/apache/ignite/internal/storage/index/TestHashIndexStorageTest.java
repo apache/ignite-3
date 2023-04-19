@@ -34,11 +34,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class TestHashIndexStorageTest extends AbstractHashIndexStorageTest {
     @BeforeEach
     void setUp(
-            @InjectConfiguration(
-                    value = "mock.tables.foo.dataStorage.name = " + TestStorageEngine.ENGINE_NAME
-            )
+            @InjectConfiguration("mock.tables.foo {}")
             TablesConfiguration tablesConfig,
-            @InjectConfiguration("mock.partitions = 10")
+            @InjectConfiguration("mock { partitions = 10, dataStorage.name = " + TestStorageEngine.ENGINE_NAME + " }")
             DistributionZoneConfiguration distributionZoneConfiguration
     ) {
         TableConfiguration tableConfig = tablesConfig.tables().get("foo");
