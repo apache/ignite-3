@@ -120,7 +120,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
 
             conn.close();
 
-            // Exception when called on closed connection
+            // Exception when called on closed connection.
             checkConnectionClosed(conn::commit);
         }
     }
@@ -135,17 +135,16 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
     @Test
     public void testRollback() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
-            // Should not be called in auto-commit mode
-            SQLException rollbackEx = assertThrows(SQLException.class, conn::rollback);
-            MatcherAssert.assertThat(rollbackEx.getMessage(),
-                    containsString("Transaction cannot be rolled back explicitly in auto-commit mode."));
+            // Should not be called in auto-commit mode.
+            SQLException ex = assertThrows(SQLException.class, conn::rollback);
+            MatcherAssert.assertThat(ex.getMessage(), containsString("Transaction cannot be rolled back explicitly in auto-commit mode."));
 
             conn.setAutoCommit(false);
             conn.rollback();
 
             conn.close();
 
-            // Exception when called on closed connection
+            // Exception when called on closed connection.
             checkConnectionClosed(conn::rollback);
         }
     }
