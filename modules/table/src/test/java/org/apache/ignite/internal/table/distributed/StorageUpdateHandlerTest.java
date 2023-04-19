@@ -20,8 +20,15 @@ package org.apache.ignite.internal.table.distributed;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -30,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -37,11 +45,14 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
+import org.apache.ignite.internal.storage.BinaryRowAndRowId;
+import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -58,9 +69,9 @@ public class StorageUpdateHandlerTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
-    private final PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker = new PendingComparableValuesTracker<>(
+    private final PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker = spy(new PendingComparableValuesTracker<>(
             new HybridTimestamp(1, 0)
-    );
+    ));
 
     @Test
     void testBuildIndex() {
@@ -108,6 +119,55 @@ public class StorageUpdateHandlerTest {
 
         verify(indexStorage.storage()).setNextRowIdToBuild(null);
         verify(indexes, times(2)).addIndexToWaitIfAbsent(indexId);
+    }
+
+    @Test
+    void testVacuumBatch() {
+        PartitionDataStorage partitionStorage = mock(PartitionDataStorage.class);
+
+        when(partitionStorage.scanVersions(any(RowId.class))).thenReturn(CursorUtils.emptyCursor());
+
+        when(partitionStorage.runConsistently(any(WriteClosure.class)))
+                .then(invocation -> ((WriteClosure<?>) invocation.getArgument(0)).execute());
+
+        TableIndexStoragesSupplier indexes = mock(TableIndexStoragesSupplier.class);
+
+        StorageUpdateHandler storageUpdateHandler = createStorageUpdateHandler(partitionStorage, indexes);
+
+        HybridTimestamp lowWatermark = new HybridTimestamp(100, 100);
+
+        CompletableFuture<Void> startWaitSafeTime = new CompletableFuture<>();
+        CompletableFuture<Void> finishWaitSafeTime = new CompletableFuture<>();
+
+        when(safeTimeTracker.waitFor(lowWatermark)).then(invocation -> {
+            startWaitSafeTime.complete(null);
+
+            return finishWaitSafeTime;
+        });
+
+        CompletableFuture<Boolean> vacuumBatchFuture = storageUpdateHandler.vacuumBatch(lowWatermark, 2);
+
+        assertThat(startWaitSafeTime, willSucceedFast());
+
+        assertFalse(vacuumBatchFuture.isDone());
+        verify(partitionStorage, never()).pollForVacuum(lowWatermark);
+        verify(indexes, never()).get();
+
+        finishWaitSafeTime.complete(null);
+
+        assertThat(vacuumBatchFuture, willBe(false));
+        verify(partitionStorage).pollForVacuum(lowWatermark);
+
+        // Let's check that StorageUpdateHandler#vacuumBatch returns true.
+        clearInvocations(partitionStorage, indexes);
+
+        BinaryRowAndRowId binaryRowAndRowId = new BinaryRowAndRowId(mock(BinaryRow.class), new RowId(PARTITION_ID));
+
+        when(partitionStorage.pollForVacuum(lowWatermark)).thenReturn(binaryRowAndRowId);
+
+        assertThat(storageUpdateHandler.vacuumBatch(lowWatermark, 3), willBe(true));
+        verify(partitionStorage, times(3)).pollForVacuum(lowWatermark);
+        verify(indexes, times(3)).get();
     }
 
     private static TableSchemaAwareIndexStorage createIndexStorage() {
