@@ -509,6 +509,49 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         }
     }
 
+    @Test
+    public void testCommit() throws Exception {
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            // Should not be called in auto-commit mode
+            assertThrows(
+                    SQLException.class,
+                    () -> conn.commit(),
+                    "Transaction cannot be committed explicitly in auto-commit mode"
+            );
+
+            assertTrue(conn.getAutoCommit());
+
+            // Should not be called in auto-commit mode
+            assertThrows(
+                    SQLException.class,
+                    () -> conn.commit(),
+                    "Transaction cannot be committed explicitly in auto-commit mode."
+            );
+
+            conn.close();
+
+            // Exception when called on closed connection
+            checkConnectionClosed(() -> conn.commit());
+        }
+    }
+
+    @Test
+    public void testRollback() throws Exception {
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            // Should not be called in auto-commit mode
+            assertThrows(
+                    SQLException.class,
+                    () -> conn.rollback(),
+                    "Transaction cannot be rolled back explicitly in auto-commit mode."
+            );
+
+            conn.close();
+
+            // Exception when called on closed connection
+            checkConnectionClosed(() -> conn.rollback());
+        }
+    }
+
     /**
      * Test get metadata.
      *
