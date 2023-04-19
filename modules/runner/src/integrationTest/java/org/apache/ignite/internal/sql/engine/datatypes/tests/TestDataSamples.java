@@ -17,12 +17,18 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
-import org.apache.calcite.sql.type.SqlTypeName;
-
-import java.util.*;
-import java.util.function.Function;
-
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.NavigableSet;
+import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.function.Function;
+import org.apache.calcite.sql.type.SqlTypeName;
 
 /**
  * Values used in tests.
@@ -45,22 +51,30 @@ public final class TestDataSamples<T extends Comparable<T>> {
         }
     }
 
-    /** Returns the smallest value among these samples. */
+    /**
+     * Returns the smallest value among these samples.
+     */
     public T min() {
         return orderedValues.first();
     }
 
-    /** Returns the largest value among these samples. */
+    /**
+     * Returns the largest value among these samples.
+     */
     public T max() {
         return orderedValues.last();
     }
 
-    /** Returns an ordered view of these samples. */
+    /**
+     * Returns an ordered view of these samples.
+     */
     public NavigableSet<T> ordered() {
         return orderedValues;
     }
 
-    /** Returns these samples as a list. **/
+    /**
+     * Returns these samples as a list.
+     **/
     public List<T> values() {
         return values;
     }
@@ -78,7 +92,7 @@ public final class TestDataSamples<T extends Comparable<T>> {
      * Returns a representation of the given sample of the specified type.
      *
      * @throws IllegalArgumentException if there is no such sample or the there is no representation of this sample of the specified
-     *         type.
+     *                                  type.
      */
     public Object get(Object value, SqlTypeName typeName) {
         Map<SqlTypeName, Object> map = getReprMap(value);
@@ -100,12 +114,16 @@ public final class TestDataSamples<T extends Comparable<T>> {
         return map;
     }
 
-    /** Returns a builder of {@link TestDataSamples}. */
+    /**
+     * Returns a builder of {@link TestDataSamples}.
+     */
     public static <T extends Comparable<T>> Builder<T> builder() {
         return new Builder<>();
     }
 
-    /** A builder of {@link TestDataSamples}.*/
+    /**
+     * A builder of {@link TestDataSamples}.
+     */
     public static final class Builder<T extends Comparable<T>> {
 
         private final Map<T, Map<SqlTypeName, Object>> alts = new HashMap<>();
@@ -116,7 +134,9 @@ public final class TestDataSamples<T extends Comparable<T>> {
 
         }
 
-        /** Add a sample with. */
+        /**
+         * Add a sample with.
+         */
         public Builder<T> add(T value, SqlTypeName typeName, Object typeValue) {
             Map<SqlTypeName, Object> vals = alts.computeIfAbsent(value, (key) -> new TreeMap<>());
             if (vals.put(typeName, typeValue) != null) {
@@ -131,7 +151,9 @@ public final class TestDataSamples<T extends Comparable<T>> {
             return this;
         }
 
-        /** Adds the given values. */
+        /**
+         * Adds the given values.
+         */
         public Builder<T> add(Collection<T> values, SqlTypeName typeName, Function<T, Object> mapping) {
             for (T value : values) {
                 add(value, typeName, mapping.apply(value));
@@ -140,7 +162,9 @@ public final class TestDataSamples<T extends Comparable<T>> {
             return this;
         }
 
-        /** Creates an instance of {@link TestDataSamples}. **/
+        /**
+         * Creates an instance of {@link TestDataSamples}.
+         **/
         public TestDataSamples<T> build() {
             return new TestDataSamples<>(values, alts);
         }

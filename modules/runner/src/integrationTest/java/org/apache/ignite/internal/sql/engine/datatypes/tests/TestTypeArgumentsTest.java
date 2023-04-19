@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
@@ -25,12 +30,6 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.stream.Collectors;
-
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Unit tests for {@link TestTypeArguments}.

@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.uuid;
 
+import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.datatypes.CustomDataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseQueryCustomDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.CustomDataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
-
-import java.util.UUID;
 
 /**
  * Tests for {@code SELECT} operator for {@link UuidType UUID data type}.

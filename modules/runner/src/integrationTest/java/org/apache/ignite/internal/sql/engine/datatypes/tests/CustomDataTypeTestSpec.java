@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
+import java.util.List;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-
-import java.util.List;
 
 /**
  * {@link IgniteCustomTypeSpec} + its values + convenient methods.

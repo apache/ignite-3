@@ -17,12 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
-import org.apache.calcite.sql.SqlLiteral;
-import org.apache.calcite.sql.parser.SqlParserPos;
-import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
-import org.jetbrains.annotations.Nullable;
-
 import java.lang.reflect.Array;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -30,6 +24,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
+import org.apache.calcite.sql.SqlLiteral;
+import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Provides method for generating arguments for {@link BaseCustomDataTypeTest custom data type tests}.
