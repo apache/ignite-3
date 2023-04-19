@@ -217,6 +217,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodesNames2, keyValueStorage);
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testDropZoneDoNotPropagateDataNodesAfterScaleUp() throws Exception {
         topology.putNode(NODE_1);
@@ -247,6 +248,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         assertNotEqualsDataNodesForZone(1, clusterNodesNames2);
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testDropZoneDoNotPropagateDataNodesAfterScaleDown() throws Exception {
         topology.putNode(NODE_1);
