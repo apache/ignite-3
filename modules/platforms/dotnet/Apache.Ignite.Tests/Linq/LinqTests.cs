@@ -112,7 +112,8 @@ public partial class LinqTests : IgniteTestsBase
                 new LocalDateTime(2022, 12, 19, 11, i + 1),
                 Instant.FromUnixTimeSeconds(i + 1),
                 new byte[] { 1, 2 },
-                i + 7.7m);
+                i + 7.7m,
+                new Guid(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, (byte)(i + 1)));
 
             await PocoAllColumnsSqlNullableView.UpsertAsync(null, pocoAllColumns);
         }
@@ -582,6 +583,7 @@ public partial class LinqTests : IgniteTestsBase
         Assert.AreEqual(new LocalDateTime(2022, 12, 19, 11, 1), res[0].DateTime);
         Assert.AreEqual(Instant.FromUnixTimeSeconds(1), res[0].Timestamp);
         Assert.AreEqual(new byte[] { 1, 2 }, res[0].Blob);
+        Assert.AreEqual(new Guid(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1), res[0].Uuid);
     }
 
     [Test]
