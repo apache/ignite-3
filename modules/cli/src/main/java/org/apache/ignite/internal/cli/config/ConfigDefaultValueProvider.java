@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cli.config;
 
-import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import picocli.CommandLine;
 
@@ -26,8 +25,11 @@ import picocli.CommandLine;
  */
 @Singleton
 public class ConfigDefaultValueProvider implements CommandLine.IDefaultValueProvider {
-    @Inject
-    private ConfigManagerProvider configManagerProvider;
+    private final ConfigManagerProvider configManagerProvider;
+
+    public ConfigDefaultValueProvider(ConfigManagerProvider configManagerProvider) {
+        this.configManagerProvider = configManagerProvider;
+    }
 
     @Override
     public String defaultValue(CommandLine.Model.ArgSpec argSpec) throws Exception {

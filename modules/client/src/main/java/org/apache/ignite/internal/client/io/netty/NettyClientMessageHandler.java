@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.client.io.netty.NettyClientConnection.A
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import java.io.IOException;
 
 /**
  * Netty client message handler.
@@ -30,7 +29,7 @@ import java.io.IOException;
 public class NettyClientMessageHandler extends ChannelInboundHandlerAdapter {
     /** {@inheritDoc} */
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
+    public void channelRead(ChannelHandlerContext ctx, Object msg) {
         ctx.channel().attr(ATTR_CONN).get().onMessage((ByteBuf) msg);
     }
 

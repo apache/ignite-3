@@ -189,8 +189,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
             tx.commit();
         } finally {
-            //TODO: IGNITE-18324 Nothing do in the rollback invocation when a transaction is committed.
-            //tx.rollback();
+            tx.rollback();
         }
 
         stopNodes();

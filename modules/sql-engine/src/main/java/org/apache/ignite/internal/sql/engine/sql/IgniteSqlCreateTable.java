@@ -37,8 +37,6 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 public class IgniteSqlCreateTable extends SqlCreate {
     private final SqlIdentifier name;
 
-    private final @Nullable SqlIdentifier engineName;
-
     private final @Nullable SqlNodeList columnList;
 
     private final @Nullable SqlNodeList colocationColumns;
@@ -52,17 +50,13 @@ public class IgniteSqlCreateTable extends SqlCreate {
             SqlParserPos pos,
             boolean ifNotExists,
             SqlIdentifier name,
-            @Nullable SqlIdentifier engineName,
             @Nullable SqlNodeList columnList,
             @Nullable SqlNodeList colocationColumns,
             @Nullable SqlNodeList createOptionList
     ) {
         super(OPERATOR, pos, false, ifNotExists);
 
-        assert engineName == null || engineName.isSimple() : engineName;
-
         this.name = Objects.requireNonNull(name, "name");
-        this.engineName = engineName;
         this.columnList = columnList;
         this.colocationColumns = colocationColumns;
         this.createOptionList = createOptionList;
@@ -102,12 +96,6 @@ public class IgniteSqlCreateTable extends SqlCreate {
             writer.endList(frame);
         }
 
-        if (engineName != null) {
-            writer.keyword("ENGINE");
-
-            engineName.unparse(writer, 0, 0);
-        }
-
         if (createOptionList != null) {
             writer.keyword("WITH");
 
@@ -120,13 +108,6 @@ public class IgniteSqlCreateTable extends SqlCreate {
      */
     public SqlIdentifier name() {
         return name;
-    }
-
-    /**
-     * Returns a name of the engine the table should be created in.
-     */
-    public @Nullable SqlIdentifier engineName() {
-        return engineName;
     }
 
     /**

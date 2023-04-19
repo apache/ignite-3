@@ -92,14 +92,14 @@ class ItSqlCommandTest extends CliCommandTestInitializedIntegrationBase {
     }
 
     @Test
-    @DisplayName("Should display readable error when wrong engine is given on CREATE TABLE")
+    @DisplayName("Should display readable error when wrong option is given on CREATE TABLE")
     void incorrectEngineOnCreate() {
-        execute("sql", "create table mytable1(i int, j int, primary key (i)) with engine='nusuch'", "--jdbc-url", JDBC_URL);
+        execute("sql", "create table mytable1(i int, j int, primary key (i)) with notexist='nusuch'", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Unexpected table option [option=ENGINE")
+                () -> assertErrOutputContains("Unexpected table option [option=NOTEXIST")
         );
     }
 

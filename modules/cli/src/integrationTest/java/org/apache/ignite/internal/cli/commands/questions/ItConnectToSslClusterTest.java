@@ -26,7 +26,6 @@ import org.apache.ignite.internal.NodeConfig;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.TestStateConfigHelper;
-import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -44,8 +43,7 @@ class ItConnectToSslClusterTest extends ItConnectToClusterTestBase {
         assertThat(promptBefore).isEqualTo("[disconnected]> ");
 
         // And default URL is HTTPS
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createClusterUrlSsl());
-
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlSsl());
         // And trust store is configured
         configManagerProvider.configManager.setProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value(), NodeConfig.resolvedTruststorePath);
         configManagerProvider.configManager.setProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value(), NodeConfig.trustStorePassword);
@@ -77,7 +75,7 @@ class ItConnectToSslClusterTest extends ItConnectToClusterTestBase {
         assertThat(promptBefore).isEqualTo("[disconnected]> ");
 
         // And default URL is HTTPS
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createClusterUrlSsl());
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlSsl());
 
         // And trust store is not configured
 

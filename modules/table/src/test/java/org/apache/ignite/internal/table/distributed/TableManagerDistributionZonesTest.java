@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.Collections.emptySet;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
@@ -40,6 +41,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,17 +62,21 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.command.HybridTimestampMessage;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
+import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -82,10 +88,12 @@ import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.utils.RebalanceUtil;
+import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -134,20 +142,22 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
                 Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
-                List.of()
+                List.of(PersistentPageMemoryDataStorageConfigurationSchema.class)
         );
 
         MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
 
         doAnswer(invocation -> {
-            WatchListener listener = invocation.getArgument(1);
+            ByteArray key = invocation.getArgument(0);
 
-            if (watchListener == null) {
-                watchListener = listener;
+            WatchListener watchListener = invocation.getArgument(1);
+
+            if (Arrays.equals(key.bytes(), zoneDataNodesKey().bytes())) {
+                this.watchListener = watchListener;
             }
 
             return null;
-        }).when(metaStorageManager).registerPrefixWatch(any(), any());
+        }).when(metaStorageManager).registerExactWatch(any(), any());
 
         tablesConfiguration = mock(TablesConfiguration.class);
 
@@ -157,14 +167,21 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
 
-        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage);
+        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, mock(ClusterTimeImpl.class));
 
         RaftGroupService metaStorageService = mock(RaftGroupService.class);
+
+        HybridTimestampMessage mockTsMessage = mock(HybridTimestampMessage.class);
+        when(mockTsMessage.asHybridTimestamp()).thenReturn(new HybridTimestamp(10, 10));
 
         // Delegate directly to listener.
         lenient().doAnswer(
                 invocationClose -> {
                     Command cmd = invocationClose.getArgument(0);
+
+                    if (cmd instanceof MetaStorageWriteCommand) {
+                        ((MetaStorageWriteCommand) cmd).safeTime(mockTsMessage);
+                    }
 
                     long commandIndex = raftIndex.incrementAndGet();
 
@@ -220,6 +237,11 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
             return ret;
         });
 
+        VaultManager vaultManager = mock(VaultManager.class);
+
+        when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
+        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
+
         tableManager = new TableManager(
                 "node1",
                 (x) -> {},
@@ -240,7 +262,8 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
                 null,
                 null,
                 mock(OutgoingSnapshotsManager.class),
-                mock(TopologyAwareRaftGroupServiceFactory.class)
+                mock(TopologyAwareRaftGroupServiceFactory.class),
+                vaultManager
         );
     }
 

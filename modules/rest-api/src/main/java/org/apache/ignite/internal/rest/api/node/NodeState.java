@@ -21,21 +21,22 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 
 /**
  * Node state that is returned by REST.
  */
 @Schema(description = "Node state.")
 public class NodeState {
+    @Schema(description = "Unique node name.", requiredMode = RequiredMode.REQUIRED)
+    private final String name;
 
-    @Schema(description = "Unique node name.")
-    private String name;
-
-    @Schema(description = "Node status.")
-    private State state;
+    @Schema(description = "Node status.", requiredMode = RequiredMode.REQUIRED)
+    private final State state;
 
     @JsonCreator
-    public NodeState(@JsonProperty("name") String name, @JsonProperty("state") State state) {
+    public NodeState(@JsonProperty("name") String name,
+            @JsonProperty("state") State state) {
         this.name = name;
         this.state = state;
     }
