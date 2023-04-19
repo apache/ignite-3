@@ -44,6 +44,7 @@ import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
@@ -118,7 +119,11 @@ public class DdlSqlToCommandConverter {
     /** Mapping: Zone option ID -> DDL option info. */
     private final Map<ZoneOptionEnum, DdlOptionInfo<CreateZoneCommand, ?>> zoneOptionInfos;
 
+    /** Mapping: Zone option ID -> DDL option info. */
     private final Map<ZoneOptionEnum, DdlOptionInfo<AlterZoneSetCommand, ?>> alterZoneOptionInfos;
+
+    /** Zone options set. */
+    private final Set<String> knownZoneOptionNames;
 
     /**
      * Constructor.
@@ -131,6 +136,11 @@ public class DdlSqlToCommandConverter {
             Supplier<String> defaultDataStorageSupplier
     ) {
         this.defaultDataStorageSupplier = defaultDataStorageSupplier;
+
+        knownZoneOptionNames = EnumSet.allOf(ZoneOptionEnum.class)
+                .stream()
+                .map(Enum::name)
+                .collect(Collectors.toSet());
 
         this.dataStorageNames = collectDataStorageNames(dataStorageFields.keySet());
 
@@ -150,7 +160,7 @@ public class DdlSqlToCommandConverter {
         dataStorageOptionInfos.values().forEach(v -> checkDuplicates(v.keySet(), tableOptionInfos.keySet()));
 
         // CREATE ZONE options.
-        zoneOptionInfos = Map.of(
+        zoneOptionInfos = new EnumMap<>(Map.of(
                 REPLICAS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::replicas),
                 PARTITIONS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::partitions),
                 AFFINITY_FUNCTION, new DdlOptionInfo<>(String.class, null, CreateZoneCommand::affinity),
@@ -163,10 +173,10 @@ public class DdlSqlToCommandConverter {
                 DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjustScaleDown),
                 DATA_STORAGE_ENGINE, new DdlOptionInfo<>(String.class, null, CreateZoneCommand::dataStorage)
-        );
+        ));
 
         // ALTER ZONE options.
-        alterZoneOptionInfos = Map.of(
+        alterZoneOptionInfos = new EnumMap<>(Map.of(
                 REPLICAS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::replicas),
                 DATA_NODES_FILTER, new DdlOptionInfo<>(String.class, null, AlterZoneSetCommand::nodeFilter),
 
@@ -176,7 +186,7 @@ public class DdlSqlToCommandConverter {
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::dataNodesAutoAdjustScaleUp),
                 DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::dataNodesAutoAdjustScaleDown)
-        );
+        ));
     }
 
     /**
@@ -517,8 +527,7 @@ public class DdlSqlToCommandConverter {
 
         Map<String, DdlOptionInfo<CreateZoneCommand, ?>> dsOptInfos = dataStorageOptionInfos.get(dataStorageName);
 
-        Set<String> knownOptionNames = EnumSet.allOf(ZoneOptionEnum.class).stream().map(Enum::name).collect(Collectors.toSet());
-        Set<String> remainingKnownOptions = new HashSet<>(knownOptionNames);
+        Set<String> remainingKnownOptions = new HashSet<>(knownZoneOptionNames);
 
         for (SqlNode optionNode : createZoneNode.createOptionList().getList()) {
             IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
@@ -531,7 +540,7 @@ public class DdlSqlToCommandConverter {
 
             if (remainingKnownOptions.remove(optionName)) {
                 zoneOptionInfo = zoneOptionInfos.get(ZoneOptionEnum.valueOf(optionName));
-            } else if (knownOptionNames.contains(optionName)) {
+            } else if (knownZoneOptionNames.contains(optionName)) {
                 throw new IgniteException(QUERY_VALIDATION_ERR,
                         String.format("Duplicate DDL command option has been specified [option=%s, query=%s]", optionName, ctx.query()));
             } else {
@@ -563,14 +572,13 @@ public class DdlSqlToCommandConverter {
         alterZoneCmd.zoneName(deriveObjectName(alterZoneSet.name(), ctx, "zoneName"));
         alterZoneCmd.ifExists(alterZoneSet.ifExists());
 
-        Set<String> knownOptionNames = EnumSet.allOf(ZoneOptionEnum.class).stream().map(Enum::name).collect(Collectors.toSet());
-        Set<String> remainingKnownOptions = new HashSet<>(knownOptionNames);
+        Set<String> remainingKnownOptions = new HashSet<>(knownZoneOptionNames);
 
         for (SqlNode optionNode : alterZoneSet.alterOptionsList().getList()) {
             IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
             String optionName = option.key().getSimple().toUpperCase();
 
-            if (!knownOptionNames.contains(optionName)) {
+            if (!knownZoneOptionNames.contains(optionName)) {
                 throw new IgniteException(QUERY_VALIDATION_ERR,
                         String.format("Unexpected DDL command option [option=%s, query=%s]", optionName, ctx.query()));
             } else if (!remainingKnownOptions.remove(optionName)) {

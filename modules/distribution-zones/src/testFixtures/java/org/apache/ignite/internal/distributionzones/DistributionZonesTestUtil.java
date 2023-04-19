@@ -38,8 +38,11 @@ public class DistributionZonesTestUtil {
      * @return A future, which will be completed, when create operation finished.
      */
     public static CompletableFuture<Integer> createZone(
-            DistributionZoneManager zoneManager, String zoneName,
-            int partitions, int replicas, Consumer<DataStorageChange> dataStorageChangeConsumer) {
+            DistributionZoneManager zoneManager,
+            String zoneName,
+            int partitions,
+            int replicas,
+            Consumer<DataStorageChange> dataStorageChangeConsumer) {
         var distributionZoneCfgBuilder = new Builder(zoneName)
                 .replicas(replicas)
                 .partitions(partitions);
