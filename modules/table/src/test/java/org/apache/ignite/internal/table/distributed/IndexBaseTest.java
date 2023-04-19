@@ -46,6 +46,7 @@ import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -129,7 +130,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                 PARTITION_ID,
                 new TestPartitionDataStorage(storage),
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(indexes),
-                dsCfg
+                dsCfg,
+                new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE)
         );
     }
 

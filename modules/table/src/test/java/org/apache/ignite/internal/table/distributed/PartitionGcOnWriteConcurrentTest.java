@@ -44,6 +44,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -74,7 +75,8 @@ public class PartitionGcOnWriteConcurrentTest {
                 PARTITION_ID,
                 new TestPartitionDataStorage(storage),
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
-                dsCfg
+                dsCfg,
+                new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE)
         );
     }
 

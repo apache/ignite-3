@@ -338,7 +338,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         partId,
                         partitionDataStorage,
                         DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get())),
-                        dsCfg
+                        dsCfg,
+                        safeTimeClock
                 ),
                 peer -> localNode.name().equals(peer.consistentId()),
                 completedFuture(schemaManager)

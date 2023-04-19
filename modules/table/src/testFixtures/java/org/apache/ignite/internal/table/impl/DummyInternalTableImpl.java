@@ -271,7 +271,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().when(gcBatchSizeValue.value()).thenReturn(5);
         lenient().when(dsCfg.gcOnUpdateBatchSize()).thenReturn(gcBatchSizeValue);
 
-        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(PART_ID, partitionDataStorage, indexes, dsCfg);
+        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(PART_ID, partitionDataStorage, indexes, dsCfg, safeTime);
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);
 

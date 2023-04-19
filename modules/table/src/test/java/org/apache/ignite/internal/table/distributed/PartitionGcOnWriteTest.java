@@ -37,6 +37,7 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -63,7 +64,8 @@ public class PartitionGcOnWriteTest extends BaseMvStoragesTest {
                 1,
                 new TestPartitionDataStorage(storage),
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
-                dsCfg
+                dsCfg,
+                new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE)
         );
     }
 

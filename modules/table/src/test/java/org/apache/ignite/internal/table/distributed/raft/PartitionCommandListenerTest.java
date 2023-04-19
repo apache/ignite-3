@@ -190,7 +190,8 @@ public class PartitionCommandListenerTest {
                 PARTITION_ID,
                 partitionDataStorage,
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage)),
-                dsCfg
+                dsCfg,
+                safeTimeTracker
         ));
 
         commandListener = new PartitionListener(
@@ -285,14 +286,15 @@ public class PartitionCommandListenerTest {
                 PARTITION_ID,
                 partitionDataStorage,
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage)),
-                dsCfg
+                dsCfg,
+                safeTimeTracker
         );
 
         PartitionListener testCommandListener = new PartitionListener(
                 partitionDataStorage,
                 storageUpdateHandler,
                 txStateStorage,
-                new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0)),
+                safeTimeTracker,
                 new PendingComparableValuesTracker<>(0L),
                 () -> null
         );

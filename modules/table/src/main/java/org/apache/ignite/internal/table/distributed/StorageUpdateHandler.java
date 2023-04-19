@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -40,13 +41,13 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Handler for storage updates that can be performed on processing of primary replica requests and partition replication requests.
  */
 public class StorageUpdateHandler {
-    /** Partition id. */
     private final int partitionId;
 
     /** Partition storage with access to MV data of a partition. */
@@ -54,8 +55,10 @@ public class StorageUpdateHandler {
 
     private final TableIndexStoragesSupplier indexes;
 
-    /** Data storage configuration. */
     private final DataStorageConfiguration dsCfg;
+
+    /** Partition safe time tracker. */
+    private final PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker;
 
     /**
      * The constructor.
@@ -64,17 +67,20 @@ public class StorageUpdateHandler {
      * @param storage Partition data storage.
      * @param indexes Indexes supplier.
      * @param dsCfg Data storage configuration.
+     * @param safeTimeTracker Partition safe time tracker.
      */
     public StorageUpdateHandler(
             int partitionId,
             PartitionDataStorage storage,
             TableIndexStoragesSupplier indexes,
-            DataStorageConfiguration dsCfg
+            DataStorageConfiguration dsCfg,
+            PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker
     ) {
         this.partitionId = partitionId;
         this.storage = storage;
         this.indexes = indexes;
         this.dsCfg = dsCfg;
+        this.safeTimeTracker = safeTimeTracker;
     }
 
     /**
@@ -326,23 +332,32 @@ public class StorageUpdateHandler {
      * @see MvPartitionStorage#pollForVacuum(HybridTimestamp)
      */
     public boolean vacuum(HybridTimestamp lowWatermark) {
+        // TODO: IGNITE-19290 надо подумать над этим, но обязательно выполнять только после достижения безопасного времени !!!
+        // TODO: IGNITE-19290 скорее всего надо будет переписать на ваккумный батч, но может и не нужно будет, подумаем.
         return storage.runConsistently(() -> internalVacuum(lowWatermark));
     }
 
     /**
      * Tries removing {@code count} oldest stale entries and their indexes.
-     * If there's less entries that can be removed, then exits prematurely.
+     *
+     * <p>Waits for partition safe time equal to low watermark.
      *
      * @param lowWatermark Low watermark for the vacuum.
      * @param count Count of entries to GC.
+     * @return Future batch processing, will return {@code false} if there is no garbage left otherwise {@code true} and garbage may still
+     *      be left.
      */
-    void vacuumBatch(HybridTimestamp lowWatermark, int count) {
-        // TODO: IGNITE-19290 выполнить тольео при достижении safeTime
-        for (int i = 0; i < count; i++) {
-            if (!storage.runConsistently(() -> internalVacuum(lowWatermark))) {
-                break;
+    CompletableFuture<Boolean> vacuumBatch(HybridTimestamp lowWatermark, int count) {
+        // TODO: IGNITE-19290 может еще не закончили
+        return safeTimeTracker.waitFor(lowWatermark).thenApply(unused -> {
+            for (int i = 0; i < count; i++) {
+                if (!storage.runConsistently(() -> internalVacuum(lowWatermark))) {
+                    return false;
+                }
             }
-        }
+
+            return true;
+        });
     }
 
     /**

@@ -446,7 +446,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         partId,
                         partitionDataStorage,
                         DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get())),
-                        dsCfg
+                        dsCfg,
+                        safeTime
                 );
 
                 TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(

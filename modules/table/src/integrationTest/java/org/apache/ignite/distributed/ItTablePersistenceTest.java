@@ -376,18 +376,23 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
 
+                    PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(
+                            new HybridTimestamp(1, 0)
+                    );
+
                     StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                             0,
                             partitionDataStorage,
                             DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
-                            tableCfg.dataStorage()
+                            tableCfg.dataStorage(),
+                            safeTime
                     );
 
                     PartitionListener listener = new PartitionListener(
                             partitionDataStorage,
                             storageUpdateHandler,
                             new TestTxStateStorage(),
-                            new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0)),
+                            safeTime,
                             new PendingComparableValuesTracker<>(0L),
                             () -> null
                     );

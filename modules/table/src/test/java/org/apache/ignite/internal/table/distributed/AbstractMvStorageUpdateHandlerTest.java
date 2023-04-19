@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -95,7 +97,8 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
                 PARTITION_ID,
                 partitionDataStorage,
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
-                tableConfig.dataStorage()
+                tableConfig.dataStorage(),
+                new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE)
         );
     }
 
@@ -129,8 +132,8 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
             addWriteCommitted(partitionDataStorage, rowId1, null, clock.now());
 
             runRace(
-                    () -> storageUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2),
-                    () -> storageUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2)
+                    () -> assertThat(storageUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2), willSucceedFast()),
+                    () -> assertThat(storageUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2), willSucceedFast())
             );
 
             assertNull(partitionDataStorage.getStorage().closestRowId(RowId.lowestRowId(PARTITION_ID)));

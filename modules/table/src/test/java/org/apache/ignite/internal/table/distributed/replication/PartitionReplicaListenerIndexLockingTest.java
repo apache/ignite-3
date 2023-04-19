@@ -165,6 +165,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         );
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
+        PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(CLOCK.now());
+
         partitionReplicaListener = new PartitionReplicaListener(
                 TEST_MV_PARTITION_STORAGE,
                 mockRaftClient,
@@ -184,14 +186,15 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         hashIndexLocker.id(), hashIndexStorage
                 ),
                 CLOCK,
-                new PendingComparableValuesTracker<>(CLOCK.now()),
+                safeTime,
                 new TestTxStateStorage(),
                 mock(PlacementDriver.class),
                 new StorageUpdateHandler(
                         PART_ID,
                         new TestPartitionDataStorage(TEST_MV_PARTITION_STORAGE),
                         DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get())),
-                        dsCfg
+                        dsCfg,
+                        safeTime
                 ),
                 peer -> true,
                 CompletableFuture.completedFuture(schemaManager)
