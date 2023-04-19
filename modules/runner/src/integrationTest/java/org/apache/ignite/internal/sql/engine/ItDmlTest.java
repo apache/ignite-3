@@ -17,32 +17,39 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.lang.ErrorGroups.Sql.DUPLICATE_KEYS_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
-import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Various DML tests.
@@ -82,7 +89,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         {
             SqlException ex = assertThrows(SqlException.class, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 2));
 
-            assertEquals(ex.code(), Sql.DUPLICATE_KEYS_ERR);
+            assertEquals(ex.code(), DUPLICATE_KEYS_ERR);
         }
 
         assertQuery("DELETE FROM my WHERE id=?")
@@ -102,7 +109,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         {
             SqlException ex = assertThrows(SqlException.class, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 3));
 
-            assertEquals(ex.code(), Sql.DUPLICATE_KEYS_ERR);
+            assertEquals(ex.code(), DUPLICATE_KEYS_ERR);
         }
     }
 
@@ -134,7 +141,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 () -> sql("INSERT INTO test VALUES (0, 0), (1, 1), (2, 2)")
         );
 
-        assertEquals(Sql.DUPLICATE_KEYS_ERR, sqlException.code());
+        assertEquals(DUPLICATE_KEYS_ERR, sqlException.code());
 
         assertQuery("SELECT count(*) FROM test")
                 .returns(1L)
@@ -166,7 +173,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 () -> sql(insertStatement)
         );
 
-        assertEquals(Sql.DUPLICATE_KEYS_ERR, sqlException.code());
+        assertEquals(DUPLICATE_KEYS_ERR, sqlException.code());
 
         assertQuery("SELECT count(*) FROM test")
                 .returns(0L)
@@ -376,7 +383,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                                 + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
                                 + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
 
-        assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
+        assertEquals(DUPLICATE_KEYS_ERR, ex.code());
     }
 
     /**
@@ -404,106 +411,6 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         assertEquals(1, sql(anotherTx, "select * from test").size());
 
         anotherTx.commit();
-    }
-
-    @Test
-    public void testSingleColumnTable() {
-        //String zoneSql = "create zone test_zone with partitions=1, replicas=3;";
-        // with primary_zone='TEST_ZONE'
-        String tabName1 = "myTbl";
-
-        String tabName2 = "myTbl2Cols";
-
-        sql("CREATE TABLE " + tabName1 + " (id INT PRIMARY KEY)");
-//        sql("INSERT INTO " + tabName1 + " VALUES (0), (0), (1)");
-
-//        if (true)
-//            return;
-
-        sql("CREATE TABLE " + tabName2 + " (id INT PRIMARY KEY, val INT)");
-//        sql("INSERT INTO " + tabName2 + " VALUES (0, 0), (1, 1), (1, 2)");
-
-        Ignite ignite = CLUSTER_NODES.get(0);
-
-//        ignite.transactions().runInTransaction(tx -> {
-//            List<List<Object>> rows = sql(tx, "SELECT count(*) from " + tabName1);
-//            assertEquals(2L, rows.get(0).get(0));
-//        });
-
-        Table tab = ignite.tables().table(tabName1);
-        Table tab2 = ignite.tables().table(tabName2);
-
-//        tab.recordView().upsert(null, Tuple.create().set("id", 1));
-//        tab.recordView().upsert(null, Tuple.create().set("id", 1));
-        tab.keyValueView(Integer.class, Void.class).put(null, 1, null);
-        tab.keyValueView(Integer.class, Void.class).put(null, 1, null);
-
-
-//        tab2.recordView().upsert(null, Tuple.create().set("id", 1).set("val", 1));
-//        tab2.recordView().upsert(null, Tuple.create().set("id", 1).set("val", 2));
-        tab2.keyValueView(Integer.class, Integer.class).put(null, 1, 1);
-        tab2.keyValueView(Integer.class, Integer.class).put(null, 1, 2);
-
-//        tab2.recordView().upsert(null, Tuple.create().set("id", 1));
-//        tab2.recordView().upsert(null, Tuple.create().set("id", 1));
-//        tab2.keyValueView(Integer.class, Void.class).put(null, 1, null);
-
-        System.out.println(">xxx> RECORD VIEW SINGLE");
-        checkOp(ignite, tx -> {
-            Object obj = tab.recordView().get(tx, Tuple.create().set("id", 1));
-
-            if (obj != null)
-                System.out.println(">xxx> cls=" + obj.getClass().getSimpleName() + " " + obj);
-        });
-
-        System.out.println(">xxx> KV VIEW SINGLE");
-
-        checkOp(ignite, tx -> {
-            Object obj = tab.keyValueView().get(tx, Tuple.create().set("id", 1));
-
-            if (obj != null)
-                System.out.println(">xxx> cls=" + obj.getClass().getSimpleName() + " " + obj);
-        });
-
-        System.out.println(">xxx> RECORD VIEW DOUBLE");
-        checkOp(ignite, tx -> {
-            Object obj = tab2.recordView().get(tx, Tuple.create().set("id", 1));
-
-            if (obj != null)
-                System.out.println(">xxx> cls=" + obj.getClass().getSimpleName() + " " + obj);
-        });
-
-        System.out.println(">xxx> KV VIEW DOUBLE");
-
-        checkOp(ignite, tx -> {
-            Object obj = tab2.keyValueView().get(tx, Tuple.create().set("id", 1));
-
-            if (obj != null)
-                System.out.println(">xxx> cls=" + obj.getClass().getSimpleName() + " " + obj);
-        });
-
-        System.out.println(">xxx> tab1 " + sql("SELECT * from " + tabName1));
-        System.out.println(">xxx> tab2 " + sql("SELECT * from " + tabName2));
-
-//        ignite.transactions().runInTransaction(tx -> {
-//            List<List<Object>> rows = sql(tx, "SELECT * from " + tabName1);
-//
-//            assertEquals(10, rows.size(), rows.toString());
-//        });
-    }
-
-    private void checkOp(Ignite ignite, Consumer<Transaction> op) {
-        System.out.println(">xxx> no transaction");
-
-        op.accept(null);;
-
-        System.out.println(">xxx> RW transaction");
-
-        ignite.transactions().runInTransaction(op);
-
-        System.out.println(">xxx> RO transaction");
-
-        ignite.transactions().runInTransaction(op, new TransactionOptions().readOnly(true));
     }
 
     @Test
@@ -699,5 +606,94 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .returns(4, 4)
                 .returns(5, 2)
                 .check();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testSingleColumnTable(boolean explicitTx) {
+        sql("create table test (ID int primary key)");
+
+        Table tab = CLUSTER_NODES.get(0).tables().table("TEST");
+        IgniteTransactions transactions = CLUSTER_NODES.get(0).transactions();
+        RecordView<Tuple> recordView = tab.recordView();
+        KeyValueView<Integer, Void> kvView = tab.keyValueView(Integer.class, Void.class);
+
+        Consumer<Consumer<Transaction>> runInTx = cmd -> {
+            if (explicitTx) {
+                transactions.runInTransaction(cmd);
+            }
+            else {
+                cmd.accept(null);
+            }
+
+            sql("delete from test");
+        };
+
+        // Test record view.
+        runInTx.accept(tx -> {
+            Tuple key = Tuple.create().set("id", 0);
+            Transaction rwTx = tx != null && !tx.isReadOnly() ? tx : null;
+
+            recordView.upsert(rwTx, key);
+
+            // Try to replace.
+            recordView.upsert(rwTx, key);
+
+            assertEquals(key, recordView.get(tx, key));
+
+            // Ensure there are no duplicates.
+            assertEquals(1, recordView.getAll(tx, Collections.singleton(key)).size());
+        });
+
+        // Test key-value view.
+        runInTx.accept(tx -> {
+            Transaction rwTx = tx != null && !tx.isReadOnly() ? tx : null;
+
+            kvView.put(rwTx, 0, null);
+
+            // Try to replace.
+            kvView.put(rwTx, 0, null);
+
+            assertNotNull(kvView.getNullable(tx, 0));
+            assertTrue(kvView.contains(tx, 0));
+            assertEquals(1, kvView.getAll(tx, Collections.singleton(0)).size());
+        });
+
+        // Test sql.
+        runInTx.accept(tx -> {
+            sql(tx, "insert into test values (0), (1)");
+
+            assertQuery(tx, "select * from test").returns(2);
+        });
+
+        // Mixed test.
+        runInTx.accept(tx -> {
+            Tuple key0 = Tuple.create().set("id", 0);
+
+            recordView.upsert(tx, key0);
+
+            SqlException ex = assertThrows(SqlException.class, () -> sql(tx, "insert into test values (0)"));
+            assertEquals(DUPLICATE_KEYS_ERR, ex.code());
+
+            kvView.put(tx, 1, null);
+
+            ex = assertThrows(SqlException.class, () -> sql(tx, "insert into test values (1)"));
+            assertEquals(DUPLICATE_KEYS_ERR, ex.code());
+
+            sql(tx, "insert into test values (2)");
+
+            for (int i = 0; i < 3; i++) {
+                Tuple exp = Tuple.create().set("id", i);
+
+                assertEquals(exp, recordView.get(tx, exp));
+
+                assertTrue(kvView.contains(tx, i));
+                assertNotNull(kvView.getNullable(tx, 0));
+
+                assertQuery("select * from test where id=" + i).returns(i);
+            }
+
+            assertQuery("select count(*) from test").returns(3);
+        });
     }
 }
