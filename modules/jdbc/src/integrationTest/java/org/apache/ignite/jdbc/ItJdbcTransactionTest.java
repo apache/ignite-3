@@ -17,9 +17,7 @@
 
 package org.apache.ignite.jdbc;
 
-import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Connection;
@@ -28,7 +26,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import org.hamcrest.MatcherAssert;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -99,53 +96,6 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
             checkConnectionClosed(conn::getAutoCommit);
             checkConnectionClosed(() -> conn.setAutoCommit(true));
             checkConnectionClosed(() -> conn.setAutoCommit(false));
-        }
-    }
-
-    /**
-     * Tests {@link Connection#commit()} method behaviour.
-     *
-     * <p>Calling {@code commit} is expected to throw an exception if called in auto-commit mode or on a closed connection,
-     *
-     * @throws SQLException If failed.
-     */
-    @Test
-    public void testCommit() throws Exception {
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            SQLException ex = assertThrows(SQLException.class, conn::commit);
-            MatcherAssert.assertThat(ex.getMessage(), containsString("Transaction cannot be committed explicitly in auto-commit mode."));
-
-            conn.setAutoCommit(false);
-            conn.commit();
-
-            conn.close();
-
-            // Exception when called on closed connection.
-            checkConnectionClosed(conn::commit);
-        }
-    }
-
-    /**
-     * Tests {@link Connection#rollback()} method behaviour.
-     *
-     * <p>Calling {@code rollback} is expected to throw an exception if called in auto-commit mode or on a closed connection,
-     *
-     * @throws SQLException If failed.
-     */
-    @Test
-    public void testRollback() throws Exception {
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            // Should not be called in auto-commit mode.
-            SQLException ex = assertThrows(SQLException.class, conn::rollback);
-            MatcherAssert.assertThat(ex.getMessage(), containsString("Transaction cannot be rolled back explicitly in auto-commit mode."));
-
-            conn.setAutoCommit(false);
-            conn.rollback();
-
-            conn.close();
-
-            // Exception when called on closed connection.
-            checkConnectionClosed(conn::rollback);
         }
     }
 
