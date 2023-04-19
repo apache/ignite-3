@@ -1346,78 +1346,81 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<Table> createTableAsyncInternal(String name, String zoneName, Consumer<TableChange> tableInitChange) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
 
-        tableAsyncInternal(name).thenAccept(tbl -> {
-            if (tbl != null) {
-                tblFut.completeExceptionally(new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name));
-            } else {
-                cmgMgr.logicalTopology()
-                        .thenCompose(cmgTopology -> {
-                            try {
-                                int zoneId = distributionZoneManager.getZoneId(zoneName);
+        tableAsyncInternal(name)
+                .thenAccept(tbl -> {
+                    if (tbl != null) {
+                        tblFut.completeExceptionally(new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name));
+                    } else {
+                        cmgMgr.logicalTopology()
+                                .thenCompose(cmgTopology -> {
+                                    try {
+                                        int zoneId = distributionZoneManager.getZoneId(zoneName);
 
-                                distributionZoneManager.topologyVersionedDataNodes(zoneId, cmgTopology.version())
-                                        .thenCompose(dataNodes -> {
-                                            tablesCfg.change(tablesChange -> tablesChange.changeTables(tablesListChange -> {
-                                                if (tablesListChange.get(name) != null) {
-                                                    throw new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name);
-                                                }
+                                        distributionZoneManager.topologyVersionedDataNodes(zoneId, cmgTopology.version())
+                                                .thenCompose(dataNodes -> {
 
-                                                tablesListChange.create(name, (tableChange) -> {
-                                                    tableChange.changeDataStorage(
-                                                            dataStorageMgr
-                                                                    .defaultTableDataStorageConsumer(tablesChange.defaultDataStorage())
-                                                    );
+                                                    tablesCfg.change(tablesChange -> tablesChange.changeTables(tablesListChange -> {
+                                                        if (tablesListChange.get(name) != null) {
+                                                            throw new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name);
+                                                        }
 
-                                                    tableInitChange.accept(tableChange);
+                                                        tablesListChange.create(name, (tableChange) -> {
+                                                            tableChange.changeDataStorage(
+                                                                    dataStorageMgr.defaultTableDataStorageConsumer(
+                                                                            tablesChange.defaultDataStorage())
+                                                            );
 
-                                                    tableChange.changeZoneId(zoneId);
+                                                            tableInitChange.accept(tableChange);
 
-                                                    var extConfCh = ((ExtendedTableChange) tableChange);
+                                                            tableChange.changeZoneId(zoneId);
 
-                                                    int intTableId = tablesChange.globalIdCounter() + 1;
-                                                    tablesChange.changeGlobalIdCounter(intTableId);
+                                                            var extConfCh = ((ExtendedTableChange) tableChange);
 
-                                                    extConfCh.changeTableId(intTableId);
+                                                            int intTableId = tablesChange.globalIdCounter() + 1;
+                                                            tablesChange.changeGlobalIdCounter(intTableId);
 
-                                                    extConfCh.changeSchemaId(INITIAL_SCHEMA_VERSION);
+                                                            extConfCh.changeTableId(intTableId);
 
-                                                    tableCreateFuts.put(extConfCh.id(), tblFut);
+                                                            extConfCh.changeSchemaId(INITIAL_SCHEMA_VERSION);
 
-                                                    DistributionZoneConfiguration distributionZoneConfiguration =
-                                                            getZoneById(distributionZonesConfiguration, tableChange.zoneId());
+                                                            tableCreateFuts.put(extConfCh.id(), tblFut);
 
-                                                    // Affinity assignments calculation.
-                                                    extConfCh.changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
-                                                            dataNodes,
-                                                            distributionZoneConfiguration.partitions().value(),
-                                                            distributionZoneConfiguration.replicas().value())));
+                                                            DistributionZoneConfiguration distributionZoneConfiguration =
+                                                                    getZoneById(distributionZonesConfiguration, zoneId);
+
+                                                            // Affinity assignments calculation.
+                                                            extConfCh.changeAssignments(
+                                                                    ByteUtils.toBytes(AffinityUtils.calculateAssignments(
+                                                                            dataNodes,
+                                                                            distributionZoneConfiguration.partitions().value(),
+                                                                            distributionZoneConfiguration.replicas().value())));
+                                                        });
+                                                    })).exceptionally(t -> {
+                                                        Throwable ex = getRootCause(t);
+
+                                                        if (ex instanceof TableAlreadyExistsException) {
+                                                            tblFut.completeExceptionally(ex);
+                                                        } else {
+                                                            LOG.debug("Unable to create table [name={}]", ex, name);
+
+                                                            tblFut.completeExceptionally(ex);
+
+                                                            tableCreateFuts.values().removeIf(fut -> fut == tblFut);
+                                                        }
+
+                                                        return null;
+                                                    });
+
+                                                    return null;
                                                 });
-                                            })).exceptionally(t -> {
-                                                Throwable ex = getRootCause(t);
+                                    } catch (Exception e) {
+                                        tblFut.completeExceptionally(e);
+                                    }
 
-                                                if (ex instanceof TableAlreadyExistsException) {
-                                                    tblFut.completeExceptionally(ex);
-                                                } else {
-                                                    LOG.debug("Unable to create table [name={}]", ex, name);
-
-                                                    tblFut.completeExceptionally(ex);
-
-                                                    tableCreateFuts.values().removeIf(fut -> fut == tblFut);
-                                                }
-
-                                                return null;
-                                            });
-
-                                            return null;
-                                        });
-
-                            } catch (Exception e) {
-                                tblFut.completeExceptionally(e);
-                            }
-                            return null;
-                        });
-            }
-        });
+                                    return null;
+                                });
+                    }
+                });
 
         return tblFut;
     }

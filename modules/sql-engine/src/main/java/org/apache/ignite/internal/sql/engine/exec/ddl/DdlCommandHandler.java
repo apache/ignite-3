@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -246,12 +245,6 @@ public class DdlCommandHandler {
                     .changeColocationColumns(colocationKeys0.toArray(String[]::new)));
 
             tableChange.changeDataStorage(dataStorageManager.tableDataStorageConsumer(cmd.dataStorage(), cmd.dataStorageOptions()));
-
-//            if (cmd.zone() != null) {
-//                tableChange.changeZoneId(distributionZoneManager.getZoneId(cmd.zone()));
-//            } else {
-//                tableChange.changeZoneId(DEFAULT_ZONE_ID);
-//            }
         };
 
         String zoneName;
