@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
@@ -85,6 +84,8 @@ public class PlatformTestNodeRunner {
     private static final String TABLE_NAME_ALL_COLUMNS = "tbl_all_columns";
 
     private static final String TABLE_NAME_ALL_COLUMNS_SQL = "tbl_all_columns_sql"; // All column types supported by SQL.
+
+    private static final String ZONE_NAME = "zone1";
 
     /** Time to keep the node alive. */
     private static final int RUN_TIME_MINUTES = 30;
@@ -256,16 +257,15 @@ public class PlatformTestNodeRunner {
     private static void createTables(Ignite node) {
         var keyCol = "key";
 
-        int zoneId = await(createZone(((IgniteImpl) node).distributionZoneManager(), "zone1", 10, 1));
+        int zoneId = await(createZone(((IgniteImpl) node).distributionZoneManager(), ZONE_NAME, 10, 1));
 
         TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
                 SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.string()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        await(((TableManager) node.tables()).createTableAsync(schTbl.name(), DEFAULT_ZONE_NAME, tblCh ->
+        await(((TableManager) node.tables()).createTableAsync(schTbl.name(), ZONE_NAME, tblCh ->
                 SchemaConfigurationConverter.convert(schTbl, tblCh)
-                        .changeZoneId(zoneId)
         ));
 
         int maxTimePrecision = TemporalColumnType.MAX_TIME_PRECISION;
@@ -292,9 +292,8 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        await(((TableManager) node.tables()).createTableAsync(schTblAll.name(), DEFAULT_ZONE_NAME, tblCh ->
+        await(((TableManager) node.tables()).createTableAsync(schTblAll.name(), ZONE_NAME, tblCh ->
                 SchemaConfigurationConverter.convert(schTblAll, tblCh)
-                        .changeZoneId(zoneId)
         ));
 
         // TODO IGNITE-18431 remove extra table, use TABLE_NAME_ALL_COLUMNS for SQL tests.
@@ -318,29 +317,28 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        await(((TableManager) node.tables()).createTableAsync(schTblAllSql.name(), DEFAULT_ZONE_NAME, tblCh ->
+        await(((TableManager) node.tables()).createTableAsync(schTblAllSql.name(), ZONE_NAME, tblCh ->
                 SchemaConfigurationConverter.convert(schTblAllSql, tblCh)
-                        .changeZoneId(zoneId)
         ));
 
-        createTwoColumnTable(node, ColumnType.INT8, zoneId);
-        createTwoColumnTable(node, ColumnType.INT16, zoneId);
-        createTwoColumnTable(node, ColumnType.INT32, zoneId);
-        createTwoColumnTable(node, ColumnType.INT64, zoneId);
-        createTwoColumnTable(node, ColumnType.FLOAT, zoneId);
-        createTwoColumnTable(node, ColumnType.DOUBLE, zoneId);
-        createTwoColumnTable(node, ColumnType.decimal(), zoneId);
-        createTwoColumnTable(node, ColumnType.string(), zoneId);
-        createTwoColumnTable(node, ColumnType.DATE, zoneId);
-        createTwoColumnTable(node, ColumnType.datetime(), zoneId);
-        createTwoColumnTable(node, ColumnType.time(), zoneId);
-        createTwoColumnTable(node, ColumnType.timestamp(), zoneId);
-        createTwoColumnTable(node, ColumnType.number(), zoneId);
-        createTwoColumnTable(node, ColumnType.blob(), zoneId);
-        createTwoColumnTable(node, ColumnType.bitmaskOf(32), zoneId);
+        createTwoColumnTable(node, ColumnType.INT8);
+        createTwoColumnTable(node, ColumnType.INT16);
+        createTwoColumnTable(node, ColumnType.INT32);
+        createTwoColumnTable(node, ColumnType.INT64);
+        createTwoColumnTable(node, ColumnType.FLOAT);
+        createTwoColumnTable(node, ColumnType.DOUBLE);
+        createTwoColumnTable(node, ColumnType.decimal());
+        createTwoColumnTable(node, ColumnType.string());
+        createTwoColumnTable(node, ColumnType.DATE);
+        createTwoColumnTable(node, ColumnType.datetime());
+        createTwoColumnTable(node, ColumnType.time());
+        createTwoColumnTable(node, ColumnType.timestamp());
+        createTwoColumnTable(node, ColumnType.number());
+        createTwoColumnTable(node, ColumnType.blob());
+        createTwoColumnTable(node, ColumnType.bitmaskOf(32));
     }
 
-    private static void createTwoColumnTable(Ignite node, ColumnType type, int zoneId) {
+    private static void createTwoColumnTable(Ignite node, ColumnType type) {
         var keyCol = "key";
 
         TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, "tbl_" + type.typeSpec().name()).columns(
@@ -348,9 +346,8 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("val", type).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        await(((TableManager) node.tables()).createTableAsync(schTbl.name(), DEFAULT_ZONE_NAME, tblCh ->
+        await(((TableManager) node.tables()).createTableAsync(schTbl.name(), ZONE_NAME, tblCh ->
                 SchemaConfigurationConverter.convert(schTbl, tblCh)
-                        .changeZoneId(zoneId)
         ));
     }
 
