@@ -54,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -108,11 +109,11 @@ import org.mockito.Mock;
 public class DistributionZoneManagerScaleUpTest {
     private static final String ZONE_NAME = "zone1";
 
-    private static final LogicalNode NODE_1 = new LogicalNode("1", "A", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_1 = new LogicalNode("1", "node1", new NetworkAddress("localhost", 123));
 
-    private static final LogicalNode NODE_2 = new LogicalNode("2", "B", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_2 = new LogicalNode("2", "node2", new NetworkAddress("localhost", 123));
 
-    private static final LogicalNode NODE_3 = new LogicalNode("3", "C", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_3 = new LogicalNode("3", "node3", new NetworkAddress("localhost", 123));
 
     private static final NodeWithAttributes A  = new NodeWithAttributes("A", Collections.emptyMap());
     private static final NodeWithAttributes B  = new NodeWithAttributes("B", Collections.emptyMap());
@@ -1591,12 +1592,32 @@ public class DistributionZoneManagerScaleUpTest {
         assertEquals(List.of(C, C, D, D), nodes);
     }
 
+    @Test
+    void testFilter() throws Exception {
+        NodeWithAttributes A1  = new NodeWithAttributes("A1", Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10"));
+        NodeWithAttributes A2  = new NodeWithAttributes("A2", Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30"));
+        NodeWithAttributes A3  = new NodeWithAttributes("A3", Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"));
+
+        preparePrerequisites("$[?(@.storage == 'SSD' || @.region == 'US')]");
+
+        ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
+
+        zoneState.nodesToAddToDataNodes(Set.of(A1, A2, A3), 7);
+        distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 8);
+
+        assertDataNodesForZoneWithAttributes(1, Set.of(A1, A3), keyValueStorage);
+    }
+
     /**
      * Creates a zone with the auto adjust scale up scale down trigger equals to 0 and the data nodes equals ["A", B, "C"].
      *
      * @throws Exception when something goes wrong.
      */
     private void preparePrerequisites() throws Exception {
+        preparePrerequisites(null);
+    }
+
+    private void preparePrerequisites(@Nullable String filter) throws Exception {
         topology.putNode(NODE_1);
         topology.putNode(NODE_2);
         topology.putNode(NODE_3);
@@ -1610,12 +1631,20 @@ public class DistributionZoneManagerScaleUpTest {
 
         distributionZoneManager.start();
 
-        distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                        .dataNodesAutoAdjustScaleUp(0)
-                        .dataNodesAutoAdjustScaleDown(0)
-                        .build()
-        ).get();
+        if (filter == null) {
+            distributionZoneManager.createZone(
+                    new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
+                            .dataNodesAutoAdjustScaleUp(0)
+                            .dataNodesAutoAdjustScaleDown(0)
+                            .build()).get();
+        } else {
+            distributionZoneManager.createZone(
+                    new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
+                            .dataNodesAutoAdjustScaleUp(0)
+                            .dataNodesAutoAdjustScaleDown(0)
+                            .filter(filter)
+                            .build()).get();
+        }
 
         assertDataNodesForZone(1, clusterNodesNames, keyValueStorage);
 

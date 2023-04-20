@@ -329,8 +329,11 @@ public class DistributionZonesUtil {
      *                     Joining increases the counter, leaving decreases.
      * @return Returns a set of data nodes retrieved from data nodes map, which value is more than 0.
      */
-    public static Set<NodeWithAttributes> dataNodes(Map<NodeWithAttributes, Integer> dataNodesMap) {
-        return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Map.Entry::getKey).collect(toSet());
+    public static Set<NodeWithAttributes> dataNodes(Map<NodeWithAttributes, Integer> dataNodesMap, String filter) {
+        return dataNodesMap.entrySet().stream()
+                .filter(e -> e.getValue() > 0 && filter(e.getKey().nodeAttributes(), filter))
+                .map(Map.Entry::getKey)
+                .collect(toSet());
     }
 
     /**

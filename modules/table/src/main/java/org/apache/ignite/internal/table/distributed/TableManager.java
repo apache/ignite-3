@@ -1852,17 +1852,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
 
-                    Set<String> dataNodes = dataNodes(ByteUtils.fromBytes(dataNodesBytes)).stream()
-                            .map(NodeWithAttributes::nodeName)
-                            .collect(Collectors.toSet());
-
                     for (int i = 0; i < tables.value().size(); i++) {
                         TableView tableView = tables.value().get(i);
 
                         int tableZoneId = tableView.zoneId();
-
-                        DistributionZoneConfiguration distributionZoneConfiguration =
-                                getZoneById(distributionZonesConfiguration, tableZoneId);
 
                         if (zoneId == tableZoneId) {
                             TableConfiguration tableCfg = tables.get(tableView.name());
@@ -1870,6 +1863,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             byte[] assignmentsBytes = ((ExtendedTableConfiguration) tableCfg).assignments().value();
 
                             List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
+
+                            DistributionZoneConfiguration distributionZoneConfiguration =
+                                    getZoneById(distributionZonesConfiguration, tableZoneId);
+
+                            Set<String> dataNodes = dataNodes(
+                                    ByteUtils.fromBytes(dataNodesBytes),
+                                    distributionZoneConfiguration.filter().value()
+                            ).stream()
+                                    .map(NodeWithAttributes::nodeName)
+                                    .collect(Collectors.toSet());
 
                             for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
                                 UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();

@@ -1279,8 +1279,10 @@ public class DistributionZoneManager implements IgniteComponent {
 
                             byte[] dataNodesBytes = e.value();
 
+                            String filter = getZoneById(zonesConfiguration, zoneId).filter().value();
+
                             if (dataNodesBytes != null) {
-                                newDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesBytes)).stream()
+                                newDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesBytes), filter).stream()
                                         .map(NodeWithAttributes::nodeName)
                                         .collect(toSet());
                             } else {
@@ -1479,7 +1481,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
                 deltaToAdd.forEach(n -> newDataNodes.merge(n, 1, Integer::sum));
 
-                //Here we update dataNodes, so nodes' attributes will be updated.
+                // Update dataNodes, so nodes' attributes will be updated with the latest seen data on the node.
+                // For example, node could be restarted with new node's attributes, we need to update attributes in the data nodes.
                 deltaToAdd.forEach(n -> newDataNodes.put(n, newDataNodes.remove(n)));
 
                 // Remove redundant nodes that are not presented in the data nodes.
@@ -1607,12 +1610,6 @@ public class DistributionZoneManager implements IgniteComponent {
         }
     }
 
-    private Map<NodeWithAttributes, Integer> filterDataNodes(Map<NodeWithAttributes, Integer> dataNodes, int zoneId) {
-        return dataNodes.entrySet().stream()
-                .filter(e -> filter(e.getKey().nodeAttributes(), getZoneById(zonesConfiguration, zoneId).filter().value()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    }
-
     /**
      * Class responsible for storing state for a distribution zone.
      * States are needed to track nodes that we want to add or remove from the data nodes,
@@ -1644,8 +1641,6 @@ public class DistributionZoneManager implements IgniteComponent {
         /** The tracker for scale down meta storage revision of current data nodes value. */
         private final PendingComparableValuesTracker<Long> scaleDownRevisionTracker;
 
-        private Set<NodeWithAttributes> lastSeenNodes;
-
         /**
          * Constructor.
          *
@@ -1657,7 +1652,6 @@ public class DistributionZoneManager implements IgniteComponent {
             nodes = emptySet();
             scaleUpRevisionTracker = new PendingComparableValuesTracker<>(0L);
             scaleDownRevisionTracker = new PendingComparableValuesTracker<>(0L);
-            lastSeenNodes = new HashSet<>();
         }
 
         /**
@@ -1757,7 +1751,6 @@ public class DistributionZoneManager implements IgniteComponent {
          * @param revision Revision of the event that triggered this addition.
          */
         void nodesToAddToDataNodes(Set<NodeWithAttributes> nodes, long revision) {
-            lastSeenNodes.addAll(nodes);
             topologyAugmentationMap.put(revision, new Augmentation(nodes, true));
         }
 
@@ -1768,7 +1761,6 @@ public class DistributionZoneManager implements IgniteComponent {
          * @param revision Revision of the event that triggered this addition.
          */
         void nodesToRemoveFromDataNodes(Set<NodeWithAttributes> nodes, long revision) {
-            lastSeenNodes.addAll(nodes);
             topologyAugmentationMap.put(revision, new Augmentation(nodes, false));
         }
 
