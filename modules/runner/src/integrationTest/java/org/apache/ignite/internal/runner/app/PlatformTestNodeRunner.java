@@ -306,6 +306,7 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("int64", ColumnType.INT64).asNullable(true).build(),
                 SchemaBuilders.column("float", ColumnType.FLOAT).asNullable(true).build(),
                 SchemaBuilders.column("double", ColumnType.DOUBLE).asNullable(true).build(),
+                SchemaBuilders.column("uuid", ColumnType.UUID).asNullable(true).build(),
                 SchemaBuilders.column("date", ColumnType.DATE).asNullable(true).build(),
                 SchemaBuilders.column("time", ColumnType.time(maxTimePrecision)).asNullable(true).build(),
                 SchemaBuilders.column("time2", ColumnType.time(maxTimePrecision)).asNullable(true).build(),
@@ -328,6 +329,7 @@ public class PlatformTestNodeRunner {
         createTwoColumnTable(node, ColumnType.INT64, zoneId);
         createTwoColumnTable(node, ColumnType.FLOAT, zoneId);
         createTwoColumnTable(node, ColumnType.DOUBLE, zoneId);
+        createTwoColumnTable(node, ColumnType.UUID, zoneId);
         createTwoColumnTable(node, ColumnType.decimal(), zoneId);
         createTwoColumnTable(node, ColumnType.string(), zoneId);
         createTwoColumnTable(node, ColumnType.DATE, zoneId);
