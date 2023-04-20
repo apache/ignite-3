@@ -17,47 +17,16 @@
 
 package org.apache.ignite.internal.cli.ssl;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
-
+import org.apache.ignite.internal.NodeConfig;
 import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
 
 /**
  * Test base for SSL tests with client connector. The cluster is initialized with SSL enabled for clients.
  */
 public class CliSslClientConnectorIntegrationTestBase extends CliCommandTestInitializedIntegrationBase {
-    static final String keyStorePath = "ssl/keystore.p12";
-    static final String keyStorePassword = "changeit";
-    static final String trustStorePath = "ssl/truststore.jks";
-    static final String trustStorePassword = "changeit";
-
-    static final String resolvedKeystorePath = getResourcePath(CliSslClientConnectorIntegrationTestBase.class, keyStorePath);
-    static final String resolvedTruststorePath = getResourcePath(CliSslClientConnectorIntegrationTestBase.class, trustStorePath);
 
     @Override
     protected String nodeBootstrapConfigTemplate() {
-        return "{\n"
-                + "  network: {\n"
-                + "    port: {},\n"
-                + "    nodeFinder: {\n"
-                + "      netClusterNodes: [ {} ]\n"
-                + "    },\n"
-                + "  },\n"
-                + "  clientConnector: {"
-                + "    ssl: {\n"
-                + "      enabled: " + true + ",\n"
-                + "      clientAuth: \"require\",\n"
-                + "      keyStore: {\n"
-                + "        path: \"" + escapeWindowsPath(resolvedKeystorePath) + "\",\n"
-                + "        password: " + keyStorePassword + "\n"
-                + "      }, \n"
-                + "      trustStore: {\n"
-                + "        type: JKS,\n"
-                + "        path: \"" + escapeWindowsPath(resolvedTruststorePath) + "\",\n"
-                + "        password: " + trustStorePassword + "\n"
-                + "      }\n"
-                + "    }\n"
-                + "  }\n"
-                + "}";
+        return NodeConfig.CLIENT_CONNECTOR_SSL_BOOTSTRAP_CONFIG;
     }
 }

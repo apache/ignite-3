@@ -76,9 +76,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
     }
 
     private static int[] replicas() {
-        // TODO: IGNITE-19086 Fix NullPointerException on insertAll
-        //        return new int[]{1, 2, 3};
-        return new int[]{1};
+        return new int[]{1, 2, 3};
     }
 
     private static String toValuesString(List<Object>... values) {
