@@ -25,6 +25,7 @@ import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
@@ -214,5 +215,11 @@ public abstract class BaseCustomDataTypeTest<T extends Comparable<T>> extends Cl
     protected final Stream<TestTypeArguments<T>> convertedFrom() {
         return TestTypeArguments.unary(testTypeSpec, dataSamples, dataSamples.min())
                 .filter(args -> !Objects.equals(args.typeName(0), typeSpec.typeName()));
+    }
+
+    protected static Stream<String> binaryComparisonOperators() {
+        return SqlKind.BINARY_COMPARISON.stream()
+                // to support IS DISTINCT FROM/IS NOT DISTINCT FROM
+                .map(o -> o.sql.replace("_", " "));
     }
 }

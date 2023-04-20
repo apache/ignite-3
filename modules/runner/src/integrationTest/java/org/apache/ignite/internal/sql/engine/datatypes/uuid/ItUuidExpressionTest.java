@@ -17,22 +17,52 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.uuid;
 
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.datatypes.CustomDataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseExpressionCustomDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.CustomDataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.lang.IgniteException;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests for expressions for {@link UuidType UUID data type}.
  */
 public class ItUuidExpressionTest extends BaseExpressionCustomDataTypeTest<UUID> {
 
-    /** Test {@code RAND_UUID} function.*/
+    /** {@code RAND_UUID} function.*/
     @Test
     public void testRand() {
         checkQuery("SELECT RAND_UUID()").columnTypes(UUID.class).check();
+    }
+
+    /**
+     * {@code RAND} function returns different results.
+     */
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18931")
+    public void testRandomUuidComparison() {
+        assertQuery("SELECT RAND_UUID() = RAND_UUID()").returns(false).check();
+        assertQuery("SELECT RAND_UUID() != RAND_UUID()").returns(true).check();
+    }
+
+    /**
+     * {@code UUID} vs type that can not be casted to {@code UUID}.
+     */
+    @ParameterizedTest
+    @MethodSource("binaryComparisonOperators")
+    public void testUuidInvalidOperationsDynamicParams(String op) {
+        var query = format("SELECT ? {} 1", op);
+        var t = assertThrows(IgniteException.class, () -> sql(query, dataSamples.min()));
+        assertThat(t.getMessage(), containsString("class java.util.UUID cannot be cast to class java.lang.Integer"));
     }
 
     /** {@inheritDoc} **/
