@@ -119,6 +119,12 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
                 .returns(" aaa  ", " bbb  ", 6, 6)
                 .returns(threeSpaceStr + "aaa", threeSpaceStr + "bbb", 6, 6)
                 .check();
+
+        sql("create table nonlimitedChar (pk int primary key, f1 VARCHAR)");
+
+        String longStr = "a".repeat(100);
+
+        sql("insert into nonlimitedChar values (1, '" + longStr + "')");
     }
 
     /** Tests NOT NULL and DEFAULT column constraints. */
