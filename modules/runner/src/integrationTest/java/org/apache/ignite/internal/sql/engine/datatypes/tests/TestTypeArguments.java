@@ -27,7 +27,6 @@ import java.util.stream.Stream;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.sql.engine.datatypes.DynamicParameter;
 import org.jetbrains.annotations.Nullable;
 
 /**
