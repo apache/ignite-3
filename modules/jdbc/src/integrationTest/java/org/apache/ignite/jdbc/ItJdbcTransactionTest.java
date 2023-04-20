@@ -18,6 +18,7 @@
 package org.apache.ignite.jdbc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Connection;
@@ -99,7 +100,37 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
         }
     }
 
-     /**
+    /**
+     * Ensures that an active transaction does not end after an attempt to execute a DDL statement within this transaction.
+     *
+     * <p>DDL statements do not currently support transactions, so an error should occur when attempting
+     * to execute DDL within a transaction. And it is expected that a previously started transaction
+     * will not be completed when this error occurs.
+     *
+     * @throws SQLException If failed.
+     */
+    @Test
+    public void testTransactionSurvivesDdlError() throws SQLException {
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            conn.setAutoCommit(false);
+
+            try (Statement stmt = conn.createStatement()) {
+                // Starting transaction.
+                stmt.executeUpdate("insert into TEST (ID) values (1)");
+
+                SQLException ex = assertThrows(SQLException.class, () -> stmt.executeUpdate("drop table TEST"));
+                assertTrue(ex.getMessage().contains("DDL doesn't support transactions."));
+
+                assertEquals(1, rowsCount(conn));
+                assertEquals(0, rowsCount(ItJdbcTransactionTest.conn));
+
+                conn.commit();
+                assertEquals(1, rowsCount(ItJdbcTransactionTest.conn));
+            }
+        }
+    }
+
+    /**
      * Ensures that {@link Statement#executeUpdate(String)} supports explicit transaction.
      *
      * <p>It is expected that in non auto-commit mode, data updates can be rolled back and
