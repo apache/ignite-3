@@ -44,6 +44,9 @@ public class TestConfigManagerHelper {
     private static final String TWO_SECTION_WITH_DEFAULT_PROFILE = "two_section_with_default_profile.ini";
     private static final String TWO_SECTION_WITHOUT_DEFAULT_PROFILE = "two_section_without_default_profile.ini";
     private static final String INTEGRATION_TESTS = "integration_tests.ini";
+    private static final String JDBC_TESTS_SSL = "jdbc_ssl.ini";
+    private static final String JDBC_TESTS_BASIC = "jdbc_basic.ini";
+    private static final String JDBC_TESTS_SSL_BASIC = "jdbc_ssl_basic.ini";
 
     private static final String CLUSTER_URL_NON_DEFAULT = "cluster_url_non_default.ini";
 
@@ -55,36 +58,42 @@ public class TestConfigManagerHelper {
 
     /** Creates and returns the empty secret file config. */
     public static File createEmptySecretConfig() {
-        File file = copyResourceToTempFile(EMPTY_SECRET);
-        try {
-            setFilePermissions(file, Set.of(OWNER_READ, OWNER_WRITE, OWNER_EXECUTE));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        return file;
+        return copyResourceToTempSecretFile(EMPTY_SECRET);
     }
 
-    public static File createOneSectionWithDefaultProfile() {
+    public static File createOneSectionWithDefaultProfileConfig() {
         return copyResourceToTempFile(ONE_SECTION_WITH_DEFAULT_PROFILE);
     }
 
-    public static File createSectionWithDefaultProfile() {
+    public static File createSectionWithDefaultProfileConfig() {
         return copyResourceToTempFile(TWO_SECTION_WITH_DEFAULT_PROFILE);
     }
 
-    public static File createSectionWithoutDefaultProfile() {
+    public static File createSectionWithoutDefaultProfileConfig() {
         return copyResourceToTempFile(TWO_SECTION_WITHOUT_DEFAULT_PROFILE);
     }
 
-    public static File createIntegrationTests() {
+    public static File createIntegrationTestsConfig() {
         return copyResourceToTempFile(INTEGRATION_TESTS);
     }
 
-    public static File createClusterUrlNonDefault() {
+    public static File createJdbcTestsSslSecretConfig() {
+        return copyResourceToTempSecretFile(JDBC_TESTS_SSL);
+    }
+
+    public static File createJdbcTestsBasicSecretConfig() {
+        return copyResourceToTempSecretFile(JDBC_TESTS_BASIC);
+    }
+
+    public static File createJdbcTestsSslBasicSecretConfig() {
+        return copyResourceToTempSecretFile(JDBC_TESTS_SSL_BASIC);
+    }
+
+    public static File createClusterUrlNonDefaultConfig() {
         return copyResourceToTempFile(CLUSTER_URL_NON_DEFAULT);
     }
 
-    public static File createClusterUrlSsl() {
+    public static File createClusterUrlSslConfig() {
         return copyResourceToTempFile(CLUSTER_URL_SSL);
     }
 
@@ -109,6 +118,16 @@ public class TestConfigManagerHelper {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static File copyResourceToTempSecretFile(String resource) {
+        File file = copyResourceToTempFile(resource);
+        try {
+            setFilePermissions(file, Set.of(OWNER_READ, OWNER_WRITE, OWNER_EXECUTE));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return file;
     }
 
     private static void setFilePermissions(File file, Set<PosixFilePermission> perms) throws IOException {

@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 class ConfigManagerTest {
     @Test
     public void testSaveLoadConfig() {
-        File tempFile = TestConfigManagerHelper.createSectionWithDefaultProfile();
+        File tempFile = TestConfigManagerHelper.createSectionWithDefaultProfileConfig();
         File tempSecretFile = TestConfigManagerHelper.createEmptySecretConfig();
         IniConfigManager configManager = new IniConfigManager(tempFile, tempSecretFile);
 
@@ -38,7 +38,7 @@ class ConfigManagerTest {
 
     @Test
     public void testLoadConfigWithoutDefaultProfile() {
-        File tempFile = TestConfigManagerHelper.createSectionWithoutDefaultProfile();
+        File tempFile = TestConfigManagerHelper.createSectionWithoutDefaultProfileConfig();
         File tempSecretFile = TestConfigManagerHelper.createEmptySecretConfig();
         IniConfigManager configManager = new IniConfigManager(tempFile, tempSecretFile);
 
@@ -58,7 +58,7 @@ class ConfigManagerTest {
 
     @Test
     public void testRemoveConfigFileOnRuntime() {
-        File tempFile = TestConfigManagerHelper.createSectionWithDefaultProfile();
+        File tempFile = TestConfigManagerHelper.createSectionWithDefaultProfileConfig();
         File tempSecretFile = TestConfigManagerHelper.createEmptySecretConfig();
         IniConfigManager configManager = new IniConfigManager(tempFile, tempSecretFile);
 

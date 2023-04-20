@@ -15,21 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command.cursor;
-
-import org.apache.ignite.internal.metastorage.command.MetastorageCommandsMessageGroup;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.internal.util;
 
 /**
- * Command for retrieving a portion of a given remote cursor.
+ * Exception that will be thrown when the {@link PendingComparableValuesTracker} is closed.
  */
-@Transferable(MetastorageCommandsMessageGroup.NEXT_BATCH)
-public interface NextBatchCommand extends WriteCommand {
-    /** Cursor ID. */
-    IgniteUuid cursorId();
-
-    /** Maximum size of the requested batch. */
-    int batchSize();
+public class TrackerClosedException extends RuntimeException {
+    private static final long serialVersionUID = -3685913884384983930L;
 }

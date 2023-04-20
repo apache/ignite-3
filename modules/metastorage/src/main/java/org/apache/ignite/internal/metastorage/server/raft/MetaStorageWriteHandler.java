@@ -70,13 +70,10 @@ class MetaStorageWriteHandler {
     }
 
     /**
-     * Tries to process a {@link WriteCommand}, returning {@code true} if the command has been successfully processed or {@code false} if
-     * the command requires external processing.
+     * Processes a given {@link WriteCommand}.
      */
-    boolean handleWriteCommand(CommandClosure<WriteCommand> clo) {
+    void handleWriteCommand(CommandClosure<WriteCommand> clo) {
         WriteCommand command = clo.command();
-
-        boolean canHandle = true;
 
         if (command instanceof PutCommand) {
             PutCommand putCmd = (PutCommand) command;
@@ -139,15 +136,13 @@ class MetaStorageWriteHandler {
 
             clo.result(null);
         } else {
-            canHandle = false;
+            assert false : "Command was not found [cmd=" + command + ']';
         }
 
         if (command instanceof MetaStorageWriteCommand) {
             // Every MetaStorageWriteCommand holds safe time that we should set as the cluster time.
             clusterTime.updateSafeTime(((MetaStorageWriteCommand) command).safeTime().asHybridTimestamp());
         }
-
-        return canHandle;
     }
 
     private static If toIf(Iif iif) {

@@ -30,8 +30,8 @@ public class BasicAuthenticationInterceptor implements Interceptor {
 
     private final String credentials;
 
-    public BasicAuthenticationInterceptor(String user, String password) {
-        this.credentials = Credentials.basic(user, password);
+    public BasicAuthenticationInterceptor(String username, String password) {
+        this.credentials = Credentials.basic(username, password);
     }
 
     @Override

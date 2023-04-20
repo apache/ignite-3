@@ -15,20 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command.cursor;
+package org.apache.ignite.internal.cli.commands.sql;
 
-import org.apache.ignite.internal.metastorage.command.MetastorageCommandsMessageGroup;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
 
-/**
- * Command that closes all cursors for the specified node id. Common use case for a given command is to close cursors for the node that left
- * topology.
- */
-@Transferable(MetastorageCommandsMessageGroup.CLOSE_ALL_CURSORS)
-public interface CloseAllCursorsCommand extends WriteCommand {
-    /**
-     * Returns cursor id.
-     */
-    String nodeId();
+/** Base class for testing CLI sql command which creates a table before each test. */
+public class CliSqlCommandTestBase extends CliCommandTestInitializedIntegrationBase {
+    @BeforeEach
+    @Override
+    public void setUp(TestInfo testInfo) throws Exception {
+        super.setUp(testInfo);
+        createAndPopulateTable();
+    }
+
+    @AfterEach
+    void tearDown() {
+        dropAllTables();
+    }
 }

@@ -20,15 +20,13 @@ package org.apache.ignite.internal;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 
-import org.apache.ignite.internal.cli.ssl.CliSslClientConnectorIntegrationTestBase;
-
 /** Helper class which provides node configuration template for SSL. */
 public class NodeConfig {
     private static final String keyStorePath = "ssl/keystore.p12";
     private static final String trustStorePath = "ssl/truststore.jks";
 
-    public static final String resolvedKeystorePath = getResourcePath(CliSslClientConnectorIntegrationTestBase.class, keyStorePath);
-    public static final String resolvedTruststorePath = getResourcePath(CliSslClientConnectorIntegrationTestBase.class, trustStorePath);
+    public static final String resolvedKeystorePath = getResourcePath(NodeConfig.class, keyStorePath);
+    public static final String resolvedTruststorePath = getResourcePath(NodeConfig.class, trustStorePath);
 
     public static final String keyStorePassword = "changeit";
     public static final String trustStorePassword = "changeit";
@@ -49,6 +47,30 @@ public class NodeConfig {
             + "        password: " + keyStorePassword + "\n"
             + "      }, \n"
             + "      trustStore: {\n"
+            + "        path: \"" + escapeWindowsPath(resolvedTruststorePath) + "\",\n"
+            + "        password: " + trustStorePassword + "\n"
+            + "      }\n"
+            + "    }\n"
+            + "  }\n"
+            + "}";
+
+    public static final String CLIENT_CONNECTOR_SSL_BOOTSTRAP_CONFIG = "{\n"
+            + "  network: {\n"
+            + "    port: {},\n"
+            + "    nodeFinder: {\n"
+            + "      netClusterNodes: [ {} ]\n"
+            + "    },\n"
+            + "  },\n"
+            + "  clientConnector: {"
+            + "    ssl: {\n"
+            + "      enabled: true,\n"
+            + "      clientAuth: require,\n"
+            + "      keyStore: {\n"
+            + "        path: \"" + escapeWindowsPath(resolvedKeystorePath) + "\",\n"
+            + "        password: " + keyStorePassword + "\n"
+            + "      }, \n"
+            + "      trustStore: {\n"
+            + "        type: JKS,\n"
             + "        path: \"" + escapeWindowsPath(resolvedTruststorePath) + "\",\n"
             + "        password: " + trustStorePassword + "\n"
             + "      }\n"

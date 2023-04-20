@@ -60,6 +60,7 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.TestOnly;
 
@@ -202,10 +203,10 @@ public class PartitionListener implements RaftGroupListener {
 
                 assert safeTimePropagatingCommand.safeTime() != null;
 
-                safeTime.update(safeTimePropagatingCommand.safeTime().asHybridTimestamp());
+                updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime().asHybridTimestamp());
             }
 
-            storageIndexTracker.update(commandIndex);
+            updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
         });
     }
 
@@ -474,6 +475,17 @@ public class PartitionListener implements RaftGroupListener {
                     "Finish building the index: [tableId={}, partitionId={}, indexId={}]",
                     cmd.tablePartitionId().tableId(), cmd.tablePartitionId().partitionId(), cmd.indexId()
             );
+        }
+    }
+
+    private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
+            PendingComparableValuesTracker<T> tracker,
+            T newValue
+    ) {
+        try {
+            tracker.update(newValue);
+        } catch (TrackerClosedException ignored) {
+            // No-op.
         }
     }
 }

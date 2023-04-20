@@ -187,7 +187,7 @@ public class DistributionZonesUtil {
      * The key needed for processing the events about logical topology changes.
      * Needed for the defencing against stale updates of logical topology nodes.
      */
-    static ByteArray zonesLogicalTopologyVersionKey() {
+    public static ByteArray zonesLogicalTopologyVersionKey() {
         return DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY;
     }
 
