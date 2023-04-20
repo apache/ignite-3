@@ -200,7 +200,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
     private void updateLatestState(Map<String, ? extends Serializable> newValues) {
         newValues.forEach((key, value) -> {
-            if (value == null) { // null means that we should remove this entry
+            if (value == null) { // Null means that we should remove this entry.
                 latest.remove(key);
             } else {
                 latest.put(key, value);
