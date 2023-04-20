@@ -1371,8 +1371,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                                     throw new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name);
                                                                 }
 
-                    tablesListChange.create(name, (tableChange) -> {
-                        tableInitChange.accept(tableChange);
+                                                                tablesListChange.create(name, (tableChange) -> {
+                                                                    tableInitChange.accept(tableChange);
 
                                                                     tableChange.changeZoneId(zoneId);
 
