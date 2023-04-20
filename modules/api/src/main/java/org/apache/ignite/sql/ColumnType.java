@@ -167,7 +167,7 @@ public enum ColumnType {
     }
 
     /** Enum values. */
-    private static final ColumnType[] VALS = ColumnType.values();
+    private static final ColumnType[] VALS = values();
 
     /**
      * Efficiently gets enumerated value from its ordinal.

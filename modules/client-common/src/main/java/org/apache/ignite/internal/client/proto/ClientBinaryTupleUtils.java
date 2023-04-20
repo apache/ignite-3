@@ -55,12 +55,8 @@ public class ClientBinaryTupleUtils {
         }
 
         int typeCode = reader.intValue(index);
-        ColumnType type = ColumnType.fromOrdinal(typeCode);
+        ColumnType type = ColumnTypeConverter.fromOrdinalOrThrow(typeCode);
         int valIdx = index + 2;
-
-        if (type == null) {
-            throw unsupportedTypeException(typeCode);
-        }
 
         switch (type) {
             case INT8:

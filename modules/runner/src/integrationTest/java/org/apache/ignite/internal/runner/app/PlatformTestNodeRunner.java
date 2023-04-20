@@ -38,6 +38,7 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.schema.Column;
@@ -446,13 +447,12 @@ public class PlatformTestNodeRunner {
             var reader = new BinaryTupleReader(columnCount * 3, buf);
 
             for (int i = 0; i < columnCount; i++) {
-                var type = org.apache.ignite.sql.ColumnType.fromOrdinal(reader.intValue(i * 3));
+                var type = ColumnTypeConverter.fromOrdinalOrThrow(reader.intValue(i * 3));
                 var scale = reader.intValue(i * 3 + 1);
                 var valIdx = i * 3 + 2;
 
                 String colName = "col" + i;
 
-                //noinspection DataFlowIssue
                 switch (type) {
                     case INT8:
                         columns[i] = new Column(i, colName, NativeTypes.INT8, false);
