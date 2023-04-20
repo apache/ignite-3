@@ -29,6 +29,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
@@ -43,6 +44,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -609,86 +611,99 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    public void testSingleColumnTable(boolean explicitTx) {
+    public void testSingleColumnTable(boolean readOnlyTransaction) {
         sql("create table test (ID int primary key)");
 
         Table tab = CLUSTER_NODES.get(0).tables().table("TEST");
-        IgniteTransactions transactions = CLUSTER_NODES.get(0).transactions();
         RecordView<Tuple> recordView = tab.recordView();
         KeyValueView<Integer, Void> kvView = tab.keyValueView(Integer.class, Void.class);
 
-        Consumer<Consumer<Transaction>> runInTx = cmd -> {
-            if (explicitTx) {
-                transactions.runInTransaction(cmd);
+        BiConsumer<Consumer<Transaction>, Consumer<Transaction>> runInTransaction = (writeOp, readOp) -> {
+            IgniteTransactions transactions = CLUSTER_NODES.get(0).transactions();
+
+            if (readOnlyTransaction) {
+                // Start a separate transaction for the write operation.
+                transactions.runInTransaction(writeOp);
+                transactions.runInTransaction(readOp, new TransactionOptions().readOnly(true));
             } else {
-                cmd.accept(null);
+                // Run both operations inside the same read-write transaction.
+                transactions.runInTransaction(tx -> {
+                    writeOp.accept(tx);
+                    readOp.accept(tx);
+                });
             }
 
             sql("delete from test");
         };
 
         // Test record view.
-        runInTx.accept(tx -> {
-            Tuple key = Tuple.create().set("id", 0);
+        Tuple tuple = Tuple.create().set("id", 0);
 
-            recordView.upsert(tx, key);
+        runInTransaction.accept(
+                rwTx -> {
+                    recordView.upsert(rwTx, tuple);
 
-            // Try to replace.
-            recordView.upsert(tx, key);
+                    // Try to replace.
+                    recordView.upsert(rwTx, tuple);
+                },
+                tx -> {
+                    assertEquals(tuple, recordView.get(tx, tuple));
 
-            assertEquals(key, recordView.get(tx, key));
-
-            // Ensure there are no duplicates.
-            assertEquals(1, recordView.getAll(tx, Collections.singleton(key)).size());
-        });
+                    // Ensure there are no duplicates.
+                    assertEquals(1, recordView.getAll(tx, Collections.singleton(tuple)).size());
+                }
+        );
 
         // Test key-value view.
-        runInTx.accept(tx -> {
-            int key = 0;
+        runInTransaction.accept(
+                rwTx -> {
+                    kvView.put(rwTx, 0, null);
 
-            kvView.put(tx, key, null);
-
-            // Try to replace.
-            kvView.put(tx, key, null);
-
-            assertNotNull(kvView.getNullable(tx, key));
-            assertTrue(kvView.contains(tx, key));
-            assertEquals(1, kvView.getAll(tx, Collections.singleton(key)).size());
-        });
+                    // Try to replace.
+                    kvView.put(rwTx, 0, null);
+                },
+                tx -> {
+                    assertNotNull(kvView.getNullable(tx, 0));
+                    assertTrue(kvView.contains(tx, 0));
+                    assertEquals(1, kvView.getAll(tx, Collections.singleton(0)).size());
+                }
+        );
 
         // Test sql.
-        runInTx.accept(tx -> {
-            sql(tx, "insert into test values (0), (1)");
-
-            assertQuery(tx, "select * from test").returns(2);
-        });
+        runInTransaction.accept(
+                rwTx -> sql(rwTx, "insert into test values (0), (1)"),
+                tx -> assertQuery(tx, "select * from test").returns(2)
+        );
 
         // Mixed test.
-        runInTx.accept(tx -> {
-            recordView.upsert(tx, Tuple.create().set("id", 0));
+        runInTransaction.accept(
+                rwTx -> {
+                    recordView.upsert(rwTx, Tuple.create().set("id", 0));
 
-            SqlException ex = assertThrows(SqlException.class, () -> sql(tx, "insert into test values (0)"));
-            assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
+                    SqlException ex = assertThrows(SqlException.class, () -> sql(rwTx, "insert into test values (0)"));
+                    assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
 
-            kvView.put(tx, 1, null);
+                    kvView.put(rwTx, 1, null);
 
-            ex = assertThrows(SqlException.class, () -> sql(tx, "insert into test values (1)"));
-            assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
+                    ex = assertThrows(SqlException.class, () -> sql(rwTx, "insert into test values (1)"));
+                    assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
 
-            sql(tx, "insert into test values (2)");
+                    sql(rwTx, "insert into test values (2)");
+                },
+                tx -> {
+                    for (int i = 0; i < 3; i++) {
+                        Tuple exp = Tuple.create().set("id", i);
 
-            for (int i = 0; i < 3; i++) {
-                Tuple exp = Tuple.create().set("id", i);
+                        assertEquals(exp, recordView.get(tx, exp));
 
-                assertEquals(exp, recordView.get(tx, exp));
+                        assertTrue(kvView.contains(tx, i));
+                        assertNotNull(kvView.getNullable(tx, 0));
 
-                assertTrue(kvView.contains(tx, i));
-                assertNotNull(kvView.getNullable(tx, 0));
+                        assertQuery("select * from test where id=" + i).returns(i);
+                    }
 
-                assertQuery("select * from test where id=" + i).returns(i);
-            }
-
-            assertQuery("select count(*) from test").returns(3);
-        });
+                    assertQuery("select count(*) from test").returns(3);
+                }
+        );
     }
 }
