@@ -33,70 +33,8 @@ public class ClientColumnTypeConverter {
      * @return Wire code.
      */
     public static int sqlColumnTypeToOrdinal(ColumnType columnType) {
-        switch (columnType) {
-            case BOOLEAN:
-                return 0;
-
-            case INT8:
-                return 1;
-
-            case INT16:
-                return 2;
-
-            case INT32:
-                return 3;
-
-            case INT64:
-                return 4;
-
-            case FLOAT:
-                return 5;
-
-            case DOUBLE:
-                return 6;
-
-            case DECIMAL:
-                return 7;
-
-            case DATE:
-                return 8;
-
-            case TIME:
-                return 9;
-
-            case DATETIME:
-                return 10;
-
-            case TIMESTAMP:
-                return 11;
-
-            case UUID:
-                return 12;
-
-            case BITMASK:
-                return 13;
-
-            case STRING:
-                return 14;
-
-            case BYTE_ARRAY:
-                return 15;
-
-            case PERIOD:
-                return 16;
-
-            case DURATION:
-                return 17;
-
-            case NUMBER:
-                return 18;
-
-            case NULL:
-                return 19;
-
-            default:
-                throw new IllegalArgumentException("Invalid column type: " + columnType);
-        }
+        // TODO: Inline
+        return columnType.ordinal();
     }
 
     /**
@@ -105,140 +43,13 @@ public class ClientColumnTypeConverter {
      * @param ordinal Type code.
      * @return Column type.
      */
-    public static ColumnType ordinalToSqlColumnType(int ordinal) {
-        switch (ordinal) {
-            case 0:
-                return ColumnType.BOOLEAN;
+    public static ColumnType ordinalToSqlColumnType(int ordinal) { // TODO: Rename?
+        var columnType = ColumnType.fromOrdinal(ordinal);
 
-            case 1:
-                return ColumnType.INT8;
-
-            case 2:
-                return ColumnType.INT16;
-
-            case 3:
-                return ColumnType.INT32;
-
-            case 4:
-                return ColumnType.INT64;
-
-            case 5:
-                return ColumnType.FLOAT;
-
-            case 6:
-                return ColumnType.DOUBLE;
-
-            case 7:
-                return ColumnType.DECIMAL;
-
-            case 8:
-                return ColumnType.DATE;
-
-            case 9:
-                return ColumnType.TIME;
-
-            case 10:
-                return ColumnType.DATETIME;
-
-            case 11:
-                return ColumnType.TIMESTAMP;
-
-            case 12:
-                return ColumnType.UUID;
-
-            case 13:
-                return ColumnType.BITMASK;
-
-            case 14:
-                return ColumnType.STRING;
-
-            case 15:
-                return ColumnType.BYTE_ARRAY;
-
-            case 16:
-                return ColumnType.PERIOD;
-
-            case 17:
-                return ColumnType.DURATION;
-
-            case 18:
-                return ColumnType.NUMBER;
-
-            case 19:
-                return ColumnType.NULL;
-
-            default:
-                throw new IllegalArgumentException("Invalid column type code: " + ordinal);
+        if (columnType == null) {
+            throw new IllegalArgumentException("Invalid column type code: " + ordinal);
         }
-    }
 
-    /**
-     * Converts client data type ({@link ClientDataType}) code to column type.
-     *
-     * @param ordinal Type code.
-     * @return Column type.
-     */
-    public static ColumnType clientDataTypeToSqlColumnType(int ordinal) {
-        switch (ordinal) {
-            case ClientDataType.BOOLEAN:
-                return ColumnType.BOOLEAN;
-
-            case ClientDataType.INT8:
-                return ColumnType.INT8;
-
-            case ClientDataType.INT16:
-                return ColumnType.INT16;
-
-            case ClientDataType.INT32:
-                return ColumnType.INT32;
-
-            case ClientDataType.INT64:
-                return ColumnType.INT64;
-
-            case ClientDataType.FLOAT:
-                return ColumnType.FLOAT;
-
-            case ClientDataType.DOUBLE:
-                return ColumnType.DOUBLE;
-
-            case ClientDataType.DECIMAL:
-                return ColumnType.DECIMAL;
-
-            case ClientDataType.DATE:
-                return ColumnType.DATE;
-
-            case ClientDataType.TIME:
-                return ColumnType.TIME;
-
-            case ClientDataType.DATETIME:
-                return ColumnType.DATETIME;
-
-            case ClientDataType.TIMESTAMP:
-                return ColumnType.TIMESTAMP;
-
-            case ClientDataType.UUID:
-                return ColumnType.UUID;
-
-            case ClientDataType.BITMASK:
-                return ColumnType.BITMASK;
-
-            case ClientDataType.STRING:
-                return ColumnType.STRING;
-
-            case ClientDataType.BYTES:
-                return ColumnType.BYTE_ARRAY;
-
-            case ClientDataType.PERIOD:
-                return ColumnType.PERIOD;
-
-            case ClientDataType.DURATION:
-                return ColumnType.DURATION;
-
-            case ClientDataType.NUMBER:
-                return ColumnType.NUMBER;
-
-            default:
-                throw new IllegalArgumentException("Invalid ClientDataType code: " + ordinal);
-        }
+        return columnType;
     }
 }
