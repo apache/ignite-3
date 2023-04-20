@@ -44,7 +44,7 @@ public abstract class BaseExpressionCustomDataTypeTest<T extends Comparable<T>> 
     @ParameterizedTest
     @MethodSource("cmp")
     public void testComparison(TestTypeArguments<T> arguments) {
-        checkComparison2(arguments);
+        checkComparison(arguments, 0, 1);
     }
 
     /**
@@ -52,11 +52,11 @@ public abstract class BaseExpressionCustomDataTypeTest<T extends Comparable<T>> 
      */
     @ParameterizedTest
     @MethodSource("cmp")
-    public void testComparisonDynamicParams(TestTypeArguments<T> arguments) {
+    public void testComparisonDynamicParameters(TestTypeArguments<T> arguments) {
         Comparable<?> lower = arguments.value(0);
         Comparable<?> higher = arguments.value(1);
 
-        checkComparison(higher, lower);
+        checkComparisonWithDynamicParameters(higher, lower);
     }
 
     private Stream<TestTypeArguments<T>> cmp() {
@@ -284,9 +284,9 @@ public abstract class BaseExpressionCustomDataTypeTest<T extends Comparable<T>> 
     }
 
     /**
-     * Runs binary comparison checks for given values.
+     * Runs binary comparison checks with dynamic parameters.
      */
-    protected final void checkComparison(Comparable<?> high, Comparable<?> low) {
+    protected final void checkComparisonWithDynamicParameters(Comparable<?> high, Comparable<?> low) {
         if (Objects.equals(high, low)) {
             throw new IllegalArgumentException(format("Values must not be equal. Value1: {}, value2: {}", high, low));
         }
@@ -314,11 +314,11 @@ public abstract class BaseExpressionCustomDataTypeTest<T extends Comparable<T>> 
     }
 
     /**
-     * Runs binary comparison checks for given values.
+     * Runs binary comparison checks for given arguments.
      */
-    protected final void checkComparison2(TestTypeArguments<?> arguments) {
-        String low = arguments.valueExpr(0);
-        String high = arguments.valueExpr(1);
+    protected final void checkComparison(TestTypeArguments<?> arguments, int lowIdx, int highIdx) {
+        String low = arguments.valueExpr(lowIdx);
+        String high = arguments.valueExpr(highIdx);
 
         checkComparisonQuery(high, "=", high).returns(true).check();
         checkComparisonQuery(high, "!=", high).returns(false).check();
