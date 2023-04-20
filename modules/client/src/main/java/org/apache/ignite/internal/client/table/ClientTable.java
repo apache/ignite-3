@@ -34,6 +34,7 @@ import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ClientColumnTypeConverter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -196,7 +198,7 @@ public class ClientTable implements Table {
             assert propCnt >= 7;
 
             var name = in.unpackString();
-            var type = in.unpackInt();
+            var typeCode = in.unpackInt();
             var isKey = in.unpackBoolean();
             var isNullable = in.unpackBoolean();
             var isColocation = in.unpackBoolean();
@@ -206,6 +208,7 @@ public class ClientTable implements Table {
             // Skip unknown extra properties, if any.
             in.skipValues(propCnt - 7);
 
+            ColumnType type = ClientColumnTypeConverter.ordinalToSqlColumnType(typeCode);
             var column = new ClientColumn(name, type, isNullable, isKey, isColocation, i, scale, precision);
             columns[i] = column;
         }
