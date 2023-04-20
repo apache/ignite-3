@@ -15,21 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.cliconfig;
+package org.apache.ignite.internal.cli.commands.sql;
 
-import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.commands.CliCommandTestBase;
-import org.junit.jupiter.api.BeforeEach;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
-/**
- * Base class for testing CLI config commands.
- */
-public abstract class CliConfigCommandTestBase extends CliCommandTestBase {
-    @Inject
-    protected TestConfigManagerProvider configManagerProvider;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
-    @BeforeEach
-    void configManagerRefresh() {
-        configManagerProvider.setConfigFile(TestConfigManagerHelper.createSectionWithDefaultProfileConfig());
+class ItSqlConnectTest extends CliSqlConnectCommandTestBase {
+
+    @Test
+    @DisplayName("Should succeed after connect")
+    void jdbcOkAfterConnect() {
+        // Given connected state
+        execute("connect");
+
+        // When
+        execute("sql", "select * from person");
+
+        // Then the query is executed successfully
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertOutputIsNotEmpty,
+                this::assertErrOutputIsEmpty
+        );
     }
 }

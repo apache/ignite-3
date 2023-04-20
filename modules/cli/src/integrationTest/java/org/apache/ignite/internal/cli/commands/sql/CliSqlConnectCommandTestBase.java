@@ -15,21 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.cliconfig;
+package org.apache.ignite.internal.cli.commands.sql;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.commands.CliCommandTestBase;
+import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
+import org.apache.ignite.internal.cli.core.repl.SessionDefaultValueProvider;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
 
-/**
- * Base class for testing CLI config commands.
- */
-public abstract class CliConfigCommandTestBase extends CliCommandTestBase {
+/** Base class for testing CLI REPL sql command in the connected state. */
+public class CliSqlConnectCommandTestBase extends CliSqlCommandTestBase {
     @Inject
-    protected TestConfigManagerProvider configManagerProvider;
+    private SessionDefaultValueProvider defaultValueProvider;
 
     @BeforeEach
-    void configManagerRefresh() {
-        configManagerProvider.setConfigFile(TestConfigManagerHelper.createSectionWithDefaultProfileConfig());
+    @Override
+    public void setUp(TestInfo testInfo) throws Exception {
+        super.setUp(testInfo);
+        commandLine().setDefaultValueProvider(defaultValueProvider);
     }
+
+    @Override
+    protected Class<?> getCommandClass() {
+        return TopLevelCliReplCommand.class;
+    }
+
 }
