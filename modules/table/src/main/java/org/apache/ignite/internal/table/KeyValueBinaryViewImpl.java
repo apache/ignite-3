@@ -131,13 +131,15 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     /** {@inheritDoc} */
     @Override
     public boolean contains(@Nullable Transaction tx, @NotNull Tuple key) {
-        return get(tx, key) != null;
+        return sync(containsAsync(tx, key));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, @NotNull Tuple key) {
-        return getAsync(tx, key).thenApply(Objects::nonNull);
+        Row keyRow = marshal(Objects.requireNonNull(key), null);
+
+        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(Objects::nonNull);
     }
 
     /** {@inheritDoc} */
@@ -148,9 +150,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> putAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
+    public @NotNull CompletableFuture<Void> putAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
         Objects.requireNonNull(key);
-        Objects.requireNonNull(val);
 
         Row row = marshal(key, val);
 
