@@ -19,20 +19,29 @@ package org.apache.ignite.internal.metastorage.command;
 
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.ReadCommand;
-import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Get command for MetaStorageCommandListener that retrieves an entry for the given key and the revision upper bound, if latter is present.
+ * Base class for commands that retrieve values for an interval of keys.
  */
-@Transferable(MetastorageCommandsMessageGroup.GET)
-public interface GetCommand extends ReadCommand {
+public interface PaginationCommand extends ReadCommand {
     /**
-     * Returns key. Couldn't be {@code null}.
+     * Returns the upper bound for entry revision or {@link MetaStorageManager#LATEST_REVISION} for no revision bound.
      */
-    byte[] key();
+    long revUpperBound();
 
     /**
-     * Returns the upper bound for entry revisions or {@link MetaStorageManager#LATEST_REVISION} for no revision bound.
+     * Returns the boolean value indicating whether this range command is supposed to include tombstone entries into the cursor.
      */
-    long revision();
+    boolean includeTombstones();
+
+    /**
+     * Last retrieved key or {@code null} for the first ever request (used for pagination purposes).
+     */
+    byte @Nullable [] previousKey();
+
+    /**
+     * Max amount of values to retrieve.
+     */
+    int batchSize();
 }
