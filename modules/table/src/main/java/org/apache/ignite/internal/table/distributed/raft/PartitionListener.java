@@ -196,10 +196,10 @@ public class PartitionListener implements RaftGroupListener {
 
                 assert safeTimePropagatingCommand.safeTime() != null;
 
-                updateTrackerWithIgnoreTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime().asHybridTimestamp());
+                updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime().asHybridTimestamp());
             }
 
-            updateTrackerWithIgnoreTrackerClosedException(storageIndexTracker, commandIndex);
+            updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
         });
     }
 
@@ -467,7 +467,7 @@ public class PartitionListener implements RaftGroupListener {
         }
     }
 
-    private static <T extends Comparable<T>> void updateTrackerWithIgnoreTrackerClosedException(
+    private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
             PendingComparableValuesTracker<T> tracker,
             T newValue
     ) {

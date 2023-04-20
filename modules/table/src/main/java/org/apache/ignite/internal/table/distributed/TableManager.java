@@ -728,8 +728,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 var safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
                 var storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
-                ((InternalTableImpl) internalTbl).updatePartitionSafeTimeTracker(partId, safeTimeTracker);
-                ((InternalTableImpl) internalTbl).updatePartitionStorageIndexTracker(partId, storageIndexTracker);
+                ((InternalTableImpl) internalTbl).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
 
                 CompletableFuture<PartitionStorages> partitionStoragesFut = getOrCreatePartitionStorages(table, partId);
 
@@ -1063,9 +1062,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 stopping.add(() -> {
                     try {
-                        closeTracker(internalTable.getPartitionSafeTimeTracker(partitionId));
-
-                        closeTracker(internalTable.getPartitionStorageIndexTracker(partitionId));
+                        closePartitionTrackers(internalTable, partitionId);
                     } catch (Throwable t) {
                         handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
                     }
@@ -1297,9 +1294,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 InternalTable internalTable = table.internalTable();
 
                 for (int partitionId = 0; partitionId < partitions; partitionId++) {
-                    closeTracker(internalTable.getPartitionSafeTimeTracker(partitionId));
-
-                    closeTracker(internalTable.getPartitionStorageIndexTracker(partitionId));
+                    closePartitionTrackers(internalTable, partitionId);
                 }
 
                 // TODO: IGNITE-18703 Destroy raft log and meta
@@ -2049,8 +2044,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         InternalTable internalTable = tbl.internalTable();
 
-        ((InternalTableImpl) internalTable).updatePartitionSafeTimeTracker(partId, safeTimeTracker);
-        ((InternalTableImpl) internalTable).updatePartitionStorageIndexTracker(partId, storageIndexTracker);
+        ((InternalTableImpl) internalTable).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
 
         LOG.info("Received update on pending assignments. Check if new raft group should be started"
                         + " [key={}, partition={}, table={}, localMemberAddress={}]",
@@ -2373,9 +2367,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             .thenCombine(mvGc.removeStorage(tablePartitionId), (tables, unused) -> {
                                 InternalTable internalTable = tables.get(tableId).internalTable();
 
-                                closeTracker(internalTable.getPartitionSafeTimeTracker(partitionId));
-
-                                closeTracker(internalTable.getPartitionStorageIndexTracker(partitionId));
+                                closePartitionTrackers(internalTable, partitionId);
 
                                 return allOf(
                                         internalTable.storage().destroyPartition(partitionId),
@@ -2420,6 +2412,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         return indexIds;
+    }
+
+    private static void closePartitionTrackers(InternalTable internalTable, int partitionId) {
+        closeTracker(internalTable.getPartitionSafeTimeTracker(partitionId));
+
+        closeTracker(internalTable.getPartitionStorageIndexTracker(partitionId));
     }
 
     private static void closeTracker(@Nullable PendingComparableValuesTracker<?> tracker) {

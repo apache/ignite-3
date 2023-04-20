@@ -103,7 +103,7 @@ public class InternalTableImpl implements InternalTable {
     /** Number of attempts. */
     private static final int ATTEMPTS_TO_ENLIST_PARTITION = 5;
 
-    /** Map update guard by field {@link #updatePartitionMapsMux}. */
+    /** Map update guarded by {@link #updatePartitionMapsMux}. */
     protected volatile Int2ObjectMap<RaftGroupService> raftGroupServiceByPartitionId;
 
     /** Partitions. */
@@ -139,10 +139,10 @@ public class InternalTableImpl implements InternalTable {
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
-    /** Map update guard by field {@link #updatePartitionMapsMux}. */
+    /** Map update guarded by {@link #updatePartitionMapsMux}. */
     private volatile Int2ObjectMap<PendingComparableValuesTracker<HybridTimestamp>> safeTimeTrackerByPartitionId = emptyMap();
 
-    /** Map update guard by field {@link #updatePartitionMapsMux}. */
+    /** Map update guarded by {@link #updatePartitionMapsMux}. */
     private volatile Int2ObjectMap<PendingComparableValuesTracker<Long>> storageIndexTrackerByPartitionId = emptyMap();
 
     /**
@@ -1490,46 +1490,36 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Updates the partition safe time tracker, if there was a previous one, closes it.
+     * Updates the partition trackers, if there were previous ones, it closes them.
      *
      * @param partitionId Partition ID.
      * @param newSafeTimeTracker New partition safe time tracker.
+     * @param newStorageIndexTracker New partition storage index tracker.
      */
-    public void updatePartitionSafeTimeTracker(int partitionId, PendingComparableValuesTracker<HybridTimestamp> newSafeTimeTracker) {
+    public void updatePartitionTrackers(
+            int partitionId,
+            PendingComparableValuesTracker<HybridTimestamp> newSafeTimeTracker,
+            PendingComparableValuesTracker<Long> newStorageIndexTracker
+    ) {
         PendingComparableValuesTracker<HybridTimestamp> previousSafeTimeTracker;
+        PendingComparableValuesTracker<Long> previousStorageIndexTracker;
 
         synchronized (updatePartitionMapsMux) {
             Int2ObjectMap<PendingComparableValuesTracker<HybridTimestamp>> newSafeTimeTrackerMap = new Int2ObjectOpenHashMap<>(partitions);
+            Int2ObjectMap<PendingComparableValuesTracker<Long>> newStorageIndexTrackerMap = new Int2ObjectOpenHashMap<>(partitions);
 
             newSafeTimeTrackerMap.putAll(safeTimeTrackerByPartitionId);
+            newStorageIndexTrackerMap.putAll(storageIndexTrackerByPartitionId);
 
             previousSafeTimeTracker = newSafeTimeTrackerMap.put(partitionId, newSafeTimeTracker);
+            previousStorageIndexTracker = newStorageIndexTrackerMap.put(partitionId, newStorageIndexTracker);
 
             safeTimeTrackerByPartitionId = newSafeTimeTrackerMap;
+            storageIndexTrackerByPartitionId = newStorageIndexTrackerMap;
         }
 
         if (previousSafeTimeTracker != null) {
             previousSafeTimeTracker.close();
-        }
-    }
-
-    /**
-     * Updates the partition storage index tracker, if there was a previous one, closes it.
-     *
-     * @param partitionId Partition ID.
-     * @param newSafeTimeTracker New partition storage index tracker.
-     */
-    public void updatePartitionStorageIndexTracker(int partitionId, PendingComparableValuesTracker<Long> newSafeTimeTracker) {
-        PendingComparableValuesTracker<Long> previousStorageIndexTracker;
-
-        synchronized (updatePartitionMapsMux) {
-            Int2ObjectMap<PendingComparableValuesTracker<Long>> newStorageIndexTrackerMap = new Int2ObjectOpenHashMap<>(partitions);
-
-            newStorageIndexTrackerMap.putAll(storageIndexTrackerByPartitionId);
-
-            previousStorageIndexTracker = newStorageIndexTrackerMap.put(partitionId, newSafeTimeTracker);
-
-            storageIndexTrackerByPartitionId = newStorageIndexTrackerMap;
         }
 
         if (previousStorageIndexTracker != null) {
