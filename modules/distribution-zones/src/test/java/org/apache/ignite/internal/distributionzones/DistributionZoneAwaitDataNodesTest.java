@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
 import java.util.List;
@@ -444,7 +445,7 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
         // distributionZoneManager's recovery.
         metaStorageManager.deployWatches();
 
-        // Bump Meta Storage applied revision by modifying a fake key. DistributionZoneManager breaks on start of Vault is not empty, but
+        // Bump Meta Storage applied revision by modifying a fake key. DistributionZoneManager breaks on start if Vault is not empty, but
         // Meta Storage revision is equal to 0.
         var fakeKey = new ByteArray("foobar");
 
@@ -456,7 +457,7 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
 
         assertThat(invokeFuture, willBe(true));
 
-        waitForCondition(() -> metaStorageManager.appliedRevision() > 0, 10_000);
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() > 0, 10_000));
 
         distributionZoneManager.start();
 
