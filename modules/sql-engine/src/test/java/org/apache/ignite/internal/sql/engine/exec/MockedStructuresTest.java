@@ -397,14 +397,11 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         readFirst(queryProc.querySingleAsync(sessionId, context, "DROP TABLE " + tableName));
 
-
-        when(distributionZoneManager.getZoneId(zoneName)).thenThrow(DistributionZoneNotFoundException.class);
-
         Exception exception = assertThrows(
                 IgniteException.class,
                 () -> readFirst(queryProc.querySingleAsync(sessionId, context,
                         String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                                + "with primary_zone='%s'", tableName, zoneName)))
+                                + "with primary_zone='%s'", tableName, "none-exist-zone")))
         );
 
         assertInstanceOf(DistributionZoneNotFoundException.class, exception.getCause());
