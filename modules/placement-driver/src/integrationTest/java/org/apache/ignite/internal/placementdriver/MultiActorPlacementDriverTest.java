@@ -180,6 +180,11 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         };
     }
 
+    /**
+     * Starts cluster nodes.
+     *
+     * @return Cluster services.
+     */
     public Map<String, ClusterService> startNodes() {
         var res = new HashMap<String, ClusterService>(nodeNames.size());
 
@@ -200,6 +205,14 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         return res;
     }
 
+    /**
+     * Starts placement driver.
+     *
+     * @param services Cluster services.
+     * @param logicalTopManagers The list to update in the method. The list might be used for driving of the logical topology.
+     * @return List of closures to stop the services.
+     * @throws Exception If something goes wrong.
+     */
     public List<Closeable> startPlacementDriver(
             Map<String, ClusterService> services,
             List<LogicalTopologyServiceTestImpl> logicalTopManagers
@@ -395,6 +408,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
     /**
      * Waits for a lease prolong.
+     *
      * @param grpPart Replication group id.
      * @param lease Lease which waits for prolong.
      * @return Renewed lease.
