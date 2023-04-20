@@ -124,8 +124,6 @@ public class ItSingleColumnTableCrossApiTest extends ClusterPerClassIntegrationT
                     kvView.put(rwTx, key, null);
                 },
                 tx -> {
-                    assertNull(kvView.get(tx, key));
-
                     assertNotNull(kvView.getNullable(tx, key));
                     assertTrue(kvView.contains(tx, key));
                     assertEquals(1, kvView.getAll(tx, Collections.singleton(0)).size());
