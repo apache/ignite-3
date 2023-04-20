@@ -292,7 +292,7 @@ namespace Apache.Ignite.Tests
                 writer.WriteArrayHeader(6); // Column props.
                 writer.Write("NAME"); // Column name.
                 writer.Write(false); // Nullable.
-                writer.Write((int)SqlColumnType.String);
+                writer.Write((int)ColumnType.String);
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
                 writer.Write(false); // No origin.
@@ -300,7 +300,7 @@ namespace Apache.Ignite.Tests
                 writer.WriteArrayHeader(6); // Column props.
                 writer.Write("VAL"); // Column name.
                 writer.Write(false); // Nullable.
-                writer.Write((int)SqlColumnType.String);
+                writer.Write((int)ColumnType.String);
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
                 writer.Write(false); // No origin.
@@ -325,7 +325,7 @@ namespace Apache.Ignite.Tests
                 writer.WriteArrayHeader(6); // Column props.
                 writer.Write("ID"); // Column name.
                 writer.Write(false); // Nullable.
-                writer.Write((int)SqlColumnType.Int32);
+                writer.Write((int)ColumnType.Int32);
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
                 writer.Write(false); // No origin.

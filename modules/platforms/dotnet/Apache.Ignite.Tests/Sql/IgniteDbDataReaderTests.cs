@@ -324,21 +324,21 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
     {
         await using var reader = await ExecuteReader();
 
-        Test(() => reader.GetBoolean("STR"), "STR", SqlColumnType.String, typeof(bool), typeof(string));
-        Test(() => reader.GetString("INT8"), "INT8", SqlColumnType.Int8, typeof(string), typeof(sbyte));
-        Test(() => reader.GetGuid("INT16"), "INT16", SqlColumnType.Int16, typeof(Guid), typeof(short));
-        Test(() => reader.GetDateTime("INT32"), "INT32", SqlColumnType.Int32, typeof(DateTime), typeof(int));
-        Test(() => reader.GetFloat("INT64"), "INT64", SqlColumnType.Int64, typeof(float), typeof(long));
-        Test(() => reader.GetDouble("INT64"), "INT64", SqlColumnType.Int64, typeof(double), typeof(long));
-        Test(() => reader.GetString("INT64"), "INT64", SqlColumnType.Int64, typeof(string), typeof(long));
-        Test(() => reader.GetByte("STR"), "STR", SqlColumnType.String, typeof(byte), typeof(string));
-        Test(() => reader.GetBytes("STR", 0, null!, 0, 0), "STR", SqlColumnType.String, typeof(byte[]), typeof(string));
-        Test(() => reader.GetDecimal("STR"), "STR", SqlColumnType.String, typeof(decimal), typeof(string));
-        Test(() => reader.GetInt16("STR"), "STR", SqlColumnType.String, typeof(short), typeof(string));
-        Test(() => reader.GetInt32("STR"), "STR", SqlColumnType.String, typeof(int), typeof(string));
-        Test(() => reader.GetInt64("STR"), "STR", SqlColumnType.String, typeof(long), typeof(string));
+        Test(() => reader.GetBoolean("STR"), "STR", ColumnType.String, typeof(bool), typeof(string));
+        Test(() => reader.GetString("INT8"), "INT8", ColumnType.Int8, typeof(string), typeof(sbyte));
+        Test(() => reader.GetGuid("INT16"), "INT16", ColumnType.Int16, typeof(Guid), typeof(short));
+        Test(() => reader.GetDateTime("INT32"), "INT32", ColumnType.Int32, typeof(DateTime), typeof(int));
+        Test(() => reader.GetFloat("INT64"), "INT64", ColumnType.Int64, typeof(float), typeof(long));
+        Test(() => reader.GetDouble("INT64"), "INT64", ColumnType.Int64, typeof(double), typeof(long));
+        Test(() => reader.GetString("INT64"), "INT64", ColumnType.Int64, typeof(string), typeof(long));
+        Test(() => reader.GetByte("STR"), "STR", ColumnType.String, typeof(byte), typeof(string));
+        Test(() => reader.GetBytes("STR", 0, null!, 0, 0), "STR", ColumnType.String, typeof(byte[]), typeof(string));
+        Test(() => reader.GetDecimal("STR"), "STR", ColumnType.String, typeof(decimal), typeof(string));
+        Test(() => reader.GetInt16("STR"), "STR", ColumnType.String, typeof(short), typeof(string));
+        Test(() => reader.GetInt32("STR"), "STR", ColumnType.String, typeof(int), typeof(string));
+        Test(() => reader.GetInt64("STR"), "STR", ColumnType.String, typeof(long), typeof(string));
 
-        static void Test(TestDelegate testDelegate, string columnName, SqlColumnType columnType, Type expectedType, Type actualType)
+        static void Test(TestDelegate testDelegate, string columnName, ColumnType columnType, Type expectedType, Type actualType)
         {
             var ex = Assert.Throws<InvalidCastException>(testDelegate);
 

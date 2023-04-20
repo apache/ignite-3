@@ -25,6 +25,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Linq;
     using System.Reflection;
     using System.Reflection.Emit;
+    using Ignite.Sql;
     using Proto;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
@@ -102,11 +103,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 il.Emit(OpCodes.Ldarg_0); // writer
                 il.Emit(OpCodes.Ldarg_2); // value
 
-                if (col.Type == ClientDataType.Decimal)
+                if (col.Type == ColumnType.Decimal)
                 {
                     il.Emit(OpCodes.Ldc_I4, col.Scale);
                 }
-                else if (col.Type is ClientDataType.Time or ClientDataType.DateTime or ClientDataType.Timestamp)
+                else if (col.Type is ColumnType.Time or ColumnType.Datetime or ColumnType.Timestamp)
                 {
                     il.Emit(OpCodes.Ldc_I4, col.Precision);
                 }
@@ -145,11 +146,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     il.Emit(OpCodes.Ldarg_2); // record
                     il.Emit(OpCodes.Ldfld, fieldInfo);
 
-                    if (col.Type == ClientDataType.Decimal)
+                    if (col.Type == ColumnType.Decimal)
                     {
                         il.Emit(OpCodes.Ldc_I4, col.Scale);
                     }
-                    else if (col.Type is ClientDataType.Time or ClientDataType.DateTime or ClientDataType.Timestamp)
+                    else if (col.Type is ColumnType.Time or ColumnType.Datetime or ColumnType.Timestamp)
                     {
                         il.Emit(OpCodes.Ldc_I4, col.Precision);
                     }
@@ -225,11 +226,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
                         il.Emit(OpCodes.Ldfld, fieldInfo);
                     }
 
-                    if (col.Type == ClientDataType.Decimal)
+                    if (col.Type == ColumnType.Decimal)
                     {
                         il.Emit(OpCodes.Ldc_I4, col.Scale);
                     }
-                    else if (col.Type is ClientDataType.Time or ClientDataType.DateTime or ClientDataType.Timestamp)
+                    else if (col.Type is ColumnType.Time or ColumnType.Datetime or ColumnType.Timestamp)
                     {
                         il.Emit(OpCodes.Ldc_I4, col.Precision);
                     }
@@ -272,7 +273,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 il.Emit(OpCodes.Ldarg_0); // reader
                 il.Emit(OpCodes.Ldc_I4_0); // index
 
-                if (schema.Columns[0] is { Type: ClientDataType.Decimal } col)
+                if (schema.Columns[0] is { Type: ColumnType.Decimal } col)
                 {
                     il.Emit(OpCodes.Ldc_I4, col.Scale);
                 }
@@ -383,7 +384,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             il.Emit(OpCodes.Ldarg_0); // reader
             il.Emit(OpCodes.Ldc_I4, elemIdx); // index
 
-            if (col.Type == ClientDataType.Decimal)
+            if (col.Type == ColumnType.Decimal)
             {
                 il.Emit(OpCodes.Ldc_I4, col.Scale);
             }

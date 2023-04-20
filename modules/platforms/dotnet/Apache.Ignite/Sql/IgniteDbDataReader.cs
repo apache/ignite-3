@@ -196,9 +196,9 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
 
         return column.Type switch
         {
-            SqlColumnType.Date => GetReader().GetDate(ordinal).ToDateTimeUnspecified(),
-            SqlColumnType.Datetime => GetReader().GetDateTime(ordinal).ToDateTimeUnspecified(),
-            SqlColumnType.Timestamp => GetReader().GetTimestamp(ordinal).ToDateTimeUtc(),
+            ColumnType.Date => GetReader().GetDate(ordinal).ToDateTimeUnspecified(),
+            ColumnType.Datetime => GetReader().GetDateTime(ordinal).ToDateTimeUnspecified(),
+            ColumnType.Timestamp => GetReader().GetTimestamp(ordinal).ToDateTimeUtc(),
             _ => throw GetInvalidColumnTypeException(typeof(DateTime), column)
         };
     }

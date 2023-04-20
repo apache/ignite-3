@@ -26,7 +26,7 @@ namespace Apache.Ignite.Sql
         "Microsoft.Naming",
         "CA1720:IdentifiersShouldNotContainTypeNames",
         Justification = "Ignite-specific SQL column type names are required.")]
-    public enum SqlColumnType
+    public enum ColumnType
     {
         /** Boolean. */
         Boolean = 0,

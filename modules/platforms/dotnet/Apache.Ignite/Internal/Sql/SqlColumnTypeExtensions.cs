@@ -26,56 +26,56 @@ using Ignite.Sql;
 using NodaTime;
 
 /// <summary>
-/// Extension methods for <see cref="SqlColumnType"/>.
+/// Extension methods for <see cref="ColumnType"/>.
 /// </summary>
 internal static class SqlColumnTypeExtensions
 {
-    private static readonly IReadOnlyDictionary<Type, SqlColumnType> ClrToSql =
-        Enum.GetValues<SqlColumnType>().ToDictionary(x => x.ToClrType(), x => x);
+    private static readonly IReadOnlyDictionary<Type, ColumnType> ClrToSql =
+        Enum.GetValues<ColumnType>().ToDictionary(x => x.ToClrType(), x => x);
 
     private static readonly IReadOnlyDictionary<Type, string> ClrToSqlName =
-        Enum.GetValues<SqlColumnType>()
-            .Where(x => x != SqlColumnType.Period && x != SqlColumnType.Duration)
+        Enum.GetValues<ColumnType>()
+            .Where(x => x != ColumnType.Period && x != ColumnType.Duration)
             .ToDictionary(x => x.ToClrType(), x => x.ToSqlTypeName());
 
     /// <summary>
     /// Gets corresponding .NET type.
     /// </summary>
-    /// <param name="sqlColumnType">SQL column type.</param>
+    /// <param name="columnType">SQL column type.</param>
     /// <returns>CLR type.</returns>
-    public static Type ToClrType(this SqlColumnType sqlColumnType) => sqlColumnType switch
+    public static Type ToClrType(this ColumnType columnType) => columnType switch
     {
-        SqlColumnType.Boolean => typeof(bool),
-        SqlColumnType.Int8 => typeof(sbyte),
-        SqlColumnType.Int16 => typeof(short),
-        SqlColumnType.Int32 => typeof(int),
-        SqlColumnType.Int64 => typeof(long),
-        SqlColumnType.Float => typeof(float),
-        SqlColumnType.Double => typeof(double),
-        SqlColumnType.Decimal => typeof(decimal),
-        SqlColumnType.Date => typeof(LocalDate),
-        SqlColumnType.Time => typeof(LocalTime),
-        SqlColumnType.Datetime => typeof(LocalDateTime),
-        SqlColumnType.Timestamp => typeof(Instant),
-        SqlColumnType.Uuid => typeof(Guid),
-        SqlColumnType.Bitmask => typeof(BitArray),
-        SqlColumnType.String => typeof(string),
-        SqlColumnType.ByteArray => typeof(byte[]),
-        SqlColumnType.Period => typeof(Period),
-        SqlColumnType.Duration => typeof(Duration),
-        SqlColumnType.Number => typeof(BigInteger),
-        _ => throw new InvalidOperationException($"Invalid {nameof(SqlColumnType)}: {sqlColumnType}")
+        ColumnType.Boolean => typeof(bool),
+        ColumnType.Int8 => typeof(sbyte),
+        ColumnType.Int16 => typeof(short),
+        ColumnType.Int32 => typeof(int),
+        ColumnType.Int64 => typeof(long),
+        ColumnType.Float => typeof(float),
+        ColumnType.Double => typeof(double),
+        ColumnType.Decimal => typeof(decimal),
+        ColumnType.Date => typeof(LocalDate),
+        ColumnType.Time => typeof(LocalTime),
+        ColumnType.Datetime => typeof(LocalDateTime),
+        ColumnType.Timestamp => typeof(Instant),
+        ColumnType.Uuid => typeof(Guid),
+        ColumnType.Bitmask => typeof(BitArray),
+        ColumnType.String => typeof(string),
+        ColumnType.ByteArray => typeof(byte[]),
+        ColumnType.Period => typeof(Period),
+        ColumnType.Duration => typeof(Duration),
+        ColumnType.Number => typeof(BigInteger),
+        _ => throw new InvalidOperationException($"Invalid {nameof(ColumnType)}: {columnType}")
     };
 
     /// <summary>
     /// Gets corresponding .NET type.
     /// </summary>
-    /// <param name="sqlColumnType">SQL column type.</param>
+    /// <param name="columnType">SQL column type.</param>
     /// <param name="nullable">Whether the SQL column is nullable.</param>
     /// <returns>CLR type.</returns>
-    public static Type ToClrType(this SqlColumnType sqlColumnType, bool nullable)
+    public static Type ToClrType(this ColumnType columnType, bool nullable)
     {
-        var clrType = sqlColumnType.ToClrType();
+        var clrType = columnType.ToClrType();
 
         return nullable && clrType.IsValueType ? typeof(Nullable<>).MakeGenericType(clrType) : clrType;
     }
@@ -83,28 +83,28 @@ internal static class SqlColumnTypeExtensions
     /// <summary>
     /// Gets corresponding SQL type name.
     /// </summary>
-    /// <param name="sqlColumnType">SQL column type.</param>
+    /// <param name="columnType">SQL column type.</param>
     /// <returns>SQL type name.</returns>
-    public static string ToSqlTypeName(this SqlColumnType sqlColumnType) => sqlColumnType switch
+    public static string ToSqlTypeName(this ColumnType columnType) => columnType switch
     {
-        SqlColumnType.Boolean => "boolean",
-        SqlColumnType.Int8 => "tinyint",
-        SqlColumnType.Int16 => "smallint",
-        SqlColumnType.Int32 => "int",
-        SqlColumnType.Int64 => "bigint",
-        SqlColumnType.Float => "real",
-        SqlColumnType.Double => "double",
-        SqlColumnType.Decimal => "decimal",
-        SqlColumnType.Date => "date",
-        SqlColumnType.Time => "time",
-        SqlColumnType.Datetime => "timestamp",
-        SqlColumnType.Timestamp => "timestamp_tz",
-        SqlColumnType.Uuid => "uuid",
-        SqlColumnType.Bitmask => "bitmap",
-        SqlColumnType.String => "varchar",
-        SqlColumnType.ByteArray => "varbinary",
-        SqlColumnType.Number => "numeric",
-        _ => throw new InvalidOperationException($"Unsupported {nameof(SqlColumnType)}: {sqlColumnType}")
+        ColumnType.Boolean => "boolean",
+        ColumnType.Int8 => "tinyint",
+        ColumnType.Int16 => "smallint",
+        ColumnType.Int32 => "int",
+        ColumnType.Int64 => "bigint",
+        ColumnType.Float => "real",
+        ColumnType.Double => "double",
+        ColumnType.Decimal => "decimal",
+        ColumnType.Date => "date",
+        ColumnType.Time => "time",
+        ColumnType.Datetime => "timestamp",
+        ColumnType.Timestamp => "timestamp_tz",
+        ColumnType.Uuid => "uuid",
+        ColumnType.Bitmask => "bitmap",
+        ColumnType.String => "varchar",
+        ColumnType.ByteArray => "varbinary",
+        ColumnType.Number => "numeric",
+        _ => throw new InvalidOperationException($"Unsupported {nameof(ColumnType)}: {columnType}")
     };
 
     /// <summary>
@@ -118,26 +118,26 @@ internal static class SqlColumnTypeExtensions
             : throw new InvalidOperationException($"Type is not supported in SQL: {type}");
 
     /// <summary>
-    /// Gets corresponding <see cref="SqlColumnType"/>.
+    /// Gets corresponding <see cref="ColumnType"/>.
     /// </summary>
     /// <param name="type">Type.</param>
     /// <returns>SQL column type, or null.</returns>
-    public static SqlColumnType? ToSqlColumnType(this Type type) =>
+    public static ColumnType? ToSqlColumnType(this Type type) =>
         ClrToSql.TryGetValue(Nullable.GetUnderlyingType(type) ?? type, out var sqlType) ? sqlType : null;
 
     /// <summary>
     /// Gets a value indicating whether specified column type is an integer of any size (int8 to int64).
     /// </summary>
-    /// <param name="sqlColumnType">SQL column type.</param>
+    /// <param name="columnType">SQL column type.</param>
     /// <returns>Whether the type is integer.</returns>
-    public static bool IsAnyInt(this SqlColumnType sqlColumnType) =>
-        sqlColumnType is SqlColumnType.Int8 or SqlColumnType.Int16 or SqlColumnType.Int32 or SqlColumnType.Int64;
+    public static bool IsAnyInt(this ColumnType columnType) =>
+        columnType is ColumnType.Int8 or ColumnType.Int16 or ColumnType.Int32 or ColumnType.Int64;
 
     /// <summary>
     /// Gets a value indicating whether specified column type is a floating point of any size (float32 to float64).
     /// </summary>
-    /// <param name="sqlColumnType">SQL column type.</param>
+    /// <param name="columnType">SQL column type.</param>
     /// <returns>Whether the type is floating point.</returns>
-    public static bool IsAnyFloat(this SqlColumnType sqlColumnType) =>
-        sqlColumnType is SqlColumnType.Float or SqlColumnType.Double;
+    public static bool IsAnyFloat(this ColumnType columnType) =>
+        columnType is ColumnType.Float or ColumnType.Double;
 }

@@ -27,35 +27,35 @@ using NUnit.Framework;
 /// </summary>
 public class SqlColumnTypeExtensionsTests
 {
-    private static readonly SqlColumnType[] SqlColumnTypes = Enum.GetValues<SqlColumnType>();
+    private static readonly ColumnType[] SqlColumnTypes = Enum.GetValues<ColumnType>();
 
     [TestCaseSource(nameof(SqlColumnTypes))]
-    public void TestToClrType(SqlColumnType sqlColumnType) =>
-        Assert.IsNotNull(sqlColumnType.ToClrType(), sqlColumnType.ToString());
+    public void TestToClrType(ColumnType columnType) =>
+        Assert.IsNotNull(columnType.ToClrType(), columnType.ToString());
 
     [TestCaseSource(nameof(SqlColumnTypes))]
-    public void TestToSqlColumnType(SqlColumnType sqlColumnType) =>
-        Assert.AreEqual(sqlColumnType, sqlColumnType.ToClrType().ToSqlColumnType());
+    public void TestToSqlColumnType(ColumnType columnType) =>
+        Assert.AreEqual(columnType, columnType.ToClrType().ToSqlColumnType());
 
     [TestCaseSource(nameof(SqlColumnTypes))]
-    public void TestSqlColumnTypeToSqlTypeName(SqlColumnType sqlColumnType)
+    public void TestSqlColumnTypeToSqlTypeName(ColumnType columnType)
     {
-        if (sqlColumnType is SqlColumnType.Duration or SqlColumnType.Period)
+        if (columnType is ColumnType.Duration or ColumnType.Period)
         {
             return;
         }
 
-        Assert.IsNotNull(sqlColumnType.ToSqlTypeName(), sqlColumnType.ToString());
+        Assert.IsNotNull(columnType.ToSqlTypeName(), columnType.ToString());
     }
 
     [TestCaseSource(nameof(SqlColumnTypes))]
-    public void TestClrTypeToSqlTypeName(SqlColumnType sqlColumnType)
+    public void TestClrTypeToSqlTypeName(ColumnType columnType)
     {
-        if (sqlColumnType is SqlColumnType.Duration or SqlColumnType.Period)
+        if (columnType is ColumnType.Duration or ColumnType.Period)
         {
             return;
         }
 
-        Assert.IsNotNull(sqlColumnType.ToClrType().ToSqlTypeName(), sqlColumnType.ToString());
+        Assert.IsNotNull(columnType.ToClrType().ToSqlTypeName(), columnType.ToString());
     }
 }
