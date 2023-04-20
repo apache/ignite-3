@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.calcite.plan.RelOptTable;
@@ -182,10 +183,24 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 for (Pair<SqlNode, RelDataTypeField> pair : Pair.zip(rowConstructor.getOperandList(), targetRowType.getFieldList())) {
                     RelDataType colType = pair.right.getType();
                     SqlNode valType = pair.left;
-                    if (valType instanceof SqlCharStringLiteral) {
-                        SqlCharStringLiteral charLiteral = (SqlCharStringLiteral) valType;
+                    if (valType instanceof SqlCharStringLiteral || valType instanceof SqlDynamicParam) {
+                        String val0;
 
-                        String val0 = charLiteral.getValueAs(NlsString.class).getValue();
+                        if (valType instanceof SqlCharStringLiteral) {
+                            SqlCharStringLiteral charLiteral = (SqlCharStringLiteral) valType;
+
+                            val0 = charLiteral.getValueAs(NlsString.class).getValue();
+                        } else {
+                            SqlDynamicParam literal = (SqlDynamicParam) valType;
+
+                            Objects.checkIndex(literal.getIndex(), parameters.length);
+
+                            Object param = parameters[literal.getIndex()];
+
+                            assert param instanceof String;
+
+                            val0 = (String) param;
+                        }
 
                         int len = SqlTypeUtil.comparePrecision(val0.length(), colType.getPrecision()) > 0
                                 ? val0.stripTrailing().length() : val0.length();
@@ -197,6 +212,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 }
             }
         }
+
+        super.validateValues(node, targetRowType, scope);
     }
 
     /** {@inheritDoc} */
