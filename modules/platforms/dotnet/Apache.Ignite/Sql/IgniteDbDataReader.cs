@@ -194,6 +194,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     {
         var column = Metadata.Columns[ordinal];
 
+        // ReSharper disable once SwitchExpressionHandlesSomeKnownEnumValuesWithExceptionInDefault
         return column.Type switch
         {
             ColumnType.Date => GetReader().GetDate(ordinal).ToDateTimeUnspecified(),
