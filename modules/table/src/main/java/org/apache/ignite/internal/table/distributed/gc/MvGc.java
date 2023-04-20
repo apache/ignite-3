@@ -257,7 +257,8 @@ public class MvGc implements ManuallyCloseable {
                         }, executor)
                         .whenComplete((isLeftGarbage, throwable) -> {
                             if (throwable != null) {
-                                if (throwable instanceof TrackerClosedException) {
+                                if (throwable instanceof TrackerClosedException
+                                        || throwable.getCause() instanceof TrackerClosedException) {
                                     currentGcFuture.complete(null);
                                 } else {
                                     currentGcFuture.completeExceptionally(throwable);
