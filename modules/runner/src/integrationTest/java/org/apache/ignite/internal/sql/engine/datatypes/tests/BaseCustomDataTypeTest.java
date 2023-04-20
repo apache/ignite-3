@@ -70,8 +70,6 @@ public abstract class BaseCustomDataTypeTest<T extends Comparable<T>> extends Cl
 
     protected NavigableSet<T> orderedValues;
 
-    protected IgniteCustomTypeSpec typeSpec;
-
     protected Class<T> storageType;
 
     protected TestDataSamples<T> dataSamples;
@@ -79,7 +77,6 @@ public abstract class BaseCustomDataTypeTest<T extends Comparable<T>> extends Cl
     @BeforeAll
     public void createTables() {
         testTypeSpec = getTypeSpec();
-        typeSpec = testTypeSpec.typeSpec();
         storageType = testTypeSpec.storageType();
 
         dataSamples = testTypeSpec.createSamples(new IgniteTypeFactory(IgniteTypeSystem.INSTANCE));
@@ -121,7 +118,7 @@ public abstract class BaseCustomDataTypeTest<T extends Comparable<T>> extends Cl
                         .findAny();
 
                 testKey.ifPresent((c) -> {
-                    ColumnType columnType = typeSpec.columnType();
+                    ColumnType columnType = testTypeSpec.columnType();
                     String error = format(
                             "test_key should have type {}. This can happen if a query returned a column ", columnType
                     );
@@ -156,10 +153,10 @@ public abstract class BaseCustomDataTypeTest<T extends Comparable<T>> extends Cl
      */
     protected QueryTemplate createQueryTemplate(String query) {
         QueryTemplate parameterProvidingTemplate = new ParameterReplacingTemplate<>(testTypeSpec, query, values);
-        return createQueryTemplate(parameterProvidingTemplate, typeSpec);
+        return createQueryTemplate(parameterProvidingTemplate, testTypeSpec.typeName());
     }
 
-    private static QueryTemplate createQueryTemplate(QueryTemplate template, IgniteCustomTypeSpec typeSpec) {
+    private static QueryTemplate createQueryTemplate(QueryTemplate template, String typeName) {
         return new QueryTemplate() {
             @Override
             public String originalQueryString() {
@@ -169,7 +166,7 @@ public abstract class BaseCustomDataTypeTest<T extends Comparable<T>> extends Cl
             @Override
             public String createQuery() {
                 String templateQuery = template.createQuery();
-                return templateQuery.replace("<type>", typeSpec.typeName());
+                return templateQuery.replace("<type>", typeName);
             }
         };
     }
@@ -215,7 +212,7 @@ public abstract class BaseCustomDataTypeTest<T extends Comparable<T>> extends Cl
 
     protected final Stream<TestTypeArguments<T>> convertedFrom() {
         return TestTypeArguments.unary(testTypeSpec, dataSamples, dataSamples.min())
-                .filter(args -> !Objects.equals(args.typeName(0), typeSpec.typeName()));
+                .filter(args -> !Objects.equals(args.typeName(0), testTypeSpec.typeName()));
     }
 
     /** Returns binary operators as sql, enum name pairs. */

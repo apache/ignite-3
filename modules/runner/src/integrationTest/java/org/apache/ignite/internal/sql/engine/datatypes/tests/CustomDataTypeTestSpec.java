@@ -20,32 +20,42 @@ package org.apache.ignite.internal.sql.engine.datatypes.tests;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * {@link IgniteCustomTypeSpec} + its values + convenient methods.
  */
 public abstract class CustomDataTypeTestSpec<T extends Comparable<T>> {
 
-    private final IgniteCustomTypeSpec typeSpec;
+    private final ColumnType columnType;
+
+    private final String typeName;
 
     protected final List<T> values;
 
-    /** Constructor. */
-    public CustomDataTypeTestSpec(IgniteCustomTypeSpec typeSpec, Class<T> storageType, T[] values) {
-        // storageType is only used to keep generic type of CustomDataTypeTestSpec.
-        this.typeSpec = typeSpec;
-        this.values = List.of(values);
+    private final Class<T> storageType;
 
+    /** Constructor. */
+    public CustomDataTypeTestSpec(ColumnType columnType, String typeName, Class<T> storageType, T[] values) {
+        this.columnType = columnType;
+        this.typeName = typeName;
+        this.values = List.of(values);
+        this.storageType = storageType;
     }
 
-    /** {@link IgniteCustomTypeSpec type spec}. */
-    public final IgniteCustomTypeSpec typeSpec() {
-        return typeSpec;
+    /** {@link ColumnType}. */
+    public final ColumnType columnType() {
+        return columnType;
+    }
+
+    /** SQL type name. */
+    public final String typeName() {
+        return typeName;
     }
 
     /** Storage type. */
     public final Class<T> storageType() {
-        return (Class<T>) typeSpec.storageType();
+        return storageType;
     }
 
     /**
@@ -64,7 +74,7 @@ public abstract class CustomDataTypeTestSpec<T extends Comparable<T>> {
 
     /**
      * Produces an expression that is used to replace placeholder values ({@code $N}). If a type has its own SQL literals, implementation of
-     * this method must call {@link #toLiteral(Comparable)}.
+     * this method must call {@link #toLiteral(T)}.
      *
      * @param value A value.
      * @return an SQL expression.

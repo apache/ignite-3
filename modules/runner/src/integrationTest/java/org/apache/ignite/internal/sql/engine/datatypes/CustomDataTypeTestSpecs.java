@@ -25,6 +25,7 @@ import org.apache.ignite.internal.sql.engine.datatypes.tests.CustomDataTypeTestS
 import org.apache.ignite.internal.sql.engine.datatypes.tests.TestDataSamples;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Defines {@link CustomDataTypeTestSpec test specs} for data types.
@@ -35,7 +36,7 @@ public final class CustomDataTypeTestSpecs {
      * Test spec for {@link UuidType UUID} data type.
      */
     public static final CustomDataTypeTestSpec<UUID> UUID_TYPE = new CustomDataTypeTestSpec<>(
-            UuidType.SPEC, UUID.class, new UUID[]{new UUID(1, 1), new UUID(2, 1), new UUID(3, 1)}) {
+            ColumnType.UUID, UuidType.NAME, UUID.class, new UUID[]{new UUID(1, 1), new UUID(2, 1), new UUID(3, 1)}) {
         @Override
         public boolean hasLiterals() {
             return false;

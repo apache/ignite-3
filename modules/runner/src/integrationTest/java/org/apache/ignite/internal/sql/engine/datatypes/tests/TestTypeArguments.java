@@ -27,7 +27,6 @@ import java.util.stream.Stream;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -153,10 +152,8 @@ public final class TestTypeArguments<T extends Comparable<T>> {
     public static <T extends Comparable<T>> Stream<TestTypeArguments<T>> unary(CustomDataTypeTestSpec<T> testTypeSpec,
             TestDataSamples<T> samples, T value) {
 
-        IgniteCustomTypeSpec typeSpec = testTypeSpec.typeSpec();
-
         List<TestTypeArguments<T>> result = new ArrayList<>();
-        Argument<T> argument = createArgument(testTypeSpec, typeSpec.typeName(), value, value);
+        Argument<T> argument = createArgument(testTypeSpec, testTypeSpec.typeName(), value, value);
         result.add(new TestTypeArguments<>(argument));
 
         for (var entry : samples.get(value).entrySet()) {
@@ -199,8 +196,8 @@ public final class TestTypeArguments<T extends Comparable<T>> {
         Map<SqlTypeName, Object> value1s = samples.get(lhs);
         Map<SqlTypeName, Object> value2s = samples.get(rhs);
 
-        Argument<T> lhsArg = createArgument(typeSpec, typeSpec.typeSpec().typeName(), lhs, lhs);
-        Argument<T> rhsArg = createArgument(typeSpec, typeSpec.typeSpec().typeName(), rhs, rhs);
+        Argument<T> lhsArg = createArgument(typeSpec, typeSpec.typeName(), lhs, lhs);
+        Argument<T> rhsArg = createArgument(typeSpec, typeSpec.typeName(), rhs, rhs);
 
         List<TestTypeArguments<T>> result = new ArrayList<>();
         result.add(new TestTypeArguments<>(lhsArg, rhsArg));
@@ -263,11 +260,11 @@ public final class TestTypeArguments<T extends Comparable<T>> {
         List<TestTypeArguments<T>> result = new ArrayList<>(rhs.length + 1);
 
         Argument<T>[] first = (Argument<T>[]) Array.newInstance(Argument.class, rhs.length + 1);
-        first[0] = createArgument(typeSpec, typeSpec.typeSpec().typeName(), lhs, lhs);
+        first[0] = createArgument(typeSpec, typeSpec.typeName(), lhs, lhs);
 
         for (int i = 1; i <= rhs.length; i++) {
             T rhsValue = rhs[i - 1];
-            first[i] = createArgument(typeSpec, typeSpec.typeSpec().typeName(), rhsValue, rhsValue);
+            first[i] = createArgument(typeSpec, typeSpec.typeName(), rhsValue, rhsValue);
         }
         result.add(new TestTypeArguments<>(first));
 
@@ -377,7 +374,7 @@ public final class TestTypeArguments<T extends Comparable<T>> {
 
         String valueExpr;
 
-        if (!typeName.equals(testTypeSpec.typeSpec().typeName())) {
+        if (!typeName.equals(testTypeSpec.typeName())) {
             SqlLiteral sqlLiteral;
 
             if (argument instanceof Number) {

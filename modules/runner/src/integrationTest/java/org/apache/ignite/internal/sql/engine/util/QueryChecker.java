@@ -26,6 +26,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,9 +43,12 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.datatypes.Blob;
+import org.apache.ignite.internal.sql.engine.datatypes.DynamicParameter;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.tx.Transaction;
@@ -328,13 +332,20 @@ public abstract class QueryChecker {
      *
      * @return This.
      */
+    @SuppressWarnings("rawtypes")
     public QueryChecker withParams(Object... params) {
         // let's interpret null array as simple single null.
         if (params == null) {
             params = NULL_AS_VARARG;
         }
 
-        this.params = params;
+        this.params = Arrays.stream(params).map(p -> {
+            if (p instanceof DynamicParameter) {
+                return ((DynamicParameter) p).get();
+            } else {
+                return p;
+            }
+        }).toArray();
 
         return this;
     }
@@ -565,13 +576,44 @@ public abstract class QueryChecker {
             if (expItem instanceof Collection && actualItem instanceof Collection) {
                 assertEqualsCollections((Collection<?>) expItem, (Collection<?>) actualItem);
             } else if (!Objects.deepEquals(expItem, actualItem)) {
-                String expectedStr = expItem != null ? expItem + " <" + expItem.getClass() + ">" : "null";
-                String actualStr = actualItem != null ? actualItem + " <" + actualItem.getClass() + ">" : "null";
+                String expectedStr = displayValue(expItem, true);
+                String actualStr = displayValue(actualItem, true);
 
                 fail("Collections are not equal (position " + idx + "):\nExpected: " + expectedStr + "\nActual:   " + actualStr);
             }
 
             idx++;
+        }
+    }
+
+    private static String displayValue(Object value, boolean includeType) {
+        if (value == null) {
+            return "<null>";
+        } else if (value.getClass().isArray()) {
+            Class<?> componentType = value.getClass().getComponentType();
+            StringBuilder sb = new StringBuilder();
+            // Always include array element type.
+            sb.append("[");
+            sb.append(componentType);
+
+            int length = Array.getLength(value);
+            for (int i = 0; i < length; i ++) {
+                Object item = Array.get(value, i);
+                sb.append(displayValue(item, false));
+                if (sb.length() > 1) {
+                    sb.append(", ");
+                }
+            }
+
+            sb.setLength(sb.length() - 2);
+            sb.append("]");
+            return sb.toString();
+        } else {
+            if (includeType) {
+                return value + " <" + value.getClass() + ">";
+            } else {
+                return value.toString();
+            }
         }
     }
 

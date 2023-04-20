@@ -87,7 +87,7 @@ public class TestTypeArgumentsTest {
         private static final String[] VALUES = {"1", "2", "3"};
 
         TestType() {
-            super(TestCustomType.SPEC, String.class, VALUES);
+            super(ColumnType.INT8, "TEST", String.class, VALUES);
         }
 
         @Override

@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.Objects;
 import java.util.stream.Stream;
 import org.apache.calcite.runtime.CalciteContextException;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -44,6 +44,15 @@ public abstract class BaseExpressionCustomDataTypeTest<T extends Comparable<T>> 
     @ParameterizedTest
     @MethodSource("cmp")
     public void testComparison(TestTypeArguments<T> arguments) {
+        checkComparison2(arguments);
+    }
+
+    /**
+     * Binary comparison operator tests with dynamic parameters.
+     */
+    @ParameterizedTest
+    @MethodSource("cmp")
+    public void testComparisonDynamicParams(TestTypeArguments<T> arguments) {
         Comparable<?> lower = arguments.value(0);
         Comparable<?> higher = arguments.value(1);
 
@@ -262,9 +271,10 @@ public abstract class BaseExpressionCustomDataTypeTest<T extends Comparable<T>> 
     @Test
     public void testTypeOf() {
         T value = values.get(0);
+        String typeName = testTypeSpec.typeName();
 
-        checkQuery("SELECT typeof(CAST(? as <type>))").withParams(value.toString()).returns(typeSpec.typeName()).check();
-        checkQuery("SELECT typeof(?)").withParams(value).returns(typeSpec.typeName()).check();
+        checkQuery("SELECT typeof(CAST(? as <type>))").withParams(value.toString()).returns(typeName).check();
+        checkQuery("SELECT typeof(?)").withParams(value).returns(typeName).check();
 
         // https://issues.apache.org/jira/browse/IGNITE-18761
         // TypeOf can short-circuit only when its argument is a constant expression.
@@ -283,12 +293,14 @@ public abstract class BaseExpressionCustomDataTypeTest<T extends Comparable<T>> 
 
         checkQuery("SELECT ? = ?").withParams(high, high).returns(true).check();
         checkQuery("SELECT ? != ?").withParams(high, high).returns(false).check();
+        checkQuery("SELECT ? <> ?").withParams(high, high).returns(false).check();
 
         checkQuery("SELECT ? IS NOT DISTINCT FROM ?").withParams(high, high).returns(true).check();
         checkQuery("SELECT ? IS DISTINCT FROM ?").withParams(high, high).returns(false).check();
 
         checkQuery("SELECT ? = ?").withParams(high, low).returns(false).check();
         checkQuery("SELECT ? != ?").withParams(high, low).returns(true).check();
+        checkQuery("SELECT ? <> ?").withParams(high, low).returns(true).check();
 
         checkQuery("SELECT ? > ?").withParams(low, high).returns(false).check();
         checkQuery("SELECT ? >= ?").withParams(low, high).returns(false).check();
@@ -299,5 +311,41 @@ public abstract class BaseExpressionCustomDataTypeTest<T extends Comparable<T>> 
         checkQuery("SELECT ? >= ?").withParams(high, low).returns(true).check();
         checkQuery("SELECT ? < ?").withParams(high, low).returns(false).check();
         checkQuery("SELECT ? <= ?").withParams(high, low).returns(false).check();
+    }
+
+    /**
+     * Runs binary comparison checks for given values.
+     */
+    protected final void checkComparison2(TestTypeArguments<?> arguments) {
+        String low = arguments.valueExpr(0);
+        String high = arguments.valueExpr(1);
+
+        checkComparisonQuery(high, "=", high).returns(true).check();
+        checkComparisonQuery(high, "!=", high).returns(false).check();
+        checkComparisonQuery(high, "<>", high).returns(false).check();
+
+        checkComparisonQuery(high, "IS NOT DISTINCT FROM", high).returns(true).check();
+        checkComparisonQuery(high, "IS DISTINCT FROM", high).returns(false).check();
+
+        checkComparisonQuery(high, "=", low).returns(false).check();
+        checkComparisonQuery(high, "!=", low).returns(true).check();
+        checkComparisonQuery(high, "<>", low).returns(true).check();
+
+        checkComparisonQuery(low, ">", high).returns(false).check();
+        checkComparisonQuery(low, ">=", high).returns(false).check();
+
+        checkComparisonQuery(low, "<", high).returns(true).check();
+        checkComparisonQuery(low, "<=", high).returns(true).check();
+
+        checkComparisonQuery(high, ">", low).returns(true).check();
+        checkComparisonQuery(high, ">=", low).returns(true).check();
+
+        checkComparisonQuery(high, "<", low).returns(false).check();
+        checkComparisonQuery(high, "<=", low).returns(false).check();
+    }
+
+    private QueryChecker checkComparisonQuery(String lhsExpr, String op, String rhsExpr) {
+        String query = format("SELECT {} {} {}", lhsExpr, op, rhsExpr);
+        return checkQuery(query);
     }
 }
