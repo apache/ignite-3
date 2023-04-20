@@ -109,6 +109,14 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT LAST_DAY(?)").withParams(date1).returns(date2).check();
     }
 
+    @Test
+    public void testTrickyCase() {
+        sql("CREATE TABLE TBL1(ID INT PRIMARY KEY, VAL VARCHAR)");
+        assertTrue(sql(
+                "select case when (_T0.VAL is not distinct from ?) then 0 else (case when (_T0.VAL > ?) then 1 else -1 end) end "
+                        + "from PUBLIC.TBL1 as _T0", "abc", "abc").isEmpty());
+    }
+
     /** Need to test the same query with different type of parameters to cover case with check right plans cache work. **/
     @Test
     public void testWithDifferentParametersTypes() {
