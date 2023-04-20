@@ -446,84 +446,85 @@ public class PlatformTestNodeRunner {
             var reader = new BinaryTupleReader(columnCount * 3, buf);
 
             for (int i = 0; i < columnCount; i++) {
-                var type = reader.intValue(i * 3);
+                var type = org.apache.ignite.sql.ColumnType.fromOrdinal(reader.intValue(i * 3));
                 var scale = reader.intValue(i * 3 + 1);
                 var valIdx = i * 3 + 2;
 
                 String colName = "col" + i;
 
+                //noinspection DataFlowIssue
                 switch (type) {
-                    case ClientDataType.INT8:
+                    case INT8:
                         columns[i] = new Column(i, colName, NativeTypes.INT8, false);
                         tuple.set(colName, reader.byteValue(valIdx));
                         break;
 
-                    case ClientDataType.INT16:
+                    case INT16:
                         columns[i] = new Column(i, colName, NativeTypes.INT16, false);
                         tuple.set(colName, reader.shortValue(valIdx));
                         break;
 
-                    case ClientDataType.INT32:
+                    case INT32:
                         columns[i] = new Column(i, colName, NativeTypes.INT32, false);
                         tuple.set(colName, reader.intValue(valIdx));
                         break;
 
-                    case ClientDataType.INT64:
+                    case INT64:
                         columns[i] = new Column(i, colName, NativeTypes.INT64, false);
                         tuple.set(colName, reader.longValue(valIdx));
                         break;
 
-                    case ClientDataType.FLOAT:
+                    case FLOAT:
                         columns[i] = new Column(i, colName, NativeTypes.FLOAT, false);
                         tuple.set(colName, reader.floatValue(valIdx));
                         break;
 
-                    case ClientDataType.DOUBLE:
+                    case DOUBLE:
                         columns[i] = new Column(i, colName, NativeTypes.DOUBLE, false);
                         tuple.set(colName, reader.doubleValue(valIdx));
                         break;
 
-                    case ClientDataType.DECIMAL:
+                    case DECIMAL:
                         columns[i] = new Column(i, colName, NativeTypes.decimalOf(100, scale), false);
                         tuple.set(colName, reader.decimalValue(valIdx, scale));
                         break;
 
-                    case ClientDataType.STRING:
+                    case STRING:
                         columns[i] = new Column(i, colName, NativeTypes.STRING, false);
                         tuple.set(colName, reader.stringValue(valIdx));
                         break;
 
-                    case ClientDataType.UUID:
+                    case UUID:
                         columns[i] = new Column(i, colName, NativeTypes.UUID, false);
                         tuple.set(colName, reader.uuidValue(valIdx));
                         break;
 
-                    case ClientDataType.NUMBER:
+                    case NUMBER:
                         columns[i] = new Column(i, colName, NativeTypes.numberOf(255), false);
                         tuple.set(colName, reader.numberValue(valIdx));
                         break;
 
-                    case ClientDataType.BITMASK:
+                    case BITMASK:
                         columns[i] = new Column(i, colName, NativeTypes.bitmaskOf(32), false);
                         tuple.set(colName, reader.bitmaskValue(valIdx));
                         break;
 
-                    case ClientDataType.DATE:
+                    case DATE:
                         columns[i] = new Column(i, colName, NativeTypes.DATE, false);
                         tuple.set(colName, reader.dateValue(valIdx));
                         break;
 
-                    case ClientDataType.TIME:
+                    case TIME:
                         columns[i] = new Column(i, colName, NativeTypes.time(timePrecision), false);
                         tuple.set(colName, reader.timeValue(valIdx));
                         break;
 
-                    case ClientDataType.DATETIME:
+                    case DATETIME:
                         columns[i] = new Column(i, colName, NativeTypes.datetime(timePrecision), false);
                         tuple.set(colName, reader.dateTimeValue(valIdx));
                         break;
 
-                    case ClientDataType.TIMESTAMP:
+                    case TIMESTAMP:
                         columns[i] = new Column(i, colName, NativeTypes.timestamp(timestampPrecision), false);
                         tuple.set(colName, reader.timestampValue(valIdx));
                         break;
