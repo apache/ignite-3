@@ -70,13 +70,11 @@ public class LocalFileConfigurationStorageTest {
 
     @BeforeAll
     public static void beforeAll() {
-        treeGenerator = new ConfigurationTreeGenerator(
-                List.of(TopConfiguration.KEY, TopEmptyConfiguration.KEY)
-        );
+        treeGenerator = new ConfigurationTreeGenerator(TopConfiguration.KEY, TopEmptyConfiguration.KEY);
     }
 
     @AfterAll
-    public static void afterAll() throws Exception {
+    public static void afterAll() {
         treeGenerator.close();
     }
 
@@ -413,10 +411,12 @@ public class LocalFileConfigurationStorageTest {
     /** Read configuration when inner node configured with partial content (some fields are empty). */
     @Test
     void innerNodeWithPartialContent() throws Exception {
+        // Given
         String content = "top: { inner.boolVal: true }";
         Files.write(getConfigFile(), content.getBytes(StandardCharsets.UTF_8));
 
-        storage.readDataOnRecovery().get();
+        // Expect
+        assertThat(storage.readDataOnRecovery().get().values(), allOf(aMapWithSize(1)));
     }
 
     private String configFileContent() throws IOException {

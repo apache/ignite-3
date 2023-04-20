@@ -107,7 +107,7 @@ public class ConfigurationTreeGeneratorTest {
     }
 
     @AfterAll
-    public static void afterAll() throws Exception {
+    public static void afterAll() {
         generator.close();
     }
 

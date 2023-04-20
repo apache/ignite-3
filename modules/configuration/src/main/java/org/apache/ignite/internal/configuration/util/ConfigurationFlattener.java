@@ -136,6 +136,8 @@ public class ConfigurationFlattener {
                 return null;
             }
 
+            // in case inner node is null in both trees,
+            // see LocalFileConfigurationStorageTest#innerNodeWithPartialContent – the node is someConfigurationValue
             if (oldNode == null && newNode == null) {
                 return null;
             }

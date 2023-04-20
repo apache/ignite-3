@@ -94,7 +94,7 @@ public class DistributedConfigurationCatchUpTest {
     public void testMetaStorageRevisionDifferentFromConfigurationOnRestart() throws Exception {
         RootKey<DistributedTestConfiguration, DistributedTestView> rootKey = DistributedTestConfiguration.KEY;
 
-        ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(List.of(rootKey));
+        ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(rootKey);
 
         MetaStorageMockWrapper wrapper = new MetaStorageMockWrapper();
 

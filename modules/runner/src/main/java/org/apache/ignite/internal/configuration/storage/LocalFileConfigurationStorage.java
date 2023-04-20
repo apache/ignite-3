@@ -46,7 +46,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Supplier;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigCreateException;
@@ -89,11 +88,6 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
             2, new NamedThreadFactory("cfg-file", LOG)
     );
 
-    /** Thread pool for configuration updates. */
-    private final ExecutorService workerThreadPool = Executors.newFixedThreadPool(
-            2, new NamedThreadFactory("cfg-file-worker", LOG)
-    );
-
     /** Tracks all running futures. */
     private final InFlightFutures futureTracker = new InFlightFutures();
 
@@ -116,27 +110,25 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
     @Override
     public CompletableFuture<Data> readDataOnRecovery() {
-        return async(() -> {
-            lock.writeLock().lock();
-            try {
-                SuperRoot superRoot = generator.createSuperRoot();
-                SuperRoot copiedSuperRoot = superRoot.copy();
+        lock.writeLock().lock();
+        try {
+            SuperRoot superRoot = generator.createSuperRoot();
+            SuperRoot copiedSuperRoot = superRoot.copy();
 
-                Config hocon = readHoconFromFile();
-                HoconConverter.hoconSource(hocon.root()).descend(copiedSuperRoot);
+            Config hocon = readHoconFromFile();
+            HoconConverter.hoconSource(hocon.root()).descend(copiedSuperRoot);
 
-                Map<String, Serializable> flattenedUpdatesMap = createFlattenedUpdatesMap(superRoot, copiedSuperRoot);
-                flattenedUpdatesMap.forEach((key, value) -> {
-                    if (value != null) { // Filter defaults.
-                        latest.put(key, value);
-                    }
-                });
+            Map<String, Serializable> flattenedUpdatesMap = createFlattenedUpdatesMap(superRoot, copiedSuperRoot);
+            flattenedUpdatesMap.forEach((key, value) -> {
+                if (value != null) { // Filter defaults.
+                    latest.put(key, value);
+                }
+            });
 
-                return new Data(flattenedUpdatesMap, lastRevision);
-            } finally {
-                lock.writeLock().unlock();
-            }
-        });
+            return CompletableFuture.completedFuture(new Data(latest, lastRevision));
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 
     private Config readHoconFromFile() {
@@ -147,49 +139,40 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
     @Override
     public CompletableFuture<Map<String, ? extends Serializable>> readAllLatest(String prefix) {
-        return async(() -> {
-            lock.readLock().lock();
-            try {
-                return latest.entrySet()
-                        .stream()
-                        .filter(entry -> entry.getKey().startsWith(prefix))
-                        .collect(toMap(Entry::getKey, Entry::getValue));
-            } finally {
-                lock.readLock().unlock();
-            }
-        });
+        lock.readLock().lock();
+        try {
+            return CompletableFuture.completedFuture(
+                    latest.entrySet()
+                            .stream()
+                            .filter(entry -> entry.getKey().startsWith(prefix))
+                            .collect(toMap(Entry::getKey, Entry::getValue))
+            );
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 
     @Override
     public CompletableFuture<Serializable> readLatest(String key) {
-        return async(() -> {
-            lock.readLock().lock();
-            try {
-                return latest.get(key);
-            } finally {
-                lock.readLock().unlock();
-            }
-        });
+        return CompletableFuture.completedFuture(latest.get(key));
     }
 
     @Override
     public CompletableFuture<Boolean> write(Map<String, ? extends Serializable> newValues, long ver) {
-        return async(() -> {
-            lock.writeLock().lock();
-            try {
-                if (ver != lastRevision) {
-                    return false;
-                }
-
-                mergeAndSave(newValues);
-
-                sendNotificationAsync(new Data(newValues, lastRevision));
-
-                return true;
-            } finally {
-                lock.writeLock().unlock();
+        lock.writeLock().lock();
+        try {
+            if (ver != lastRevision) {
+                return CompletableFuture.completedFuture(false);
             }
-        });
+
+            mergeAndSave(newValues);
+
+            sendNotificationAsync(new Data(newValues, lastRevision));
+
+            return CompletableFuture.completedFuture(true);
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 
     private void mergeAndSave(Map<String, ? extends Serializable> newValues) {
@@ -234,7 +217,6 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     public void close() {
         futureTracker.cancelInFlightFutures();
 
-        IgniteUtils.shutdownAndAwaitTermination(workerThreadPool, 10, TimeUnit.SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(notificationsThreadPool, 10, TimeUnit.SECONDS);
     }
 
@@ -270,9 +252,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
         Object transformed = rootNode.accept(null, new ConverterToMapVisitor(false, true));
 
-        ConfigValue conf = ConfigImpl.fromAnyRef(
-                transformed, null
-        );
+        ConfigValue conf = ConfigImpl.fromAnyRef(transformed, null);
 
         return renderConfig((ConfigObject) conf);
     }
@@ -299,13 +279,6 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                 throw new NodeConfigWriteException("Failed to restore config file.", e);
             }
         }
-    }
-
-    private <T> CompletableFuture<T> async(Supplier<T> supplier) {
-        CompletableFuture<T> future = CompletableFuture.supplyAsync(supplier, workerThreadPool);
-        futureTracker.registerFuture(future);
-
-        return future;
     }
 
     private void sendNotificationAsync(Data data) {

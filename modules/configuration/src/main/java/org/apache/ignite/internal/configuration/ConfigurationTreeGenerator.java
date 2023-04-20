@@ -50,6 +50,7 @@ import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /** Schema-aware configuration generator. */
 public class ConfigurationTreeGenerator implements ManuallyCloseable {
@@ -64,8 +65,9 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
      *
      * @param rootKeys Root keys.
      */
-    public ConfigurationTreeGenerator(Collection<RootKey<?, ?>> rootKeys) {
-        this(rootKeys, Set.of(), Set.of());
+    @TestOnly
+    public ConfigurationTreeGenerator(RootKey<?, ?>... rootKeys) {
+        this(List.of(rootKeys), Set.of(), Set.of());
     }
 
     /**
@@ -147,7 +149,7 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
     }
 
     @Override
-    public synchronized void close() throws Exception {
+    public synchronized void close() {
         generator = null;
     }
 

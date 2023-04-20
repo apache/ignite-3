@@ -112,12 +112,12 @@ public class ConfigurationChangerTest {
         public String strCfg;
     }
 
-    private static ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(List.of(KEY, DefaultsConfiguration.KEY));
+    private static ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(KEY, DefaultsConfiguration.KEY);
 
     private final TestConfigurationStorage storage = new TestConfigurationStorage(LOCAL);
 
     @AfterAll
-    public static void afterAll() throws Exception {
+    public static void afterAll() {
         generator.close();
     }
 

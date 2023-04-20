@@ -90,12 +90,12 @@ public class NamedListNodeTest {
     /** Instantiates {@link #cgen}. */
     @BeforeAll
     public static void beforeAll() {
-        cgen = new ConfigurationTreeGenerator(List.of(FirstConfiguration.KEY));
+        cgen = new ConfigurationTreeGenerator(FirstConfiguration.KEY);
     }
 
     /** Nullifies {@link #cgen} to prevent memory leak from having runtime ClassLoader accessible from GC root. */
     @AfterAll
-    public static void afterAll() throws Exception {
+    public static void afterAll() {
         cgen.close();
     }
 

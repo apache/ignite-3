@@ -603,7 +603,7 @@ public class ItRebalanceDistributedTest {
             vaultManager = createVault(name, dir);
 
             generator = new ConfigurationTreeGenerator(
-                    List.of(NetworkConfiguration.KEY, RestConfiguration.KEY, ClientConnectorConfiguration.KEY)
+                    NetworkConfiguration.KEY, RestConfiguration.KEY, ClientConnectorConfiguration.KEY
             );
 
             Path configPath = workDir.resolve(testInfo.getDisplayName());
@@ -857,11 +857,8 @@ public class ItRebalanceDistributedTest {
                 }
             });
 
-            try {
-                generator.close();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+
+            generator.close();
         }
 
         NetworkAddress address() {
