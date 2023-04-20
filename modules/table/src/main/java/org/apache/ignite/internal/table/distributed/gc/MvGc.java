@@ -41,6 +41,7 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.ErrorGroups.GarbageCollector;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.TestOnly;
@@ -256,7 +257,11 @@ public class MvGc implements ManuallyCloseable {
                         }, executor)
                         .whenComplete((isLeftGarbage, throwable) -> {
                             if (throwable != null) {
-                                currentGcFuture.completeExceptionally(throwable);
+                                if (throwable instanceof TrackerClosedException) {
+                                    currentGcFuture.complete(null);
+                                } else {
+                                    currentGcFuture.completeExceptionally(throwable);
+                                }
 
                                 return;
                             }
