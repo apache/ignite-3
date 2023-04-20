@@ -578,7 +578,7 @@ public abstract class QueryChecker {
     }
 
     /**
-     * Converts the given value to a test output friendly that includes type information.
+     * Converts the given value to a test-output friendly representation that includes type information.
      */
     private static String displayValue(Object value, boolean includeType) {
         if (value == null) {
