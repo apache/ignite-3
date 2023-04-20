@@ -583,12 +583,11 @@ public abstract class QueryChecker {
         } else if (value.getClass().isArray()) {
             Class<?> componentType = value.getClass().getComponentType();
             StringBuilder sb = new StringBuilder();
-            // Always include array element type.
-            sb.append("[");
             sb.append(componentType);
+            sb.append("[");
 
             int length = Array.getLength(value);
-            for (int i = 0; i < length; i ++) {
+            for (int i = 0; i < length; i++) {
                 Object item = Array.get(value, i);
                 sb.append(displayValue(item, false));
                 if (sb.length() > 1) {

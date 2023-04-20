@@ -28,7 +28,6 @@ import org.apache.ignite.internal.sql.engine.datatypes.CustomDataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseQueryCustomDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.CustomDataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
-import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
