@@ -1328,6 +1328,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * completed with {@link TableAlreadyExistsException}.
      *
      * @param name Table name.
+     * @param zoneName Distribution zone name.
      * @param tableInitChange Table changer.
      * @return Future representing pending completion of the operation.
      * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
@@ -1365,7 +1366,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             try {
                                                 distributionZoneManager.topologyVersionedDataNodes(zoneId, cmgTopology.version())
                                                         .thenCompose(dataNodes -> {
-
                                                             tablesCfg.change(tablesChange -> tablesChange.changeTables(tablesListChange -> {
                                                                 if (tablesListChange.get(name) != null) {
                                                                     throw new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name);
@@ -2319,7 +2319,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @see #getMetadataLocallyOnly
      */
     private <T extends ConfigurationProperty<?>> T directProxy(T property) {
-        System.out.println("getMetadataLocallyOnly " + getMetadataLocallyOnly);
         return getMetadataLocallyOnly ? property : (T) property.directProxy();
     }
 

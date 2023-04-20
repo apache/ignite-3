@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -269,8 +270,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         distributionZoneManager = mock(DistributionZoneManager.class);
 
-        when(distributionZoneManager.getZoneId(DEFAULT_ZONE_NAME)).thenReturn(0);
-        when(distributionZoneManager.getZoneId(ZONE_NAME)).thenReturn(1);
+        when(distributionZoneManager.getZoneId(DEFAULT_ZONE_NAME)).thenReturn(DEFAULT_ZONE_ID);
+        when(distributionZoneManager.getZoneId(ZONE_NAME)).thenReturn(ZONE_ID);
         when(distributionZoneManager.topologyVersionedDataNodes(anyInt(), anyLong())).thenReturn(completedFuture(emptySet()));
 
         tblManagerFut = new CompletableFuture<>();
@@ -469,7 +470,6 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void tableManagerStopTest1() throws Exception {
-        System.out.println("start test");
         IgniteBiTuple<TableImpl, TableManager> tblAndMnr = startTableManagerStopTest();
 
         endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
