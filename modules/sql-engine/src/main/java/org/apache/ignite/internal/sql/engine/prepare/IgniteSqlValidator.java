@@ -197,7 +197,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
                             Object param = parameters[literal.getIndex()];
 
-                            assert param instanceof String;
+                            if (!(param instanceof String))
+                                continue;
 
                             val0 = (String) param;
                         }
