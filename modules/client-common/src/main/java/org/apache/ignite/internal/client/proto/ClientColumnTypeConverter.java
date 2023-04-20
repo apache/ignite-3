@@ -23,6 +23,9 @@ import org.apache.ignite.sql.ColumnType;
  * SQL column type utils.
  */
 public class ClientColumnTypeConverter {
+    // TODO: Remove ClientDataType and use ColumnType instead.
+    // Add converter methods for NativeType and ColumnType.
+    // Refactor all logic to operate with ColumnType (ClientBinaryTupleUtils and so on).
     /**
      * Converts SQL column type to wire code.
      *
