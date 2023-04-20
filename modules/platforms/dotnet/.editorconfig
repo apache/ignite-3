@@ -41,6 +41,7 @@ dotnet_diagnostic.CA2017.severity = error # Parameter count mismatch in logging 
 dotnet_diagnostic.CA1806.severity = error # Do not ignore method results
 dotnet_diagnostic.CA1813.severity = error # Avoid unsealed attributes
 dotnet_diagnostic.SA1600.severity = error # Elements should be documented
+dotnet_diagnostic.CS8509.severity = error # Switch expression does not handle all possible inputs
 
 dotnet_diagnostic.CA1024.severity = none # Use properties where appropriate
 dotnet_diagnostic.CA1303.severity = none # Use resource tables
