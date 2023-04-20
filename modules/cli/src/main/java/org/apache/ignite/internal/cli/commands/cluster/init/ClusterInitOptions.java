@@ -17,6 +17,12 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.init;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_CONFIG_FILE_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_CONFIG_FILE_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_CONFIG_FILE_OPTION_SHORT;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_CONFIG_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_CONFIG_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_CONFIG_OPTION_SHORT;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_NAME_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_NAME_OPTION_SHORT;
@@ -27,9 +33,16 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.META_STO
 import static org.apache.ignite.internal.cli.commands.Options.Constants.META_STORAGE_NODE_NAME_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.META_STORAGE_NODE_NAME_OPTION_SHORT;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
-import picocli.CommandLine.Mixin;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
+import org.jetbrains.annotations.Nullable;
+import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Option;
 
 /**
@@ -55,22 +68,64 @@ public class ClusterInitOptions {
     @Option(names = {CLUSTER_NAME_OPTION, CLUSTER_NAME_OPTION_SHORT}, required = true, description = CLUSTER_NAME_OPTION_DESC)
     private String clusterName;
 
-    @Mixin
-    private AuthenticationOptions authenticationOptions;
+    @ArgGroup
+    private ClusterConfigOptions clusterConfigOptions;
 
+    private static class ClusterConfigOptions {
+        @Option(names = {CLUSTER_CONFIG_OPTION, CLUSTER_CONFIG_OPTION_SHORT}, description = CLUSTER_CONFIG_OPTION_DESC)
+        private String config;
+
+        @Option(names = {CLUSTER_CONFIG_FILE_OPTION, CLUSTER_CONFIG_FILE_OPTION_SHORT}, description = CLUSTER_CONFIG_FILE_OPTION_DESC)
+        private File file;
+    }
+
+    /**
+     * Consistent IDs of the nodes that will host the Meta Storage.
+     *
+     * @return Meta storage node ids.
+     */
     public List<String> metaStorageNodes() {
         return metaStorageNodes;
     }
 
+    /**
+     * Consistent IDs of the nodes that will host the Cluster Management Group; if empty,
+     * {@code metaStorageNodeIds} will be used to host the CMG as well.
+     *
+     * @return Cluster management node ids.
+     */
     public List<String> cmgNodes() {
         return cmgNodes;
     }
 
+    /**
+     * Human-readable name of the cluster.
+     *
+     * @return Cluster name.
+     */
     public String clusterName() {
         return clusterName;
     }
 
-    public AuthenticationOptions authenticationOptions() {
-        return authenticationOptions;
+    /**
+     * Cluster configuration.
+     *
+     * @return Cluster configuration.
+     */
+    @Nullable
+    public String clusterConfiguration() {
+        if (clusterConfigOptions == null) {
+            return null;
+        } else if (clusterConfigOptions.config != null) {
+            return clusterConfigOptions.config;
+        } else if (clusterConfigOptions.file != null) {
+            try (Stream<String> lines = Files.lines(clusterConfigOptions.file.toPath())) {
+                return lines.collect(Collectors.joining(System.lineSeparator()));
+            } catch (IOException e) {
+                throw new IgniteCliException("Couldn't read cluster configuration file: " + clusterConfigOptions.file, e);
+            }
+        } else {
+            return null;
+        }
     }
 }

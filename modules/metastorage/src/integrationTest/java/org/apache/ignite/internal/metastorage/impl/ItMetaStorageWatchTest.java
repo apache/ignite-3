@@ -125,7 +125,6 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
             distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-            distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
 
             components.add(distributedConfigurationUpdater);
 

@@ -138,7 +138,6 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
             distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-            distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
 
             this.cmgManager = new ClusterManagementGroupManager(
                     vaultManager,

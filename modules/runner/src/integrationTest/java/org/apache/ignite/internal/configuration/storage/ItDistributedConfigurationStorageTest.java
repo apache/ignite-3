@@ -120,7 +120,6 @@ public class ItDistributedConfigurationStorageTest {
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
             distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-            distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,

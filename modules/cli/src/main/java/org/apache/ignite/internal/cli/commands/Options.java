@@ -54,20 +54,12 @@ public enum Options {
     VERBOSE(Constants.VERBOSE_OPTION, Constants.VERBOSE_OPTION_SHORT, Constants.VERBOSE_OPTION_DESC),
     HELP(Constants.HELP_OPTION, Constants.HELP_OPTION_SHORT, Constants.HELP_OPTION_DESC),
     VERSION(Constants.VERSION_OPTION, Constants.VERSION_OPTION, Constants.VERSION_OPTION_DESC),
-    AUTHENTICATION_ENABLED(
-            Constants.AUTHENTICATION_ENABLED_OPTION,
-            Constants.AUTHENTICATION_ENABLED_OPTION_SHORT,
-            Constants.AUTHENTICATION_ENABLED_OPTION_DESC
-    ),
-    BASIC_AUTHENTICATION_USERNAME(
-            Constants.BASIC_AUTHENTICATION_USERNAME_OPTION,
-            Constants.BASIC_AUTHENTICATION_USERNAME_OPTION_SHORT,
-            Constants.BASIC_AUTHENTICATION_USERNAME_OPTION_DESC
-    ),
-    BASIC_AUTHENTICATION_PASSWORD(
-            Constants.BASIC_AUTHENTICATION_PASSWORD_OPTION,
-            Constants.BASIC_AUTHENTICATION_PASSWORD_OPTION_SHORT,
-            Constants.BASIC_AUTHENTICATION_PASSWORD_OPTION_DESC
+
+    CLUSTER_CONFIG(Constants.CLUSTER_CONFIG_OPTION, Constants.CLUSTER_CONFIG_OPTION_SHORT, Constants.CLUSTER_CONFIG_OPTION_DESC),
+    CLUSTER_CONFIG_FILE(
+            Constants.CLUSTER_CONFIG_FILE_OPTION,
+            Constants.CLUSTER_CONFIG_FILE_OPTION_SHORT,
+            Constants.CLUSTER_CONFIG_FILE_OPTION_DESC
     );
 
     private final String fullName;
@@ -248,22 +240,16 @@ public enum Options {
         /** Unit path option description. */
         public static final String UNIT_PATH_OPTION_DESC = "Path to deployment unit file or directory";
 
-        public static final String AUTHENTICATION_ENABLED_OPTION = "--auth-enabled";
+        public static final String CLUSTER_CONFIG_OPTION = "--cluster-config";
 
-        public static final String AUTHENTICATION_ENABLED_OPTION_SHORT = "-ae";
+        public static final String CLUSTER_CONFIG_OPTION_SHORT = "-cfg";
 
-        public static final String AUTHENTICATION_ENABLED_OPTION_DESC = "Authentication enabled flag";
+        public static final String CLUSTER_CONFIG_OPTION_DESC = "Cluster configuration";
 
-        public static final String BASIC_AUTHENTICATION_USERNAME_OPTION = "--basic-auth-username";
+        public static final String CLUSTER_CONFIG_FILE_OPTION = "--cluster-config-file";
 
-        public static final String BASIC_AUTHENTICATION_USERNAME_OPTION_SHORT = "-bu";
+        public static final String CLUSTER_CONFIG_FILE_OPTION_SHORT = "-cfg-f";
 
-        public static final String BASIC_AUTHENTICATION_USERNAME_OPTION_DESC = "Username which will be used for basic authentication";
-
-        public static final String BASIC_AUTHENTICATION_PASSWORD_OPTION = "--basic-auth-password";
-
-        public static final String BASIC_AUTHENTICATION_PASSWORD_OPTION_SHORT = "-bp";
-
-        public static final String BASIC_AUTHENTICATION_PASSWORD_OPTION_DESC = "Password which will be used for basic authentication";
+        public static final String CLUSTER_CONFIG_FILE_OPTION_DESC = "Path to cluster configuration file";
     }
 }

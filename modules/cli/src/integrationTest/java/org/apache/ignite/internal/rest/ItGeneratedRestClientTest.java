@@ -66,7 +66,6 @@ import org.apache.ignite.rest.client.api.NodeMetricApi;
 import org.apache.ignite.rest.client.api.TopologyApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.model.AuthenticationConfig;
 import org.apache.ignite.rest.client.model.ClusterState;
 import org.apache.ignite.rest.client.model.InitCommand;
 import org.apache.ignite.rest.client.model.MetricSource;
@@ -298,7 +297,7 @@ public class ItGeneratedRestClientTest {
                             .clusterName("cluster")
                             .metaStorageNodes(List.of(firstNodeName))
                             .cmgNodes(List.of())
-                            .authenticationConfig(new AuthenticationConfig().enabled(false))
+                            .clusterConfiguration(null)
             );
         });
     }
@@ -323,7 +322,7 @@ public class ItGeneratedRestClientTest {
                                 .clusterName("cluster")
                                 .metaStorageNodes(List.of("no-such-node"))
                                 .cmgNodes(List.of())
-                                .authenticationConfig(new AuthenticationConfig().enabled(false)))
+                                .clusterConfiguration(null))
         );
 
         assertThat(thrown.getCode(), equalTo(400));

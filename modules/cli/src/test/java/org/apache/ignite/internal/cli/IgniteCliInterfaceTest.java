@@ -30,6 +30,11 @@ import static org.mockserver.model.HttpStatusCode.INTERNAL_SERVER_ERROR_500;
 import static org.mockserver.model.HttpStatusCode.OK_200;
 import static org.mockserver.model.JsonBody.json;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -272,10 +277,18 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         }
 
         @Test
-        @DisplayName("init --cluster-endpoint-url http://localhost:10300 --meta-storage-node node1ConsistentId --meta-storage-node node2ConsistentId "
-                + "--cmg-node node2ConsistentId --cmg-node node3ConsistentId --cluster-name cluster "
-                + "--auth-enabled --basic-auth-username admin --basic-auth-password password")
-        void initWithAuthenticationSuccess() {
+        @DisplayName(
+                "init --cluster-endpoint-url http://localhost:10300 --meta-storage-node node1ConsistentId --meta-storage-node node2ConsistentId "
+                        + "--cmg-node node2ConsistentId --cmg-node node3ConsistentId --cluster-name cluster "
+                        + "--auth-enabled --basic-auth-username admin --basic-auth-password password")
+        void initWithAuthenticationSuccess() throws IOException {
+
+            String clusterConfigurationFile = IgniteCliInterfaceTest.class.getClassLoader()
+                    .getResource("cluster-configuration-with-enabled-auth.json")
+                    .getPath();
+
+            String clusterConfiguration = readFile(new File(clusterConfigurationFile)).replaceAll("\"", "\\\\\"");
+
             var expectedSentContent = "{\n"
                     + "  \"metaStorageNodes\": [\n"
                     + "    \"node1ConsistentId\",\n"
@@ -286,17 +299,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     + "    \"node3ConsistentId\"\n"
                     + "  ],\n"
                     + "  \"clusterName\": \"cluster\",\n"
-                    + "  \"authenticationConfig\": {\n"
-                    + "    \"enabled\": true,\n"
-                    + "    \"providers\": [\n"
-                    + "      {\n"
-                    + "        \"username\": \"admin\",\n"
-                    + "        \"password\": \"password\",\n"
-                    + "        \"name\": \"basic\",\n"
-                    + "        \"type\": \"BASIC\"\n"
-                    + "      }\n"
-                    + "    ]\n"
-                    + "  }\n"
+                    + "  \"clusterConfiguration\": \"" + clusterConfiguration + "\"\n"
                     + "}";
 
             clientAndServer
@@ -308,7 +311,6 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     )
                     .respond(response(null));
 
-
             int exitCode = execute(
                     "cluster", "init",
                     "--cluster-endpoint-url", mockUrl,
@@ -317,9 +319,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     "--cmg-node", "node2ConsistentId",
                     "--cmg-node", "node3ConsistentId",
                     "--cluster-name", "cluster",
-                    "--auth-enabled",
-                    "--basic-auth-username", "admin",
-                    "--basic-auth-password", "password"
+                    "--cluster-config-file", clusterConfigurationFile
             );
 
             assertThatExitCodeMeansSuccess(exitCode);
@@ -524,5 +524,11 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
     private void assertErrOutputEqual(String exp) {
         assertEqualsIgnoreLineSeparators(exp, err.toString(UTF_8));
+    }
+
+    private String readFile(File file) throws IOException {
+        try (Stream<String> lines = Files.lines(file.toPath())) {
+            return lines.collect(Collectors.joining(System.lineSeparator()));
+        }
     }
 }

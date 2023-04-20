@@ -94,10 +94,7 @@ public class ItAuthenticationTest {
                 + "        \"" + metaStorageNode.name() + "\"\n"
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
-                + "    \"clusterName\": \"cluster\",\n"
-                + "    \"authenticationConfig\": {\n"
-                + "        \"enabled\": false\n"
-                + "    }\n"
+                + "    \"clusterName\": \"cluster\"\n"
                 + "}";
 
         initCluster(metaStorageNode.httpAddress(), initClusterBody);
@@ -119,17 +116,9 @@ public class ItAuthenticationTest {
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
-                + "    \"authenticationConfig\": {\n"
-                + "      \"enabled\": true,\n"
-                + "      \"providers\": [\n"
-                + "        {\n"
-                + "          \"name\": \"basic\",\n"
-                + "          \"type\": \"basic\",\n"
-                + "          \"username\": \"admin\",\n"
-                + "          \"password\": \"password\"\n"
-                + "        }\n"
-                + "      ]\n"
-                + "    }\n"
+                + "    \"clusterConfiguration\": \"{"
+                + "         security.authentication.enabled:true, "
+                + "         security.authentication.providers:[{name:basic,password:password,type:basic,username:admin}]}\"\n"
                 + "  }";
 
         initCluster(metaStorageNode.httpAddress(), initClusterBody);
@@ -193,17 +182,9 @@ public class ItAuthenticationTest {
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
-                + "    \"authenticationConfig\": {\n"
-                + "      \"enabled\": true,\n"
-                + "      \"providers\": [\n"
-                + "        {\n"
-                + "          \"name\": \"basic\",\n"
-                + "          \"type\": \"basic\",\n"
-                + "          \"username\": \"admin\",\n"
-                + "          \"password\": \"password\"\n"
-                + "        }\n"
-                + "      ]\n"
-                + "    }\n"
+                + "    \"clusterConfiguration\": \"{"
+                + "         security.authentication.enabled:true, "
+                + "         security.authentication.providers:[{name:basic,password:password,type:basic,username:admin}]}\"\n"
                 + "  }";
 
         initCluster(metaStorageNode.httpAddress(), initClusterBody);

@@ -15,14 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.configuration.hocon;
-
-import static com.typesafe.config.ConfigFactory.parseString;
-import static com.typesafe.config.ConfigRenderOptions.concise;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.split;
+package org.apache.ignite.internal.configuration.presentation;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigRenderOptions;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -30,7 +28,7 @@ import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
-import org.apache.ignite.internal.rest.configuration.ConfigurationPresentation;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -59,7 +57,8 @@ public class HoconPresentation implements ConfigurationPresentation<String> {
     /** {@inheritDoc} */
     @Override
     public String representByPath(@Nullable String path) {
-        return HoconConverter.represent(registry, path == null ? List.of() : split(path)).render(concise());
+        return HoconConverter.represent(registry, path == null ? List.of() : ConfigurationUtil.split(path)).render(
+                ConfigRenderOptions.concise());
     }
 
     /** {@inheritDoc} */
@@ -72,7 +71,7 @@ public class HoconPresentation implements ConfigurationPresentation<String> {
         Config config;
 
         try {
-            config = parseString(cfgUpdate);
+            config = ConfigFactory.parseString(cfgUpdate);
         } catch (ConfigException.Parse e) {
             return CompletableFuture.failedFuture(new IllegalArgumentException(e));
         }

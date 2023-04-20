@@ -116,7 +116,6 @@ public class MockNode {
         var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
 
         var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-        distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,

@@ -38,9 +38,22 @@ class ItSqlConnectSslBasicTest extends CliSqlConnectCommandTestBase {
 
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
-        builder.authenticationConfig(new AuthenticationConfig(
-                true,
-                List.of(new BasicAuthenticationProviderConfig("basic", "usr", "pwd")))
+        builder.clusterConfiguration(
+                "{\n"
+                + "  \"security\": {\n"
+                + "    \"authentication\": {\n"
+                + "      \"enabled\": true,\n"
+                + "      \"providers\": [\n"
+                + "        {\n"
+                + "          \"name\": \"basic\",\n"
+                + "          \"type\": \"basic\",\n"
+                + "          \"username\": \"usr\",\n"
+                + "          \"password\": \"pwd\"\n"
+                + "        }\n"
+                + "      ]\n"
+                + "    }\n"
+                + "  }\n"
+                + "}\n"
         );
     }
 

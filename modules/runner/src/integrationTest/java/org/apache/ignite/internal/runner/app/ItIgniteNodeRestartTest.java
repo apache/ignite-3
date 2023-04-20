@@ -309,7 +309,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
         var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-        distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
 
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
