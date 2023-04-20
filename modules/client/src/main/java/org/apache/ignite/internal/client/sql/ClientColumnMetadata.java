@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.client.sql;
 
 import java.util.List;
-import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 
