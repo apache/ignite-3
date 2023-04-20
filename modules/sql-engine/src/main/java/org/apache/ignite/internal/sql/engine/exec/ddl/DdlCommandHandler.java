@@ -246,8 +246,6 @@ public class DdlCommandHandler {
 
             tableChange.changePrimaryKey(pkChange -> pkChange.changeColumns(cmd.primaryKeyColumns().toArray(String[]::new))
                     .changeColocationColumns(colocationKeys0.toArray(String[]::new)));
-
-            tableChange.changeDataStorage(dataStorageManager.tableDataStorageConsumer(cmd.dataStorage(), cmd.dataStorageOptions()));
         };
 
         String zoneName;
