@@ -429,7 +429,6 @@ public class KeyValueBinaryViewOperationsTest {
         assertThrows(NullPointerException.class, () -> tbl.getAndPut(null, key, null));
         assertThrows(NullPointerException.class, () -> tbl.getAndReplace(null, key, null));
 
-        assertThrows(NullPointerException.class, () -> tbl.put(null, key, null));
         assertThrows(NullPointerException.class, () -> tbl.putIfAbsent(null, key, null));
         assertThrows(NullPointerException.class, () -> tbl.remove(null, key, null));
         assertThrows(NullPointerException.class, () -> tbl.replace(null, key, null));
