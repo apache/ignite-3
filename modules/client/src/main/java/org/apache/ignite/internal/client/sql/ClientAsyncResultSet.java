@@ -316,7 +316,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
             var schemaColumn = new ClientColumn(
                     metaColumn.name(),
-                    ClientColumnTypeConverter.sqlColumnTypeToOrdinal(metaColumn.type()),
+                    metaColumn.type(),
                     metaColumn.nullable(),
                     true,
                     false,
