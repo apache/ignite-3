@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.cli.core;
 
-import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createIntegrationTests;
-import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createJdbcTestsBasicSecret;
-import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createJdbcTestsSslBasicSecret;
-import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createJdbcTestsSslSecret;
+import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createIntegrationTestsConfig;
+import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createJdbcTestsBasicSecretConfig;
+import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createJdbcTestsSslBasicSecretConfig;
+import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createJdbcTestsSslSecretConfig;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
@@ -43,7 +43,7 @@ class JdbcUrlFactoryTest {
     @Test
     void withSsl() {
         // Given config with JDBC SSL enabled
-        configManagerProvider.setConfigFile(createIntegrationTests(), createJdbcTestsSslSecret());
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsSslSecretConfig());
 
         // Then JDBC URL is constructed with SSL settings
         String jdbcUrl = factory.constructJdbcUrl("{clientConnector:{port:10800}}", "http://localhost:10300");
@@ -59,7 +59,7 @@ class JdbcUrlFactoryTest {
     @Test
     void withBasic() {
         // Given config with basic auth enabled
-        configManagerProvider.setConfigFile(createIntegrationTests(), createJdbcTestsBasicSecret());
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
 
         // Then JDBC URL is constructed with basic auth settings
         String jdbcUrl = factory.constructJdbcUrl("{clientConnector:{port:10800}}", "http://localhost:10300");
@@ -72,7 +72,7 @@ class JdbcUrlFactoryTest {
     @Test
     void withSslAndBasic() {
         // Given config with JDBC SSL and basic auth enabled
-        configManagerProvider.setConfigFile(createIntegrationTests(), createJdbcTestsSslBasicSecret());
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsSslBasicSecretConfig());
 
         // Then JDBC URL is constructed with SSL and basic auth settings
         String jdbcUrl = factory.constructJdbcUrl("{clientConnector:{port:10800}}", "http://localhost:10300");

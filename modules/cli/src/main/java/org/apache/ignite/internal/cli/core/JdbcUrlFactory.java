@@ -69,16 +69,16 @@ public class JdbcUrlFactory {
 
     private String applyConfig(String jdbcUrl) {
         List<String> queryParams = new ArrayList<>();
-        append(queryParams, JDBC_TRUST_STORE_PATH, "trustStorePath");
-        append(queryParams, JDBC_TRUST_STORE_PASSWORD, "trustStorePassword");
-        append(queryParams, JDBC_KEY_STORE_PATH, "keyStorePath");
-        append(queryParams, JDBC_KEY_STORE_PASSWORD, "keyStorePassword");
-        append(queryParams, JDBC_CLIENT_AUTH, "clientAuth");
+        addIfSet(queryParams, JDBC_TRUST_STORE_PATH, "trustStorePath");
+        addIfSet(queryParams, JDBC_TRUST_STORE_PASSWORD, "trustStorePassword");
+        addIfSet(queryParams, JDBC_KEY_STORE_PATH, "keyStorePath");
+        addIfSet(queryParams, JDBC_KEY_STORE_PASSWORD, "keyStorePassword");
+        addIfSet(queryParams, JDBC_CLIENT_AUTH, "clientAuth");
         if (!queryParams.isEmpty()) {
             queryParams.add(0, "sslEnabled=true");
         }
-        append(queryParams, BASIC_AUTHENTICATION_USERNAME, "basicAuthUsername");
-        append(queryParams, BASIC_AUTHENTICATION_PASSWORD, "basicAuthPassword");
+        addIfSet(queryParams, BASIC_AUTHENTICATION_USERNAME, "basicAuthUsername");
+        addIfSet(queryParams, BASIC_AUTHENTICATION_PASSWORD, "basicAuthPassword");
         if (!queryParams.isEmpty()) {
             String query = queryParams.stream()
                     .collect(Collectors.joining("&", "?", ""));
@@ -88,7 +88,7 @@ public class JdbcUrlFactory {
         }
     }
 
-    private void append(List<String> queryParams, CliConfigKeys key, String property) {
+    private void addIfSet(List<String> queryParams, CliConfigKeys key, String property) {
         ConfigManager configManager = configManagerProvider.get();
         String value = configManager.getCurrentProperty(key.value());
         if (!StringUtils.nullOrBlank(value)) {

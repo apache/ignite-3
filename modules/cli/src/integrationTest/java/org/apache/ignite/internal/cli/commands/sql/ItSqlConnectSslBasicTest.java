@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.cli.commands.sql;
 
-import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createIntegrationTests;
-import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createJdbcTestsBasicSecret;
+import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createIntegrationTestsConfig;
+import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createJdbcTestsBasicSecretConfig;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.util.List;
@@ -48,7 +48,7 @@ class ItSqlConnectSslBasicTest extends CliSqlConnectCommandTestBase {
     @DisplayName("Should succeed after connect with SSL and basic auth configured")
     void jdbcOkWithSslAndBasicConfiguredAfterConnect() {
         // Given SSL and basic auth is configured in config file
-        configManagerProvider.setConfigFile(createIntegrationTests(), createJdbcTestsBasicSecret());
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
         configManagerProvider.configManager.setProperty(CliConfigKeys.JDBC_TRUST_STORE_PATH.value(), NodeConfig.resolvedTruststorePath);
         configManagerProvider.configManager.setProperty(CliConfigKeys.JDBC_TRUST_STORE_PASSWORD.value(), NodeConfig.trustStorePassword);
         configManagerProvider.configManager.setProperty(CliConfigKeys.JDBC_KEY_STORE_PATH.value(), NodeConfig.resolvedKeystorePath);

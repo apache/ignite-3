@@ -61,39 +61,39 @@ public class TestConfigManagerHelper {
         return copyResourceToTempSecretFile(EMPTY_SECRET);
     }
 
-    public static File createOneSectionWithDefaultProfile() {
+    public static File createOneSectionWithDefaultProfileConfig() {
         return copyResourceToTempFile(ONE_SECTION_WITH_DEFAULT_PROFILE);
     }
 
-    public static File createSectionWithDefaultProfile() {
+    public static File createSectionWithDefaultProfileConfig() {
         return copyResourceToTempFile(TWO_SECTION_WITH_DEFAULT_PROFILE);
     }
 
-    public static File createSectionWithoutDefaultProfile() {
+    public static File createSectionWithoutDefaultProfileConfig() {
         return copyResourceToTempFile(TWO_SECTION_WITHOUT_DEFAULT_PROFILE);
     }
 
-    public static File createIntegrationTests() {
+    public static File createIntegrationTestsConfig() {
         return copyResourceToTempFile(INTEGRATION_TESTS);
     }
 
-    public static File createJdbcTestsSslSecret() {
+    public static File createJdbcTestsSslSecretConfig() {
         return copyResourceToTempSecretFile(JDBC_TESTS_SSL);
     }
 
-    public static File createJdbcTestsBasicSecret() {
+    public static File createJdbcTestsBasicSecretConfig() {
         return copyResourceToTempSecretFile(JDBC_TESTS_BASIC);
     }
 
-    public static File createJdbcTestsSslBasicSecret() {
+    public static File createJdbcTestsSslBasicSecretConfig() {
         return copyResourceToTempSecretFile(JDBC_TESTS_SSL_BASIC);
     }
 
-    public static File createClusterUrlNonDefault() {
+    public static File createClusterUrlNonDefaultConfig() {
         return copyResourceToTempFile(CLUSTER_URL_NON_DEFAULT);
     }
 
-    public static File createClusterUrlSsl() {
+    public static File createClusterUrlSslConfig() {
         return copyResourceToTempFile(CLUSTER_URL_SSL);
     }
 
