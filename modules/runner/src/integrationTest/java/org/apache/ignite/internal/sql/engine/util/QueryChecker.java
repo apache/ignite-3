@@ -43,12 +43,9 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.datatypes.Blob;
-import org.apache.ignite.internal.sql.engine.datatypes.DynamicParameter;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.tx.Transaction;
@@ -339,13 +336,7 @@ public abstract class QueryChecker {
             params = NULL_AS_VARARG;
         }
 
-        this.params = Arrays.stream(params).map(p -> {
-            if (p instanceof DynamicParameter) {
-                return ((DynamicParameter) p).get();
-            } else {
-                return p;
-            }
-        }).toArray();
+        this.params = params;
 
         return this;
     }
