@@ -292,7 +292,6 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
                         .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE).dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE).build())
                 .get(3, SECONDS);
 
-        System.out.println("setLogicalTopologyInMetaStorage_2");
         setLogicalTopologyInMetaStorage(nodes1, 2);
 
         assertEquals(nodes1, dataNodesFut1.get(3, SECONDS));
