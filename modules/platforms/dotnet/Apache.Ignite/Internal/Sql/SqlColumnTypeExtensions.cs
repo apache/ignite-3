@@ -104,6 +104,8 @@ internal static class SqlColumnTypeExtensions
         ColumnType.String => "varchar",
         ColumnType.ByteArray => "varbinary",
         ColumnType.Number => "numeric",
+        ColumnType.Period => "interval",
+        ColumnType.Duration => "duration",
         _ => throw new InvalidOperationException($"Unsupported {nameof(ColumnType)}: {columnType}")
     };
 

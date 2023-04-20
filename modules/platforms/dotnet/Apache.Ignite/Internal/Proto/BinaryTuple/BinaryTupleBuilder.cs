@@ -24,6 +24,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System.Numerics;
     using System.Runtime.InteropServices;
     using Buffers;
+    using Ignite.Sql;
     using NodaTime;
     using Table;
 
@@ -877,7 +878,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="colType">Column type.</param>
         /// <param name="scale">Decimal scale.</param>
         /// <param name="precision">Precision.</param>
-        public void AppendObject(object? value, ClientDataType colType, int scale = 0, int precision = TemporalTypes.MaxTimePrecision)
+        public void AppendObject(object? value, ColumnType colType, int scale = 0, int precision = TemporalTypes.MaxTimePrecision)
         {
             if (value == null)
             {
@@ -887,67 +888,67 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             switch (colType)
             {
-                case ClientDataType.Int8:
+                case ColumnType.Int8:
                     AppendByte((sbyte)value);
                     break;
 
-                case ClientDataType.Int16:
+                case ColumnType.Int16:
                     AppendShort((short)value);
                     break;
 
-                case ClientDataType.Int32:
+                case ColumnType.Int32:
                     AppendInt((int)value);
                     break;
 
-                case ClientDataType.Int64:
+                case ColumnType.Int64:
                     AppendLong((long)value);
                     break;
 
-                case ClientDataType.Float:
+                case ColumnType.Float:
                     AppendFloat((float)value);
                     break;
 
-                case ClientDataType.Double:
+                case ColumnType.Double:
                     AppendDouble((double)value);
                     break;
 
-                case ClientDataType.Uuid:
+                case ColumnType.Uuid:
                     AppendGuid((Guid)value);
                     break;
 
-                case ClientDataType.String:
+                case ColumnType.String:
                     AppendString((string)value);
                     break;
 
-                case ClientDataType.Bytes:
+                case ColumnType.ByteArray:
                     AppendBytes((byte[])value);
                     break;
 
-                case ClientDataType.BitMask:
+                case ColumnType.Bitmask:
                     AppendBitmask((BitArray)value);
                     break;
 
-                case ClientDataType.Decimal:
+                case ColumnType.Decimal:
                     AppendDecimal((decimal)value, scale);
                     break;
 
-                case ClientDataType.Number:
+                case ColumnType.Number:
                     AppendNumber((BigInteger)value);
                     break;
 
-                case ClientDataType.Date:
+                case ColumnType.Date:
                     AppendDate((LocalDate)value);
                     break;
 
-                case ClientDataType.Time:
+                case ColumnType.Time:
                     AppendTime((LocalTime)value, precision);
                     break;
 
-                case ClientDataType.DateTime:
+                case ColumnType.Datetime:
                     AppendDateTime((LocalDateTime)value, precision);
                     break;
 
-                case ClientDataType.Timestamp:
+                case ColumnType.Timestamp:
                     AppendTimestamp((Instant)value, precision);
                     break;
 
@@ -976,83 +977,83 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case int i32:
-                    AppendTypeAndScale(ClientDataType.Int32);
+                    AppendTypeAndScale(ColumnType.Int32);
                     AppendInt(i32);
                     break;
 
                 case long i64:
-                    AppendTypeAndScale(ClientDataType.Int64);
+                    AppendTypeAndScale(ColumnType.Int64);
                     AppendLong(i64);
                     break;
 
                 case string str:
-                    AppendTypeAndScale(ClientDataType.String);
+                    AppendTypeAndScale(ColumnType.String);
                     AppendString(str);
                     break;
 
                 case Guid uuid:
-                    AppendTypeAndScale(ClientDataType.Uuid);
+                    AppendTypeAndScale(ColumnType.Uuid);
                     AppendGuid(uuid);
                     break;
 
                 case sbyte i8:
-                    AppendTypeAndScale(ClientDataType.Int8);
+                    AppendTypeAndScale(ColumnType.Int8);
                     AppendByte(i8);
                     break;
 
                 case short i16:
-                    AppendTypeAndScale(ClientDataType.Int16);
+                    AppendTypeAndScale(ColumnType.Int16);
                     AppendShort(i16);
                     break;
 
                 case float f32:
-                    AppendTypeAndScale(ClientDataType.Float);
+                    AppendTypeAndScale(ColumnType.Float);
                     AppendFloat(f32);
                     break;
 
                 case double f64:
-                    AppendTypeAndScale(ClientDataType.Double);
+                    AppendTypeAndScale(ColumnType.Double);
                     AppendDouble(f64);
                     break;
 
                 case byte[] bytes:
-                    AppendTypeAndScale(ClientDataType.Bytes);
+                    AppendTypeAndScale(ColumnType.ByteArray);
                     AppendBytes(bytes);
                     break;
 
                 case decimal dec:
                     var scale = GetDecimalScale(dec);
-                    AppendTypeAndScale(ClientDataType.Decimal, scale);
+                    AppendTypeAndScale(ColumnType.Decimal, scale);
                     AppendDecimal(dec, scale);
                     break;
 
                 case BigInteger bigInt:
-                    AppendTypeAndScale(ClientDataType.Number);
+                    AppendTypeAndScale(ColumnType.Number);
                     AppendNumber(bigInt);
                     break;
 
                 case LocalDate localDate:
-                    AppendTypeAndScale(ClientDataType.Date);
+                    AppendTypeAndScale(ColumnType.Date);
                     AppendDate(localDate);
                     break;
 
                 case LocalTime localTime:
-                    AppendTypeAndScale(ClientDataType.Time);
+                    AppendTypeAndScale(ColumnType.Time);
                     AppendTime(localTime, timePrecision);
                     break;
 
                 case LocalDateTime localDateTime:
-                    AppendTypeAndScale(ClientDataType.DateTime);
+                    AppendTypeAndScale(ColumnType.Datetime);
                     AppendDateTime(localDateTime, timePrecision);
                     break;
 
                 case Instant instant:
-                    AppendTypeAndScale(ClientDataType.Timestamp);
+                    AppendTypeAndScale(ColumnType.Timestamp);
                     AppendTimestamp(instant, timestampPrecision);
                     break;
 
                 case BitArray bitArray:
-                    AppendTypeAndScale(ClientDataType.BitMask);
+                    AppendTypeAndScale(ColumnType.Bitmask);
                     AppendBitmask(bitArray);
                     break;
 
@@ -1349,7 +1350,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             buf[1..].CopyTo(GetSpan(3));
         }
 
-        private void AppendTypeAndScale(ClientDataType type, int scale = 0)
+        private void AppendTypeAndScale(ColumnType type, int scale = 0)
         {
             AppendInt((int)type);
             AppendInt(scale);
