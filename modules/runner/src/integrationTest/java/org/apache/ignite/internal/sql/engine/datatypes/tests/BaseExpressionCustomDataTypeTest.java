@@ -53,8 +53,8 @@ public abstract class BaseExpressionCustomDataTypeTest<T extends Comparable<T>> 
     @ParameterizedTest
     @MethodSource("cmp")
     public void testComparisonDynamicParameters(TestTypeArguments<T> arguments) {
-        Comparable<?> lower = arguments.value(0);
-        Comparable<?> higher = arguments.value(1);
+        Comparable<?> lower = (Comparable<?>) arguments.argValue(0);
+        Comparable<?> higher = (Comparable<?>) arguments.argValue(1);
 
         checkComparisonWithDynamicParameters(higher, lower);
     }
@@ -183,7 +183,7 @@ public abstract class BaseExpressionCustomDataTypeTest<T extends Comparable<T>> 
         runSql("INSERT INTO t VALUES(3, $2)");
 
         String query = format(
-                "SELECT CASE WHEN id = 1 THEN test_key WHEN id = 2 THEN test_key ELSE '{}'::<type> END FROM t ORDER BY id ASC",
+                "SELECT CASE WHEN id = 1 THEN test_key WHEN id = 2 THEN test_key ELSE $2 END FROM t ORDER BY id ASC",
                 value3
         );
         checkQuery(query)
@@ -207,8 +207,7 @@ public abstract class BaseExpressionCustomDataTypeTest<T extends Comparable<T>> 
         runSql("INSERT INTO t VALUES(3, $2)");
 
         String query = format(
-                "SELECT CASE id > 0 WHEN id = 1 THEN test_key WHEN id = 2 THEN test_key ELSE '{}'::<type> END FROM t ORDER BY id ASC",
-                value3
+                "SELECT CASE id > 0 WHEN id = 1 THEN test_key WHEN id = 2 THEN test_key ELSE $2 END FROM t ORDER BY id ASC"
         );
         checkQuery(query)
                 .returns(value1)
@@ -221,12 +220,13 @@ public abstract class BaseExpressionCustomDataTypeTest<T extends Comparable<T>> 
     @ParameterizedTest
     @MethodSource("convertedFrom")
     public void testCastFrom(TestTypeArguments<T> arguments) {
-        Object value = arguments.value(0);
+        String stringValue = arguments.stringValue(0);
+        T value = arguments.value(0);
 
-        checkQuery(format("SELECT CAST('{}' AS <type>)", value)).returns(value).check();
+        checkQuery(format("SELECT CAST('{}' AS <type>)", stringValue)).returns(value).check();
 
         // PG style cast
-        checkQuery(format("SELECT '{}'::<type>", value)).returns(value).check();
+        checkQuery(format("SELECT '{}'::<type>", stringValue)).returns(value).check();
     }
 
     /**

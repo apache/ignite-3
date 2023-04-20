@@ -70,7 +70,7 @@ public abstract class BaseCustomDataTypeTest<T extends Comparable<T>> extends Cl
 
     protected NavigableSet<T> orderedValues;
 
-    protected Class<T> storageType;
+    protected Class<?> storageType;
 
     protected TestDataSamples<T> dataSamples;
 

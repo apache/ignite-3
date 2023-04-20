@@ -51,7 +51,7 @@ public abstract class BaseDmlCustomDataTypeTest<T extends Comparable<T>> extends
     public void testInsertDynamicParameter(TestTypeArguments<T> arguments) {
         T value1 = arguments.value(0);
 
-        runSql("INSERT INTO t VALUES (1, ?)", arguments.value(0));
+        runSql("INSERT INTO t VALUES (1, ?)", arguments.argValue(0));
 
         checkQuery("SELECT test_key FROM t WHERE id=1").returns(value1).check();
     }
