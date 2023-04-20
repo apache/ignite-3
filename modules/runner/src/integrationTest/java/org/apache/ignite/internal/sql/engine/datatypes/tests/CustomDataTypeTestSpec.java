@@ -33,14 +33,14 @@ public abstract class CustomDataTypeTestSpec<T extends Comparable<T>> {
 
     protected final List<T> values;
 
-    private final Class<T> storageType;
+    private final Class<?> storageType;
 
     /** Constructor. */
-    public CustomDataTypeTestSpec(ColumnType columnType, String typeName, Class<T> storageType, T[] values) {
+    public CustomDataTypeTestSpec(ColumnType columnType, String typeName, Class<T> javaType, T[] values) {
         this.columnType = columnType;
         this.typeName = typeName;
         this.values = List.of(values);
-        this.storageType = storageType;
+        this.storageType = ColumnType.columnTypeToClass(columnType);
     }
 
     /** {@link ColumnType}. */
@@ -54,7 +54,7 @@ public abstract class CustomDataTypeTestSpec<T extends Comparable<T>> {
     }
 
     /** Storage type. */
-    public final Class<T> storageType() {
+    public final Class<?> storageType() {
         return storageType;
     }
 
@@ -80,6 +80,8 @@ public abstract class CustomDataTypeTestSpec<T extends Comparable<T>> {
      * @return an SQL expression.
      */
     public abstract String toValueExpr(T value);
+
+    public abstract String toStringValue(T value);
 
     /** Creates {@link TestDataSamples test samples} for the given type. */
     public abstract TestDataSamples<T> createSamples(IgniteTypeFactory typeFactory);

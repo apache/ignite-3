@@ -27,6 +27,7 @@ import java.util.stream.Stream;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.engine.datatypes.DynamicParameter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -112,6 +113,12 @@ public final class TestTypeArguments<T extends Comparable<T>> {
     public String valueExpr(int i) {
         Argument<T> arg = getArg(i);
         return arg.valueExpr();
+    }
+
+    /** Returns string representation of the i-th argument. **/
+    public String stringValue(int i) {
+        Argument<T> arg = getArg(i);
+        return arg.stringValue();
     }
 
     /**
@@ -294,13 +301,16 @@ public final class TestTypeArguments<T extends Comparable<T>> {
 
         private final String valueExpr;
 
+        private final String stringValue;
+
         private final String literal;
 
-        Argument(String typeName, T value, Object argument, String valueExpr, @Nullable String literal) {
+        Argument(String typeName, T value, Object argument, String valueExpr, String stringValue, @Nullable String literal) {
             this.typeName = typeName;
             this.value = value;
             this.argument = argument;
             this.valueExpr = valueExpr;
+            this.stringValue = stringValue;
             this.literal = literal;
         }
 
@@ -322,6 +332,11 @@ public final class TestTypeArguments<T extends Comparable<T>> {
         /** Returns an SQL expression that produces a value of this argument. **/
         String valueExpr() {
             return valueExpr;
+        }
+
+        /** Returns a string representation of this argument. **/
+        String stringValue() {
+            return stringValue;
         }
 
         /**
@@ -373,6 +388,7 @@ public final class TestTypeArguments<T extends Comparable<T>> {
             String typeName, T value, Object argument) {
 
         String valueExpr;
+        String stringValue;
 
         if (!typeName.equals(testTypeSpec.typeName())) {
             SqlLiteral sqlLiteral;
@@ -397,12 +413,14 @@ public final class TestTypeArguments<T extends Comparable<T>> {
             }
 
             valueExpr = sqlLiteral.toString();
+            stringValue = argument.toString();
         } else {
             valueExpr = testTypeSpec.toValueExpr(value);
+            stringValue = testTypeSpec.toStringValue(value);
         }
 
         String literal = testTypeSpec.hasLiterals() ? testTypeSpec.toLiteral(value) : null;
 
-        return new Argument<>(typeName, value, argument, valueExpr, literal);
+        return new Argument<>(typeName, value, argument, valueExpr, stringValue, literal);
     }
 }

@@ -37,6 +37,7 @@ public final class CustomDataTypeTestSpecs {
      */
     public static final CustomDataTypeTestSpec<UUID> UUID_TYPE = new CustomDataTypeTestSpec<>(
             ColumnType.UUID, UuidType.NAME, UUID.class, new UUID[]{new UUID(1, 1), new UUID(2, 1), new UUID(3, 1)}) {
+
         @Override
         public boolean hasLiterals() {
             return false;
@@ -50,6 +51,11 @@ public final class CustomDataTypeTestSpecs {
         @Override
         public String toValueExpr(UUID value) {
             return format("'{}'::UUID", value);
+        }
+
+        @Override
+        public String toStringValue(UUID value) {
+            return value.toString();
         }
 
         @Override

@@ -106,6 +106,11 @@ public class TestTypeArgumentsTest {
         }
 
         @Override
+        public String toStringValue(String value) {
+            return value;
+        }
+
+        @Override
         public TestDataSamples<String> createSamples(IgniteTypeFactory typeFactory) {
             return TestDataSamples.<String>builder()
                     .add(List.of(VALUES), SqlTypeName.INTEGER, String::valueOf)
