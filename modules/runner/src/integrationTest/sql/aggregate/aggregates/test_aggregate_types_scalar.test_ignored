@@ -2,7 +2,7 @@
 # description: Test scalar aggregates with many different types
 # group: [aggregates]
 # Ignored: https://issues.apache.org/jira/browse/IGNITE-18362
-# Ignored: https://issues.apache.org/jira/browse/IGNITE-14636
+# Ignored: https://issues.apache.org/jira/browse/IGNITE-19333
 
 query IIIII
 SELECT COUNT(1), COUNT(*), COUNT(NULL), COUNT('hello'), COUNT(DATE '1992-02-02')
