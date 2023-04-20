@@ -15,20 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command.cursor;
+package org.apache.ignite.internal.metastorage.impl;
 
-import org.apache.ignite.internal.metastorage.command.MetastorageCommandsMessageGroup;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.network.annotations.Transferable;
+import java.nio.file.Path;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 
 /**
- * Command that closes all cursors for the specified node id. Common use case for a given command is to close cursors for the node that left
- * topology.
+ * {@link MetaStorageRangeTest} implementation using {@link SimpleInMemoryKeyValueStorage}.
  */
-@Transferable(MetastorageCommandsMessageGroup.CLOSE_ALL_CURSORS)
-public interface CloseAllCursorsCommand extends WriteCommand {
-    /**
-     * Returns cursor id.
-     */
-    String nodeId();
+public class MetaStorageInMemoryRangeTest extends MetaStorageRangeTest {
+    @Override
+    KeyValueStorage getStorage(Path path) {
+        return new SimpleInMemoryKeyValueStorage("test");
+    }
 }

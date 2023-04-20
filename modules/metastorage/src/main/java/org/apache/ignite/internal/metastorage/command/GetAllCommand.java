@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metastorage.command;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.annotations.Transferable;
@@ -35,7 +36,7 @@ public interface GetAllCommand extends ReadCommand {
     List<byte[]> keys();
 
     /**
-     * Returns the upper bound for entry revisions. Must be positive.
+     * Returns the upper bound for entry revisions or {@link MetaStorageManager#LATEST_REVISION} for no revision bound.
      */
     long revision();
 
