@@ -34,7 +34,7 @@ import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
-import org.apache.ignite.internal.client.proto.ClientColumnTypeConverter;
+import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
@@ -208,7 +208,7 @@ public class ClientTable implements Table {
             // Skip unknown extra properties, if any.
             in.skipValues(propCnt - 7);
 
-            ColumnType type = ClientColumnTypeConverter.ordinalToSqlColumnType(typeCode);
+            ColumnType type = ColumnTypeConverter.fromOrdinalOrThrow(typeCode);
             var column = new ClientColumn(name, type, isNullable, isKey, isColocation, i, scale, precision);
             columns[i] = column;
         }

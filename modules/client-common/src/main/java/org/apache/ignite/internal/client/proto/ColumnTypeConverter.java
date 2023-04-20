@@ -17,22 +17,27 @@
 
 package org.apache.ignite.internal.client.proto;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
+import org.apache.ignite.lang.ErrorGroups.Client;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
-import org.junit.jupiter.api.Test;
 
 /**
- * Tests column type converter.
+ * SQL column type utils.
  */
-public class ClientColumnTypeConverterTest {
-    @Test
-    public void testConvertAllTypes() {
-        for (ColumnType columnType : ColumnType.values()) {
-            int ordinal = ClientColumnTypeConverter.sqlColumnTypeToOrdinal(columnType);
-            ColumnType resColumnType = ClientColumnTypeConverter.ordinalToSqlColumnType(ordinal);
+public class ColumnTypeConverter {
+    /**
+     * Converts wire SQL type code to column type.
+     *
+     * @param ordinal Type code.
+     * @return Column type.
+     */
+    public static ColumnType fromOrdinalOrThrow(int ordinal) {
+        var columnType = ColumnType.fromOrdinal(ordinal);
 
-            assertEquals(columnType, resColumnType);
+        if (columnType == null) {
+            throw new IgniteException(Client.PROTOCOL_ERR, "Invalid column type code: " + ordinal);
         }
+
+        return columnType;
     }
 }
