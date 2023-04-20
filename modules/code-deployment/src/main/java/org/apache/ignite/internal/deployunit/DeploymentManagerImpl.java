@@ -35,14 +35,14 @@ import org.apache.ignite.internal.deployunit.exception.DeploymentUnitAlreadyExis
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
 import org.apache.ignite.internal.deployunit.key.UnitMetaSerializer;
-import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.util.subscription.SortedListAccumulator;
 import org.apache.ignite.internal.deployunit.metastore.UnitStatusAccumulator;
 import org.apache.ignite.internal.deployunit.metastore.UnitsAccumulator;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.util.subscription.SortedListAccumulator;
 import org.apache.ignite.network.ClusterService;
 
 /**
