@@ -20,11 +20,15 @@ package org.apache.ignite.internal.client.proto;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * SQL column type utils.
  */
 public class ColumnTypeConverter {
+    /** Enum values. */
+    private static final ColumnType[] VALS = ColumnType.values();
+
     /**
      * Converts wire SQL type code to column type.
      *
@@ -32,12 +36,23 @@ public class ColumnTypeConverter {
      * @return Column type.
      */
     public static ColumnType fromOrdinalOrThrow(int ordinal) {
-        var columnType = ColumnType.fromOrdinal(ordinal);
+        var columnType = fromOrdinal(ordinal);
 
         if (columnType == null) {
             throw new IgniteException(Client.PROTOCOL_ERR, "Invalid column type code: " + ordinal);
         }
 
         return columnType;
+    }
+
+    /**
+     * Efficiently gets enumerated value from its ordinal.
+     *
+     * @param ord Ordinal value.
+     * @return Enumerated value.
+     */
+    @Nullable
+    private static ColumnType fromOrdinal(int ord) {
+        return ord >= 0 && ord < VALS.length ? VALS[ord] : null;
     }
 }

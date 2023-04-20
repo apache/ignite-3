@@ -27,7 +27,6 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Predefined column types.
@@ -164,19 +163,5 @@ public enum ColumnType {
             default:
                 throw new IllegalArgumentException("Unsupported type " + type);
         }
-    }
-
-    /** Enum values. */
-    private static final ColumnType[] VALS = values();
-
-    /**
-     * Efficiently gets enumerated value from its ordinal.
-     *
-     * @param ord Ordinal value.
-     * @return Enumerated value.
-     */
-    @Nullable
-    public static ColumnType fromOrdinal(int ord) {
-        return ord >= 0 && ord < VALS.length ? VALS[ord] : null;
     }
 }
