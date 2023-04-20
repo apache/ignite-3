@@ -120,11 +120,15 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
                 .returns(threeSpaceStr + "aaa", threeSpaceStr + "bbb", 6, 6)
                 .check();
 
-        sql("create table nonlimitedChar (pk int primary key, f1 VARCHAR)");
+        sql("create table nonlimitedChar (pk int primary key, f1 VARCHAR, f2 VARCHAR)");
 
         String longStr = "a".repeat(100);
 
-        sql("insert into nonlimitedChar values (1, '" + longStr + "')");
+        sql("insert into nonlimitedChar values (10, '" + longStr + "', '" + longStr + "')");
+
+        //need to append additional check by PartitionReplicaListener
+        IgniteTestUtils.assertThrowsWithCause(() -> sql("insert into limitedChar select * from nonlimitedChar"),
+                SqlValidatorException.class);
     }
 
     @Test
@@ -132,14 +136,14 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
         sql("create table limitedChar (pk int primary key, f1 VARCHAR(6), f2 CHAR(6))");
 
         // TODO IGNITE-14865 Calcite exception should be converted/wrapped into a public ignite exception.
-/*        IgniteTestUtils.assertThrowsWithCause(() -> sql("insert into limitedChar(pk, f1) values (1, ?)", "aaaadddd"),
+        IgniteTestUtils.assertThrowsWithCause(() -> sql("insert into limitedChar(pk, f1) values (1, ?)", "aaaadddd"),
                 SqlValidatorException.class, "Value too long for type");
 
         IgniteTestUtils.assertThrowsWithCause(() -> sql("insert into limitedChar(pk, f2) values (1, ?)", "aaaadddd"),
                 SqlValidatorException.class, "Value too long for type");
 
         IgniteTestUtils.assertThrowsWithCause(() -> sql("insert into limitedChar values (2, ?, ?)", "aaaadddd", "aaaadddd"),
-                SqlValidatorException.class, "Value too long for type");*/
+                SqlValidatorException.class, "Value too long for type");
 
         String tenSpaceStr = " ".repeat(10);
         String threeSpaceStr = " ".repeat(3);
