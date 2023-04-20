@@ -85,7 +85,7 @@ public class LowWatermarkTest {
     }
 
     @Test
-    void testStart() {
+    void testStartWithEmptyVault() {
         // Let's check the start with no low watermark in vault.
         when(vaultManager.get(LOW_WATERMARK_VAULT_KEY)).thenReturn(completedFuture(null));
 
@@ -93,8 +93,10 @@ public class LowWatermarkTest {
 
         verify(mvGc, never()).updateLowWatermark(any(HybridTimestamp.class));
         assertNull(lowWatermark.getLowWatermark());
+    }
 
-        // Let's check the start with an existing low watermark in vault.
+    @Test
+    void testStartWithNotEmptyVault() {
         HybridTimestamp lowWatermark = new HybridTimestamp(10, 10);
 
         when(vaultManager.get(LOW_WATERMARK_VAULT_KEY))
@@ -156,9 +158,11 @@ public class LowWatermarkTest {
 
         when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
 
-        CountDownLatch startGetAllReadOnlyTransactions = new CountDownLatch(2);
+        CountDownLatch startGetAllReadOnlyTransactions = new CountDownLatch(3);
 
         CompletableFuture<Void> finishGetAllReadOnlyTransactions = new CompletableFuture<>();
+
+        assertThat(lowWatermarkConfig.updateFrequency().update(100L), willSucceedFast());
 
         try {
             when(txManager.updateLowWatermark(any(HybridTimestamp.class))).then(invocation -> {
@@ -169,11 +173,11 @@ public class LowWatermarkTest {
 
             lowWatermark.start();
 
-            // Let's check that it hasn't been called more than once in parallel.
+            // Let's check that it hasn't been called more than once.
             assertFalse(startGetAllReadOnlyTransactions.await(1, TimeUnit.SECONDS));
 
             // Let's check that it was called only once.
-            assertEquals(1, startGetAllReadOnlyTransactions.getCount());
+            assertEquals(2, startGetAllReadOnlyTransactions.getCount());
             verify(txManager).updateLowWatermark(any(HybridTimestamp.class));
 
             finishGetAllReadOnlyTransactions.complete(null);
