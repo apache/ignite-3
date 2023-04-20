@@ -127,7 +127,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
                 Map<String, Serializable> flattenedUpdatesMap = createFlattenedUpdatesMap(superRoot, copiedSuperRoot);
                 flattenedUpdatesMap.forEach((key, value) -> {
-                    if (value != null) { // filter defaults
+                    if (value != null) { // Filter defaults.
                         latest.put(key, value);
                     }
                 });
