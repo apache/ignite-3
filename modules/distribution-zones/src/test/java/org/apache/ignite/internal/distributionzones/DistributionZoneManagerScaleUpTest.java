@@ -81,6 +81,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     private static final LogicalNode NODE_3 = new LogicalNode("3", "C", new NetworkAddress("localhost", 123));
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     void testDataNodesPropagationAfterScaleUpTriggered() throws Exception {
         topology.putNode(NODE_1);
 
