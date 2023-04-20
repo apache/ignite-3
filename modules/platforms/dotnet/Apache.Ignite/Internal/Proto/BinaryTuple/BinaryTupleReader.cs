@@ -22,6 +22,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System.Collections;
     using System.Diagnostics;
     using System.Numerics;
+    using Ignite.Sql;
     using NodaTime;
 
     /// <summary>
@@ -477,7 +478,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="columnType">Column type.</param>
         /// <param name="scale">Column decimal scale.</param>
         /// <returns>Value.</returns>
-        public object? GetObject(int index, ClientDataType columnType, int scale = 0)
+        public object? GetObject(int index, ColumnType columnType, int scale = 0)
         {
             if (IsNull(index))
             {
@@ -486,22 +487,25 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             return columnType switch
             {
-                ClientDataType.Int8 => GetByte(index),
-                ClientDataType.Int16 => GetShort(index),
-                ClientDataType.Int32 => GetInt(index),
-                ClientDataType.Int64 => GetLong(index),
-                ClientDataType.Float => GetFloat(index),
-                ClientDataType.Double => GetDouble(index),
-                ClientDataType.Uuid => GetGuid(index),
-                ClientDataType.String => GetString(index),
-                ClientDataType.Decimal => GetDecimal(index, scale),
-                ClientDataType.Bytes => GetBytes(index),
-                ClientDataType.BitMask => GetBitmask(index),
-                ClientDataType.Date => GetDate(index),
-                ClientDataType.Time => GetTime(index),
-                ClientDataType.DateTime => GetDateTime(index),
-                ClientDataType.Timestamp => GetTimestamp(index),
-                ClientDataType.Number => GetNumber(index),
+                ColumnType.Int8 => GetByte(index),
+                ColumnType.Int16 => GetShort(index),
+                ColumnType.Int32 => GetInt(index),
+                ColumnType.Int64 => GetLong(index),
+                ColumnType.Float => GetFloat(index),
+                ColumnType.Double => GetDouble(index),
+                ColumnType.Uuid => GetGuid(index),
+                ColumnType.String => GetString(index),
+                ColumnType.Decimal => GetDecimal(index, scale),
+                ColumnType.ByteArray => GetBytes(index),
+                ColumnType.Bitmask => GetBitmask(index),
+                ColumnType.Date => GetDate(index),
+                ColumnType.Time => GetTime(index),
+                ColumnType.Datetime => GetDateTime(index),
+                ColumnType.Timestamp => GetTimestamp(index),
+                ColumnType.Number => GetNumber(index),
+                ColumnType.Boolean => GetByteAsBool(index),
+                ColumnType.Period => GetPeriod(index),
+                ColumnType.Duration => GetDuration(index),
                 _ => throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + columnType)
             };
         }
@@ -518,7 +522,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 return null;
             }
 
-            var type = (ClientDataType)GetInt(index);
+            var type = (ColumnType)GetInt(index);
             var scale = GetInt(index + 1);
 
             return GetObject(index + 2, type, scale);
