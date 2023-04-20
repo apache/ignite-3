@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import java.util.function.Consumer;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,6 +43,9 @@ public class DistributionZoneConfigurationParameters {
     /** Number of zone partitions. */
     private final Integer partitions;
 
+    /** Consumer of {@link DataStorageChange}, which sets the right data storage options. */
+    private final Consumer<DataStorageChange> dataStorageChangeConsumer;
+
     /** Nodes' filter. */
     private final String filter;
 
@@ -54,7 +59,8 @@ public class DistributionZoneConfigurationParameters {
             Integer dataNodesAutoAdjust,
             Integer dataNodesAutoAdjustScaleUp,
             Integer dataNodesAutoAdjustScaleDown,
-            String filter
+            String filter,
+            Consumer<DataStorageChange> dataStorageChangeConsumer
     ) {
         this.name = name;
         this.replicas = replicas;
@@ -63,6 +69,7 @@ public class DistributionZoneConfigurationParameters {
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
+        this.dataStorageChangeConsumer = dataStorageChangeConsumer;
     }
 
     /**
@@ -120,6 +127,15 @@ public class DistributionZoneConfigurationParameters {
     }
 
     /**
+     * Returns the consumer of {@link DataStorageChange}, which sets the right data storage options.
+     *
+     * @return The consumer of {@link DataStorageChange}, which sets the right data storage options.
+     */
+    public Consumer<DataStorageChange> dataStorageChangeConsumer() {
+        return dataStorageChangeConsumer;
+    }
+
+    /**
      * Gets nodes' filter.
      *
      * @return Nodes' filter.
@@ -149,6 +165,9 @@ public class DistributionZoneConfigurationParameters {
 
         /** Number of zone partitions. */
         private Integer partitions;
+
+        /** Consumer of {@link DataStorageChange}, which sets the right data storage options. */
+        private Consumer<DataStorageChange> dataStorageChangeConsumer;
 
         /* Nodes' filter. */
         private String filter;
@@ -228,6 +247,18 @@ public class DistributionZoneConfigurationParameters {
         }
 
         /**
+         * Sets the consumer of {@link DataStorageChange}, which sets the right data storage options.
+         *
+         * @param dataStorageChangeConsumer Consumer of {@link DataStorageChange}, which sets the right data storage options.
+         * @return This instance.
+         */
+        public Builder dataStorageChangeConsumer(Consumer<DataStorageChange> dataStorageChangeConsumer) {
+            this.dataStorageChangeConsumer = dataStorageChangeConsumer;
+
+            return this;
+        }
+
+        /**
          * Sets nodes' filter.
          *
          * @param filter Nodes' filter.
@@ -262,7 +293,8 @@ public class DistributionZoneConfigurationParameters {
                     dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
-                    filter
+                    filter,
+                    dataStorageChangeConsumer
             );
         }
     }

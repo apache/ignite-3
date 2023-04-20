@@ -181,6 +181,9 @@ public class DdlCommandHandler {
             zoneCfgBuilder.partitions(cmd.partitions());
         }
 
+        zoneCfgBuilder.dataStorageChangeConsumer(
+                dataStorageManager.zoneDataStorageConsumer(cmd.dataStorage(), cmd.dataStorageOptions()));
+
         return distributionZoneManager.createZone(zoneCfgBuilder.build())
                 .handle(handleModificationResult(cmd.ifNotExists(), DistributionZoneAlreadyExistsException.class));
     }

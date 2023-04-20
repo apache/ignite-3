@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -103,7 +104,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageChange;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -316,8 +316,6 @@ public class TableManagerTest extends IgniteAbstractTest {
             tablesChange.create(scmTbl.name(), tableChange -> {
                 (SchemaConfigurationConverter.convert(scmTbl, tableChange))
                         .changeZoneId(ZONE_ID);
-
-                tableChange.changeDataStorage(c -> c.convert(PersistentPageMemoryDataStorageChange.class));
 
                 var extConfCh = ((ExtendedTableChange) tableChange);
 
@@ -698,8 +696,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                         tableChange -> {
                             SchemaConfigurationConverter.convert(scmTbl, tableChange);
 
-                            tableChange.changeDataStorage(c -> c.convert(PersistentPageMemoryDataStorageChange.class));
-
                             // Trigger "onUpdateAssignments"
                             var assignments = List.of(Set.of(Assignment.forPeer(NODE_NAME)));
 
@@ -909,7 +905,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(new PersistentPageMemoryDataStorageModule()));
 
         DataStorageManager manager = new DataStorageManager(
-                tblsCfg,
+                distributionZonesConfiguration,
                 dataStorageModules.createStorageEngines(NODE_NAME, mockedRegistry, storagePath, null)
         );
 
@@ -920,7 +916,9 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private void checkTableDataStorage(NamedListView<TableView> tables, String expDataStorage) {
         for (String tableName : tables.namedListKeys()) {
-            assertThat(tables.get(tableName).dataStorage().name(), equalTo(expDataStorage));
+            String dataStorageName = getZoneById(
+                    distributionZonesConfiguration, tables.get(tableName).zoneId()).dataStorage().name().value();
+            assertThat(dataStorageName, equalTo(expDataStorage));
         }
     }
 }

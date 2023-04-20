@@ -15,21 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration.storage;
+package org.apache.ignite.internal.metastorage.impl;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-import org.apache.ignite.configuration.annotation.ConfigValue;
+import java.nio.file.Path;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 
 /**
- * An annotation to check that the {@link DataStorageConfigurationSchema data storage} is known, i.e. its {@link
- * DataStorageConfigurationSchema#name name} is not {@link UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE "unknown"}.
- *
- * <p>Can be applied to a {@link ConfigValue}.
+ * {@link MetaStorageRangeTest} implementation using {@link RocksDbKeyValueStorage}.
  */
-@Target(ElementType.FIELD)
-@Retention(RetentionPolicy.RUNTIME)
-public @interface KnownDataStorage {
+public class MetaStorageRocksDbRangeTest extends MetaStorageRangeTest {
+    @Override
+    KeyValueStorage getStorage(Path path) {
+        return new RocksDbKeyValueStorage("test", path);
+    }
 }

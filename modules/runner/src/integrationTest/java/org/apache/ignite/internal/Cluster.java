@@ -44,6 +44,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -124,6 +125,16 @@ public class Cluster {
      * @param nodeCount Number of nodes in the cluster.
      */
     public void startAndInit(int nodeCount) {
+        startAndInit(nodeCount, builder -> {});
+    }
+
+    /**
+     * Starts the cluster with the given number of nodes and initializes it.
+     *
+     * @param nodeCount Number of nodes in the cluster.
+     * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
+     */
+    public void startAndInit(int nodeCount, Consumer<InitParametersBuilder> initParametersConfigurator) {
         if (started) {
             throw new IllegalStateException("The cluster is already started");
         }
@@ -134,13 +145,14 @@ public class Cluster {
 
         String metaStorageAndCmgNodeName = testNodeName(testInfo, 0);
 
-        InitParameters initParameters = InitParameters.builder()
+        InitParametersBuilder builder = InitParameters.builder()
                 .destinationNodeName(metaStorageAndCmgNodeName)
                 .metaStorageNodeNames(List.of(metaStorageAndCmgNodeName))
-                .clusterName("cluster")
-                .build();
+                .clusterName("cluster");
 
-        IgnitionManager.init(initParameters);
+        initParametersConfigurator.accept(builder);
+
+        IgnitionManager.init(builder.build());
 
         for (CompletableFuture<IgniteImpl> future : futures) {
             assertThat(future, willCompleteSuccessfully());

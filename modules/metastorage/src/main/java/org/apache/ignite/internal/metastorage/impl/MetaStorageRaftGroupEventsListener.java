@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 
@@ -115,18 +114,7 @@ public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListen
 
             @Override
             public void onNodeInvalidated(LogicalNode invalidatedNode) {
-                executeIfLeader((service, term) -> {
-                    CompletableFuture<Void> closeCursorsFuture = service.closeCursors(invalidatedNode.id())
-                            .exceptionally(e -> {
-                                LOG.error("Unable to close cursor for " + invalidatedNode, e);
-
-                                return null;
-                            });
-
-                    CompletableFuture<Void> removeLearnersFuture = removeLearner(service.raftGroupService(), invalidatedNode);
-
-                    return allOf(closeCursorsFuture, removeLearnersFuture);
-                });
+                executeIfLeader((service, term) -> removeLearner(service.raftGroupService(), invalidatedNode));
             }
 
             @Override

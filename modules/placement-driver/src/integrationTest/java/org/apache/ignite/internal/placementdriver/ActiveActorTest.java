@@ -116,7 +116,7 @@ public class ActiveActorTest extends IgniteAbstractTest {
     @Mock
     MetaStorageManager msm;
 
-    @InjectConfiguration()
+    @InjectConfiguration
     private TablesConfiguration tblsCfg;
 
     @InjectConfiguration

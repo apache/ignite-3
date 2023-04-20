@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration.storage;
+package org.apache.ignite.internal.metastorage.impl;
 
-import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
-
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import java.nio.file.Path;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 
 /**
- * Configuration schema of an unknown data storage.
+ * {@link MetaStorageRangeTest} implementation using {@link SimpleInMemoryKeyValueStorage}.
  */
-@PolymorphicConfigInstance(UNKNOWN_DATA_STORAGE)
-public class UnknownDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
-    /** Default data storage name. */
-    public static final String UNKNOWN_DATA_STORAGE = "unknown";
+public class MetaStorageInMemoryRangeTest extends MetaStorageRangeTest {
+    @Override
+    KeyValueStorage getStorage(Path path) {
+        return new SimpleInMemoryKeyValueStorage("test");
+    }
 }

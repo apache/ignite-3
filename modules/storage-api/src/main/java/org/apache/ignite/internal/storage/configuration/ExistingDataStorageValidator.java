@@ -18,10 +18,8 @@
 package org.apache.ignite.internal.storage.configuration;
 
 import static java.util.stream.Collectors.toUnmodifiableSet;
-import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 
 import java.util.Set;
-import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
@@ -41,10 +39,9 @@ public class ExistingDataStorageValidator implements Validator<ExistingDataStora
      * @param modules Storage engine factories.
      */
     public ExistingDataStorageValidator(Iterable<DataStorageModule> modules) {
-        dataStorages = Stream.concat(
-                Stream.of(UNKNOWN_DATA_STORAGE),
-                StreamSupport.stream(modules.spliterator(), false).map(DataStorageModule::name)
-        ).collect(toUnmodifiableSet());
+        dataStorages = StreamSupport.stream(modules.spliterator(), false)
+                .map(DataStorageModule::name)
+                .collect(toUnmodifiableSet());
     }
 
     /** {@inheritDoc} */

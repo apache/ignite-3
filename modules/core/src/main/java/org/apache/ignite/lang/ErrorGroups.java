@@ -217,32 +217,14 @@ public class ErrorGroups {
         /** Failed to restore the underlying key value storage. */
         public static final int RESTORING_STORAGE_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(2);
 
-        /** Failed to close the underlying key value storage. */
-        public static final int CLOSING_STORAGE_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(3);
-
         /** Failed to compact the underlying key value storage. */
-        public static final int COMPACTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(4);
+        public static final int COMPACTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(3);
 
         /** Failed to perform an operation on the underlying key value storage. */
-        public static final int OP_EXECUTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(5);
+        public static final int OP_EXECUTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(4);
 
         /** Failed to perform an operation within a specified time period. Usually in such cases the operation should be retried. */
-        public static final int OP_EXECUTION_TIMEOUT_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(6);
-
-        /** Failed to iterate over the underlying key value storage. */
-        public static final int WATCH_EXECUTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(7);
-
-        /** Failed to stop a watcher. */
-        public static final int WATCH_STOPPING_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(8);
-
-        /** Failed to deploy or update a watcher. */
-        public static final int DEPLOYING_WATCH_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(9);
-
-        /** Failed to iterate over meta storage cursor. */
-        public static final int CURSOR_EXECUTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(10);
-
-        /** Failed to close a cursor. */
-        public static final int CURSOR_CLOSING_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(11);
+        public static final int OP_EXECUTION_TIMEOUT_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(5);
     }
 
     /** Index error group. */

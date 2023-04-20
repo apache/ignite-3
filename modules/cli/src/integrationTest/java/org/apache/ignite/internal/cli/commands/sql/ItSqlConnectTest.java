@@ -15,30 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.sql;
+package org.apache.ignite.internal.cli.commands.sql;
 
-/**
- * Enumerates the options for CREATE ZONE and ALTER ZONE statements.
- */
-public enum IgniteSqlZoneOptionEnum {
-    /** Number of partitions. */
-    PARTITIONS,
+import static org.junit.jupiter.api.Assertions.assertAll;
 
-    /** Number of replicas. */
-    REPLICAS,
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
-    /** Affinity function name. */
-    AFFINITY_FUNCTION,
+class ItSqlConnectTest extends CliSqlConnectCommandTestBase {
 
-    /** An expression to filter data nodes. */
-    DATA_NODES_FILTER,
+    @Test
+    @DisplayName("Should succeed after connect")
+    void jdbcOkAfterConnect() {
+        // Given connected state
+        execute("connect");
 
-    /** Data nodes auto adjust timeout. */
-    DATA_NODES_AUTO_ADJUST,
+        // When
+        execute("sql", "select * from person");
 
-    /** Data nodes scale up auto adjust timeout. */
-    DATA_NODES_AUTO_ADJUST_SCALE_UP,
-
-    /** Data nodes scale down auto adjust timeout. */
-    DATA_NODES_AUTO_ADJUST_SCALE_DOWN
+        // Then the query is executed successfully
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertOutputIsNotEmpty,
+                this::assertErrOutputIsEmpty
+        );
+    }
 }

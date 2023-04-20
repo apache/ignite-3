@@ -79,7 +79,11 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createInMemoryTable() {
-        executeSql("CREATE TABLE " + TABLE_NAME + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) ENGINE aimem");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " ENGINE aimem");
+
+        executeSql("CREATE TABLE " + TABLE_NAME
+                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='ZONE_"
+                + TABLE_NAME.toUpperCase() + "'");
     }
 
     /**
@@ -163,7 +167,11 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createPersistentTable() {
-        executeSql("CREATE TABLE " + TABLE_NAME + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) ENGINE rocksdb");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " ENGINE rocksdb");
+
+        executeSql("CREATE TABLE " + TABLE_NAME
+                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='ZONE_"
+                + TABLE_NAME.toUpperCase() + "'");
     }
 
     @Test
@@ -233,7 +241,9 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createTableWithMaxOneInMemoryEntryAllowed(String tableName) {
-        int zoneId = await(createZone(node(0).distributionZoneManager(), "zone1", 1, DEFAULT_PARTITION_COUNT));
+        int zoneId = await(createZone(
+                node(0).distributionZoneManager(), "zone1", 1, DEFAULT_PARTITION_COUNT,
+                dataStorageChange -> dataStorageChange.convert(VolatilePageMemoryDataStorageChange.class)));
 
         TableDefinition tableDef = SchemaBuilders.tableBuilder("PUBLIC", tableName).columns(
                 SchemaBuilders.column("ID", ColumnType.INT32).build(),
@@ -242,10 +252,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
         await(((TableManager) node(0).tables()).createTableAsync(tableName, DEFAULT_ZONE_NAME, tableChange -> {
             SchemaConfigurationConverter.convert(tableDef, tableChange)
-                    .changeZoneId(zoneId)
-                    .changeDataStorage(storageChange -> {
-                        storageChange.convert(VolatilePageMemoryDataStorageChange.class);
-                    });
+                    .changeZoneId(zoneId);
         }));
     }
 }

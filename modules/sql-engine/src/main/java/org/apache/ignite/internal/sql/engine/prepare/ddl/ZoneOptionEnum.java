@@ -15,20 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command.cursor;
-
-import org.apache.ignite.internal.metastorage.command.MetastorageCommandsMessageGroup;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 /**
- * Cursor close command for MetaStorageCommandListener that closes cursor with given id.
+ * Enumerates the options for CREATE ZONE and ALTER ZONE statements.
  */
-@Transferable(MetastorageCommandsMessageGroup.CLOSE_CURSOR)
-public interface CloseCursorCommand extends WriteCommand {
-    /**
-     * Returns cursor id.
-     */
-    IgniteUuid cursorId();
+public enum ZoneOptionEnum {
+    /** Number of partitions. */
+    PARTITIONS,
+
+    /** Number of replicas. */
+    REPLICAS,
+
+    /** Affinity function name. */
+    AFFINITY_FUNCTION,
+
+    /** An expression to filter data nodes. */
+    DATA_NODES_FILTER,
+
+    /** Data nodes auto adjust timeout. */
+    DATA_NODES_AUTO_ADJUST,
+
+    /** Data nodes scale up auto adjust timeout. */
+    DATA_NODES_AUTO_ADJUST_SCALE_UP,
+
+    /** Data nodes scale down auto adjust timeout. */
+    DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
+
+    /** Data storage engine. */
+    DATA_STORAGE_ENGINE
 }
