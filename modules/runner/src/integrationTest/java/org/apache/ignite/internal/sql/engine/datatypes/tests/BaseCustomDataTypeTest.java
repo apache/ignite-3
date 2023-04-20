@@ -40,6 +40,7 @@ import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.params.provider.Arguments;
 
 /**
  * Base class for test cases for {@link IgniteCustomType custom data type}.
@@ -217,9 +218,10 @@ public abstract class BaseCustomDataTypeTest<T extends Comparable<T>> extends Cl
                 .filter(args -> !Objects.equals(args.typeName(0), typeSpec.typeName()));
     }
 
-    protected static Stream<String> binaryComparisonOperators() {
+    /** Returns binary operators as sql, enum name pairs. */
+    protected static Stream<Arguments> binaryComparisonOperators() {
         return SqlKind.BINARY_COMPARISON.stream()
                 // to support IS DISTINCT FROM/IS NOT DISTINCT FROM
-                .map(o -> o.sql.replace("_", " "));
+                .map(o -> Arguments.of(o.sql.replace("_", " "), o.sql));
     }
 }

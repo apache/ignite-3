@@ -59,9 +59,10 @@ public class ItUuidExpressionTest extends BaseExpressionCustomDataTypeTest<UUID>
      */
     @ParameterizedTest
     @MethodSource("binaryComparisonOperators")
-    public void testUuidInvalidOperationsDynamicParams(String op) {
-        var query = format("SELECT ? {} 1", op);
-        var t = assertThrows(IgniteException.class, () -> sql(query, dataSamples.min()));
+    public void testUuidInvalidOperationsDynamicParams(String opSql, String op) {
+        String query = format("SELECT ? {} 1", opSql);
+        IgniteException t = assertThrows(IgniteException.class, () -> sql(query, dataSamples.min()));
+
         assertThat(t.getMessage(), containsString("class java.util.UUID cannot be cast to class java.lang.Integer"));
     }
 

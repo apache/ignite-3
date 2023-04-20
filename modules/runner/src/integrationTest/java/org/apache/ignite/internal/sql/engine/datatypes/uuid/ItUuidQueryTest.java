@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.UUID;
+import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.ignite.internal.sql.engine.datatypes.CustomDataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseQueryCustomDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.CustomDataTypeTestSpec;
@@ -41,13 +42,12 @@ public class ItUuidQueryTest extends BaseQueryCustomDataTypeTest<UUID> {
      */
     @ParameterizedTest
     @MethodSource("binaryComparisonOperators")
-    public void testUuidInvalidOperation(String op) {
-        runSql("INSERT INTO t VALUES(1, $0)");
+    public void testUuidInvalidOperation(String opSql, String opName) {
+        String query = format("SELECT * FROM t WHERE test_key {} 1", opSql);
 
-        var query = format("SELECT * FROM f WHERE test_key {} 1", op);
-
-        var t = assertThrows(IgniteException.class, () -> checkQuery(query));
-        assertThat(t.getMessage(), containsString("class java.util.UUID cannot be cast to class java.lang.Integer"));
+        CalciteContextException t = assertThrows(CalciteContextException.class, () -> checkQuery(query).check());
+        String error = format("Invalid types for comparison: UUID {} INTEGER NOT NULL", opName);
+        assertThat(t.getMessage(), containsString(error));
     }
 
     /** {@inheritDoc} **/
