@@ -17,15 +17,17 @@
 
 package org.apache.ignite.internal.cli.commands.cliconfig;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-class CliConfigGetCommandTest extends CliConfigCommandTestBase {
+class CliConfigRemoveCommandTest extends CliConfigCommandTestBase {
     @Override
     protected Class<?> getCommandClass() {
-        return CliConfigGetCommand.class;
+        return CliConfigRemoveCommand.class;
     }
 
     @Test
@@ -42,15 +44,16 @@ class CliConfigGetCommandTest extends CliConfigCommandTestBase {
     }
 
     @Test
-    @DisplayName("Displays value for specified key")
+    @DisplayName("Removes a value")
     void singleKey() {
-        // When executed with single key
+        // When executed with key
         execute("server");
 
         assertAll(
                 this::assertExitCodeIsZero,
-                () -> assertOutputIs("127.0.0.1" + System.lineSeparator()),
-                this::assertErrOutputIsEmpty
+                this::assertOutputIsEmpty,
+                this::assertErrOutputIsEmpty,
+                () -> assertThat(configManagerProvider.get().getCurrentProperty("server")).isNull()
         );
     }
 
@@ -81,23 +84,33 @@ class CliConfigGetCommandTest extends CliConfigCommandTestBase {
     }
 
     @Test
-    public void testWithNonDefaultProfile() {
-        execute("organization --profile owner");
+    @DisplayName("Remove with profile")
+    public void testWithProfile() {
+        // When executed with multiple keys
+        execute("name --profile owner");
+
+        ConfigManager configManager = configManagerProvider.get();
 
         assertAll(
+                this::assertExitCodeIsZero,
+                this::assertOutputIsEmpty,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Apache Ignite")
+                () -> assertThat(configManager.getProfile("owner").getProperty("name")).isNull()
         );
-
     }
 
     @Test
-    public void testWithNonNotExistedProfile() {
-        execute("organization --profile notExist");
+    @DisplayName("Displays error for nonexistent profile")
+    public void testWithNonexistentProfile() {
+        execute("server --profile notExist");
+
+        ConfigManager configManager = configManagerProvider.get();
 
         assertAll(
+                () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Profile notExist not found.")
+                () -> assertErrOutputContains("Profile notExist not found"),
+                () -> assertThat(configManager.getCurrentProperty("server")).isEqualTo("127.0.0.1")
         );
     }
 }

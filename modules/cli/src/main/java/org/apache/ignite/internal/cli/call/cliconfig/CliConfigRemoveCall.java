@@ -26,21 +26,20 @@ import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 
 /**
- * Gets CLI configuration parameter.
+ * Removes CLI configuration parameter.
  */
 @Singleton
-public class CliConfigGetCall implements Call<CliConfigGetCallInput, String> {
+public class CliConfigRemoveCall implements Call<CliConfigRemoveCallInput, String> {
     @Inject
     private ConfigManagerProvider configManagerProvider;
 
     @Override
-    public DefaultCallOutput<String> execute(CliConfigGetCallInput input) {
+    public DefaultCallOutput<String> execute(CliConfigRemoveCallInput input) {
         ConfigManager configManager = configManagerProvider.get();
         String key = input.getKey();
         String profileName = input.getProfileName();
-        String property = configManager.getProperty(key, profileName);
-        if (property != null) {
-            return DefaultCallOutput.success(property);
+        if (configManager.removeProperty(key, profileName) != null) {
+            return DefaultCallOutput.empty();
         }
         return DefaultCallOutput.failure(new NonexistentPropertyException(key));
     }
