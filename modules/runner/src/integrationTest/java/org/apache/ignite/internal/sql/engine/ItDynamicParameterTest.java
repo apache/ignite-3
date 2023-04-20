@@ -33,10 +33,7 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.calcite.runtime.CalciteContextException;
@@ -49,6 +46,9 @@ import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.EnumSource.Mode;
 
 /** Dynamic parameters checks. */
 public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
@@ -64,33 +64,26 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
         sql("DROP TABLE IF EXISTS t1");
     }
 
-    @Test
-    void testMetadataTypesForDynamicParameters() {
-        //    https://issues.apache.org/jira/browse/IGNITE-18789
-        //    https://issues.apache.org/jira/browse/IGNITE-18414
-        String[] excludedTypes = {"DECIMAL", "NUMBER", "BITMASK", "DURATION", "PERIOD"};
-        Set<String> excluded = new HashSet<>(Arrays.asList(excludedTypes));
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class,
+            //    https://issues.apache.org/jira/browse/IGNITE-18789
+            //    https://issues.apache.org/jira/browse/IGNITE-18414
+            names = {"DECIMAL", "NUMBER", "BITMASK", "DURATION", "PERIOD"},
+            mode = Mode.EXCLUDE
+    )
+    void testMetadataTypesForDynamicParameters(ColumnType type) {
+        Object param = generateValueByType(RND.nextInt(), type);
+        List<List<Object>> ret = sql("SELECT typeof(?)", param);
+        String type0 = (String) ret.get(0).get(0);
 
-        for (ColumnType type : ColumnType.values()) {
-            if (excluded.contains(type.name().toUpperCase())) {
-                continue;
-            }
-
-            Object param = generateValueByType(RND.nextInt(), type);
-
-            List<List<Object>> ret = sql("SELECT typeof(?)", param);
-            assert ret.size() == 1;
-            String type0 = (String) ret.get(0).get(0);
-
-            // type returned from typeof can contain precision definition.
-            assertTrue(type0.startsWith(toSqlType(type)));
-            assertQuery("SELECT ?").withParams(param).returns(param).columnMetadata(new MetadataMatcher().type(type)).check();
-        }
+        assertTrue(type0.startsWith(toSqlType(type)));
+        assertQuery("SELECT ?").withParams(param).returns(param).columnMetadata(new MetadataMatcher().type(type)).check();
     }
 
     @Test
     public void testDynamicParameters() {
         assertQuery("SELECT COALESCE(null, ?)").withParams(13).returns(13).check();
+        assertQuery("SELECT COALESCE(null, ?)").withParams('j').returns("j").check();
         assertQuery("SELECT LOWER(?)").withParams("ASD").returns("asd").check();
         assertQuery("SELECT POWER(?, ?)").withParams(2, 3).returns(8d).check();
         assertQuery("SELECT SQRT(?)").withParams(4d).returns(2d).check();

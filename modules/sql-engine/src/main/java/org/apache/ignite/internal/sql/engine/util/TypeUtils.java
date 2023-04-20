@@ -76,8 +76,7 @@ public class TypeUtils {
         supportedParamClasses.add(long.class);
         supportedParamClasses.add(float.class);
         supportedParamClasses.add(double.class);
-        supportedParamClasses.add(char[].class);
-        supportedParamClasses.add(char.class);
+        supportedParamClasses.add(Character.class);
     }
 
     private static final Set<SqlTypeName> CONVERTABLE_TYPES = EnumSet.of(
@@ -109,13 +108,13 @@ public class TypeUtils {
         static final TypeUtils INSTANCE = new TypeUtils();
     }
 
-    public static TypeUtils instance() {
+    private static TypeUtils instance() {
         return LazyHolder.INSTANCE;
     }
 
     /** Return {@code true} if supplied object is suitable as dynamic parameter. */
-    public boolean correctParamInstance(Object param) {
-        return param == null || supportedParamClasses.contains(param.getClass());
+    public static boolean supportParamInstance(Object param) {
+        return param == null || instance().supportedParamClasses.contains(param.getClass());
     }
 
     /**

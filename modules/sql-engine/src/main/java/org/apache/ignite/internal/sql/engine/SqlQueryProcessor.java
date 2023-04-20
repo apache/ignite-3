@@ -629,7 +629,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         for (Object param : params) {
-            if (!TypeUtils.instance().correctParamInstance(param)) {
+            if (!TypeUtils.supportParamInstance(param)) {
                 String message = format(
                         "Unsupported dynamic parameter defined. Provided '{}' is not supported.", param.getClass().getName());
 
