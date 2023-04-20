@@ -577,25 +577,32 @@ public abstract class QueryChecker {
         }
     }
 
+    /**
+     * Converts the given value to a test output friendly that includes type information.
+     */
     private static String displayValue(Object value, boolean includeType) {
         if (value == null) {
             return "<null>";
         } else if (value.getClass().isArray()) {
             Class<?> componentType = value.getClass().getComponentType();
             StringBuilder sb = new StringBuilder();
+
+            // Always include array element type in the output.
             sb.append(componentType);
             sb.append("[");
+
+            // Include element type for Object[] arrays.
+            boolean includeElementType = componentType == Object.class;
 
             int length = Array.getLength(value);
             for (int i = 0; i < length; i++) {
                 Object item = Array.get(value, i);
-                sb.append(displayValue(item, false));
-                if (sb.length() > 1) {
+                if (i > 0) {
                     sb.append(", ");
                 }
+                sb.append(displayValue(item, includeElementType));
             }
 
-            sb.setLength(sb.length() - 2);
             sb.append("]");
             return sb.toString();
         } else {
