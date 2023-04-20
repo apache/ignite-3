@@ -24,8 +24,8 @@ public class ApiClientSettingsBuilder {
     private String keyStorePassword;
     private String trustStorePath;
     private String trustStorePassword;
-    private String basicAuthUsername;
-    private String basicAuthPassword;
+    private String basicAuthenticationUsername;
+    private String basicAuthenticationPassword;
 
     public ApiClientSettingsBuilder basePath(String basePath) {
         this.basePath = basePath;
@@ -52,18 +52,18 @@ public class ApiClientSettingsBuilder {
         return this;
     }
 
-    public ApiClientSettingsBuilder basicAuthUsername(String basicAuthUsername) {
-        this.basicAuthUsername = basicAuthUsername;
+    public ApiClientSettingsBuilder basicAuthenticationUsername(String basicAuthenticationUsername) {
+        this.basicAuthenticationUsername = basicAuthenticationUsername;
         return this;
     }
 
-    public ApiClientSettingsBuilder basicAuthPassword(String basicAuthPassword) {
-        this.basicAuthPassword = basicAuthPassword;
+    public ApiClientSettingsBuilder basicAuthenticationPassword(String basicAuthenticationPassword) {
+        this.basicAuthenticationPassword = basicAuthenticationPassword;
         return this;
     }
 
     public ApiClientSettings build() {
-        return new ApiClientSettings(basePath, keyStorePath, keyStorePassword, trustStorePath, trustStorePassword, basicAuthUsername,
-                basicAuthPassword);
+        return new ApiClientSettings(basePath, keyStorePath, keyStorePassword, trustStorePath, trustStorePassword,
+                basicAuthenticationUsername, basicAuthenticationPassword);
     }
 }

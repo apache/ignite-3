@@ -39,9 +39,9 @@ class ItSqlConnectBasicTest extends CliSqlConnectCommandTestBase {
     }
 
     @Test
-    @DisplayName("Should succeed after connect with basic auth configured")
+    @DisplayName("Should succeed after connect with basic authentication configured")
     void jdbcOkWithBasicConfiguredAfterConnect() {
-        // Given basic auth is configured in config file
+        // Given basic authentication is configured in config file
         configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
 
         // Given connected state
@@ -59,9 +59,9 @@ class ItSqlConnectBasicTest extends CliSqlConnectCommandTestBase {
     }
 
     @Test
-    @DisplayName("Should fail after connect without basic auth configured")
+    @DisplayName("Should fail after connect without basic authentication configured")
     void jdbcFailWithoutBasicConfiguredAfterConnect() {
-        // Given basic auth is not configured in config file
+        // Given basic authentication is not configured in config file
 
         // Given connected state
         execute("connect");

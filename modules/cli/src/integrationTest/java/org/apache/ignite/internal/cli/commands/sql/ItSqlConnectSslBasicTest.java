@@ -45,9 +45,9 @@ class ItSqlConnectSslBasicTest extends CliSqlConnectCommandTestBase {
     }
 
     @Test
-    @DisplayName("Should succeed after connect with SSL and basic auth configured")
+    @DisplayName("Should succeed after connect with SSL and basic authentication configured")
     void jdbcOkWithSslAndBasicConfiguredAfterConnect() {
-        // Given SSL and basic auth is configured in config file
+        // Given SSL and basic authentication is configured in config file
         configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
         configManagerProvider.configManager.setProperty(CliConfigKeys.JDBC_TRUST_STORE_PATH.value(), NodeConfig.resolvedTruststorePath);
         configManagerProvider.configManager.setProperty(CliConfigKeys.JDBC_TRUST_STORE_PASSWORD.value(), NodeConfig.trustStorePassword);
@@ -70,9 +70,9 @@ class ItSqlConnectSslBasicTest extends CliSqlConnectCommandTestBase {
     }
 
     @Test
-    @DisplayName("Should fail after connect without SSL and basic auth configured")
+    @DisplayName("Should fail after connect without SSL and basic authentication configured")
     void jdbcFailWithoutBasicConfiguredAfterConnect() {
-        // Given neither SSL nor basic auth is configured in config file
+        // Given neither SSL nor basic authentication is configured in config file
 
         // Given connected state
         execute("connect");

@@ -42,7 +42,7 @@ class ItJdbcTest extends IgniteIntegrationTest {
     private Cluster cluster;
 
     @Nested
-    @DisplayName("Given basic auth disabled on the cluster")
+    @DisplayName("Given basic authentication disabled on the cluster")
     @TestInstance(Lifecycle.PER_CLASS)
     class ClusterWithoutAuth {
         @BeforeAll
@@ -57,7 +57,7 @@ class ItJdbcTest extends IgniteIntegrationTest {
         }
 
         @Test
-        @DisplayName("Jdbc client can connect without basic auth configured")
+        @DisplayName("Jdbc client can connect without basic authentication configured")
         void jdbcCanConnectWithoutBasicAuth() throws SQLException {
             var url = "jdbc:ignite:thin://127.0.0.1:10800";
             try (Connection ignored = DriverManager.getConnection(url)) {
@@ -67,7 +67,7 @@ class ItJdbcTest extends IgniteIntegrationTest {
     }
 
     @Nested
-    @DisplayName("Given basic auth enabled on the cluster")
+    @DisplayName("Given basic authentication enabled on the cluster")
     @TestInstance(Lifecycle.PER_CLASS)
     class ClusterWithAuth {
         @BeforeAll
@@ -85,18 +85,18 @@ class ItJdbcTest extends IgniteIntegrationTest {
         }
 
         @Test
-        @DisplayName("Jdbc client can not connect without basic auth configured")
-        void jdbcCanNotConnectWithoutBasicAuth() {
+        @DisplayName("Jdbc client can not connect without basic authentication configured")
+        void jdbcCanNotConnectWithoutBasicAuthentication() {
             var url = "jdbc:ignite:thin://127.0.0.1:10800";
             assertThrows(SQLException.class, () -> DriverManager.getConnection(url));
         }
 
         @Test
-        @DisplayName("Jdbc client can connect with basic auth configured")
-        void jdbcCanConnectWithBasicAuth() throws SQLException {
+        @DisplayName("Jdbc client can connect with basic authentication configured")
+        void jdbcCanConnectWithBasicAuthentication() throws SQLException {
             var url = "jdbc:ignite:thin://127.0.0.1:10800"
-                    + "?basicAuthUsername=usr"
-                    + "&basicAuthPassword=pwd";
+                    + "?basicAuthenticationUsername=usr"
+                    + "&basicAuthenticationPassword=pwd";
             try (Connection ignored = DriverManager.getConnection(url)) {
                 // No-op.
             }

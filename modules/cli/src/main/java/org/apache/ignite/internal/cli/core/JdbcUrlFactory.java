@@ -50,7 +50,7 @@ public class JdbcUrlFactory {
     }
 
     /**
-     * Constructs JDBC URL from node URL, port taken from the node configuration, SSL and basic auth properties from the config.
+     * Constructs JDBC URL from node URL, port taken from the node configuration, SSL and basic authentication properties from the config.
      *
      * @param configuration Node configuration in HOCON format.
      * @param nodeUrl Node URL.
@@ -77,8 +77,8 @@ public class JdbcUrlFactory {
         if (!queryParams.isEmpty()) {
             queryParams.add(0, "sslEnabled=true");
         }
-        addIfSet(queryParams, BASIC_AUTHENTICATION_USERNAME, "basicAuthUsername");
-        addIfSet(queryParams, BASIC_AUTHENTICATION_PASSWORD, "basicAuthPassword");
+        addIfSet(queryParams, BASIC_AUTHENTICATION_USERNAME, "basicAuthenticationUsername");
+        addIfSet(queryParams, BASIC_AUTHENTICATION_PASSWORD, "basicAuthenticationPassword");
         if (!queryParams.isEmpty()) {
             String query = queryParams.stream()
                     .collect(Collectors.joining("&", "?", ""));

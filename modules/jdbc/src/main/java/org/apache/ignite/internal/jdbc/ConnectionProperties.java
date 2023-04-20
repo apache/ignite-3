@@ -259,26 +259,26 @@ public interface ConnectionProperties {
      *
      * @return Basic authentication username.
      */
-    String getBasicAuthUsername();
+    String getBasicAuthenticationUsername();
 
     /**
      * Set basic authentication username.
      *
      * @param username Basic authentication username.
      */
-    void setBasicAuthUsername(String username);
+    void setBasicAuthenticationUsername(String username);
 
     /**
      * Basic authentication password.
      *
      * @return Basic authentication password.
      */
-    String getBasicAuthPassword();
+    String getBasicAuthenticationPassword();
 
     /**
      * Set basic authentication password.
      *
      * @param password Basic authentication password.
      */
-    void setBasicAuthPassword(String password);
+    void setBasicAuthenticationPassword(String password);
 }

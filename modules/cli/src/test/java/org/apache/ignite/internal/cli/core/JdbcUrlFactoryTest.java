@@ -58,23 +58,23 @@ class JdbcUrlFactoryTest {
 
     @Test
     void withBasic() {
-        // Given config with basic auth enabled
+        // Given config with basic authentication enabled
         configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
 
-        // Then JDBC URL is constructed with basic auth settings
+        // Then JDBC URL is constructed with basic authentication settings
         String jdbcUrl = factory.constructJdbcUrl("{clientConnector:{port:10800}}", "http://localhost:10300");
         String expectedJdbcUrl = "jdbc:ignite:thin://localhost:10800"
-                + "?basicAuthUsername=usr"
-                + "&basicAuthPassword=pwd";
+                + "?basicAuthenticationUsername=usr"
+                + "&basicAuthenticationPassword=pwd";
         assertEquals(expectedJdbcUrl, jdbcUrl);
     }
 
     @Test
     void withSslAndBasic() {
-        // Given config with JDBC SSL and basic auth enabled
+        // Given config with JDBC SSL and basic authentication enabled
         configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsSslBasicSecretConfig());
 
-        // Then JDBC URL is constructed with SSL and basic auth settings
+        // Then JDBC URL is constructed with SSL and basic authentication settings
         String jdbcUrl = factory.constructJdbcUrl("{clientConnector:{port:10800}}", "http://localhost:10300");
         String expectedJdbcUrl = "jdbc:ignite:thin://localhost:10800"
                 + "?sslEnabled=true"
@@ -82,8 +82,8 @@ class JdbcUrlFactoryTest {
                 + "&trustStorePassword=changeit"
                 + "&keyStorePath=ssl/keystore.p12"
                 + "&keyStorePassword=changeit"
-                + "&basicAuthUsername=usr"
-                + "&basicAuthPassword=pwd";
+                + "&basicAuthenticationUsername=usr"
+                + "&basicAuthenticationPassword=pwd";
         assertEquals(expectedJdbcUrl, jdbcUrl);
     }
 }

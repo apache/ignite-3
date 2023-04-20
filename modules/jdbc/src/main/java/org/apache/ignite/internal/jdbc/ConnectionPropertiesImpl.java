@@ -127,18 +127,18 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             "Enable ssl", false, null, false, null);
 
     /** Basic authentication username. */
-    private final StringProperty basicAuthUsername = new StringProperty("basicAuthUsername",
+    private final StringProperty basicAuthenticationUsername = new StringProperty("basicAuthenticationUsername",
             "Basic authentication username", null, null, false, null);
 
     /** Basic authentication password. */
-    private final StringProperty basicAuthPassword = new StringProperty("basicAuthPassword",
+    private final StringProperty basicAuthenticationPassword = new StringProperty("basicAuthenticationPassword",
             "Basic authentication password", null, null, false, null);
 
     /** Properties array. */
     private final ConnectionProperty[] propsArray = {
             qryTimeout, connTimeout, trustStorePath, trustStorePassword, trustStoreType,
             sslEnabled, clientAuth, ciphers, keyStorePath, keyStorePassword, keyStoreType,
-            basicAuthUsername, basicAuthPassword
+            basicAuthenticationUsername, basicAuthenticationPassword
     };
 
     /** {@inheritDoc} */
@@ -359,23 +359,23 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     }
 
     @Override
-    public String getBasicAuthUsername() {
-        return basicAuthUsername.value();
+    public String getBasicAuthenticationUsername() {
+        return basicAuthenticationUsername.value();
     }
 
     @Override
-    public void setBasicAuthUsername(String username) {
-        basicAuthUsername.setValue(username);
+    public void setBasicAuthenticationUsername(String username) {
+        basicAuthenticationUsername.setValue(username);
     }
 
     @Override
-    public String getBasicAuthPassword() {
-        return basicAuthPassword.value();
+    public String getBasicAuthenticationPassword() {
+        return basicAuthenticationPassword.value();
     }
 
     @Override
-    public void setBasicAuthPassword(String password) {
-        basicAuthPassword.setValue(password);
+    public void setBasicAuthenticationPassword(String password) {
+        basicAuthenticationPassword.setValue(password);
     }
 
     /**
