@@ -38,7 +38,6 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
-import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
@@ -194,9 +193,7 @@ public class ClientSqlExecuteRequest {
 
             out.packString(col.name());
             out.packBoolean(col.nullable());
-            ColumnType columnType = col.type();
-            // TODO: Inline
-            out.packInt(columnType.ordinal());
+            out.packInt(col.type().ordinal());
             out.packInt(col.scale());
             out.packInt(col.precision());
 
