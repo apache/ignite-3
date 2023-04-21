@@ -200,7 +200,7 @@ namespace Apache.Ignite.Internal
                     }
                 }
 
-                var context = await HandshakeAsync(stream, endPoint.EndPoint)
+                var context = await HandshakeAsync(stream, endPoint.EndPoint, configuration)
                     .WaitAsync(configuration.SocketTimeout)
                     .ConfigureAwait(false);
 
@@ -311,10 +311,14 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="stream">Network stream.</param>
         /// <param name="endPoint">Endpoint.</param>
-        private static async Task<ConnectionContext> HandshakeAsync(Stream stream, IPEndPoint endPoint)
+        /// <param name="configuration">Configuration.</param>
+        private static async Task<ConnectionContext> HandshakeAsync(
+            Stream stream,
+            IPEndPoint endPoint,
+            IgniteClientConfiguration configuration)
         {
             await stream.WriteAsync(ProtoCommon.MagicBytes).ConfigureAwait(false);
-            await WriteHandshakeAsync(stream, CurrentProtocolVersion).ConfigureAwait(false);
+            await WriteHandshakeAsync(stream, CurrentProtocolVersion, configuration).ConfigureAwait(false);
 
             await stream.FlushAsync().ConfigureAwait(false);
 
@@ -459,10 +463,13 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private static async ValueTask WriteHandshakeAsync(Stream stream, ClientProtocolVersion version)
+        private static async ValueTask WriteHandshakeAsync(
+            Stream stream,
+            ClientProtocolVersion version,
+            IgniteClientConfiguration configuration)
         {
             using var bufferWriter = new PooledArrayBuffer(prefixSize: ProtoCommon.MessagePrefixSize);
-            WriteHandshake(version, bufferWriter.MessageWriter);
+            WriteHandshake(bufferWriter.MessageWriter, version, configuration);
 
             // Prepend size.
             var buf = bufferWriter.GetWrittenMemory();
@@ -474,7 +481,7 @@ namespace Apache.Ignite.Internal
             Metrics.BytesSent.Add(resBuf.Length);
         }
 
-        private static void WriteHandshake(ClientProtocolVersion version, MsgPackWriter w)
+        private static void WriteHandshake(MsgPackWriter w, ClientProtocolVersion version, IgniteClientConfiguration configuration)
         {
             // Version.
             w.Write(version.Major);
@@ -484,7 +491,24 @@ namespace Apache.Ignite.Internal
             w.Write(ClientType); // Client type: general purpose.
 
             w.WriteBinaryHeader(0); // Features.
-            w.WriteMapHeader(0); // Extensions.
+
+            if (configuration.Authenticator != null)
+            {
+                w.WriteMapHeader(3); // Extensions.
+
+                w.Write(HandshakeExtensions.AuthenticationType);
+                w.Write(configuration.Authenticator.Type);
+
+                w.Write(HandshakeExtensions.AuthenticationIdentity);
+                w.Write((string?)configuration.Authenticator.Identity);
+
+                w.Write(HandshakeExtensions.AuthenticationSecret);
+                w.Write((string?)configuration.Authenticator.Secret);
+            }
+            else
+            {
+                w.WriteMapHeader(0); // Extensions.
+            }
         }
 
         private static void WriteMessageSize(Memory<byte> target, int size) =>

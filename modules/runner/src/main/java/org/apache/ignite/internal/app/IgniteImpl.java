@@ -445,7 +445,7 @@ public class IgniteImpl implements Ignite {
                 clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
 
         dataStorageMgr = new DataStorageManager(
-                tablesConfiguration,
+                distributionZonesConfiguration,
                 dataStorageModules.createStorageEngines(
                         name,
                         clusterConfigRegistry,
@@ -489,7 +489,8 @@ public class IgniteImpl implements Ignite {
                 volatileLogStorageFactoryCreator,
                 clock,
                 outgoingSnapshotsManager,
-                topologyAwareRaftGroupServiceFactory
+                topologyAwareRaftGroupServiceFactory,
+                vaultMgr
         );
 
         indexManager = new IndexManager(name, tablesConfiguration, schemaManager, distributedTblMgr, clusterSvc);

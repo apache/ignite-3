@@ -114,7 +114,6 @@ import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValu
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -680,7 +679,6 @@ public class ItRebalanceDistributedTest {
                     cfgStorage,
                     List.of(ExtendedTableConfigurationSchema.class),
                     List.of(
-                            UnknownDataStorageConfigurationSchema.class,
                             VolatilePageMemoryDataStorageConfigurationSchema.class,
                             UnsafeMemoryAllocatorConfigurationSchema.class,
                             PersistentPageMemoryDataStorageConfigurationSchema.class,
@@ -709,7 +707,7 @@ public class ItRebalanceDistributedTest {
             Path storagePath = dir.resolve("storage");
 
             dataStorageMgr = new DataStorageManager(
-                    tablesCfg,
+                    zonesCfg,
                     dataStorageModules.createStorageEngines(
                             name,
                             clusterCfgMgr.configurationRegistry(),
@@ -760,7 +758,8 @@ public class ItRebalanceDistributedTest {
                     view -> new LocalLogStorageFactory(),
                     new HybridClockImpl(),
                     new OutgoingSnapshotsManager(clusterService.messagingService()),
-                    topologyAwareRaftGroupServiceFactory
+                    topologyAwareRaftGroupServiceFactory,
+                    vaultManager
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg,
@@ -905,17 +904,18 @@ public class ItRebalanceDistributedTest {
     }
 
     private void createTableWithOnePartition(String tableName, String zoneName, int replicas, boolean testDataStorage) {
-        int zoneId = await(createZone(nodes.get(0).distributionZoneManager, zoneName, 1, replicas));
+        int zoneId = await(
+                createZone(
+                        nodes.get(0).distributionZoneManager,
+                        zoneName, 1, replicas,
+                        testDataStorage ? (dataStorageChange -> dataStorageChange.convert(TestDataStorageChange.class)) : null));
+
         assertThat(
                 nodes.get(0).tableManager.createTableAsync(
                         tableName,
                         tableChange -> {
                             SchemaConfigurationConverter.convert(createTableDefinition(tableName), tableChange)
                                     .changeZoneId(zoneId);
-
-                            if (testDataStorage) {
-                                tableChange.changeDataStorage(dataStorageChange -> dataStorageChange.convert(TestDataStorageChange.class));
-                            }
                         }
                 ),
                 willCompleteSuccessfully()

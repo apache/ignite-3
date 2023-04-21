@@ -32,20 +32,20 @@ public class ApiClientSettings {
 
     private String trustStorePassword;
 
-    private String basicAuthLogin;
+    private String basicAuthenticationUsername;
 
-    private String basicAuthPassword;
+    private String basicAuthenticationPassword;
 
     ApiClientSettings(String basePath, String keyStorePath, String keyStorePassword, String trustStorePath,
             String trustStorePassword,
-            String basicAuthLogin, String basicAuthPassword) {
+            String basicAuthenticationUsername, String basicAuthenticationPassword) {
         this.basePath = basePath;
         this.keyStorePath = keyStorePath;
         this.keyStorePassword = keyStorePassword;
         this.trustStorePath = trustStorePath;
         this.trustStorePassword = trustStorePassword;
-        this.basicAuthLogin = basicAuthLogin;
-        this.basicAuthPassword = basicAuthPassword;
+        this.basicAuthenticationUsername = basicAuthenticationUsername;
+        this.basicAuthenticationPassword = basicAuthenticationPassword;
     }
 
     public static ApiClientSettingsBuilder builder() {
@@ -72,12 +72,12 @@ public class ApiClientSettings {
         return trustStorePassword;
     }
 
-    public String basicAuthLogin() {
-        return basicAuthLogin;
+    public String basicAuthenticationUsername() {
+        return basicAuthenticationUsername;
     }
 
-    public String basicAuthPassword() {
-        return basicAuthPassword;
+    public String basicAuthenticationPassword() {
+        return basicAuthenticationPassword;
     }
 
     @Override
@@ -90,14 +90,15 @@ public class ApiClientSettings {
         }
         ApiClientSettings that = (ApiClientSettings) o;
         return Objects.equals(basePath, that.basePath) && Objects.equals(keyStorePath, that.keyStorePath)
-                && Objects.equals(keyStorePassword, that.keyStorePassword) && Objects.equals(trustStorePath,
-                that.trustStorePath) && Objects.equals(trustStorePassword, that.trustStorePassword) && Objects.equals(
-                basicAuthLogin, that.basicAuthLogin) && Objects.equals(basicAuthPassword, that.basicAuthPassword);
+                && Objects.equals(keyStorePassword, that.keyStorePassword) && Objects.equals(trustStorePath, that.trustStorePath)
+                && Objects.equals(trustStorePassword, that.trustStorePassword)
+                && Objects.equals(basicAuthenticationUsername, that.basicAuthenticationUsername)
+                && Objects.equals(basicAuthenticationPassword, that.basicAuthenticationPassword);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(basePath, keyStorePath, keyStorePassword, trustStorePath, trustStorePassword, basicAuthLogin,
-                basicAuthPassword);
+        return Objects.hash(basePath, keyStorePath, keyStorePassword, trustStorePath, trustStorePassword,
+                basicAuthenticationUsername, basicAuthenticationPassword);
     }
 }

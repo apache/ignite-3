@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -32,6 +31,7 @@ import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentCodeApi;
+import org.apache.ignite.internal.rest.api.deployment.DeploymentInfo;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 
 /**
@@ -115,11 +115,12 @@ public class DeploymentManagementController implements DeploymentCodeApi {
      * @return Unit status DTO.
      */
     public static UnitStatus fromUnitStatus(org.apache.ignite.internal.deployunit.UnitStatus status) {
-        Map<String, List<String>> versionToConsistentIds = new HashMap<>();
+        Map<String, DeploymentInfo> versionToDeploymentStatus = new HashMap<>();
         Set<Version> versions = status.versions();
         for (Version version : versions) {
-            versionToConsistentIds.put(version.render(), status.consistentIds(version));
+            DeploymentInfo info = new DeploymentInfo(status.status(version), status.consistentIds(version));
+            versionToDeploymentStatus.put(version.render(), info);
         }
-        return new UnitStatus(status.id(), versionToConsistentIds);
+        return new UnitStatus(status.id(), versionToDeploymentStatus);
     }
 }

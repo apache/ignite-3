@@ -19,7 +19,6 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.Collections.singleton;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -42,9 +41,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 import org.mockito.ArgumentCaptor;
@@ -101,10 +98,9 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     }
 
     private static ClusterService mockClusterService() {
-        ClusterNode localNode = new ClusterNode(TEST_NODE_NAME, TEST_NODE_NAME, mock(NetworkAddress.class));
+        ClusterService clusterService = mock(ClusterService.class);
 
-        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        when(clusterService.topologyService().localMember()).thenReturn(localNode);
+        when(clusterService.nodeName()).thenReturn(TEST_NODE_NAME);
 
         return clusterService;
     }
@@ -171,10 +167,14 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             }
         };
 
-        if (command instanceof ReadCommand) {
-            listener.onRead(singleton((CommandClosure<ReadCommand>) closure).iterator());
-        } else {
-            listener.onWrite(singleton((CommandClosure<WriteCommand>) closure).iterator());
+        try {
+            if (command instanceof ReadCommand) {
+                listener.onRead(singleton((CommandClosure<ReadCommand>) closure).iterator());
+            } else {
+                listener.onWrite(singleton((CommandClosure<WriteCommand>) closure).iterator());
+            }
+        } catch (Throwable e) {
+            future.completeExceptionally(e);
         }
 
         return future;

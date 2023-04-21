@@ -74,7 +74,6 @@ import org.apache.ignite.rest.client.model.Problem;
 import org.apache.ignite.rest.client.model.UnitStatus;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
@@ -287,7 +286,6 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19235")
     void initCluster() {
         assertDoesNotThrow(() -> {
             // in fact, this is the second init that means nothing but just testing that the second init does not throw and exception
@@ -393,7 +391,7 @@ public class ItGeneratedRestClientTest {
         List<UnitStatus> units = deploymentApi.units();
         assertThat(units, hasSize(1));
         assertThat(units.get(0).getId(), equalTo("test.unit.id"));
-        assertThat(units.get(0).getVersionToConsistentIds().values(), not(empty()));
+        assertThat(units.get(0).getVersionToDeploymentInfo().values(), not(empty()));
 
         assertThat(deploymentApi.versions("test.unit.id"), contains("1.0.0"));
 

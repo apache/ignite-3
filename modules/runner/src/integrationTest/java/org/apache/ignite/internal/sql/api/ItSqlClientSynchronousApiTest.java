@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.runner.app.client.ItAbstractThinClientT
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,11 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
     @Override
     protected IgniteSql igniteSql() {
         return client.sql();
+    }
+
+    @Override
+    protected IgniteTransactions igniteTx() {
+        return client.transactions();
     }
 
     @Override

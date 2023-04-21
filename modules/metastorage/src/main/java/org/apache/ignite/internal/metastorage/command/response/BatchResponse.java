@@ -20,10 +20,10 @@ package org.apache.ignite.internal.metastorage.command.response;
 import java.io.Serializable;
 import java.util.List;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.command.cursor.NextBatchCommand;
+import org.apache.ignite.internal.metastorage.command.PaginationCommand;
 
 /**
- * Response for a {@link NextBatchCommand}, containing the requested batch.
+ * Response for a {@link PaginationCommand}, containing the requested batch.
  */
 public class BatchResponse implements Serializable {
     private static final long serialVersionUID = 8679671467542166801L;

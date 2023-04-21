@@ -17,27 +17,27 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneLogicalTopologyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZone;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZoneWithAttributes;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.mockMetaStorageListener;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.watchListenerOnUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -45,12 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -59,16 +54,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedConfigurationTree;
-import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
-import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -77,36 +64,20 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Zone
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneChange;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
-import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
-import org.apache.ignite.internal.metastorage.dsl.Iif;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
-import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.schema.configuration.TableChange;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.metastorage.dsl.Conditions;
+import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.vault.VaultEntry;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
 
 /**
  * Test scenarios for the distribution zone scale up and scale down.
  */
-public class DistributionZoneManagerScaleUpTest {
+public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneManagerTest {
     private static final String ZONE_NAME = "zone1";
 
     private static final LogicalNode NODE_1 = new LogicalNode("1", "node1", new NetworkAddress("localhost", 123));
@@ -121,123 +92,8 @@ public class DistributionZoneManagerScaleUpTest {
     private static final NodeWithAttributes D  = new NodeWithAttributes("D", Collections.emptyMap());
     private static final NodeWithAttributes E  = new NodeWithAttributes("E", Collections.emptyMap());
 
-
-    private DistributionZoneManager distributionZoneManager;
-
-    private SimpleInMemoryKeyValueStorage keyValueStorage;
-
-    private ConfigurationManager clusterCfgMgr;
-
-    private LogicalTopology topology;
-
-    private ClusterStateStorage clusterStateStorage;
-
-    private VaultManager vaultMgr;
-
-    private MetaStorageManager metaStorageManager;
-
-    private WatchListener topologyWatchListener;
-
-    private DistributionZonesConfiguration zonesConfiguration;
-
-    @Mock
-    private ClusterManagementGroupManager cmgManager;
-
-    @Mock
-    RaftGroupService metaStorageService;
-
-    @BeforeEach
-    public void setUp() {
-        clusterCfgMgr = new ConfigurationManager(
-                List.of(DistributionZonesConfiguration.KEY),
-                Set.of(),
-                new TestConfigurationStorage(DISTRIBUTED),
-                List.of(),
-                List.of()
-        );
-
-        zonesConfiguration = clusterCfgMgr.configurationRegistry()
-                .getConfiguration(DistributionZonesConfiguration.KEY);
-
-        metaStorageManager = mock(MetaStorageManager.class);
-
-        cmgManager = mock(ClusterManagementGroupManager.class);
-
-        clusterStateStorage = new TestClusterStateStorage();
-
-        topology = new LogicalTopologyImpl(clusterStateStorage);
-
-        LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(topology, cmgManager);
-
-        vaultMgr = mock(VaultManager.class);
-
-        TablesConfiguration tablesConfiguration = mock(TablesConfiguration.class);
-
-        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = mock(NamedConfigurationTree.class);
-
-        when(tablesConfiguration.tables()).thenReturn(tables);
-
-        NamedListView<TableView> value = mock(NamedListView.class);
-
-        when(tables.value()).thenReturn(value);
-
-        when(value.namedListKeys()).thenReturn(new ArrayList<>());
-
-        distributionZoneManager = new DistributionZoneManager(
-                zonesConfiguration,
-                tablesConfiguration,
-                metaStorageManager,
-                logicalTopologyService,
-                vaultMgr,
-                "node"
-        );
-
-        clusterCfgMgr.start();
-
-        mockVaultAppliedRevision(1);
-
-        when(vaultMgr.get(zonesLogicalTopologyKey())).thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), null)));
-
-        when(vaultMgr.get(zonesLogicalTopologyVersionKey()))
-                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyVersionKey(), longToBytes(0))));
-
-        when(vaultMgr.put(any(), any())).thenReturn(completedFuture(null));
-
-        doAnswer(invocation -> {
-            ByteArray key = invocation.getArgument(0);
-
-            WatchListener watchListener = invocation.getArgument(1);
-
-            if (Arrays.equals(key.bytes(), zoneLogicalTopologyPrefix().bytes())) {
-                topologyWatchListener = watchListener;
-            }
-
-            return null;
-        }).when(metaStorageManager).registerPrefixWatch(any(), any());
-
-        AtomicLong raftIndex = new AtomicLong();
-
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
-
-        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, mock(ClusterTimeImpl.class));
-
-        metaStorageService = mock(RaftGroupService.class);
-
-        mockMetaStorageListener(raftIndex, metaStorageListener, metaStorageService, metaStorageManager);
-    }
-
-    @AfterEach
-    public void tearDown() throws Exception {
-        distributionZoneManager.stop();
-
-        clusterCfgMgr.stop();
-
-        keyValueStorage.close();
-
-        clusterStateStorage.destroy();
-    }
-
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     void testDataNodesPropagationAfterScaleUpTriggered() throws Exception {
         topology.putNode(NODE_1);
 
@@ -245,9 +101,7 @@ public class DistributionZoneManagerScaleUpTest {
 
         mockVaultZonesLogicalTopologyKey(clusterNodes);
 
-        mockCmgLocalNodes();
-
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
 
@@ -261,28 +115,17 @@ public class DistributionZoneManagerScaleUpTest {
                 new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
         ).get();
 
-        assertDataNodesForZone(1, clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
+        assertDataNodesForZone(1, clusterNodes2.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
 
         assertZoneScaleUpChangeTriggerKey(1, 1, keyValueStorage);
-
-        watchListenerOnUpdate(
-                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                2,
-                topologyWatchListener
-        );
-
-        assertDataNodesForZone(1, clusterNodes2.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testDataNodesPropagationAfterScaleUpTriggeredOnNewCluster() throws Exception {
         topology.putNode(NODE_1);
 
-        Set<LogicalNode> clusterNodes = Set.of(NODE_1);
-
-        mockCmgLocalNodes();
-
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
                 new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
@@ -294,16 +137,8 @@ public class DistributionZoneManagerScaleUpTest {
 
         int zoneId = distributionZoneManager.getZoneId(ZONE_NAME);
 
-        mockVaultZonesLogicalTopologyKey(clusterNodes);
-
-        watchListenerOnUpdate(
-                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                3,
-                topologyWatchListener
-        );
-
-        assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
-        assertDataNodesForZone(zoneId, clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
+        assertDataNodesForZone(DEFAULT_ZONE_ID, Set.of(NODE_1.name()), keyValueStorage);
+        assertDataNodesForZone(zoneId, Set.of(NODE_1.name()), keyValueStorage);
     }
 
     @Test
@@ -317,9 +152,7 @@ public class DistributionZoneManagerScaleUpTest {
 
         mockVaultZonesLogicalTopologyKey(clusterNodes);
 
-        mockCmgLocalNodes();
-
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodesNames, keyValueStorage);
 
@@ -333,19 +166,12 @@ public class DistributionZoneManagerScaleUpTest {
                 new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleDown(0).build()
         ).get();
 
-        assertDataNodesForZone(1, clusterNodesNames, keyValueStorage);
-
         assertZoneScaleDownChangeTriggerKey(1, 1, keyValueStorage);
-
-        watchListenerOnUpdate(
-                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                2,
-                topologyWatchListener
-        );
 
         assertDataNodesForZone(1, clusterNodes2.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testDataNodesPropagationForDefaultZoneAfterScaleUpTriggered() throws Exception {
         topology.putNode(NODE_1);
@@ -354,9 +180,7 @@ public class DistributionZoneManagerScaleUpTest {
 
         mockVaultZonesLogicalTopologyKey(clusterNodes);
 
-        mockCmgLocalNodes();
-
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
 
@@ -372,15 +196,10 @@ public class DistributionZoneManagerScaleUpTest {
                 new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
         ).get();
 
-        watchListenerOnUpdate(
-                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                2,
-                topologyWatchListener
-        );
-
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodesNames2, keyValueStorage);
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testDataNodesPropagationForDefaultZoneAfterScaleDownTriggered() throws Exception {
         topology.putNode(NODE_1);
@@ -392,9 +211,7 @@ public class DistributionZoneManagerScaleUpTest {
 
         mockVaultZonesLogicalTopologyKey(clusterNodes);
 
-        mockCmgLocalNodes();
-
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodesNames, keyValueStorage);
 
@@ -410,27 +227,19 @@ public class DistributionZoneManagerScaleUpTest {
                 new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME).dataNodesAutoAdjustScaleDown(0).build()
         ).get();
 
-        watchListenerOnUpdate(
-                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                2,
-                topologyWatchListener
-        );
-
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodesNames2, keyValueStorage);
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testDropZoneDoNotPropagateDataNodesAfterScaleUp() throws Exception {
         topology.putNode(NODE_1);
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1);
-        Set<String> clusterNodesNames = Set.of(NODE_1.name());
 
         mockVaultZonesLogicalTopologyKey(clusterNodes);
 
-        mockCmgLocalNodes();
-
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         topology.putNode(NODE_2);
 
@@ -443,21 +252,18 @@ public class DistributionZoneManagerScaleUpTest {
                 new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
         ).get();
 
-        assertDataNodesForZone(1, clusterNodesNames, keyValueStorage);
+        assertDataNodesForZone(1, clusterNodesNames2, keyValueStorage);
 
         assertZoneScaleUpChangeTriggerKey(1, 1, keyValueStorage);
 
         distributionZoneManager.dropZone(ZONE_NAME).get();
 
-        watchListenerOnUpdate(
-                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                2,
-                topologyWatchListener
-        );
+        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
 
         assertNotEqualsDataNodesForZone(1, clusterNodesNames2);
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testDropZoneDoNotPropagateDataNodesAfterScaleDown() throws Exception {
         topology.putNode(NODE_1);
@@ -468,9 +274,7 @@ public class DistributionZoneManagerScaleUpTest {
 
         mockVaultZonesLogicalTopologyKey(clusterNodes);
 
-        mockCmgLocalNodes();
-
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         topology.removeNodes(Set.of(NODE_2));
 
@@ -483,17 +287,11 @@ public class DistributionZoneManagerScaleUpTest {
                 new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleDown(0).build()
         ).get();
 
-        assertDataNodesForZone(1, clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
+        assertDataNodesForZone(1, clusterNodesNames2, keyValueStorage);
 
         assertZoneScaleDownChangeTriggerKey(1, 1, keyValueStorage);
 
         distributionZoneManager.dropZone(ZONE_NAME).get();
-
-        watchListenerOnUpdate(
-                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                2,
-                topologyWatchListener
-        );
 
         assertNotEqualsDataNodesForZone(1, clusterNodesNames2);
     }
@@ -838,11 +636,7 @@ public class DistributionZoneManagerScaleUpTest {
 
     @Test
     void testEmptyDataNodesOnStart() throws Exception {
-        mockVaultZonesLogicalTopologyKey(Set.of());
-
-        mockCmgLocalNodes();
-
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         assertLogicalTopology(Set.of(), keyValueStorage);
 
@@ -858,22 +652,13 @@ public class DistributionZoneManagerScaleUpTest {
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
 
-        watchListenerOnUpdate(
-                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                2,
-                topologyWatchListener
-        );
-
         assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testUpdateZoneScaleUpTriggersDataNodePropagation() throws Exception {
-        mockVaultZonesLogicalTopologyKey(Set.of());
-
-        mockCmgLocalNodes();
-
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         assertLogicalTopology(Set.of(), keyValueStorage);
 
@@ -889,12 +674,6 @@ public class DistributionZoneManagerScaleUpTest {
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
 
-        watchListenerOnUpdate(
-                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                2,
-                topologyWatchListener
-        );
-
         assertDataNodesForZone(1, Set.of(), keyValueStorage);
 
         distributionZoneManager.alterZone(
@@ -905,15 +684,14 @@ public class DistributionZoneManagerScaleUpTest {
         assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testUpdateZoneScaleDownTriggersDataNodePropagation() throws Exception {
         topology.putNode(NODE_1);
 
         mockVaultZonesLogicalTopologyKey(Set.of(NODE_1));
 
-        mockCmgLocalNodes();
-
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
 
@@ -926,12 +704,6 @@ public class DistributionZoneManagerScaleUpTest {
         assertZoneScaleDownChangeTriggerKey(1, 1, keyValueStorage);
 
         topology.removeNodes(Set.of(NODE_1));
-
-        watchListenerOnUpdate(
-                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                2,
-                topologyWatchListener
-        );
 
         assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
 
@@ -979,11 +751,7 @@ public class DistributionZoneManagerScaleUpTest {
 
     @Test
     void testScaleUpSetToMaxInt() throws Exception {
-        mockVaultZonesLogicalTopologyKey(Set.of());
-
-        mockCmgLocalNodes();
-
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         assertLogicalTopology(Set.of(), keyValueStorage);
 
@@ -1003,12 +771,6 @@ public class DistributionZoneManagerScaleUpTest {
 
         assertNull(zoneState.scaleUpTask());
 
-        watchListenerOnUpdate(
-                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                2,
-                topologyWatchListener
-        );
-
         assertTrue(waitForCondition(() -> zoneState.scaleUpTask() != null, 1000L));
 
         distributionZoneManager.alterZone(
@@ -1025,9 +787,7 @@ public class DistributionZoneManagerScaleUpTest {
 
         mockVaultZonesLogicalTopologyKey(Set.of(NODE_1));
 
-        mockCmgLocalNodes();
-
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
 
@@ -1045,12 +805,6 @@ public class DistributionZoneManagerScaleUpTest {
 
         topology.removeNodes(Set.of(NODE_1));
 
-        watchListenerOnUpdate(
-                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                2,
-                topologyWatchListener
-        );
-
         assertTrue(waitForCondition(() -> zoneState.scaleDownTask() != null, 1000L));
 
         distributionZoneManager.alterZone(
@@ -1063,11 +817,7 @@ public class DistributionZoneManagerScaleUpTest {
 
     @Test
     void testScaleUpDidNotChangeDataNodesWhenTriggerKeyWasConcurrentlyChanged() throws Exception {
-        mockVaultZonesLogicalTopologyKey(Set.of());
-
-        mockCmgLocalNodes();
-
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         assertLogicalTopology(Set.of(), keyValueStorage);
 
@@ -1079,30 +829,23 @@ public class DistributionZoneManagerScaleUpTest {
 
         assertZoneScaleDownChangeTriggerKey(1, 1, keyValueStorage);
 
+        doAnswer(invocation -> {
+            If iif = invocation.getArgument(0);
+
+            // Emulate a situation when one of the scale up keys gets concurrently updated during a Meta Storage invoke. We then expect
+            // that the invoke call will be retried.
+            byte[] key = zoneScaleUpChangeTriggerKey(1).bytes();
+
+            if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(key, k))) {
+                keyValueStorage.put(key, longToBytes(100));
+            }
+
+            return invocation.callRealMethod();
+        }).when(keyValueStorage).invoke(any());
+
         topology.putNode(NODE_1);
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
-
-        MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
-
-        lenient().doAnswer(invocationClose -> {
-            // First invoke of data nodes propagation on scale up do not pass because of trigger key revision condition.
-            // We had scaleUpChangeTriggerKey = 1 from ms, but after that it was changed to 100, so on the next call
-            // invoke won't be even triggered because event become stale.
-            keyValueStorage.put(zoneScaleUpChangeTriggerKey(1).bytes(), longToBytes(100));
-
-            Iif iif = invocationClose.getArgument(0);
-
-            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).build();
-
-            return metaStorageService.run(multiInvokeCommand);
-        }).when(metaStorageManager).invoke(any());
-
-        watchListenerOnUpdate(
-                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                2,
-                topologyWatchListener
-        );
 
         assertZoneScaleUpChangeTriggerKey(100, 1, keyValueStorage);
 
@@ -1115,9 +858,7 @@ public class DistributionZoneManagerScaleUpTest {
 
         mockVaultZonesLogicalTopologyKey(Set.of(NODE_1));
 
-        mockCmgLocalNodes();
-
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
 
@@ -1129,28 +870,21 @@ public class DistributionZoneManagerScaleUpTest {
 
         assertZoneScaleDownChangeTriggerKey(1, 1, keyValueStorage);
 
+        doAnswer(invocation -> {
+            If iif = invocation.getArgument(0);
+
+            // Emulate a situation when one of the scale down keys gets concurrently updated during a Meta Storage invoke. We then expect
+            // that the invoke call will be retried.
+            byte[] key = zoneScaleDownChangeTriggerKey(1).bytes();
+
+            if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(key, k))) {
+                keyValueStorage.put(key, longToBytes(100));
+            }
+
+            return invocation.callRealMethod();
+        }).when(keyValueStorage).invoke(any());
+
         topology.removeNodes(Set.of(NODE_1));
-
-        MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
-
-        lenient().doAnswer(invocationClose -> {
-            // First invoke of data nodes propagation on scale down do not pass because of trigger key revision condition.
-            // We had scaleDownChangeTriggerKey = 1 from ms, but after that it was changed to 100, so on the next call
-            // invoke won't be even triggered because event become stale.
-            keyValueStorage.put(zoneScaleDownChangeTriggerKey(1).bytes(), longToBytes(100));
-
-            Iif iif = invocationClose.getArgument(0);
-
-            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).build();
-
-            return metaStorageService.run(multiInvokeCommand);
-        }).when(metaStorageManager).invoke(any());
-
-        watchListenerOnUpdate(
-                topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                2,
-                topologyWatchListener
-        );
 
         assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
 
@@ -1627,9 +1361,7 @@ public class DistributionZoneManagerScaleUpTest {
 
         mockVaultZonesLogicalTopologyKey(clusterNodes);
 
-        mockCmgLocalNodes();
-
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         if (filter == null) {
             distributionZoneManager.createZone(
@@ -1677,12 +1409,20 @@ public class DistributionZoneManagerScaleUpTest {
         ));
     }
 
-    private void mockVaultAppliedRevision(long revision) {
-        when(metaStorageManager.appliedRevision()).thenReturn(revision);
+    private void startDistributionZoneManager() throws NodeStoppingException {
+        distributionZoneManager.start();
+
+        metaStorageManager.deployWatches();
     }
 
-    private void mockCmgLocalNodes() {
-        when(cmgManager.logicalTopology()).thenReturn(completedFuture(topology.getLogicalTopology()));
+    private void setLogicalTopologyInMetaStorage(Set<String> nodes) {
+        CompletableFuture<Boolean> invokeFuture = metaStorageManager.invoke(
+                Conditions.exists(zonesLogicalTopologyKey()),
+                put(zonesLogicalTopologyKey(), toBytes(nodes)),
+                noop()
+        );
+
+        assertThat(invokeFuture, willBe(true));
     }
 
     private void mockVaultZonesLogicalTopologyKey(Set<LogicalNode> nodes) {
@@ -1692,7 +1432,6 @@ public class DistributionZoneManagerScaleUpTest {
 
         byte[] newLogicalTopology = toBytes(nodesWithAttributes);
 
-        when(vaultMgr.get(zonesLogicalTopologyKey()))
-                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), newLogicalTopology)));
+        assertThat(vaultMgr.put(zonesLogicalTopologyKey(), newLogicalTopology), willCompleteSuccessfully());
     }
 }

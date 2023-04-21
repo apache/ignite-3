@@ -39,6 +39,8 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientDataType;
+import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
+import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -304,6 +306,7 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("int64", ColumnType.INT64).asNullable(true).build(),
                 SchemaBuilders.column("float", ColumnType.FLOAT).asNullable(true).build(),
                 SchemaBuilders.column("double", ColumnType.DOUBLE).asNullable(true).build(),
+                SchemaBuilders.column("uuid", ColumnType.UUID).asNullable(true).build(),
                 SchemaBuilders.column("date", ColumnType.DATE).asNullable(true).build(),
                 SchemaBuilders.column("time", ColumnType.time(maxTimePrecision)).asNullable(true).build(),
                 SchemaBuilders.column("time2", ColumnType.time(maxTimePrecision)).asNullable(true).build(),
@@ -326,6 +329,7 @@ public class PlatformTestNodeRunner {
         createTwoColumnTable(node, ColumnType.INT64, zoneId);
         createTwoColumnTable(node, ColumnType.FLOAT, zoneId);
         createTwoColumnTable(node, ColumnType.DOUBLE, zoneId);
+        createTwoColumnTable(node, ColumnType.UUID, zoneId);
         createTwoColumnTable(node, ColumnType.decimal(), zoneId);
         createTwoColumnTable(node, ColumnType.string(), zoneId);
         createTwoColumnTable(node, ColumnType.DATE, zoneId);
@@ -542,6 +546,37 @@ public class PlatformTestNodeRunner {
             } catch (TupleMarshallerException e) {
                 throw new RuntimeException(e);
             }
+        }
+    }
+
+    /**
+     * Compute job that enables or disables client authentication.
+     */
+    @SuppressWarnings({"unused"}) // Used by platform tests.
+    private static class EnableAuthenticationJob implements ComputeJob<Void> {
+        @Override
+        public Void execute(JobExecutionContext context, Object... args) {
+            boolean enable = ((Integer) args[0]) != 0;
+            @SuppressWarnings("resource") IgniteImpl ignite = (IgniteImpl) context.ignite();
+
+            ignite.clusterConfiguration().change(
+                    root -> root.changeRoot(SecurityConfiguration.KEY).changeAuthentication(
+                            change -> {
+                                change.changeEnabled(enable);
+                                change.changeProviders().delete("basic");
+
+                                if (enable) {
+                                    change.changeProviders().create("basic", authenticationProviderChange -> {
+                                        authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
+                                                .changeUsername("user-1")
+                                                .changePassword("password-1")
+                                                .changeName("basic");
+                                    });
+                                }
+                            }
+                    )).join();
+
+            return null;
         }
     }
 }

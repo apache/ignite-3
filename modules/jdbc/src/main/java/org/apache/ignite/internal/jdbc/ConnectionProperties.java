@@ -253,4 +253,32 @@ public interface ConnectionProperties {
      * @return Keytore type.
      */
     String getKeyStoreType();
+
+    /**
+     * Basic authentication username.
+     *
+     * @return Basic authentication username.
+     */
+    String getBasicAuthenticationUsername();
+
+    /**
+     * Set basic authentication username.
+     *
+     * @param username Basic authentication username.
+     */
+    void setBasicAuthenticationUsername(String username);
+
+    /**
+     * Basic authentication password.
+     *
+     * @return Basic authentication password.
+     */
+    String getBasicAuthenticationPassword();
+
+    /**
+     * Set basic authentication password.
+     *
+     * @param password Basic authentication password.
+     */
+    void setBasicAuthenticationPassword(String password);
 }
