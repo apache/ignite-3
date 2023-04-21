@@ -34,11 +34,11 @@ public class CliConfigRemoveCallInput implements CallInput {
         return new Builder();
     }
 
-    public String getKey() {
+    public String key() {
         return key;
     }
 
-    public String getProfileName() {
+    public String profileName() {
         return profileName;
     }
 

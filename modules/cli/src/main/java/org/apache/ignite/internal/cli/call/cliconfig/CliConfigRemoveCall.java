@@ -36,8 +36,8 @@ public class CliConfigRemoveCall implements Call<CliConfigRemoveCallInput, Strin
     @Override
     public DefaultCallOutput<String> execute(CliConfigRemoveCallInput input) {
         ConfigManager configManager = configManagerProvider.get();
-        String key = input.getKey();
-        String profileName = input.getProfileName();
+        String key = input.key();
+        String profileName = input.profileName();
         if (configManager.removeProperty(key, profileName) != null) {
             return DefaultCallOutput.empty();
         }
