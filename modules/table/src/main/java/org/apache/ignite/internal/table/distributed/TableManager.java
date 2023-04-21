@@ -24,8 +24,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;

@@ -63,7 +63,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -292,7 +291,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         topVerTracker = new PendingComparableValuesTracker<>(0L);
 
-        zonesByIdVv = new IncrementalVersionedValue<>(registry, HashSet::new);
+        zonesByIdVv = new IncrementalVersionedValue<>(registry, () -> Set.of(DEFAULT_ZONE_ID));
     }
 
     @TestOnly
@@ -1171,14 +1170,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
         try {
             long appliedRevision = metaStorageManager.appliedRevision();
-
-            zonesByIdVv.update(appliedRevision, (zones, e) -> {
-                HashSet<Integer> newZones = new HashSet<>(zones);
-
-                newZones.add(DEFAULT_ZONE_ID);
-
-                return completedFuture(newZones);
-            });
 
             lastScaleUpRevision = appliedRevision;
 
