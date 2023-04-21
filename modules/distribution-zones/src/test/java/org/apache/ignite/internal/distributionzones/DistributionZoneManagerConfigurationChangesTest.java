@@ -42,10 +42,14 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -120,12 +124,18 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         metaStorageManager.put(zonesLogicalTopologyVersionKey(), longToBytes(0));
 
+        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
+
+        Consumer<Function<Long, CompletableFuture<?>>> registry =
+                c -> clusterConfigRegistry.listenUpdateStorageRevision(c::apply);
+
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
                 tablesConfiguration,
                 metaStorageManager,
                 logicalTopologyService,
                 vaultMgr,
+                registry,
                 "test"
         );
 

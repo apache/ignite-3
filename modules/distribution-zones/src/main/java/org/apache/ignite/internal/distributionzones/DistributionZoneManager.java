@@ -21,6 +21,7 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
@@ -56,10 +57,13 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -71,16 +75,21 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationNodeAlreadyExistException;
 import org.apache.ignite.configuration.ConfigurationNodeDoesNotExistException;
 import org.apache.ignite.configuration.ConfigurationNodeRemovedException;
+import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.internal.causality.CompletionListener;
+import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -121,8 +130,10 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -160,6 +171,17 @@ public class DistributionZoneManager implements IgniteComponent {
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneManager.class);
+
+    /**
+     * If this property is set to {@code true} then an attempt to get the configuration property directly from Meta storage will be skipped,
+     * and the local property will be returned.
+     * TODO: IGNITE-16774 This property and overall approach, access configuration directly through Meta storage,
+     * TODO: will be removed after fix of the issue.
+     */
+    private final boolean getMetadataLocallyOnly = IgniteSystemProperties.getBoolean("IGNITE_GET_METADATA_LOCALLY_ONLY");
+
+    /** Versioned store for zones id. */
+    private final IncrementalVersionedValue<Set<Integer>> zonesByIdVv;
 
     /** Distribution zone configuration. */
     private final DistributionZonesConfiguration zonesConfiguration;
@@ -245,6 +267,7 @@ public class DistributionZoneManager implements IgniteComponent {
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             VaultManager vaultMgr,
+            Consumer<Function<Long, CompletableFuture<?>>> registry,
             String nodeName
     ) {
         this.zonesConfiguration = zonesConfiguration;
@@ -268,6 +291,8 @@ public class DistributionZoneManager implements IgniteComponent {
         );
 
         topVerTracker = new PendingComparableValuesTracker<>(0L);
+
+        zonesByIdVv = new IncrementalVersionedValue<>(registry, HashSet::new);
     }
 
     @TestOnly
@@ -859,6 +884,14 @@ public class DistributionZoneManager implements IgniteComponent {
 
             saveDataNodesAndUpdateTriggerKeysInMetaStorage(zoneId, ctx.storageRevision(), logicalTopology);
 
+            zonesByIdVv.update(ctx.storageRevision(), (zones, e) -> {
+                HashSet<Integer> newZones = new HashSet<>(zones);
+
+                newZones.add(zoneId);
+
+                return completedFuture(newZones);
+            });
+
             return completedFuture(null);
         }
 
@@ -874,6 +907,15 @@ public class DistributionZoneManager implements IgniteComponent {
 
             zoneState.scaleUpRevisionTracker.update(Long.MAX_VALUE);
             zoneState.scaleDownRevisionTracker.update(Long.MAX_VALUE);
+
+            zonesByIdVv.update(ctx.storageRevision(), (zones, e) -> {
+                HashSet<Integer> newZones = new HashSet<>(zones);
+
+                newZones.remove(zoneId);
+
+                return completedFuture(newZones);
+            });
+
 
             return completedFuture(null);
         }
@@ -1129,6 +1171,14 @@ public class DistributionZoneManager implements IgniteComponent {
 
         try {
             long appliedRevision = metaStorageManager.appliedRevision();
+
+            zonesByIdVv.update(appliedRevision, (zones, e) -> {
+                HashSet<Integer> newZones = new HashSet<>(zones);
+
+                newZones.add(DEFAULT_ZONE_ID);
+
+                return completedFuture(newZones);
+            });
 
             lastScaleUpRevision = appliedRevision;
 
@@ -1612,6 +1662,101 @@ public class DistributionZoneManager implements IgniteComponent {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * Gets direct id of the distribution zone with {@code zoneName}.
+     *
+     * @param zoneName Name of the distribution zone.
+     * @return Direct id of the distribution zone, or {@code null} if the zone with the {@code zoneName} has not been found.
+     */
+    public CompletableFuture<Integer> zoneIdAsyncInternal(String zoneName) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+        try {
+            if (DEFAULT_ZONE_NAME.equals(zoneName)) {
+                return completedFuture(DEFAULT_ZONE_ID);
+            }
+
+            // TODO: IGNITE-16288 directZoneId should use async configuration API
+            return supplyAsync(() -> inBusyLock(busyLock, () -> directZoneIdInternal(zoneName)), executor)
+                    .thenCompose(zoneId -> waitZoneIdLocally(zoneId).thenCompose(ignored -> completedFuture(zoneId)));
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Nullable
+    private Integer directZoneIdInternal(String zoneName) {
+        try {
+            DistributionZoneConfiguration exZoneCfg = directProxy(zonesConfiguration.distributionZones()).get(zoneName);
+
+            if (exZoneCfg == null) {
+                return null;
+            } else {
+                return exZoneCfg.zoneId().value();
+            }
+        } catch (NoSuchElementException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Internal method for waiting that the zone is created locally.
+     *
+     * @param id Table id.
+     * @return Future representing pending completion of the operation.
+     */
+    private CompletableFuture<Void> waitZoneIdLocally(Integer id) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+
+        try {
+            if (zonesByIdVv.latest().contains(id)) {
+                return completedFuture(null);
+            }
+
+            CompletableFuture<Void> zoneExistFut = new CompletableFuture<>();
+
+            CompletionListener<Set<Integer>> zonesListener = (token, zones, th) -> {
+                if (th == null) {
+                    if (zones.contains(id)) {
+                        zoneExistFut.complete(null);
+                    }
+                } else {
+                    zoneExistFut.completeExceptionally(th);
+                }
+            };
+
+            zonesByIdVv.whenComplete(zonesListener);
+
+            // This check is needed for the case when we have registered zonesListener,
+            // but tablesByIdVv has already been completed, so listener would be triggered only for the next versioned value update.
+            if (zonesByIdVv.latest().contains(id)) {
+                zonesByIdVv.removeWhenComplete(zonesListener);
+
+                return completedFuture(null);
+            }
+
+            return zoneExistFut.whenComplete((unused, throwable) -> zonesByIdVv.removeWhenComplete(zonesListener));
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Gets a direct accessor for the configuration distributed property. If the metadata access only locally configured the method will
+     * return local property accessor.
+     *
+     * @param property Distributed configuration property to receive direct access.
+     * @param <T> Type of the property accessor.
+     * @return An accessor for distributive property.
+     * @see #getMetadataLocallyOnly
+     */
+    private <T extends ConfigurationProperty<?>> T directProxy(T property) {
+        return getMetadataLocallyOnly ? property : (T) property.directProxy();
     }
 
     /**

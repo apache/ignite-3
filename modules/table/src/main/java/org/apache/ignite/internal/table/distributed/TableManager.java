@@ -1361,7 +1361,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     if (tbl != null) {
                         tblFut.completeExceptionally(new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name));
                     } else {
-                        zoneIdAsyncInternal(zoneName).thenAccept(zoneId -> {
+                        distributionZoneManager.zoneIdAsyncInternal(zoneName).thenAccept(zoneId -> {
                             if (zoneId == null) {
                                 tblFut.completeExceptionally(new DistributionZoneNotFoundException(zoneName));
                             } else {
@@ -1857,46 +1857,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             return getTblFut.whenComplete((unused, throwable) -> tablesByIdVv.removeWhenComplete(tablesListener));
         }));
-    }
-
-    /**
-     * Gets direct id of the distribution zone with {@code zoneName}.
-     *
-     * @param zoneName Name of the distribution zone.
-     * @return Direct id of the distribution zone, or {@code null} if the zone with the {@code zoneName} has not been found.
-     */
-    private CompletableFuture<Integer> zoneIdAsyncInternal(String zoneName) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            if (DEFAULT_ZONE_NAME.equals(zoneName)) {
-                return completedFuture(DEFAULT_ZONE_ID);
-            }
-
-            // TODO: IGNITE-16288 directZoneId should use async configuration API
-            return supplyAsync(
-                    () -> inBusyLock(busyLock, () -> directZoneIdInternal(zoneName)),
-                    ioExecutor
-            );
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    @Nullable
-    private Integer directZoneIdInternal(String zoneName) {
-        try {
-            DistributionZoneConfiguration exZoneCfg = directProxy(distributionZonesConfiguration.distributionZones()).get(zoneName);
-
-            if (exZoneCfg == null) {
-                return null;
-            } else {
-                return exZoneCfg.zoneId().value();
-            }
-        } catch (NoSuchElementException e) {
-            return null;
-        }
     }
 
     /**

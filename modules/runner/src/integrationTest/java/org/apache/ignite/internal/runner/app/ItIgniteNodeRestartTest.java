@@ -366,6 +366,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 metaStorageMgr,
                 logicalTopologyService,
                 vault,
+                registry,
                 name
         );
 

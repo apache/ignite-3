@@ -91,6 +91,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
                 null,
                 null,
                 null,
+                x -> {},
                 "node"
         );
     }
