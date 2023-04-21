@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
+import org.apache.ignite.internal.deployunit.version.UnitVersion;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentCodeApi;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentInfo;
@@ -49,10 +50,7 @@ public class DeploymentManagementController implements DeploymentCodeApi {
     public CompletableFuture<Boolean> deploy(String unitId, String unitVersion, CompletedFileUpload unitContent) {
         try {
             DeploymentUnit deploymentUnit = toDeploymentUnit(unitContent);
-            if (unitVersion == null || unitVersion.isBlank()) {
-                return deployment.deployAsync(unitId, Version.LATEST, deploymentUnit);
-            }
-            return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit);
+            return deployment.deployAsync(unitId, UnitVersion.parse(unitVersion), deploymentUnit);
         } catch (IOException e) {
             return CompletableFuture.failedFuture(e);
         }
@@ -60,12 +58,7 @@ public class DeploymentManagementController implements DeploymentCodeApi {
 
     @Override
     public CompletableFuture<Void> undeploy(String unitId, String unitVersion) {
-        return deployment.undeployAsync(unitId, Version.parseVersion(unitVersion));
-    }
-
-    @Override
-    public CompletableFuture<Void> undeploy(String unitId) {
-        return deployment.undeployAsync(unitId);
+        return deployment.undeployAsync(unitId, UnitVersion.parse(unitVersion));
     }
 
     @Override
@@ -114,7 +107,7 @@ public class DeploymentManagementController implements DeploymentCodeApi {
      * @param status Unit status.
      * @return Unit status DTO.
      */
-    public static UnitStatus fromUnitStatus(org.apache.ignite.internal.deployunit.UnitStatus status) {
+    private static UnitStatus fromUnitStatus(org.apache.ignite.internal.deployunit.UnitStatus status) {
         Map<String, DeploymentInfo> versionToDeploymentStatus = new HashMap<>();
         Set<Version> versions = status.versions();
         for (Version version : versions) {

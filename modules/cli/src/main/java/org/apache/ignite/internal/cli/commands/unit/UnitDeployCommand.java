@@ -53,7 +53,9 @@ public class UnitDeployCommand extends BaseCommand implements Callable<Integer> 
     private String id;
 
     /** Unit version. */
-    @Option(names = {VERSION_OPTION, UNIT_VERSION_OPTION_SHORT}, description = UNIT_VERSION_OPTION_DESC)
+    @Option(names = {VERSION_OPTION, UNIT_VERSION_OPTION_SHORT},
+            description = UNIT_VERSION_OPTION_DESC,
+            required = true)
     private String version;
 
     /** Unit path. */

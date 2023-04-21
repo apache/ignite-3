@@ -63,7 +63,7 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
 
             TrackingCallback<Boolean> callback = new TrackingCallback<>(tracker);
             String ver = input.version() == null ? "" : input.version();
-            Call call = api.deployUnitAsync(input.id(), file, ver, callback);
+            Call call = api.deployUnitAsync(input.id(), ver, file, callback);
 
             return CompletableFuture.supplyAsync(() -> {
                 try {

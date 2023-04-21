@@ -31,6 +31,7 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.MediaType;
@@ -47,6 +48,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -129,19 +131,16 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    public void testDeploySuccessfulWithoutVersion() {
+    public void testDeployFailedWithoutVersion() {
         String id = "testId";
-        HttpResponse<Object> response = deploy(id);
 
-        assertThat(response.code(), is(OK.code()));
+        HttpClientResponseException e = assertThrows(HttpClientResponseException.class, () -> deploy(id));
+        assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
 
         MutableHttpRequest<Object> get = HttpRequest.GET("units");
-        UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
+        List<UnitStatus> status = client.toBlocking().retrieve(get, Argument.listOf(UnitStatus.class));
 
-        String version = Version.LATEST.render();
-        assertThat(status.id(), is(id));
-        assertThat(status.versionToDeploymentInfo().keySet(), equalTo(Set.of(version)));
-        assertThat(status.versionToDeploymentInfo().get(version).consistentIds(), hasItem(CLUSTER_NODE_NAMES.get(0)));
+        assertThat(status.size(), is(0));
     }
 
     @Test
@@ -186,22 +185,8 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    public void testDeployUndeployLatest() {
-        String id = "testId";
-        HttpResponse<Object> response = deploy(id);
-
-        assertThat(response.code(), is(OK.code()));
-        MutableHttpRequest<Object> delete = HttpRequest
-                .DELETE("units/" + id)
-                .contentType(MediaType.APPLICATION_JSON);
-        response = client.toBlocking().exchange(delete);
-        assertThat(response.code(), is(OK.code()));
-    }
-
-    @Test
     public void testVersionOrder() {
         String id = "unitId";
-        deploy(id);
         deploy(id, "1.1.1");
         deploy(id, "1.1.2");
         deploy(id, "1.2.1");
@@ -211,7 +196,7 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
 
         List<String> versions = versions(id);
 
-        assertThat(versions, contains("1.0.0", "1.0.1", "1.1.1", "1.1.2", "1.2.1", "2.0.0", "latest"));
+        assertThat(versions, contains("1.0.0", "1.0.1", "1.1.1", "1.1.2", "1.2.1", "2.0.0"));
     }
 
     private HttpResponse<Object> deploy(String id) {
@@ -238,14 +223,6 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
         return client.toBlocking().exchange(post);
     }
 
-    private HttpResponse<Object> undeploy(String id) {
-        MutableHttpRequest<Object> delete = HttpRequest
-                .DELETE("units/" + id)
-                .contentType(MediaType.APPLICATION_JSON);
-
-        return client.toBlocking().exchange(delete);
-    }
-
     private HttpResponse<Object> undeploy(String id, String version) {
         MutableHttpRequest<Object> delete = HttpRequest
                 .DELETE("units/" + id + "/" + version)
@@ -259,7 +236,7 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
                 .GET("units/" + id + "/versions")
                 .contentType(MediaType.APPLICATION_JSON);
 
-        return client.toBlocking().retrieve(versions, List.class);
+        return client.toBlocking().retrieve(versions, Argument.listOf(String.class));
 
     }
 
