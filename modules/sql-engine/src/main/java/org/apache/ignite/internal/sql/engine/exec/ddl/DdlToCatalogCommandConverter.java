@@ -44,8 +44,6 @@ class DdlToCatalogCommandConverter {
 
                 .zone(cmd.zone())
 
-                .dataStorage(cmd.dataStorage())
-                .dataStorageOptions(cmd.dataStorageOptions())
                 .build();
     }
 

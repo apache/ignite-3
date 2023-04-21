@@ -45,6 +45,21 @@ public enum CliConfigKeys {
     /** Default JDBC URL property name. */
     JDBC_URL(Constants.JDBC_URL),
 
+    /** JDBC trust store path property name. */
+    JDBC_TRUST_STORE_PATH(Constants.JDBC_TRUST_STORE_PATH),
+
+    /** JDBC trust store password property name. */
+    JDBC_TRUST_STORE_PASSWORD(Constants.JDBC_TRUST_STORE_PASSWORD),
+
+    /** JDBC key store path property name. */
+    JDBC_KEY_STORE_PATH(Constants.JDBC_KEY_STORE_PATH),
+
+    /** JDBC key store password property name. */
+    JDBC_KEY_STORE_PASSWORD(Constants.JDBC_KEY_STORE_PASSWORD),
+
+    /** JDBC SSL client auth property name. */
+    JDBC_CLIENT_AUTH(Constants.JDBC_CLIENT_AUTH),
+
     /** Basic authentication username. */
     BASIC_AUTHENTICATION_USERNAME(Constants.BASIC_AUTHENTICATION_USERNAME),
 
@@ -66,6 +81,11 @@ public enum CliConfigKeys {
                         REST_KEY_STORE_PATH,
                         REST_TRUST_STORE_PASSWORD,
                         REST_TRUST_STORE_PATH,
+                        JDBC_KEY_STORE_PASSWORD,
+                        JDBC_KEY_STORE_PATH,
+                        JDBC_TRUST_STORE_PASSWORD,
+                        JDBC_TRUST_STORE_PATH,
+                        JDBC_CLIENT_AUTH,
                         BASIC_AUTHENTICATION_USERNAME,
                         BASIC_AUTHENTICATION_PASSWORD
                 )
@@ -89,6 +109,16 @@ public enum CliConfigKeys {
         public static final String REST_KEY_STORE_PASSWORD = "ignite.rest.key-store.password";
 
         public static final String JDBC_URL = "ignite.jdbc-url";
+
+        public static final String JDBC_TRUST_STORE_PATH = "ignite.jdbc.trust-store.path";
+
+        public static final String JDBC_TRUST_STORE_PASSWORD = "ignite.jdbc.trust-store.password";
+
+        public static final String JDBC_KEY_STORE_PATH = "ignite.jdbc.key-store.path";
+
+        public static final String JDBC_KEY_STORE_PASSWORD = "ignite.jdbc.key-store.password";
+
+        public static final String JDBC_CLIENT_AUTH = "ignite.jdbc.client-auth";
 
         public static final String BASIC_AUTHENTICATION_USERNAME = "ignite.auth.basic.username";
 

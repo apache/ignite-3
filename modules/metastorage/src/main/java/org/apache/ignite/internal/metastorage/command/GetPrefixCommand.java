@@ -15,21 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration.storage;
+package org.apache.ignite.internal.metastorage.command;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * An annotation to check that the {@link DataStorageConfigurationSchema data storage} is known, i.e. its {@link
- * DataStorageConfigurationSchema#name name} is not {@link UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE "unknown"}.
- *
- * <p>Can be applied to a {@link ConfigValue}.
+ * Range command for MetaStorageCommandListener that retrieves entries for the given key prefix in lexicographic order. Entries will be
+ * filtered out by upper bound of given revision number.
  */
-@Target(ElementType.FIELD)
-@Retention(RetentionPolicy.RUNTIME)
-public @interface KnownDataStorage {
+@Transferable(MetastorageCommandsMessageGroup.GET_PREFIX)
+public interface GetPrefixCommand extends PaginationCommand {
+    /** Returns the prefix that all returned keys should start with. */
+    byte[] prefix();
 }

@@ -142,6 +142,27 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
     }
 
     /**
+     * Test error code when trying to execute DDL query within a transaction.
+     *
+     * @throws SQLException if failed.
+     */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18985")
+    @Test
+    public void testDdlWithDisabledAutoCommit() throws SQLException {
+        conn.setAutoCommit(false);
+
+        try (Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate("CREATE TABLE test2 (id int primary key, val varchar)");
+
+            fail("SQLException is expected");
+        } catch (SQLException e) {
+            assertTrue(e.getMessage() != null
+                            && e.getMessage().contains("DDL doesn't support transactions."),
+                    "Unexpected error message: " + e.getMessage());
+        }
+    }
+
+    /**
      * Check that unsupported explain of update operation causes Exception on the driver side with correct code and
      * message.
      */

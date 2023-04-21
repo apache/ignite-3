@@ -1956,7 +1956,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertEquals(3, storage.updateCounter());
 
         // Range for latest revision without max bound.
-        try (Cursor<Entry> cur = storage.range(key1, null, false)) {
+        try (Cursor<Entry> cur = storage.range(key1, null)) {
             assertTrue(cur.hasNext());
 
             Entry e1 = cur.next();
@@ -2002,7 +2002,7 @@ public abstract class AbstractKeyValueStorageTest {
         }
 
         // Range for latest revision with max bound.
-        try (Cursor<Entry> cur = storage.range(key1, key3, false)) {
+        try (Cursor<Entry> cur = storage.range(key1, key3)) {
             assertTrue(cur.hasNext());
 
             Entry e1 = cur.next();
@@ -2035,50 +2035,6 @@ public abstract class AbstractKeyValueStorageTest {
                 // No-op.
             }
         }
-    }
-
-    @Test
-    public void rangeCursorSkippingTombstones() {
-        byte[] key1 = key(1);
-        byte[] val1 = keyValue(1, 1);
-
-        byte[] key2 = key(2);
-        byte[] val2 = keyValue(2, 2);
-
-        assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
-
-        storage.put(key1, val1);
-
-        assertEquals(1, storage.revision());
-        assertEquals(1, storage.updateCounter());
-
-        storage.remove(key1);
-
-        assertEquals(2, storage.revision());
-        assertEquals(2, storage.updateCounter());
-
-        storage.put(key2, val2);
-
-        assertEquals(3, storage.revision());
-        assertEquals(3, storage.updateCounter());
-
-        // Range that includes tombstones.
-        Cursor<Entry> cur = storage.range(key1, null, true);
-
-        assertEquals(2, cur.stream().count());
-
-        // Range that doesn't include tombstones.
-        cur = storage.range(key1, null, false);
-
-        Entry e = cur.next();
-
-        assertArrayEquals(key2, e.key());
-
-        assertFalse(e.tombstone());
-
-        // Check that there are no more elements in cursor.
-        assertFalse(cur.hasNext());
     }
 
     @Test

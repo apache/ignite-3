@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage;
 
-import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.apache.ignite.internal.storage.DataStorageModulesTest.FirstDataStorageConfigurationSchema.FIRST;
 import static org.apache.ignite.internal.storage.DataStorageModulesTest.SecondDataStorageConfigurationSchema.SECOND;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -38,7 +37,6 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -95,16 +93,6 @@ public class DataStorageModulesTest {
         );
 
         assertThat(exception.getMessage(), Matchers.startsWith("Duplicate name"));
-    }
-
-    @Test
-    void testInvalidName() {
-        IllegalStateException exception = assertThrows(
-                IllegalStateException.class,
-                () -> new DataStorageModules(List.of(createMockedDataStorageModule(UNKNOWN_DATA_STORAGE)))
-        );
-
-        assertThat(exception.getMessage(), Matchers.startsWith("Invalid name"));
     }
 
     @Test
@@ -193,19 +181,6 @@ public class DataStorageModulesTest {
         assertThat(fields.get(FIRST), equalTo(Map.of("strVal", String.class, "intVal", int.class)));
 
         assertThat(fields.get(SECOND), equalTo(Map.of("strVal", String.class, "longVal", long.class)));
-    }
-
-    @Test
-    void testFilterUnknownDataStorageSchema() {
-        DataStorageModules dataStorageModules = new DataStorageModules(List.of(createMockedDataStorageModule(FIRST)));
-
-        assertThat(
-                dataStorageModules.collectSchemasFields(List.of(
-                        FirstDataStorageConfigurationSchema.class,
-                        UnknownDataStorageConfigurationSchema.class
-                )),
-                aMapWithSize(1)
-        );
     }
 
     static DataStorageModule createMockedDataStorageModule(String name) {

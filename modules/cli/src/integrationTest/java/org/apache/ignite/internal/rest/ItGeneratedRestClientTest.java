@@ -74,7 +74,6 @@ import org.apache.ignite.rest.client.model.Problem;
 import org.apache.ignite.rest.client.model.UnitStatus;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
@@ -287,7 +286,6 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19235")
     void initCluster() {
         assertDoesNotThrow(() -> {
             // in fact, this is the second init that means nothing but just testing that the second init does not throw and exception

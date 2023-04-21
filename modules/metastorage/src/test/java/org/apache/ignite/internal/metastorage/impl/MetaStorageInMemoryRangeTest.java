@@ -15,21 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command.cursor;
+package org.apache.ignite.internal.metastorage.impl;
 
-import org.apache.ignite.internal.metastorage.command.MetastorageCommandsMessageGroup;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.annotations.Transferable;
+import java.nio.file.Path;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 
 /**
- * Command for retrieving a portion of a given remote cursor.
+ * {@link MetaStorageRangeTest} implementation using {@link SimpleInMemoryKeyValueStorage}.
  */
-@Transferable(MetastorageCommandsMessageGroup.NEXT_BATCH)
-public interface NextBatchCommand extends WriteCommand {
-    /** Cursor ID. */
-    IgniteUuid cursorId();
-
-    /** Maximum size of the requested batch. */
-    int batchSize();
+public class MetaStorageInMemoryRangeTest extends MetaStorageRangeTest {
+    @Override
+    KeyValueStorage getStorage(Path path) {
+        return new SimpleInMemoryKeyValueStorage("test");
+    }
 }

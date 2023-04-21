@@ -217,11 +217,11 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
      */
     @Test
     public void testRangeNextWorksCorrectlyAfterLeaderChange() throws Exception {
-        final AtomicInteger replicatorStartedCounter = new AtomicInteger(0);
+        AtomicInteger replicatorStartedCounter = new AtomicInteger(0);
 
-        final AtomicInteger replicatorStoppedCounter = new AtomicInteger(0);
+        AtomicInteger replicatorStoppedCounter = new AtomicInteger(0);
 
-        when(mockStorage.range(EXPECTED_RESULT_ENTRY1.key(), new byte[]{4}, false)).thenAnswer(invocation -> {
+        when(mockStorage.range(EXPECTED_RESULT_ENTRY1.key(), new byte[]{4})).thenAnswer(invocation -> {
             List<Entry> entries = List.of(EXPECTED_RESULT_ENTRY1, EXPECTED_RESULT_ENTRY2);
 
             return Cursor.fromBareIterator(entries.iterator());
@@ -252,7 +252,9 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 .value;
 
         MetaStorageService metaStorageSvc = new MetaStorageServiceImpl(
-                raftGroupServiceOfLiveServer, new IgniteSpinBusyLock(), liveServer.clusterService().topologyService().localMember(),
+                liveServer.clusterService().nodeName(),
+                raftGroupServiceOfLiveServer,
+                new IgniteSpinBusyLock(),
                 mock(ClusterTime.class));
 
         var resultFuture = new CompletableFuture<Void>();

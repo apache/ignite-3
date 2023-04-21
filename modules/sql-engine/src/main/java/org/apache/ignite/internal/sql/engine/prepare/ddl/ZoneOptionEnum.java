@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.sql;
+package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 /**
  * Enumerates the options for CREATE ZONE and ALTER ZONE statements.
  */
-public enum IgniteSqlZoneOptionEnum {
+public enum ZoneOptionEnum {
     /** Number of partitions. */
     PARTITIONS,
 
@@ -40,5 +40,8 @@ public enum IgniteSqlZoneOptionEnum {
     DATA_NODES_AUTO_ADJUST_SCALE_UP,
 
     /** Data nodes scale down auto adjust timeout. */
-    DATA_NODES_AUTO_ADJUST_SCALE_DOWN
+    DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
+
+    /** Data storage engine. */
+    DATA_STORAGE_ENGINE
 }

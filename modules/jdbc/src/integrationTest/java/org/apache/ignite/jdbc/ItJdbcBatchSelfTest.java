@@ -28,10 +28,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.sql.BatchUpdateException;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Arrays;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
@@ -395,6 +400,44 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         int[] updates = stmt.executeBatch();
 
         assertEquals(0, updates.length, "Returned update counts array should have no elements for empty batch.");
+    }
+
+    @Test
+    public void testDataTypes() throws SQLException {
+        Statement stmt0 = conn.createStatement();
+
+        stmt0.executeUpdate("CREATE TABLE timetypes (tt_id int, "
+                + "tt_date date, "
+                + "tt_time time, "
+                + "tt_timestamp timestamp, "
+                + "PRIMARY KEY (tt_id));");
+
+        PreparedStatement prepStmt = conn.prepareStatement(
+                "INSERT INTO timetypes(tt_id, tt_date, tt_time, tt_timestamp)"
+                        + " VALUES (?, ?, ?, ?)");
+
+        Date date = Date.valueOf(LocalDate.now());
+        Time time = Time.valueOf(LocalTime.now());
+        Timestamp ts = new Timestamp(System.currentTimeMillis());
+
+        int idx = 1;
+        prepStmt.setLong(idx++, 1);
+        prepStmt.setDate(idx++, date);
+        prepStmt.setTime(idx++, time);
+        prepStmt.setTimestamp(idx, ts);
+        prepStmt.addBatch();
+
+        prepStmt.executeBatch();
+        prepStmt.close();
+
+        ResultSet res = stmt0.executeQuery("SELECT * FROM timetypes");
+        res.next();
+        assertEquals(date, res.getDate(2));
+        assertEquals(time, res.getTime(3));
+        assertEquals(ts, res.getTimestamp(4));
+
+        stmt0.execute("DROP TABLE timetypes");
+        stmt0.close();
     }
 
     @Test

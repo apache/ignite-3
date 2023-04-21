@@ -18,23 +18,28 @@
 package org.apache.ignite.internal.util;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 
 /**
  * Tracker that stores comparable value internally, this value can grow when {@link #update(Comparable)} method is called. The tracker gives
  * ability to wait for certain value, see {@link #waitFor(Comparable)}.
  */
-public class PendingComparableValuesTracker<T extends Comparable<T>> {
+public class PendingComparableValuesTracker<T extends Comparable<T>> implements ManuallyCloseable {
     private static final VarHandle CURRENT;
+
+    private static final VarHandle CLOSE_GUARD;
 
     static {
         try {
             CURRENT = MethodHandles.lookup().findVarHandle(PendingComparableValuesTracker.class, "current", Comparable.class);
+            CLOSE_GUARD = MethodHandles.lookup().findVarHandle(PendingComparableValuesTracker.class, "closeGuard", boolean.class);
         } catch (ReflectiveOperationException e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -45,6 +50,13 @@ public class PendingComparableValuesTracker<T extends Comparable<T>> {
 
     /** Current value. */
     private volatile T current;
+
+    /** Prevents double closing. */
+    @SuppressWarnings("unused")
+    private volatile boolean closeGuard;
+
+    /** Busy lock to close synchronously. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /**
      * Constructor with initial value.
@@ -60,23 +72,32 @@ public class PendingComparableValuesTracker<T extends Comparable<T>> {
      * that had been created for corresponding values that are lower than the given one.
      *
      * @param newValue New value.
+     * @throws TrackerClosedException if the tracker is closed.
      */
     public void update(T newValue) {
         while (true) {
-            T current = this.current;
-
-            if (newValue.compareTo(current) <= 0) {
-                break;
+            if (!busyLock.enterBusy()) {
+                throw new TrackerClosedException();
             }
 
-            if (CURRENT.compareAndSet(this, current, newValue)) {
-                ConcurrentNavigableMap<T, CompletableFuture<Void>> smallerFutures = valueFutures.headMap(newValue, true);
+            try {
+                T current = this.current;
 
-                smallerFutures.forEach((k, f) -> f.complete(null));
+                if (newValue.compareTo(current) <= 0) {
+                    break;
+                }
 
-                smallerFutures.clear();
+                if (CURRENT.compareAndSet(this, current, newValue)) {
+                    ConcurrentNavigableMap<T, CompletableFuture<Void>> smallerFutures = valueFutures.headMap(newValue, true);
 
-                break;
+                    smallerFutures.forEach((k, f) -> f.complete(null));
+
+                    smallerFutures.clear();
+
+                    break;
+                }
+            } finally {
+                busyLock.leaveBusy();
             }
         }
     }
@@ -85,31 +106,63 @@ public class PendingComparableValuesTracker<T extends Comparable<T>> {
      * Provides the future that is completed when this tracker's internal value reaches given one. If the internal value is greater or equal
      * then the given one, returns completed future.
      *
+     * <p>When the tracker is closed, the future will complete with an {@link TrackerClosedException}.
+     *
      * @param valueToWait Value to wait.
-     * @return Future.
      */
     public CompletableFuture<Void> waitFor(T valueToWait) {
-        if (current.compareTo(valueToWait) >= 0) {
-            return completedFuture(null);
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new TrackerClosedException());
         }
 
-        CompletableFuture<Void> future = valueFutures.computeIfAbsent(valueToWait, k -> new CompletableFuture<>());
+        try {
+            if (current.compareTo(valueToWait) >= 0) {
+                return completedFuture(null);
+            }
 
-        if (current.compareTo(valueToWait) >= 0) {
-            future.complete(null);
+            CompletableFuture<Void> future = valueFutures.computeIfAbsent(valueToWait, k -> new CompletableFuture<>());
 
-            valueFutures.remove(valueToWait);
+            if (current.compareTo(valueToWait) >= 0) {
+                future.complete(null);
+
+                valueFutures.remove(valueToWait);
+            }
+
+            return future;
+        } finally {
+            busyLock.leaveBusy();
         }
-
-        return future;
     }
 
     /**
      * Returns current internal value.
      *
-     * @return Current value.
+     * @throws TrackerClosedException if the tracker is closed.
      */
     public T current() {
-        return current;
+        if (!busyLock.enterBusy()) {
+            throw new TrackerClosedException();
+        }
+
+        try {
+            return current;
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Override
+    public void close() {
+        if (!CLOSE_GUARD.compareAndSet(this, false, true)) {
+            return;
+        }
+
+        busyLock.block();
+
+        TrackerClosedException trackerClosedException = new TrackerClosedException();
+
+        valueFutures.values().forEach(future -> future.completeExceptionally(trackerClosedException));
+
+        valueFutures.clear();
     }
 }

@@ -15,17 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration.storage;
-
-import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
-
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+package org.apache.ignite.internal.util;
 
 /**
- * Configuration schema of an unknown data storage.
+ * Exception that will be thrown when the {@link PendingComparableValuesTracker} is closed.
  */
-@PolymorphicConfigInstance(UNKNOWN_DATA_STORAGE)
-public class UnknownDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
-    /** Default data storage name. */
-    public static final String UNKNOWN_DATA_STORAGE = "unknown";
+public class TrackerClosedException extends RuntimeException {
+    private static final long serialVersionUID = -3685913884384983930L;
 }

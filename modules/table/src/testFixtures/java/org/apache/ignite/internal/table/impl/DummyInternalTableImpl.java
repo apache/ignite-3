@@ -188,7 +188,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 replicaSvc,
                 CLOCK
         );
-        RaftGroupService svc = partitionMap.get(0);
+        RaftGroupService svc = raftGroupServiceByPartitionId.get(0);
 
         groupId = crossTableUsage ? new TablePartitionId(tableId(), PART_ID) : crossTableGroupId;
 
@@ -277,7 +277,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
-                partitionMap.get(PART_ID),
+                raftGroupServiceByPartitionId.get(PART_ID),
                 this.txManager,
                 this.txManager.lockManager(),
                 Runnable::run,

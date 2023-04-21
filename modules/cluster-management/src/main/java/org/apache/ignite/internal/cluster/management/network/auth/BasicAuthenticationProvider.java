@@ -23,7 +23,7 @@ import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.security.BasicAuthenticationProviderConfig;
 
 /** Represents basic authentication provider config. */
-@Transferable(Commands.BASIC_AUTH_PROVIDER)
+@Transferable(Commands.BASIC_AUTHENTICATION_PROVIDER)
 public interface BasicAuthenticationProvider extends AuthenticationProvider {
 
     /** Username. */
