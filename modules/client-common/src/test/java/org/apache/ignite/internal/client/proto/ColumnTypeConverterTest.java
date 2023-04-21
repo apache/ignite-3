@@ -23,7 +23,7 @@ import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
 /**
- * Column type converter tests
+ * Column type converter tests.
  */
 public class ColumnTypeConverterTest {
     /**
