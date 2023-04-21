@@ -44,9 +44,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Checks basic operations on a single column table.
+ * Checks basic operations on a table where all columns belong to the primary key.
  */
-public class ItSingleColumnTableCrossApiTest extends ClusterPerClassIntegrationTest {
+public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "test";
 
     private static final String[] ENGINES = {"aipersist", "aimem", "rocksdb"};
@@ -81,27 +81,25 @@ public class ItSingleColumnTableCrossApiTest extends ClusterPerClassIntegrationT
     public void testRecordView(TestEnvironment env) {
         Table tab = env.table();
         RecordView<Tuple> view = tab.recordView();
-
-        // Test record view.
-        Tuple tuple = Tuple.create().set("id", 0);
+        Tuple key = Tuple.create().set("id", 0);
 
         env.runInTransaction(
                 rwTx -> {
-                    view.upsert(rwTx, tuple);
+                    view.upsert(rwTx, key);
 
                     // Try to replace.
-                    view.upsert(rwTx, tuple);
+                    view.upsert(rwTx, key);
                 },
                 tx -> {
-                    assertEquals(tuple, view.get(tx, tuple));
+                    assertEquals(key, view.get(tx, key));
 
                     // Ensure there are no duplicates.
-                    assertEquals(1, view.getAll(tx, Collections.singleton(tuple)).size());
+                    assertEquals(1, view.getAll(tx, Collections.singleton(key)).size());
 
                     if (!tx.isReadOnly()) {
-                        view.delete(tx, tuple);
+                        view.delete(tx, key);
 
-                        assertNull(view.get(tx, tuple));
+                        assertNull(view.get(tx, key));
                     }
                 }
         );
