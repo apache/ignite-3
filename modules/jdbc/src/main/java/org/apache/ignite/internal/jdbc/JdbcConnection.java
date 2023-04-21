@@ -198,12 +198,10 @@ public class JdbcConnection implements Connection {
         if (connProps.isSslEnabled()) {
             return SslConfiguration.builder()
                     .enabled(true)
-                    .trustStoreType(connProps.getTrustStoreType())
                     .trustStorePath(connProps.getTrustStorePath())
                     .trustStorePassword(connProps.getTrustStorePassword())
                     .clientAuth(connProps.getClientAuth())
                     .ciphers(connProps.getCiphers())
-                    .keyStoreType(connProps.getKeyStoreType())
                     .keyStorePath(connProps.getKeyStorePath())
                     .keyStorePassword(connProps.getKeyStorePassword())
                     .build();

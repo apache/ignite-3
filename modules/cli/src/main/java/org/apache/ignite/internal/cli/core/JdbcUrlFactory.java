@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTI
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_CLIENT_AUTH;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_KEY_STORE_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_KEY_STORE_PATH;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_SSL_ENABLED;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_TRUST_STORE_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_TRUST_STORE_PATH;
 
@@ -69,6 +70,7 @@ public class JdbcUrlFactory {
 
     private String applyConfig(String jdbcUrl) {
         List<String> queryParams = new ArrayList<>();
+        addIfSet(queryParams, JDBC_SSL_ENABLED, "sslEnabled");
         addIfSet(queryParams, JDBC_TRUST_STORE_PATH, "trustStorePath");
         addIfSet(queryParams, JDBC_TRUST_STORE_PASSWORD, "trustStorePassword");
         addIfSet(queryParams, JDBC_KEY_STORE_PATH, "keyStorePath");

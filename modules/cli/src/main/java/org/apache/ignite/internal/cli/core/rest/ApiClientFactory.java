@@ -152,7 +152,7 @@ public class ApiClientFactory {
         } else {
             char[] password = settings.keyStorePassword() == null ? null : settings.keyStorePassword().toCharArray();
             KeyStore keyStore = KeyStore.getInstance(new File(settings.keyStorePath()), password);
-            keyManagerFactory.init(keyStore, settings.keyStorePassword().toCharArray());
+            keyManagerFactory.init(keyStore, password);
         }
 
         return keyManagerFactory;
