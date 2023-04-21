@@ -25,7 +25,7 @@ using NUnit.Framework;
 /// <summary>
 /// Tests for <see cref="ColumnTypeExtensions"/>.
 /// </summary>
-public class SqlColumnTypeExtensionsTests
+public class ColumnTypeExtensionsTests
 {
     private static readonly ColumnType[] SqlColumnTypes = Enum.GetValues<ColumnType>();
 
