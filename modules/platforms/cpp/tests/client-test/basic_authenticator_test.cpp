@@ -69,9 +69,7 @@ public:
     static ignite_client_configuration get_configuration(std::string user, std::string password) {
         ignite_client_configuration cfg{get_configuration()};
 
-        auto authenticator = std::make_shared<basic_authenticator>();
-        authenticator->set_identity(std::move(user));
-        authenticator->set_secret(std::move(password));
+        auto authenticator = std::make_shared<basic_authenticator>(std::move(user), std::move(password));
         cfg.set_authenticator(authenticator);
 
         return cfg;

@@ -37,6 +37,16 @@ public:
     basic_authenticator() = default;
 
     /**
+     * Constructor.
+     *
+     * @param username Username.
+     * @param password Password.
+     */
+    basic_authenticator(std::string username, std::string password)
+        : m_username(std::move(username))
+        , m_password(std::move(password)) { }
+
+    /**
      * Get authenticator type.
      *
      * @return Authenticator type.
@@ -48,45 +58,45 @@ public:
     /**
      * Get identity.
      *
-     * @return Identity.
+     * @return Username.
      */
     [[nodiscard]] const std::string& get_identity() const override {
-        return m_identity;
+        return m_username;
     }
 
     /**
-     * Set identity.
+     * Set username.
      *
-     * @param identity Identity.
+     * @param username Username.
      */
-    void set_identity(std::string identity) {
-        m_identity = std::move(identity);
+    void set_username(std::string username) {
+        m_username = std::move(username);
     };
 
     /**
      * Get secret.
      *
-     * @return Secret.
+     * @return Password.
      */
     [[nodiscard]] const std::string& get_secret() const override {
-        return m_secret;
+        return m_password;
     }
 
     /**
-     * Set secret.
+     * Set password.
      *
-     * @param secret Secret.
+     * @param password Password.
      */
-    void set_secret(std::string secret) {
-        m_secret = std::move(secret);
+    void set_password(std::string password) {
+        m_password = std::move(password);
     };
 
 private:
-    /** Identity. */
-    std::string m_identity;
+    /** Username. */
+    std::string m_username;
 
-    /** Secret. */
-    std::string m_secret;
+    /** Password. */
+    std::string m_password;
 };
 
 } // namespace ignite
