@@ -35,7 +35,6 @@ import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -53,6 +52,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.Transaction;
@@ -89,7 +89,7 @@ public class ClientTableCommon {
 
             packer.packArrayHeader(7);
             packer.packString(col.name());
-            packer.packInt(getClientDataType(col.type().spec()));
+            packer.packInt(getColumnType(col.type().spec()).ordinal());
             packer.packBoolean(schema.isKeyColumn(colIdx));
             packer.packBoolean(col.nullable());
             packer.packBoolean(colocationCols.contains(col));
@@ -372,55 +372,55 @@ public class ClientTableCommon {
      * @param spec Type spec.
      * @return Client type code.
      */
-    public static int getClientDataType(NativeTypeSpec spec) {
+    public static ColumnType getColumnType(NativeTypeSpec spec) {
         switch (spec) {
             case INT8:
-                return ClientDataType.INT8;
+                return ColumnType.INT8;
 
             case INT16:
-                return ClientDataType.INT16;
+                return ColumnType.INT16;
 
             case INT32:
-                return ClientDataType.INT32;
+                return ColumnType.INT32;
 
             case INT64:
-                return ClientDataType.INT64;
+                return ColumnType.INT64;
 
             case FLOAT:
-                return ClientDataType.FLOAT;
+                return ColumnType.FLOAT;
 
             case DOUBLE:
-                return ClientDataType.DOUBLE;
+                return ColumnType.DOUBLE;
 
             case DECIMAL:
-                return ClientDataType.DECIMAL;
+                return ColumnType.DECIMAL;
 
             case NUMBER:
-                return ClientDataType.NUMBER;
+                return ColumnType.NUMBER;
 
             case UUID:
-                return ClientDataType.UUID;
+                return ColumnType.UUID;
 
             case STRING:
-                return ClientDataType.STRING;
+                return ColumnType.STRING;
 
             case BYTES:
-                return ClientDataType.BYTES;
+                return ColumnType.BYTE_ARRAY;
 
             case BITMASK:
-                return ClientDataType.BITMASK;
+                return ColumnType.BITMASK;
 
             case DATE:
-                return ClientDataType.DATE;
+                return ColumnType.DATE;
 
             case TIME:
-                return ClientDataType.TIME;
+                return ColumnType.TIME;
 
             case DATETIME:
-                return ClientDataType.DATETIME;
+                return ColumnType.DATETIME;
 
             case TIMESTAMP:
-                return ClientDataType.TIMESTAMP;
+                return ColumnType.TIMESTAMP;
 
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + spec);

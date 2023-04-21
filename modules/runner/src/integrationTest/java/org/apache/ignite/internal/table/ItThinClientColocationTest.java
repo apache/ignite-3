@@ -71,7 +71,7 @@ public class ItThinClientColocationTest {
     private static ClientSchema clientSchema(NativeType type, String columnName) {
         var clientColumn = new ClientColumn(
                 columnName,
-                ClientTableCommon.getClientDataType(type.spec()),
+                ClientTableCommon.getColumnType(type.spec()),
                 false,
                 true,
                 true,

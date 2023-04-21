@@ -24,6 +24,7 @@ namespace Apache.Ignite.Internal.Table
     using System.Threading.Tasks;
     using Buffers;
     using Common;
+    using Ignite.Sql;
     using Ignite.Table;
     using Ignite.Transactions;
     using Log;
@@ -338,7 +339,7 @@ namespace Apache.Ignite.Internal.Table
 
                 r.Skip(propertyCount - expectedCount);
 
-                var column = new Column(name, (ClientDataType)type, isNullable, isColocation, isKey, i, scale, precision);
+                var column = new Column(name, (ColumnType)type, isNullable, isColocation, isKey, i, scale, precision);
 
                 columns[i] = column;
 

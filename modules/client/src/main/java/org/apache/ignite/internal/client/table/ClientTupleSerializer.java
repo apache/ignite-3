@@ -36,7 +36,6 @@ import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
-import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
@@ -177,9 +176,7 @@ public class ClientTupleSerializer {
         var noValueSet = new BitSet(columns.length);
         var builder = new BinaryTupleBuilder(columns.length, true);
 
-        for (var i = 0; i < columns.length; i++) {
-            var col = columns[i];
-
+        for (ClientColumn col : columns) {
             Object v = col.key()
                     ? key.valueOrDefault(col.name(), NO_VALUE)
                     : val != null
@@ -330,67 +327,67 @@ public class ClientTupleSerializer {
 
         try {
             switch (col.type()) {
-                case ClientDataType.INT8:
+                case INT8:
                     builder.appendByte((byte) v);
                     return;
 
-                case ClientDataType.INT16:
+                case INT16:
                     builder.appendShort((short) v);
                     return;
 
-                case ClientDataType.INT32:
+                case INT32:
                     builder.appendInt((int) v);
                     return;
 
-                case ClientDataType.INT64:
+                case INT64:
                     builder.appendLong((long) v);
                     return;
 
-                case ClientDataType.FLOAT:
+                case FLOAT:
                     builder.appendFloat((float) v);
                     return;
 
-                case ClientDataType.DOUBLE:
+                case DOUBLE:
                     builder.appendDouble((double) v);
                     return;
 
-                case ClientDataType.DECIMAL:
+                case DECIMAL:
                     builder.appendDecimalNotNull((BigDecimal) v, col.scale());
                     return;
 
-                case ClientDataType.UUID:
+                case UUID:
                     builder.appendUuidNotNull((UUID) v);
                     return;
 
-                case ClientDataType.STRING:
+                case STRING:
                     builder.appendStringNotNull((String) v);
                     return;
 
-                case ClientDataType.BYTES:
+                case BYTE_ARRAY:
                     builder.appendBytesNotNull((byte[]) v);
                     return;
 
-                case ClientDataType.BITMASK:
+                case BITMASK:
                     builder.appendBitmaskNotNull((BitSet) v);
                     return;
 
-                case ClientDataType.DATE:
+                case DATE:
                     builder.appendDateNotNull((LocalDate) v);
                     return;
 
-                case ClientDataType.TIME:
+                case TIME:
                     builder.appendTimeNotNull((LocalTime) v);
                     return;
 
-                case ClientDataType.DATETIME:
+                case DATETIME:
                     builder.appendDateTimeNotNull((LocalDateTime) v);
                     return;
 
-                case ClientDataType.TIMESTAMP:
+                case TIMESTAMP:
                     builder.appendTimestampNotNull((Instant) v);
                     return;
 
-                case ClientDataType.NUMBER:
+                case NUMBER:
                     builder.appendNumberNotNull((BigInteger) v);
                     return;
 

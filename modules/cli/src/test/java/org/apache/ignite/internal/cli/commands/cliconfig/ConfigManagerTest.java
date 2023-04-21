@@ -75,4 +75,16 @@ class ConfigManagerTest {
         assertThat(configManager.getCurrentProfile().getProperty("test")).isEqualTo("testValue");
         assertThat(configManager.getCurrentProfile().getName()).isEqualTo("database");
     }
+
+    @Test
+    public void testRemoveProperty() {
+        File tempFile = TestConfigManagerHelper.createSectionWithDefaultProfile();
+        File tempSecretFile = TestConfigManagerHelper.createEmptySecretConfig();
+        IniConfigManager configManager = new IniConfigManager(tempFile, tempSecretFile);
+
+        assertThat(configManager.removeProperty("server", configManager.getCurrentProfile().getName())).isEqualTo("127.0.0.1");
+
+        assertThat(tempFile.exists()).isTrue();
+        assertThat(configManager.getCurrentProfile().getProperty("server")).isNull();
+    }
 }

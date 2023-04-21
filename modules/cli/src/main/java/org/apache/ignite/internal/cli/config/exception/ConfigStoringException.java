@@ -15,24 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import org.apache.ignite.sql.ColumnType;
-import org.junit.jupiter.api.Test;
+package org.apache.ignite.internal.cli.config.exception;
 
 /**
- * Tests column type converter.
+ * Exception for case when config not stored correctly.
  */
-public class ClientColumnTypeConverterTest {
-    @Test
-    public void testConvertAllTypes() {
-        for (ColumnType columnType : ColumnType.values()) {
-            int ordinal = ClientColumnTypeConverter.sqlColumnTypeToOrdinal(columnType);
-            ColumnType resColumnType = ClientColumnTypeConverter.ordinalToSqlColumnType(ordinal);
+public class ConfigStoringException extends RuntimeException {
 
-            assertEquals(columnType, resColumnType);
-        }
+    /**
+     * Constructor.
+     *
+     * @param cause cause exception.
+     */
+    public ConfigStoringException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

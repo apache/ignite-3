@@ -15,13 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.config;
+package org.apache.ignite.lang;
+
+import com.tngtech.archunit.core.importer.Location;
+import java.nio.file.Path;
+import java.util.Set;
 
 /**
- * CLI profile not found.
+ * Provide location providers for arch tests.
  */
-public class ProfileNotFoundException extends RuntimeException {
-    public ProfileNotFoundException(String profileName) {
-        super("Profile " + profileName + " not found.");
+public class LocationProvider {
+
+    /**
+     * Location provider for a root. Include all modules.
+     */
+    public static class RootLocationProvider implements com.tngtech.archunit.junit.LocationProvider {
+        @Override
+        public Set<Location> get(Class<?> testClass) {
+            // ignite-3/modules
+            Path modulesRoot = Path.of("").toAbsolutePath().getParent();
+
+            return Set.of(Location.of(modulesRoot));
+        }
     }
 }

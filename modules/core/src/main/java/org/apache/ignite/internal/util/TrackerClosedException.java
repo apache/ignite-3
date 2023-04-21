@@ -15,20 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.config;
+package org.apache.ignite.internal.util;
 
 /**
- * Config initialization exception.
+ * Exception that will be thrown when the {@link PendingComparableValuesTracker} is closed.
  */
-public class ConfigInitializationException extends RuntimeException {
-
-    /**
-     * Constructor.
-     *
-     * @param configPath path of not initialized config.
-     * @param e reason.
-     */
-    public ConfigInitializationException(String configPath, Throwable e) {
-        super("Failed to initialize default config in location: " + configPath, e);
-    }
+public class TrackerClosedException extends RuntimeException {
+    private static final long serialVersionUID = -3685913884384983930L;
 }
