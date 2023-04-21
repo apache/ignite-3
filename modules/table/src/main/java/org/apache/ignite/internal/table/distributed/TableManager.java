@@ -1366,19 +1366,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 tblFut.completeExceptionally(new DistributionZoneNotFoundException(zoneName));
                             } else {
                                 cmgMgr.logicalTopology()
-                                        .thenCompose(cmgTopology -> {
-                                            distributionZoneManager.topologyVersionedDataNodes(zoneId, cmgTopology.version())
-                                                    .thenCompose(dataNodes -> {
-                                                        changeTablesConfiguration(
-                                                                name,
-                                                                zoneId,
-                                                                dataNodes,
-                                                                tableInitChange,
-                                                                tblFut
-                                                        );
+                                        .handle((cmgTopology, e) -> {
+                                            if (e == null) {
+                                                distributionZoneManager.topologyVersionedDataNodes(zoneId, cmgTopology.version())
+                                                        .handle((dataNodes, e0) -> {
+                                                            if (e0 == null) {
+                                                                changeTablesConfiguration(
+                                                                        name,
+                                                                        zoneId,
+                                                                        dataNodes,
+                                                                        tableInitChange,
+                                                                        tblFut
+                                                                );
+                                                            } else {
+                                                                tblFut.completeExceptionally(e0);
+                                                            }
 
-                                                        return null;
-                                                    });
+                                                            return null;
+                                                        });
+                                            } else {
+                                                tblFut.completeExceptionally(e);
+                                            }
 
                                             return null;
                                         });

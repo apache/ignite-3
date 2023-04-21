@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -120,6 +122,9 @@ import org.mockito.quality.Strictness;
 public class MockedStructuresTest extends IgniteAbstractTest {
     /** Node name. */
     private static final String NODE_NAME = "node1";
+
+    /** Empty logical topology snapshot. */
+    private static final LogicalTopologySnapshot logicalTopologySnapshot = new LogicalTopologySnapshot(0, emptySet());
 
     /** Schema manager. */
     @Mock
@@ -258,8 +263,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         cmgMgr = mock(ClusterManagementGroupManager.class);
 
-        LogicalTopologySnapshot logicalTopologySnapshot = new LogicalTopologySnapshot(0, emptySet());
-
         when(cmgMgr.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));
 
         distributionZoneManager = mock(DistributionZoneManager.class);
@@ -396,6 +399,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         readFirst(queryProc.querySingleAsync(sessionId, context, "DROP TABLE " + tableName));
 
+        log.info("Creating a table with a non-existent distribution zone.");
+
         Exception exception = assertThrows(
                 IgniteException.class,
                 () -> readFirst(queryProc.querySingleAsync(sessionId, context,
@@ -404,6 +409,49 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         );
 
         assertInstanceOf(DistributionZoneNotFoundException.class, exception.getCause());
+
+        log.info("Creating a table with a ClusterManagementGroupManager throwing an exception.");
+
+        String expectedMessage0 = "Expected exception 0";
+
+        when(cmgMgr.logicalTopology()).thenReturn(failedFuture(new Exception(expectedMessage0)));
+
+        exception = assertThrows(
+                IgniteException.class,
+                () -> readFirst(queryProc.querySingleAsync(sessionId, context,
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
+                                + "with primary_zone='%s'", tableName, DEFAULT_ZONE_NAME)))
+        );
+
+        assertInstanceOf(Exception.class, exception.getCause().getCause());
+
+        String actualMessage0 = exception.getCause().getCause().getMessage();
+
+        assertTrue(actualMessage0.contains(expectedMessage0),
+                "Expected message: " + expectedMessage0 + ". Actual message: " + actualMessage0);
+
+        when(cmgMgr.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));
+
+        log.info("Creating a table with a DistributionZoneManager throwing an exception.");
+
+        String expectedMessage1 = "Expected exception 1";
+
+        when(distributionZoneManager.topologyVersionedDataNodes(anyInt(), anyLong()))
+                .thenReturn(failedFuture(new Exception(expectedMessage1)));
+
+        exception = assertThrows(
+                IgniteException.class,
+                () -> readFirst(queryProc.querySingleAsync(sessionId, context,
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
+                                + "with primary_zone='%s'", tableName, DEFAULT_ZONE_NAME)))
+        );
+
+        assertInstanceOf(Exception.class, exception.getCause().getCause());
+
+        String actualMessage1 = exception.getCause().getCause().getMessage();
+
+        assertTrue(actualMessage1.contains(expectedMessage1),
+                "Expected message: " + expectedMessage1 + ". Actual message: " + actualMessage1);
     }
 
     /**
