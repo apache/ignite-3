@@ -48,7 +48,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.table.distributed.LowWatermarkSupplier;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
@@ -89,31 +88,25 @@ public class PartitionListener implements RaftGroupListener {
     /** Storage index tracker. */
     private final PendingComparableValuesTracker<Long> storageIndexTracker;
 
-    /** Low watermark supplier, will return {@code null} if no low watermark has been assigned yet. */
-    private final LowWatermarkSupplier lowWatermarkSupplier;
-
     /**
      * The constructor.
      *
      * @param partitionDataStorage The storage.
      * @param safeTime Safe time tracker.
      * @param storageIndexTracker Storage index tracker.
-     * @param lowWatermarkSupplier Low watermark supplier.
      */
     public PartitionListener(
             PartitionDataStorage partitionDataStorage,
             StorageUpdateHandler storageUpdateHandler,
             TxStateStorage txStateStorage,
             PendingComparableValuesTracker<HybridTimestamp> safeTime,
-            PendingComparableValuesTracker<Long> storageIndexTracker,
-            LowWatermarkSupplier lowWatermarkSupplier
+            PendingComparableValuesTracker<Long> storageIndexTracker
     ) {
         this.storage = partitionDataStorage;
         this.storageUpdateHandler = storageUpdateHandler;
         this.txStateStorage = txStateStorage;
         this.safeTime = safeTime;
         this.storageIndexTracker = storageIndexTracker;
-        this.lowWatermarkSupplier = lowWatermarkSupplier;
 
         // TODO: IGNITE-18502 Implement a pending update storage
         try (PartitionTimestampCursor cursor = partitionDataStorage.scan(HybridTimestamp.MAX_VALUE)) {
@@ -228,8 +221,7 @@ public class PartitionListener implements RaftGroupListener {
                     txsPendingRowIds.computeIfAbsent(cmd.txId(), entry -> new HashSet<>()).add(rowId);
 
                     storage.lastApplied(commandIndex, commandTerm);
-                },
-                lowWatermarkSupplier.getLowWatermark()
+                }
         );
     }
 
@@ -246,16 +238,13 @@ public class PartitionListener implements RaftGroupListener {
             return;
         }
 
-        storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(),
-                rowIds -> {
-                    for (RowId rowId : rowIds) {
-                        txsPendingRowIds.computeIfAbsent(cmd.txId(), entry0 -> new HashSet<>()).add(rowId);
-                    }
+        storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), rowIds -> {
+            for (RowId rowId : rowIds) {
+                txsPendingRowIds.computeIfAbsent(cmd.txId(), entry0 -> new HashSet<>()).add(rowId);
+            }
 
-                    storage.lastApplied(commandIndex, commandTerm);
-                },
-                lowWatermarkSupplier.getLowWatermark()
-        );
+            storage.lastApplied(commandIndex, commandTerm);
+        });
     }
 
     /**

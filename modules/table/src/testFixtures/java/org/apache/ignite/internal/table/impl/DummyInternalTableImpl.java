@@ -61,7 +61,7 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
-import org.apache.ignite.internal.table.distributed.LowWatermarkSupplier;
+import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
@@ -272,7 +272,14 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().when(gcBatchSizeValue.value()).thenReturn(5);
         lenient().when(dsCfg.gcOnUpdateBatchSize()).thenReturn(gcBatchSizeValue);
 
-        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(PART_ID, partitionDataStorage, indexes, dsCfg, safeTime);
+        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
+                PART_ID,
+                partitionDataStorage,
+                indexes,
+                dsCfg,
+                safeTime,
+                mock(LowWatermark.class)
+        );
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);
 
@@ -301,8 +308,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 storageUpdateHandler,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 safeTime,
-                new PendingComparableValuesTracker<>(0L),
-                LowWatermarkSupplier.empty()
+                new PendingComparableValuesTracker<>(0L)
         );
 
         safeTimeUpdaterThread = new Thread(new SafeTimeUpdater(safeTime), "safe-time-updater");

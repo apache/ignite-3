@@ -743,7 +743,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     storage,
                                     table.indexStorageAdapters(partId),
                                     dsCfg,
-                                    safeTimeTracker
+                                    safeTimeTracker,
+                                    lowWatermark
                             );
 
                             mvGc.addStorage(replicaGrpId, storageUpdateHandler);
@@ -818,8 +819,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             storageUpdateHandler,
                                                             txStatePartitionStorage,
                                                             safeTimeTracker,
-                                                            storageIndexTracker,
-                                                            lowWatermark
+                                                            storageIndexTracker
                                                     ),
                                                     new RebalanceRaftGroupEventsListener(
                                                             metaStorageMgr,
@@ -2066,7 +2066,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 partitionDataStorage,
                                 tbl.indexStorageAdapters(partId),
                                 dstZoneCfg.dataStorage(),
-                                safeTimeTracker
+                                safeTimeTracker,
+                                lowWatermark
                         );
 
                         RaftGroupOptions groupOptions = groupOptionsForPartition(
@@ -2081,8 +2082,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 storageUpdateHandler,
                                 txStatePartitionStorage,
                                 safeTimeTracker,
-                                storageIndexTracker,
-                                lowWatermark
+                                storageIndexTracker
                         );
 
                         RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(

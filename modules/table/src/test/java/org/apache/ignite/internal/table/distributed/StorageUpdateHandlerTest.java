@@ -180,7 +180,14 @@ public class StorageUpdateHandlerTest {
     }
 
     private StorageUpdateHandler createStorageUpdateHandler(PartitionDataStorage partitionStorage, TableIndexStoragesSupplier indexes) {
-        return new StorageUpdateHandler(PARTITION_ID, partitionStorage, indexes, dataStorageConfig, safeTimeTracker);
+        return new StorageUpdateHandler(
+                PARTITION_ID,
+                partitionStorage,
+                indexes,
+                dataStorageConfig,
+                safeTimeTracker,
+                mock(LowWatermark.class)
+        );
     }
 
     private void setRowVersions(PartitionDataStorage partitionStorage, Map<UUID, List<BinaryRow>> rowVersions) {

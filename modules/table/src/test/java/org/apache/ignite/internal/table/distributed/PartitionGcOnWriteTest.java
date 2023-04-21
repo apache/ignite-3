@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed;
 import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.Map;
@@ -65,7 +66,8 @@ public class PartitionGcOnWriteTest extends BaseMvStoragesTest {
                 new TestPartitionDataStorage(storage),
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
                 dsCfg,
-                new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE)
+                new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE),
+                mock(LowWatermark.class)
         );
     }
 

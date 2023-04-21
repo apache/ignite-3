@@ -76,7 +76,8 @@ public class PartitionGcOnWriteConcurrentTest {
                 new TestPartitionDataStorage(storage),
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
                 dsCfg,
-                new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE)
+                new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE),
+                mock(LowWatermark.class)
         );
     }
 

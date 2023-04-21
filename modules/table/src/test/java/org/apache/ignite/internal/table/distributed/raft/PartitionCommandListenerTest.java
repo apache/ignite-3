@@ -81,7 +81,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
-import org.apache.ignite.internal.table.distributed.LowWatermarkSupplier;
+import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
@@ -192,7 +192,8 @@ public class PartitionCommandListenerTest {
                 partitionDataStorage,
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage)),
                 dsCfg,
-                safeTimeTracker
+                safeTimeTracker,
+                mock(LowWatermark.class)
         ));
 
         commandListener = new PartitionListener(
@@ -200,8 +201,7 @@ public class PartitionCommandListenerTest {
                 storageUpdateHandler,
                 txStateStorage,
                 safeTimeTracker,
-                new PendingComparableValuesTracker<>(0L),
-                LowWatermarkSupplier.empty()
+                new PendingComparableValuesTracker<>(0L)
         );
     }
 
@@ -288,7 +288,8 @@ public class PartitionCommandListenerTest {
                 partitionDataStorage,
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage)),
                 dsCfg,
-                safeTimeTracker
+                safeTimeTracker,
+                mock(LowWatermark.class)
         );
 
         PartitionListener testCommandListener = new PartitionListener(
@@ -296,8 +297,7 @@ public class PartitionCommandListenerTest {
                 storageUpdateHandler,
                 txStateStorage,
                 safeTimeTracker,
-                new PendingComparableValuesTracker<>(0L),
-                LowWatermarkSupplier.empty()
+                new PendingComparableValuesTracker<>(0L)
         );
 
         txStateStorage.lastApplied(3L, 1L);

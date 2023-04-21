@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.Mockito.mock;
 
 import java.util.Map;
 import java.util.UUID;
@@ -97,7 +98,8 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
                 partitionDataStorage,
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
                 distributionZoneConfig.dataStorage(),
-                new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE)
+                new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE),
+                mock(LowWatermark.class)
         );
     }
 

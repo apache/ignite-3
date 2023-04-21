@@ -59,6 +59,9 @@ public class StorageUpdateHandler {
     /** Partition safe time tracker. */
     private final PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker;
 
+    /** Low watermark. */
+    private final LowWatermark lowWatermark;
+
     /**
      * The constructor.
      *
@@ -73,13 +76,15 @@ public class StorageUpdateHandler {
             PartitionDataStorage storage,
             TableIndexStoragesSupplier indexes,
             DataStorageConfiguration dsCfg,
-            PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker
+            PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker,
+            LowWatermark lowWatermark
     ) {
         this.partitionId = partitionId;
         this.storage = storage;
         this.indexes = indexes;
         this.dsCfg = dsCfg;
         this.safeTimeTracker = safeTimeTracker;
+        this.lowWatermark = lowWatermark;
     }
 
     /**

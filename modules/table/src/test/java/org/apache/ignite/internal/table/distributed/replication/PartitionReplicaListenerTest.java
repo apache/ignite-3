@@ -89,6 +89,7 @@ import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
+import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
@@ -339,7 +340,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         partitionDataStorage,
                         DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get())),
                         dsCfg,
-                        safeTimeClock
+                        safeTimeClock,
+                        mock(LowWatermark.class)
                 ),
                 peer -> localNode.name().equals(peer.consistentId()),
                 completedFuture(schemaManager)

@@ -52,7 +52,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-91%3A+Transaction+protocol">IEP-91</a>
  */
-public class LowWatermark implements LowWatermarkSupplier, ManuallyCloseable {
+public class LowWatermark implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(LowWatermark.class);
 
     static final ByteArray LOW_WATERMARK_VAULT_KEY = new ByteArray("low-watermark");
@@ -148,7 +148,7 @@ public class LowWatermark implements LowWatermarkSupplier, ManuallyCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         if (!closeGuard.compareAndSet(false, true)) {
             return;
         }
@@ -164,7 +164,9 @@ public class LowWatermark implements LowWatermarkSupplier, ManuallyCloseable {
         IgniteUtils.shutdownAndAwaitTermination(scheduledThreadPool, 10, TimeUnit.SECONDS);
     }
 
-    @Override
+    /**
+     * Returns the current low watermark, {@code null} means no low watermark has been assigned yet.
+     */
     public @Nullable HybridTimestamp getLowWatermark() {
         return lowWatermark.get();
     }
