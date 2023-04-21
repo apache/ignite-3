@@ -23,7 +23,7 @@ using Internal.Sql;
 using NUnit.Framework;
 
 /// <summary>
-/// Tests for <see cref="SqlColumnTypeExtensions"/>.
+/// Tests for <see cref="ColumnTypeExtensions"/>.
 /// </summary>
 public class SqlColumnTypeExtensionsTests
 {
@@ -35,7 +35,7 @@ public class SqlColumnTypeExtensionsTests
 
     [TestCaseSource(nameof(SqlColumnTypes))]
     public void TestToSqlColumnType(ColumnType columnType) =>
-        Assert.AreEqual(columnType, columnType.ToClrType().ToSqlColumnType());
+        Assert.AreEqual(columnType, columnType.ToClrType().ToColumnType());
 
     [TestCaseSource(nameof(SqlColumnTypes))]
     public void TestSqlColumnTypeToSqlTypeName(ColumnType columnType)

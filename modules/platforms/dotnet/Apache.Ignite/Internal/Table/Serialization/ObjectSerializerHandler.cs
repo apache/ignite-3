@@ -26,9 +26,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Reflection;
     using System.Reflection.Emit;
     using Ignite.Sql;
-    using Proto;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
+    using Sql;
 
     /// <summary>
     /// Object serializer handler.
@@ -395,7 +395,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
         private static void ValidateFieldType(FieldInfo fieldInfo, Column column)
         {
-            var columnType = column.Type.ToType();
+            var columnType = column.Type.ToClrType();
 
             var fieldType = Nullable.GetUnderlyingType(fieldInfo.FieldType) ?? fieldInfo.FieldType;
             fieldType = fieldType.UnwrapEnum();
@@ -411,7 +411,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
         private static void ValidateSingleFieldMappingType(Type type, Column column)
         {
-            var columnType = column.Type.ToType();
+            var columnType = column.Type.ToClrType();
 
             if (type != columnType)
             {

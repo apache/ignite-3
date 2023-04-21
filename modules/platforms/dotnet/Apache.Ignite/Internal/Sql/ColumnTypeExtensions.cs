@@ -28,7 +28,7 @@ using NodaTime;
 /// <summary>
 /// Extension methods for <see cref="ColumnType"/>.
 /// </summary>
-internal static class SqlColumnTypeExtensions
+internal static class ColumnTypeExtensions
 {
     private static readonly IReadOnlyDictionary<Type, ColumnType> ClrToSql =
         Enum.GetValues<ColumnType>().ToDictionary(x => x.ToClrType(), x => x);
@@ -124,7 +124,7 @@ internal static class SqlColumnTypeExtensions
     /// </summary>
     /// <param name="type">Type.</param>
     /// <returns>SQL column type, or null.</returns>
-    public static ColumnType? ToSqlColumnType(this Type type) =>
+    public static ColumnType? ToColumnType(this Type type) =>
         ClrToSql.TryGetValue(Nullable.GetUnderlyingType(type) ?? type, out var sqlType) ? sqlType : null;
 
     /// <summary>

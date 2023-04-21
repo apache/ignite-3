@@ -476,7 +476,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
 
     private static void ValidateColumnType(Type type, IColumnMetadata column)
     {
-        if (column.Type != type.ToSqlColumnType())
+        if (column.Type != type.ToColumnType())
         {
             throw GetInvalidColumnTypeException(type, column);
         }

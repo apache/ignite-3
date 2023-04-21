@@ -87,7 +87,7 @@ internal static class ResultSelector
                     static k => EmitMemberInitReader<T>(k.Target, k.Columns, k.Options));
         }
 
-        if (columns.Count == 1 && (typeof(T).ToSqlColumnType() is not null || typeof(T).IsEnum))
+        if (columns.Count == 1 && (typeof(T).ToColumnType() is not null || typeof(T).IsEnum))
         {
             var singleColumnCacheKey = new ResultSelectorCacheKey<Type>(typeof(T), columns, options);
 
