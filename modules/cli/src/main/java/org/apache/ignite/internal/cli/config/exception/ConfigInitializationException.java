@@ -15,19 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.config;
+package org.apache.ignite.internal.cli.config.exception;
 
 /**
- * Exception for case when config not stored correctly.
+ * Config initialization exception.
  */
-public class ConfigStoringException extends RuntimeException {
+public class ConfigInitializationException extends RuntimeException {
 
     /**
      * Constructor.
      *
-     * @param cause cause exception.
+     * @param configPath path of not initialized config.
+     * @param e reason.
      */
-    public ConfigStoringException(String message, Throwable cause) {
-        super(message, cause);
+    public ConfigInitializationException(String configPath, Throwable e) {
+        super("Failed to initialize default config in location: " + configPath, e);
     }
 }

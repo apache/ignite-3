@@ -15,23 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.cliconfig;
-
-import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cliconfig.profile.CliConfigProfileCommand;
-import picocli.CommandLine.Command;
+package org.apache.ignite.internal.cli.config.exception;
 
 /**
- * Parent command for CLI configuration commands in REPL mode.
+ * CLI profile not found.
  */
-@Command(name = "config",
-        description = "CLI configuration commands",
-        subcommands = {
-                CliConfigGetReplCommand.class,
-                CliConfigSetReplCommand.class,
-                CliConfigRemoveReplCommand.class,
-                CliConfigShowReplCommand.class,
-                CliConfigProfileCommand.class,
-        })
-public class CliConfigReplCommand extends BaseCommand {
+public class ProfileNotFoundException extends RuntimeException {
+    public ProfileNotFoundException(String profileName) {
+        super("Profile " + profileName + " not found.");
+    }
 }

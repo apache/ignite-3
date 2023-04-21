@@ -15,13 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.config;
+package org.apache.ignite.internal.cli.config.exception;
 
-/**
- * CLI profile not found.
- */
-public class ProfileNotFoundException extends RuntimeException {
-    public ProfileNotFoundException(String profileName) {
-        super("Profile " + profileName + " not found.");
+/** CLI config property not found. */
+public class NonexistentPropertyException extends RuntimeException {
+    public NonexistentPropertyException(String property) {
+        super("Property " + property + " doesn't exist.");
     }
 }
