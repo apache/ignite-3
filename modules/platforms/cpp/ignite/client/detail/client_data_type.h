@@ -26,6 +26,9 @@ namespace ignite::detail {
  * Column data type encoding for the client protocol.
  */
 struct client_data_type {
+    /** Boolean. */
+    static constexpr std::int32_t BOOLEAN = 0;
+
     /** Byte. */
     static constexpr std::int32_t INT8 = 1;
 
@@ -47,41 +50,38 @@ struct client_data_type {
     /** Decimal. */
     static constexpr std::int32_t DECIMAL = 7;
 
-    /** UUID. */
-    static constexpr std::int32_t UUID = 8;
-
-    /** String. */
-    static constexpr std::int32_t STRING = 9;
-
-    /** Byte array. */
-    static constexpr std::int32_t BYTES = 10;
-
-    /** BitMask. */
-    static constexpr std::int32_t BITMASK = 11;
-
     /** Date. */
-    static constexpr std::int32_t DATE = 12;
+    static constexpr std::int32_t DATE = 8;
 
     /** Time. */
-    static constexpr std::int32_t TIME = 13;
+    static constexpr std::int32_t TIME = 9;
 
     /** DateTime. */
-    static constexpr std::int32_t DATETIME = 14;
+    static constexpr std::int32_t DATETIME = 10;
 
     /** Timestamp. */
-    static constexpr std::int32_t TIMESTAMP = 15;
+    static constexpr std::int32_t TIMESTAMP = 11;
 
-    /** Number. */
-    static constexpr std::int32_t NUMBER = 16;
+    /** UUID. */
+    static constexpr std::int32_t UUID = 12;
 
-    /** Boolean. */
-    static constexpr std::int32_t BOOLEAN = 17;
+    /** BitMask. */
+    static constexpr std::int32_t BITMASK = 13;
 
-    /** Duration. */
-    static constexpr std::int32_t DURATION = 18;
+    /** String. */
+    static constexpr std::int32_t STRING = 14;
+
+    /** Byte array. */
+    static constexpr std::int32_t BYTES = 15;
 
     /** Period. */
-    static constexpr std::int32_t PERIOD = 19;
+    static constexpr std::int32_t PERIOD = 16;
+
+    /** Duration. */
+    static constexpr std::int32_t DURATION = 17;
+
+    /** Number. */
+    static constexpr std::int32_t NUMBER = 18;
 
     /**
      * Get the ignite type matching a client data type value.
