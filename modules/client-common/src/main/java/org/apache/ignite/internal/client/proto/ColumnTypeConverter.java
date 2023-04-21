@@ -23,7 +23,7 @@ import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * SQL column type utils.
+ * Column type utils.
  */
 public class ColumnTypeConverter {
     /** Enum values. */
