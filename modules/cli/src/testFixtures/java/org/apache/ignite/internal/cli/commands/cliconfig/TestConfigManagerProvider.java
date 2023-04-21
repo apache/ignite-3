@@ -32,7 +32,7 @@ import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
 public class TestConfigManagerProvider implements ConfigManagerProvider {
 
     public ConfigManager configManager = new IniConfigManager(
-            TestConfigManagerHelper.createIntegrationTests(),
+            TestConfigManagerHelper.createIntegrationTestsConfig(),
             TestConfigManagerHelper.createEmptySecretConfig()
     );
 
@@ -42,6 +42,10 @@ public class TestConfigManagerProvider implements ConfigManagerProvider {
     }
 
     public void setConfigFile(File configFile) {
-        configManager = new IniConfigManager(configFile, TestConfigManagerHelper.createEmptySecretConfig());
+        setConfigFile(configFile, TestConfigManagerHelper.createEmptySecretConfig());
+    }
+
+    public void setConfigFile(File configFile, File secretConfigFile) {
+        configManager = new IniConfigManager(configFile, secretConfigFile);
     }
 }

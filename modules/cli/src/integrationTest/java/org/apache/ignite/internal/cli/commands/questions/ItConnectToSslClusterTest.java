@@ -43,7 +43,7 @@ class ItConnectToSslClusterTest extends ItConnectToClusterTestBase {
         assertThat(promptBefore).isEqualTo("[disconnected]> ");
 
         // And default URL is HTTPS
-        configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlSsl());
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlSslConfig());
         // And trust store is configured
         configManagerProvider.configManager.setProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value(), NodeConfig.resolvedTruststorePath);
         configManagerProvider.configManager.setProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value(), NodeConfig.trustStorePassword);
@@ -75,7 +75,7 @@ class ItConnectToSslClusterTest extends ItConnectToClusterTestBase {
         assertThat(promptBefore).isEqualTo("[disconnected]> ");
 
         // And default URL is HTTPS
-        configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlSsl());
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlSslConfig());
 
         // And trust store is not configured
 

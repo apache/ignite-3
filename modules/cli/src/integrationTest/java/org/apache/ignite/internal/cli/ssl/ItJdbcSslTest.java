@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.ssl;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import org.apache.ignite.internal.NodeConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -46,13 +47,13 @@ public class ItJdbcSslTest extends CliSslClientConnectorIntegrationTestBase {
         // Given valid JDBC connection string with SSL configured
         String jdbcUrl = JDBC_URL
                 + "?sslEnabled=true"
-                + "&trustStorePath=" + resolvedTruststorePath
+                + "&trustStorePath=" + NodeConfig.resolvedTruststorePath
                 + "&trustStoreType=JKS"
-                + "&trustStorePassword=" + trustStorePassword
+                + "&trustStorePassword=" + NodeConfig.trustStorePassword
                 + "&clientAuth=require"
-                + "&keyStorePath=" + resolvedKeystorePath
+                + "&keyStorePath=" + NodeConfig.resolvedKeystorePath
                 + "&keyStoreType=PKCS12"
-                + "&keyStorePassword=" + keyStorePassword;
+                + "&keyStorePassword=" + NodeConfig.keyStorePassword;
 
         // When
         execute("sql", "--jdbc-url", jdbcUrl, "select * from person");
@@ -72,9 +73,9 @@ public class ItJdbcSslTest extends CliSslClientConnectorIntegrationTestBase {
         String jdbcUrl = JDBC_URL
                 + "?sslEnabled=true"
                 + "&clientAuth=require"
-                + "&keyStorePath=" + resolvedKeystorePath
+                + "&keyStorePath=" + NodeConfig.resolvedKeystorePath
                 + "&keyStoreType=PKCS12"
-                + "&keyStorePassword=" + keyStorePassword;
+                + "&keyStorePassword=" + NodeConfig.keyStorePassword;
 
         // When
         execute("sql", "--jdbc-url", jdbcUrl, "select * from person");
@@ -94,9 +95,9 @@ public class ItJdbcSslTest extends CliSslClientConnectorIntegrationTestBase {
         // Given valid JDBC connection string with SSL configured
         String jdbcUrl = JDBC_URL
                 + "?sslEnabled=true"
-                + "&trustStorePath=" + resolvedTruststorePath
+                + "&trustStorePath=" + NodeConfig.resolvedTruststorePath
                 + "&trustStoreType=JKS"
-                + "&trustStorePassword=" + trustStorePassword
+                + "&trustStorePassword=" + NodeConfig.trustStorePassword
                 + "&clientAuth=require";
 
         // When

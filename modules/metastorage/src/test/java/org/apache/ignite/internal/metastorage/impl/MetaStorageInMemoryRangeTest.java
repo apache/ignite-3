@@ -15,20 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command.cursor;
+package org.apache.ignite.internal.metastorage.impl;
 
-import org.apache.ignite.internal.metastorage.command.MetastorageCommandsMessageGroup;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.annotations.Transferable;
+import java.nio.file.Path;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 
 /**
- * Cursor close command for MetaStorageCommandListener that closes cursor with given id.
+ * {@link MetaStorageRangeTest} implementation using {@link SimpleInMemoryKeyValueStorage}.
  */
-@Transferable(MetastorageCommandsMessageGroup.CLOSE_CURSOR)
-public interface CloseCursorCommand extends WriteCommand {
-    /**
-     * Returns cursor id.
-     */
-    IgniteUuid cursorId();
+public class MetaStorageInMemoryRangeTest extends MetaStorageRangeTest {
+    @Override
+    KeyValueStorage getStorage(Path path) {
+        return new SimpleInMemoryKeyValueStorage("test");
+    }
 }

@@ -30,6 +30,6 @@ public abstract class CliConfigCommandTestBase extends CliCommandTestBase {
 
     @BeforeEach
     void configManagerRefresh() {
-        configManagerProvider.setConfigFile(TestConfigManagerHelper.createSectionWithDefaultProfile());
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createSectionWithDefaultProfileConfig());
     }
 }

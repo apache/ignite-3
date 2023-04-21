@@ -42,7 +42,7 @@ class CliConfigProfileListCommandTest extends CliConfigCommandTestBase {
 
     @Test
     public void testSingleProfile() {
-        configManagerProvider.setConfigFile(TestConfigManagerHelper.createOneSectionWithDefaultProfile());
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createOneSectionWithDefaultProfileConfig());
         execute();
 
         String expectedResult = "default" + System.lineSeparator();

@@ -40,7 +40,7 @@ class CliConfigProfileShowCommandTest extends CliConfigCommandTestBase {
 
     @Test
     public void testWithoutDefaultProfile() {
-        configManagerProvider.setConfigFile(TestConfigManagerHelper.createSectionWithoutDefaultProfile());
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createSectionWithoutDefaultProfileConfig());
         execute();
 
         assertAll(

@@ -103,7 +103,7 @@ public class UrlOptionsNegativeTest {
     NodeNameRegistry nodeNameRegistry;
 
     private void setUp(Class<?> cmdClass) {
-        configManagerProvider.setConfigFile(TestConfigManagerHelper.createSectionWithDefaultProfile());
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createSectionWithDefaultProfileConfig());
         MicronautFactory factory = new MicronautFactory(context);
         cmd = new CommandLine(cmdClass, factory)
                 .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
