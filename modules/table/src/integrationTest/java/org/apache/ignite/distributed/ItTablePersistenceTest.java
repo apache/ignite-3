@@ -70,7 +70,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.distributed.LowWatermarkSupplier;
+import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
@@ -386,7 +386,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             partitionDataStorage,
                             DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
                             zoneCfg.dataStorage(),
-                            safeTime
+                            safeTime,
+                            mock(LowWatermark.class)
                     );
 
                     PartitionListener listener = new PartitionListener(
@@ -394,8 +395,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             storageUpdateHandler,
                             new TestTxStateStorage(),
                             safeTime,
-                            new PendingComparableValuesTracker<>(0L),
-                            LowWatermarkSupplier.empty()
+                            new PendingComparableValuesTracker<>(0L)
                     );
 
                     paths.put(listener, path);

@@ -103,27 +103,6 @@ public class StorageUpdateHandler {
             @Nullable ByteBuffer rowBuffer,
             @Nullable Consumer<RowId> onReplication
     ) {
-        handleUpdate(txId, rowUuid, commitPartitionId, rowBuffer, onReplication, null);
-    }
-
-    /**
-     * Handles single update.
-     *
-     * @param txId Transaction id.
-     * @param rowUuid Row UUID.
-     * @param commitPartitionId Commit partition id.
-     * @param rowBuffer Row buffer.
-     * @param onReplication Callback on replication.
-     * @param lowWatermark GC low watermark.
-     */
-    public void handleUpdate(
-            UUID txId,
-            UUID rowUuid,
-            TablePartitionId commitPartitionId,
-            @Nullable ByteBuffer rowBuffer,
-            @Nullable Consumer<RowId> onReplication,
-            @Nullable HybridTimestamp lowWatermark
-    ) {
         storage.runConsistently(() -> {
             BinaryRow row = rowBuffer != null ? new ByteBufferRow(rowBuffer) : null;
             RowId rowId = new RowId(partitionId, rowUuid);
@@ -146,11 +125,11 @@ public class StorageUpdateHandler {
             return null;
         });
 
-        executeBatchGc(lowWatermark);
+        executeBatchGc();
     }
 
     /**
-     * Handles multiple updates.
+     * Handle multiple updates.
      *
      * @param txId Transaction id.
      * @param rowsToUpdate Collection of rows to update.
@@ -162,25 +141,6 @@ public class StorageUpdateHandler {
             Map<UUID, ByteBuffer> rowsToUpdate,
             TablePartitionId commitPartitionId,
             @Nullable Consumer<Collection<RowId>> onReplication
-    ) {
-        handleUpdateAll(txId, rowsToUpdate, commitPartitionId, onReplication, null);
-    }
-
-    /**
-     * Handle multiple updates.
-     *
-     * @param txId Transaction id.
-     * @param rowsToUpdate Collection of rows to update.
-     * @param commitPartitionId Commit partition id.
-     * @param onReplication On replication callback.
-     * @param lowWatermark GC low watermark.
-     */
-    public void handleUpdateAll(
-            UUID txId,
-            Map<UUID, ByteBuffer> rowsToUpdate,
-            TablePartitionId commitPartitionId,
-            @Nullable Consumer<Collection<RowId>> onReplication,
-            @Nullable HybridTimestamp lowWatermark
     ) {
         storage.runConsistently(() -> {
             UUID commitTblId = commitPartitionId.tableId();
@@ -212,15 +172,17 @@ public class StorageUpdateHandler {
             return null;
         });
 
-        executeBatchGc(lowWatermark);
+        executeBatchGc();
     }
 
-    void executeBatchGc(@Nullable HybridTimestamp newLwm) {
-        if (newLwm == null || safeTimeTracker.current().compareTo(newLwm) < 0) {
+    void executeBatchGc() {
+        HybridTimestamp lwm = lowWatermark.getLowWatermark();
+
+        if (lwm == null || safeTimeTracker.current().compareTo(lwm) < 0) {
             return;
         }
 
-        vacuumBatch(newLwm, dsCfg.gcOnUpdateBatchSize().value());
+        vacuumBatch(lwm, dsCfg.gcOnUpdateBatchSize().value());
     }
 
     /**

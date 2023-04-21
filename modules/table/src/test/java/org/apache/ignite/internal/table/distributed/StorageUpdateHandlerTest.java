@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -70,6 +72,8 @@ public class StorageUpdateHandlerTest {
     private final PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker = spy(new PendingComparableValuesTracker<>(
             new HybridTimestamp(1, 0)
     ));
+
+    private final LowWatermark lowWatermark = mock(LowWatermark.class);
 
     @Test
     void testBuildIndex() {
@@ -147,26 +151,77 @@ public class StorageUpdateHandlerTest {
 
         StorageUpdateHandler storageUpdateHandler = createStorageUpdateHandler(partitionStorage, mock(TableIndexStoragesSupplier.class));
 
+        AtomicReference<HybridTimestamp> lowWatermarkReference = new AtomicReference<>();
+
+        when(lowWatermark.getLowWatermark()).then(invocation -> lowWatermarkReference.get());
+
         // Let's check that if lwm is {@code null} then nothing will happen.
-        storageUpdateHandler.executeBatchGc(null);
+        storageUpdateHandler.executeBatchGc();
 
         verify(partitionStorage, never()).pollForVacuum(any(HybridTimestamp.class));
 
         // Let's check that if lvm is greater than the safe time, then nothing will happen.
         safeTimeTracker.update(new HybridTimestamp(10, 10));
 
-        storageUpdateHandler.executeBatchGc(new HybridTimestamp(11, 1));
+        lowWatermarkReference.set(new HybridTimestamp(11, 1));
+
+        storageUpdateHandler.executeBatchGc();
 
         verify(partitionStorage, never()).pollForVacuum(any(HybridTimestamp.class));
 
         // Let's check that if lvm is equal to or less than the safe time, then garbage collection will be executed.
-        storageUpdateHandler.executeBatchGc(new HybridTimestamp(10, 10));
+        lowWatermarkReference.set(new HybridTimestamp(10, 10));
+
+        storageUpdateHandler.executeBatchGc();
 
         verify(partitionStorage, times(1)).pollForVacuum(any(HybridTimestamp.class));
 
-        storageUpdateHandler.executeBatchGc(new HybridTimestamp(9, 9));
+        lowWatermarkReference.set(new HybridTimestamp(9, 9));
+
+        storageUpdateHandler.executeBatchGc();
 
         verify(partitionStorage, times(2)).pollForVacuum(any(HybridTimestamp.class));
+    }
+
+    @Test
+    void testInvokeGcOnHandleUpdate() {
+        PartitionDataStorage partitionStorage = createPartitionDataStorage();
+
+        StorageUpdateHandler storageUpdateHandler = createStorageUpdateHandler(partitionStorage, mock(TableIndexStoragesSupplier.class));
+
+        HybridTimestamp lwm = safeTimeTracker.current();
+
+        when(lowWatermark.getLowWatermark()).thenReturn(lwm);
+
+        storageUpdateHandler.handleUpdate(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                new TablePartitionId(UUID.randomUUID(), PARTITION_ID),
+                null,
+                null
+        );
+
+        verify(partitionStorage).pollForVacuum(lwm);
+    }
+
+    @Test
+    void testInvokeGcOnHandleUpdateAll() {
+        PartitionDataStorage partitionStorage = createPartitionDataStorage();
+
+        StorageUpdateHandler storageUpdateHandler = createStorageUpdateHandler(partitionStorage, mock(TableIndexStoragesSupplier.class));
+
+        HybridTimestamp lwm = safeTimeTracker.current();
+
+        when(lowWatermark.getLowWatermark()).thenReturn(lwm);
+
+        storageUpdateHandler.handleUpdateAll(
+                UUID.randomUUID(),
+                Map.of(),
+                new TablePartitionId(UUID.randomUUID(), PARTITION_ID),
+                null
+        );
+
+        verify(partitionStorage).pollForVacuum(lwm);
     }
 
     private static TableSchemaAwareIndexStorage createIndexStorage() {
@@ -180,14 +235,7 @@ public class StorageUpdateHandlerTest {
     }
 
     private StorageUpdateHandler createStorageUpdateHandler(PartitionDataStorage partitionStorage, TableIndexStoragesSupplier indexes) {
-        return new StorageUpdateHandler(
-                PARTITION_ID,
-                partitionStorage,
-                indexes,
-                dataStorageConfig,
-                safeTimeTracker,
-                mock(LowWatermark.class)
-        );
+        return new StorageUpdateHandler(PARTITION_ID, partitionStorage, indexes, dataStorageConfig, safeTimeTracker, lowWatermark);
     }
 
     private void setRowVersions(PartitionDataStorage partitionStorage, Map<UUID, List<BinaryRow>> rowVersions) {
@@ -203,7 +251,7 @@ public class StorageUpdateHandlerTest {
     }
 
     private static PartitionDataStorage createPartitionDataStorage() {
-        PartitionDataStorage partitionStorage = spy(new TestPartitionDataStorage(new TestMvPartitionStorage(0)));
+        PartitionDataStorage partitionStorage = spy(new TestPartitionDataStorage(new TestMvPartitionStorage(PARTITION_ID)));
 
         return partitionStorage;
     }
