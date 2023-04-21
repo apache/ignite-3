@@ -81,6 +81,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.table.distributed.LowWatermarkSupplier;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
@@ -200,7 +201,7 @@ public class PartitionCommandListenerTest {
                 txStateStorage,
                 safeTimeTracker,
                 new PendingComparableValuesTracker<>(0L),
-                () -> null
+                LowWatermarkSupplier.empty()
         );
     }
 
@@ -296,7 +297,7 @@ public class PartitionCommandListenerTest {
                 txStateStorage,
                 safeTimeTracker,
                 new PendingComparableValuesTracker<>(0L),
-                () -> null
+                LowWatermarkSupplier.empty()
         );
 
         txStateStorage.lastApplied(3L, 1L);

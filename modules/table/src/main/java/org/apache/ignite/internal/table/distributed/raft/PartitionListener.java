@@ -32,7 +32,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -49,6 +48,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.table.distributed.LowWatermarkSupplier;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
@@ -90,7 +90,7 @@ public class PartitionListener implements RaftGroupListener {
     private final PendingComparableValuesTracker<Long> storageIndexTracker;
 
     /** Low watermark supplier, will return {@code null} if no low watermark has been assigned yet. */
-    private final Supplier<HybridTimestamp> lowWatermarkSupplier;
+    private final LowWatermarkSupplier lowWatermarkSupplier;
 
     /**
      * The constructor.
@@ -98,7 +98,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param partitionDataStorage The storage.
      * @param safeTime Safe time tracker.
      * @param storageIndexTracker Storage index tracker.
-     * @param lowWatermarkSupplier Low watermark supplier, will return {@code null} if no low watermark has been assigned yet.
+     * @param lowWatermarkSupplier Low watermark supplier.
      */
     public PartitionListener(
             PartitionDataStorage partitionDataStorage,
@@ -106,7 +106,7 @@ public class PartitionListener implements RaftGroupListener {
             TxStateStorage txStateStorage,
             PendingComparableValuesTracker<HybridTimestamp> safeTime,
             PendingComparableValuesTracker<Long> storageIndexTracker,
-            Supplier<HybridTimestamp> lowWatermarkSupplier
+            LowWatermarkSupplier lowWatermarkSupplier
     ) {
         this.storage = partitionDataStorage;
         this.storageUpdateHandler = storageUpdateHandler;
@@ -229,7 +229,7 @@ public class PartitionListener implements RaftGroupListener {
 
                     storage.lastApplied(commandIndex, commandTerm);
                 },
-                lowWatermarkSupplier.get()
+                lowWatermarkSupplier.getLowWatermark()
         );
     }
 
@@ -254,7 +254,7 @@ public class PartitionListener implements RaftGroupListener {
 
                     storage.lastApplied(commandIndex, commandTerm);
                 },
-                lowWatermarkSupplier.get()
+                lowWatermarkSupplier.getLowWatermark()
         );
     }
 

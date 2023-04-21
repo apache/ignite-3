@@ -81,6 +81,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
+import org.apache.ignite.internal.table.distributed.LowWatermarkSupplier;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
@@ -466,7 +467,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                 txStateStorage,
                                 safeTime,
                                 storageIndexTracker,
-                                () -> null
+                                LowWatermarkSupplier.empty()
                         ),
                         RaftGroupEventsListener.noopLsnr,
                         topologyAwareRaftGroupServiceFactory
