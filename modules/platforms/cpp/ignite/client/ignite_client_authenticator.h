@@ -15,32 +15,42 @@
  * limitations under the License.
  */
 
-#include "ignite_runner_suite.h"
+#pragma once
 
-#include <ignite/client/basic_authenticator.h>
-#include <ignite/client/ignite_client.h>
-#include <ignite/client/ignite_client_configuration.h>
+#include <string>
 
-#include <gtest/gtest.h>
-
-#include <chrono>
-
-using namespace ignite;
+namespace ignite {
 
 /**
- * Test suite.
+ * Ignite client authenticator. Provides authentication information during handshake.
  */
-class client_test : public ignite_runner_suite {};
+class ignite_client_authenticator {
+public:
+    /**
+     * Get authenticator type.
+     *
+     * @return Authenticator type.
+     */
+    [[nodiscard]] virtual const std::string& get_type() const = 0;
 
-TEST_F(client_test, get_configuration) {
-    ignite_client_configuration cfg{get_node_addrs()};
-    cfg.set_logger(get_logger());
-    cfg.set_connection_limit(42);
+    /**
+     * Get identity.
+     *
+     * @return Identity.
+     */
+    [[nodiscard]] virtual const std::string& get_identity() const = 0;
 
-    auto client = ignite_client::start(cfg, std::chrono::seconds(30));
+    /**
+     * Get secret.
+     *
+     * @return Secret.
+     */
+    [[nodiscard]] virtual const std::string& get_secret() const = 0;
 
-    const auto &cfg2 = client.configuration();
+protected:
+    // Default
+    ignite_client_authenticator() = default;
+    virtual ~ignite_client_authenticator() = default;
+};
 
-    EXPECT_EQ(cfg.get_endpoints(), cfg2.get_endpoints());
-    EXPECT_EQ(cfg.get_connection_limit(), cfg2.get_connection_limit());
-}
+} // namespace ignite
