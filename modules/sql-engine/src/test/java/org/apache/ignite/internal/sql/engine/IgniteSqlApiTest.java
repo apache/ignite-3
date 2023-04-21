@@ -344,7 +344,7 @@ public class IgniteSqlApiTest {
         Mockito.verify(transaction).commitAsync();
     }
 
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19299")
     @Test
     public void testMetadata() {
         ResultSet<SqlRow> rs = igniteSql.createSession()
