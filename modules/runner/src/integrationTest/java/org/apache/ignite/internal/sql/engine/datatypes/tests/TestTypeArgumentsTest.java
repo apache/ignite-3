@@ -23,9 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.sql.ColumnType;
@@ -87,7 +84,7 @@ public class TestTypeArgumentsTest {
         private static final String[] VALUES = {"1", "2", "3"};
 
         TestType() {
-            super(ColumnType.INT8, "TEST", String.class, VALUES);
+            super(ColumnType.INT8, "TestType", String.class, VALUES);
         }
 
         @Override
@@ -116,31 +113,6 @@ public class TestTypeArgumentsTest {
                     .add(List.of(VALUES), SqlTypeName.INTEGER, String::valueOf)
                     .add(List.of(VALUES), SqlTypeName.BIGINT, String::valueOf)
                     .build();
-        }
-    }
-
-    private static final class TestCustomType extends IgniteCustomType {
-
-        private static final IgniteCustomTypeSpec SPEC = new IgniteCustomTypeSpec("TestType",
-                NativeTypes.INT8, ColumnType.INT8, Byte.class,
-                IgniteCustomTypeSpec.getCastFunction(TestCustomType.class, "cast"));
-
-        @Override
-        public IgniteCustomType createWithNullability(boolean nullable) {
-            return new TestCustomType(nullable);
-        }
-
-        private TestCustomType(boolean nullable) {
-            super(SPEC, nullable, -1);
-        }
-
-        @Override
-        protected void generateTypeString(StringBuilder sb, boolean withDetail) {
-            sb.append("TestType");
-        }
-
-        public static byte cast(Object ignore) {
-            throw new AssertionError();
         }
     }
 }
