@@ -267,7 +267,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         distributionZoneManager = mock(DistributionZoneManager.class);
 
-        when(distributionZoneManager.getZoneId(anyString())).thenReturn(0);
+        when(distributionZoneManager.getZoneId(DEFAULT_ZONE_NAME)).thenReturn(0);
+        when(distributionZoneManager.zoneIdAsyncInternal(DEFAULT_ZONE_NAME)).thenReturn(completedFuture(0));
         when(distributionZoneManager.topologyVersionedDataNodes(anyInt(), anyLong())).thenReturn(completedFuture(emptySet()));
 
         tblManager = mockManagers();
@@ -389,6 +390,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         int zoneId = dstZnsCfg.distributionZones().get(zoneName).zoneId().value();
 
         when(distributionZoneManager.getZoneId(zoneName)).thenReturn(zoneId);
+        when(distributionZoneManager.zoneIdAsyncInternal(zoneName)).thenReturn(completedFuture(zoneId));
 
         newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
                 + "with primary_zone='%s'", tableName, zoneName);
