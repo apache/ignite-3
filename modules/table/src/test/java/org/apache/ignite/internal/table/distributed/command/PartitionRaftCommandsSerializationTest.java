@@ -45,7 +45,7 @@ import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.tx.Timestamp;
+import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -85,7 +85,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                         .partitionId(1)
                         .build()
                 )
-                .rowUuid(Timestamp.nextVersion().toUuid())
+                .rowUuid(TestTransactionIds.newTransactionId())
                 .rowBuffer(byteBufferFromBinaryRow(1))
                 .txId(UUID.randomUUID())
                 .build();
@@ -105,7 +105,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                         .partitionId(1)
                         .build()
                 )
-                .rowUuid(Timestamp.nextVersion().toUuid())
+                .rowUuid(TestTransactionIds.newTransactionId())
                 .txId(UUID.randomUUID())
                 .build();
 
@@ -121,7 +121,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
         Map<UUID, ByteBuffer> rowsToUpdate = new HashMap<>();
 
         for (int i = 0; i < 10; i++) {
-            rowsToUpdate.put(Timestamp.nextVersion().toUuid(), byteBufferFromBinaryRow(i));
+            rowsToUpdate.put(TestTransactionIds.newTransactionId(), byteBufferFromBinaryRow(i));
         }
 
         var cmd = msgFactory.updateAllCommand()
@@ -153,7 +153,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
         Map<UUID, ByteBuffer> rowsToRemove = new HashMap<>();
 
         for (int i = 0; i < 10; i++) {
-            rowsToRemove.put(Timestamp.nextVersion().toUuid(), null);
+            rowsToRemove.put(TestTransactionIds.newTransactionId(), null);
         }
 
         var cmd = msgFactory.updateAllCommand()

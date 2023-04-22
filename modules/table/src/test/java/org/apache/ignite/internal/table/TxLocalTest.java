@@ -39,6 +39,7 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
 import org.apache.ignite.network.ClusterNode;
@@ -88,7 +89,7 @@ public class TxLocalTest extends TxAbstractTest {
                     tables.get(request.groupId()).txStateStorage().getTxStateStorage(0).get(request.txId()));
         }).when(placementDriver).sendMetaRequest(any(), any());
 
-        txManager = new TxManagerImpl(replicaSvc, lockManager, new HybridClockImpl());
+        txManager = new TxManagerImpl(replicaSvc, lockManager, new HybridClockImpl(), new TransactionIdGenerator(0xdeadbeef));
 
         igniteTransactions = new IgniteTransactionsImpl(txManager);
 
