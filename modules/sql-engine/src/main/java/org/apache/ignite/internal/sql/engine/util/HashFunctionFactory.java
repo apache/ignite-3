@@ -18,19 +18,34 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import java.util.UUID;
-import java.util.function.ToIntFunction;
 
 /**
  * Factory for creating a function to calculate the hash of the specified fields of the row.
  */
 public interface HashFunctionFactory<T> {
     /**
+     * A function to calculate hash of given row.
+     *
+     * @param <T> A type of the row.
+     */
+    @FunctionalInterface
+    interface RowHashFunction<T> {
+        /**
+         * Calculates hash of given row.
+         *
+         * @param row A row to calculate hash for.
+         * @return A hash of the row.
+         */
+        int hashOf(T row);
+    }
+
+    /**
      * Creates a hash function to compute a composite hash of a row, given the values of the fields.
      *
      * @param fields Field ordinals of the row from which the hash is to be calculated.
      * @return Function to compute a composite hash of a row, given the values of the fields.
      */
-    ToIntFunction<T> create(int[] fields);
+    RowHashFunction<T> create(int[] fields);
 
     /**
      * Creates a hash function to compute a composite hash of a row, given the types and values of the fields.
@@ -39,5 +54,5 @@ public interface HashFunctionFactory<T> {
      * @param tableId Table ID.
      * @return Function to compute a composite hash of a row, given the types and values of the fields.
      */
-    ToIntFunction<T> create(int[] fields, UUID tableId);
+    RowHashFunction<T> create(int[] fields, UUID tableId);
 }

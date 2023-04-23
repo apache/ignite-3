@@ -28,7 +28,7 @@ public class AbstractTableDdlCommand implements DdlCommand {
     protected boolean ifTableExists;
 
     /** Schema name where this new table will be created. */
-    private String commanCurrentSchema;
+    private String schemaName;
 
     public String tableName() {
         return tblName;
@@ -39,11 +39,11 @@ public class AbstractTableDdlCommand implements DdlCommand {
     }
 
     public String schemaName() {
-        return commanCurrentSchema;
+        return schemaName;
     }
 
     public void schemaName(String schemaName) {
-        this.commanCurrentSchema = schemaName;
+        this.schemaName = schemaName;
     }
 
     /**

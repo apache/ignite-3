@@ -199,8 +199,11 @@ public class ClientRecordSerializer<R> {
     R readRec(ClientSchema schema, ClientMessageUnpacker in, TuplePart part) {
         Marshaller marshaller = schema.getMarshaller(mapper, part);
 
-        var tupleReader = new BinaryTupleReader(columnCount(schema, part), in.readBinaryUnsafe());
-        ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader);
+        int columnCount = part == TuplePart.KEY ? schema.keyColumnCount() : schema.columns().length;
+        var tupleReader = new BinaryTupleReader(columnCount, in.readBinaryUnsafe());
+
+        int startIndex = part == TuplePart.VAL ? schema.keyColumnCount() : 0;
+        ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader, startIndex);
 
         try {
             return (R) marshaller.readObject(reader, null);
@@ -214,18 +217,13 @@ public class ClientRecordSerializer<R> {
             return keyRec;
         }
 
-        Marshaller keyMarshaller = schema.getMarshaller(mapper, TuplePart.KEY);
-        Marshaller valMarshaller = schema.getMarshaller(mapper, TuplePart.VAL);
+        Marshaller valMarshaller = schema.getMarshaller(mapper, TuplePart.KEY_AND_VAL);
 
-        var tupleReader = new BinaryTupleReader(schema.columns().length - schema.keyColumnCount(), in.readBinaryUnsafe());
+        var tupleReader = new BinaryTupleReader(schema.columns().length, in.readBinaryUnsafe());
         ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader);
 
         try {
-            var res = (R) valMarshaller.readObject(reader, null);
-
-            keyMarshaller.copyObject(keyRec, res);
-
-            return res;
+            return (R) valMarshaller.readObject(reader, null);
         } catch (MarshallerException e) {
             throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
         }

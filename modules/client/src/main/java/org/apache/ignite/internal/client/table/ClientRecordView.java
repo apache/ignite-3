@@ -72,7 +72,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                 (s, w) -> ser.writeRec(tx, keyRec, s, w, TuplePart.KEY),
                 (s, r) -> ser.readValRec(keyRec, s, r),
                 null,
-                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), keyRec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keyRec));
     }
 
     /** {@inheritDoc} */
@@ -95,7 +95,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                 (s, w) -> ser.writeRecs(tx, keyRecs, s, w, TuplePart.KEY),
                 (s, r) -> ser.readRecs(s, r, true, TuplePart.KEY_AND_VAL),
                 Collections.emptyList(),
-                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), keyRecs.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keyRecs.iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -113,7 +113,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                 ClientOp.TUPLE_UPSERT,
                 (s, w) -> ser.writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
                 r -> null,
-                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), rec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), rec));
     }
 
     /** {@inheritDoc} */
@@ -135,7 +135,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                 ClientOp.TUPLE_UPSERT_ALL,
                 (s, w) -> ser.writeRecs(tx, recs, s, w, TuplePart.KEY_AND_VAL),
                 r -> null,
-                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), recs.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), recs.iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -154,7 +154,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                 (s, w) -> ser.writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
                 (s, r) -> ser.readValRec(rec, s, r),
                 null,
-                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), rec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), rec));
     }
 
     /** {@inheritDoc} */
@@ -172,7 +172,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                 ClientOp.TUPLE_INSERT,
                 (s, w) -> ser.writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), rec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), rec));
     }
 
     /** {@inheritDoc} */
@@ -195,7 +195,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                 (s, w) -> ser.writeRecs(tx, recs, s, w, TuplePart.KEY_AND_VAL),
                 (s, r) -> ser.readRecs(s, r, false, TuplePart.KEY_AND_VAL),
                 Collections.emptyList(),
-                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), recs.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), recs.iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -219,7 +219,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> ser.writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), rec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), rec));
     }
 
     /** {@inheritDoc} */
@@ -232,7 +232,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                 ClientOp.TUPLE_REPLACE_EXACT,
                 (s, w) -> ser.writeRecs(tx, oldRec, newRec, s, w, TuplePart.KEY_AND_VAL),
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), oldRec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), oldRec));
     }
 
     /** {@inheritDoc} */
@@ -251,7 +251,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                 (s, w) -> ser.writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
                 (s, r) -> ser.readValRec(rec, s, r),
                 null,
-                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), rec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), rec));
     }
 
     /** {@inheritDoc} */
@@ -269,7 +269,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                 ClientOp.TUPLE_DELETE,
                 (s, w) -> ser.writeRec(tx, keyRec, s, w, TuplePart.KEY),
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), keyRec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keyRec));
     }
 
     /** {@inheritDoc} */
@@ -287,7 +287,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> ser.writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), rec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), rec));
     }
 
     /** {@inheritDoc} */
@@ -306,7 +306,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                 (s, w) -> ser.writeRec(tx, keyRec, s, w, TuplePart.KEY),
                 (s, r) -> ser.readValRec(keyRec, s, r),
                 null,
-                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), keyRec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keyRec));
     }
 
     /** {@inheritDoc} */
@@ -329,7 +329,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                 (s, w) -> ser.writeRecs(tx, keyRecs, s, w, TuplePart.KEY),
                 (s, r) -> ser.readRecs(s, r, false, TuplePart.KEY),
                 Collections.emptyList(),
-                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), keyRecs.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keyRecs.iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -352,7 +352,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                 (s, w) -> ser.writeRecs(tx, recs, s, w, TuplePart.KEY_AND_VAL),
                 (s, r) -> ser.readRecs(s, r, false, TuplePart.KEY_AND_VAL),
                 Collections.emptyList(),
-                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), recs.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), recs.iterator().next()));
     }
 
     /** {@inheritDoc} */

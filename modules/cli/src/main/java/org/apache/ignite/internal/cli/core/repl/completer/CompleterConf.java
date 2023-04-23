@@ -40,12 +40,15 @@ public class CompleterConf {
 
     private final boolean exclusiveEnableOptions;
 
+    private final boolean isSinglePositionalParameter;
+
     private final CompleterFilter filter;
 
     private CompleterConf(List<String[]> commands,
             Set<String> enableOptions,
             Set<String> disableOptions,
             boolean exclusiveEnableOptions,
+            boolean isSinglePositionalParameter,
             CompleterFilter filter) {
         if (commands == null) {
             throw new IllegalArgumentException("commands must not be null");
@@ -55,6 +58,7 @@ public class CompleterConf {
         this.enableOptions = enableOptions;
         this.disableOptions = disableOptions;
         this.exclusiveEnableOptions = exclusiveEnableOptions;
+        this.isSinglePositionalParameter = isSinglePositionalParameter;
         this.filter = filter;
     }
 
@@ -98,6 +102,10 @@ public class CompleterConf {
         return exclusiveEnableOptions;
     }
 
+    public boolean isSinglePositionalParameter() {
+        return isSinglePositionalParameter;
+    }
+
     public boolean hasFilter() {
         return filter != null;
     }
@@ -115,6 +123,8 @@ public class CompleterConf {
         private Set<String> disableOptions;
 
         private boolean exclusiveEnableOptions;
+
+        private boolean isSinglePositionalParameter;
 
         private CompleterFilter filter;
 
@@ -147,6 +157,12 @@ public class CompleterConf {
             return this;
         }
 
+        /** Setup single positional parameter completer flag. It means that the completer should be applied for the parameter only once. */
+        public CompleterConfBuilder singlePositionalParameter() {
+            this.isSinglePositionalParameter = true;
+            return this;
+        }
+
         /** Setup filter for candidates. */
         public CompleterConfBuilder filter(CompleterFilter filter) {
             this.filter = filter;
@@ -163,7 +179,7 @@ public class CompleterConf {
         }
 
         public CompleterConf build() {
-            return new CompleterConf(command, enableOptions, disableOptions, exclusiveEnableOptions, filter);
+            return new CompleterConf(command, enableOptions, disableOptions, exclusiveEnableOptions, isSinglePositionalParameter, filter);
         }
     }
 }

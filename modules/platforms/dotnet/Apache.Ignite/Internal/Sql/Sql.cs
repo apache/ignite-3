@@ -74,6 +74,9 @@ namespace Apache.Ignite.Internal.Sql
             return new IgniteDbDataReader(resultSet);
         }
 
+        /// <inheritdoc/>
+        public override string ToString() => IgniteToStringBuilder.Build(GetType());
+
         /// <summary>
         /// Reads column value.
         /// </summary>
@@ -90,25 +93,25 @@ namespace Apache.Ignite.Internal.Sql
 
             return col.Type switch
             {
-                SqlColumnType.Boolean => reader.GetByteAsBool(idx),
-                SqlColumnType.Int8 => reader.GetByte(idx),
-                SqlColumnType.Int16 => reader.GetShort(idx),
-                SqlColumnType.Int32 => reader.GetInt(idx),
-                SqlColumnType.Int64 => reader.GetLong(idx),
-                SqlColumnType.Float => reader.GetFloat(idx),
-                SqlColumnType.Double => reader.GetDouble(idx),
-                SqlColumnType.Decimal => reader.GetDecimal(idx, col.Scale),
-                SqlColumnType.Date => reader.GetDate(idx),
-                SqlColumnType.Time => reader.GetTime(idx),
-                SqlColumnType.Datetime => reader.GetDateTime(idx),
-                SqlColumnType.Timestamp => reader.GetTimestamp(idx),
-                SqlColumnType.Uuid => reader.GetGuid(idx),
-                SqlColumnType.Bitmask => reader.GetBitmask(idx),
-                SqlColumnType.String => reader.GetString(idx),
-                SqlColumnType.ByteArray => reader.GetBytes(idx),
-                SqlColumnType.Period => reader.GetPeriod(idx),
-                SqlColumnType.Duration => reader.GetDuration(idx),
-                SqlColumnType.Number => reader.GetNumber(idx),
+                ColumnType.Boolean => reader.GetByteAsBool(idx),
+                ColumnType.Int8 => reader.GetByte(idx),
+                ColumnType.Int16 => reader.GetShort(idx),
+                ColumnType.Int32 => reader.GetInt(idx),
+                ColumnType.Int64 => reader.GetLong(idx),
+                ColumnType.Float => reader.GetFloat(idx),
+                ColumnType.Double => reader.GetDouble(idx),
+                ColumnType.Decimal => reader.GetDecimal(idx, col.Scale),
+                ColumnType.Date => reader.GetDate(idx),
+                ColumnType.Time => reader.GetTime(idx),
+                ColumnType.Datetime => reader.GetDateTime(idx),
+                ColumnType.Timestamp => reader.GetTimestamp(idx),
+                ColumnType.Uuid => reader.GetGuid(idx),
+                ColumnType.Bitmask => reader.GetBitmask(idx),
+                ColumnType.String => reader.GetString(idx),
+                ColumnType.ByteArray => reader.GetBytes(idx),
+                ColumnType.Period => reader.GetPeriod(idx),
+                ColumnType.Duration => reader.GetDuration(idx),
+                ColumnType.Number => reader.GetNumber(idx),
                 _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown SQL column type.")
             };
         }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static org.apache.ignite.internal.storage.BaseMvStoragesTest.getOrCreateMvPartition;
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -26,6 +27,7 @@ import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfiguration;
@@ -63,20 +65,23 @@ public class RocksDbStorageEngineTest {
     @Test
     void testCreateTableWithDefaultDataRegion(
             @InjectConfiguration(
-                    value = "mock.tables.foo.dataStorage.name=" + RocksDbStorageEngine.ENGINE_NAME
-            )
-            TablesConfiguration tablesConfig
+                    value = "mock.tables.foo {}")
+            TablesConfiguration tablesConfig,
+            @InjectConfiguration("mock { dataStorage.name=" + RocksDbStorageEngine.ENGINE_NAME + " }")
+            DistributionZoneConfiguration distributionZoneConfiguration
     ) {
-        MvTableStorage table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
+        MvTableStorage table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig,
+                distributionZoneConfiguration);
 
         table.start();
 
         try {
-            RocksDbDataStorageConfiguration dataStorageConfig = (RocksDbDataStorageConfiguration) table.configuration().dataStorage();
+            RocksDbDataStorageConfiguration dataStorageConfig =
+                    (RocksDbDataStorageConfiguration) table.distributionZoneConfiguration().dataStorage();
 
             assertThat(dataStorageConfig.dataRegion().value(), is(DEFAULT_DATA_REGION_NAME));
 
-            table.getOrCreateMvPartition(1);
+            getOrCreateMvPartition(table, 1);
         } finally {
             table.stop();
         }
@@ -84,10 +89,10 @@ public class RocksDbStorageEngineTest {
 
     @Test
     void testCreateTableWithDynamicCustomDataRegion(
-            @InjectConfiguration(
-                    value = "mock.tables.foo.dataStorage{name=" + RocksDbStorageEngine.ENGINE_NAME + ", dataRegion=foobar}"
-            )
-            TablesConfiguration tablesConfig
+            @InjectConfiguration("mock.tables.foo {zoneId=1}")
+            TablesConfiguration tablesConfig,
+            @InjectConfiguration("mock { dataStorage.dataRegion=foobar, dataStorage.name=" + RocksDbStorageEngine.ENGINE_NAME + " }")
+            DistributionZoneConfiguration distributionZoneConfiguration
     ) {
         String customRegionName = "foobar";
 
@@ -96,16 +101,18 @@ public class RocksDbStorageEngineTest {
 
         assertThat(engineConfigChangeFuture, willCompleteSuccessfully());
 
-        MvTableStorage table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
+        MvTableStorage table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig,
+                distributionZoneConfiguration);
 
         table.start();
 
         try {
-            RocksDbDataStorageConfiguration dataStorageConfig = (RocksDbDataStorageConfiguration) table.configuration().dataStorage();
+            RocksDbDataStorageConfiguration dataStorageConfig =
+                    (RocksDbDataStorageConfiguration) table.distributionZoneConfiguration().dataStorage();
 
             assertThat(dataStorageConfig.dataRegion().value(), is(customRegionName));
 
-            table.getOrCreateMvPartition(1);
+            getOrCreateMvPartition(table, 1);
         } finally {
             table.stop();
         }

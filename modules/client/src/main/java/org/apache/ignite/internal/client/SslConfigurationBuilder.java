@@ -29,6 +29,8 @@ public class SslConfigurationBuilder {
 
     private ClientAuthenticationMode clientAuth = ClientAuthenticationMode.NONE;
 
+    private @Nullable Iterable<String> ciphers;
+
     private @Nullable String keyStorePath;
 
     private @Nullable String keyStorePassword;
@@ -55,6 +57,12 @@ public class SslConfigurationBuilder {
         }
 
         this.clientAuth = clientAuth;
+        return this;
+    }
+
+    /** Ciphers setter. */
+    public SslConfigurationBuilder ciphers(@Nullable Iterable<String> ciphers) {
+        this.ciphers = ciphers;
         return this;
     }
 
@@ -107,7 +115,9 @@ public class SslConfigurationBuilder {
     /** Build SslConfiguration instance. */
     public SslConfiguration build() {
         return new SslConfigurationImpl(
-                enabled, clientAuth, keyStorePath, keyStorePassword, keyStoreType, trustStorePath, trustStorePassword, trustStoreType
+                enabled, clientAuth, ciphers,
+                keyStorePath, keyStorePassword, keyStoreType,
+                trustStorePath, trustStorePassword, trustStoreType
         );
     }
 }

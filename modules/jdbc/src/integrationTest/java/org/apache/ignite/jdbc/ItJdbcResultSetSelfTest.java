@@ -37,7 +37,11 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.GregorianCalendar;
 import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
@@ -555,14 +559,16 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
 
         assertTrue(rs.next());
 
-        assertEquals(-10800000, rs.getTimestamp("tsVal").getTime());
-        assertEquals(new Date(new Timestamp(-10800000).getTime()), rs.getDate(14));
-        assertEquals(new Time(new Timestamp(-10800000).getTime()), rs.getTime(14));
-        assertEquals(new Timestamp(-10800000), rs.getTimestamp(14));
+        Instant localEpoch = ZonedDateTime.of(LocalDate.EPOCH, LocalTime.MIDNIGHT, ZoneId.systemDefault()).toInstant();
 
-        assertEquals(new Date(new Timestamp(-10800000).getTime()), rs.getObject(14, Date.class));
-        assertEquals(new Time(new Timestamp(-10800000).getTime()), rs.getObject(14, Time.class));
-        assertEquals(new Timestamp(-10800000), rs.getObject(14, Timestamp.class));
+        assertEquals(Timestamp.from(localEpoch), rs.getTimestamp("tsVal"));
+        assertEquals(Date.from(localEpoch), rs.getDate(14));
+        assertEquals(Time.from(localEpoch), rs.getTime(14));
+        assertEquals(Timestamp.from(localEpoch), rs.getTimestamp(14));
+
+        assertEquals(Date.from(localEpoch), rs.getObject(14, Date.class));
+        assertEquals(Time.from(localEpoch), rs.getObject(14, Time.class));
+        assertEquals(Timestamp.from(localEpoch), rs.getObject(14, Timestamp.class));
 
         assertFalse(rs.next());
     }

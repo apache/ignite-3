@@ -65,17 +65,17 @@ public class NodeUrlMixin {
      */
     @Nullable
     public String getNodeUrl() {
-        if (options == null) {
-            return null;
-        } else {
+        if (options != null) {
             if (options.nodeUrl != null) {
                 return options.nodeUrl.toString();
-            } else {
+            }
+            if (options.nodeName != null) {
                 return nodeNameRegistry.nodeUrlByName(options.nodeName)
                         .map(URL::toString)
                         .orElseThrow(() -> new IgniteCliException("Node " + options.nodeName
                                 + " not found. Provide a valid name or use a URL"));
             }
         }
+        return null;
     }
 }

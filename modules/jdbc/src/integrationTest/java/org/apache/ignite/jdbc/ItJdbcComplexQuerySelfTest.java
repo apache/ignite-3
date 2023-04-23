@@ -39,12 +39,12 @@ public class ItJdbcComplexQuerySelfTest extends AbstractJdbcSelfTest {
     @BeforeAll
     public static void createTable() throws Exception {
         try (Statement s = conn.createStatement()) {
-            s.execute("DROP TABLE IF EXISTS public.person");
-            s.execute("CREATE TABLE public.person (id INTEGER PRIMARY KEY, orgid INTEGER, "
+            s.executeUpdate("DROP TABLE IF EXISTS public.person");
+            s.executeUpdate("CREATE TABLE public.person (id INTEGER PRIMARY KEY, orgid INTEGER, "
                     + "name VARCHAR NOT NULL, age INTEGER NOT NULL)");
 
-            s.execute("DROP TABLE IF EXISTS public.org");
-            s.execute("CREATE TABLE public.org (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL)");
+            s.executeUpdate("DROP TABLE IF EXISTS public.org");
+            s.executeUpdate("CREATE TABLE public.org (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL)");
 
             s.executeUpdate("INSERT INTO public.person(orgid, id, name, age) VALUES "
                     + "(1, 1, 'John White', 25), "

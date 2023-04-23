@@ -18,23 +18,30 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests thin client reconnect.
  */
 public class ReconnectTest {
     /** Test server. */
-    TestServer server;
+    private TestServer server;
 
     /** Test server 2. */
-    TestServer server2;
+    private TestServer server2;
 
     @AfterEach
     void tearDown() throws Exception {
@@ -94,5 +101,82 @@ public class ReconnectTest {
         server.close();
 
         assertThrowsWithCause(() -> client.tables().tables(), IgniteClientConnectionException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    public void testClientRepairsBackgroundConnectionsPeriodically(boolean reconnectEnabled) throws Exception {
+        startTwoServers();
+
+        Builder builder = IgniteClient.builder()
+                .addresses("127.0.0.1:10900..10902")
+                .reconnectInterval(reconnectEnabled ? 50 : 0)
+                .heartbeatInterval(50);
+
+        try (var client = builder.build()) {
+            waitForConnections(client, 2);
+
+            server2.close();
+            waitForConnections(client, 1);
+
+            server2 = AbstractClientTest.startServer(
+                    10902,
+                    0,
+                    0,
+                    new FakeIgnite(),
+                    "node3");
+
+            if (reconnectEnabled) {
+                waitForConnections(client, 2);
+
+                String[] nodeNames = client.connections().stream().map(ClusterNode::name).sorted().toArray(String[]::new);
+                assertArrayEquals(new String[]{"node1", "node3"}, nodeNames);
+            } else {
+                Thread.sleep(100);
+                assertEquals(1, client.connections().size());
+            }
+        }
+    }
+
+    @Test
+    public void testFullClusterRestart() throws Exception {
+        startTwoServers();
+
+        Builder builder = IgniteClient.builder()
+                .addresses("127.0.0.1:10900..10902")
+                .reconnectInterval(50)
+                .heartbeatInterval(50);
+
+        try (var client = builder.build()) {
+            waitForConnections(client, 2);
+
+            IgniteUtils.closeAll(server, server2);
+            waitForConnections(client, 0);
+
+            startTwoServers();
+            waitForConnections(client, 2);
+        }
+    }
+
+    private void startTwoServers() {
+        server = AbstractClientTest.startServer(
+                10900,
+                0,
+                0,
+                new FakeIgnite(),
+                "node1");
+
+        server2 = AbstractClientTest.startServer(
+                10901,
+                0,
+                0,
+                new FakeIgnite(),
+                "node2");
+    }
+
+    private static void waitForConnections(IgniteClient client, int expectedConnections) throws InterruptedException {
+        assertTrue(IgniteTestUtils.waitForCondition(
+                        () -> client.connections().size() == expectedConnections, 5000),
+                () -> "Client should have " + expectedConnections + " connections: " + client.connections().size());
     }
 }

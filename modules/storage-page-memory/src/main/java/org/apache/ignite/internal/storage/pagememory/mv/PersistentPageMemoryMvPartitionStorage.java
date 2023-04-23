@@ -38,17 +38,15 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointSt
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
-import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
-import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -86,6 +84,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param indexFreeList Free list fot {@link IndexColumns}.
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
+     * @param gcQueue Garbage collection queue.
      */
     public PersistentPageMemoryMvPartitionStorage(
             PersistentPageMemoryTableStorage tableStorage,
@@ -94,9 +93,10 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             RowVersionFreeList rowVersionFreeList,
             IndexColumnsFreeList indexFreeList,
             VersionChainTree versionChainTree,
-            IndexMetaTree indexMetaTree
+            IndexMetaTree indexMetaTree,
+            GcQueue gcQueue
     ) {
-        super(partitionId, tableStorage, rowVersionFreeList, indexFreeList, versionChainTree, indexMetaTree);
+        super(partitionId, tableStorage, rowVersionFreeList, indexFreeList, versionChainTree, indexMetaTree, gcQueue);
 
         checkpointManager = tableStorage.engine().checkpointManager();
         checkpointTimeoutLock = checkpointManager.checkpointTimeoutLock();
@@ -144,6 +144,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             try {
                 return closure.execute();
             } finally {
+                updateVersionChainLockByRowId.releaseAllLockByCurrentThread();
+
                 checkpointTimeoutLock.checkpointReadUnlock();
             }
         });
@@ -222,8 +224,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    @Nullable
-    public RaftGroupConfiguration committedGroupConfiguration() {
+    public byte @Nullable [] committedGroupConfiguration() {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
@@ -237,9 +238,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                         return null;
                     }
 
-                    byte[] bytes = blobStorage.readBlob(meta.lastReplicationProtocolGroupConfigFirstPageId());
-
-                    return replicationProtocolGroupConfigFromBytes(bytes);
+                    return blobStorage.readBlob(meta.lastReplicationProtocolGroupConfigFirstPageId());
                 } finally {
                     replicationProtocolGroupConfigReadWriteLock.readLock().unlock();
                 }
@@ -250,7 +249,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public void committedGroupConfiguration(RaftGroupConfiguration config) {
+    public void committedGroupConfiguration(byte[] config) {
         busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
@@ -260,13 +259,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         });
     }
 
-    private void committedGroupConfigurationBusy(RaftGroupConfiguration config) {
+    private void committedGroupConfigurationBusy(byte[] groupConfigBytes) {
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
         UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
-
-        byte[] groupConfigBytes = replicationProtocolGroupConfigToBytes(config);
 
         replicationProtocolGroupConfigReadWriteLock.writeLock().lock();
 
@@ -283,19 +280,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         } finally {
             replicationProtocolGroupConfigReadWriteLock.writeLock().unlock();
         }
-    }
-
-    @Nullable
-    private static RaftGroupConfiguration replicationProtocolGroupConfigFromBytes(byte @Nullable [] bytes) {
-        if (bytes == null) {
-            return null;
-        }
-
-        return ByteUtils.fromBytes(bytes);
-    }
-
-    private static byte[] replicationProtocolGroupConfigToBytes(RaftGroupConfiguration config) {
-        return ByteUtils.toBytes(config);
     }
 
     @Override
@@ -371,6 +355,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param indexFreeList Free list fot {@link IndexColumns}.
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
+     * @param gcQueue Garbage collection queue.
      * @throws StorageException If failed.
      */
     public void updateDataStructures(
@@ -378,7 +363,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             RowVersionFreeList rowVersionFreeList,
             IndexColumnsFreeList indexFreeList,
             VersionChainTree versionChainTree,
-            IndexMetaTree indexMetaTree
+            IndexMetaTree indexMetaTree,
+            GcQueue gcQueue
     ) {
         throwExceptionIfStorageNotInCleanupOrRebalancedState(state.get(), this::createStorageInfo);
 
@@ -388,6 +374,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         this.indexFreeList = indexFreeList;
         this.versionChainTree = versionChainTree;
         this.indexMetaTree = indexMetaTree;
+        this.gcQueue = gcQueue;
 
         this.blobStorage = new BlobStorage(
                 rowVersionFreeList,
@@ -400,14 +387,14 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         for (PageMemoryHashIndexStorage indexStorage : hashIndexes.values()) {
             indexStorage.updateDataStructures(
                     indexFreeList,
-                    createHashIndexTree(indexStorage.indexDescriptor(), new IndexMeta(indexStorage.indexDescriptor().id(), 0L))
+                    createHashIndexTree(indexStorage.indexDescriptor(), createIndexMetaForNewIndex(indexStorage.indexDescriptor().id()))
             );
         }
 
         for (PageMemorySortedIndexStorage indexStorage : sortedIndexes.values()) {
             indexStorage.updateDataStructures(
                     indexFreeList,
-                    createSortedIndexTree(indexStorage.indexDescriptor(), new IndexMeta(indexStorage.indexDescriptor().id(), 0L))
+                    createSortedIndexTree(indexStorage.indexDescriptor(), createIndexMetaForNewIndex(indexStorage.indexDescriptor().id()))
             );
         }
     }
@@ -419,12 +406,13 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 indexFreeList::close,
                 versionChainTree::close,
                 indexMetaTree::close,
+                gcQueue::close,
                 blobStorage::close
         );
     }
 
     @Override
-    public void committedGroupConfigurationOnRebalance(RaftGroupConfiguration config) {
+    public void committedGroupConfigurationOnRebalance(byte[] config) {
         throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         committedGroupConfigurationBusy(config);

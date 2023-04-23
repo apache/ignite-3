@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include "ignite/client/detail/table/tables_impl.h"
+#include "tables_impl.h"
 
 #include <ignite/protocol/reader.h>
 #include <ignite/protocol/writer.h>

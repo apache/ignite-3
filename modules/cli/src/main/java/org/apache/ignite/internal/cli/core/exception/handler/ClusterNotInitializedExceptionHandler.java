@@ -46,7 +46,7 @@ public class ClusterNotInitializedExceptionHandler extends IgniteCliApiException
     public int handle(ExceptionWriter err, IgniteCliApiException e) {
         if (e.getCause() instanceof ApiException) {
             ApiException apiException = (ApiException) e.getCause();
-            if (apiException.getCode() == 404) {
+            if (apiException.getCode() == 409) { // CONFLICT means not initialized
                 err.write(
                         ErrorUiComponent.builder()
                                 .header(header)

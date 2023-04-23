@@ -140,4 +140,7 @@ public class ClientOp {
 
     /** Get partition assignment. */
     public static final int PARTITION_ASSIGNMENT_GET = 53;
+
+    /** Create JDBC connection context on a server. */
+    public static final int JDBC_CONNECT = 54;
 }

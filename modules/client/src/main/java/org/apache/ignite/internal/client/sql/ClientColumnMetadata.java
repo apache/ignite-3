@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.client.sql;
 
 import java.util.List;
-import org.apache.ignite.internal.client.proto.ClientColumnTypeConverter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 
@@ -58,7 +58,7 @@ public class ClientColumnMetadata implements ColumnMetadata {
 
         name = unpacker.unpackString();
         nullable = unpacker.unpackBoolean();
-        type = ClientColumnTypeConverter.ordinalToColumnType(unpacker.unpackInt());
+        type = ColumnTypeConverter.fromOrdinalOrThrow(unpacker.unpackInt());
         scale = unpacker.unpackInt();
         precision = unpacker.unpackInt();
 

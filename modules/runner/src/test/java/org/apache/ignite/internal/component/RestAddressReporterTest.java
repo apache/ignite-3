@@ -18,16 +18,13 @@
 package org.apache.ignite.internal.component;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -98,18 +95,14 @@ class RestAddressReporterTest {
 
     @Test
     @DisplayName("If there is no report file for some reason then throw an exception")
-    void throwsExceptionWhenThereIsNoFile(@TempDir Path tmpDir) {
+    void doesNotThrowExceptionWhenThereIsNoFile(@TempDir Path tmpDir) {
         // Given
         Path path = tmpDir.resolve("nosuchpath");
         RestAddressReporter reporter = new RestAddressReporter(path);
 
         // When try to removeReport
-        IgniteException thrown = assertThrows(IgniteException.class, reporter::removeReport);
-
-        // Then exception thrown with proper message
-        assertThat(thrown.getMessage(), containsString("Unexpected error when trying to remove REST server network address file"));
-        // And it has COMMON error group
-        assertThat(thrown.groupName(), equalTo(Common.COMMON_ERR_GROUP.name()));
+        // Then nothing is thrown
+        assertDoesNotThrow(reporter::removeReport);
     }
 
     @Test

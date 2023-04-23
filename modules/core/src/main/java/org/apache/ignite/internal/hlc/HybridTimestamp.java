@@ -21,7 +21,6 @@ import static java.lang.Math.addExact;
 
 import java.io.Serializable;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * A hybrid timestamp that combines physical clock and logical clock.
@@ -46,6 +45,15 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
 
     /** A constant holding the maximum value a {@code HybridTimestamp} can have. */
     public static final HybridTimestamp MAX_VALUE = new HybridTimestamp(Long.MAX_VALUE);
+
+    /** The constant holds the minimum value which {@code HybridTimestamp} might formally have. */
+    public static final HybridTimestamp MIN_VALUE = new HybridTimestamp(1L, -1);
+
+    /**
+     * Cluster cLock skew. The constant determines the undefined inclusive interval to compares timestamp from various nodes.
+     * TODO: IGNITE-18978 Method to comparison timestamps with clock skew.
+     */
+    private static final long CLOCK_SKEW = 7L;
 
     /** Long time value, that consists of physical time in higher 6 bytes and logical time in lower 2 bytes. */
     private final long time;
@@ -89,15 +97,14 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     }
 
     /**
-     * Compares hybrid timestamps.
+     * Finds maximum hybrid timestamp.
      *
-     * @param times Times for comparing.
+     * @param times Times for comparing. Must not be {@code null} or empty.
      * @return The highest hybrid timestamp.
      */
-    public static @Nullable HybridTimestamp max(HybridTimestamp... times) {
-        if (times.length == 0) {
-            return null;
-        }
+    public static HybridTimestamp max(HybridTimestamp... times) {
+        assert times != null;
+        assert times.length > 0;
 
         HybridTimestamp maxTime = times[0];
 
@@ -162,6 +169,42 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
         return Long.hashCode(time);
     }
 
+    /**
+     * Compares two timestamps with the clock skew.
+     * t1, t2 comparable if t1 is not contained on [t2 - CLOCK_SKEW; t2 + CLOCK_SKEW].
+     * TODO: IGNITE-18978 Method to comparison timestamps with clock skew.
+     *
+     * @param anotherTimestamp Another timestamp.
+     * @return Result of comparison can be positive or negative, or {@code 0} if timestamps are not comparable.
+     */
+    private int compareWithClockSkew(HybridTimestamp anotherTimestamp) {
+        if (getPhysical() - CLOCK_SKEW <= anotherTimestamp.getPhysical() && getPhysical() + CLOCK_SKEW >= anotherTimestamp.getPhysical()) {
+            return 0;
+        }
+
+        return compareTo(anotherTimestamp);
+    }
+
+    /**
+     * Defines whether this timestamp is strictly before the given one, taking the clock skew into account.
+     *
+     * @param anotherTimestamp Another timestamp.
+     * @return Whether this timestamp is before the given one or not.
+     */
+    public boolean before(HybridTimestamp anotherTimestamp) {
+        return compareWithClockSkew(anotherTimestamp) < 0;
+    }
+
+    /**
+     * Defines whether this timestamp is strictly after the given one, taking the clock skew into account.
+     *
+     * @param anotherTimestamp Another timestamp.
+     * @return Whether this timestamp is after the given one or not.
+     */
+    public boolean after(HybridTimestamp anotherTimestamp) {
+        return compareWithClockSkew(anotherTimestamp) > 0;
+    }
+
     @Override
     public int compareTo(HybridTimestamp other) {
         return Long.compare(this.time, other.time);
@@ -170,5 +213,12 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     @Override
     public String toString() {
         return S.toString(HybridTimestamp.class, this);
+    }
+
+    /**
+     * Returns a new hybrid timestamp with incremented physical component.
+     */
+    public HybridTimestamp addPhysicalTime(long mills) {
+        return new HybridTimestamp(physical + mills, logical);
     }
 }

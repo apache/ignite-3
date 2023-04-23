@@ -369,7 +369,11 @@ public class PartitionAwarenessTests
             }
         };
 
-        return await IgniteClient.StartAsync(cfg);
+        var client = await IgniteClient.StartAsync(cfg);
+
+        TestUtils.WaitForCondition(() => client.GetConnections().Count == 2);
+
+        return client;
     }
 
     // ReSharper disable NotAccessedPositionalProperty.Local

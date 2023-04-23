@@ -30,6 +30,7 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -62,21 +63,22 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     void setUp(
             @InjectConfiguration
             VolatilePageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration(
-                    "mock.tables.foo{ partitions = 512, dataStorage.name = " + VolatilePageMemoryStorageEngine.ENGINE_NAME + "}"
-            )
-            TablesConfiguration tablesConfig
+            @InjectConfiguration("mock.tables.foo {}")
+            TablesConfiguration tablesConfig,
+            @InjectConfiguration("mock { partitions = 512, dataStorage.name = " + VolatilePageMemoryStorageEngine.ENGINE_NAME + "}")
+            DistributionZoneConfiguration distributionZoneConfiguration
     ) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        initialize(new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, pageEvictionTracker), tablesConfig);
+        initialize(new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, pageEvictionTracker),
+                tablesConfig, distributionZoneConfiguration);
     }
 
     @Test
     void partitionDestructionFreesPartitionPages() throws Exception {
-        MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(0);
+        MvPartitionStorage partitionStorage = getOrCreateMvPartition(0);
 
         insertOneRow(partitionStorage);
 
@@ -111,7 +113,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     @Test
     void tableStorageDestructionFreesPartitionsPages() throws Exception {
-        MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(0);
+        MvPartitionStorage partitionStorage = getOrCreateMvPartition(0);
 
         insertOneRow(partitionStorage);
 
@@ -124,7 +126,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     @Test
     void partitionDestructionFreesHashIndexPages() throws Exception {
-        tableStorage.getOrCreateMvPartition(0);
+        getOrCreateMvPartition(0);
 
         HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(0, hashIdx.id());
 
@@ -171,7 +173,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     @Test
     void partitionDestructionFreesSortedIndexPages() throws Exception {
-        tableStorage.getOrCreateMvPartition(0);
+        getOrCreateMvPartition(0);
 
         SortedIndexStorage indexStorage = tableStorage.getOrCreateSortedIndex(0, sortedIdx.id());
 
@@ -187,7 +189,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     @Test
     void tableStorageDestructionFreesHashIndexPages() throws Exception {
-        tableStorage.getOrCreateMvPartition(0);
+        getOrCreateMvPartition(0);
 
         HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(0, hashIdx.id());
 
@@ -203,7 +205,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     @Test
     void tableStorageDestructionFreesSortedIndexPages() throws Exception {
-        tableStorage.getOrCreateMvPartition(0);
+        getOrCreateMvPartition(0);
 
         SortedIndexStorage indexStorage = tableStorage.getOrCreateSortedIndex(0, sortedIdx.id());
 

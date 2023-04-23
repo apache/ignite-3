@@ -25,9 +25,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Linq;
     using System.Reflection;
     using System.Reflection.Emit;
-    using Proto;
+    using Ignite.Sql;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
+    using Sql;
 
     /// <summary>
     /// Object serializer handler.
@@ -39,16 +40,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
         private readonly ConcurrentDictionary<(int, bool), ReadDelegate<T>> _readers = new();
 
-        private readonly ConcurrentDictionary<int, ReadValuePartDelegate<T>> _valuePartReaders = new();
-
         [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
         private delegate void WriteDelegate<in TV>(ref BinaryTupleBuilder writer, Span<byte> noValueSet, TV value);
 
         [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
         private delegate TV ReadDelegate<out TV>(ref BinaryTupleReader reader);
-
-        [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
-        private delegate TV ReadValuePartDelegate<TV>(ref BinaryTupleReader reader, TV key);
 
         /// <inheritdoc/>
         public T Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false)
@@ -64,18 +60,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), columnCount);
 
             return readDelegate(ref binaryTupleReader);
-        }
-
-        /// <inheritdoc/>
-        public T ReadValuePart(ref MsgPackReader reader, Schema schema, T key)
-        {
-            var readDelegate = _valuePartReaders.TryGetValue(schema.Version, out var w)
-                ? w
-                : _valuePartReaders.GetOrAdd(schema.Version, EmitValuePartReader(schema));
-
-            var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), schema.ValueColumnCount);
-
-            return readDelegate(ref binaryTupleReader, key);
         }
 
         /// <inheritdoc/>
@@ -119,11 +103,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 il.Emit(OpCodes.Ldarg_0); // writer
                 il.Emit(OpCodes.Ldarg_2); // value
 
-                if (col.Type == ClientDataType.Decimal)
+                if (col.Type == ColumnType.Decimal)
                 {
                     il.Emit(OpCodes.Ldc_I4, col.Scale);
                 }
-                else if (col.Type is ClientDataType.Time or ClientDataType.DateTime or ClientDataType.Timestamp)
+                else if (col.Type is ColumnType.Time or ColumnType.Datetime or ColumnType.Timestamp)
                 {
                     il.Emit(OpCodes.Ldc_I4, col.Precision);
                 }
@@ -162,11 +146,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     il.Emit(OpCodes.Ldarg_2); // record
                     il.Emit(OpCodes.Ldfld, fieldInfo);
 
-                    if (col.Type == ClientDataType.Decimal)
+                    if (col.Type == ColumnType.Decimal)
                     {
                         il.Emit(OpCodes.Ldc_I4, col.Scale);
                     }
-                    else if (col.Type is ClientDataType.Time or ClientDataType.DateTime or ClientDataType.Timestamp)
+                    else if (col.Type is ColumnType.Time or ColumnType.Datetime or ColumnType.Timestamp)
                     {
                         il.Emit(OpCodes.Ldc_I4, col.Precision);
                     }
@@ -242,11 +226,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
                         il.Emit(OpCodes.Ldfld, fieldInfo);
                     }
 
-                    if (col.Type == ClientDataType.Decimal)
+                    if (col.Type == ColumnType.Decimal)
                     {
                         il.Emit(OpCodes.Ldc_I4, col.Scale);
                     }
-                    else if (col.Type is ClientDataType.Time or ClientDataType.DateTime or ClientDataType.Timestamp)
+                    else if (col.Type is ColumnType.Time or ColumnType.Datetime or ColumnType.Timestamp)
                     {
                         il.Emit(OpCodes.Ldc_I4, col.Precision);
                     }
@@ -289,7 +273,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 il.Emit(OpCodes.Ldarg_0); // reader
                 il.Emit(OpCodes.Ldc_I4_0); // index
 
-                if (schema.Columns[0] is { Type: ClientDataType.Decimal } col)
+                if (schema.Columns[0] is { Type: ColumnType.Decimal } col)
                 {
                     il.Emit(OpCodes.Ldc_I4, col.Scale);
                 }
@@ -385,106 +369,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             return (ReadDelegate<T>)method.CreateDelegate(typeof(ReadDelegate<T>));
         }
 
-        private static ReadValuePartDelegate<T> EmitValuePartReader(Schema schema)
-        {
-            var type = typeof(T);
-
-            if (BinaryTupleMethods.GetReadMethodOrNull(type) != null)
-            {
-                // Single column to primitive type mapping - return key as is.
-                return (ref BinaryTupleReader _, T key) => key;
-            }
-
-            var method = new DynamicMethod(
-                name: "ReadValuePart" + type,
-                returnType: type,
-                parameterTypes: new[] { typeof(BinaryTupleReader).MakeByRefType(), type },
-                m: typeof(IIgnite).Module,
-                skipVisibility: true);
-
-            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>))
-            {
-                return EmitKvValuePartReader(schema, method);
-            }
-
-            var il = method.GetILGenerator();
-            var local = il.DeclareAndInitLocal(type); // T res
-
-            var columns = schema.Columns;
-
-            for (var i = 0; i < columns.Count; i++)
-            {
-                var col = columns[i];
-                var fieldInfo = type.GetFieldByColumnName(col.Name);
-
-                if (col.IsKey)
-                {
-                    if (fieldInfo != null)
-                    {
-                        il.Emit(type.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, local); // res
-                        il.Emit(OpCodes.Ldarg_1); // key
-                        il.Emit(OpCodes.Ldfld, fieldInfo);
-                        il.Emit(OpCodes.Stfld, fieldInfo);
-                    }
-
-                    continue;
-                }
-
-                EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, local);
-            }
-
-            il.Emit(OpCodes.Ldloc_0); // res
-            il.Emit(OpCodes.Ret);
-
-            return (ReadValuePartDelegate<T>)method.CreateDelegate(typeof(ReadValuePartDelegate<T>));
-        }
-
-        private static ReadValuePartDelegate<T> EmitKvValuePartReader(Schema schema, DynamicMethod method)
-        {
-            var type = typeof(T);
-            var (_, valType, _, valField) = GetKeyValTypes();
-
-            var il = method.GetILGenerator();
-            var kvLocal = il.DeclareAndInitLocal(type);
-
-            var valReadMethod = BinaryTupleMethods.GetReadMethodOrNull(valType);
-
-            if (valReadMethod != null)
-            {
-                // Single-value mapping.
-                if (schema.Columns.Count == schema.KeyColumnCount)
-                {
-                    // No value columns.
-                    return (ref BinaryTupleReader _, T _) => default!;
-                }
-
-                EmitFieldRead(valField, il, schema.Columns[schema.KeyColumnCount], 0, kvLocal);
-            }
-            else
-            {
-                var valLocal = il.DeclareAndInitLocal(valType);
-                var columns = schema.Columns;
-
-                for (var i = schema.KeyColumnCount; i < columns.Count; i++)
-                {
-                    var col = columns[i];
-                    var fieldInfo = valType.GetFieldByColumnName(col.Name);
-
-                    EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, valLocal);
-                }
-
-                // Copy Val to KvPair.
-                il.Emit(OpCodes.Ldloca_S, kvLocal);
-                il.Emit(OpCodes.Ldloc, valLocal);
-                il.Emit(OpCodes.Stfld, valField);
-            }
-
-            il.Emit(OpCodes.Ldloc_0); // res
-            il.Emit(OpCodes.Ret);
-
-            return (ReadValuePartDelegate<T>)method.CreateDelegate(typeof(ReadValuePartDelegate<T>));
-        }
-
         private static void EmitFieldRead(FieldInfo? fieldInfo, ILGenerator il, Column col, int elemIdx, LocalBuilder? local)
         {
             if (fieldInfo == null || local == null)
@@ -500,7 +384,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             il.Emit(OpCodes.Ldarg_0); // reader
             il.Emit(OpCodes.Ldc_I4, elemIdx); // index
 
-            if (col.Type == ClientDataType.Decimal)
+            if (col.Type == ColumnType.Decimal)
             {
                 il.Emit(OpCodes.Ldc_I4, col.Scale);
             }
@@ -511,7 +395,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
         private static void ValidateFieldType(FieldInfo fieldInfo, Column column)
         {
-            var columnType = column.Type.ToType();
+            var columnType = column.Type.ToClrType();
 
             var fieldType = Nullable.GetUnderlyingType(fieldInfo.FieldType) ?? fieldInfo.FieldType;
             fieldType = fieldType.UnwrapEnum();
@@ -527,7 +411,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
         private static void ValidateSingleFieldMappingType(Type type, Column column)
         {
-            var columnType = column.Type.ToType();
+            var columnType = column.Type.ToClrType();
 
             if (type != columnType)
             {

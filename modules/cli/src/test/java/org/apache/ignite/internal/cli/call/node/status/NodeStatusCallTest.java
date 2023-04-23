@@ -25,6 +25,8 @@ import static org.mockserver.model.HttpResponse.response;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
+import jakarta.inject.Inject;
 import java.util.Arrays;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
@@ -37,19 +39,21 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockserver.integration.ClientAndServer;
 
+@MicronautTest(rebuildContext = true)
 class NodeStatusCallTest {
 
-    ClientAndServer clientAndServer;
+    private ClientAndServer clientAndServer;
 
-    ObjectMapper objectMapper;
+    private ObjectMapper objectMapper;
 
-    String url;
+    private String url;
 
-    NodeStatusCall call;
+    @Inject
+    private NodeStatusCall call;
 
-    String nodeName;
+    private String nodeName;
 
-    public static Stream<Arguments> nodeStates() {
+    private static Stream<Arguments> nodeStates() {
         return Arrays.stream(org.apache.ignite.rest.client.model.State.values()).map(Arguments::of);
     }
 
@@ -57,7 +61,6 @@ class NodeStatusCallTest {
     void setUp() {
         nodeName = "testnode";
         objectMapper = new ObjectMapper();
-        call = new NodeStatusCall();
 
         clientAndServer = ClientAndServer.startClientAndServer(0);
         url = "http://localhost:" + clientAndServer.getPort();

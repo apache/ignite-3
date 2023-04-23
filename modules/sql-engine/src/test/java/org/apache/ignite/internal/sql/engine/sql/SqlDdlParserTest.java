@@ -25,7 +25,6 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -40,8 +39,8 @@ import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.ddl.SqlKeyConstraint;
-import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
+import org.apache.ignite.sql.SqlException;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
@@ -54,7 +53,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
      * Very simple case where only table name and a few columns are presented.
      */
     @Test
-    public void createTableSimpleCase() throws SqlParseException {
+    public void createTableSimpleCase() {
         String query = "create table my_table(id int, val varchar)";
 
         SqlNode node = parse(query);
@@ -73,7 +72,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
      * Parsing of CREATE TABLE with function identifier as a default expression.
      */
     @Test
-    public void createTableAutogenFuncDefault() throws SqlParseException {
+    public void createTableAutogenFuncDefault() {
         String query = "create table my_table(id varchar default gen_random_uuid primary key, val varchar)";
 
         SqlNode node = parse(query);
@@ -102,7 +101,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
      * Parsing of CREATE TABLE statement with quoted identifiers.
      */
     @Test
-    public void createTableQuotedIdentifiers() throws SqlParseException {
+    public void createTableQuotedIdentifiers() {
         String query = "create table \"My_Table\"(\"Id\" int, \"Val\" varchar)";
 
         SqlNode node = parse(query);
@@ -121,7 +120,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
      * Parsing of CREATE TABLE statement with IF NOT EXISTS.
      */
     @Test
-    public void createTableIfNotExists() throws SqlParseException {
+    public void createTableIfNotExists() {
         String query = "create table if not exists my_table(id int, val varchar)";
 
         SqlNode node = parse(query);
@@ -140,7 +139,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
      * Parsing of CREATE TABLE with specified PK constraint where constraint is a shortcut within a column definition.
      */
     @Test
-    public void createTableWithPkCase1() throws SqlParseException {
+    public void createTableWithPkCase1() {
         String query = "create table my_table(id int primary key, val varchar)";
 
         SqlNode node = parse(query);
@@ -163,7 +162,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
      * Parsing of CREATE TABLE with specified PK constraint where constraint is set explicitly and has no name.
      */
     @Test
-    public void createTableWithPkCase2() throws SqlParseException {
+    public void createTableWithPkCase2() {
         String query = "create table my_table(id int, val varchar, primary key(id))";
 
         SqlNode node = parse(query);
@@ -186,7 +185,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
      * Parsing of CREATE TABLE with specified PK constraint where constraint is set explicitly and has a name.
      */
     @Test
-    public void createTableWithPkCase3() throws SqlParseException {
+    public void createTableWithPkCase3() {
         String query = "create table my_table(id int, val varchar, constraint pk_key primary key(id))";
 
         SqlNode node = parse(query);
@@ -209,7 +208,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
      * Parsing of CREATE TABLE with specified PK constraint where constraint consists of several columns.
      */
     @Test
-    public void createTableWithPkCase4() throws SqlParseException {
+    public void createTableWithPkCase4() {
         String query = "create table my_table(id1 int, id2 int, val varchar, primary key(id1, id2))";
 
         SqlNode node = parse(query);
@@ -234,7 +233,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
      * Parsing of CREATE TABLE with specified colocation columns.
      */
     @Test
-    public void createTableWithColocationBy() throws SqlParseException {
+    public void createTableWithColocationBy() {
         IgniteSqlCreateTable createTable;
 
         createTable = parseCreateTable(
@@ -287,38 +286,11 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     @Test
-    public void createTableWithEngine() throws SqlParseException {
-        SqlNode node = parse("create table my_table(id int, val varchar) engine test_engine_name");
-
-        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
-
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
-
-        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
-        assertThat(createTable.engineName().names, is(List.of("TEST_ENGINE_NAME")));
-    }
-
-    @Test
-    public void createTableWithoutEngine() throws SqlParseException {
-        SqlNode node = parse("create table my_table(id int, val varchar)");
-
-        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
-
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
-
-        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
-        assertThat(createTable.engineName(), nullValue());
-    }
-
-    @Test
-    public void createTableWithOptions() throws SqlParseException {
+    public void createTableWithOptions() {
         String query = "create table my_table(id int) with"
                 + " replicas=2,"
                 + " partitions=3,"
-                + " primary_zone='zone123',"
-                + " dataRegion='default',"
-                + " \"pageSize\"=1024,"
-                + " \"persistent\"=true";
+                + " primary_zone='zone123'";
 
         SqlNode node = parse(query);
 
@@ -329,13 +301,10 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThatOptionPresent(createTable.createOptionList().getList(), "REPLICAS", 2);
         assertThatOptionPresent(createTable.createOptionList().getList(), "PARTITIONS", 3);
         assertThatOptionPresent(createTable.createOptionList().getList(), "PRIMARY_ZONE", "zone123");
-        assertThatOptionPresent(createTable.createOptionList().getList(), "DATAREGION", "default");
-        assertThatOptionPresent(createTable.createOptionList().getList(), "pageSize", 1024);
-        assertThatOptionPresent(createTable.createOptionList().getList(), "persistent", true);
     }
 
     @Test
-    public void createIndexSimpleCase() throws SqlParseException {
+    public void createIndexSimpleCase() {
         var query = "create index my_index on my_table (col)";
 
         SqlNode node = parse(query);
@@ -353,7 +322,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     @Test
-    public void createIndexImplicitTypeExplicitDirection() throws SqlParseException {
+    public void createIndexImplicitTypeExplicitDirection() {
         var query = "create index my_index on my_table (col1 asc, col2 desc)";
 
         SqlNode node = parse(query);
@@ -377,7 +346,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     @Test
-    public void createIndexExplicitTypeMixedDirection() throws SqlParseException {
+    public void createIndexExplicitTypeMixedDirection() {
         var query = "create index my_index on my_table using tree (col1, col2 asc, col3 desc)";
 
         SqlNode node = parse(query);
@@ -403,7 +372,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     @Test
-    public void createHashIndex() throws SqlParseException {
+    public void createHashIndex() {
         var query = "create index my_index on my_table using hash (col)";
 
         SqlNode node = parse(query);
@@ -424,12 +393,12 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     public void sortDirectionMustNotBeSpecifiedForHashIndex() {
         var query = "create index my_index on my_table using hash (col1, col2 asc)";
 
-        var ex = assertThrows(SqlParseException.class, () -> parse(query));
+        var ex = assertThrows(SqlException.class, () -> parse(query));
         assertThat(ex.getMessage(), containsString("Encountered \" \"ASC\""));
     }
 
     @Test
-    public void createIndexIfNotExists() throws SqlParseException {
+    public void createIndexIfNotExists() {
         var query = "create index if not exists my_index on my_table (col)";
 
         SqlNode node = parse(query);
@@ -444,7 +413,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     @Test
-    public void createIndexTableInParticularSchema() throws SqlParseException {
+    public void createIndexTableInParticularSchema() {
         var query = "create index my_index on my_schema.my_table (col)";
 
         SqlNode node = parse(query);
@@ -458,7 +427,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     @Test
-    public void createIndexExplicitNullDirection() throws SqlParseException {
+    public void createIndexExplicitNullDirection() {
         var query = "create index my_index on my_table (col1 nulls first, col2 nulls last, col3 desc nulls first)";
 
         SqlNode node = parse(query);
@@ -494,7 +463,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     @Test
-    public void dropIndexSimpleCase() throws SqlParseException {
+    public void dropIndexSimpleCase() {
         var query = "drop index my_index";
 
         SqlNode node = parse(query);
@@ -508,7 +477,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     @Test
-    public void dropIndexSchemaSpecified() throws SqlParseException {
+    public void dropIndexSchemaSpecified() {
         var query = "drop index my_schema.my_index";
 
         SqlNode node = parse(query);
@@ -522,7 +491,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     @Test
-    public void dropIndexIfExists() throws SqlParseException {
+    public void dropIndexIfExists() {
         var query = "drop index if exists my_index";
 
         SqlNode node = parse(query);
@@ -535,7 +504,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThat(dropIndex.indexName().names, is(List.of("MY_INDEX")));
     }
 
-    private IgniteSqlCreateTable parseCreateTable(String stmt) throws SqlParseException {
+    private IgniteSqlCreateTable parseCreateTable(String stmt) {
         SqlNode node = parse(stmt);
 
         assertThat(node, instanceOf(IgniteSqlCreateTable.class));

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.client.table;
 
-import org.apache.ignite.internal.client.proto.ClientDataType;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Schema column.
@@ -26,8 +26,8 @@ public class ClientColumn {
     /** Column name. */
     private final String name;
 
-    /** Column type code (see {@link ClientDataType}). */
-    private final int type;
+    /** Column type code. */
+    private final ColumnType type;
 
     /** Nullable flag. */
     private final boolean nullable;
@@ -51,13 +51,13 @@ public class ClientColumn {
      * Constructor.
      *
      * @param name         Column name.
-     * @param type         Column type code.
+     * @param type         Column type.
      * @param nullable     Nullable flag.
      * @param isKey        Key column flag.
      * @param isColocation Colocation column flag.
      * @param schemaIndex  Index of the column in the schema.
      */
-    public ClientColumn(String name, int type, boolean nullable, boolean isKey, boolean isColocation, int schemaIndex) {
+    public ClientColumn(String name, ColumnType type, boolean nullable, boolean isKey, boolean isColocation, int schemaIndex) {
         this(name, type, nullable, isKey, isColocation, schemaIndex, 0, 0);
     }
 
@@ -73,8 +73,9 @@ public class ClientColumn {
      */
     public ClientColumn(
             String name,
-            int type,
-            boolean nullable, boolean isKey,
+            ColumnType type,
+            boolean nullable,
+            boolean isKey,
             boolean isColocation,
             int schemaIndex,
             int scale,
@@ -97,11 +98,11 @@ public class ClientColumn {
     }
 
     /**
-     * Client data type, see {@link ClientDataType}.
+     * Column type.
      *
-     * @return Data type code.
+     * @return Type.
      */
-    public int type() {
+    public ColumnType type() {
         return type;
     }
 

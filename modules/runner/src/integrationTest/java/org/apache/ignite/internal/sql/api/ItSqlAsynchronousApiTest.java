@@ -46,7 +46,7 @@ import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
-import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
@@ -87,7 +87,7 @@ import org.junit.jupiter.api.TestInfo;
  * Tests for asynchronous SQL API.
  */
 @SuppressWarnings("ThrowableNotThrown")
-public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
+public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
     private static final int ROW_COUNT = 16;
 
     /**
@@ -120,7 +120,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void ddl() {
+    public void ddl() throws Exception {
         IgniteSql sql = CLUSTER_NODES.get(0).sql();
         Session ses = sql.createSession();
 
@@ -160,6 +160,9 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
                 "CREATE INDEX TEST_IDX ON TEST(VAL1)"
         );
         checkDdl(false, ses, "CREATE INDEX IF NOT EXISTS TEST_IDX ON TEST(VAL1)");
+
+        // TODO: IGNITE-19150 We are waiting for schema synchronization to avoid races to create and destroy indexes
+        waitForIndexBuild("TEST", "TEST_IDX");
 
         checkDdl(true, ses, "DROP INDEX TESt_iDX");
         checkDdl(true, ses, "CREATE INDEX TEST_IDX1 ON TEST(VAL0)");
@@ -362,7 +365,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         sql("CREATE INDEX TEST_IDX ON TEST(VAL0)");
 
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
         waitForIndex("TEST_IDX");
 
         Matcher<String> planMatcher = containsIndexScan("PUBLIC", "TEST", "TEST_IDX");
@@ -571,7 +574,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         // Multiple statements error.
         assertThrowsWithCause(() -> await(ses.executeAsync(null, "SELECT 1; SELECT 2")),
-                SqlException.class, "Multiple statements aren't allowed");
+                SqlException.class, "Multiple statements are not allowed");
 
         // Planning error.
         assertThrowsWithCause(() -> await(ses.executeAsync(null, "CREATE TABLE TEST2 (VAL INT)")),
@@ -593,6 +596,40 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             AsyncResultSet ars = await(ses.executeAsync(null, "SELECT * FROM TEST"));
             await(ars.closeAsync());
             assertThrowsWithCause(() -> await(ars.fetchNextPage()), CursorClosedException.class);
+        }
+    }
+
+    /**
+     * DDL is non-transactional.
+     */
+    @Test
+    public void ddlInTransaction() {
+        Session ses = igniteSql().createSession();
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        {
+            Transaction tx = igniteTx().begin();
+            try {
+                assertThrowsWithCause(() -> await(ses.executeAsync(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")),
+                        SqlException.class,
+                        "DDL doesn't support transactions."
+                );
+            } finally {
+                tx.rollback();
+            }
+        }
+        {
+            Transaction tx = igniteTx().begin();
+            AsyncResultSet<SqlRow> res = await(ses.executeAsync(tx, "INSERT INTO TEST VALUES (?, ?)", -1, -1));
+            assertEquals(1, res.affectedRows());
+
+            assertThrowsWithCause(() -> await(ses.executeAsync(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")),
+                    SqlException.class,
+                    "DDL doesn't support transactions."
+            );
+            tx.commit();
+
+            assertEquals(1, sql("SELECT ID FROM TEST WHERE ID = -1").size());
         }
     }
 
@@ -650,7 +687,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertThrowsWithCause(
                 () -> await(ses.executeBatchAsync(null, "SELECT * FROM TEST", args)),
                 SqlException.class,
-                "Unexpected number of query parameters. Provided 2 but there is only 0 dynamic parameter(s)"
+                "Invalid SQL statement type in the batch"
         );
 
         assertThrowsWithCause(

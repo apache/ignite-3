@@ -101,7 +101,7 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleGet, transaction, key, keyOnly: true).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
-            return _ser.ReadValue(resBuf, resSchema, key);
+            return _ser.ReadValue(resBuf, resSchema);
         }
 
         /// <inheritdoc/>
@@ -205,7 +205,7 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleGetAndUpsert, transaction, record).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
-            return _ser.ReadValue(resBuf, resSchema, record);
+            return _ser.ReadValue(resBuf, resSchema);
         }
 
         /// <inheritdoc/>
@@ -283,7 +283,7 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleGetAndReplace, transaction, record).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
-            return _ser.ReadValue(resBuf, resSchema, record);
+            return _ser.ReadValue(resBuf, resSchema);
         }
 
         /// <inheritdoc/>
@@ -312,7 +312,7 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleGetAndDelete, transaction, key, keyOnly: true).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
-            return _ser.ReadValue(resBuf, resSchema, key);
+            return _ser.ReadValue(resBuf, resSchema);
         }
 
         /// <inheritdoc/>
@@ -322,6 +322,12 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<IList<T>> DeleteAllExactAsync(ITransaction? transaction, IEnumerable<T> records) =>
             await DeleteAllAsync(transaction, records, exact: true).ConfigureAwait(false);
+
+        /// <inheritdoc/>
+        public override string ToString() =>
+            new IgniteToStringBuilder(GetType())
+                .Append(Table)
+                .Build();
 
         /// <summary>
         /// Deletes multiple records. If one or more keys do not exist, other records are still deleted.

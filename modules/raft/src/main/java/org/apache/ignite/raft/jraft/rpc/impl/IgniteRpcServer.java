@@ -24,7 +24,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.raft.server.impl.RaftServiceEventListener;
+import org.apache.ignite.internal.raft.server.impl.RaftServiceEventInterceptor;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
@@ -81,13 +81,15 @@ public class IgniteRpcServer implements RpcServer<Void> {
      * @param nodeManager The node manager.
      * @param raftMessagesFactory Message factory.
      * @param rpcExecutor The executor for RPC requests.
+     * @param serviceEventInterceptor Raft events interceptor.
      */
     public IgniteRpcServer(
             ClusterService service,
             NodeManager nodeManager,
             RaftMessagesFactory raftMessagesFactory,
             Executor rpcExecutor,
-            RaftServiceEventListener serviceEventListener
+            RaftServiceEventInterceptor serviceEventInterceptor,
+            RaftGroupEventsClientListener raftGroupEventsClientListener
     ) {
         this.service = service;
         this.nodeManager = nodeManager;
@@ -118,9 +120,10 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new RemoveLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ResetLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
         // common client integration
-        var commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.localConfiguration().getSerializationRegistry());
+        var commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.serializationRegistry());
         registerProcessor(new ActionRequestProcessor(rpcExecutor, raftMessagesFactory, commandsMarshaller));
-        registerProcessor(new NotifyElectProcessor(raftMessagesFactory, serviceEventListener));
+        registerProcessor(new NotifyElectProcessor(raftMessagesFactory, serviceEventInterceptor));
+        registerProcessor(new RaftGroupEventsProcessor(raftGroupEventsClientListener));
 
         var messageHandler = new RpcMessageHandler();
 
@@ -135,7 +138,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
             }
 
             @Override public void onDisappeared(ClusterNode member) {
-                serviceEventListener.unsubscribeNode(member);
+                serviceEventInterceptor.unsubscribeNode(member);
 
                 for (ConnectionClosedEventListener listener : listeners)
                     listener.onClosed(service.topologyService().localMember().name(), member.name());

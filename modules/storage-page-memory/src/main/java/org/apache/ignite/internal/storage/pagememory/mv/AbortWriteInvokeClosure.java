@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.ALWAYS_LOAD_VALUE;
+import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
 
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
@@ -33,10 +33,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of {@link InvokeClosure} for {@link AbstractPageMemoryMvPartitionStorage#abortWrite(RowId)}.
  *
- * <p>Synchronization between reading and updating the version chain occurs due to the locks (read and write) of the page of the tree on
- * which the version chain is located.
- *
- * <p>Synchronization between update operations for the version chain must be external (by {@link RowId row ID}).
+ * <p>See {@link AbstractPageMemoryMvPartitionStorage} about synchronization.
  *
  * <p>Operation may throw {@link StorageException} which will cause form {@link BplusTree#invoke(Object, Object, InvokeClosure)}.
  */
@@ -74,10 +71,9 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
         toRemove = latestVersion;
 
         if (latestVersion.hasNextLink()) {
-            // Next can be safely replaced with any value (like 0), because this field is only used when there
-            // is some uncommitted value, but when we add an uncommitted value, we 'fix' such placeholder value
-            // (like 0) by replacing it with a valid value.
-            newRow = VersionChain.createCommitted(rowId, latestVersion.nextLink(), NULL_LINK);
+            RowVersion nextVersion = storage.readRowVersion(latestVersion.nextLink(), DONT_LOAD_VALUE);
+
+            newRow = VersionChain.createCommitted(rowId, latestVersion.nextLink(), nextVersion.nextLink());
 
             operationType = OperationType.PUT;
         } else {

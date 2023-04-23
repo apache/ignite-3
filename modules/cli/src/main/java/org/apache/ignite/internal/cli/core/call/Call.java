@@ -24,6 +24,7 @@ package org.apache.ignite.internal.cli.core.call;
  * @param <IT> Input for the call.
  * @param <OT> Output of the call.
  */
+@FunctionalInterface
 public interface Call<IT extends CallInput, OT> {
     CallOutput<OT> execute(IT input);
 }

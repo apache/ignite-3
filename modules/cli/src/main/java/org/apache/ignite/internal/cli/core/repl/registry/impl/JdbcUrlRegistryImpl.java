@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.cli.core.repl.registry.impl;
 
-import com.google.gson.Gson;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+
 import jakarta.inject.Singleton;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Objects;
 import java.util.Set;
@@ -27,18 +27,17 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.cli.core.JdbcUrl;
+import org.apache.ignite.internal.cli.core.JdbcUrlFactory;
 import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
-import org.apache.ignite.internal.cli.core.repl.config.RootConfig;
 import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
+import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.invoker.Configuration;
 
 /** Implementation of {@link JdbcUrlRegistry}. */
 @Singleton
@@ -48,12 +47,19 @@ public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, AsyncSessionEventLi
 
     private final NodeNameRegistry nodeNameRegistry;
 
-    private volatile Set<JdbcUrl> jdbcUrls = Set.of();
+    private final ApiClientFactory clientFactory;
+
+    private final JdbcUrlFactory jdbcUrlFactory;
+
+    private volatile Set<String> jdbcUrls = Set.of();
 
     private ScheduledExecutorService executor;
 
-    public JdbcUrlRegistryImpl(NodeNameRegistry nodeNameRegistry) {
+    /** Constructor. */
+    public JdbcUrlRegistryImpl(NodeNameRegistry nodeNameRegistry, ApiClientFactory clientFactory, JdbcUrlFactory jdbcUrlFactory) {
         this.nodeNameRegistry = nodeNameRegistry;
+        this.clientFactory = clientFactory;
+        this.jdbcUrlFactory = jdbcUrlFactory;
     }
 
     private void fetchJdbcUrls() {
@@ -68,44 +74,35 @@ public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, AsyncSessionEventLi
     /** {@inheritDoc} */
     @Override
     public Set<String> jdbcUrls() {
-        return jdbcUrls.stream()
-                .map(JdbcUrl::toString)
-                .collect(Collectors.toSet());
+        return Set.copyOf(jdbcUrls);
     }
 
-    private JdbcUrl fetchJdbcUrl(String nodeUrl) {
+    private String fetchJdbcUrl(String nodeUrl) {
         try {
-            return constructJdbcUrl(fetchNodeConfiguration(nodeUrl), nodeUrl);
-        } catch (Exception e) {
+            return jdbcUrlFactory.constructJdbcUrl(fetchNodeConfiguration(nodeUrl), nodeUrl);
+        } catch (ApiException e) {
             log.warn("Couldn't fetch jdbc url of " + nodeUrl + " node: ", e);
             return null;
         }
     }
 
     private String fetchNodeConfiguration(String nodeUrl) throws ApiException {
-        return new NodeConfigurationApi(Configuration.getDefaultApiClient().setBasePath(nodeUrl)).getNodeConfiguration();
-    }
-
-    private JdbcUrl constructJdbcUrl(String configuration, String nodeUrl) {
-        try {
-            int port = new Gson().fromJson(configuration, RootConfig.class).clientConnector.port;
-            return JdbcUrl.of(nodeUrl, port);
-        } catch (MalformedURLException ignored) {
-            // Shouldn't happen ever since we are now connected to this URL
-            return null;
-        }
+        return new NodeConfigurationApi(clientFactory.getClient(nodeUrl)).getNodeConfiguration();
     }
 
     @Override
     public void onConnect(SessionInfo sessionInfo) {
         if (executor == null) {
             executor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("JdbcUrlRegistry", log));
-            executor.scheduleWithFixedDelay(() -> fetchJdbcUrls(), 0, 5, TimeUnit.SECONDS);
+            executor.scheduleWithFixedDelay(this::fetchJdbcUrls, 0, 5, TimeUnit.SECONDS);
         }
     }
 
     @Override
     public void onDisconnect() {
-
+        if (executor != null) {
+            shutdownAndAwaitTermination(executor, 3, TimeUnit.SECONDS);
+            executor = null;
+        }
     }
 }

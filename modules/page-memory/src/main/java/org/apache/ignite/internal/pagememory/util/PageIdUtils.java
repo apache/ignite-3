@@ -183,6 +183,15 @@ public final class PageIdUtils {
     }
 
     /**
+     * Extracts partition ID from the page link.
+     *
+     * @param link Page link.
+     */
+    public static int partitionIdFromLink(long link) {
+        return partitionId(pageId(link));
+    }
+
+    /**
      * Extracts rotation ID from the page ID.
      *
      * @param pageId Page ID.

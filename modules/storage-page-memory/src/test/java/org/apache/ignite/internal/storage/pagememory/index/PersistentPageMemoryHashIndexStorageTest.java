@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.index;
 import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -47,10 +48,10 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
             Path workDir,
             @InjectConfiguration
             PersistentPageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration(
-                    value = "mock.tables.foo.dataStorage.name = " + PersistentPageMemoryStorageEngine.ENGINE_NAME
-            )
-            TablesConfiguration tablesConfig
+            @InjectConfiguration("mock.tables.foo {}")
+            TablesConfiguration tablesConfig,
+            @InjectConfiguration("mock { dataStorage.name = " + PersistentPageMemoryStorageEngine.ENGINE_NAME + " }")
+            DistributionZoneConfiguration distributionZoneConfiguration
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
@@ -60,7 +61,8 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
 
         engine.start();
 
-        table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
+        table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig,
+                distributionZoneConfiguration);
 
         table.start();
 

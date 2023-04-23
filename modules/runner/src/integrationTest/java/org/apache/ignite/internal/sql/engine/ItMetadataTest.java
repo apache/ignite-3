@@ -26,12 +26,13 @@ import java.time.Period;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Group of tests to verify the query metadata returned alongside the query result.
  */
-public class ItMetadataTest extends AbstractBasicIntegrationTest {
+public class ItMetadataTest extends ClusterPerClassIntegrationTest {
     /**
      * Before all.
      */
@@ -46,6 +47,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken after upgrading to calcite 1.34")
     public void trimColumnNames() {
         String var300 = generate(() -> "X").limit(300).collect(joining());
         String var256 = "'" + var300.substring(0, 255);
@@ -54,6 +56,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken after upgrading to calcite 1.34")
     public void columnNames() {
         assertQuery("select (select count(*) from person), (select avg(salary) from person) from person")
                 .columnNames("EXPR$0", "EXPR$1").check();
@@ -85,6 +88,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken after upgrading to calcite 1.34")
     public void infixTypeCast() {
         assertQuery("select id, id::tinyint as tid, id::smallint as sid, id::varchar as vid, id::interval hour, "
                 + "id::interval year from person")
@@ -139,8 +143,8 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                 // + "INTERVAL_SEC_C2 INTERVAL SECOND(9), "
 
                 // Custom types
-                // TODO: IGNITE-16376 support additional data types.
-                // + "UUID_C UUID, "
+                + "UUID_C UUID, "
+                // TODO: IGNITE-18431: Sql. BitSet is not supported.
                 // + "BITSET_C BITMASK, "
                 // + "BITSET_C BITMASK(8), "
 
@@ -194,7 +198,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                         new MetadataMatcher().name("TIMESTAMP_C2").type(ColumnType.TIMESTAMP).precision(9).scale(UNDEFINED_SCALE),
 
                         // Interval types
-                        // TODO: Ignite doesn't support interval types.
+                        // TODO: IGNITE-17373: Ignite doesn't support interval types yet.
                         // new MetadataMatcher().name("INTERVAL_YEAR_C"),
                         // new MetadataMatcher().name("INTERVAL_MONTH_C"),
                         // new MetadataMatcher().name("INTERVAL_DAY_C"),
@@ -204,8 +208,8 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                         // new MetadataMatcher().name("INTERVAL_SEC_C2"),
 
                         // Custom types
-                        // TODO: IGNITE-16376 support additional data types.
-                        // new MetadataMatcher().name("UUID_C"),
+                        new MetadataMatcher().name("UUID_C"),
+                        // TODO: IGNITE-18431: Sql. BitSet is not supported.
                         // new MetadataMatcher().name("BITSET_C"),
                         // new MetadataMatcher().name("BITSET_C2"),
 

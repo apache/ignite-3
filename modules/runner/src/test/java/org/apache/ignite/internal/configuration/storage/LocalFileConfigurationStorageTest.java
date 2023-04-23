@@ -17,24 +17,75 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for the {@link LocalFileConfigurationStorage}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-19152")
 public class LocalFileConfigurationStorageTest extends ConfigurationStorageTest {
+
+    private static final String CONFIG_NAME = "ignite-config.conf";
 
     @WorkDirectory
     private Path tmpDir;
 
     @Override
     public ConfigurationStorage getStorage() {
-        Path resolve = tmpDir.resolve(NodeBootstrapConfiguration.DEFAULT_CONFIG_NAME);
-        return new LocalFileConfigurationStorage(NodeBootstrapConfiguration.directFile(resolve));
+        return new LocalFileConfigurationStorage(getConfigFile());
+    }
+
+    @Test
+    void testHocon() throws IOException {
+        // All of this is needed because write expects serializable values and only concrete classes are serializable
+        HashMap<String, ArrayList<String>> map = new HashMap<>(Map.of("list", new ArrayList<>(List.of("val1", "val2"))));
+        var data = Map.of("foo1", "bar1", "foo2", "bar2", "map", map);
+
+        assertThat(storage.write(data, 0), willBe(true));
+
+        String contents = Files.readString(getConfigFile());
+
+        // \n instead of System.lineSeparator because Config library writes \n only
+        assertThat(contents, is("foo1=bar1\n"
+                + "foo2=bar2\n"
+                + "map {\n"
+                + "    list=[\n"
+                + "        val1,\n"
+                + "        val2\n"
+                + "    ]\n"
+                + "}\n"));
+    }
+
+    @Test
+    void testMergeHocon() throws IOException {
+        var data = Map.of("foo1", "bar");
+        assertThat(storage.write(data, 0), willBe(true));
+
+        var append = Map.of("foo1", "baz", "foo2", "bar");
+        assertThat(storage.write(append, 1), willBe(true));
+
+        String contents = Files.readString(getConfigFile());
+        assertThat(contents, is("foo1=baz\n"
+                + "foo2=bar\n"));
+    }
+
+    private Path getConfigFile() {
+        return tmpDir.resolve(CONFIG_NAME);
     }
 }

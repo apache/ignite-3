@@ -18,22 +18,22 @@
 package org.apache.ignite.internal.sql.engine.type;
 
 import java.util.UUID;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 
 /** UUID SQL type. */
-public final class UuidType extends IgniteCustomType<UUID> {
+public final class UuidType extends IgniteCustomType {
 
     /** A string name of this type: {@code UUID}. **/
     public static final String NAME = "UUID";
 
-    /** The storage type. **/
-    public static final Class<UUID> JAVA_TYPE = UUID.class;
+    /** Type spec of this type. **/
+    public static final IgniteCustomTypeSpec SPEC = new IgniteCustomTypeSpec(NAME, NativeTypes.UUID,
+            ColumnType.UUID, UUID.class, IgniteCustomTypeSpec.getCastFunction(UuidType.class, "cast"));
 
     /** Constructor. */
     public UuidType(boolean nullable) {
-        super(JAVA_TYPE, nullable, PRECISION_NOT_SPECIFIED);
+        super(SPEC, nullable, PRECISION_NOT_SPECIFIED);
     }
 
     /** {@inheritDoc} */
@@ -43,25 +43,20 @@ public final class UuidType extends IgniteCustomType<UUID> {
 
     /** {@inheritDoc} */
     @Override
-    public String getCustomTypeName() {
-        return NAME;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public NativeType nativeType() {
-        return NativeTypes.UUID;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ColumnType columnType() {
-        return ColumnType.UUID;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public UuidType createWithNullability(boolean nullable) {
         return new UuidType(nullable);
+    }
+
+    /**
+     * Implementation of a cast function for {@code UUID} data type.
+     */
+    public static UUID cast(Object value) {
+        // It would be better to generate Expression tree that is equivalent to the code below
+        // from type checking rules for this type in order to avoid code duplication.
+        if (value instanceof String) {
+            return UUID.fromString((String) value);
+        } else {
+            return (UUID) value;
+        }
     }
 }

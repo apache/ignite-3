@@ -39,7 +39,7 @@ protected:
         m_client = ignite_client::start(cfg, std::chrono::seconds(30));
         auto table = m_client.get_tables().get_table(TABLE_1);
 
-        tuple_view = table->record_binary_view();
+        tuple_view = table->get_record_binary_view();
     }
 
     void TearDown() override {
@@ -774,7 +774,7 @@ TEST_F(record_binary_view_test, remove_exact_empty_throws) {
 }
 
 TEST_F(record_binary_view_test, get_and_remove_nonexisting) {
-    auto res = tuple_view.get_and_replace(nullptr, get_tuple(42, "foo"));
+    auto res = tuple_view.get_and_remove(nullptr, get_tuple(42, "foo"));
     ASSERT_FALSE(res.has_value());
 
     auto res_tuple = tuple_view.get(nullptr, get_tuple(42));
@@ -938,7 +938,7 @@ TEST_F(record_binary_view_test, remove_all_exact_empty) {
 
 TEST_F(record_binary_view_test, types_test) {
     auto table = m_client.get_tables().get_table(TABLE_NAME_ALL_COLUMNS);
-    tuple_view = table->record_binary_view();
+    tuple_view = table->get_record_binary_view();
 
     ignite_tuple inserted{
         {"key", std::int64_t(42)},

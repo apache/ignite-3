@@ -26,11 +26,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
+import org.apache.ignite.internal.storage.BinaryRowAndRowId;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
@@ -48,7 +53,13 @@ public class StorageUpdateHandler {
     /** Partition storage with access to MV data of a partition. */
     private final PartitionDataStorage storage;
 
-    private final Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes;
+    private final TableIndexStoragesSupplier indexes;
+
+    /** Last recorded GC low watermark. */
+    private final AtomicReference<HybridTimestamp> lastRecordedLwm = new AtomicReference<>();
+
+    /** Data storage configuration. */
+    private final DataStorageConfiguration dsCfg;
 
     /**
      * The constructor.
@@ -56,15 +67,22 @@ public class StorageUpdateHandler {
      * @param partitionId Partition id.
      * @param storage Partition data storage.
      * @param indexes Indexes supplier.
+     * @param dsCfg Data storage configuration.
      */
-    public StorageUpdateHandler(int partitionId, PartitionDataStorage storage, Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes) {
+    public StorageUpdateHandler(
+            int partitionId,
+            PartitionDataStorage storage,
+            TableIndexStoragesSupplier indexes,
+            DataStorageConfiguration dsCfg
+    ) {
         this.partitionId = partitionId;
         this.storage = storage;
         this.indexes = indexes;
+        this.dsCfg = dsCfg;
     }
 
     /**
-     * Handle single update.
+     * Handles single update.
      *
      * @param txId Transaction id.
      * @param rowUuid Row UUID.
@@ -79,6 +97,28 @@ public class StorageUpdateHandler {
             @Nullable ByteBuffer rowBuffer,
             @Nullable Consumer<RowId> onReplication
     ) {
+        handleUpdate(txId, rowUuid, commitPartitionId, rowBuffer, onReplication, null);
+    }
+
+    /**
+     * Handles single update.
+     *
+     * @param txId Transaction id.
+     * @param rowUuid Row UUID.
+     * @param commitPartitionId Commit partition id.
+     * @param rowBuffer Row buffer.
+     * @param onReplication Callback on replication.
+     * @param lowWatermark GC low watermark.
+     */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-18909 Pass low watermark.
+    public void handleUpdate(
+            UUID txId,
+            UUID rowUuid,
+            TablePartitionId commitPartitionId,
+            @Nullable ByteBuffer rowBuffer,
+            @Nullable Consumer<RowId> onReplication,
+            @Nullable HybridTimestamp lowWatermark
+    ) {
         storage.runConsistently(() -> {
             BinaryRow row = rowBuffer != null ? new ByteBufferRow(rowBuffer) : null;
             RowId rowId = new RowId(partitionId, rowUuid);
@@ -92,18 +132,20 @@ public class StorageUpdateHandler {
                 tryRemovePreviousWritesIndex(rowId, oldRow);
             }
 
+            addToIndexes(row, rowId);
+
             if (onReplication != null) {
                 onReplication.accept(rowId);
             }
 
-            addToIndexes(row, rowId);
-
             return null;
         });
+
+        executeBatchGc(lowWatermark);
     }
 
     /**
-     * Handle multiple updates.
+     * Handles multiple updates.
      *
      * @param txId Transaction id.
      * @param rowsToUpdate Collection of rows to update.
@@ -115,6 +157,26 @@ public class StorageUpdateHandler {
             Map<UUID, ByteBuffer> rowsToUpdate,
             TablePartitionId commitPartitionId,
             @Nullable Consumer<Collection<RowId>> onReplication
+    ) {
+        handleUpdateAll(txId, rowsToUpdate, commitPartitionId, onReplication, null);
+    }
+
+    /**
+     * Handle multiple updates.
+     *
+     * @param txId Transaction id.
+     * @param rowsToUpdate Collection of rows to update.
+     * @param commitPartitionId Commit partition id.
+     * @param onReplication On replication callback.
+     * @param lowWatermark GC low watermark.
+     */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-18909 Pass low watermark.
+    public void handleUpdateAll(
+            UUID txId,
+            Map<UUID, ByteBuffer> rowsToUpdate,
+            TablePartitionId commitPartitionId,
+            @Nullable Consumer<Collection<RowId>> onReplication,
+            @Nullable HybridTimestamp lowWatermark
     ) {
         storage.runConsistently(() -> {
             UUID commitTblId = commitPartitionId.tableId();
@@ -145,6 +207,30 @@ public class StorageUpdateHandler {
 
             return null;
         });
+
+        executeBatchGc(lowWatermark);
+    }
+
+    private void executeBatchGc(@Nullable HybridTimestamp newLwm) {
+        if (newLwm == null) {
+            return;
+        }
+
+        @Nullable HybridTimestamp oldLwm;
+        do {
+            oldLwm = lastRecordedLwm.get();
+
+            if (oldLwm != null && newLwm.compareTo(oldLwm) <= 0) {
+                break;
+            }
+        } while (!lastRecordedLwm.compareAndSet(oldLwm, newLwm));
+
+        if (oldLwm == null || newLwm.compareTo(oldLwm) > 0) {
+            // Iff the lwm we have is the new lwm.
+            // Otherwise our newLwm is either smaller than last recorded lwm or last recorded lwm has changed
+            // concurrently and it become greater. If that's the case, another thread will perform the GC.
+            vacuumBatch(newLwm, dsCfg.gcOnUpdateBatchSize().value());
+        }
     }
 
     /**
@@ -234,7 +320,7 @@ public class StorageUpdateHandler {
                         continue;
                     }
 
-                    // If any of the previous versions' index value matches the index value of
+                    // If any of the previous versions' index value equals the index value of
                     // the row to remove, then we can't remove that index as it can still be used.
                     BinaryTuple previousRowIndex = index.resolveIndexRow(previousRow);
 
@@ -252,13 +338,63 @@ public class StorageUpdateHandler {
         }
     }
 
-    private void removeFromIndex(BinaryRow row, RowId rowId) {
-        for (TableSchemaAwareIndexStorage index : indexes.get().values()) {
-            index.remove(row, rowId);
+    /**
+     * Tries removing partition's oldest stale entry and its indexes.
+     *
+     * @param lowWatermark Low watermark for the vacuum.
+     * @return {@code true} if an entry was garbage collected, {@code false} if there was nothing to collect.
+     * @see MvPartitionStorage#pollForVacuum(HybridTimestamp)
+     */
+    public boolean vacuum(HybridTimestamp lowWatermark) {
+        return storage.runConsistently(() -> internalVacuum(lowWatermark));
+    }
+
+    /**
+     * Tries removing {@code count} oldest stale entries and their indexes.
+     * If there's less entries that can be removed, then exits prematurely.
+     *
+     * @param lowWatermark Low watermark for the vacuum.
+     * @param count Count of entries to GC.
+     */
+    void vacuumBatch(HybridTimestamp lowWatermark, int count) {
+        for (int i = 0; i < count; i++) {
+            if (!storage.runConsistently(() -> internalVacuum(lowWatermark))) {
+                break;
+            }
         }
     }
 
-    private void addToIndexes(@Nullable BinaryRow binaryRow, RowId rowId) {
+    /**
+     * Executes garbage collection. Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.
+     *
+     * @param lowWatermark Low watermark for the vacuum.
+     * @return {@code true} if an entry was garbage collected, {@code false} if there was nothing to collect.
+     */
+    private boolean internalVacuum(HybridTimestamp lowWatermark) {
+        BinaryRowAndRowId vacuumed = storage.pollForVacuum(lowWatermark);
+
+        if (vacuumed == null) {
+            // Nothing was garbage collected.
+            return false;
+        }
+
+        BinaryRow binaryRow = vacuumed.binaryRow();
+
+        assert binaryRow != null;
+
+        RowId rowId = vacuumed.rowId();
+
+        try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
+            tryRemoveFromIndexes(binaryRow, rowId, cursor);
+        }
+
+        return true;
+    }
+
+    /**
+     * Adds a binary row to the indexes, if the tombstone then skips such operation.
+     */
+    public void addToIndexes(@Nullable BinaryRow binaryRow, RowId rowId) {
         if (binaryRow == null) { // skip removes
             return;
         }
@@ -266,5 +402,49 @@ public class StorageUpdateHandler {
         for (TableSchemaAwareIndexStorage index : indexes.get().values()) {
             index.put(binaryRow, rowId);
         }
+    }
+
+    /**
+     * Waits for indexes to be created.
+     */
+    // TODO: IGNITE-18619 Fix it, we should have already waited for the indexes to be created
+    public void waitIndexes() {
+        indexes.get();
+    }
+
+    /**
+     * Builds an index for all versions of a row.
+     *
+     * <p>Index is expected to exist, skips the tombstones.
+     *
+     * @param indexId Index ID.
+     * @param rowUuids Row uuids.
+     * @param finish Index build completion flag.
+     */
+    public void buildIndex(UUID indexId, List<UUID> rowUuids, boolean finish) {
+        // TODO: IGNITE-19082 Need another way to wait for index creation
+        indexes.addIndexToWaitIfAbsent(indexId);
+
+        TableSchemaAwareIndexStorage index = indexes.get().get(indexId);
+
+        RowId lastRowId = null;
+
+        for (UUID rowUuid : rowUuids) {
+            lastRowId = new RowId(partitionId, rowUuid);
+
+            try (Cursor<ReadResult> cursor = storage.scanVersions(lastRowId)) {
+                while (cursor.hasNext()) {
+                    ReadResult next = cursor.next();
+
+                    if (!next.isEmpty()) {
+                        index.put(next.binaryRow(), lastRowId);
+                    }
+                }
+            }
+        }
+
+        assert lastRowId != null || finish : "indexId=" + indexId + ", partitionId=" + partitionId;
+
+        index.storage().setNextRowIdToBuild(finish ? null : lastRowId.increment());
     }
 }

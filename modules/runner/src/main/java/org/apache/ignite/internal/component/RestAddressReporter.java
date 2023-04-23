@@ -23,6 +23,8 @@ import java.nio.file.Path;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
@@ -32,6 +34,8 @@ import org.jetbrains.annotations.Nullable;
  * Can write network address to file that could be used by other systems to know on what port Ignite 3 REST server is started.
  */
 public class RestAddressReporter {
+
+    private static final IgniteLogger LOG = Loggers.forClass(RestAddressReporter.class);
 
     private static final String REPORT_FILE_NAME = "rest-address";
 
@@ -73,7 +77,7 @@ public class RestAddressReporter {
             Files.delete(workDir.resolve(REPORT_FILE_NAME));
         } catch (IOException e) {
             String message = "Unexpected error when trying to remove REST server network address file";
-            throw new IgniteException(Common.UNEXPECTED_ERR, message, e);
+            LOG.error(message, new IgniteException(Common.UNEXPECTED_ERR, message, e));
         }
     }
 }

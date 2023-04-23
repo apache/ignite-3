@@ -19,14 +19,14 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
-import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.AFFINITY_FUNCTION;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_NODES_FILTER;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.PARTITIONS;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.REPLICAS;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.AFFINITY_FUNCTION;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_FILTER;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_STORAGE_ENGINE;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.PARTITIONS;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.REPLICAS;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEYS_MULTIPLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEY_MISSING_ERR;
@@ -44,6 +44,7 @@ import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
@@ -64,6 +65,7 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlUnknownLiteral;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.ddl.SqlDdlNodes;
 import org.apache.calcite.sql.ddl.SqlDropTable;
@@ -89,7 +91,6 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
@@ -113,12 +114,16 @@ public class DdlSqlToCommandConverter {
     private final Map<String, DdlOptionInfo<CreateTableCommand, ?>> tableOptionInfos;
 
     /** Like {@link #tableOptionInfos}, but for each data storage name. */
-    private final Map<String, Map<String, DdlOptionInfo<CreateTableCommand, ?>>> dataStorageOptionInfos;
+    private final Map<String, Map<String, DdlOptionInfo<CreateZoneCommand, ?>>> dataStorageOptionInfos;
 
     /** Mapping: Zone option ID -> DDL option info. */
-    private final Map<IgniteSqlZoneOptionEnum, DdlOptionInfo<CreateZoneCommand, ?>> zoneOptionInfos;
+    private final Map<ZoneOptionEnum, DdlOptionInfo<CreateZoneCommand, ?>> zoneOptionInfos;
 
-    private final Map<IgniteSqlZoneOptionEnum, DdlOptionInfo<AlterZoneSetCommand, ?>> alterZoneOptionInfos;
+    /** Mapping: Zone option ID -> DDL option info. */
+    private final Map<ZoneOptionEnum, DdlOptionInfo<AlterZoneSetCommand, ?>> alterZoneOptionInfos;
+
+    /** Zone options set. */
+    private final Set<String> knownZoneOptionNames;
 
     /**
      * Constructor.
@@ -132,12 +137,15 @@ public class DdlSqlToCommandConverter {
     ) {
         this.defaultDataStorageSupplier = defaultDataStorageSupplier;
 
+        knownZoneOptionNames = EnumSet.allOf(ZoneOptionEnum.class)
+                .stream()
+                .map(Enum::name)
+                .collect(Collectors.toSet());
+
         this.dataStorageNames = collectDataStorageNames(dataStorageFields.keySet());
 
         this.tableOptionInfos = Map.of(
-                "PRIMARY_ZONE", new DdlOptionInfo<>(String.class, null, CreateTableCommand::zone),
-                REPLICAS.name(), new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateTableCommand::replicas),
-                PARTITIONS.name(), new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateTableCommand::partitions)
+                "PRIMARY_ZONE", new DdlOptionInfo<>(String.class, null, CreateTableCommand::zone)
         );
 
         this.dataStorageOptionInfos = dataStorageFields.entrySet()
@@ -152,7 +160,7 @@ public class DdlSqlToCommandConverter {
         dataStorageOptionInfos.values().forEach(v -> checkDuplicates(v.keySet(), tableOptionInfos.keySet()));
 
         // CREATE ZONE options.
-        zoneOptionInfos = Map.of(
+        zoneOptionInfos = new EnumMap<>(Map.of(
                 REPLICAS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::replicas),
                 PARTITIONS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::partitions),
                 AFFINITY_FUNCTION, new DdlOptionInfo<>(String.class, null, CreateZoneCommand::affinity),
@@ -163,11 +171,12 @@ public class DdlSqlToCommandConverter {
                 DATA_NODES_AUTO_ADJUST_SCALE_UP,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjustScaleUp),
                 DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
-                new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjustScaleDown)
-        );
+                new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjustScaleDown),
+                DATA_STORAGE_ENGINE, new DdlOptionInfo<>(String.class, null, CreateZoneCommand::dataStorage)
+        ));
 
         // ALTER ZONE options.
-        alterZoneOptionInfos = Map.of(
+        alterZoneOptionInfos = new EnumMap<>(Map.of(
                 REPLICAS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::replicas),
                 DATA_NODES_FILTER, new DdlOptionInfo<>(String.class, null, AlterZoneSetCommand::nodeFilter),
 
@@ -177,7 +186,7 @@ public class DdlSqlToCommandConverter {
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::dataNodesAutoAdjustScaleUp),
                 DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::dataNodesAutoAdjustScaleDown)
-        );
+        ));
     }
 
     /**
@@ -240,15 +249,12 @@ public class DdlSqlToCommandConverter {
      */
     private CreateTableCommand convertCreateTable(IgniteSqlCreateTable createTblNode, PlanningContext ctx) {
         CreateTableCommand createTblCmd = new CreateTableCommand();
-        String dataStorageName = deriveDataStorage(createTblNode.engineName(), ctx);
 
         createTblCmd.schemaName(deriveSchemaName(createTblNode.name(), ctx));
         createTblCmd.tableName(deriveObjectName(createTblNode.name(), ctx, "tableName"));
         createTblCmd.ifTableExists(createTblNode.ifNotExists());
-        createTblCmd.dataStorage(dataStorageName);
 
         if (createTblNode.createOptionList() != null) {
-            Map<String, DdlOptionInfo<CreateTableCommand, ?>> dsOptInfos = dataStorageOptionInfos.get(dataStorageName);
 
             for (SqlNode optionNode : createTblNode.createOptionList().getList()) {
                 IgniteSqlCreateTableOption option = (IgniteSqlCreateTableOption) optionNode;
@@ -258,10 +264,6 @@ public class DdlSqlToCommandConverter {
                 String optionKey = option.key().getSimple().toUpperCase();
 
                 DdlOptionInfo<CreateTableCommand, ?> tblOptionInfo = tableOptionInfos.get(optionKey);
-
-                if (tblOptionInfo == null) {
-                    tblOptionInfo = dsOptInfos.get(optionKey);
-                }
 
                 if (tblOptionInfo != null) {
                     updateCommandOption("Table", optionKey, (SqlLiteral) option.value(), tblOptionInfo, ctx.query(), createTblCmd);
@@ -345,6 +347,10 @@ public class DdlSqlToCommandConverter {
             dedupSetPk.remove(name);
 
             DefaultValueDefinition dflt = convertDefault(col.expression, relType);
+            if (dflt.type() == DefaultValueDefinition.Type.FUNCTION_CALL && !pkCols.contains(name)) {
+                throw new SqlException(QUERY_INVALID_ERR,
+                        "Functional defaults are not supported for non-primary key columns [col=" + name + "]");
+            }
 
             cols.add(new ColumnDefinition(name, relType, dflt));
         }
@@ -508,30 +514,43 @@ public class DdlSqlToCommandConverter {
      */
     private CreateZoneCommand convertCreateZone(IgniteSqlCreateZone createZoneNode, PlanningContext ctx) {
         CreateZoneCommand createZoneCmd = new CreateZoneCommand();
+        String dataStorageName = deriveDataStorage(createZoneNode.engineName(), ctx);
 
         createZoneCmd.schemaName(deriveSchemaName(createZoneNode.name(), ctx));
         createZoneCmd.zoneName(deriveObjectName(createZoneNode.name(), ctx, "zoneName"));
         createZoneCmd.ifNotExists(createZoneNode.ifNotExists());
+        createZoneCmd.dataStorage(dataStorageName);
 
         if (createZoneNode.createOptionList() == null) {
             return createZoneCmd;
         }
 
-        Set<IgniteSqlZoneOptionEnum> knownOptionNames = EnumSet.allOf(IgniteSqlZoneOptionEnum.class);
+        Map<String, DdlOptionInfo<CreateZoneCommand, ?>> dsOptInfos = dataStorageOptionInfos.get(dataStorageName);
+
+        Set<String> remainingKnownOptions = new HashSet<>(knownZoneOptionNames);
 
         for (SqlNode optionNode : createZoneNode.createOptionList().getList()) {
             IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
-            IgniteSqlZoneOptionEnum optionName = option.key().symbolValue(IgniteSqlZoneOptionEnum.class);
 
-            if (!knownOptionNames.remove(optionName)) {
+            assert option.key().isSimple() : option.key();
+
+            String optionName = option.key().getSimple().toUpperCase();
+
+            DdlOptionInfo<CreateZoneCommand, ?> zoneOptionInfo;
+
+            if (remainingKnownOptions.remove(optionName)) {
+                zoneOptionInfo = zoneOptionInfos.get(ZoneOptionEnum.valueOf(optionName));
+            } else if (knownZoneOptionNames.contains(optionName)) {
                 throw new IgniteException(QUERY_VALIDATION_ERR,
                         String.format("Duplicate DDL command option has been specified [option=%s, query=%s]", optionName, ctx.query()));
+            } else {
+                zoneOptionInfo = dsOptInfos.get(optionName);
             }
 
-            DdlOptionInfo<CreateZoneCommand, ?> zoneOptionInfo = zoneOptionInfos.get(optionName);
-
-            assert zoneOptionInfo != null : optionName;
-            assert option.value() instanceof SqlLiteral : option.value();
+            if (zoneOptionInfo == null) {
+                throw new IgniteException(
+                        QUERY_VALIDATION_ERR, String.format("Unexpected zone option [option=%s, query=%s]", optionName, ctx.query()));
+            }
 
             updateCommandOption("Zone", optionName, (SqlLiteral) option.value(), zoneOptionInfo, ctx.query(), createZoneCmd);
         }
@@ -553,18 +572,21 @@ public class DdlSqlToCommandConverter {
         alterZoneCmd.zoneName(deriveObjectName(alterZoneSet.name(), ctx, "zoneName"));
         alterZoneCmd.ifExists(alterZoneSet.ifExists());
 
-        Set<IgniteSqlZoneOptionEnum> knownOptionNames = EnumSet.allOf(IgniteSqlZoneOptionEnum.class);
+        Set<String> remainingKnownOptions = new HashSet<>(knownZoneOptionNames);
 
         for (SqlNode optionNode : alterZoneSet.alterOptionsList().getList()) {
             IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
-            IgniteSqlZoneOptionEnum optionName = option.key().symbolValue(IgniteSqlZoneOptionEnum.class);
+            String optionName = option.key().getSimple().toUpperCase();
 
-            if (!knownOptionNames.remove(optionName)) {
+            if (!knownZoneOptionNames.contains(optionName)) {
+                throw new IgniteException(QUERY_VALIDATION_ERR,
+                        String.format("Unexpected DDL command option [option=%s, query=%s]", optionName, ctx.query()));
+            } else if (!remainingKnownOptions.remove(optionName)) {
                 throw new IgniteException(QUERY_VALIDATION_ERR,
                         String.format("Duplicate DDL command option has been specified [option=%s, query=%s]", optionName, ctx.query()));
             }
 
-            DdlOptionInfo<AlterZoneSetCommand, ?> zoneOptionInfo = alterZoneOptionInfos.get(optionName);
+            DdlOptionInfo<AlterZoneSetCommand, ?> zoneOptionInfo = alterZoneOptionInfos.get(ZoneOptionEnum.valueOf(optionName));
 
             assert zoneOptionInfo != null : optionName;
             assert option.value() instanceof SqlLiteral : option.value();
@@ -684,10 +706,6 @@ public class DdlSqlToCommandConverter {
         if (engineName == null) {
             String defaultDataStorage = defaultDataStorageSupplier.get();
 
-            if (defaultDataStorage.equals(UNKNOWN_DATA_STORAGE)) {
-                throw new SqlException(STORAGE_ENGINE_NOT_VALID_ERR, "Default data storage is not defined, query:" + ctx.query());
-            }
-
             return defaultDataStorage;
         }
 
@@ -750,7 +768,7 @@ public class DdlSqlToCommandConverter {
         }
     }
 
-    private Entry<String, DdlOptionInfo<CreateTableCommand, ?>> dataStorageFieldOptionInfo(Entry<String, Class<?>> e) {
+    private Entry<String, DdlOptionInfo<CreateZoneCommand, ?>> dataStorageFieldOptionInfo(Entry<String, Class<?>> e) {
         return new SimpleEntry<>(
                 e.getKey(),
                 new DdlOptionInfo<>(e.getValue(), null, (cmd, o) -> cmd.addDataStorageOption(e.getKey(), o))
@@ -774,16 +792,23 @@ public class DdlSqlToCommandConverter {
      */
     private static Object fromLiteral(RelDataType columnType, SqlLiteral literal) {
         try {
-            switch (columnType.getSqlTypeName()) {
+            SqlTypeName sqlColumnType = columnType.getSqlTypeName();
+
+            switch (sqlColumnType) {
                 case VARCHAR:
                 case CHAR:
                     return literal.getValueAs(String.class);
-                case DATE:
-                    return LocalDate.ofEpochDay(literal.getValueAs(DateString.class).getDaysSinceEpoch());
-                case TIME:
-                    return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(literal.getValueAs(TimeString.class).getMillisOfDay()));
+                case DATE: {
+                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(sqlColumnType);
+                    return LocalDate.ofEpochDay(literal0.getValueAs(DateString.class).getDaysSinceEpoch());
+                }
+                case TIME: {
+                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(sqlColumnType);
+                    return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(literal0.getValueAs(TimeString.class).getMillisOfDay()));
+                }
                 case TIMESTAMP: {
-                    var tsString = literal.getValueAs(TimestampString.class);
+                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(sqlColumnType);
+                    var tsString = literal0.getValueAs(TimestampString.class);
 
                     return LocalDateTime.ofEpochSecond(
                             TimeUnit.MILLISECONDS.toSeconds(tsString.getMillisSinceEpoch()),

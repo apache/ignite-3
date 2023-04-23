@@ -17,21 +17,25 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * The read-only implementation of an internal transaction.
  */
-public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
+class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     /** The read timestamp. */
     private final HybridTimestamp readTimestamp;
+
+    /** Prevents double finish of the transaction. */
+    private final AtomicBoolean finishGuard = new AtomicBoolean();
 
     /**
      * The constructor.
@@ -40,62 +44,55 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param id The id.
      * @param readTimestamp The read timestamp.
      */
-    public ReadOnlyTransactionImpl(
-            TxManager txManager,
-            @NotNull UUID id,
-            HybridTimestamp readTimestamp
-    ) {
+    ReadOnlyTransactionImpl(TxManagerImpl txManager, UUID id, HybridTimestamp readTimestamp) {
         super(txManager, id);
+
         this.readTimestamp = readTimestamp;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean isReadOnly() {
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override
     public HybridTimestamp readTimestamp() {
         return readTimestamp;
     }
 
-    /** {@inheritDoc} */
     @Override
     public IgniteBiTuple<ClusterNode, Long> enlist(ReplicationGroupId replicationGroupId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
         // TODO: IGNITE-17666 Close cursor tx finish and do it on the first finish invocation only.
         return null;
     }
 
-    /** {@inheritDoc} */
     @Override
     public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(ReplicationGroupId replicationGroupId) {
         return null;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override
     public ReplicationGroupId commitPartition() {
         return null;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void enlistResultFuture(CompletableFuture<?> resultFuture) {
         // No-op.
     }
 
-    /** {@inheritDoc} */
     @Override
+    // TODO: IGNITE-17666 Close cursor tx finish and do it on the first finish invocation only.
     protected CompletableFuture<Void> finish(boolean commit) {
-        // TODO: IGNITE-17666 Close cursor tx finish and do it on the first finish invocation only.
-        return CompletableFuture.completedFuture(null);
+        if (!finishGuard.compareAndSet(false, true)) {
+            return completedFuture(null);
+        }
+
+        return ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()));
     }
 }

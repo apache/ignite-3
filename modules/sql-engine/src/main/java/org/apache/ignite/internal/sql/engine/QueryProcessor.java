@@ -32,11 +32,10 @@ public interface QueryProcessor extends IgniteComponent {
     /**
      * Creates a session with given properties.
      *
-     * @param sessionTimeoutMs Session timeout in millisecond.
-     * @param queryProperties Properties to store within a new session.
+     * @param properties Properties to store within a new session.
      * @return An identifier of a created session.
      */
-    SessionId createSession(long sessionTimeoutMs, PropertiesHolder queryProperties);
+    SessionId createSession(PropertiesHolder properties);
 
     /**
      * Closes the session with given id.
@@ -56,31 +55,6 @@ public interface QueryProcessor extends IgniteComponent {
      * @return List of active sessions.
      */
     List<SessionInfo> liveSessions();
-
-    /**
-     * Execute the query with given schema name and parameters.
-     *
-     * @param schemaName Schema name.
-     * @param qry Sql query.
-     * @param params Query parameters.
-     * @return List of sql cursors.
-     *
-     * @throws IgniteException in case of an error.
-     */
-    List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(String schemaName, String qry, Object... params);
-
-    /**
-     * Execute the query with given schema name and parameters.
-     *
-     * @param context User query context.
-     * @param schemaName Schema name.
-     * @param qry Sql query.
-     * @param params Query parameters.
-     * @return List of sql cursors.
-     *
-     * @throws IgniteException in case of an error.
-     */
-    List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(QueryContext context, String schemaName, String qry, Object... params);
 
     /**
      * Execute the single statement query with given schema name and parameters.

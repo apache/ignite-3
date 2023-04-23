@@ -19,8 +19,6 @@ package org.apache.ignite.raft.server;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -78,38 +76,5 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
         clusterServices.add(network);
 
         return network;
-    }
-
-    /**
-     * Test replication group id.
-     */
-    protected static class TestReplicationGroupId implements ReplicationGroupId {
-        private final String name;
-
-        public TestReplicationGroupId(String name) {
-            this.name = name;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            TestReplicationGroupId that = (TestReplicationGroupId) o;
-            return Objects.equals(name, that.name);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(name);
-        }
-
-        @Override
-        public String toString() {
-            return name;
-        }
     }
 }

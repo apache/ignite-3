@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.rocksdb.index;
 import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.index.AbstractHashIndexStorageTest;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
@@ -47,16 +48,16 @@ public class RocksDbHashIndexStorageTest extends AbstractHashIndexStorageTest {
             @WorkDirectory Path workDir,
             @InjectConfiguration("mock {flushDelayMillis = 0, defaultRegion {size = 16536, writeBufferSize = 16536}}")
             RocksDbStorageEngineConfiguration rocksDbEngineConfig,
-            @InjectConfiguration(
-                    value = "mock.tables.foo.dataStorage.name = " + RocksDbStorageEngine.ENGINE_NAME
-            )
-            TablesConfiguration tablesConfig
+            @InjectConfiguration("mock.tables.foo {}")
+            TablesConfiguration tablesConfig,
+            @InjectConfiguration("mock {dataStorage.name = " + RocksDbStorageEngine.ENGINE_NAME + "}")
+            DistributionZoneConfiguration distributionZoneConfiguration
     ) {
         engine = new RocksDbStorageEngine(rocksDbEngineConfig, workDir);
 
         engine.start();
 
-        tableStorage = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
+        tableStorage = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig, distributionZoneConfiguration);
 
         tableStorage.start();
 

@@ -41,7 +41,7 @@ import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 
 /**
@@ -61,7 +61,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                         IgniteLogicalIndexScan rel
                 ) {
                     RelOptCluster cluster = rel.getCluster();
-                    InternalIgniteTable table = rel.getTable().unwrap(InternalIgniteTable.class);
+                    IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
                     IgniteIndex index = table.getIndex(rel.indexName());
 
                     RelDistribution distribution = table.distribution();
@@ -108,7 +108,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                         IgniteLogicalTableScan rel
                 ) {
                     RelOptCluster cluster = rel.getCluster();
-                    InternalIgniteTable table = rel.getTable().unwrap(InternalIgniteTable.class);
+                    IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
 
                     RelDistribution distribution = table.distribution();
                     if (rel.requiredColumns() != null) {

@@ -109,6 +109,10 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final StringProperty clientAuth = new StringProperty("clientAuth",
             "SSL client authentication", "none", clientAuthValues(), false, null);
 
+    /** SSL ciphers list. */
+    private final StringProperty ciphers = new StringProperty("ciphers",
+            "SSL ciphers", null, null, false, null);
+
     @NotNull
     private static String[] clientAuthValues() {
         return Arrays.stream(ClientAuthenticationMode.values())
@@ -122,10 +126,19 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final BooleanProperty sslEnabled = new BooleanProperty("sslEnabled",
             "Enable ssl", false, null, false, null);
 
+    /** Basic authentication username. */
+    private final StringProperty basicAuthenticationUsername = new StringProperty("basicAuthenticationUsername",
+            "Basic authentication username", null, null, false, null);
+
+    /** Basic authentication password. */
+    private final StringProperty basicAuthenticationPassword = new StringProperty("basicAuthenticationPassword",
+            "Basic authentication password", null, null, false, null);
+
     /** Properties array. */
     private final ConnectionProperty[] propsArray = {
             qryTimeout, connTimeout, trustStorePath, trustStorePassword, trustStoreType,
-            sslEnabled, clientAuth, keyStorePath, keyStorePassword, keyStoreType
+            sslEnabled, clientAuth, ciphers, keyStorePath, keyStorePassword, keyStoreType,
+            basicAuthenticationUsername, basicAuthenticationPassword
     };
 
     /** {@inheritDoc} */
@@ -332,6 +345,37 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     @Override
     public ClientAuthenticationMode getClientAuth() {
         return ClientAuthenticationMode.valueOf(this.clientAuth.value().toUpperCase());
+    }
+
+    @Override
+    public void setCiphers(String ciphers) {
+        this.ciphers.setValue(ciphers);
+    }
+
+    @Override
+    public Iterable<String> getCiphers() {
+        String value = ciphers.value();
+        return value != null ? Arrays.asList(value.split(",")) : null;
+    }
+
+    @Override
+    public String getBasicAuthenticationUsername() {
+        return basicAuthenticationUsername.value();
+    }
+
+    @Override
+    public void setBasicAuthenticationUsername(String username) {
+        basicAuthenticationUsername.setValue(username);
+    }
+
+    @Override
+    public String getBasicAuthenticationPassword() {
+        return basicAuthenticationPassword.value();
+    }
+
+    @Override
+    public void setBasicAuthenticationPassword(String password) {
+        basicAuthenticationPassword.setValue(password);
     }
 
     /**

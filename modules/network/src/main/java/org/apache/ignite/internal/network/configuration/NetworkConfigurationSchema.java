@@ -28,10 +28,13 @@ import org.apache.ignite.configuration.validation.Range;
  */
 @ConfigurationRoot(rootName = "network", type = ConfigurationType.LOCAL)
 public class NetworkConfigurationSchema {
+    /** Default network port. */
+    public static final int DEFAULT_PORT = 47500;
+
     /** Network port. */
     @Range(min = 1024, max = 0xFFFF)
     @Value(hasDefault = true)
-    public final int port = 47500;
+    public final int port = DEFAULT_PORT;
 
     /** Network port range. */
     @Range(min = 0)
@@ -73,5 +76,6 @@ public class NetworkConfigurationSchema {
 
     /** SSL configuration.*/
     @ConfigValue
+    @SslConfigurationValidator
     public SslConfigurationSchema ssl;
 }

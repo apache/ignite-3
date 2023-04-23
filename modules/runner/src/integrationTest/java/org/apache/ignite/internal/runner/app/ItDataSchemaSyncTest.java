@@ -27,18 +27,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -48,7 +53,6 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -105,12 +109,18 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     @BeforeEach
     void beforeEach() {
         List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
-                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
                 .collect(toList());
 
         String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
-        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(metaStorageNode)
+                .metaStorageNodeNames(List.of(metaStorageNode))
+                .clusterName("cluster")
+                .build();
+
+        IgnitionManager.init(initParameters);
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());
@@ -169,7 +179,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         CompletableFuture<Ignite> ignite1Fut = nodesBootstrapCfg.entrySet().stream()
                 .filter(k -> k.getKey().equals(nodeToStop))
-                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
                 .findFirst().get();
 
         ignite1 = (IgniteImpl) ignite1Fut.get();
@@ -181,10 +191,47 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     }
 
     /**
+     * Check that sql query will wait until appropriate schema is not propagated into all nodes.
+     */
+    @Test
+    public void queryWaitAppropriateSchema() throws Exception {
+        Ignite ignite0 = clusterNodes.get(0);
+        IgniteImpl ignite1 = (IgniteImpl) clusterNodes.get(1);
+
+        createTable(ignite0, TABLE_NAME);
+
+        WatchListenerInhibitor listenerInhibitor = WatchListenerInhibitor.metastorageEventsInhibitor(ignite1);
+
+        listenerInhibitor.startInhibit();
+
+        sql(ignite0, "CREATE INDEX idx1 ON " + TABLE_NAME + "(valint)");
+
+        CompletableFuture<Void> fut = CompletableFuture.runAsync(() -> sql(ignite0, "SELECT * FROM "
+                + TABLE_NAME + " WHERE valint > 0"));
+
+        try {
+            // wait a timeout to observe that query can`t be executed.
+            fut.get(1, TimeUnit.SECONDS);
+
+            fail();
+        } catch (TimeoutException e) {
+            // Expected, no op.
+        }
+
+        listenerInhibitor.stopInhibit();
+
+        // only check that request is executed without timeout.
+        ResultSet<SqlRow> rs = sql(ignite0, "SELECT * FROM " + TABLE_NAME + " WHERE valint > 0");
+
+        assertNotNull(rs);
+
+        rs.close();
+    }
+
+    /**
      * Test correctness of schemes recovery after node restart.
      */
     @Test
-    @Disabled("Enable when IGNITE-18506 is fixed")
     public void checkSchemasCorrectlyRestore() throws Exception {
         Ignite ignite1 = clusterNodes.get(1);
 
@@ -206,30 +253,32 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         CompletableFuture<Ignite> ignite1Fut = nodesBootstrapCfg.entrySet().stream()
                 .filter(k -> k.getKey().equals(nodeToStop))
-                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
                 .findFirst().get();
 
         ignite1 = ignite1Fut.get();
 
-        Session ses = ignite1.sql().createSession();
+        try (Session ses = ignite1.sql().createSession()) {
+            ResultSet<SqlRow> res = ses.execute(null, "SELECT valint2 FROM tbl1");
 
-        ResultSet<SqlRow> res = ses.execute(null, "SELECT valint2 FROM tbl1");
+            for (int i = 0; i < 10; ++i) {
+                assertNotNull(res.next().iterator().next());
+            }
 
-        for (int i = 0; i < 10; ++i) {
-            assertNotNull(res.next().iterator().next());
+            for (int i = 10; i < 20; ++i) {
+                sql(ignite1, String.format("INSERT INTO " + TABLE_NAME + " VALUES(%d, %d, %d, %d)", i, i, i, i));
+            }
+
+            sql(ignite1, "ALTER TABLE " + TABLE_NAME + " DROP COLUMN valint3");
+
+            sql(ignite1, "ALTER TABLE " + TABLE_NAME + " ADD COLUMN valint5 INT");
+
+            res = ses.execute(null, "SELECT sum(valint4) FROM tbl1");
+
+            assertEquals(10L * (10 + 19) / 2, res.next().iterator().next());
+
+            res.close();
         }
-
-        for (int i = 10; i < 20; ++i) {
-            sql(ignite1, String.format("INSERT INTO " + TABLE_NAME + " VALUES(%d, %d, %d, %d)", i, i, i, i));
-        }
-
-        sql(ignite1, "ALTER TABLE " + TABLE_NAME + " DROP COLUMN valint3");
-
-        sql(ignite1, "ALTER TABLE " + TABLE_NAME + " ADD COLUMN valint5 INT");
-
-        res = ses.execute(null, "SELECT sum(valint4) FROM tbl1");
-
-        assertEquals(res.next().iterator().next(), 10L * (10 + 19) / 2);
     }
 
     /**
@@ -305,9 +354,11 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         sql(node, "ALTER TABLE " + tableName + " ADD COLUMN valstr2 VARCHAR NOT NULL DEFAULT 'default'");
     }
 
-    protected void sql(Ignite node, String query, Object... args) {
+    protected ResultSet<SqlRow> sql(Ignite node, String query, Object... args) {
+        ResultSet<SqlRow> rs = null;
         try (Session session = node.sql().createSession()) {
-            session.execute(null, query, args);
+            rs = session.execute(null, query, args);
         }
+        return rs;
     }
 }

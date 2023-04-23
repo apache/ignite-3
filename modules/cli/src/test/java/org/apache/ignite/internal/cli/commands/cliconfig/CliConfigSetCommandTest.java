@@ -20,7 +20,7 @@ package org.apache.ignite.internal.cli.commands.cliconfig;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import org.apache.ignite.internal.cli.config.ConfigConstants;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -61,13 +61,13 @@ class CliConfigSetCommandTest extends CliConfigCommandTestBase {
     @DisplayName("Sets single value")
     void singleKeySet() {
         // When executed with key
-        execute(ConfigConstants.CLUSTER_URL + "=" + "test");
+        execute(CliConfigKeys.CLUSTER_URL.value() + "=" + "test");
 
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertOutputIsEmpty,
                 this::assertErrOutputIsEmpty,
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL)).isEqualTo("test")
+                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.CLUSTER_URL.value())).isEqualTo("test")
         );
     }
 
@@ -83,8 +83,8 @@ class CliConfigSetCommandTest extends CliConfigCommandTestBase {
                 this::assertExitCodeIsZero,
                 this::assertOutputIsEmpty,
                 this::assertErrOutputIsEmpty,
-                () -> assertThat(configManager.getCurrentProperty(ConfigConstants.CLUSTER_URL)).isEqualTo("test"),
-                () -> assertThat(configManager.getCurrentProperty(ConfigConstants.JDBC_URL)).isEqualTo("test2")
+                () -> assertThat(configManager.getCurrentProperty(CliConfigKeys.CLUSTER_URL.value())).isEqualTo("test"),
+                () -> assertThat(configManager.getCurrentProperty(CliConfigKeys.JDBC_URL.value())).isEqualTo("test2")
         );
     }
 
@@ -100,10 +100,10 @@ class CliConfigSetCommandTest extends CliConfigCommandTestBase {
                 this::assertExitCodeIsZero,
                 this::assertOutputIsEmpty,
                 this::assertErrOutputIsEmpty,
-                () -> assertThat(configManager.getCurrentProperty(ConfigConstants.CLUSTER_URL)).isNotEqualTo("test"),
-                () -> assertThat(configManager.getCurrentProperty(ConfigConstants.JDBC_URL)).isNotEqualTo("test2"),
-                () -> assertThat(configManager.getProfile("owner").getProperty(ConfigConstants.CLUSTER_URL)).isEqualTo("test"),
-                () -> assertThat(configManager.getProfile("owner").getProperty(ConfigConstants.JDBC_URL)).isEqualTo("test2"));
+                () -> assertThat(configManager.getCurrentProperty(CliConfigKeys.CLUSTER_URL.value())).isNotEqualTo("test"),
+                () -> assertThat(configManager.getCurrentProperty(CliConfigKeys.JDBC_URL.value())).isNotEqualTo("test2"),
+                () -> assertThat(configManager.getProfile("owner").getProperty(CliConfigKeys.CLUSTER_URL.value())).isEqualTo("test"),
+                () -> assertThat(configManager.getProfile("owner").getProperty(CliConfigKeys.JDBC_URL.value())).isEqualTo("test2"));
     }
 
     @Test
@@ -116,7 +116,7 @@ class CliConfigSetCommandTest extends CliConfigCommandTestBase {
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputContains("Profile notExist not found"),
-                () -> assertThat(configManager.getCurrentProperty(ConfigConstants.CLUSTER_URL)).isNotEqualTo("test")
+                () -> assertThat(configManager.getCurrentProperty(CliConfigKeys.CLUSTER_URL.value())).isNotEqualTo("test")
         );
     }
 }

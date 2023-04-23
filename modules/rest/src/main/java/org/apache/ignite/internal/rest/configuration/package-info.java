@@ -16,7 +16,7 @@
  */
 
 /**
- * Configuration schemas for Rest component.
+ * This package contains REST component core implementation.
  */
 
 package org.apache.ignite.internal.rest.configuration;

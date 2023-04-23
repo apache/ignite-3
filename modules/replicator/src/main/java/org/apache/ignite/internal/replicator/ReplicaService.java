@@ -25,7 +25,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -55,7 +54,7 @@ public class ReplicaService {
     private final HybridClock clock;
 
     /** Requests to retry. */
-    private final Map<ClusterNode, CompletableFuture<NetworkMessage>> pendingInvokes = new ConcurrentHashMap<>();
+    private final Map<String, CompletableFuture<NetworkMessage>> pendingInvokes = new ConcurrentHashMap<>();
 
     /** Replicator network message factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
@@ -77,27 +76,26 @@ public class ReplicaService {
     /**
      * Sends request to the replica node.
      *
-     * @param node Cluster node which holds a replica.
+     * @param targetNodeConsistentId A consistent id of the replica node..
      * @param req  Replica request.
      * @return Response future with either evaluation result or completed exceptionally.
      * @see NodeStoppingException If either supplier or demander node is stopping.
      * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
      */
-    private <R> CompletableFuture<R> sendToReplica(ClusterNode node, ReplicaRequest req) {
-
-        AtomicReference<CompletableFuture<R>> res = new AtomicReference<>(new CompletableFuture<>());
+    private <R> CompletableFuture<R> sendToReplica(String targetNodeConsistentId, ReplicaRequest req) {
+        CompletableFuture<R> res = new CompletableFuture<>();
 
         // TODO: IGNITE-17824 Use named executor instead of default one in order to process replica Response.
-        messagingService.invoke(node, req, RPC_TIMEOUT).whenCompleteAsync((response, throwable) -> {
+        messagingService.invoke(targetNodeConsistentId, req, RPC_TIMEOUT).whenCompleteAsync((response, throwable) -> {
             if (throwable != null) {
                 if (throwable instanceof CompletionException) {
                     throwable = throwable.getCause();
                 }
 
                 if (throwable instanceof TimeoutException) {
-                    res.get().completeExceptionally(new ReplicationTimeoutException(req.groupId()));
+                    res.completeExceptionally(new ReplicationTimeoutException(req.groupId()));
                 } else {
-                    res.get().completeExceptionally(withCause(
+                    res.completeExceptionally(withCause(
                             ReplicationException::new,
                             REPLICA_COMMON_ERR,
                             "Failed to process replica request [replicaGroupId=" + req.groupId() + ']',
@@ -114,55 +112,56 @@ public class ReplicaService {
                     var errResp = (ErrorReplicaResponse) response;
 
                     if (errResp.throwable() instanceof ReplicaUnavailableException) {
-                        pendingInvokes.compute(node, (clusterNode, fut) -> {
-                            if (fut == null) {
-                                AwaitReplicaRequest awaitReplicaReq = REPLICA_MESSAGES_FACTORY.awaitReplicaRequest()
-                                        .groupId(req.groupId())
-                                        .build();
+                        CompletableFuture<NetworkMessage> awaitReplicaFut = pendingInvokes.computeIfAbsent(
+                                targetNodeConsistentId,
+                                consistentId -> {
+                                    AwaitReplicaRequest awaitReplicaReq = REPLICA_MESSAGES_FACTORY.awaitReplicaRequest()
+                                            .groupId(req.groupId())
+                                            .build();
 
-                                fut = messagingService.invoke(node, awaitReplicaReq, RPC_TIMEOUT)
-                                        .whenComplete((response0, throwable0) -> {
-                                            pendingInvokes.remove(node);
-                                        });
-                            }
+                                    return messagingService.invoke(targetNodeConsistentId, awaitReplicaReq, RPC_TIMEOUT);
+                                }
+                        );
 
-                            fut.handle((response0, throwable0) -> {
-                                if (throwable0 != null) {
-                                    if (throwable0 instanceof CompletionException) {
-                                        throwable0 = throwable0.getCause();
-                                    }
+                        awaitReplicaFut.handle((response0, throwable0) -> {
+                            pendingInvokes.remove(targetNodeConsistentId, awaitReplicaFut);
 
-                                    if (throwable0 instanceof TimeoutException) {
-                                        res.get().completeExceptionally(errResp.throwable());
-                                    } else {
-                                        res.get().completeExceptionally(withCause(
-                                                ReplicationException::new,
-                                                REPLICA_COMMON_ERR,
-                                                "Failed to process replica request [replicaGroupId=" + req.groupId() + ']',
-                                                throwable0));
-                                    }
-                                } else {
-                                    res.get().thenCompose(ignore -> sendToReplica(node, req));
-
-                                    res.get().complete(null);
+                            if (throwable0 != null) {
+                                if (throwable0 instanceof CompletionException) {
+                                    throwable0 = throwable0.getCause();
                                 }
 
-                                return null;
-                            });
+                                if (throwable0 instanceof TimeoutException) {
+                                    res.completeExceptionally(errResp.throwable());
+                                } else {
+                                    res.completeExceptionally(withCause(
+                                            ReplicationException::new,
+                                            REPLICA_COMMON_ERR,
+                                            "Failed to process replica request [replicaGroupId=" + req.groupId() + ']',
+                                            throwable0));
+                                }
+                            } else {
+                                sendToReplica(targetNodeConsistentId, req).whenComplete((r, e) -> {
+                                    if (e != null) {
+                                        res.completeExceptionally(e);
+                                    } else {
+                                        res.complete((R) r);
+                                    }
+                                });
+                            }
 
-                            return fut;
+                            return null;
                         });
-
                     } else {
-                        res.get().completeExceptionally(errResp.throwable());
+                        res.completeExceptionally(errResp.throwable());
                     }
                 } else {
-                    res.get().complete((R) ((ReplicaResponse) response).result());
+                    res.complete((R) ((ReplicaResponse) response).result());
                 }
             }
         });
 
-        return res.get();
+        return res;
     }
 
     /**
@@ -175,7 +174,20 @@ public class ReplicaService {
      * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
      */
     public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request) {
-        return sendToReplica(node, request);
+        return sendToReplica(node.name(), request);
+    }
+
+    /**
+     * Sends a request to the given replica {@code node} and returns a future that will be completed with a result of request processing.
+     *
+     * @param replicaConsistentId A consistent id of the replica node.
+     * @param request Request.
+     * @return Response future with either evaluation result or completed exceptionally.
+     * @see NodeStoppingException If either supplier or demander node is stopping.
+     * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
+     */
+    public <R> CompletableFuture<R> invoke(String replicaConsistentId, ReplicaRequest request) {
+        return sendToReplica(replicaConsistentId, request);
     }
 
     /**
@@ -189,6 +201,6 @@ public class ReplicaService {
      * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
      */
     public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request, String storageId) {
-        return sendToReplica(node, request);
+        return sendToReplica(node.name(), request);
     }
 }

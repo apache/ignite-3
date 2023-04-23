@@ -1,9 +1,11 @@
 * [Prerequisites](#prerequisites)
+* [Quick Start](#quick-start)
 * [Building Ignite](#building-ignite)
 * [Running sanity checks](#running-sanity-checks)
 * [Running tests](#running-tests)
 * [Checking and generating Javadoc](#checking-and-generating-javadoc)
 * [Setting up IntelliJ Idea project](#setting-up-intellij-idea-project)
+* [Use prepared IntelliJ Idea run configurations](#use-prepared-idea-run-configurations)
 * [Code structure](#code-structure)
 * [Release candidate verification](#release-candidate-verification)
 ***
@@ -14,26 +16,28 @@
 ***
 
 
-## Building Ignite
-Ignite follows standard guidelines for multi-module Gradle projects, so it can be easily built using the following command from the project root directory (you can disable the tests when building using `-x test`):
-```
-gradlew clean build
-```
-Upon build completion, CLI tool can be found be under `modules/cli/build` directory. Use `ignite` on Linux and MacOS, or `ignite.exe` on Windows.
-***
-
-# Gradle build
-
-## Prerequisites
-* Java 11 SDK
-***
-
-
-## Building Ignite
-Ignite follows standard guidelines for multi-module Gradle projects, so it can be easily built using the following command from the project 
-root directory (you can disable the tests when building using `-x test`):
+## Quick Start
+Apache Ignite 3 follows standard guidelines for multi-module Gradle projects, so it can be built by using the following command from the
+project root directory:
 ```shell
-./gradlew clean build -x test
+./gradlew clean build
+```
+This command builds a project and performs a few additional actions, for example it also runs tests. The build runs faster if
+these actions are disabled as described in the next section.
+
+To start an ignite-3 instance, package Apache Ignite 3 as described below and then follow [the user guide](https://ignite.apache.org/docs/3.0.0-beta/quick-start/getting-started-guide).
+***
+
+
+## Building Ignite
+Apache Ignite 3 follows standard guidelines for multi-module Gradle projects, so it can be built by using the following command from the
+project root directory (the tests are disabled with `-x test -x integrationTest` options):
+```shell
+./gradlew clean build -x test -x integrationTest
+```
+For a really fast build some other actions can be disabled too:
+```shell
+./gradlew clean build -x assembleDist -x distTar -x distZip -x check
 ```
 ***
 
@@ -84,14 +88,14 @@ Build project without legacy API check:
 
 Run legacy API checks only:
 ```shell
-./gradlew clean modernizer
+./gradlew modernizer
 ```
 
 ### PMD
 Static code analyzer is run with [Apache Gradle PMD Plugin](https://docs.gradle.org/current/userguide/pmd_plugin.html).
 * [PMD rules](check-rules/pmd-rules.xml)
 ```shell
-./gradlew clean pmdMain
+./gradlew pmdMain
 ```
 PMD check result (only if there are any violations) is generated at `<module-name>/build/reports/pmd/`.
 ***
@@ -129,7 +133,8 @@ artifacts in each module (for example `modules/api/build/docs/javadoc`)
 
 
 ## Setting up IntelliJ Idea project
-You can quickly import Ignite project to your IDE using the root `build.gradle` file. In IntelliJ, choose `Open Project` from the `Quick Start` box or choose `Open...` from the `File` menu and select the root `build.gradle` file.
+You can quickly import Ignite project to your IDE using the root `build.gradle` file. In IntelliJ, choose `Open Project` from the
+`Quick Start` box or choose `Open...` from the `File` menu and select the root `build.gradle` file.
 
 After opening the project in IntelliJ, double check that the Java SDK is properly configured for the project:
 * Open the `File` menu and select `Project Structure...`
@@ -137,13 +142,20 @@ After opening the project in IntelliJ, double check that the Java SDK is properl
 * In the `Project` section, make sure the project language level is set to 11.0 as Ignite makes use of several Java 11
   language features
 
-Ignite uses machine code generation for some of it's modules. To generate necessary production code, build the project using gradle.
+Apache Ignite 3 uses machine code generation for some of its modules. Occasionally, IDEs may fail to trigger this code generation. In
+this case, run a gradle build command from the command line. Subsequent builds can be performed from IDE without problems.
+***
 
-Configure Idea code style (for IntelliJ Idea >= 2019):
-* File -> Settings -> Editor -> Code Style -> Scheme -> gear (Show Scheme Actions) -> Import Scheme -> IntelliJ IDEA code style XML
-* Choose: ${igniteProject}/idea/intellij-java-google-style.xml
-* Import schema
-* Reboot IntelliJ Idea
+## Use prebuilt IntelliJ Idea run configurations
+The Apache Ignite 3 project contains prebuilt IntelliJ Idea run configurations that can be useful in common cases. 
+
+![img.png](docs/img.png)
+
+These configurations are stored in `.run` root folder and committed to GIT repo.
+
+***NOTE: DO NOT MODIFY THESE CONFIGURATION FILES MANUALLY.***
+
+For modification use Idea `Edit Configurations...` option.
 ***
 
 ## Code structure
@@ -154,19 +166,19 @@ High-level modules structure and detailed modules description can be found in th
 
 ### Zip packaging
 ```shell
-./gradlew clean allDistZip -x test -x check
+./gradlew clean allDistZip -x check
 ```
 Uber zip package will be located in `packaging/build/distributions`.
 
 If you wand to build CLI, you can do it with:
 ```shell
-./gradlew clean packaging-cli:distZip -x test -x check
+./gradlew clean packaging-cli:distZip -x check
 ```
 Zip package will be located in `packaging/cli/build/distributions`.
 
 For ignite-runner:
 ```shell
-./gradlew clean packaging-db:distZip -x test -x check
+./gradlew clean packaging-db:distZip -x check
 ```
 Zip package will be located in `packaging/db/build/distributions`.
 
@@ -197,7 +209,7 @@ To stop the started node run:
 
 There is also RPM/DEB packaging for Ignite. To build those packages run:
 ```shell
-./gradlew clean buildDeb buildRpm -x test -x check
+./gradlew clean buildDeb buildRpm -x check
 ```
 `ignite3-cli` packages are located in `packaging/cli/build/distributions/` and `ignite3-db` packages in `packaging/db/build/distributions/`.
 ***

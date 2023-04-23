@@ -30,7 +30,7 @@ public interface IgniteTables {
      * Gets a list of all started tables.
      *
      * @return List of tables.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     * @throws IgniteException If an unspecified platform exception has occurred internally. Is thrown when:
      *                         <ul>
      *                             <li>the node is stopping.</li>
      *                         </ul>
@@ -40,8 +40,8 @@ public interface IgniteTables {
     /**
      * Gets a list of all started tables.
      *
-     * @return Future representing pending completion of the operation.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     * @return Future that represents the pending completion of the operation.
+     * @throws IgniteException If an unspecified platform exception has occurred internally. Is thrown when:
      *                         <ul>
      *                             <li>the node is stopping.</li>
      *                         </ul>
@@ -49,12 +49,12 @@ public interface IgniteTables {
     CompletableFuture<List<Table>> tablesAsync();
 
     /**
-     * Gets a table by name, if it was created before.
+     * Gets a table with the specified name if that table exists.
      *
      * @param name Name of the table with SQL-parser style quotation, e.g.
      *             "tbl0" - the table "TBL0" will be looked up, "\"Tbl0\"" - "Tbl0", etc.
-     * @return Tables with corresponding name or {@code null} if table isn't created.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     * @return Table identified by name or {@code null} if table doesn't exist.
+     * @throws IgniteException If an unspecified platform exception has occurred internally. Is thrown when:
      *                         <ul>
      *                             <li>the node is stopping.</li>
      *                         </ul>
@@ -62,12 +62,12 @@ public interface IgniteTables {
     Table table(String name);
 
     /**
-     * Gets a table by name, if it was created before.
+     * Gets a table with the specified name if that table exists.
      *
      * @param name Name of the table with SQL-parser style quotation, e.g.
      *             "tbl0" - the table "TBL0" will be looked up, "\"Tbl0\"" - "Tbl0", etc.
-     * @return Future representing pending completion of the operation.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     * @return Future that represents the pending completion of the operation.
+     * @throws IgniteException If an unspecified platform exception has occurred internally. Is thrown when:
      *                         <ul>
      *                             <li>the node is stopping.</li>
      *                         </ul>

@@ -22,7 +22,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
-import java.util.Iterator;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
@@ -34,6 +33,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Abstract row tuple adapter.
@@ -42,7 +42,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     /**
      * Underlying row. Note: Marked transient to prevent unwanted serialization of the schema and\or other context.
      */
-    protected transient Row row;
+    protected transient @Nullable Row row;
 
     /**
      * Creates Tuple adapter for row.
@@ -329,28 +329,6 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
         Column col = rowColumnByIndex(columnIndex);
 
         return row.timestampValue(col.schemaIndex());
-    }
-
-    /** {@inheritDoc} */
-    @NotNull
-    @Override
-    public Iterator<Object> iterator() {
-        return new Iterator<>() {
-            /** Current column index. */
-            private int cur;
-
-            /** {@inheritDoc} */
-            @Override
-            public boolean hasNext() {
-                return cur < row.schema().length();
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public Object next() {
-                return hasNext() ? value(cur++) : null;
-            }
-        };
     }
 
     /** {@inheritDoc} */

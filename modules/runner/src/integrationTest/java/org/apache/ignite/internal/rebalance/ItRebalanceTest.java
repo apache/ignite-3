@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.rebalance;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.Cluster.NodeKnockout.PARTITION_NETWORK;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -35,6 +34,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -48,9 +48,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
@@ -58,13 +56,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Test suite for the rebalance.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public class ItRebalanceTest extends BaseIgniteAbstractTest {
+public class ItRebalanceTest extends IgniteIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceTest.class);
 
     @WorkDirectory
@@ -127,7 +123,7 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
             assertInstanceOf(ReplicaUnavailableException.class, e.getCause());
         }
 
-        cluster.knockOutNode(2, PARTITION_NETWORK);
+        cluster.simulateNetworkPartitionOf(2);
 
         assertTrue(waitAssignments(List.of(
                 Set.of(0, 1, 3),
@@ -140,7 +136,7 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
         assertNotNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(1).node()).get());
         assertNotNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(3).node()).get());
 
-        cluster.reanimateNode(2, PARTITION_NETWORK);
+        cluster.removeNetworkPartitionOf(2);
 
         assertTrue(waitAssignments(List.of(
                 Set.of(0, 1, 2),
@@ -206,10 +202,11 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
 
     private void createTestTable() throws InterruptedException {
         String sql1 = "create zone test_zone with "
+                + "partitions=1, replicas=3, "
                 + "data_nodes_auto_adjust_scale_up=0, "
                 + "data_nodes_auto_adjust_scale_down=0";
         String sql2 = "create table test (id int primary key, value varchar(20))"
-                + " with partitions=1, replicas=3, primary_zone='TEST_ZONE'";
+                + " with primary_zone='TEST_ZONE'";
 
         cluster.doInSession(0, session -> {
             executeUpdate(sql1, session);
@@ -220,7 +217,7 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
     }
 
     private void waitForTableToStart() throws InterruptedException {
-        // TODO: IGNITE-18203 - remove this wait because when a table creation query is executed, the table must be fully ready.
+        // TODO: IGNITE-18733 - remove this wait because when a table creation query is executed, the table must be fully ready.
 
         BooleanSupplier tableStarted = () -> {
             int numberOfStartedRaftNodes = cluster.runningNodes()

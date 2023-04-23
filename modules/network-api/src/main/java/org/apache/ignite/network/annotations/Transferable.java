@@ -81,7 +81,6 @@ import org.apache.ignite.network.serialization.MessageSerializer;
 @Target(ElementType.TYPE)
 // using the RUNTIME retention policy in order to avoid problems with incremental compilation in an IDE.
 @Retention(RetentionPolicy.RUNTIME)
-// TODO: Update this annotation according to https://issues.apache.org/jira/browse/IGNITE-14817
 public @interface Transferable {
     /**
      * Returns this message's type as described in {@link NetworkMessage#messageType}.

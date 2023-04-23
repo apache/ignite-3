@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Transactions
 {
     using System.Threading.Tasks;
+    using Common;
     using Ignite.Transactions;
     using Proto;
 
@@ -51,8 +52,11 @@ namespace Apache.Ignite.Internal.Transactions
             {
                 var txId = resBuf.GetReader().ReadInt64();
 
-                return new Transaction(txId, socket, _socket);
+                return new Transaction(txId, socket, _socket, options.ReadOnly);
             }
         }
+
+        /// <inheritdoc />
+        public override string ToString() => IgniteToStringBuilder.Build(GetType());
     }
 }

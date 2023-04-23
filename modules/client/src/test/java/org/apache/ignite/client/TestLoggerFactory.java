@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.ResourceBundle;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.LoggerFactory;
 
 /**
@@ -42,7 +43,21 @@ public class TestLoggerFactory implements LoggerFactory {
     }
 
     void assertLogContains(String msg) {
-        assertTrue(logger.entries().stream().anyMatch(x -> x.contains(msg)));
+        assertTrue(logContains(msg), this::log);
+    }
+
+    void waitForLogContains(String msg, long timeoutMillis) throws InterruptedException {
+        assertTrue(
+                IgniteTestUtils.waitForCondition(() -> logContains(msg), timeoutMillis),
+                () -> "Log does not contain expected message '" + msg + "': " +  log());
+    }
+
+    private boolean logContains(String msg) {
+        return logger.entries().stream().anyMatch(x -> x.contains(msg));
+    }
+
+    private String log() {
+        return String.join("\n", logger.entries());
     }
 
     /** Logger that stores all messages in a list. */
@@ -105,11 +120,11 @@ public class TestLoggerFactory implements LoggerFactory {
             throw new AssertionError("Should not be called");
         }
 
-        public List<String> entries() {
-            return logEntries;
+        public synchronized List<String> entries() {
+            return new ArrayList<>(logEntries);
         }
 
-        private void captureLog(String msg) {
+        private synchronized void captureLog(String msg) {
             logEntries.add(name + ":" + msg);
         }
     }

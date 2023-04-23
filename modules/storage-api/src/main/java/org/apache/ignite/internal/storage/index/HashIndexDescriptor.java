@@ -22,7 +22,6 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.configuration.ColumnView;
 import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
@@ -120,7 +119,7 @@ public class HashIndexDescriptor implements IndexDescriptor {
     }
 
     private static List<HashIndexColumnDescriptor> extractIndexColumnsConfiguration(UUID indexId, TablesView tablesConfig) {
-        TableIndexView indexConfig = ConfigurationUtil.getByInternalId(tablesConfig.indexes(), indexId);
+        TableIndexView indexConfig = tablesConfig.indexes().get(indexId);
 
         if (indexConfig == null) {
             throw new StorageException(String.format("Index configuration for \"%s\" could not be found", indexId));
@@ -133,7 +132,7 @@ public class HashIndexDescriptor implements IndexDescriptor {
             ));
         }
 
-        TableView tableConfig = ConfigurationUtil.getByInternalId(tablesConfig.tables(), indexConfig.tableId());
+        TableView tableConfig = tablesConfig.tables().get(indexConfig.tableId());
 
         if (tableConfig == null) {
             throw new StorageException(String.format("Table configuration for \"%s\" could not be found", indexConfig.tableId()));

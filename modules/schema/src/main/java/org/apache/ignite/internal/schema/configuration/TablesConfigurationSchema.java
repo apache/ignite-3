@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.schema.configuration.index.IndexValidator;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.storage.ExistingDataStorage;
 
 /**
  * Tables configuration schema.
@@ -45,8 +45,11 @@ public class TablesConfigurationSchema {
     @IndexValidator
     public TableIndexConfigurationSchema indexes;
 
-    /** Default data storage for tables. */
-    @ExistingDataStorage
+    /** Number of garbage collector threads. */
     @Value(hasDefault = true)
-    public String defaultDataStorage = "aipersist";
+    public int gcThreads = Runtime.getRuntime().availableProcessors();
+
+    /** Low watermark configuration. */
+    @ConfigValue
+    public LowWatermarkConfigurationSchema lowWatermark;
 }

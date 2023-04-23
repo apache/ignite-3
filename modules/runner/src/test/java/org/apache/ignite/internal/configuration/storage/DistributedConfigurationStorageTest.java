@@ -95,7 +95,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
             ByteArray keyFrom = invocation.getArgument(0);
             ByteArray keyTo = invocation.getArgument(1);
 
-            return fromCursor(metaStorage.range(keyFrom.bytes(), keyTo == null ? null : keyTo.bytes(), false));
+            return fromCursor(metaStorage.range(keyFrom.bytes(), keyTo == null ? null : keyTo.bytes()));
         });
 
         return mock;

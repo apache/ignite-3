@@ -138,7 +138,7 @@ public final class RowConverter {
 
             Element element = binarySchema.element(i);
 
-            val = TypeUtils.fromInternal(ectx, val, NativeTypeSpec.toClass(element.typeSpec(), element.nullable()));
+            val = TypeUtils.fromInternal(val, NativeTypeSpec.toClass(element.typeSpec(), element.nullable()));
 
             BinaryRowConverter.appendValue(tupleBuilder, element, val);
         }

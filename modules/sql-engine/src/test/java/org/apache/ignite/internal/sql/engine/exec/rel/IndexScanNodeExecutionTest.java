@@ -33,7 +33,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ThreadLocalRandom;
@@ -41,6 +40,7 @@ import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.IndexDescriptor;
@@ -345,7 +345,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                     return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
                 })
                 .when(hashIndexMock)
-                .lookup(Mockito.anyInt(), (UUID) any(), any(), any(), any());
+                .lookup(Mockito.anyInt(), any(HybridTimestamp.class), any(), any(), any());
         //CHECKSTYLE:ON:Indentation
 
         IgniteIndex indexMock = mock(IgniteIndex.class);
@@ -392,7 +392,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
                     return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
                 }).when(sortedIndexMock)
-                .scan(Mockito.anyInt(), (UUID) any(), any(), any(), any(), Mockito.anyInt(), any());
+                .scan(Mockito.anyInt(), any(HybridTimestamp.class), any(), any(), any(), Mockito.anyInt(), any());
         //CHECKSTYLE:ON:Indentation
 
         IgniteIndex indexMock = mock(IgniteIndex.class);
@@ -431,7 +431,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             when(rangeIterable.iterator()).thenReturn(mockIterator);
             when(mockIterator.hasNext()).thenReturn(true, false);
             when(mockIterator.next()).thenReturn(range);
-            when(rangeIterable.size()).thenReturn(1);
+            when(rangeIterable.multiBounds()).thenReturn(false);
         }
 
         IndexScanNode<Object[]> scanNode = new IndexScanNode<>(
@@ -592,7 +592,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             RowHandler<RowT> handler = factory.handler();
 
             for (int i = 0; i < desc.columnsCount(); i++) {
-                handler.set(i, row, TypeUtils.toInternal(ectx, tableRow.value(desc.columnDescriptor(i).physicalIndex())));
+                handler.set(i, row, TypeUtils.toInternal(tableRow.value(desc.columnDescriptor(i).physicalIndex())));
             }
 
             return row;

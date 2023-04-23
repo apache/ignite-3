@@ -44,9 +44,12 @@ import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -54,6 +57,7 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -276,6 +280,41 @@ public class TypeCoercionTest extends AbstractPlannerTest {
         rules.add(typeCoercionRule(uuidType, VARCHAR, new ToSpecificType(uuidType)));
 
         return rules.stream();
+    }
+
+
+    @ParameterizedTest
+    @MethodSource("commonTypeForBinaryComparison")
+    public void testCommonTypeForBinaryComparisonForCustomDataTypes(RelDataType type1, RelDataType type2, RelDataType commonType) {
+        runTest("SELECT 1", (planner, ignore) -> {
+            SqlValidator validator = planner.validator();
+            IgniteTypeCoercion typeCoercion = new IgniteTypeCoercion(TYPE_FACTORY, validator);
+            RelDataType actualCommonType = typeCoercion.commonTypeForBinaryComparison(type1, type2);
+
+            assertEquals(commonType, actualCommonType);
+        });
+    }
+
+    private static Stream<Arguments> commonTypeForBinaryComparison() {
+        List<Arguments> arguments = new ArrayList<>();
+
+        // IgniteCustomType: test cases for common type in binary comparison between
+        // a custom data type and the types it can be converted from.
+
+        IgniteCustomTypeCoercionRules customTypeCoercionRules = TYPE_FACTORY.getCustomTypeCoercionRules();
+
+        for (String typeName : TYPE_FACTORY.getCustomTypeSpecs().keySet()) {
+            IgniteCustomType customType = TYPE_FACTORY.createCustomType(typeName);
+
+            for (SqlTypeName sourceTypeName : customTypeCoercionRules.canCastFrom(typeName)) {
+                RelDataType sourceType = TYPE_FACTORY.createSqlType(sourceTypeName);
+
+                arguments.add(Arguments.of(customType, sourceType, customType));
+                arguments.add(Arguments.of(sourceType, customType, customType));
+            }
+        }
+
+        return arguments.stream();
     }
 
     private final class BinaryOpTypeCoercionTester {

@@ -21,25 +21,22 @@ import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.index.IndexValidatorImpl;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.storage.KnownDataStorageValidator;
-import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-schema.
  */
 @AutoService(ConfigurationModule.class)
 public class SchemaDistributedConfigurationModule implements ConfigurationModule {
-    /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
         return ConfigurationType.DISTRIBUTED;
@@ -50,27 +47,28 @@ public class SchemaDistributedConfigurationModule implements ConfigurationModule
         return List.of(TablesConfiguration.KEY);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Set<Validator<?, ?>> validators() {
         return Set.of(
-                new KnownDataStorageValidator(),
                 TableValidatorImpl.INSTANCE,
                 ColumnTypeValidatorImpl.INSTANCE,
                 IndexValidatorImpl.INSTANCE
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(
-                UnknownDataStorageConfigurationSchema.class,
                 ConstantValueDefaultConfigurationSchema.class,
                 FunctionCallDefaultConfigurationSchema.class,
                 NullValueDefaultConfigurationSchema.class,
                 HashIndexConfigurationSchema.class,
                 SortedIndexConfigurationSchema.class
         );
+    }
+
+    @Override
+    public Collection<Class<?>> internalSchemaExtensions() {
+        return List.of(ExtendedTableConfigurationSchema.class);
     }
 }

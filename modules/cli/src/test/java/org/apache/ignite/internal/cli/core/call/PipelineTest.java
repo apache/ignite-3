@@ -24,17 +24,24 @@ import static org.hamcrest.Matchers.startsWith;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cli.core.exception.TestExceptionHandler;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class PipelineTest {
 
+    private StringWriter out = new StringWriter();
+    private StringWriter errOut = new StringWriter();
+
+    @BeforeEach
+    void setUp() {
+        out = new StringWriter();
+        errOut = new StringWriter();
+    }
+
     @Test
     void verboseTest() {
-        // Given
-        StringWriter out = new StringWriter();
-        StringWriter errOut = new StringWriter();
-
         // When start pipeline with verbose
         CallExecutionPipeline.builder(new ThrowingStrCall())
                 .inputProvider(StringCallInput::new)
@@ -47,6 +54,46 @@ class PipelineTest {
         // Then error output starts with the message from exception and contains verbose output
         assertThat(out.toString(), emptyString());
         assertThat(errOut.toString(), startsWith("Ooops!" + System.lineSeparator()));
+        assertThat(errOut.toString(), containsString("verbose output"));
+    }
+
+    @Test
+    void asyncCallFailedFuture() {
+        // Given async call that retuns failed future
+        AsyncCall<StringCallInput, ?> asyncCall = callInput -> CompletableFuture.failedFuture(new RuntimeException("Ooops!"));
+
+        // When start async pipeline with verbose
+        CallExecutionPipeline.asyncBuilder(ignoredProgressTracker -> asyncCall)
+                .inputProvider(StringCallInput::new)
+                .exceptionHandler(new TestExceptionHandler())
+                .output(new PrintWriter(out))
+                .errOutput(new PrintWriter(errOut))
+                .verbose(true)
+                .build().runPipeline();
+
+        // Then error output contains the message from exception and contains verbose output
+        assertThat(errOut.toString(), containsString("Ooops!" + System.lineSeparator()));
+        assertThat(errOut.toString(), containsString("verbose output"));
+    }
+
+    @Test
+    void asyncCallThrowingMethod() {
+        // Given async call that throws an exception
+        AsyncCall<StringCallInput, ?> asyncCall = callInput -> {
+            throw new RuntimeException("Ooops!");
+        };
+
+        // When start async pipeline with verbose
+        CallExecutionPipeline.asyncBuilder(ignoredProgressTracker -> asyncCall)
+                .inputProvider(StringCallInput::new)
+                .exceptionHandler(new TestExceptionHandler())
+                .output(new PrintWriter(out))
+                .errOutput(new PrintWriter(errOut))
+                .verbose(true)
+                .build().runPipeline();
+
+        // Then error output contains the message from exception and contains verbose output
+        assertThat(errOut.toString(), containsString("Ooops!" + System.lineSeparator()));
         assertThat(errOut.toString(), containsString("verbose output"));
     }
 }

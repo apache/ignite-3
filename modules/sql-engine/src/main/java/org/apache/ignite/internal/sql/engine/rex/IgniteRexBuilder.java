@@ -47,7 +47,7 @@ public class IgniteRexBuilder extends RexBuilder {
         //
         //  throw new AssertionError("unknown type " + value.getClass());
         //
-        if (type instanceof IgniteCustomType) {
+        if (value != null && type instanceof IgniteCustomType) {
             // IgniteCustomType: Not comparable types are not supported.
             assert value instanceof Comparable : "Not comparable IgniteCustomType:" + type + ". value: " + value;
             return makeLiteral((Comparable<?>) value, type, type.getSqlTypeName());

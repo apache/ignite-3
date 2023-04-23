@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -158,7 +158,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var cause = (IgniteException) ex.getCause();
 
         assertThat(cause.getMessage(), containsString("NullPointerException: null ref"));
-        assertEquals(UNKNOWN_ERR, cause.code());
+        assertEquals(UNEXPECTED_ERR, cause.code());
         assertNull(cause.getCause()); // No stack trace by default.
     }
 
@@ -172,7 +172,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var cause = (IgniteException) ex.getCause();
 
         assertThat(cause.getMessage(), containsString("NullPointerException: null ref"));
-        assertEquals(UNKNOWN_ERR, cause.code());
+        assertEquals(UNEXPECTED_ERR, cause.code());
 
         assertNotNull(cause.getCause());
         assertThat(cause.getCause().getMessage(), containsString(

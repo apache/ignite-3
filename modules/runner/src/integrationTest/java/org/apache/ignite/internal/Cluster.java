@@ -43,12 +43,15 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.jraft.RaftGroupService;
@@ -122,6 +125,16 @@ public class Cluster {
      * @param nodeCount Number of nodes in the cluster.
      */
     public void startAndInit(int nodeCount) {
+        startAndInit(nodeCount, builder -> {});
+    }
+
+    /**
+     * Starts the cluster with the given number of nodes and initializes it.
+     *
+     * @param nodeCount Number of nodes in the cluster.
+     * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
+     */
+    public void startAndInit(int nodeCount, Consumer<InitParametersBuilder> initParametersConfigurator) {
         if (started) {
             throw new IllegalStateException("The cluster is already started");
         }
@@ -132,7 +145,14 @@ public class Cluster {
 
         String metaStorageAndCmgNodeName = testNodeName(testInfo, 0);
 
-        IgnitionManager.init(metaStorageAndCmgNodeName, List.of(metaStorageAndCmgNodeName), "cluster");
+        InitParametersBuilder builder = InitParameters.builder()
+                .destinationNodeName(metaStorageAndCmgNodeName)
+                .metaStorageNodeNames(List.of(metaStorageAndCmgNodeName))
+                .clusterName("cluster");
+
+        initParametersConfigurator.accept(builder);
+
+        IgnitionManager.init(builder.build());
 
         for (CompletableFuture<IgniteImpl> future : futures) {
             assertThat(future, willCompleteSuccessfully());
@@ -163,7 +183,7 @@ public class Cluster {
 
         String config = IgniteStringFormatter.format(nodeBootstrapConfigTemplate, BASE_PORT + nodeIndex, CONNECT_NODE_ADDR);
 
-        return IgnitionManager.start(nodeName, config, workDir.resolve(nodeName))
+        return TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName))
                 .thenApply(IgniteImpl.class::cast)
                 .thenApply(ignite -> {
                     synchronized (nodes) {
@@ -230,7 +250,7 @@ public class Cluster {
         IgniteImpl newIgniteNode;
 
         try {
-            newIgniteNode = startClusterNode(index, nodeBootstrapConfigTemplate).get(10, TimeUnit.SECONDS);
+            newIgniteNode = startClusterNode(index, nodeBootstrapConfigTemplate).get(20, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
@@ -362,26 +382,6 @@ public class Cluster {
     }
 
     /**
-     * Knocks out a node so that it stops receiving messages from other nodes of the cluster. To bring a node back,
-     * {@link #reanimateNode(int, NodeKnockout)} should be used.
-     */
-    public void knockOutNode(int nodeIndex, NodeKnockout knockout) {
-        knockout.knockOutNode(nodeIndex, this);
-
-        knockedOutNodesIndices.add(nodeIndex);
-    }
-
-    /**
-     * Reanimates a knocked-out node so that it starts receiving messages from other nodes of the cluster again. This nullifies the
-     * effect of {@link #knockOutNode(int, NodeKnockout)}.
-     */
-    public void reanimateNode(int nodeIndex, NodeKnockout knockout) {
-        knockout.reanimateNode(nodeIndex, this);
-
-        knockedOutNodesIndices.remove(nodeIndex);
-    }
-
-    /**
      * Executes an action with a {@link Session} opened via a node with the given index.
      *
      * @param nodeIndex Index of node on which to execute the action.
@@ -423,71 +423,52 @@ public class Cluster {
     }
 
     /**
-     * A way to make a node be separated from a cluster and stop receiving updates.
+     * Simulate network partition for a chosen node. More precisely, drop all messages sent to it by other cluster members.
+     *
+     * <p>WARNING: this should only be used carefully because 'drop all messages to a node' might break some invariants
+     * after the 'connectivity' is restored with {@link #removeNetworkPartitionOf(int)}. Only use this method if you
+     * know what you are doing! Prefer {@link #stopNode(int)}.
+     *
+     * @param nodeIndex Index of the node messages to which need to be dropped.
      */
-    public enum NodeKnockout {
-        /** Stop a node to knock it out. */
-        STOP {
-            @Override
-            void knockOutNode(int nodeIndex, Cluster cluster) {
-                cluster.stopNode(nodeIndex);
-            }
+    public void simulateNetworkPartitionOf(int nodeIndex) {
+        IgniteImpl recipient = node(nodeIndex);
 
-            @Override
-            void reanimateNode(int nodeIndex, Cluster cluster) {
-                cluster.startNode(nodeIndex);
-            }
-        },
-        /** Emulate a network partition so that messages to the knocked-out node are dropped. */
-        PARTITION_NETWORK {
-            @Override
-            void knockOutNode(int nodeIndex, Cluster cluster) {
-                IgniteImpl recipient = cluster.node(nodeIndex);
+        runningNodes()
+                .filter(node -> node != recipient)
+                .forEach(sourceNode -> {
+                    sourceNode.dropMessages(
+                            new AddCensorshipByRecipientConsistentId(recipient.name(), sourceNode.dropMessagesPredicate())
+                    );
+                });
 
-                cluster.runningNodes()
-                        .filter(node -> node != recipient)
-                        .forEach(sourceNode -> {
-                            sourceNode.dropMessages(
-                                    new AddCensorshipByRecipientConsistentId(recipient.name(), sourceNode.dropMessagesPredicate())
-                            );
-                        });
+        LOG.info("Knocked out node " + nodeIndex + " with an artificial network partition");
+    }
 
-                LOG.info("Knocked out node " + nodeIndex + " with an artificial network partition");
-            }
+    /**
+     * Removes the simulated 'network partition' for the given node.
+     *
+     * @param nodeIndex Index of the node.
+     * @see #simulateNetworkPartitionOf(int)
+     */
+    public void removeNetworkPartitionOf(int nodeIndex) {
+        IgniteImpl receiver = node(nodeIndex);
 
-            @Override
-            void reanimateNode(int nodeIndex, Cluster cluster) {
-                IgniteImpl receiver = cluster.node(nodeIndex);
+        runningNodes()
+                .filter(node -> node != receiver)
+                .forEach(ignite -> {
+                    var censor = (AddCensorshipByRecipientConsistentId) ignite.dropMessagesPredicate();
 
-                cluster.runningNodes()
-                        .filter(node -> node != receiver)
-                        .forEach(ignite -> {
-                            var censor = (AddCensorshipByRecipientConsistentId) ignite.dropMessagesPredicate();
+                    assertNotNull(censor);
 
-                            assertNotNull(censor);
+                    if (censor.prevPredicate == null) {
+                        ignite.stopDroppingMessages();
+                    } else {
+                        ignite.dropMessages(censor.prevPredicate);
+                    }
+                });
 
-                            if (censor.prevPredicate == null) {
-                                ignite.stopDroppingMessages();
-                            } else {
-                                ignite.dropMessages(censor.prevPredicate);
-                            }
-                        });
-
-                LOG.info("Reanimated node " + nodeIndex + " by removing an artificial network partition");
-            }
-        };
-
-        /**
-         * Knocks out a node so that it stops receiving messages from other nodes of the cluster. To bring a node back,
-         * {@link #reanimateNode(int, Cluster)} should be used.
-         */
-        abstract void knockOutNode(int nodeIndex, Cluster cluster);
-
-        /**
-         * Reanimates a knocked-out node so that it starts receiving messages from other nodes of the cluster again. This nullifies the
-         * effect of {@link #knockOutNode(int, Cluster)}.
-         */
-        abstract void reanimateNode(int nodeIndex, Cluster cluster);
+        LOG.info("Reanimated node " + nodeIndex + " by removing an artificial network partition");
     }
 
     private static class AddCensorshipByRecipientConsistentId implements BiPredicate<String, NetworkMessage> {

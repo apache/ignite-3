@@ -33,12 +33,16 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.security.authentication.AuthenticationManager;
+import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.lang.IgniteException;
@@ -72,11 +76,17 @@ public class TestClientHandlerModule implements IgniteComponent {
     /** Cluster id. */
     private final UUID clusterId;
 
+    /** Metrics. */
+    private final ClientHandlerMetricSource metrics;
+
     /** Netty channel. */
     private volatile Channel channel;
 
     /** Netty bootstrap factory. */
     private final NettyBootstrapFactory bootstrapFactory;
+
+    /** Authentication configuration. */
+    private final AuthenticationConfiguration authenticationConfiguration;
 
     /**
      * Constructor.
@@ -89,6 +99,7 @@ public class TestClientHandlerModule implements IgniteComponent {
      * @param clusterService Cluster service.
      * @param compute Compute.
      * @param clusterId Cluster id.
+     * @param metrics Metrics.
      */
     public TestClientHandlerModule(
             Ignite ignite,
@@ -98,7 +109,9 @@ public class TestClientHandlerModule implements IgniteComponent {
             @Nullable Function<Integer, Integer> responseDelay,
             ClusterService clusterService,
             IgniteCompute compute,
-            UUID clusterId) {
+            UUID clusterId,
+            ClientHandlerMetricSource metrics,
+            AuthenticationConfiguration authenticationConfiguration) {
         assert ignite != null;
         assert registry != null;
         assert bootstrapFactory != null;
@@ -111,6 +124,8 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.clusterService = clusterService;
         this.compute = compute;
         this.clusterId = clusterId;
+        this.metrics = metrics;
+        this.authenticationConfiguration = authenticationConfiguration;
     }
 
     /** {@inheritDoc} */
@@ -181,7 +196,9 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         compute,
                                         clusterService,
                                         mock(IgniteSql.class),
-                                        clusterId));
+                                        clusterId,
+                                        metrics,
+                                        authenticationManager(authenticationConfiguration)));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
@@ -264,5 +281,11 @@ public class TestClientHandlerModule implements IgniteComponent {
 
             super.channelRead(ctx, msg);
         }
+    }
+
+    private AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) {
+        AuthenticationManagerImpl manager = new AuthenticationManagerImpl();
+        authenticationConfiguration.listen(manager);
+        return manager;
     }
 }

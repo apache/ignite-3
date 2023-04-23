@@ -39,6 +39,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
@@ -98,6 +99,12 @@ public class FakeInternalTable implements InternalTable {
     @Override
     public String name() {
         return tableName;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int partitionId(BinaryRowEx row) {
+        return 0;
     }
 
     /** {@inheritDoc} */
@@ -383,18 +390,6 @@ public class FakeInternalTable implements InternalTable {
     @Override
     public Publisher<BinaryRow> lookup(
             int partId,
-            @Nullable InternalTransaction tx,
-            @NotNull UUID indexId,
-            BinaryTuple key,
-            @Nullable BitSet columnsToInclude
-    ) {
-        throw new IgniteInternalException(new OperationNotSupportedException());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Publisher<BinaryRow> lookup(
-            int partId,
             UUID txId,
             PrimaryReplica recipient,
             UUID indexId,
@@ -471,5 +466,15 @@ public class FakeInternalTable implements InternalTable {
         if (dataAccessListener != null) {
             dataAccessListener.accept(operation, arg);
         }
+    }
+
+    @Override
+    public @Nullable PendingComparableValuesTracker<HybridTimestamp> getPartitionSafeTimeTracker(int partitionId) {
+        return null;
+    }
+
+    @Override
+    public @Nullable PendingComparableValuesTracker<Long> getPartitionStorageIndexTracker(int partitionId) {
+        return null;
     }
 }

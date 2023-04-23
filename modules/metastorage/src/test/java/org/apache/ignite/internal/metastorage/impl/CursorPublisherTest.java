@@ -21,10 +21,9 @@ import static java.util.Collections.nCopies;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -47,10 +46,8 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.command.GetRangeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
-import org.apache.ignite.internal.metastorage.command.cursor.CloseCursorCommand;
-import org.apache.ignite.internal.metastorage.command.cursor.CreateRangeCursorCommand;
-import org.apache.ignite.internal.metastorage.command.cursor.NextBatchCommand;
 import org.apache.ignite.internal.metastorage.command.response.BatchResponse;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
@@ -83,18 +80,16 @@ public class CursorPublisherTest {
                 new IgniteSpinBusyLock()
         );
 
-        publisher = new CursorPublisher(context, uuid -> mock(CreateRangeCursorCommand.class));
+        publisher = new CursorPublisher(context, uuid -> mock(GetRangeCommand.class));
     }
 
     @Test
     void testPagination() {
         Entry mockEntry = mock(Entry.class);
 
-        when(raftService.run(any(NextBatchCommand.class)))
+        when(raftService.run(any(GetRangeCommand.class)))
                 .thenReturn(completedFuture(new BatchResponse(nCopies(6, mockEntry), true)))
                 .thenReturn(completedFuture(new BatchResponse(nCopies(5, mockEntry), false)));
-
-        when(raftService.run(any(CreateRangeCursorCommand.class))).thenReturn(completedFuture(null));
 
         var awaitFuture = new CompletableFuture<Void>();
 
@@ -114,7 +109,7 @@ public class CursorPublisherTest {
 
         assertThat(awaitFuture, willCompleteSuccessfully());
 
-        verify(raftService, times(2)).run(any(NextBatchCommand.class));
+        verify(raftService, times(2)).run(any(GetRangeCommand.class));
         verify(subscriber, times(11)).onNext(any());
         verify(subscriber).onComplete();
     }
@@ -123,48 +118,22 @@ public class CursorPublisherTest {
     void testRequestDuringOnNext() {
         Entry mockEntry = mock(Entry.class);
 
-        when(raftService.run(any(NextBatchCommand.class)))
+        when(raftService.run(any(GetRangeCommand.class)))
                 .thenReturn(completedFuture(new BatchResponse(nCopies(6, mockEntry), true)))
                 .thenReturn(completedFuture(new BatchResponse(nCopies(5, mockEntry), false)));
-
-        when(raftService.run(any(CreateRangeCursorCommand.class))).thenReturn(completedFuture(null));
 
         CompletableFuture<List<Entry>> future = TestFlowUtils.subscribeToList(publisher);
 
         assertThat(future, will(hasSize(11)));
 
-        verify(raftService, times(2)).run(any(NextBatchCommand.class));
-    }
-
-    @Test
-    void testErrorOnCursorCreation() {
-        when(raftService.run(any(CreateRangeCursorCommand.class))).thenReturn(failedFuture(new IllegalStateException()));
-
-        var awaitFuture = new CompletableFuture<Void>();
-
-        Subscriber<Entry> subscriber = mock(Subscriber.class);
-
-        doAnswer(invocation -> {
-            Throwable e = invocation.getArgument(0);
-
-            awaitFuture.completeExceptionally(e);
-
-            return null;
-        }).when(subscriber).onError(any());
-
-        publisher.subscribe(subscriber);
-
-        assertThat(awaitFuture, willFailFast(IllegalStateException.class));
+        verify(raftService, times(2)).run(any(GetRangeCommand.class));
     }
 
     @Test
     void testErrorOnPagination() {
-        when(raftService.run(any(NextBatchCommand.class)))
+        when(raftService.run(any(GetRangeCommand.class)))
                 .thenReturn(completedFuture(new BatchResponse(nCopies(5, mock(Entry.class)), true)))
                 .thenReturn(failedFuture(new IllegalStateException()));
-
-        when(raftService.run(any(CreateRangeCursorCommand.class))).thenReturn(completedFuture(null));
-        when(raftService.run(any(CloseCursorCommand.class))).thenReturn(completedFuture(null));
 
         var awaitFuture = new CompletableFuture<Void>();
 
@@ -188,11 +157,10 @@ public class CursorPublisherTest {
 
         publisher.subscribe(subscriber);
 
-        assertThat(awaitFuture, willFailIn(10, TimeUnit.SECONDS, IllegalStateException.class));
+        assertThat(awaitFuture, willThrow(IllegalStateException.class, 10, TimeUnit.SECONDS));
 
-        verify(raftService, times(2)).run(any(NextBatchCommand.class));
+        verify(raftService, times(2)).run(any(GetRangeCommand.class));
         verify(subscriber, times(5)).onNext(any());
-        verify(raftService).run(any(CloseCursorCommand.class));
     }
 
     @Test
@@ -208,9 +176,6 @@ public class CursorPublisherTest {
 
     @Test
     void testComponentStopOnNext() throws Exception {
-        when(raftService.run(any(CreateRangeCursorCommand.class))).thenReturn(completedFuture(null));
-        when(raftService.run(any(CloseCursorCommand.class))).thenReturn(completedFuture(null));
-
         Subscriber<Entry> subscriber = mock(Subscriber.class);
 
         doAnswer(invocation -> {
@@ -229,7 +194,7 @@ public class CursorPublisherTest {
 
         Entry mockEntry = mock(Entry.class);
 
-        when(raftService.run(any(NextBatchCommand.class)))
+        when(raftService.run(any(GetRangeCommand.class)))
                 .thenReturn(completedFuture(new BatchResponse(List.of(mockEntry), true)))
                 .thenAnswer(invocation -> supplyAsync(() -> {
                     try {
@@ -261,8 +226,6 @@ public class CursorPublisherTest {
 
     @Test
     void testSingleOnlySubscription() {
-        when(raftService.run(any(CreateRangeCursorCommand.class))).thenReturn(completedFuture(null));
-
         Subscriber<Entry> subscriber = mock(Subscriber.class);
 
         publisher.subscribe(subscriber);

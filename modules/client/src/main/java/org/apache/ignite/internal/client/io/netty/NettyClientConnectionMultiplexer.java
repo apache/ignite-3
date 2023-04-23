@@ -46,6 +46,7 @@ import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.SslConfiguration;
+import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
@@ -53,7 +54,6 @@ import org.apache.ignite.internal.client.io.ClientMessageHandler;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Netty-based multiplexer.
@@ -63,12 +63,15 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
 
     private final Bootstrap bootstrap;
 
+    private final ClientMetricSource metrics;
+
     /**
      * Constructor.
      */
-    public NettyClientConnectionMultiplexer() {
+    public NettyClientConnectionMultiplexer(ClientMetricSource metrics) {
         workerGroup = new NioEventLoopGroup();
         bootstrap = new Bootstrap();
+        this.metrics = metrics;
     }
 
     /** {@inheritDoc} */
@@ -105,6 +108,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
             SslConfiguration ssl = clientCfg.ssl();
             SslContextBuilder builder = SslContextBuilder.forClient().trustManager(loadTrustManagerFactory(ssl));
 
+            builder.ciphers(ssl.ciphers());
             ClientAuth clientAuth = toNettyClientAuth(ssl.clientAuthenticationMode());
             if (ClientAuth.NONE != clientAuth) {
                 builder.clientAuth(clientAuth).keyManager(loadKeyManagerFactory(ssl));
@@ -116,10 +120,8 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
         } catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | IOException | UnrecoverableKeyException e) {
             throw new IgniteException(CLIENT_SSL_CONFIGURATION_ERR, "Client SSL configuration error: " + e.getMessage(), e);
         }
-
     }
 
-    @NotNull
     private static KeyManagerFactory loadKeyManagerFactory(SslConfiguration ssl)
             throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException {
         KeyStore ks = KeyStore.getInstance(ssl.keyStoreType());
@@ -138,7 +140,6 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
         return keyManagerFactory;
     }
 
-    @NotNull
     private static TrustManagerFactory loadTrustManagerFactory(SslConfiguration ssl)
             throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
         KeyStore ts = KeyStore.getInstance(ssl.trustStoreType());
@@ -185,7 +186,13 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
 
         connectFut.addListener(f -> {
             if (f.isSuccess()) {
-                NettyClientConnection conn = new NettyClientConnection(((ChannelFuture) f).channel(), msgHnd, stateHnd);
+                metrics.connectionsEstablishedIncrement();
+                metrics.connectionsActiveIncrement();
+
+                ChannelFuture chFut = (ChannelFuture) f;
+                chFut.channel().closeFuture().addListener(unused -> metrics.connectionsActiveDecrement());
+
+                NettyClientConnection conn = new NettyClientConnection(chFut.channel(), msgHnd, stateHnd, metrics);
 
                 fut.complete(conn);
             } else {

@@ -49,15 +49,22 @@ import org.apache.ignite.internal.cli.commands.node.config.NodeConfigShowCommand
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigShowReplCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigUpdateCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigUpdateReplCommand;
-import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricDisableCommand;
-import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricDisableReplCommand;
-import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricEnableCommand;
-import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricEnableReplCommand;
-import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricListCommand;
-import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricListReplCommand;
+import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricSetListCommand;
+import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricSetListReplCommand;
+import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricSourceDisableCommand;
+import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricSourceDisableReplCommand;
+import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricSourceEnableCommand;
+import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricSourceEnableReplCommand;
+import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricSourceListCommand;
+import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricSourceListReplCommand;
 import org.apache.ignite.internal.cli.commands.node.status.NodeStatusCommand;
 import org.apache.ignite.internal.cli.commands.node.status.NodeStatusReplCommand;
-import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
+import org.apache.ignite.internal.cli.commands.unit.UnitListCommand;
+import org.apache.ignite.internal.cli.commands.unit.UnitListReplCommand;
+import org.apache.ignite.internal.cli.commands.unit.UnitStatusCommand;
+import org.apache.ignite.internal.cli.commands.unit.UnitStatusReplCommand;
+import org.apache.ignite.internal.cli.commands.unit.UnitUndeployCommand;
+import org.apache.ignite.internal.cli.commands.unit.UnitUndeployReplCommand;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
@@ -96,7 +103,7 @@ public class UrlOptionsNegativeTest {
     NodeNameRegistry nodeNameRegistry;
 
     private void setUp(Class<?> cmdClass) {
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithDefaultProfile());
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createSectionWithDefaultProfileConfig());
         MicronautFactory factory = new MicronautFactory(context);
         cmd = new CommandLine(cmdClass, factory)
                 .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
@@ -123,13 +130,19 @@ public class UrlOptionsNegativeTest {
                 arguments(ClusterConfigShowCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(ClusterConfigUpdateCommand.class, CLUSTER_URL_OPTION, List.of("{key: value}")),
                 arguments(ClusterStatusCommand.class, CLUSTER_URL_OPTION, List.of()),
-                arguments(NodeMetricEnableCommand.class, NODE_URL_OPTION, List.of("srcName")),
-                arguments(NodeMetricDisableCommand.class, NODE_URL_OPTION, List.of("srcName")),
-                arguments(NodeMetricListCommand.class, NODE_URL_OPTION, List.of()),
+                arguments(NodeMetricSourceEnableCommand.class, NODE_URL_OPTION, List.of("srcName")),
+                arguments(NodeMetricSourceDisableCommand.class, NODE_URL_OPTION, List.of("srcName")),
+                arguments(NodeMetricSourceListCommand.class, NODE_URL_OPTION, List.of()),
+                arguments(NodeMetricSetListCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(LogicalTopologyCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(PhysicalTopologyCommand.class, CLUSTER_URL_OPTION, List.of()),
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19090
+                // arguments(UnitDeployCommand.class, CLUSTER_URL_OPTION, List.of("--path=" + TEMP_FILE_PATH, "id")),
+                arguments(UnitUndeployCommand.class, CLUSTER_URL_OPTION, List.of("id")),
+                arguments(UnitStatusCommand.class, CLUSTER_URL_OPTION, List.of("id")),
+                arguments(UnitListCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(ClusterInitCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test"))
-        // TODO https://issues.apache.org/jira/browse/IGNITE-17102
+        // TODO https://issues.apache.org/jira/browse/IGNITE-18378
         //                Arguments.arguments(ClusterShowCommand.class, CLUSTER_URL_OPTION, List.of()),
         );
     }
@@ -142,14 +155,20 @@ public class UrlOptionsNegativeTest {
                 arguments(ClusterConfigShowReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(ClusterConfigUpdateReplCommand.class, CLUSTER_URL_OPTION, List.of("{key: value}")),
                 arguments(ClusterStatusReplCommand.class, CLUSTER_URL_OPTION, List.of()),
-                arguments(NodeMetricEnableReplCommand.class, NODE_URL_OPTION, List.of("srcName")),
-                arguments(NodeMetricDisableReplCommand.class, NODE_URL_OPTION, List.of("srcName")),
-                arguments(NodeMetricListReplCommand.class, NODE_URL_OPTION, List.of()),
+                arguments(NodeMetricSourceEnableReplCommand.class, NODE_URL_OPTION, List.of("srcName")),
+                arguments(NodeMetricSourceDisableReplCommand.class, NODE_URL_OPTION, List.of("srcName")),
+                arguments(NodeMetricSourceListReplCommand.class, NODE_URL_OPTION, List.of()),
+                arguments(NodeMetricSetListReplCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(LogicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(PhysicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19090
+                // arguments(UnitDeployReplCommand.class, CLUSTER_URL_OPTION, List.of("--path=" + TEMP_FILE_PATH, "id")),
+                arguments(UnitUndeployReplCommand.class, CLUSTER_URL_OPTION, List.of("id")),
+                arguments(UnitStatusReplCommand.class, CLUSTER_URL_OPTION, List.of("id")),
+                arguments(UnitListReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(ClusterInitReplCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test")),
                 arguments(ConnectReplCommand.class, "", List.of())
-        // TODO https://issues.apache.org/jira/browse/IGNITE-17102
+        // TODO https://issues.apache.org/jira/browse/IGNITE-18378
         //                Arguments.arguments(ClusterShowReplCommand.class, CLUSTER_URL_OPTION, List.of()),
         );
     }
@@ -267,7 +286,7 @@ public class UrlOptionsNegativeTest {
 
     @Test
     void testConnectCommandWithoutParametersWithEmptyConfig() {
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createEmptyConfig());
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createEmptyConfig());
         setUp(ConnectReplCommand.class);
         cmd.execute();
 

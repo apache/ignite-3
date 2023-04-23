@@ -30,5 +30,5 @@ public interface ReplicaListener {
      * @param request Replica request.
      * @return Listener response.
      */
-    public CompletableFuture<Object> invoke(ReplicaRequest request);
+    CompletableFuture<?> invoke(ReplicaRequest request);
 }

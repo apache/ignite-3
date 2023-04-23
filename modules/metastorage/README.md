@@ -42,4 +42,3 @@ prefix NODE NAME>%Raft-Group-Client).
 
 The component uses common ForkJoinPool on start (in fact, it is not necessary, because all components start asynchronously in the same
 ForkJoinPool). The using of the common pool is dangerous, because the pool can be occupied by another threads that hosted on the same JVM 
-(TODO: IGNITE-18505 Avoid using common pool on start components).

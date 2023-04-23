@@ -50,12 +50,16 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.IgniteClientAuthenticator;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.client.HostAndPortRange;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -72,6 +76,8 @@ public class JdbcConnection implements Connection {
 
     /** Handler. */
     private final JdbcQueryEventHandler handler;
+
+    private final long connectionId;
 
     /** Schema name. */
     private String schema;
@@ -115,9 +121,17 @@ public class JdbcConnection implements Connection {
      * @param handler Handler.
      * @param props   Properties.
      */
-    public JdbcConnection(JdbcQueryEventHandler handler, ConnectionProperties props) {
+    public JdbcConnection(JdbcQueryEventHandler handler, ConnectionProperties props) throws SQLException {
         this.connProps = props;
         this.handler = handler;
+
+        JdbcConnectResult result = handler.connect().join();
+
+        if (!result.hasResults()) {
+            throw IgniteQueryErrorCode.createJdbcSqlException(result.err(), result.status());
+        }
+
+        connectionId = result.connectionId();
 
         autoCommit = true;
 
@@ -156,6 +170,7 @@ public class JdbcConnection implements Connection {
                     .reconnectThrottlingPeriod(reconnectThrottlingPeriod)
                     .reconnectThrottlingRetries(reconnectThrottlingRetries)
                     .ssl(extractSslConfiguration(connProps))
+                    .authenticator(extractAuthenticationConfiguration(connProps))
                     .build());
 
         } catch (Exception e) {
@@ -164,6 +179,14 @@ public class JdbcConnection implements Connection {
 
         this.handler = new JdbcClientQueryEventHandler(client);
 
+        JdbcConnectResult result = handler.connect().join();
+
+        if (!result.hasResults()) {
+            throw IgniteQueryErrorCode.createJdbcSqlException(result.err(), result.status());
+        }
+
+        connectionId = result.connectionId();
+
         txIsolation = Connection.TRANSACTION_NONE;
 
         schema = normalizeSchema(connProps.getSchema());
@@ -171,7 +194,7 @@ public class JdbcConnection implements Connection {
         holdability = HOLD_CURSORS_OVER_COMMIT;
     }
 
-    private @Nullable SslConfiguration extractSslConfiguration(ConnectionProperties connProps) {
+    private static @Nullable SslConfiguration extractSslConfiguration(ConnectionProperties connProps) {
         if (connProps.isSslEnabled()) {
             return SslConfiguration.builder()
                     .enabled(true)
@@ -179,9 +202,23 @@ public class JdbcConnection implements Connection {
                     .trustStorePath(connProps.getTrustStorePath())
                     .trustStorePassword(connProps.getTrustStorePassword())
                     .clientAuth(connProps.getClientAuth())
+                    .ciphers(connProps.getCiphers())
                     .keyStoreType(connProps.getKeyStoreType())
                     .keyStorePath(connProps.getKeyStorePath())
                     .keyStorePassword(connProps.getKeyStorePassword())
+                    .build();
+        } else {
+            return null;
+        }
+    }
+
+    private static @Nullable IgniteClientAuthenticator extractAuthenticationConfiguration(ConnectionProperties connProps) {
+        String basicAuthenticationUsername = connProps.getBasicAuthenticationUsername();
+        String basicAuthenticationPassword = connProps.getBasicAuthenticationPassword();
+        if (basicAuthenticationUsername != null && basicAuthenticationPassword != null) {
+            return BasicAuthenticator.builder()
+                    .username(basicAuthenticationUsername)
+                    .password(basicAuthenticationPassword)
                     .build();
         } else {
             return null;
@@ -297,7 +334,7 @@ public class JdbcConnection implements Connection {
         if (autoCommit != this.autoCommit) {
             this.autoCommit = autoCommit;
         }
-        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-16432
+        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-18985
     }
 
     /** {@inheritDoc} */
@@ -316,7 +353,7 @@ public class JdbcConnection implements Connection {
         if (autoCommit) {
             throw new SQLException("Transaction cannot be committed explicitly in auto-commit mode.");
         }
-        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-16432
+        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-18985
     }
 
     /** {@inheritDoc} */
@@ -327,7 +364,7 @@ public class JdbcConnection implements Connection {
         if (autoCommit) {
             throw new SQLException("Transaction cannot be rolled back explicitly in auto-commit mode.");
         }
-        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-16432
+        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-18985
     }
 
     /** {@inheritDoc} */
@@ -779,6 +816,11 @@ public class JdbcConnection implements Connection {
      */
     public JdbcQueryEventHandler handler() {
         return handler;
+    }
+
+    /** Returns an identifier of the connection. */
+    long connectionId() {
+        return connectionId;
     }
 
     /** {@inheritDoc} */

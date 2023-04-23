@@ -70,7 +70,7 @@ public class ConnectionTest extends AbstractClientTest {
         testConnection("127.0.0.1:47500", "127.0.0.1:10801", "127.0.0.1:" + serverPort);
     }
 
-    @Disabled("IPv6 is not enabled by default on some systems.")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15611 . IPv6 is not enabled by default on some systems.")
     @Test
     public void testIpv6NodeAddresses() throws Exception {
         testConnection("[::1]:" + serverPort);
@@ -81,7 +81,7 @@ public class ConnectionTest extends AbstractClientTest {
     public void testNoResponseFromServerWithinConnectTimeoutThrowsException() throws Exception {
         Function<Integer, Integer> responseDelay = x -> 500;
 
-        try (var srv = new TestServer(10800, 10, 300, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID())) {
+        try (var srv = new TestServer(10800, 10, 300, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID(), null)) {
             Builder builder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + srv.port())
                     .retryPolicy(new RetryLimitPolicy().retryLimit(1))

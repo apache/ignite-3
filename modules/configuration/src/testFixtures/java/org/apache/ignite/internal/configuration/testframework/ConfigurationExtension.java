@@ -44,11 +44,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.internal.configuration.ConfigurationListenerHolder;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.DynamicConfigurationChanger;
 import org.apache.ignite.internal.configuration.RootInnerNode;
@@ -295,6 +295,8 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
             root.internalId(UUID.randomUUID());
             root.setInjectedNameFieldValue(annotation.name());
         }
+
+        superRoot.makeImmutable();
 
         // Reference to the super root is required to make DynamicConfigurationChanger#change method atomic.
         var superRootRef = new AtomicReference<>(superRoot);

@@ -40,7 +40,7 @@ public class ClientFailoverSocketTests
 
         var clientCfg = new IgniteClientConfiguration
         {
-            Endpoints = { server1.Endpoint, server2.Endpoint }
+            Endpoints = { server2.Endpoint, server1.Endpoint }
         };
 
         // First connection will go to server2, which does not have a delay.

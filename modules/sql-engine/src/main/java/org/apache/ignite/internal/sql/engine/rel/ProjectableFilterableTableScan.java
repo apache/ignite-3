@@ -44,7 +44,6 @@ import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.Mappings;
-import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -88,13 +87,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     protected ProjectableFilterableTableScan(RelInput input) {
-        super(
-                input.getCluster(),
-                input.getTraitSet(),
-                List.of(),
-                ((RelInputEx) input).getTableById()
-        );
-
+        super(input);
         condition = input.getExpression("filters");
         projects = input.get("projects") == null ? null : input.getExpressionList("projects");
         requiredColumns = input.get("requiredColumns") == null ? null : input.getBitSet("requiredColumns");
@@ -135,10 +128,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         return explainTerms0(pw
                 .item("table", table.getQualifiedName())
                 .itemIf("tableId", table.unwrap(IgniteTable.class).id().toString(),
-                        pw.getDetailLevel() == ALL_ATTRIBUTES)
-                .itemIf("tableVer", table.unwrap(IgniteTable.class).version(),
-                        pw.getDetailLevel() == ALL_ATTRIBUTES)
-        );
+                pw.getDetailLevel() == ALL_ATTRIBUTES));
     }
 
     /** {@inheritDoc} */

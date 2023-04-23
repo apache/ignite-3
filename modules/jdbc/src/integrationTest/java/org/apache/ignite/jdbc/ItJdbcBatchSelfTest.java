@@ -17,6 +17,8 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -26,10 +28,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.sql.BatchUpdateException;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Arrays;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
@@ -122,9 +129,20 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    public void testMultipleStatementForBatchIsNotAllowed() throws SQLException {
+        String insertStmt = "insert into Person (id, firstName, lastName, age) values";
+        String ins1 = insertStmt + valuesRow(1);
+        String ins2 = insertStmt + valuesRow(2);
+
+        stmt.addBatch(ins1 + ";" + ins2);
+
+        assertThrows(BatchUpdateException.class, () -> stmt.executeBatch(), "Multiple statements are not allowed.");
+    }
+
+    @Test
     public void testBatchOnClosedStatement() throws SQLException {
-        final Statement stmt2 = conn.createStatement();
-        final PreparedStatement pstmt2 = conn.prepareStatement("");
+        Statement stmt2 = conn.createStatement();
+        PreparedStatement pstmt2 = conn.prepareStatement("");
 
         stmt2.close();
         pstmt2.close();
@@ -158,11 +176,31 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             assertEquals(0, updCnts.length, "Invalid update counts size");
 
-            if (!e.getMessage().contains("Unexpected number of query parameters. Provided 1 but there is only 0 dynamic parameter(s).")) {
-                log.error("Invalid exception: ", e);
+            assertThat(e.getMessage(), containsString("Given statement type does not match that declared by JDBC driver"));
 
-                fail();
-            }
+            assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
+            assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
+        }
+    }
+
+    @Test
+    public void testPreparedStatementSupplyParametersToQueryWithoutParameters() throws Exception {
+        PreparedStatement preparedStatement = conn.prepareStatement("UPDATE Person SET firstName='NONE'");
+
+        preparedStatement.setString(1, "broken");
+        preparedStatement.addBatch();
+
+        try {
+            preparedStatement.executeBatch();
+
+            fail("BatchUpdateException must be thrown");
+        } catch (BatchUpdateException e) {
+            int[] updCnts = e.getUpdateCounts();
+
+            assertEquals(0, updCnts.length, "Invalid update counts size");
+
+            assertThat(e.getMessage(),
+                    containsString("Unexpected number of query parameters. Provided 1 but there is only 0 dynamic parameter(s)."));
 
             assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
             assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
@@ -196,11 +234,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                 assertEquals(i + 1, updCnts[i], "Invalid update count");
             }
 
-            if (!e.getMessage().contains("Given statement type does not match that declared by JDBC driver")) {
-                log.error("Invalid exception: ", e);
-
-                fail();
-            }
+            assertThat(e.getMessage(), containsString("Given statement type does not match that declared by JDBC driver"));
 
             assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
             assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
@@ -311,11 +345,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                 assertEquals(i + 1, updCnts[i], "Invalid update count: " + i);
             }
 
-            if (!e.getMessage().contains("PK unique constraint is violated")) {
-                log.error("Invalid exception: ", e);
-
-                fail();
-            }
+            assertThat(e.toString(), e.getMessage(), containsString("PK unique constraint is violated"));
 
             assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
             assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
@@ -370,6 +400,44 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         int[] updates = stmt.executeBatch();
 
         assertEquals(0, updates.length, "Returned update counts array should have no elements for empty batch.");
+    }
+
+    @Test
+    public void testDataTypes() throws SQLException {
+        Statement stmt0 = conn.createStatement();
+
+        stmt0.executeUpdate("CREATE TABLE timetypes (tt_id int, "
+                + "tt_date date, "
+                + "tt_time time, "
+                + "tt_timestamp timestamp, "
+                + "PRIMARY KEY (tt_id));");
+
+        PreparedStatement prepStmt = conn.prepareStatement(
+                "INSERT INTO timetypes(tt_id, tt_date, tt_time, tt_timestamp)"
+                        + " VALUES (?, ?, ?, ?)");
+
+        Date date = Date.valueOf(LocalDate.now());
+        Time time = Time.valueOf(LocalTime.now());
+        Timestamp ts = new Timestamp(System.currentTimeMillis());
+
+        int idx = 1;
+        prepStmt.setLong(idx++, 1);
+        prepStmt.setDate(idx++, date);
+        prepStmt.setTime(idx++, time);
+        prepStmt.setTimestamp(idx, ts);
+        prepStmt.addBatch();
+
+        prepStmt.executeBatch();
+        prepStmt.close();
+
+        ResultSet res = stmt0.executeQuery("SELECT * FROM timetypes");
+        res.next();
+        assertEquals(date, res.getDate(2));
+        assertEquals(time, res.getTime(3));
+        assertEquals(ts, res.getTimestamp(4));
+
+        stmt0.execute("DROP TABLE timetypes");
+        stmt0.close();
     }
 
     @Test

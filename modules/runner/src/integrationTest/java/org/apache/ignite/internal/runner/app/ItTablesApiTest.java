@@ -43,6 +43,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -52,6 +53,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
@@ -102,18 +104,23 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * Before each.
      */
     @BeforeEach
-    void beforeEach(TestInfo testInfo) throws Exception {
+    void beforeEach(TestInfo testInfo) {
         List<CompletableFuture<Ignite>> futures = new ArrayList<>();
 
         for (int i = 0; i < nodesBootstrapCfg.size(); i++) {
             String nodeName = testNodeName(testInfo, i);
 
-            futures.add(IgnitionManager.start(nodeName, nodesBootstrapCfg.get(i), workDir.resolve(nodeName)));
+            futures.add(TestIgnitionManager.start(nodeName, nodesBootstrapCfg.get(i), workDir.resolve(nodeName)));
         }
 
         String metaStorageNodeName = testNodeName(testInfo, 0);
 
-        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(metaStorageNodeName)
+                .metaStorageNodeNames(List.of(metaStorageNodeName))
+                .clusterName("cluster")
+                .build();
+        IgnitionManager.init(initParameters);
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());
@@ -201,12 +208,10 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
     /**
      * Test scenario when we have lagged node, and tables with the same name are deleted and created again.
-     *
-     * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17775")
-    public void testGetTableFromLaggedNode() throws Exception {
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18379")
+    public void testGetTableFromLaggedNode() {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 
         Ignite ignite0 = clusterNodes.get(0);
@@ -469,7 +474,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         return await(((TableManager) node.tables()).createTableAsync(
                 tableName,
                 tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(
-                        cols).withPrimaryKey("key").build(), tblCh).changeReplicas(2).changePartitions(10)
+                        cols).withPrimaryKey("key").build(), tblCh)
         ));
     }
 
@@ -489,7 +494,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
                                     SchemaBuilders.column("valStr", ColumnType.string())
                                             .withDefaultValue("default").build()
                             )).withPrimaryKey("key").build(),
-                            tblCh).changeReplicas(2).changePartitions(10)
+                            tblCh)
             ));
         } catch (TableAlreadyExistsException ex) {
             return node.tables().table(tableName);

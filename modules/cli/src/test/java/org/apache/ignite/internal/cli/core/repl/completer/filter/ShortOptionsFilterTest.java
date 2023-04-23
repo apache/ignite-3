@@ -39,6 +39,7 @@ class ShortOptionsFilterTest {
         String[] candidates = new ShortOptionsFilter().filter(new String[0], allOptions);
         List<String> longOptionNames = Arrays.stream(Options.values())
                 .map(Options::fullName)
+                .distinct()
                 .collect(Collectors.toList());
         assertThat(candidates, arrayWithSize(longOptionNames.size()));
         assertThat(Arrays.asList(candidates), containsInAnyOrder(longOptionNames.toArray(new String[0])));

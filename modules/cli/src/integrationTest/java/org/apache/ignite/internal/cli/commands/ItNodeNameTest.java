@@ -17,14 +17,11 @@
 
 package org.apache.ignite.internal.cli.commands;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import jakarta.inject.Inject;
-import java.time.Duration;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,7 +42,7 @@ public class ItNodeNameTest extends CliCommandTestInitializedIntegrationBase {
         execute("connect");
         resetOutput();
         // wait to pulling node names
-        assertTrue(waitForCondition(() -> !nodeNameRegistry.names().isEmpty(), Duration.ofSeconds(5).toMillis()));
+        await().until(() -> !nodeNameRegistry.names().isEmpty());
     }
 
     @Test
@@ -89,11 +86,6 @@ public class ItNodeNameTest extends CliCommandTestInitializedIntegrationBase {
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputMatches("\\[name: " + nodeName + ", state: started\\]?\\s+")
         );
-    }
-
-    @AfterEach
-    void tearDown() {
-        execute("disconnect");
     }
 
     private String nodeName() {

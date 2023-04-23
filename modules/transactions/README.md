@@ -190,16 +190,14 @@ The locking rules are same as for get/put operations.
 Then values are removed from indexes on step 2, they are written as tombstones to avoid read inconsistency and should be 
 cleaned up after tx finish.
 
-TODO IGNITE-15087: tx example flow with enabled index(es)
-
 # Failover handling
 Failover protocol is similar to Ignite 2 with a main difference: until tx is sure it can commit or rollback, it holds
 its locks. This means in the case of split-brain, some keys will be locked until split-brain situation is resolved and
 tx recovery protocol will converge. Consult a 2PC paper for details when it's possible, for example <sup id="a3">[3](#f3)</sup>
 
-## Leaserholder fail
+## Leaseholder fail
 If a tx is not started to COMMIT, the coordinator reverts a transaction on remaining leaseholders.
-Then a new leasholder is elected, it checks for its pending transactions and asks a coordinator if it's possible to commit.
+Then a new leaseholder is elected, it checks for its pending transactions and asks a coordinator if it's possible to commit.
 
 ## Coordinator fail
 Broadcast recovery (various strategies are possible: via gossip or dedicated node) is necessary (because we don't have 

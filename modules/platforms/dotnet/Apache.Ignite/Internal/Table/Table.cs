@@ -23,8 +23,11 @@ namespace Apache.Ignite.Internal.Table
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
+    using Common;
+    using Ignite.Sql;
     using Ignite.Table;
     using Ignite.Transactions;
+    using Log;
     using Proto;
     using Proto.MsgPack;
     using Serialization;
@@ -49,6 +52,9 @@ namespace Apache.Ignite.Internal.Table
 
         /** */
         private readonly object _latestSchemaLock = new();
+
+        /** */
+        private readonly IIgniteLogger? _logger;
 
         /** */
         private readonly SemaphoreSlim _partitionAssignmentSemaphore = new(1);
@@ -76,6 +82,8 @@ namespace Apache.Ignite.Internal.Table
 
             Name = name;
             Id = id;
+
+            _logger = socket.Configuration.Logger.GetLogger(GetType());
 
             RecordBinaryView = new RecordView<IIgniteTuple>(
                 this,
@@ -120,6 +128,13 @@ namespace Apache.Ignite.Internal.Table
             where TK : notnull
             where TV : notnull =>
             new KeyValueView<TK, TV>(GetRecordViewInternal<KvPair<TK, TV>>());
+
+        /// <inheritdoc/>
+        public override string ToString() =>
+            new IgniteToStringBuilder(GetType())
+                .Append(Name)
+                .Append(Id)
+                .Build();
 
         /// <summary>
         /// Gets the record view for the specified type.
@@ -324,7 +339,7 @@ namespace Apache.Ignite.Internal.Table
 
                 r.Skip(propertyCount - expectedCount);
 
-                var column = new Column(name, (ClientDataType)type, isNullable, isColocation, isKey, i, scale, precision);
+                var column = new Column(name, (ColumnType)type, isNullable, isColocation, isKey, i, scale, precision);
 
                 columns[i] = column;
 
@@ -337,6 +352,11 @@ namespace Apache.Ignite.Internal.Table
             var schema = new Schema(schemaVersion, keyColumnCount, columns);
 
             _schemas[schemaVersion] = schema;
+
+            if (_logger?.IsEnabled(LogLevel.Debug) == true)
+            {
+                _logger.Debug($"Schema loaded [tableId={Id}, schemaVersion={schema.Version}]");
+            }
 
             lock (_latestSchemaLock)
             {

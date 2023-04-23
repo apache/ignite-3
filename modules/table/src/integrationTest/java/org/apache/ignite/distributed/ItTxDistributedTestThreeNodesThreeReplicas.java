@@ -17,6 +17,9 @@
 
 package org.apache.ignite.distributed;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.TestInfo;
 
@@ -34,21 +37,22 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedT
     }
 
     /** {@inheritDoc} */
-    @Override protected int nodes() {
+    @Override
+    protected int nodes() {
         return 3;
     }
 
     /** {@inheritDoc} */
-    @Override protected int replicas() {
+    @Override
+    protected int replicas() {
         return 3;
     }
 
     @Override
     @AfterEach
     public void after() throws Exception {
-        //TODO Uncomment and add "assertTrue" when fixed IGNITE-18814.
-        // IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(accounts, 0), 5_000);
-        // IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(customers, 0), 5_000);
+        assertTrue(IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(accounts, 0), 5_000));
+        assertTrue(IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(customers, 0), 5_000));
 
         super.after();
     }

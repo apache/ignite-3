@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Transactions
 {
     using System;
     using System.Linq;
+    using System.Text.RegularExpressions;
     using System.Threading.Tasks;
     using System.Transactions;
     using Ignite.Transactions;
@@ -119,23 +120,23 @@ namespace Apache.Ignite.Tests.Transactions
         }
 
         [Test]
-        public async Task TestCommitRollbackSameTxThrows()
+        public async Task TestCommitAfterRollbackIsIgnored()
         {
             await using var tx = await Client.Transactions.BeginAsync();
             await tx.CommitAsync();
+            await tx.RollbackAsync();
 
-            var ex = Assert.ThrowsAsync<TransactionException>(async () => await tx.RollbackAsync());
-            Assert.AreEqual("Transaction is already committed.", ex?.Message);
+            StringAssert.Contains("State = Committed", tx.ToString());
         }
 
         [Test]
-        public async Task TestRollbackCommitSameTxThrows()
+        public async Task TestRollbackAfterCommitIsIgnored()
         {
             await using var tx = await Client.Transactions.BeginAsync();
             await tx.RollbackAsync();
+            await tx.CommitAsync();
 
-            var ex = Assert.ThrowsAsync<TransactionException>(async () => await tx.CommitAsync());
-            Assert.AreEqual("Transaction is already rolled back.", ex?.Message);
+            StringAssert.Contains("State = RolledBack", tx.ToString());
         }
 
         [Test]
@@ -145,9 +146,9 @@ namespace Apache.Ignite.Tests.Transactions
 
             await tx.DisposeAsync();
             await tx.DisposeAsync();
+            await tx.CommitAsync();
 
-            var ex = Assert.ThrowsAsync<TransactionException>(async () => await tx.CommitAsync());
-            Assert.AreEqual("Transaction is already rolled back.", ex?.Message);
+            StringAssert.Contains("State = RolledBack", tx.ToString());
         }
 
         [Test]
@@ -244,8 +245,45 @@ namespace Apache.Ignite.Tests.Transactions
             Assert.IsFalse(res.HasValue);
         }
 
+        [Test]
+        public async Task TestReadOnlyTxAttributes()
+        {
+            await using var tx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
+
+            Assert.IsTrue(tx.IsReadOnly);
+            StringAssert.Contains("State = Open, IsReadOnly = True", tx.ToString());
+        }
+
+        [Test]
+        public async Task TestReadWriteTxAttributes()
+        {
+            await using var tx = await Client.Transactions.BeginAsync();
+
+            Assert.IsFalse(tx.IsReadOnly);
+            StringAssert.Contains("State = Open, IsReadOnly = False", tx.ToString());
+        }
+
+        [Test]
+        public async Task TestToString()
+        {
+            await using var tx1 = await Client.Transactions.BeginAsync();
+            await using var tx2 = await Client.Transactions.BeginAsync(new(ReadOnly: true));
+            await using var tx3 = await Client.Transactions.BeginAsync();
+
+            await tx2.RollbackAsync();
+            await tx3.CommitAsync();
+
+            var id = int.Parse(Regex.Match(tx1.ToString()!, @"\d+").Value);
+
+            Assert.AreEqual($"Transaction {{ Id = {id}, State = Open, IsReadOnly = False }}", tx1.ToString());
+            Assert.AreEqual($"Transaction {{ Id = {id + 1}, State = RolledBack, IsReadOnly = True }}", tx2.ToString());
+            Assert.AreEqual($"Transaction {{ Id = {id + 2}, State = Committed, IsReadOnly = False }}", tx3.ToString());
+        }
+
         private class CustomTx : ITransaction
         {
+            public bool IsReadOnly => false;
+
             public ValueTask DisposeAsync()
             {
                 return new ValueTask(Task.CompletedTask);

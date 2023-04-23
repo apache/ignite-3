@@ -29,7 +29,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -50,7 +50,7 @@ import org.junit.jupiter.api.Test;
  * <li>When a table is not existed, tries to alter or drop the table have to failed {@link TableNotFoundException}.</li>
  * </ul>
  */
-public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
+public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
     /** Schema name. */
     public static final String SCHEMA = "PUBLIC";
 
@@ -222,9 +222,7 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
                                         SchemaBuilders.column("new_key", ColumnType.INT64).build(),
                                         SchemaBuilders.column("new_val", ColumnType.string()).build())
                                 .withPrimaryKey("new_key")
-                                .build(), tableChange)
-                                .changeReplicas(2)
-                                .changePartitions(10))));
+                                .build(), tableChange))));
     }
 
     /**
@@ -242,9 +240,7 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
                                 SchemaBuilders.column("new_key", ColumnType.INT64).build(),
                                 SchemaBuilders.column("new_val", ColumnType.string()).build())
                         .withPrimaryKey("new_key")
-                        .build(), tableChange)
-                        .changeReplicas(2)
-                        .changePartitions(10));
+                        .build(), tableChange));
 
         assertThrows(TableAlreadyExistsException.class, () -> futureResult(tableFut2));
     }

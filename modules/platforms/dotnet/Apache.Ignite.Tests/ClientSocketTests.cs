@@ -33,7 +33,7 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestConnectAndSendRequestReturnsResponse()
         {
-            using var socket = await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, ServerPort), new(), _ => {});
+            using var socket = await ClientSocket.ConnectAsync(GetEndPoint(), new(), _ => {});
 
             using var requestWriter = ProtoCommon.GetMessageWriter();
             requestWriter.MessageWriter.Write("non-existent-table");
@@ -45,7 +45,7 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestConnectAndSendRequestWithInvalidOpCodeThrowsError()
         {
-            using var socket = await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, ServerPort), new(), _ => {});
+            using var socket = await ClientSocket.ConnectAsync(GetEndPoint(), new(), _ => {});
 
             using var requestWriter = ProtoCommon.GetMessageWriter();
             requestWriter.MessageWriter.Write(123);
@@ -59,15 +59,17 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestDisposedSocketThrowsExceptionOnSend()
         {
-            var socket = await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, ServerPort), new(), _ => {});
+            var socket = await ClientSocket.ConnectAsync(GetEndPoint(), new(), _ => {});
 
             socket.Dispose();
 
             using var requestWriter = new PooledArrayBuffer();
             requestWriter.MessageWriter.Write(123);
 
-            Assert.ThrowsAsync<ObjectDisposedException>(
+            var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(
                 async () => await socket.DoOutInOpAsync(ClientOp.SchemasGet, requestWriter));
+
+            Assert.IsInstanceOf<ObjectDisposedException>(ex!.InnerException);
 
             // Multiple dispose is allowed.
             socket.Dispose();
@@ -76,7 +78,10 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestConnectWithoutServerThrowsException()
         {
-            Assert.CatchAsync(async () => await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, 569), new(), _ => {}));
+            Assert.CatchAsync(async () => await ClientSocket.ConnectAsync(GetEndPoint(569), new(), _ => { }));
         }
+
+        private static SocketEndpoint GetEndPoint(int? serverPort = null) =>
+            new(new(IPAddress.Loopback, serverPort ?? ServerPort), string.Empty);
     }
 }

@@ -18,17 +18,21 @@
 package org.apache.ignite.internal.configuration.validation;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.lang.annotation.Annotation;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
+import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.mockito.ArgumentCaptor;
 
@@ -69,29 +73,48 @@ public class TestValidationUtil {
     }
 
     /**
+     * Checks that validation completed without errors.
+     *
+     * @param validator Checked validator.
+     * @param annotation Mocked annotation.
+     * @param ctx Mocked validation context.
+     */
+    public static <A extends Annotation, VIEWT> void validate(
+            Validator<A, VIEWT> validator,
+            A annotation,
+            ValidationContext<VIEWT> ctx
+    ) {
+        validate(validator, annotation, ctx, (String[]) null);
+    }
+
+    /**
      * Performs validation checking whether there are errors.
      *
      * @param validator Checked validator.
      * @param annotation Mocked annotation.
      * @param ctx Mocked validation context.
-     * @param errorMessagePrefix Error prefix, if {@code null} it is expected that there will be no errors.
+     * @param errorMessagePrefixes Error prefixes, if {@code null} it is expected that there will be no errors.
      */
     public static <A extends Annotation, VIEWT> void validate(
             Validator<A, VIEWT> validator,
             A annotation,
             ValidationContext<VIEWT> ctx,
-            @Nullable String errorMessagePrefix
+            String @Nullable ... errorMessagePrefixes
     ) {
         ArgumentCaptor<ValidationIssue> argumentCaptor = addIssuesCaptor(ctx);
 
         validator.validate(annotation, ctx);
 
-        if (errorMessagePrefix == null) {
+        if (errorMessagePrefixes == null) {
             assertThat(argumentCaptor.getAllValues(), empty());
         } else {
-            assertThat(argumentCaptor.getAllValues(), hasSize(1));
+            List<String> messages = argumentCaptor.getAllValues().stream()
+                    .map(ValidationIssue::message).collect(Collectors.toList());
 
-            assertThat(argumentCaptor.getValue().message(), startsWith(errorMessagePrefix));
+            List<Matcher<? super String>> matchers = Arrays.stream(errorMessagePrefixes)
+                    .map(Matchers::startsWith).collect(Collectors.toList());
+
+            assertThat(messages, contains(matchers));
         }
     }
 }

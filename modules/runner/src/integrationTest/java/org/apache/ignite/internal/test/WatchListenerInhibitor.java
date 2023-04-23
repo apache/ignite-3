@@ -17,28 +17,27 @@
 
 package org.apache.ignite.internal.test;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getField;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
+import java.lang.reflect.Field;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
-import org.apache.ignite.internal.metastorage.server.Watch;
 import org.apache.ignite.internal.metastorage.server.WatchProcessor;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 
 /**
- * Listener which wraps another one to inhibit events.
+ * Class for blocking Watch processing on a given Ignite node.
  */
 public class WatchListenerInhibitor {
-    /** "watches" field captured from the {@link RocksDbKeyValueStorage} instance. */
-    private final List<Watch> watches;
+    private final WatchProcessor watchProcessor;
 
-    /** Latch used to block the watch notification thread. */
-    private final CountDownLatch inhibitLatch = new CountDownLatch(1);
+    private final Field notificationFutureField;
+
+    /** Future used to block the watch notification thread. */
+    private final CompletableFuture<Void> inhibitFuture = new CompletableFuture<>();
 
     /**
      * Creates the specific listener which can inhibit events for real metastorage listener.
@@ -54,48 +53,31 @@ public class WatchListenerInhibitor {
 
         var watchProcessor = (WatchProcessor) getFieldValue(storage, RocksDbKeyValueStorage.class, "watchProcessor");
 
-        var watches = (List<Watch>) getFieldValue(watchProcessor, WatchProcessor.class, "watches");
-
-        return new WatchListenerInhibitor(watches);
+        return new WatchListenerInhibitor(watchProcessor);
     }
 
-    private WatchListenerInhibitor(List<Watch> watches) {
-        this.watches = watches;
+    private WatchListenerInhibitor(WatchProcessor watchProcessor) {
+        this.watchProcessor = watchProcessor;
+        this.notificationFutureField = getField(watchProcessor, WatchProcessor.class, "notificationFuture");
     }
 
     /**
      * Starts inhibiting events.
      */
     public void startInhibit() {
-        // Inject a watch that matches all keys and revisions and blocks the watch notification thread until the latch is released.
-        var blockingWatch = new Watch(
-                0,
-                new WatchListener() {
-                    @Override
-                    public void onUpdate(WatchEvent event) {
-                        try {
-                            inhibitLatch.await();
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
+        try {
+            CompletableFuture<Void> notificationFuture = (CompletableFuture<Void>) notificationFutureField.get(watchProcessor);
 
-                            throw new RuntimeException(e);
-                        }
-                    }
-
-                    @Override
-                    public void onError(Throwable e) {
-                    }
-                },
-                key -> true
-        );
-
-        watches.add(0, blockingWatch);
+            notificationFutureField.set(watchProcessor, notificationFuture.thenCompose(v -> inhibitFuture));
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
      * Stops inhibiting events.
      */
     public void stopInhibit() {
-        inhibitLatch.countDown();
+        inhibitFuture.complete(null);
     }
 }

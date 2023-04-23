@@ -17,6 +17,7 @@
 
 package org.apache.ignite.distributed;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
@@ -40,10 +41,13 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -57,6 +61,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -67,6 +72,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -84,8 +90,10 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
@@ -104,6 +112,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
@@ -122,6 +131,9 @@ import org.mockito.Mockito;
 public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static DataStorageConfiguration dsCfg;
 
     private static final IgniteLogger LOG = Loggers.forClass(ItTxDistributedTestSingleNode.class);
 
@@ -150,6 +162,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     protected Int2ObjectOpenHashMap<RaftGroupService> custRaftClients;
 
     protected Map<String, TxStateStorage> txStateStorages;
+
+    private Map<String, ClusterService> clusterServices;
 
     protected final List<ClusterService> cluster = new CopyOnWriteArrayList<>();
 
@@ -222,9 +236,14 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         var nodeFinder = new StaticNodeFinder(localAddresses);
 
+        clusterServices = new HashMap<>(nodes);
+
         nodeFinder.findNodes().parallelStream()
-                .map(addr -> startNode(testInfo, addr.toString(), addr.port(), nodeFinder))
-                .forEach(cluster::add);
+                .forEach(addr -> {
+                    ClusterService svc = startNode(testInfo, addr.toString(), addr.port(), nodeFinder);
+                    cluster.add(svc);
+                    clusterServices.put(svc.topologyService().localMember().name(), svc);
+                });
 
         for (ClusterService node : cluster) {
             assertTrue(waitForTopology(node, nodes, 1000));
@@ -409,7 +428,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                         indexId,
-                        new TestHashIndexStorage(null),
+                        new TestHashIndexStorage(partId, null),
                         row2Tuple
                 ));
 
@@ -419,10 +438,23 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 PendingComparableValuesTracker<HybridTimestamp> safeTime =
                         new PendingComparableValuesTracker<>(clocks.get(assignment).now());
+                PendingComparableValuesTracker<Long> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
                 PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(testMpPartStorage);
-                Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes = () -> Map.of(pkStorage.get().id(), pkStorage.get());
-                StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(partId, partitionDataStorage, indexes);
+
+                StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
+                        partId,
+                        partitionDataStorage,
+                        DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get())),
+                        dsCfg
+                );
+
+                TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                        clusterServices.get(assignment),
+                        logicalTopologyService(clusterServices.get(assignment)),
+                        Loza.FACTORY,
+                        new RaftGroupEventsClientListener()
+                );
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
                         new RaftNodeId(grpId, configuration.peer(assignment)),
@@ -431,15 +463,18 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                 partitionDataStorage,
                                 storageUpdateHandler,
                                 txStateStorage,
-                                safeTime
+                                safeTime,
+                                storageIndexTracker
                         ),
-                        RaftGroupEventsListener.noopLsnr
+                        RaftGroupEventsListener.noopLsnr,
+                        topologyAwareRaftGroupServiceFactory
                 ).thenAccept(
                         raftSvc -> {
                             try {
                                 DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
                                 replicaManagers.get(assignment).startReplica(
                                         new TablePartitionId(tblId, partId),
+                                        CompletableFuture.completedFuture(null),
                                         new PartitionReplicaListener(
                                                 testMpPartStorage,
                                                 raftSvc,
@@ -457,8 +492,10 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 placementDriver,
                                                 storageUpdateHandler,
                                                 peer -> assignment.equals(peer.consistentId()),
-                                                CompletableFuture.completedFuture(schemaManager)
-                                        )
+                                                completedFuture(schemaManager)
+                                        ),
+                                        raftSvc,
+                                        storageIndexTracker
                                 );
                             } catch (NodeStoppingException e) {
                                 fail("Unexpected node stopping", e);
@@ -505,6 +542,32 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         CompletableFuture.allOf(partitionReadyFutures.toArray(new CompletableFuture[0])).join();
 
         return clients;
+    }
+
+    private LogicalTopologyService logicalTopologyService(ClusterService clusterService) {
+        return new LogicalTopologyService() {
+            @Override
+            public void addEventListener(LogicalTopologyEventListener listener) {
+
+            }
+
+            @Override
+            public void removeEventListener(LogicalTopologyEventListener listener) {
+
+            }
+
+            @Override
+            public CompletableFuture<LogicalTopologySnapshot> logicalTopologyOnLeader() {
+                return completedFuture(new LogicalTopologySnapshot(
+                        1,
+                        clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet())));
+            }
+
+            @Override
+            public CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader() {
+                return completedFuture(Set.copyOf(clusterService.topologyService().allMembers()));
+            }
+        };
     }
 
     /**
@@ -613,10 +676,18 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         return manager;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Check the storage of partition is the same across all nodes.
+     * The checking is based on {@link MvPartitionStorage#lastAppliedIndex()} that is increased on all update storage operation.
+     * TODO: IGNITE-18869 The method must be updated when a proper way to compare storages will be implemented.
+     *
+     * @param table The table.
+     * @param partId Partition id.
+     * @return True if {@link MvPartitionStorage#lastAppliedIndex()} is equivalent across all nodes, false otherwise.
+     */
     @Override
     protected boolean assertPartitionsSame(TableImpl table, int partId) {
-        int hash = 0;
+        long storageIdx = 0;
 
         for (Map.Entry<String, Loza> entry : raftServers.entrySet()) {
             Loza svc = entry.getValue();
@@ -635,9 +706,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             MvPartitionStorage storage = listener.getMvStorage();
 
-            if (hash == 0) {
-                hash = storage.hashCode();
-            } else if (hash != storage.hashCode()) {
+            if (storageIdx == 0) {
+                storageIdx = storage.lastAppliedIndex();
+            } else if (storageIdx != storage.lastAppliedIndex()) {
                 return false;
             }
         }
@@ -649,11 +720,11 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     public void testIgniteTransactionsAndReadTimestamp() {
         Transaction readWriteTx = igniteTransactions.begin();
         assertFalse(readWriteTx.isReadOnly());
-        assertNull(readWriteTx.readTimestamp());
+        assertNull(((InternalTransaction) readWriteTx).readTimestamp());
 
         Transaction readOnlyTx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         assertTrue(readOnlyTx.isReadOnly());
-        assertNotNull(readOnlyTx.readTimestamp());
+        assertNotNull(((InternalTransaction) readOnlyTx).readTimestamp());
 
         readWriteTx.commit();
 

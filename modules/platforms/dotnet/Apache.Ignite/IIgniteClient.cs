@@ -37,6 +37,6 @@ namespace Apache.Ignite
         /// Gets active connections.
         /// </summary>
         /// <returns>A list of connected cluster nodes.</returns>
-        IList<IClusterNode> GetConnections();
+        IList<IConnectionInfo> GetConnections();
     }
 }

@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.storage;
 
-import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
-import static org.apache.ignite.internal.util.CollectionUtils.first;
-
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Consumer;
@@ -27,14 +24,12 @@ import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.schema.configuration.TableConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -52,18 +47,18 @@ public class DataStorageManager implements IgniteComponent {
     /**
      * Constructor.
      *
-     * @param tablesConfig Tables configuration.
+     * @param dstZnsCfg Zones configuration.
      * @param engines Storage engines unique by {@link DataStorageModule#name name}.
      */
     public DataStorageManager(
-            TablesConfiguration tablesConfig,
+            DistributionZonesConfiguration dstZnsCfg,
             Map<String, StorageEngine> engines
     ) {
         assert !engines.isEmpty();
 
         this.engines = engines;
 
-        defaultDataStorageConfig = tablesConfig.defaultDataStorage();
+        defaultDataStorageConfig = dstZnsCfg.defaultDataStorage();
     }
 
     /** {@inheritDoc} */
@@ -88,49 +83,37 @@ public class DataStorageManager implements IgniteComponent {
     }
 
     /**
-     * Returns a consumer that will set the default {@link TableConfigurationSchema#dataStorage table data storage} depending on the {@link
-     * StorageEngine engine}.
+     * Returns a consumer that will set the default {@link DistributionZoneConfiguration#dataStorage table data storage}
+     * depending on the {@link StorageEngine engine}.
      *
-     * @param defaultDataStorageView View of {@link TablesConfigurationSchema#defaultDataStorage}. For the case {@link
-     *      UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} and there is only one engine, then it will be the default, otherwise
-     *      there will be no default.
+     * @param defaultDataStorageView View of {@link DistributionZonesConfiguration#defaultDataStorage}.
      */
-    // TODO: IGNITE-16835 Remove it.
-    public Consumer<DataStorageChange> defaultTableDataStorageConsumer(String defaultDataStorageView) {
-        return tableDataStorageChange -> {
-            if (!defaultDataStorageView.equals(UNKNOWN_DATA_STORAGE)) {
-                assert engines.containsKey(defaultDataStorageView)
-                        : "Default Storage Engine \"" + defaultDataStorageView + "\" is missing from configuration";
+    public Consumer<DataStorageChange> defaultZoneDataStorageConsumer(String defaultDataStorageView) {
+        return zoneDataStorageChange -> {
+            assert engines.containsKey(defaultDataStorageView)
+                    : "Default Storage Engine \"" + defaultDataStorageView + "\" is missing from configuration";
 
-                tableDataStorageChange.convert(defaultDataStorageView);
-            } else if (engines.size() == 1) {
-                tableDataStorageChange.convert(first(engines.keySet()));
-            }
+            zoneDataStorageChange.convert(defaultDataStorageView);
         };
     }
 
     /**
      * Returns the default data storage.
      *
-     * <p>{@link TablesConfigurationSchema#defaultDataStorage} is used. For the case {@link
-     * UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} and there is only one engine, then it will be the default.
+     * <p>{@link DistributionZonesConfiguration#defaultDataStorage} is used.
      */
     public String defaultDataStorage() {
-        String defaultDataStorage = defaultDataStorageConfig.value();
-
-        return !defaultDataStorage.equals(UNKNOWN_DATA_STORAGE) || engines.size() > 1 ? defaultDataStorage : first(engines.keySet());
+        return defaultDataStorageConfig.value();
     }
 
     /**
      * Creates a consumer that will change the {@link DataStorageConfigurationSchema data storage} for the {@link
-     * TableConfigurationSchema#dataStorage}.
+     * DistributionZoneConfiguration#dataStorage}.
      *
-     * @param dataStorage Data storage, {@link UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} is invalid.
+     * @param dataStorage Data storage.
      * @param values {@link Value Values} for the data storage. Mapping: field name -> field value.
      */
-    public Consumer<DataStorageChange> tableDataStorageConsumer(String dataStorage, Map<String, Object> values) {
-        assert !dataStorage.equals(UNKNOWN_DATA_STORAGE);
-
+    public Consumer<DataStorageChange> zoneDataStorageConsumer(String dataStorage, Map<String, Object> values) {
         ConfigurationSource configurationSource = new ConfigurationSource() {
             /** {@inheritDoc} */
             @Override
@@ -170,10 +153,10 @@ public class DataStorageManager implements IgniteComponent {
             }
         };
 
-        return tableDataStorageChange -> {
-            tableDataStorageChange.convert(dataStorage);
+        return zoneDataStorageChange -> {
+            zoneDataStorageChange.convert(dataStorage);
 
-            configurationSource.descend((ConstructableTreeNode) tableDataStorageChange);
+            configurationSource.descend((ConstructableTreeNode) zoneDataStorageChange);
         };
     }
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration;
 
 import com.google.auto.service.AutoService;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**

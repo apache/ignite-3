@@ -37,4 +37,9 @@ public final class MediaType {
      * text/plain media type.
      */
     public static final String TEXT_PLAIN = "text/plain";
+
+    /**
+     * multipart/form-data media type.
+     */
+    public static final String FORM_DATA = "multipart/form-data";
 }

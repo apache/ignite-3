@@ -194,11 +194,12 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     {
         var column = Metadata.Columns[ordinal];
 
+        // ReSharper disable once SwitchExpressionHandlesSomeKnownEnumValuesWithExceptionInDefault
         return column.Type switch
         {
-            SqlColumnType.Date => GetReader().GetDate(ordinal).ToDateTimeUnspecified(),
-            SqlColumnType.Datetime => GetReader().GetDateTime(ordinal).ToDateTimeUnspecified(),
-            SqlColumnType.Timestamp => GetReader().GetTimestamp(ordinal).ToDateTimeUtc(),
+            ColumnType.Date => GetReader().GetDate(ordinal).ToDateTimeUnspecified(),
+            ColumnType.Datetime => GetReader().GetDateTime(ordinal).ToDateTimeUnspecified(),
+            ColumnType.Timestamp => GetReader().GetTimestamp(ordinal).ToDateTimeUtc(),
             _ => throw GetInvalidColumnTypeException(typeof(DateTime), column)
         };
     }
@@ -461,11 +462,21 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override Type GetFieldType(int ordinal) => Metadata.Columns[ordinal].Type.ToClrType();
 
     /// <inheritdoc/>
+    public override string ToString() =>
+        new IgniteToStringBuilder(GetType())
+            .Append(FieldCount)
+            .Append(RecordsAffected)
+            .Append(HasRows)
+            .Append(IsClosed)
+            .Append(Metadata)
+            .Build();
+
+    /// <inheritdoc/>
     protected override void Dispose(bool disposing) => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
     private static void ValidateColumnType(Type type, IColumnMetadata column)
     {
-        if (column.Type != type.ToSqlColumnType())
+        if (column.Type != type.ToColumnType())
         {
             throw GetInvalidColumnTypeException(type, column);
         }

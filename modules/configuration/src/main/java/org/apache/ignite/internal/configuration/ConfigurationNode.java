@@ -122,14 +122,6 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
     }
 
     /**
-     * Converts current configuration node into a "direct proxy node". Unlike regular nodes, proxies read value from underlying storage
-     * every time {@link ConfigurationProperty#value()} is invoked.
-     *
-     * @return Direct proxy instance.
-     */
-    public abstract DirectPropertyProxy<VIEWT> directProxy();
-
-    /**
      * Returns latest value of the configuration or throws exception.
      *
      * @return Latest configuration value.

@@ -67,13 +67,23 @@ public class DefaultRaftClientService extends AbstractClientService implements R
     @Override
     public Future<Message> preVote(final PeerId peerId, final RequestVoteRequest request,
         final RpcResponseClosure<RequestVoteResponse> done) {
-        return invokeWithDone(peerId, request, done, this.nodeOptions.getElectionTimeoutMs());
+
+        if (connect(peerId)) {
+            return invokeWithDone(peerId, request, done, this.nodeOptions.getElectionTimeoutMs());
+        }
+
+        return onConnectionFail(rpcExecutor, request, done, peerId);
     }
 
     @Override
     public Future<Message> requestVote(final PeerId peerId, final RequestVoteRequest request,
         final RpcResponseClosure<RequestVoteResponse> done) {
-        return invokeWithDone(peerId, request, done, this.nodeOptions.getElectionTimeoutMs());
+
+        if (connect(peerId)) {
+            return invokeWithDone(peerId, request, done, this.nodeOptions.getElectionTimeoutMs());
+        }
+
+        return onConnectionFail(rpcExecutor, request, done, peerId);
     }
 
     @Override
@@ -88,7 +98,7 @@ public class DefaultRaftClientService extends AbstractClientService implements R
             return invokeWithDone(peerId, request, done, timeoutMs, executor);
         }
 
-        return failedFuture(executor, request, done, peerId);
+        return onConnectionFail(executor, request, done, peerId);
     }
 
     @Override
@@ -109,7 +119,7 @@ public class DefaultRaftClientService extends AbstractClientService implements R
             return invokeWithDone(peerId, request, done, this.rpcOptions.getRpcInstallSnapshotTimeout());
         }
 
-        return failedFuture(rpcExecutor, request, done, peerId);
+        return onConnectionFail(rpcExecutor, request, done, peerId);
     }
 
     @Override
@@ -131,22 +141,22 @@ public class DefaultRaftClientService extends AbstractClientService implements R
      * @param peerId The Peer ID.
      * @return The future.
      */
-    private Future<Message> failedFuture(Executor executor, Message request, RpcResponseClosure<?> done, PeerId peerId) {
+    private Future<Message> onConnectionFail(Executor executor, Message request, RpcResponseClosure<?> done, PeerId peerId) {
         // fail-fast when no connection
         final CompletableFuture<Message> future = new CompletableFuture<>();
 
         executor.execute(() -> {
+            final String fmt = "Check connection[%s] fail and try to create new one";
             if (done != null) {
                 try {
-                    done.run(new Status(RaftError.EINTERNAL, "Check connection[%s] fail and try to create new one", peerId));
+                    done.run(new Status(RaftError.EINTERNAL, fmt, peerId));
                 }
                 catch (final Throwable t) {
                     LOG.error("Fail to run RpcResponseClosure, the request is {}.", t, request);
                 }
             }
 
-            future.completeExceptionally(new RemotingException("Check connection[" +
-                peerId + "] fail and try to create new one"));
+            future.completeExceptionally(new RemotingException(String.format(fmt, peerId)));
         });
 
         return future;

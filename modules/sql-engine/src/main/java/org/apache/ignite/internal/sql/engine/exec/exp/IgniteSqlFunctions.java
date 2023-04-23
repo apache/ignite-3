@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.time.LocalTime;
+import java.util.UUID;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.config.CalciteConnectionConfig;
@@ -28,6 +29,7 @@ import org.apache.calcite.linq4j.AbstractEnumerable;
 import org.apache.calcite.linq4j.Enumerable;
 import org.apache.calcite.linq4j.Enumerator;
 import org.apache.calcite.linq4j.Linq4j;
+import org.apache.calcite.linq4j.function.NonDeterministic;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.ScannableTable;
@@ -36,7 +38,6 @@ import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -162,7 +163,7 @@ public class IgniteSqlFunctions {
     }
 
     public static int currentTime(DataContext ctx) {
-        return (int) TypeUtils.toInternal((ExecutionContext<?>) ctx, LocalTime.now(), LocalTime.class);
+        return (int) TypeUtils.toInternal(LocalTime.now(), LocalTime.class);
     }
 
     /** LEAST2. */
@@ -173,6 +174,12 @@ public class IgniteSqlFunctions {
     /** GREATEST2. */
     public static @Nullable Object greatest2(Object arg0, Object arg1) {
         return leastOrGreatest(false, arg0, arg1);
+    }
+
+    /** Generates a random UUID and converts it to string. **/
+    @NonDeterministic
+    public static String genRandomUuid() {
+        return UUID.randomUUID().toString();
     }
 
     private static @Nullable Object leastOrGreatest(boolean least, Object arg0, Object arg1) {

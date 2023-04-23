@@ -77,7 +77,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
                 ClientTupleSerializer::readValueTuple,
                 null,
-                ClientTupleSerializer.getHashFunction(tx, key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /** {@inheritDoc} */
@@ -100,7 +100,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 (s, w) -> ser.writeTuples(tx, keys, s, w, true),
                 ClientTupleSerializer::readKvTuplesNullable,
                 Collections.emptyMap(),
-                ClientTupleSerializer.getHashFunction(tx, keys.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keys.iterator().next()));
     }
 
     /**
@@ -139,7 +139,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
                 (s, r) -> IgniteUtils.nonNullOrElse(ClientTupleSerializer.readValueTuple(s, r), defaultValue),
                 null,
-                ClientTupleSerializer.getHashFunction(tx, key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /** {@inheritDoc} */
@@ -157,7 +157,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 ClientOp.TUPLE_CONTAINS_KEY,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /** {@inheritDoc} */
@@ -175,7 +175,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 ClientOp.TUPLE_UPSERT,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
                 r -> null,
-                ClientTupleSerializer.getHashFunction(tx, key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /** {@inheritDoc} */
@@ -197,7 +197,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 ClientOp.TUPLE_UPSERT_ALL,
                 (s, w) -> ser.writeKvTuples(tx, pairs, s, w),
                 r -> null,
-                ClientTupleSerializer.getHashFunction(tx, pairs.keySet().iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, pairs.keySet().iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -217,7 +217,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
                 ClientTupleSerializer::readValueTuple,
                 null,
-                ClientTupleSerializer.getHashFunction(tx, key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /**
@@ -256,7 +256,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 ClientOp.TUPLE_INSERT,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /** {@inheritDoc} */
@@ -280,7 +280,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 ClientOp.TUPLE_DELETE,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /** {@inheritDoc} */
@@ -293,7 +293,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /** {@inheritDoc} */
@@ -316,7 +316,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 (s, w) -> ser.writeTuples(tx, keys, s, w, true),
                 (s, r) -> ClientTupleSerializer.readTuples(s, r, true),
                 Collections.emptyList(),
-                ClientTupleSerializer.getHashFunction(tx, keys.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keys.iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -335,7 +335,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
                 ClientTupleSerializer::readValueTuple,
                 null,
-                ClientTupleSerializer.getHashFunction(tx, key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /**
@@ -379,7 +379,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /** {@inheritDoc} */
@@ -394,7 +394,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                     ser.writeKvTuple(tx, key, newVal, s, w, true);
                 },
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /** {@inheritDoc} */
@@ -414,7 +414,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
                 ClientTupleSerializer::readValueTuple,
                 null,
-                ClientTupleSerializer.getHashFunction(tx, key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /**

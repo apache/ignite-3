@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.Collection;
 import java.util.List;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**

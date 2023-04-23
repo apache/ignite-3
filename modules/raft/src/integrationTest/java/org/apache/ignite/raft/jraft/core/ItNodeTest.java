@@ -496,7 +496,7 @@ public class ItNodeTest {
 
     // TODO asch Broken then using volatile log. A follower with empty log can become a leader IGNITE-14832.
     @Test
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-14832")
     public void testVoteTimedoutStepDown() throws Exception {
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
 
@@ -547,6 +547,11 @@ public class ItNodeTest {
             int val = startedCounter.incrementAndGet();
 
             LOG.info("Replicator has been created {} {}", peer, val);
+        }
+
+        @Override
+        public void stateChanged(final PeerId peer, final ReplicatorState newState) {
+            LOG.info("Replicator {} state is changed into {}.", peer, newState);
         }
 
         /** {@inheritDoc} */

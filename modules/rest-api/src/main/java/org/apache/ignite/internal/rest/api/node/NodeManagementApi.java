@@ -20,6 +20,8 @@ package org.apache.ignite.internal.rest.api.node;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Produces;
+import io.micronaut.security.annotation.Secured;
+import io.micronaut.security.rules.SecurityRule;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -33,6 +35,7 @@ import org.apache.ignite.internal.rest.constants.MediaType;
  * REST endpoint allows to read node state.
  */
 @Controller("/management/v1/node")
+@Secured(SecurityRule.IS_AUTHENTICATED)
 @Tag(name = "nodeManagement")
 public interface NodeManagementApi {
 
@@ -44,10 +47,6 @@ public interface NodeManagementApi {
             @ApiResponse(responseCode = "500", description = "Internal error.",
                     content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     })
-    @Produces({
-            MediaType.APPLICATION_JSON,
-            MediaType.PROBLEM_JSON
-    })
     NodeState state();
 
     @Get("version")
@@ -56,9 +55,6 @@ public interface NodeManagementApi {
             content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")))
     @ApiResponse(responseCode = "500", description = "Internal error",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @Produces({
-            MediaType.TEXT_PLAIN,
-            MediaType.PROBLEM_JSON
-    })
+    @Produces(MediaType.PROBLEM_JSON)
     String version();
 }

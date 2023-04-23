@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage;
 
 import java.util.Collection;
 import java.util.List;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -27,6 +28,7 @@ import org.apache.ignite.internal.tostring.S;
  */
 public class WatchEvent {
     /** Events about each entry update in the revision. */
+    @IgniteToStringInclude
     private final List<EntryEvent> entryEvts;
 
     private final long revision;
@@ -37,10 +39,8 @@ public class WatchEvent {
      * @param entryEvts Events for entries corresponding to an update under one revision.
      * @param revision Revision of the updated entries.
      */
-    public WatchEvent(List<EntryEvent> entryEvts, long revision) {
-        assert entryEvts != null && !entryEvts.isEmpty();
-
-        this.entryEvts = entryEvts;
+    public WatchEvent(Collection<EntryEvent> entryEvts, long revision) {
+        this.entryEvts = List.copyOf(entryEvts);
         this.revision = revision;
     }
 
@@ -77,6 +77,8 @@ public class WatchEvent {
      * @return Entry event.
      */
     public EntryEvent entryEvent() {
+        assert single();
+
         return entryEvts.get(0);
     }
 
@@ -87,6 +89,30 @@ public class WatchEvent {
      */
     public long revision() {
         return revision;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        WatchEvent event = (WatchEvent) o;
+
+        if (revision != event.revision) {
+            return false;
+        }
+        return entryEvts.equals(event.entryEvts);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = entryEvts.hashCode();
+        result = 31 * result + (int) (revision ^ (revision >>> 32));
+        return result;
     }
 
     @Override

@@ -18,13 +18,15 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 
 /**
  * Search key for the {@link VersionChainTree}.
  */
 public class VersionChainKey {
     /** Row id. */
-    private final RowId rowId;
+    @IgniteToStringInclude
+    protected final RowId rowId;
 
     /**
      * Constructor.

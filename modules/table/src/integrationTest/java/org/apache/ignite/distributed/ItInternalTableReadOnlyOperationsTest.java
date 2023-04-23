@@ -37,6 +37,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowReplicaRequest;
@@ -101,6 +103,8 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
      */
     @BeforeEach
     public void setUp(TestInfo testInfo) {
+        when(mockStorage.scan(any(HybridTimestamp.class))).thenReturn(mock(PartitionTimestampCursor.class));
+
         internalTbl = new DummyInternalTableImpl(replicaService, mockStorage, SCHEMA);
 
         lenient().when(readOnlyTx.isReadOnly()).thenReturn(true);
@@ -263,7 +267,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
     private void mockReadOnlyMultiRowRequest() {
         List<BinaryRow> rowStore = List.of(ROW_1, ROW_2);
 
-        when(replicaService.invoke(any(), any(ReadOnlyMultiRowReplicaRequest.class))).thenAnswer(args -> {
+        when(replicaService.invoke(any(ClusterNode.class), any(ReadOnlyMultiRowReplicaRequest.class))).thenAnswer(args -> {
             List<BinaryRow> result = new ArrayList<>();
 
             for (BinaryRow row : rowStore) {
@@ -283,7 +287,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
     private void mockReadOnlySingleRowRequest() {
         List<BinaryRow> rowStore = List.of(ROW_1, ROW_2);
 
-        when(replicaService.invoke(any(), any(ReadOnlySingleRowReplicaRequest.class))).thenAnswer(args -> {
+        when(replicaService.invoke(any(ClusterNode.class), any(ReadOnlySingleRowReplicaRequest.class))).thenAnswer(args -> {
             for (BinaryRow row : rowStore) {
                 BinaryRow searchRow = args.getArgument(1, ReadOnlySingleRowReplicaRequest.class).binaryRow();
 

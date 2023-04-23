@@ -157,6 +157,20 @@ public interface ConnectionProperties {
     ClientAuthenticationMode getClientAuth();
 
     /**
+     * SSL ciphers.
+     *
+     * @param ciphers list of ciphers.
+     */
+    void setCiphers(String ciphers);
+
+    /**
+     * SSL ciphers.
+     *
+     * @return list of ciphers.
+     */
+    Iterable<String> getCiphers();
+
+    /**
      * Set trust store path that will be used to setup SSL connection.
      *
      * @param trustStorePath Trust store path.
@@ -239,4 +253,32 @@ public interface ConnectionProperties {
      * @return Keytore type.
      */
     String getKeyStoreType();
+
+    /**
+     * Basic authentication username.
+     *
+     * @return Basic authentication username.
+     */
+    String getBasicAuthenticationUsername();
+
+    /**
+     * Set basic authentication username.
+     *
+     * @param username Basic authentication username.
+     */
+    void setBasicAuthenticationUsername(String username);
+
+    /**
+     * Basic authentication password.
+     *
+     * @return Basic authentication password.
+     */
+    String getBasicAuthenticationPassword();
+
+    /**
+     * Set basic authentication password.
+     *
+     * @param password Basic authentication password.
+     */
+    void setBasicAuthenticationPassword(String password);
 }

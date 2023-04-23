@@ -58,7 +58,6 @@ import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelReferentialConstraint;
 import org.apache.calcite.rel.RelVisitor;
-import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rel.hint.RelHint;
@@ -68,9 +67,7 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.rex.RexCall;
-import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
@@ -97,7 +94,6 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
-import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.Cloner;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
@@ -106,7 +102,6 @@ import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.Splitter;
-import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -117,8 +112,7 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
-import org.apache.ignite.internal.sql.engine.schema.ModifyRow;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
@@ -128,7 +122,6 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
@@ -148,7 +141,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     protected static final int DEFAULT_ZONE_ID = 0;
 
     /** Last error message. */
-    private String lastErrorMsg;
+    String lastErrorMsg;
 
     interface TestVisitor {
         void visit(RelNode node, int ordinal, RelNode parent);
@@ -534,18 +527,25 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         checkSplitAndSerialization(plan, schemas);
 
-        if (!predicate.test((T) plan)) {
-            String invalidPlanMsg = "Invalid plan (" + lastErrorMsg + "):\n"
+        try {
+            if (predicate.test((T) plan)) {
+                return;
+            }
+        } catch (Throwable th) {
+            String invalidPlanMsg = "Failed to validate plan (" + lastErrorMsg + "):\n"
                     + RelOptUtil.toString(plan, SqlExplainLevel.ALL_ATTRIBUTES);
 
-            fail(invalidPlanMsg);
+            fail(invalidPlanMsg, th);
         }
+
+        fail("Invalid plan (" + lastErrorMsg + "):\n"
+                + RelOptUtil.toString(plan, SqlExplainLevel.ALL_ATTRIBUTES));
     }
 
     /**
      * Predicate builder for "Instance of class" condition.
      */
-    protected <T extends RelNode> Predicate<T> isInstanceOf(Class<T> cls) {
+    protected <T> Predicate<T> isInstanceOf(Class<T> cls) {
         return node -> {
             if (cls.isInstance(node)) {
                 return true;
@@ -562,8 +562,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      */
     protected <T extends RelNode> Predicate<IgniteTableScan> isTableScan(String tableName) {
         return isInstanceOf(IgniteTableScan.class).and(
-            n -> {
-                String scanTableName = Util.last(n.getTable().getQualifiedName());
+                n -> {
+                    String scanTableName = Util.last(n.getTable().getQualifiedName());
 
                     if (tableName.equalsIgnoreCase(scanTableName)) {
                         return true;
@@ -660,10 +660,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * @param tbls Tables to create schema for.
      * @return Public schema.
      */
-    protected static IgniteSchema createSchema(InternalIgniteTable... tbls) {
+    protected static IgniteSchema createSchema(IgniteTable... tbls) {
         IgniteSchema schema = new IgniteSchema("PUBLIC");
 
-        for (InternalIgniteTable tbl : tbls) {
+        for (IgniteTable tbl : tbls) {
             schema.addTable(tbl);
         }
 
@@ -697,8 +697,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         List<RelNode> deserializedNodes = new ArrayList<>();
 
+        BaseQueryContext ctx = baseQueryContext(schemas, null);
+
         for (String s : serialized) {
-            RelJsonReader reader = new RelJsonReader(new PredefinedSchemaManager(schemas));
+            RelJsonReader reader = new RelJsonReader(ctx.catalogReader());
             deserializedNodes.add(reader.read(s));
         }
 
@@ -767,7 +769,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     /** Test table. */
-    public abstract static class TestTable implements InternalIgniteTable {
+    public abstract static class TestTable implements IgniteTable {
         private final String name;
 
         private final RelProtoDataType protoType;
@@ -1003,12 +1005,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                 @Nullable BitSet requiredColumns) {
             throw new AssertionError();
         }
-
-        /** {@inheritDoc} */
-        @Override
-        public <RowT> ModifyRow toModifyRow(ExecutionContext<RowT> ectx, RowT row, Operation op, @Nullable List<String> arg) {
-            throw new AssertionError();
-        }
     }
 
     /**
@@ -1178,7 +1174,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         private final SortedIndexDescriptor descriptor;
 
-        public static TestSortedIndex create(RelCollation collation, String name, InternalIgniteTable table) {
+        public static TestSortedIndex create(RelCollation collation, String name, IgniteTable table) {
             List<String> columns = new ArrayList<>();
             List<ColumnCollation> collations = new ArrayList<>();
             TableDescriptor tableDescriptor = table.descriptor();
@@ -1226,12 +1222,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public Publisher<BinaryRow> lookup(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
-            throw new AssertionError("Should not be called");
-        }
-
-        /** {@inheritDoc} */
-        @Override
         public Publisher<BinaryRow> lookup(int partId, UUID txId, PrimaryReplica recipient, BinaryTuple key,
                 @Nullable BitSet columns) {
             throw new AssertionError("Should not be called");
@@ -1245,12 +1235,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public Publisher<BinaryRow> scan(int partId, InternalTransaction tx, @Nullable BinaryTuplePrefix leftBound,
-                @Nullable BinaryTuplePrefix rightBound, int flags, BitSet columnsToInclude) {
-            throw new AssertionError("Should not be called");
-        }
-
-        @Override
         public Publisher<BinaryRow> scan(int partId, HybridTimestamp timestamp, ClusterNode recipient,
                 @Nullable BinaryTuplePrefix leftBound, @Nullable BinaryTuplePrefix rightBound, int flags, BitSet columnsToInclude) {
             throw new AssertionError("Should not be called");
@@ -1263,20 +1247,33 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
     }
 
-    static class TestHashIndex implements Index<IndexDescriptor> {
+    /** Test Hash index implementation. */
+    public static class TestHashIndex implements Index<IndexDescriptor> {
         private final UUID id = UUID.randomUUID();
 
-        private final UUID tableId = UUID.randomUUID();
+        private UUID tableId = UUID.randomUUID();
 
         private final IndexDescriptor descriptor;
 
+        /** Create index. */
+        public static TestHashIndex create(List<String> indexedColumns, String name, UUID tableId) {
+            var descriptor = new IndexDescriptor(name, indexedColumns);
+
+            TestHashIndex idx = new TestHashIndex(descriptor);
+
+            idx.tableId = tableId;
+
+            return idx;
+        }
+
+        /** Create index. */
         public static TestHashIndex create(List<String> indexedColumns, String name) {
             var descriptor = new IndexDescriptor(name, indexedColumns);
 
             return new TestHashIndex(descriptor);
         }
 
-        public TestHashIndex(IndexDescriptor descriptor) {
+        TestHashIndex(IndexDescriptor descriptor) {
             this.descriptor = descriptor;
         }
 
@@ -1306,12 +1303,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public Publisher<BinaryRow> lookup(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
-            throw new AssertionError("Should not be called");
-        }
-
-        /** {@inheritDoc} */
-        @Override
         public Publisher<BinaryRow> lookup(int partId, UUID txId, PrimaryReplica recipient, BinaryTuple key,
                 @Nullable BitSet columns) {
             throw new AssertionError("Should not be called");
@@ -1322,42 +1313,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         public Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipient, BinaryTuple key, BitSet columns) {
             throw new AssertionError("Should not be called");
         }
-    }
-
-    void assertBounds(String sql, List<Object> params, IgniteSchema schema, Predicate<SearchBounds>... predicates) throws Exception {
-        assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteIndexScan.class)
-                .and(scan -> matchBounds(scan.searchBounds(), predicates))), params);
-    }
-
-    boolean matchBounds(List<SearchBounds> searchBounds, Predicate<SearchBounds>... predicates) {
-        for (int i = 0; i < predicates.length; i++) {
-            if (!predicates[i].test(searchBounds.get(i))) {
-                lastErrorMsg = "Not expected bounds: " + searchBounds.get(i);
-
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    Predicate<SearchBounds> range(Object lower, Object upper, boolean lowerInclude, boolean upperInclude) {
-        return b -> b instanceof RangeBounds
-                && matchValue(lower, ((RangeBounds) b).lowerBound())
-                && matchValue(upper, ((RangeBounds) b).upperBound())
-                && lowerInclude == ((RangeBounds) b).lowerInclude()
-                && upperInclude == ((RangeBounds) b).upperInclude();
-    }
-
-    private boolean matchValue(Object val, RexNode bound) {
-        if (val == null || bound == null) {
-            return val == bound;
-        }
-
-        bound = RexUtil.removeCast(bound);
-
-        return Objects.toString(val).equals(Objects.toString(
-                bound instanceof RexLiteral ? ((RexLiteral) bound).getValueAs(val.getClass()) : bound));
     }
 
     Predicate<SearchBounds> empty() {

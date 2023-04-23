@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.tx;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -38,25 +39,29 @@ public class ClientTransactionBeginRequest {
      * @param out          Packer.
      * @param transactions Transactions.
      * @param resources    Resources.
+     * @param metrics      Metrics.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             IgniteTransactions transactions,
-            ClientResourceRegistry resources) {
+            ClientResourceRegistry resources,
+            ClientHandlerMetricSource metrics) {
         TransactionOptions options = null;
 
         if (in.unpackBoolean()) {
             options = new TransactionOptions().readOnly(true);
         }
 
-        return transactions.beginAsync(options).thenAccept(t -> {
+        return transactions.beginAsync(options).thenAccept(tx -> {
             try {
-                long resourceId = resources.put(new ClientResource(t, t::rollbackAsync));
+                long resourceId = resources.put(new ClientResource(tx, tx::rollbackAsync));
                 out.packLong(resourceId);
+
+                metrics.transactionsActiveIncrement();
             } catch (IgniteInternalCheckedException e) {
-                t.rollback();
+                tx.rollback();
                 throw new IgniteInternalException(e.getMessage(), e);
             }
         });

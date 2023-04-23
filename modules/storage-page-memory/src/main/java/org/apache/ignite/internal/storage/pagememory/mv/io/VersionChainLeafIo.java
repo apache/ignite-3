@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv.io;
 
+import static org.apache.ignite.internal.storage.pagememory.mv.MvPageTypes.T_VERSION_CHAIN_LEAF_IO;
+
 import java.util.function.Consumer;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
@@ -33,9 +35,6 @@ import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
  * <p>Structure: link(long).
  */
 public final class VersionChainLeafIo extends BplusLeafIo<VersionChainKey> implements VersionChainIo {
-    /** Page IO type. */
-    public static final short T_VERSION_CHAIN_LEAF_IO = 11;
-
     /** I/O versions. */
     public static final IoVersions<VersionChainLeafIo> VERSIONS = new IoVersions<>(new VersionChainLeafIo(1));
 

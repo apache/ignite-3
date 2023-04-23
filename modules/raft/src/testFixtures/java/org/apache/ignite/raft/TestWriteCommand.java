@@ -29,6 +29,10 @@ public interface TestWriteCommand extends WriteCommand {
     String value();
 
     static TestWriteCommand testWriteCommand() {
-        return new TestRaftMessagesFactory().testWriteCommand().build();
+        return testWriteCommand(null);
+    }
+
+    static TestWriteCommand testWriteCommand(String value) {
+        return new TestRaftMessagesFactory().testWriteCommand().value(value).build();
     }
 }

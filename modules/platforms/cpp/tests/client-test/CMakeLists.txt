@@ -20,11 +20,16 @@ project(ignite-client-test)
 set(TARGET ${PROJECT_NAME})
 
 set(SOURCES
+    basic_authenticator_test.cpp
+    compute_test.cpp
     gtest_logger.h
     ignite_client_test.cpp
     ignite_runner_suite.h
+    key_value_binary_view_test.cpp
+    key_value_view_test.cpp
     main.cpp
     record_binary_view_test.cpp
+    record_view_test.cpp
     sql_test.cpp
     tables_test.cpp
     transactions_test.cpp

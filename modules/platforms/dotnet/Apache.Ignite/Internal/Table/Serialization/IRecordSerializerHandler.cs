@@ -37,15 +37,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         T Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false);
 
         /// <summary>
-        /// Reads the value part and combines with the specified key part into a new object.
-        /// </summary>
-        /// <param name="reader">Reader.</param>
-        /// <param name="schema">Schema.</param>
-        /// <param name="key">Key part.</param>
-        /// <returns>Resulting record with key and value parts.</returns>
-        T ReadValuePart(ref MsgPackReader reader, Schema schema, T key);
-
-        /// <summary>
         /// Writes a record.
         /// </summary>
         /// <param name="writer">Writer.</param>

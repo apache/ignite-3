@@ -25,6 +25,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -32,11 +33,11 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotUri;
@@ -71,6 +72,9 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     private final PartitionSnapshotStorage partitionSnapshotStorage;
 
     private final SnapshotUri snapshotUri;
+
+    /** Used to make sure that we execute cancellation at most once. */
+    private final AtomicBoolean cancellationGuard = new AtomicBoolean();
 
     /** Busy lock for synchronous rebalance cancellation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -151,6 +155,11 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     @Override
     public void cancel() {
+        // Cancellation from one thread must not block cancellations from other threads, hence this check.
+        if (!cancellationGuard.compareAndSet(false, true)) {
+            return;
+        }
+
         busyLock.block();
 
         LOG.info("Copier is canceled for partition [{}]", createPartitionInfo());

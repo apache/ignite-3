@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
 import java.util.function.Function;
@@ -43,9 +44,10 @@ public class HeartbeatTest {
                     .loggerFactory(loggerFactory);
 
             try (var ignored = builder.build()) {
-                IgniteTestUtils.waitForCondition(
-                        () -> loggerFactory.logger.entries().stream().anyMatch(x -> x.contains("Disconnected from server")),
-                        1000);
+                assertTrue(
+                        IgniteTestUtils.waitForCondition(
+                                () -> loggerFactory.logger.entries().stream().anyMatch(x -> x.contains("Connection closed")),
+                                10000));
             }
         }
     }
@@ -85,7 +87,7 @@ public class HeartbeatTest {
         Function<Integer, Integer> responseDelayFunc = requestCount -> requestCount > 1 ? 500 : 0;
         var loggerFactory = new TestLoggerFactory("client");
 
-        try (var srv = new TestServer(10800, 10, 300, new FakeIgnite(), x -> false, responseDelayFunc, null, UUID.randomUUID())) {
+        try (var srv = new TestServer(10800, 10, 300, new FakeIgnite(), x -> false, responseDelayFunc, null, UUID.randomUUID(), null)) {
             int srvPort = srv.port();
 
             Builder builder = IgniteClient.builder()
@@ -98,9 +100,11 @@ public class HeartbeatTest {
                     .loggerFactory(loggerFactory);
 
             try (var ignored = builder.build()) {
-                IgniteTestUtils.waitForCondition(
-                        () -> loggerFactory.logger.entries().stream().anyMatch(x -> x.contains("Heartbeat timeout, closing the channel")),
-                        3000);
+                assertTrue(
+                        IgniteTestUtils.waitForCondition(
+                                () -> loggerFactory.logger.entries().stream()
+                                        .anyMatch(x -> x.contains("Heartbeat timeout, closing the channel")),
+                                3000));
             }
         }
     }

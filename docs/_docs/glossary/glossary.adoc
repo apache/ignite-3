@@ -22,7 +22,7 @@ Cluster Management Group::A subset of Ignite nodes in a Raft cluster. Cluster gr
 
 Data Region:: Data regions are used to control the amount of memory available to the storage. Depending on the type of storage the data region is assigned to, the data may be loaded into RAM or stored
 
-Data Rebalace:: Data rebalance is the process of redistributing partitions to make sure they are distributed equally across all nodes in the cluster.
+Data Rebalance:: Data rebalance is the process of redistributing partitions to make sure they are distributed equally across all nodes in the cluster.
 
 ==== M
 

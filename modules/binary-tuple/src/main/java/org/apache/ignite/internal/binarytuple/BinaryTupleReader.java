@@ -343,12 +343,31 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
         return begin == 0 ? null : periodValue(begin, end);
     }
 
+
+    /**
+     * Gets the beginning of the current element.
+     *
+     * @return The beginning of the current element.
+     */
+    public int begin() {
+        return begin;
+    }
+
+    /**
+     * Gets the end of the current element.
+     *
+     * @return The end of the current element.
+     */
+    public int end() {
+        return end;
+    }
+
     /**
      * Locate the specified tuple element.
      *
      * @param index Element index.
      */
-    private void seek(int index) {
+    public void seek(int index) {
         fetch(index, this);
     }
 }

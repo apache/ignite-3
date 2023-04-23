@@ -26,7 +26,6 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
-import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -81,7 +80,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Returns all entries corresponding to given keys and bounded by the given revision.
      *
-     * @param keys          Keys collection.
+     * @param keys Keys collection.
      * @param revUpperBound Upper bound of revision.
      * @return Entries corresponding to given keys.
      */
@@ -90,7 +89,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Inserts an entry with the given key and given value.
      *
-     * @param key   The key.
+     * @param key The key.
      * @param value The value.
      */
     void put(byte[] key, byte[] value);
@@ -98,7 +97,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Inserts an entry with the given key and given value and returns previous entry.
      *
-     * @param key   The key.
+     * @param key The key.
      * @param value The value.
      * @return Previous entry corresponding to the given key.
      */
@@ -107,7 +106,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Inserts entries with given keys and given values.
      *
-     * @param keys   The key list.
+     * @param keys The key list.
      * @param values The values list.
      */
     void putAll(List<byte[]> keys, List<byte[]> values);
@@ -115,7 +114,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Inserts entries with given keys and given values and returns previous entries.
      *
-     * @param keys   The key list.
+     * @param keys The key list.
      * @param values The values list.
      * @return Collection of previous entries corresponding to given keys.
      */
@@ -155,8 +154,8 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Performs {@code success} operation if condition is {@code true}, otherwise performs {@code failure} operations.
      *
      * @param condition Condition.
-     * @param success   Success operations.
-     * @param failure   Failure operations.
+     * @param success Success operations.
+     * @param failure Failure operations.
      * @return Result of test condition.
      */
     boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure);
@@ -166,7 +165,6 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *
      * @param iif {@link If} statement to invoke
      * @return execution result
-     *
      * @see If
      * @see StatementResult
      */
@@ -175,63 +173,30 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Returns cursor by entries which correspond to the given keys range.
      *
-     * @param keyFrom           Start key of range (inclusive).
-     * @param keyTo             Last key of range (exclusive).
-     * @param includeTombstones Whether to include tombstone entries.
+     * @param keyFrom Start key of range (inclusive).
+     * @param keyTo Last key of range (exclusive).
      * @return Cursor by entries which correspond to the given keys range.
      */
-    Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo, boolean includeTombstones);
+    Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo);
 
     /**
      * Returns cursor by entries which correspond to the given keys range and bounded by revision number.
      *
-     * @param keyFrom       Start key of range (inclusive).
-     * @param keyTo         Last key of range (exclusive).
+     * @param keyFrom Start key of range (inclusive).
+     * @param keyTo Last key of range (exclusive).
      * @param revUpperBound Upper bound of revision.
-     * @param includeTombstones Whether to include tombstone entries.
      * @return Cursor by entries which correspond to the given keys range.
      */
-    Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound, boolean includeTombstones);
-
-    /**
-     * Retrieves entries for the given key prefix in lexicographic order.
-     *
-     * @param prefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
-     * @param includeTombstones Whether to include tombstone entries.
-     * @return Cursor built upon entries corresponding to the given range and revision.
-     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
-     */
-    Cursor<Entry> prefix(byte[] prefix, boolean includeTombstones);
-
-    /**
-     * Retrieves entries for the given key prefix in lexicographic order. Entries will be filtered out by upper bound of given revision
-     * number.
-     *
-     * @param prefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
-     * @param revUpperBound Upper bound of revision.
-     * @param includeTombstones Whether to include tombstone entries.
-     * @return Cursor built upon entries corresponding to the given range and revision.
-     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
-     */
-    Cursor<Entry> prefix(byte[] prefix, long revUpperBound, boolean includeTombstones);
+    Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo, long revUpperBound);
 
     /**
      * Creates subscription on updates of entries corresponding to the given keys range and starting from the given revision number.
      *
      * @param keyFrom Start key of range (inclusive).
-     * @param keyTo   Last key of range (exclusive).
-     * @param rev     Start revision number.
+     * @param keyTo Last key of range (exclusive).
+     * @param rev Start revision number.
      */
     void watchRange(byte[] keyFrom, byte @Nullable [] keyTo, long rev, WatchListener listener);
-
-    /**
-     * Registers a watch listener by a key prefix.
-     *
-     * @param prefix Prefix to listen to.
-     * @param rev Starting Meta Storage revision.
-     * @param listener Listener which will be notified for each update.
-     */
-    void watchPrefix(byte[] prefix, long rev, WatchListener listener);
 
     /**
      * Registers a watch listener for the provided key.
@@ -256,8 +221,8 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *
      * <p>Before calling this method, watches will not receive any updates.
      *
-     * @param revisionCallback Callback that will be invoked after all watches of a particular revision are processed, with the revision
-     *      and modified entries (processed by at least one watch) as its argument.
+     * @param revisionCallback Callback that will be invoked after all watches of a particular revision are processed, with the
+     *         revision and modified entries (processed by at least one watch) as its argument.
      */
     void startWatches(OnRevisionAppliedCallback revisionCallback);
 
@@ -268,7 +233,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
 
     /**
      * Compacts storage (removes tombstones).
-     * TODO: IGNITE-16444 Correct compaction for Metastorage.
+     * TODO: IGNITE-16444 Correct compaction for Meta storage.
      */
     void compact();
 
@@ -288,8 +253,8 @@ public interface KeyValueStorage extends ManuallyCloseable {
     void restoreSnapshot(Path snapshotPath);
 
     /**
-     * Closes the storage.
+     * Returns the next possible key larger then the given one in lexicographic order. The returned key does not necessarily have to be
+     * present in the storage.
      */
-    @Override
-    void close();
+    byte @Nullable [] nextKey(byte[] key);
 }

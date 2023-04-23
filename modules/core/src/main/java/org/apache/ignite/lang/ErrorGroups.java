@@ -99,6 +99,9 @@ public class ErrorGroups {
 
         /** Client SSL configuration error. */
         public static final int CLIENT_SSL_CONFIGURATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(9);
+
+        /** Client handshake header error. */
+        public static final int HANDSHAKE_HEADER_ERR = CLIENT_ERR_GROUP.registerErrorCode(10);
     }
 
     /** SQL error group. */
@@ -157,9 +160,6 @@ public class ErrorGroups {
         /** Object already exists in schema. */
         public static final int OBJECT_ALREADY_EXISTS_ERR = SQL_ERR_GROUP.registerErrorCode(17);
 
-        /** Table version not found. */
-        public static final int TABLE_VER_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(18);
-
         /** Query mapping error. */
         public static final int QUERY_MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode(19);
 
@@ -217,32 +217,14 @@ public class ErrorGroups {
         /** Failed to restore the underlying key value storage. */
         public static final int RESTORING_STORAGE_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(2);
 
-        /** Failed to close the underlying key value storage. */
-        public static final int CLOSING_STORAGE_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(3);
-
         /** Failed to compact the underlying key value storage. */
-        public static final int COMPACTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(4);
+        public static final int COMPACTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(3);
 
         /** Failed to perform an operation on the underlying key value storage. */
-        public static final int OP_EXECUTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(5);
+        public static final int OP_EXECUTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(4);
 
         /** Failed to perform an operation within a specified time period. Usually in such cases the operation should be retried. */
-        public static final int OP_EXECUTION_TIMEOUT_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(6);
-
-        /** Failed to iterate over the underlying key value storage. */
-        public static final int WATCH_EXECUTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(7);
-
-        /** Failed to stop a watcher. */
-        public static final int WATCH_STOPPING_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(8);
-
-        /** Failed to deploy or update a watcher. */
-        public static final int DEPLOYING_WATCH_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(9);
-
-        /** Failed to iterate over meta storage cursor. */
-        public static final int CURSOR_EXECUTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(10);
-
-        /** Failed to close a cursor. */
-        public static final int CURSOR_CLOSING_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(11);
+        public static final int OP_EXECUTION_TIMEOUT_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(5);
     }
 
     /** Index error group. */
@@ -291,6 +273,9 @@ public class ErrorGroups {
 
         /** Tx state storage rebalancing error. */
         public static final int TX_STATE_STORAGE_REBALANCE_ERR = TX_ERR_GROUP.registerErrorCode(10);
+
+        /** Error occurred when trying to create a read-only transaction with a timestamp older than the data available in the tables. */
+        public static final int TX_READ_ONLY_TOO_OLD_ERR = TX_ERR_GROUP.registerErrorCode(11);
     }
 
     /** Replicator error group. */
@@ -389,5 +374,52 @@ public class ErrorGroups {
          * Config write error.
          */
         public static final int CONFIG_WRITE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(3);
+    }
+
+    /**
+     * Code deployment error group.
+     */
+    public static class CodeDeployment {
+        /**
+         * Code deployment error group.
+         */
+        public static final ErrorGroup CODE_DEPLOYMENT_ERR_GROUP = ErrorGroup.newGroup("CODEDEPLOY", 13);
+
+        /**
+         * Access to non-existing deployment unit.
+         */
+        public static final int UNIT_NOT_FOUND_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(1);
+
+        /**
+         * Unit duplicate error.
+         */
+        public static final int UNIT_ALREADY_EXISTS_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(2);
+
+        /**
+         * Deployment unit content read error.
+         */
+        public static final int UNIT_CONTENT_READ_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(3);
+    }
+
+    /**
+     * Garbage collector error group.
+     */
+    public static class GarbageCollector {
+        /** Garbage collector error group. */
+        public static final ErrorGroup GC_ERR_GROUP = ErrorGroup.newGroup("GC", 14);
+
+        /** Garbage collector closed error. */
+        public static final int CLOSED_ERR = GC_ERR_GROUP.registerErrorCode(1);
+    }
+
+    /**
+     * Authentication error group.
+     */
+    public static class Authentication {
+        /** Authentication error group. */
+        public static final ErrorGroup AUTHENTICATION_ERR_GROUP = ErrorGroup.newGroup("AUTHENTICATION", 15);
+
+        /** General authentication error. */
+        public static final int COMMON_AUTHENTICATION_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode(1);
     }
 }

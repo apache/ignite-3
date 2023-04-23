@@ -32,6 +32,7 @@ namespace Apache.Ignite.Tests
     public sealed class JavaServer : IDisposable
     {
         private const string GradleOptsEnvVar = "IGNITE_DOTNET_GRADLE_OPTS";
+        private const string RequireExternalJavaServerEnvVar = "IGNITE_DOTNET_REQUIRE_EXTERNAL_SERVER";
 
         private const int DefaultClientPort = 10942;
 
@@ -65,6 +66,12 @@ namespace Apache.Ignite.Tests
                 Log(">>> Java server is already started.");
 
                 return new JavaServer(DefaultClientPort, null);
+            }
+
+            if (bool.TryParse(Environment.GetEnvironmentVariable(RequireExternalJavaServerEnvVar), out var requireExternalServer)
+                && requireExternalServer)
+            {
+                throw new InvalidOperationException($"Java server is not started, but {RequireExternalJavaServerEnvVar} is set to true.");
             }
 
             Log(">>> Java server is not detected, starting...");

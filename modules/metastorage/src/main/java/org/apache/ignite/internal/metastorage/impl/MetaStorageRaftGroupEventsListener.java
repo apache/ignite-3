@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 
@@ -26,11 +25,13 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
@@ -65,16 +66,20 @@ public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListen
 
     private final Object serializationFutureMux = new Object();
 
+    private final ClusterTimeImpl clusterTime;
+
     MetaStorageRaftGroupEventsListener(
             IgniteSpinBusyLock busyLock,
             ClusterService clusterService,
             LogicalTopologyService logicalTopologyService,
-            CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut
+            CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut,
+            ClusterTimeImpl clusterTime
     ) {
         this.busyLock = busyLock;
-        this.nodeName = clusterService.localConfiguration().getName();
+        this.nodeName = clusterService.nodeName();
         this.logicalTopologyService = logicalTopologyService;
         this.metaStorageSvcFut = metaStorageSvcFut;
+        this.clusterTime = clusterTime;
     }
 
     @Override
@@ -83,35 +88,37 @@ public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListen
             registerTopologyEventListeners();
 
             // Update learner configuration (in case we missed some topology updates) and initialize the serialization future.
-            serializationFuture = executeIfLeaderImpl(this::resetLearners);
+            serializationFuture = executeWithStatus((service, term1, isLeader) -> {
+                CompletableFuture<Void> fut;
+                if (isLeader) {
+                    fut = this.resetLearners(service, term1);
+
+                    clusterTime.startLeaderTimer(service);
+                } else {
+                    fut = completedFuture(null);
+
+                    clusterTime.stopLeaderTimer();
+                }
+
+                return fut;
+            });
         }
     }
 
     private void registerTopologyEventListeners() {
         logicalTopologyService.addEventListener(new LogicalTopologyEventListener() {
             @Override
-            public void onNodeValidated(ClusterNode validatedNode) {
+            public void onNodeValidated(LogicalNode validatedNode) {
                 executeIfLeader((service, term) -> addLearner(service.raftGroupService(), validatedNode));
             }
 
             @Override
-            public void onNodeInvalidated(ClusterNode invalidatedNode) {
-                executeIfLeader((service, term) -> {
-                    CompletableFuture<Void> closeCursorsFuture = service.closeCursors(invalidatedNode.id())
-                            .exceptionally(e -> {
-                                LOG.error("Unable to close cursor for " + invalidatedNode, e);
-
-                                return null;
-                            });
-
-                    CompletableFuture<Void> removeLearnersFuture = removeLearner(service.raftGroupService(), invalidatedNode);
-
-                    return allOf(closeCursorsFuture, removeLearnersFuture);
-                });
+            public void onNodeInvalidated(LogicalNode invalidatedNode) {
+                executeIfLeader((service, term) -> removeLearner(service.raftGroupService(), invalidatedNode));
             }
 
             @Override
-            public void onNodeLeft(ClusterNode leftNode, LogicalTopologySnapshot newTopology) {
+            public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
                 onNodeInvalidated(leftNode);
             }
 
@@ -125,6 +132,11 @@ public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListen
     @FunctionalInterface
     private interface OnLeaderAction {
         CompletableFuture<Void> apply(MetaStorageServiceImpl service, long term);
+    }
+
+    @FunctionalInterface
+    private interface OnStatusAction {
+        CompletableFuture<Void> apply(MetaStorageServiceImpl service, long term, boolean isLeader);
     }
 
     /**
@@ -155,11 +167,16 @@ public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListen
     }
 
     private CompletableFuture<Void> executeIfLeaderImpl(OnLeaderAction action) {
+        return executeWithStatus((service, term, isLeader) -> isLeader ? action.apply(service, term) : completedFuture(null));
+    }
+
+    private CompletableFuture<Void> executeWithStatus(OnStatusAction action) {
         return metaStorageSvcFut.thenCompose(service -> service.raftGroupService().refreshAndGetLeaderWithTerm()
                 .thenCompose(leaderWithTerm -> {
                     String leaderName = leaderWithTerm.leader().consistentId();
 
-                    return leaderName.equals(nodeName) ? action.apply(service, leaderWithTerm.term()) : completedFuture(null);
+                    boolean isLeader = leaderName.equals(nodeName);
+                    return action.apply(service, leaderWithTerm.term(), isLeader);
                 }));
     }
 

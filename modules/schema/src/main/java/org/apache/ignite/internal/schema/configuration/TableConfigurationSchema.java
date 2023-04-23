@@ -24,8 +24,6 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Range;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.storage.KnownDataStorage;
 
 /**
  * Table configuration schema class.
@@ -42,24 +40,9 @@ public class TableConfigurationSchema {
     @Value(hasDefault = true)
     public int tableId = 1;
 
-    /** Table partitions. */
-    @Range(min = 0, max = 65_000)
-    @Value(hasDefault = true)
-    public int partitions = 25;
-
-    /** Count of table partition replicas. */
-    @Range(min = 1)
-    @Value(hasDefault = true)
-    public int replicas = 1;
-
     /** Distribution zone id. */
     @Value(hasDefault = true)
-    public int zoneId = 1;
-
-    /** Data storage configuration. */
-    @KnownDataStorage
-    @ConfigValue
-    public DataStorageConfigurationSchema dataStorage;
+    public int zoneId = 0;
 
     /** Columns configuration. */
     @NamedConfigValue

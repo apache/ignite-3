@@ -29,6 +29,11 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+import org.apache.ignite.configuration.ConfigurationNodeAlreadyExistException;
+import org.apache.ignite.configuration.ConfigurationNodeDoesNotExistException;
+import org.apache.ignite.configuration.ConfigurationNodeRemovedException;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
@@ -123,6 +128,11 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         return specificNode(map.get(key));
     }
 
+    @Override
+    public @Nullable N get(UUID internalId) {
+        return get(keyByInternalId(internalId));
+    }
+
     /** {@inheritDoc} */
     @Override
     public N get(int index) throws IndexOutOfBoundsException {
@@ -146,6 +156,11 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     @Override
     public int size() {
         return map.size();
+    }
+
+    @Override
+    public Stream<N> stream() {
+        return IntStream.range(0, map.size()).mapToObj(map::get).map(this::specificNode);
     }
 
     /** {@inheritDoc} */
@@ -359,7 +374,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
     /**
      * Sets an internal id for the value associated with the passed key. Should not be used in arbitrary code. Refer to {@link
-     * ConfigurationUtil#fillFromPrefixMap} for further details on the usage.
+     * ConfigurationUtil#fillFromPrefixMap(InnerNode, Map)} for further details on the usage.
      *
      * @param key        Key to update. Should be present in the named list. Nothing will happen if the key is missing.
      * @param internalId New id to associate with the key.

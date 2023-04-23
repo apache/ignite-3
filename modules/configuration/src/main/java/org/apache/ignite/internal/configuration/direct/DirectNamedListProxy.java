@@ -30,6 +30,7 @@ import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.internal.configuration.DynamicConfigurationChanger;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link DirectPropertyProxy} implementation for named lists.
@@ -59,24 +60,19 @@ public class DirectNamedListProxy<T extends ConfigurationProperty<VIEWT>, VIEWT,
         this.creator = creator;
     }
 
-    /** {@inheritDoc} */
-    @Override public T get(String name) {
+    @Override
+    @Nullable
+    public T get(String name) {
         return creator.apply(appendKey(keys, new KeyPathNode(name, true)), changer);
     }
 
-    /**
-     * Retrieves a named list element by its internal id.
-     *
-     * @param internalId Internal id.
-     * @return Named list element, associated with the passed internal id, or {@code null} if it doesn't exist.
-     */
-    public T getByInternalId(UUID internalId) {
+    @Override
+    @Nullable
+    public T get(UUID internalId) {
         return creator.apply(appendKey(keys, new KeyPathNode(internalId.toString(), false)), changer);
     }
 
-    /**
-     * Returns all internal ids of the elements from the list.
-     */
+    @Override
     public List<UUID> internalIds() {
         return changer.getLatest(appendKey(keys, new KeyPathNode(KeyPathNode.INTERNAL_IDS, false)));
     }
@@ -99,5 +95,11 @@ public class DirectNamedListProxy<T extends ConfigurationProperty<VIEWT>, VIEWT,
     /** {@inheritDoc} */
     @Override public T any() {
         throw new UnsupportedOperationException("any");
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public NamedConfigurationTree<T, VIEWT, CHANGET> directProxy() {
+        return this;
     }
 }

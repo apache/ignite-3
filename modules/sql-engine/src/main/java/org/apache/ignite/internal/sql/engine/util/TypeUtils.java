@@ -20,7 +20,9 @@ package org.apache.ignite.internal.sql.engine.util;
 import static org.apache.ignite.internal.sql.engine.util.Commons.transform;
 
 import java.lang.reflect.Type;
+import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -31,7 +33,6 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -42,10 +43,12 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NumberNativeType;
 import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.VarlenNativeType;
@@ -216,7 +219,7 @@ public class TypeUtils {
         Type storageType = ectx.getTypeFactory().getResultClass(fieldType);
 
         if (isConvertableType(fieldType)) {
-            return v -> fromInternal(ectx, v, storageType);
+            return v -> fromInternal(v, storageType);
         }
 
         return Function.identity();
@@ -236,18 +239,22 @@ public class TypeUtils {
     }
 
     /**
-     * ToInternal.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * ToInternal. Converts the given value to its presentation used by the execution engine.
+     *
+     * @deprecated The implementation of this method is incorrect because it relies on the assumption that
+     *      {@code val.getClass() == storageType(val)} is always true, which sometimes is not the case.
+     *      Use {@link #toInternal(Object, Type)} that provides type information instead.
      */
-    public static @Nullable Object toInternal(ExecutionContext<?> ectx, Object val) {
-        return val == null ? null : toInternal(ectx, val, val.getClass());
+    @Deprecated
+    public static @Nullable Object toInternal(Object val) {
+        return val == null ? null : toInternal(val, val.getClass());
     }
 
     /**
      * ToInternal.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static @Nullable Object toInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
+    public static @Nullable Object toInternal(Object val, Type storageType) {
         if (val == null) {
             return null;
         } else if (storageType == LocalDate.class) {
@@ -258,6 +265,10 @@ public class TypeUtils {
             var dt = (LocalDateTime) val;
 
             return TimeUnit.SECONDS.toMillis(dt.toEpochSecond(ZoneOffset.UTC)) + TimeUnit.NANOSECONDS.toMillis(dt.getNano());
+        } else if (storageType == Instant.class) {
+            var timeStamp = (Instant) val;
+
+            return timeStamp.toEpochMilli();
         } else if (storageType == Duration.class) {
             return TimeUnit.SECONDS.toMillis(((Duration) val).getSeconds())
                     + TimeUnit.NANOSECONDS.toMillis(((Duration) val).getNano());
@@ -265,12 +276,30 @@ public class TypeUtils {
             return (int) ((Period) val).toTotalMonths();
         } else if (storageType == byte[].class) {
             return new ByteString((byte[]) val);
-        } else if (storageType == UUID.class) {
-            assert val instanceof UUID : storageTypeMismatch(val, UUID.class);
-            return val;
+        } else if (val instanceof Number && storageType != val.getClass()) {
+            // For dynamic parameters we don't know exact parameter type in compile time. To avoid casting errors in
+            // runtime we should convert parameter value to expected type.
+            Number num = (Number) val;
+
+            return Byte.class.equals(storageType) || byte.class.equals(storageType) ? SqlFunctions.toByte(num) :
+                    Short.class.equals(storageType) || short.class.equals(storageType) ? SqlFunctions.toShort(num) :
+                            Integer.class.equals(storageType) || int.class.equals(storageType) ? SqlFunctions.toInt(num) :
+                                    Long.class.equals(storageType) || long.class.equals(storageType) ? SqlFunctions.toLong(num) :
+                                            Float.class.equals(storageType) || float.class.equals(storageType) ? SqlFunctions.toFloat(num) :
+                                                    Double.class.equals(storageType) || double.class.equals(storageType)
+                                                            ? SqlFunctions.toDouble(num) :
+                                                            BigDecimal.class.equals(storageType) ? SqlFunctions.toBigDecimal(num) : num;
         } else {
-            // IgniteCustomType: Add storageTypeMismatch assertion for your type.
-            return val;
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-17298 SQL: Support BOOLEAN datatype.
+            //   Fix this after BOOLEAN type supported is implemented.
+            if (storageType == Boolean.class) {
+                return val;
+            }
+            var nativeTypeSpec = NativeTypeSpec.fromClass((Class<?>) storageType);
+            assert nativeTypeSpec != null : "No native type spec for type: " + storageType;
+
+            var customType = SafeCustomTypeInternalConversion.INSTANCE.tryConvertToInternal(val, nativeTypeSpec);
+            return customType != null ? customType : val;
         }
     }
 
@@ -278,7 +307,7 @@ public class TypeUtils {
      * FromInternal.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static Object fromInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
+    public static @Nullable Object fromInternal(@Nullable  Object val, Type storageType) {
         if (val == null) {
             return null;
         } else if (storageType == LocalDate.class && val instanceof Integer) {
@@ -288,18 +317,25 @@ public class TypeUtils {
         } else if (storageType == LocalDateTime.class && (val instanceof Long)) {
             return LocalDateTime.ofEpochSecond(TimeUnit.MILLISECONDS.toSeconds((Long) val),
                     (int) TimeUnit.MILLISECONDS.toNanos((Long) val % 1000), ZoneOffset.UTC);
+        } else if (storageType == Instant.class && val instanceof Long) {
+            return Instant.ofEpochMilli((long) val);
         } else if (storageType == Duration.class && val instanceof Long) {
             return Duration.ofMillis((Long) val);
         } else if (storageType == Period.class && val instanceof Integer) {
             return Period.of((Integer) val / 12, (Integer) val % 12, 0);
         } else if (storageType == byte[].class && val instanceof ByteString) {
             return ((ByteString) val).getBytes();
-        } else if (storageType == UUID.class) {
-            assert val instanceof UUID : storageTypeMismatch(val, UUID.class);
-            return val;
         } else {
-            // IgniteCustomType: Add storageTypeMismatch assertion for your type.
-            return val;
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-17298 SQL: Support BOOLEAN datatype.
+            //   Fix this after BOOLEAN type supported is implemented.
+            if (storageType == Boolean.class) {
+                return val;
+            }
+            var nativeTypeSpec = NativeTypeSpec.fromClass((Class<?>) storageType);
+            assert nativeTypeSpec != null : "No native type spec for type: " + storageType;
+
+            var customType = SafeCustomTypeInternalConversion.INSTANCE.tryConvertFromInternal(val, nativeTypeSpec);
+            return customType != null ? customType : val;
         }
     }
 
@@ -342,7 +378,7 @@ public class TypeUtils {
             case ANY:
                 if (type instanceof IgniteCustomType) {
                     IgniteCustomType customType = (IgniteCustomType) type;
-                    return customType.columnType();
+                    return customType.spec().columnType();
                 }
                 // fallthrough
             case OTHER:
@@ -424,7 +460,7 @@ public class TypeUtils {
 
                 var varlen = (VarlenNativeType) nativeType;
 
-                return factory.createSqlType(SqlTypeName.BINARY, varlen.length());
+                return factory.createSqlType(SqlTypeName.VARBINARY, varlen.length());
             }
             case BITMASK:
                 // TODO IGNITE-18431.
@@ -458,9 +494,5 @@ public class TypeUtils {
             default:
                 throw new IllegalStateException("Unexpected native type " + nativeType);
         }
-    }
-
-    private static String storageTypeMismatch(Object value, Class<?> type) {
-        return String.format("storageType is %s value must also be %s but it was not: %s", type, type, value);
     }
 }

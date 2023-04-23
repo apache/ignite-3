@@ -73,6 +73,11 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             return;
         }
 
+        JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
+
+        // Apply a filter before committing to STM.
+        fsm.getListener().onBeforeApply(request.command());
+
         if (request.command() instanceof WriteCommand) {
             applyWrite(node, request, rpcCtx);
         } else {

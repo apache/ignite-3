@@ -20,6 +20,8 @@ package org.apache.ignite.internal.inmemory;
 import static ca.seinesoftware.hamcrest.path.PathMatcher.exists;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -36,7 +38,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.AbstractClusterIntegrationTest;
+import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.raft.configuration.EntryCountBudgetChange;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -58,7 +60,7 @@ import org.rocksdb.Slice;
  * Tests for making sure that RAFT groups corresponding to partition stores of in-memory tables use volatile
  * storages for storing RAFT meta and RAFT log, while they are persistent for persistent storages.
  */
-class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
+class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     private static final String TABLE_NAME = "test";
 
     @Override
@@ -76,7 +78,11 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
     }
 
     private void createInMemoryTable() {
-        executeSql("CREATE TABLE " + TABLE_NAME + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) ENGINE aimem");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " ENGINE aimem");
+
+        executeSql("CREATE TABLE " + TABLE_NAME
+                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='ZONE_"
+                + TABLE_NAME.toUpperCase() + "'");
     }
 
     /**
@@ -160,7 +166,11 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
     }
 
     private void createPersistentTable() {
-        executeSql("CREATE TABLE " + TABLE_NAME + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) ENGINE rocksdb");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " ENGINE rocksdb");
+
+        executeSql("CREATE TABLE " + TABLE_NAME
+                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='ZONE_"
+                + TABLE_NAME.toUpperCase() + "'");
     }
 
     @Test
@@ -230,6 +240,10 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
     }
 
     private void createTableWithMaxOneInMemoryEntryAllowed(String tableName) {
+        int zoneId = await(createZone(
+                node(0).distributionZoneManager(), "zone1", 1, DEFAULT_PARTITION_COUNT,
+                dataStorageChange -> dataStorageChange.convert(VolatilePageMemoryDataStorageChange.class)));
+
         TableDefinition tableDef = SchemaBuilders.tableBuilder("PUBLIC", tableName).columns(
                 SchemaBuilders.column("ID", ColumnType.INT32).build(),
                 SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build()
@@ -237,10 +251,7 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
 
         await(((TableManager) node(0).tables()).createTableAsync(tableName, tableChange -> {
             SchemaConfigurationConverter.convert(tableDef, tableChange)
-                    .changePartitions(1)
-                    .changeDataStorage(storageChange -> {
-                        storageChange.convert(VolatilePageMemoryDataStorageChange.class);
-                    });
+                    .changeZoneId(zoneId);
         }));
     }
 }

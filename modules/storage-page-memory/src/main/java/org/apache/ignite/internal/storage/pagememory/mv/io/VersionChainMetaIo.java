@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv.io;
 
+import static org.apache.ignite.internal.storage.pagememory.mv.MvPageTypes.T_VERSION_CHAIN_META_IO;
+
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
@@ -25,9 +27,6 @@ import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
  * IO routines for {@link VersionChainTree} meta pages.
  */
 public class VersionChainMetaIo extends BplusMetaIo {
-    /** Page IO type. */
-    public static final short T_VERSION_CHAIN_META_IO = 9;
-
     /** I/O versions. */
     public static final IoVersions<VersionChainMetaIo> VERSIONS = new IoVersions<>(new VersionChainMetaIo(1));
 

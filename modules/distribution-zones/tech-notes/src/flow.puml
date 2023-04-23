@@ -23,7 +23,6 @@ PlacementDriver -> PartitionPrimaryReplica : Send a RebalanceRequest to PrimaryR
 PartitionPrimaryReplica -> PartitionPrimaryReplica: Await for all replicas start [see 2]
 PartitionPrimaryReplica -> PartitionPrimaryReplica : Process replication group update [see 3 and separate diagram 2]
 PartitionPrimaryReplica -> PlacementDriver : Notify about rebalance done. PlacementDriver updates itself's cache for rebalanced group with the addresses of the new members.
-PlacementDriver -> Metastore : Put the **zoneId.assignments.stable** key
-Metastore --> DistributionZoneManager : Receives the update about **zoneId.assignments.stable** update and stop the unneeded replication group members on the current node, if needed [see 4]
-DistributionZoneManager -> DistributionZoneManager : Check if **zoneId.assignments.planned** key is empty and start new rebalance if not
+PlacementDriver -> Metastore : Update the zoneId.assignments.stable/planned/pending/cancel key [see 4]
+Metastore --> DistributionZoneManager : Receives the update about **zoneId.assignments.stable** update and stop the unneeded replication group members on the current node, if needed [see 5]
 @enduml

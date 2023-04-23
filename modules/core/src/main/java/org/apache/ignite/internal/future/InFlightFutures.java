@@ -36,10 +36,11 @@ public class InFlightFutures implements Iterable<CompletableFuture<?>> {
      *
      * @param future the future to register
      */
-    public void registerFuture(CompletableFuture<?> future) {
+    public <T> CompletableFuture<T> registerFuture(CompletableFuture<T> future) {
         inFlightFutures.add(future);
 
         future.whenComplete((result, ex) -> inFlightFutures.remove(future));
+        return future;
     }
 
     /**

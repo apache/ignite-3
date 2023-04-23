@@ -87,9 +87,9 @@ public class TableSchemaAwareIndexStorage {
      * Resolves index row value.
      *
      * @param row Full row.
-     * @return Index value.
+     * @return A tuple that represents indexed columns of a row.
      */
-    public BinaryTuple resolveIndexRow(BinaryRow row) {
+    BinaryTuple resolveIndexRow(BinaryRow row) {
         return indexRowResolver.apply(row);
     }
 

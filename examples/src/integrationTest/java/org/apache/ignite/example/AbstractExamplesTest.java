@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
@@ -50,11 +51,16 @@ public abstract class AbstractExamplesTest extends IgniteAbstractTest {
         CompletableFuture<Ignite> igniteFuture = IgnitionManager.start(
                 TEST_NODE_NAME,
                 Path.of("config", "ignite-config.conf"),
-                workDir,
-                null
+                workDir
         );
 
-        IgnitionManager.init(TEST_NODE_NAME, List.of(TEST_NODE_NAME), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(TEST_NODE_NAME)
+                .metaStorageNodeNames(List.of(TEST_NODE_NAME))
+                .clusterName("cluster")
+                .build();
+
+        IgnitionManager.init(initParameters);
 
         assertThat(igniteFuture, willCompleteSuccessfully());
 

@@ -20,8 +20,8 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -55,6 +56,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -65,14 +67,17 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.gc.MvGc;
+import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccessImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
@@ -99,8 +104,11 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.SnapshotCopierOptions;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Answers;
 
 /**
  * For {@link IncomingSnapshotCopier} testing.
@@ -128,9 +136,25 @@ public class IncomingSnapshotCopierTest {
     @InjectConfiguration("mock.tables.foo {}")
     private TablesConfiguration tablesConfig;
 
+    @InjectConfiguration
+    private DistributionZonesConfiguration distributionZonesConfiguration;
+
     private final ClusterNode clusterNode = mock(ClusterNode.class);
 
     private final UUID snapshotId = UUID.randomUUID();
+
+    private final UUID tableId = UUID.randomUUID();
+
+    private final RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
+
+    private MvGc mvGc;
+
+    @BeforeEach
+    void setUp() {
+        mvGc = mock(MvGc.class);
+
+        when(mvGc.removeStorage(any(TablePartitionId.class))).then(invocation -> completedFuture(null));
+    }
 
     @AfterEach
     void tearDown() {
@@ -152,10 +176,11 @@ public class IncomingSnapshotCopierTest {
         fillMvPartitionStorage(outgoingMvPartitionStorage, expLastAppliedIndex, expLastAppliedTerm, expLastGroupConfig, rowIds);
         fillTxStatePartitionStorage(outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, txIds);
 
-        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig));
+        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig,
+                distributionZonesConfiguration.defaultDistributionZone()));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
-        incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
+        assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());
         incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);
 
         MessagingService messagingService = messagingServiceForSuccessScenario(outgoingMvPartitionStorage,
@@ -177,12 +202,20 @@ public class IncomingSnapshotCopierTest {
 
         assertEquals(Status.OK().getCode(), snapshotCopier.getCode());
 
+        TablePartitionId tablePartitionId = new TablePartitionId(tableId, TEST_PARTITION);
+
+        verify(mvGc, times(1)).removeStorage(eq(tablePartitionId));
+        verify(mvGc, times(1)).addStorage(eq(tablePartitionId), any(StorageUpdateHandler.class));
+
         MvPartitionStorage incomingMvPartitionStorage = incomingMvTableStorage.getMvPartition(TEST_PARTITION);
         TxStateStorage incomingTxStatePartitionStorage = incomingTxStateTableStorage.getTxStateStorage(TEST_PARTITION);
 
         assertEquals(expLastAppliedIndex, outgoingMvPartitionStorage.lastAppliedIndex());
         assertEquals(expLastAppliedTerm, outgoingMvPartitionStorage.lastAppliedTerm());
-        assertEquals(expLastGroupConfig, outgoingMvPartitionStorage.committedGroupConfiguration());
+        assertArrayEquals(
+                raftGroupConfigurationConverter.toBytes(expLastGroupConfig),
+                outgoingMvPartitionStorage.committedGroupConfiguration()
+        );
         assertEquals(expLastAppliedIndex, outgoingTxStatePartitionStorage.lastAppliedIndex());
         assertEquals(expLastAppliedTerm, outgoingTxStatePartitionStorage.lastAppliedTerm());
 
@@ -264,17 +297,18 @@ public class IncomingSnapshotCopierTest {
                 SnapshotUri.toStringUri(snapshotId, NODE_NAME),
                 mock(RaftOptions.class),
                 spy(new PartitionAccessImpl(
-                        new PartitionKey(UUID.randomUUID(), TEST_PARTITION),
+                        new PartitionKey(tableId, TEST_PARTITION),
                         incomingTableStorage,
                         incomingTxStateTableStorage,
-                        List::of
+                        mock(StorageUpdateHandler.class),
+                        mvGc
                 )),
                 mock(SnapshotMeta.class),
                 executorService
         );
     }
 
-    private static void fillMvPartitionStorage(
+    private void fillMvPartitionStorage(
             MvPartitionStorage storage,
             long lastAppliedIndex,
             long lastAppliedTerm,
@@ -296,7 +330,7 @@ public class IncomingSnapshotCopierTest {
 
             storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
 
-            storage.committedGroupConfiguration(raftGroupConfig);
+            storage.committedGroupConfiguration(raftGroupConfigurationConverter.toBytes(raftGroupConfig));
 
             return null;
         });
@@ -407,17 +441,18 @@ public class IncomingSnapshotCopierTest {
 
     @Test
     void cancellationMakesJoinFinishIfHangingOnNetworkCall() throws Exception {
-        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig));
+        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig,
+                distributionZonesConfiguration.defaultDistributionZone()));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
-        incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
+        assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());
         incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);
 
         CountDownLatch networkInvokeLatch = new CountDownLatch(1);
 
         MessagingService messagingService = mock(MessagingService.class);
 
-        when(messagingService.invoke(any(), any(), anyLong())).then(invocation -> {
+        when(messagingService.invoke(any(ClusterNode.class), any(), anyLong())).then(invocation -> {
             networkInvokeLatch.countDown();
 
             return new CompletableFuture<>();
@@ -463,10 +498,11 @@ public class IncomingSnapshotCopierTest {
         fillMvPartitionStorage(outgoingMvPartitionStorage, expLastAppliedIndex, expLastAppliedTerm, expLastGroupConfig, rowIds);
         fillTxStatePartitionStorage(outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, txIds);
 
-        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig));
+        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig,
+                distributionZonesConfiguration.defaultDistributionZone()));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
-        incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
+        assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());
         incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);
 
         MessagingService messagingService = messagingServiceForSuccessScenario(outgoingMvPartitionStorage,
@@ -531,10 +567,11 @@ public class IncomingSnapshotCopierTest {
         fillMvPartitionStorage(outgoingMvPartitionStorage, expLastAppliedIndex, expLastAppliedTerm, expLastGroupConfig, rowIds);
         fillTxStatePartitionStorage(outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, txIds);
 
-        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig));
+        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig,
+                distributionZonesConfiguration.defaultDistributionZone()));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
-        incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
+        assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());
         incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);
 
         MessagingService messagingService = messagingServiceForSuccessScenario(outgoingMvPartitionStorage,
@@ -558,9 +595,33 @@ public class IncomingSnapshotCopierTest {
         );
 
         // Let's wait for an error on rebalancing.
-        assertThat(runAsync(snapshotCopier::join), willFailFast(IllegalStateException.class));
+        assertThat(runAsync(snapshotCopier::join), willThrowFast(IllegalStateException.class));
 
         verify(partitionSnapshotStorage.partition()).abortRebalance();
+
+        TablePartitionId tablePartitionId = new TablePartitionId(tableId, TEST_PARTITION);
+
+        verify(mvGc, times(1)).removeStorage(eq(tablePartitionId));
+        verify(mvGc, times(1)).addStorage(eq(tablePartitionId), any(StorageUpdateHandler.class));
+    }
+
+    @Test
+    @Timeout(1)
+    void cancellationsFromMultipleThreadsDoNotBlockEachOther() throws Exception {
+        PartitionSnapshotStorage partitionSnapshotStorage = mock(PartitionSnapshotStorage.class, Answers.RETURNS_DEEP_STUBS);
+
+        when(partitionSnapshotStorage.partition().partitionKey()).thenReturn(new PartitionKey(UUID.randomUUID(), 0));
+
+        IncomingSnapshotCopier copier = new IncomingSnapshotCopier(
+                partitionSnapshotStorage,
+                SnapshotUri.fromStringUri(SnapshotUri.toStringUri(snapshotId, NODE_NAME))
+        );
+
+        Thread anotherThread = new Thread(copier::cancel);
+        anotherThread.start();
+        anotherThread.join();
+
+        copier.cancel();
     }
 
     private TableConfiguration getTableConfig() {

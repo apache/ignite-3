@@ -23,7 +23,11 @@ package org.apache.ignite.internal.rest.constants;
 public enum HttpCode {
     OK(200, "OK"),
     BAD_REQUEST(400, "Bad Request"),
+    UNAUTHORIZED(401, "Unauthorized"),
+    FORBIDDEN(403, "Forbidden"),
     NOT_FOUND(404, "Not Found"),
+    // May be used in case of "Already exists" problem.
+    CONFLICT(409, "Conflict"),
     INTERNAL_ERROR(500, "Internal Server Error");
 
     private final int code;

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <ignite/client/ignite_logger.h>
+#include <ignite/client/ignite_client_authenticator.h>
 
 #include <initializer_list>
 #include <memory>
@@ -42,7 +43,7 @@ public:
     /**
      * Constructor.
      *
-     * @param endpoint Endpoints list.
+     * @param endpoints Endpoints list.
      */
     ignite_client_configuration(std::initializer_list<std::string_view> endpoints)
         : m_endpoints(endpoints.begin(), endpoints.end()) {}
@@ -112,9 +113,29 @@ public:
      *
      * @see GetConnectionsLimit for details.
      *
-     * @param connectionsLimit Connections limit to set.
+     * @param limit Connections limit to set.
      */
     void set_connection_limit(uint32_t limit) { m_connection_limit = limit; }
+
+    /**
+     * Gets the authenticator.
+     *
+     * @see Also see basic_authenticator.
+     *
+     * @return Authenticator
+     */
+    [[nodiscard]] std::shared_ptr<ignite_client_authenticator> get_authenticator() const {
+        return m_authenticator;
+    }
+
+    /**
+     * Sets the authenticator.
+     *
+     * @param authenticator Authenticator. Do not use authentication if authenticator is @c nullptr.
+     */
+    void set_authenticator(std::shared_ptr<ignite_client_authenticator> authenticator) {
+        m_authenticator = std::move(authenticator);
+    }
 
 private:
     /** Endpoints. */
@@ -122,6 +143,9 @@ private:
 
     /** Logger. */
     std::shared_ptr<ignite_logger> m_logger{};
+
+    /** Authenticator. */
+    std::shared_ptr<ignite_client_authenticator> m_authenticator{};
 
     /** Active connections limit. */
     uint32_t m_connection_limit{0};

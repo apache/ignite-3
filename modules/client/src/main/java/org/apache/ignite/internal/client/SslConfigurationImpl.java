@@ -27,6 +27,8 @@ public class SslConfigurationImpl implements SslConfiguration {
 
     private final ClientAuthenticationMode clientAuth;
 
+    private final @Nullable Iterable<String> ciphers;
+
     private final @Nullable String keyStorePath;
 
     private final @Nullable String keyStorePassword;
@@ -43,6 +45,7 @@ public class SslConfigurationImpl implements SslConfiguration {
     SslConfigurationImpl(
             boolean enabled,
             ClientAuthenticationMode clientAuth,
+            @Nullable Iterable<String> ciphers,
             @Nullable String keyStorePath,
             @Nullable String keyStorePassword,
             String keyStoreType,
@@ -52,6 +55,7 @@ public class SslConfigurationImpl implements SslConfiguration {
     ) {
         this.enabled = enabled;
         this.clientAuth = clientAuth;
+        this.ciphers = ciphers;
         this.keyStorePath = keyStorePath;
         this.keyStorePassword = keyStorePassword;
         this.keyStoreType = keyStoreType;
@@ -70,6 +74,11 @@ public class SslConfigurationImpl implements SslConfiguration {
     @Override
     public ClientAuthenticationMode clientAuthenticationMode() {
         return clientAuth;
+    }
+
+    @Override
+    public @Nullable Iterable<String> ciphers() {
+        return ciphers;
     }
 
     /** {@inheritDoc} */

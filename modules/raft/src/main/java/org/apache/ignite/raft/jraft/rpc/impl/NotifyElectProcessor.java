@@ -17,7 +17,7 @@
 
 package org.apache.ignite.raft.jraft.rpc.impl;
 
-import org.apache.ignite.internal.raft.server.impl.RaftServiceEventListener;
+import org.apache.ignite.internal.raft.server.impl.RaftServiceEventInterceptor;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.SubscriptionLeaderChangeRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
@@ -28,7 +28,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
  */
 public class NotifyElectProcessor implements RpcProcessor<SubscriptionLeaderChangeRequest> {
     /** RAFT event listener. */
-    private final RaftServiceEventListener serviceEventListener;
+    private final RaftServiceEventInterceptor serviceEventInterceptor;
 
     /** Message factory. */
     private final RaftMessagesFactory msgFactory;
@@ -37,23 +37,24 @@ public class NotifyElectProcessor implements RpcProcessor<SubscriptionLeaderChan
      * The constructor.
      *
      * @param msgFactory Message factory.
-     * @param serviceEventListener RAFT event listener.
+     * @param serviceEventInterceptor RAFT event interceptor.
      */
-    public NotifyElectProcessor(RaftMessagesFactory msgFactory, RaftServiceEventListener serviceEventListener) {
+    public NotifyElectProcessor(RaftMessagesFactory msgFactory, RaftServiceEventInterceptor serviceEventInterceptor) {
         this.msgFactory = msgFactory;
-        this.serviceEventListener = serviceEventListener;
+        this.serviceEventInterceptor = serviceEventInterceptor;
     }
 
     @Override
     public void handleRequest(RpcContext rpcCtx, SubscriptionLeaderChangeRequest request) {
         if (request.subscribe()) {
-            serviceEventListener.subscribe(request.groupId(), rpcCtx.getSender(), term ->
+            serviceEventInterceptor.subscribe(request.groupId(), rpcCtx.getSender(), term ->
                     rpcCtx.sendResponseAsync(msgFactory.leaderChangeNotification()
+                            .groupId(request.groupId())
                             .term(term)
                             .build()
                     ));
         } else {
-            serviceEventListener.unsubscribe(request.groupId(), rpcCtx.getSender());
+            serviceEventInterceptor.unsubscribe(request.groupId(), rpcCtx.getSender());
         }
 
         rpcCtx.sendResponse(msgFactory.subscriptionLeaderChangeRequestAcknowledge().build());

@@ -39,8 +39,13 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface MetaStorageManager extends IgniteComponent {
     /**
+     * Special revision value indicating that the most recent revision at the time of a request should be used.
+     */
+    int LATEST_REVISION = -1;
+
+    /**
      * Returns the current <em>applied revision</em> of the Meta Storage, that is, the most recent revision of updates that have been
-     * applied on this node.
+     * processed by all Watches on this node.
      */
     long appliedRevision();
 
@@ -61,7 +66,7 @@ public interface MetaStorageManager extends IgniteComponent {
 
     /**
      * Retrieves entries for the given key prefix in lexicographic order. Shortcut for {@link #prefix(ByteArray, long)} where
-     * {@code revUpperBound == -1}.
+     * {@code revUpperBound = LATEST_REVISION}.
      *
      * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
      * @return Publisher that will provide entries corresponding to the given prefix. This Publisher may also fail (by calling
@@ -79,7 +84,7 @@ public interface MetaStorageManager extends IgniteComponent {
      * number.
      *
      * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
-     * @param revUpperBound The upper bound for entry revision. {@code -1} means latest revision.
+     * @param revUpperBound The upper bound for entry revision or {@link MetaStorageManager#LATEST_REVISION} for no revision bound.
      * @return Publisher that will provide entries corresponding to the given prefix and revision. This Publisher may also fail (by calling
      *     {@link Subscriber#onError}) with one of the following exceptions:
      *     <ul>

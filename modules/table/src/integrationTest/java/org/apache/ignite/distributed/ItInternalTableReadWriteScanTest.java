@@ -32,7 +32,6 @@ import org.apache.ignite.network.ClusterNode;
  * Tests for {@link InternalTable#scan(int, org.apache.ignite.internal.tx.InternalTransaction)}.
  */
 public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableScanTest {
-    /** {@inheritDoc} */
     @Override
     protected Publisher<BinaryRow> scan(int part, InternalTransaction tx) {
         if (tx == null) {
@@ -45,7 +44,6 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
         return internalTbl.scan(part, tx.id(), recipient, null, null, null, 0, null);
     }
 
-    /** {@inheritDoc} */
     @Override
     protected InternalTransaction startTx() {
         InternalTransaction tx = internalTbl.txManager().begin();

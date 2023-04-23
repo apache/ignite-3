@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -37,12 +38,16 @@ import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -74,6 +79,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItMetaStorageWatchTest extends IgniteAbstractTest {
+
+    @InjectConfiguration
+    private static SecurityConfiguration securityConfiguration;
+
+    @InjectConfiguration
+    private static NodeAttributesConfiguration nodeAttributes;
+
     private static class Node {
         private final List<IgniteComponent> components = new ArrayList<>();
 
@@ -82,6 +94,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         private final MetaStorageManager metaStorageManager;
 
         private final ClusterManagementGroupManager cmgManager;
+
+        private final DistributedConfigurationUpdater distributedConfigurationUpdater;
 
         Node(ClusterService clusterService, Path dataPath) {
             var vaultManager = new VaultManager(new InMemoryVaultService());
@@ -94,11 +108,12 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             Path basePath = dataPath.resolve(name());
 
+            HybridClock clock = new HybridClockImpl();
             var raftManager = new Loza(
                     clusterService,
                     raftConfiguration,
                     basePath.resolve("raft"),
-                    new HybridClockImpl()
+                    clock
             );
 
             components.add(raftManager);
@@ -109,13 +124,20 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
+            distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
+
+            components.add(distributedConfigurationUpdater);
+
             this.cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
-                    cmgConfiguration
+                    cmgConfiguration,
+                    distributedConfigurationUpdater,
+                    nodeAttributes
             );
 
             components.add(cmgManager);
@@ -126,7 +148,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     cmgManager,
                     new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
                     raftManager,
-                    new RocksDbKeyValueStorage(name(), basePath.resolve("storage"))
+                    new RocksDbKeyValueStorage(name(), basePath.resolve("storage")),
+                    clock
             );
 
             components.add(metaStorageManager);
@@ -137,7 +160,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         }
 
         String name() {
-            return clusterService.localConfiguration().getName();
+            return clusterService.nodeName();
         }
 
         void stop() throws Exception {
@@ -191,11 +214,13 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
     void testExactWatch() throws Exception {
         testWatches((node, latch) -> node.metaStorageManager.registerExactWatch(new ByteArray("foo"), new WatchListener() {
             @Override
-            public void onUpdate(WatchEvent event) {
+            public CompletableFuture<Void> onUpdate(WatchEvent event) {
                 assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
                 assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(StandardCharsets.UTF_8)));
 
                 latch.countDown();
+
+                return completedFuture(null);
             }
 
             @Override
@@ -209,11 +234,13 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
     void testPrefixWatch() throws Exception {
         testWatches((node, latch) -> node.metaStorageManager.registerPrefixWatch(new ByteArray("fo"), new WatchListener() {
             @Override
-            public void onUpdate(WatchEvent event) {
+            public CompletableFuture<Void> onUpdate(WatchEvent event) {
                 assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
                 assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(StandardCharsets.UTF_8)));
 
                 latch.countDown();
+
+                return completedFuture(null);
             }
 
             @Override
@@ -231,11 +258,13 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             node.metaStorageManager.registerRangeWatch(startRange, endRange, new WatchListener() {
                 @Override
-                public void onUpdate(WatchEvent event) {
+                public CompletableFuture<Void> onUpdate(WatchEvent event) {
                     assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
                     assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(StandardCharsets.UTF_8)));
 
                     latch.countDown();
+
+                    return completedFuture(null);
                 }
 
                 @Override
@@ -287,11 +316,13 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         for (Node node : nodes) {
             node.metaStorageManager.registerExactWatch(new ByteArray("foo"), new WatchListener() {
                 @Override
-                public void onUpdate(WatchEvent event) {
+                public CompletableFuture<Void> onUpdate(WatchEvent event) {
                     assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
                     assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(StandardCharsets.UTF_8)));
 
                     exactLatch.countDown();
+
+                    return completedFuture(null);
                 }
 
                 @Override
@@ -302,7 +333,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             node.metaStorageManager.registerPrefixWatch(new ByteArray("ba"), new WatchListener() {
                 @Override
-                public void onUpdate(WatchEvent event) {
+                public CompletableFuture<Void> onUpdate(WatchEvent event) {
                     List<String> keys = event.entryEvents().stream()
                             .map(e -> new String(e.newEntry().key(), StandardCharsets.UTF_8))
                             .collect(Collectors.toList());
@@ -315,6 +346,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     assertThat(values, containsInAnyOrder("one", "two"));
 
                     prefixLatch.countDown();
+
+                    return completedFuture(null);
                 }
 
                 @Override

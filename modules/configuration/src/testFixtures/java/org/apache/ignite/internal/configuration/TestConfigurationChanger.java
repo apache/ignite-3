@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.po
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -33,6 +34,7 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
+import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link ConfigurationChanger} to be used in tests. Has no support of listeners. */
 public class TestConfigurationChanger extends ConfigurationChanger {
@@ -59,12 +61,7 @@ public class TestConfigurationChanger extends ConfigurationChanger {
             Collection<Class<?>> internalSchemaExtensions,
             Collection<Class<?>> polymorphicSchemaExtensions
     ) {
-        super(
-                (oldRoot, newRoot, revision, notificationNumber) -> completedFuture(null),
-                rootKeys,
-                validators,
-                storage
-        );
+        super(noOpListener(), rootKeys, validators, storage);
 
         this.cgen = cgen;
 
@@ -72,6 +69,21 @@ public class TestConfigurationChanger extends ConfigurationChanger {
         Map<Class<?>, Set<Class<?>>> polymorphicExtensions = polymorphicSchemaExtensions(polymorphicSchemaExtensions);
 
         rootKeys.forEach(key -> cgen.compileRootSchema(key.schemaClass(), internalExtensions, polymorphicExtensions));
+    }
+
+    private static ConfigurationUpdateListener noOpListener() {
+        return new ConfigurationUpdateListener() {
+            @Override
+            public CompletableFuture<Void> onConfigurationUpdated(@Nullable SuperRoot oldRoot, SuperRoot newRoot, long storageRevision,
+                    long notificationNumber) {
+                return completedFuture(null);
+            }
+
+            @Override
+            public CompletableFuture<Void> onRevisionUpdated(long storageRevision, long notificationNumber) {
+                return completedFuture(null);
+            }
+        };
     }
 
     /** {@inheritDoc} */

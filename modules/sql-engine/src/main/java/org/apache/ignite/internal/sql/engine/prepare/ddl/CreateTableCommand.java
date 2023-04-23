@@ -17,21 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * CREATE TABLE statement.
  */
 public class CreateTableCommand extends AbstractTableDdlCommand {
-    /** Replicas number. */
-    private Integer replicas;
-
-    /** Number of partitions for the new table. */
-    private Integer partitions;
-
     /** Primary key columns. */
     private List<String> pkCols;
 
@@ -40,11 +32,6 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
 
     /** Columns. */
     private List<ColumnDefinition> cols;
-
-    private String dataStorage;
-
-    @Nullable
-    private Map<String, Object> dataStorageOptions;
 
     private String zone;
 
@@ -60,37 +47,6 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
      */
     public void primaryKeyColumns(List<String> pkCols) {
         this.pkCols = pkCols;
-    }
-
-    /**
-     * Get replicas count.
-     */
-    @Nullable
-    public Integer replicas() {
-        return replicas;
-    }
-
-    /**
-     * Set replicas count.
-     */
-    @Nullable
-    public void replicas(int repl) {
-        replicas = repl;
-    }
-
-    /**
-     * Get partitions count.
-     */
-    @Nullable
-    public Integer partitions() {
-        return partitions;
-    }
-
-    /**
-     * Set partitions count.
-     */
-    public void partitions(Integer parts) {
-        partitions = parts;
     }
 
     /**
@@ -128,43 +84,6 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
      */
     public void colocationColumns(List<String> colocationCols) {
         this.colocationCols = colocationCols;
-    }
-
-    /**
-     * Returns data storage.
-     */
-    public String dataStorage() {
-        return dataStorage;
-    }
-
-    /**
-     * Sets data storage.
-     *
-     * @param dataStorage Data storage.
-     */
-    public void dataStorage(String dataStorage) {
-        this.dataStorage = dataStorage;
-    }
-
-    /**
-     * Returns data storage options.
-     */
-    public Map<String, Object> dataStorageOptions() {
-        return dataStorageOptions == null ? Map.of() : dataStorageOptions;
-    }
-
-    /**
-     * Adds data storage option.
-     *
-     * @param name Option name.
-     * @param value Option value.
-     */
-    public void addDataStorageOption(String name, Object value) {
-        if (dataStorageOptions == null) {
-            dataStorageOptions = new HashMap<>();
-        }
-
-        dataStorageOptions.put(name, value);
     }
 
     /**

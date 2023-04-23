@@ -30,7 +30,7 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -73,14 +73,14 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     public StorageScanNode(
             ExecutionContext<RowT> ctx,
             RowHandler.RowFactory<RowT> rowFactory,
-            InternalIgniteTable schemaTable,
+            IgniteTable schemaTable,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
     ) {
         super(ctx);
 
-        assert ctx.transaction() != null : "Transaction not initialized.";
+        assert ctx.txAttributes() != null : "Transaction not initialized.";
 
         tableRowConverter = row -> schemaTable.toRow(context(), row, rowFactory, requiredColumns);
 

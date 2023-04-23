@@ -23,6 +23,9 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -40,6 +43,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
+import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -48,7 +52,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.jetbrains.annotations.NotNull;
+import org.hamcrest.CustomMatcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 
@@ -73,7 +77,7 @@ public final class IgniteTestUtils {
         assert fieldName != null;
 
         try {
-            Class<?> cls = obj instanceof Class ? (Class) obj : obj.getClass();
+            Class<?> cls = obj instanceof Class ? (Class<?>) obj : obj.getClass();
 
             Field field = cls.getDeclaredField(fieldName);
 
@@ -90,7 +94,7 @@ public final class IgniteTestUtils {
                 throw new IgniteInternalException("Modification of static final field through reflection.");
             }
 
-            if (!field.isAccessible()) {
+            if (!field.canAccess(obj)) {
                 field.setAccessible(true);
             }
 
@@ -109,13 +113,13 @@ public final class IgniteTestUtils {
      * @param val       New field value.
      * @throws IgniteInternalException In case of error.
      */
-    public static void setFieldValue(Object obj, Class cls, String fieldName, Object val) throws IgniteInternalException {
+    public static void setFieldValue(Object obj, Class<?> cls, String fieldName, Object val) throws IgniteInternalException {
         assert fieldName != null;
 
         try {
             Field field = cls.getDeclaredField(fieldName);
 
-            if (!field.isAccessible()) {
+            if (!field.canAccess(obj)) {
                 field.setAccessible(true);
             }
 
@@ -147,14 +151,14 @@ public final class IgniteTestUtils {
     }
 
     /**
-     * Returns field value.
+     * Finds a field in the given {@code target} object of the {@code declaredClass} type.
      *
-     * @param target        target object from which to get field value ({@code null} for static methods)
+     * @param target        target object from which to get field ({@code null} for static methods)
      * @param declaredClass class on which the field is declared
      * @param fieldName     name of the field
-     * @return field value
+     * @return field
      */
-    public static Object getFieldValue(Object target, Class<?> declaredClass, String fieldName) {
+    public static Field getField(@Nullable Object target, Class<?> declaredClass, String fieldName) {
         Field field;
         try {
             field = declaredClass.getDeclaredField(fieldName);
@@ -162,12 +166,24 @@ public final class IgniteTestUtils {
             throw new IgniteInternalException("Did not find a field", e);
         }
 
-        if (!field.isAccessible()) {
+        if (!field.canAccess(target)) {
             field.setAccessible(true);
         }
 
+        return field;
+    }
+
+    /**
+     * Returns field value.
+     *
+     * @param target        target object from which to get field value ({@code null} for static methods)
+     * @param declaredClass class on which the field is declared
+     * @param fieldName     name of the field
+     * @return field value
+     */
+    public static Object getFieldValue(@Nullable Object target, Class<?> declaredClass, String fieldName) {
         try {
-            return field.get(target);
+            return getField(target, declaredClass, fieldName).get(target);
         } catch (IllegalAccessException e) {
             throw new IgniteInternalException("Cannot get field value", e);
         }
@@ -182,60 +198,30 @@ public final class IgniteTestUtils {
      * @return Field value.
      * @throws IgniteInternalException In case of error.
      */
-    public static <T> T getFieldValue(Object obj, String... fieldNames) {
+    public static <T> T getFieldValue(@Nullable Object obj, String... fieldNames) {
         assert obj != null;
         assert fieldNames != null;
         assert fieldNames.length >= 1;
 
-        try {
-            for (String fieldName : fieldNames) {
-                Class<?> cls = obj instanceof Class ? (Class) obj : obj.getClass();
+        for (String fieldName : fieldNames) {
+            Class<?> cls = obj instanceof Class ? (Class<?>) obj : obj.getClass();
 
-                try {
-                    obj = findField(cls, obj, fieldName);
-                } catch (NoSuchFieldException e) {
-                    // Resolve inner class, if not an inner field.
-                    Class<?> innerCls = getInnerClass(cls, fieldName);
+            try {
+                obj = getFieldValue(obj, cls, fieldName);
+            } catch (IgniteInternalException e) {
+                // Resolve inner class, if not an inner field.
+                Class<?> innerCls = getInnerClass(cls, fieldName);
 
-                    if (innerCls == null) {
-                        throw new IgniteInternalException("Failed to get object field [obj=" + obj
-                                + ", fieldNames=" + Arrays.toString(fieldNames) + ']', e);
-                    }
-
-                    obj = innerCls;
+                if (innerCls == null) {
+                    throw new IgniteInternalException("Failed to get object field [obj=" + obj
+                            + ", fieldNames=" + Arrays.toString(fieldNames) + ']', e);
                 }
+
+                obj = innerCls;
             }
-
-            return (T) obj;
-        } catch (IllegalAccessException e) {
-            throw new IgniteInternalException("Failed to get object field [obj=" + obj
-                    + ", fieldNames=" + Arrays.toString(fieldNames) + ']', e);
-        }
-    }
-
-    /**
-     * Get object field value via reflection.
-     *
-     * @param cls Class for searching.
-     * @param obj Target object.
-     * @param fieldName Field name for search.
-     * @return Field from object if it was found.
-     */
-    private static Object findField(
-            Class<?> cls,
-            Object obj,
-            String fieldName
-    ) throws NoSuchFieldException, IllegalAccessException {
-        // Resolve inner field.
-        Field field = cls.getDeclaredField(fieldName);
-
-        boolean accessible = field.isAccessible();
-
-        if (!accessible) {
-            field.setAccessible(true);
         }
 
-        return field.get(obj);
+        return (T) obj;
     }
 
     /**
@@ -263,8 +249,8 @@ public final class IgniteTestUtils {
      * @return Thrown throwable.
      */
     public static Throwable assertThrowsWithCause(
-            @NotNull RunnableX run,
-            @NotNull Class<? extends Throwable> cls
+            RunnableX run,
+            Class<? extends Throwable> cls
     ) {
         return assertThrowsWithCause(run, cls, null);
     }
@@ -278,8 +264,8 @@ public final class IgniteTestUtils {
      * @return Thrown throwable.
      */
     public static Throwable assertThrowsWithCause(
-            @NotNull RunnableX run,
-            @NotNull Class<? extends Throwable> cls,
+            RunnableX run,
+            Class<? extends Throwable> cls,
             @Nullable String msg
     ) {
         try {
@@ -307,8 +293,8 @@ public final class IgniteTestUtils {
      * @return {@code True} if one of the causing exception is an instance of passed in classes, {@code false} otherwise.
      */
     public static boolean hasCause(
-            @NotNull Throwable t,
-            @NotNull Class<?> cls,
+            Throwable t,
+            Class<?> cls,
             @Nullable String messageFragment
     ) {
         for (Throwable th = t; th != null; th = th.getCause()) {
@@ -346,10 +332,7 @@ public final class IgniteTestUtils {
      * @param cls Cause classes to check.
      * @return reference to the cause error if found, otherwise returns {@code null}.
      */
-    public static <T extends Throwable> T cause(
-            @NotNull Throwable t,
-            @NotNull Class<T> cls
-    ) {
+    public static <T extends Throwable> @Nullable T cause(Throwable t, Class<T> cls) {
         return cause(t, cls, null);
     }
 
@@ -364,9 +347,9 @@ public final class IgniteTestUtils {
      * @param msg Message text that should be in cause (if {@code null}, message won't be checked).
      * @return reference to the cause error if found, otherwise returns {@code null}.
      */
-    public static <T extends Throwable> T cause(
-            @NotNull Throwable t,
-            @NotNull Class<T> cls,
+    public static <T extends Throwable> @Nullable T cause(
+            Throwable t,
+            Class<T> cls,
             @Nullable String msg
     ) {
         for (Throwable th = t; th != null; th = th.getCause()) {
@@ -396,7 +379,7 @@ public final class IgniteTestUtils {
      * @param task Runnable.
      * @return Future with task result.
      */
-    public static CompletableFuture<?> runAsync(final RunnableX task) {
+    public static CompletableFuture<?> runAsync(RunnableX task) {
         return runAsync(task, "async-runnable-runner");
     }
 
@@ -406,7 +389,7 @@ public final class IgniteTestUtils {
      * @param task Runnable.
      * @return Future with task result.
      */
-    public static CompletableFuture<?> runAsync(final RunnableX task, String threadName) {
+    public static CompletableFuture<?> runAsync(RunnableX task, String threadName) {
         return runAsync(() -> {
             try {
                 task.run();
@@ -424,7 +407,7 @@ public final class IgniteTestUtils {
      * @param task Callable.
      * @return Future with task result.
      */
-    public static <T> CompletableFuture<T> runAsync(final Callable<T> task) {
+    public static <T> CompletableFuture<T> runAsync(Callable<T> task) {
         return runAsync(task, "async-callable-runner");
     }
 
@@ -435,10 +418,10 @@ public final class IgniteTestUtils {
      * @param threadName Thread name.
      * @return Future with task result.
      */
-    public static <T> CompletableFuture<T> runAsync(final Callable<T> task, String threadName) {
-        final NamedThreadFactory thrFactory = new NamedThreadFactory(threadName, LOG);
+    public static <T> CompletableFuture<T> runAsync(Callable<T> task, String threadName) {
+        NamedThreadFactory thrFactory = new NamedThreadFactory(threadName, LOG);
 
-        final CompletableFuture<T> fut = new CompletableFuture<T>();
+        CompletableFuture<T> fut = new CompletableFuture<T>();
 
         thrFactory.newThread(() -> {
             try {
@@ -553,7 +536,7 @@ public final class IgniteTestUtils {
      * @param threadName Thread names.
      * @return Future for the run. Future returns execution time in milliseconds.
      */
-    public static CompletableFuture<Long> runMultiThreadedAsync(Callable<?> call, int threadNum, final String threadName) {
+    public static CompletableFuture<Long> runMultiThreadedAsync(Callable<?> call, int threadNum, String threadName) {
         List<Callable<?>> calls = Collections.<Callable<?>>nCopies(threadNum, call);
 
         NamedThreadFactory threadFactory = new NamedThreadFactory(threadName, LOG);
@@ -721,7 +704,6 @@ public final class IgniteTestUtils {
      * <p>This method erases type of the exception in the thrown clause, so checked exception could be thrown without need to wrap it with
      * unchecked one or adding a similar throws clause to the upstream methods.
      */
-    @SuppressWarnings("unchecked")
     public static <E extends Throwable> void sneakyThrow(Throwable e) throws E {
         throw (E) e;
     }
@@ -736,7 +718,7 @@ public final class IgniteTestUtils {
      * @return A result of the stage.
      */
     @SuppressWarnings("UnusedReturnValue")
-    public static <T> T await(CompletionStage<T> stage, long timeout, TimeUnit unit) {
+    public static <T> @Nullable T await(CompletionStage<T> stage, long timeout, TimeUnit unit) {
         try {
             return stage.toCompletableFuture().get(timeout, unit);
         } catch (Throwable e) {
@@ -768,7 +750,7 @@ public final class IgniteTestUtils {
      * @return A result of the stage.
      */
     @SuppressWarnings("UnusedReturnValue")
-    public static <T> T await(CompletionStage<T> stage) {
+    public static <T> @Nullable T await(CompletionStage<T> stage) {
         return await(stage, TIMEOUT_SEC, TimeUnit.SECONDS);
     }
 
@@ -824,6 +806,83 @@ public final class IgniteTestUtils {
             }
 
             throw assertionError;
+        }
+    }
+
+    /**
+     * Returns a file system path for a resource name.
+     *
+     * @param cls A class.
+     * @param resourceName A resource name.
+     * @return A file system path matching the path component of the resource URL.
+     */
+    public static String getResourcePath(Class<?> cls, String resourceName) {
+        return getPath(cls.getClassLoader().getResource(resourceName));
+    }
+
+    /**
+     * Converts a URL to a file system path.
+     *
+     * <p>This method is needed to get a proper file system name on the Windows platform. For portable code
+     * it should be used instead of URL::getPath().
+     *
+     * <p>For example, given a URL <i>file:///C:/dir/file.ext</i>, this method returns a Windows-specific
+     * path: <i>C:\dir\file.ext</i>.
+     *
+     * <p>While the URL::getPath() method returns a path that will not work for file system API on Windows:
+     * <i>/C:/dir/file.ext</i>.
+     *
+     * <p>There is no such problem on UNIX-like systems where given an URL <i>file:///dir/file.ext</i>,
+     * both methods return the same result: <i>/dir/file.ext</i>
+     *
+     * @param url A resource URL.
+     * @return A file system path matching the path component of the URL.
+     */
+    public static String getPath(URL url) {
+        try {
+            return Path.of(url.toURI()).toString();
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e); // Shouldn't happen if the URL is obtained from the class loader.
+        }
+    }
+
+    /**
+     * Adds escape characters before backslashes in a path (on Windows), e.g. for the HOCON config parser.
+     *
+     * <p>For example, given a path argument <i>C:\dir\file.ext</i>, this method returns <i>C:\\dir\\file.ext</i>.
+     *
+     * @param path A path string.
+     * @return A path string with escaped backslashes.
+     */
+    public static String escapeWindowsPath(String path) {
+        return path.replace("\\", "\\\\");
+    }
+
+    /**
+     * Predicate matcher.
+     *
+     * @param <DataT> Data type.
+     */
+    public static class PredicateMatcher<DataT> extends CustomMatcher<DataT> {
+        /** Predicate. */
+        private final Predicate<DataT> predicate;
+
+        /**
+         * Constructor.
+         *
+         * @param pred Predicate.
+         * @param msg Error description.
+         */
+        public PredicateMatcher(Predicate<DataT> pred, String msg) {
+            super(msg);
+
+            predicate = pred;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean matches(Object o) {
+            return predicate.test((DataT) o);
         }
     }
 }

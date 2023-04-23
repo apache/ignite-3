@@ -20,24 +20,24 @@ package org.apache.ignite.internal.app;
 import static java.lang.System.lineSeparator;
 
 import com.google.auto.service.AutoService;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
-import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of an entry point for handling grid lifecycle.
@@ -87,43 +87,17 @@ public class IgnitionImpl implements Ignition {
             Path workDir,
             @Nullable ClassLoader serviceLoaderClassLoader
     ) {
+        Objects.requireNonNull(cfgPath, "Config path must not be null");
+        if (Files.notExists(cfgPath)) {
+            throw new IgniteException("Config file doesn't exist");
+        }
+
         return doStart(
                 nodeName,
-                NodeBootstrapConfiguration.directFile(cfgPath),
+                cfgPath,
                 workDir,
                 serviceLoaderClassLoader
         );
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Ignite> start(String nodeName, @Nullable URL cfgUrl, Path workDir) {
-        if (cfgUrl == null) {
-            return start(nodeName, workDir);
-        } else {
-            try (InputStream cfgStream = cfgUrl.openStream()) {
-                return start(nodeName, cfgStream, workDir);
-            } catch (IOException e) {
-                throw new IgniteException("Unable to read user specific configuration.", e);
-            }
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Ignite> start(String nodeName, @Nullable InputStream cfg, Path workDir) {
-        return doStart(
-                nodeName,
-                NodeBootstrapConfiguration.inputStream(cfg, workDir),
-                workDir,
-                defaultServiceClassLoader()
-        );
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Ignite> start(String nodeName, Path workDir) {
-        return doStart(nodeName, NodeBootstrapConfiguration.empty(workDir), workDir, defaultServiceClassLoader());
     }
 
     /** {@inheritDoc} */
@@ -138,18 +112,27 @@ public class IgnitionImpl implements Ignition {
         });
     }
 
-    @Override
-    public void init(String nodeName, Collection<String> metaStorageNodenodeNames, String clusterName) {
-        init(nodeName, metaStorageNodenodeNames, List.of(), clusterName);
+    /**
+     * Stops all Ignite instances started in this JVM.
+     */
+    @TestOnly
+    public void stopAll() {
+        List<String> nodeNames = new ArrayList<>(nodes.keySet());
+
+        if (!nodeNames.isEmpty()) {
+            LOG.info("Going to stop Ignite instances: " + nodeNames);
+
+            for (String nodeName : nodeNames) {
+                stop(nodeName);
+            }
+
+            LOG.info("Stopped the following Ignite instances: " + nodeNames);
+        }
     }
 
     @Override
-    public void init(
-            String nodeName,
-            Collection<String> metaStorageNodeNames,
-            Collection<String> cmgNodeNames,
-            String clusterName
-    ) {
+    public void init(InitParameters parameters) {
+        String nodeName = parameters.nodeName();
         IgniteImpl node = readyForInitNodes.get(nodeName);
 
         if (node == null) {
@@ -157,7 +140,11 @@ public class IgnitionImpl implements Ignition {
         }
 
         try {
-            node.init(metaStorageNodeNames, cmgNodeNames, clusterName);
+            node.init(parameters.metaStorageNodeNames(),
+                    parameters.cmgNodeNames(),
+                    parameters.clusterName(),
+                    parameters.restAuthenticationConfig()
+            );
         } catch (NodeStoppingException e) {
             throw new IgniteException("Node stop detected during init", e);
         }
@@ -171,14 +158,14 @@ public class IgnitionImpl implements Ignition {
      * Starts an Ignite node with an optional bootstrap configuration from a HOCON file.
      *
      * @param nodeName Name of the node. Must not be {@code null}.
-     * @param configuration Path to node configuration in the HOCON format. Can be {@code null}.
+     * @param configPath Path to node configuration in the HOCON format. Must not be {@code null}.
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
      *         complete.
      */
     private static CompletableFuture<Ignite> doStart(
             String nodeName,
-            NodeBootstrapConfiguration configuration,
+            Path configPath,
             Path workDir,
             @Nullable ClassLoader serviceLoaderClassLoader
     ) {
@@ -186,7 +173,7 @@ public class IgnitionImpl implements Ignition {
             throw new IllegalArgumentException("Node name must not be null or empty.");
         }
 
-        IgniteImpl nodeToStart = new IgniteImpl(nodeName, configuration, workDir, serviceLoaderClassLoader);
+        IgniteImpl nodeToStart = new IgniteImpl(nodeName, configPath, workDir, serviceLoaderClassLoader);
 
         IgniteImpl prevNode = nodes.putIfAbsent(nodeName, nodeToStart);
 
@@ -201,7 +188,7 @@ public class IgnitionImpl implements Ignition {
         ackBanner();
 
         try {
-            CompletableFuture<Ignite> future = nodeToStart.start(configuration)
+            CompletableFuture<Ignite> future = nodeToStart.start(configPath)
                     .handle((ignite, e) -> {
                         if (e == null) {
                             ackSuccessStart();

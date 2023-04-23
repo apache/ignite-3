@@ -132,6 +132,11 @@ public class ErrorUiComponent implements UiComponent {
             return this;
         }
 
+        /** Sets details. */
+        public ErrorComponentBuilder details(UiElement... uiElements) {
+            return details("%s", uiElements);
+        }
+
         /** Sets verbose. */
         public ErrorComponentBuilder verbose(String verbose, UiElement... uiElements) {
             this.verbose = verbose;

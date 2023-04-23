@@ -65,7 +65,8 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.PartitionAssignmentGet => null,
 
                 // Do not return null from default arm intentionally so we don't forget to update this when new ClientOp values are added.
-                _ => throw new ArgumentOutOfRangeException(nameof(op), op, message: null)
+                // ReSharper disable once PatternIsRedundant
+                ClientOp.None or _ => throw new ArgumentOutOfRangeException(nameof(op), op, message: null)
             };
         }
     }

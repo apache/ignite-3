@@ -28,8 +28,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Hash spool test.
  */
-public class ItHashSpoolTest extends AbstractBasicIntegrationTest {
-    private static final IgniteLogger LOG = Loggers.forClass(AbstractBasicIntegrationTest.class);
+public class ItHashSpoolTest extends ClusterPerClassIntegrationTest {
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterPerClassIntegrationTest.class);
 
     /**
      * After each.
@@ -50,7 +50,7 @@ public class ItHashSpoolTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18689")
     @SuppressWarnings("unchecked")
     public void testHashSpoolCondition() {
         sql("CREATE TABLE t(id INT PRIMARY KEY, i INTEGER)");

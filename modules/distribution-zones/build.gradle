@@ -26,19 +26,22 @@ dependencies {
     annotationProcessor project(":ignite-configuration-annotation-processor")
     annotationProcessor libs.auto.service
 
-    api project(':ignite-configuration-api')
     implementation project(':ignite-core')
-    implementation project(':ignite-configuration')
+    implementation project(':ignite-configuration-api')
     implementation project(':ignite-api')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-metastorage-api')
     implementation project(':ignite-vault')
-    implementation project(':ignite-configuration')
     implementation project(':ignite-schema')
 
-    implementation libs.jetbrains.annotations
-    implementation libs.fastutil.core
     implementation libs.auto.service.annotations
+    implementation libs.fastutil.core
+    implementation libs.jetbrains.annotations
+    implementation(libs.jsonpath.core) {
+        //IDEA test runner doesn't apply Gradle dependency resolve strategy, this is just not implemented
+        //So, exclude asm-core transitive dependency to protect of jar-hell.
+        exclude group: 'org.ow2.asm', module: 'asm'
+    }
 
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
@@ -51,6 +54,17 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation(testFixtures(project(':ignite-cluster-management')))
+    testImplementation(testFixtures(project(':ignite-vault')))
+    testImplementation(testFixtures(project(':ignite-storage-api')))
+
+    testFixturesImplementation libs.jetbrains.annotations
+    testFixturesImplementation libs.mockito.core
+    testFixturesImplementation libs.mockito.junit
+    testFixturesImplementation project(':ignite-raft-api')
+    testFixturesImplementation project(':ignite-metastorage')
+    testFixturesImplementation project(':ignite-schema')
+    testFixturesImplementation(testFixtures(project(':ignite-core')))
+    testFixturesImplementation(testFixtures(project(':ignite-metastorage')))
 }
 
 description = 'ignite-distribution-zones'

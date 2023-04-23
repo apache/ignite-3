@@ -19,7 +19,7 @@ package org.apache.ignite.internal.cli.commands.node;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.commands.ProfileMixin;
-import org.apache.ignite.internal.cli.config.ConfigConstants;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import picocli.CommandLine.Mixin;
@@ -49,7 +49,7 @@ public class NodeUrlProfileMixin {
             return nodeUrl.getNodeUrl();
         } else {
             ConfigManager configManager = configManagerProvider.get();
-            return configManager.getProperty(ConfigConstants.CLUSTER_URL, profileName.getProfileName());
+            return configManager.getProperty(CliConfigKeys.CLUSTER_URL.value(), profileName.getProfileName());
         }
     }
 }

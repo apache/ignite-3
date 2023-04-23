@@ -79,23 +79,34 @@ public abstract class IgniteColocatedAggregateBase extends IgniteAggregate imple
     ) {
         IgniteDistribution inDistribution = TraitUtils.distribution(inputTraits.get(0));
 
+        // If there is only single stream of data, it's colocated for sure
         if (inDistribution.satisfies(IgniteDistributions.single())) {
             return List.of(Pair.of(nodeTraits.replace(inDistribution), inputTraits));
         }
 
+        // Otherwise if stream is distributed by hash function, and grouping columns is a super-set of
+        // distribution keys, we can use colocated aggregate as well
         if (inDistribution.getType() == RelDistribution.Type.HASH_DISTRIBUTED) {
-            for (Integer key : inDistribution.getKeys()) {
-                if (!groupSet.get(key)) {
-                    return List.of();
-                }
+            if (groupSet.contains(ImmutableBitSet.of(inDistribution.getKeys()))) {
+                // Group set contains all distribution keys, shift distribution keys according to used columns.
+                IgniteDistribution outDistribution = inDistribution.apply(Commons.trimmingMapping(rowType.getFieldCount(), groupSet));
+
+                return List.of(Pair.of(nodeTraits.replace(outDistribution), inputTraits));
             }
-
-            // Group set contains all distribution keys, shift distribution keys according to used columns.
-            IgniteDistribution outDistribution = inDistribution.apply(Commons.trimmingMapping(rowType.getFieldCount(), groupSet));
-
-            return List.of(Pair.of(nodeTraits.replace(outDistribution), inputTraits));
         }
 
-        return List.of();
+        // Rows belonging to the same group are not colocated, thus let's create
+        // distribution that will satisfy for sure. It's important to return here
+        // at least one option, otherwise propagation result for other traits will be
+        // dropped for current input.
+        IgniteDistribution newInDistribution = IgniteDistributions.hash(groupSet.asList());
+        IgniteDistribution newOutDistribution = newInDistribution.apply(Commons.trimmingMapping(rowType.getFieldCount(), groupSet));
+
+        return List.of(
+                Pair.of(
+                        nodeTraits.replace(newOutDistribution),
+                        List.of(inputTraits.get(0).replace(newInDistribution))
+                )
+        );
     }
 }

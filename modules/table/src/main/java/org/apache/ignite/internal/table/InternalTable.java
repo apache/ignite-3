@@ -34,6 +34,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
@@ -65,6 +66,14 @@ public interface InternalTable extends ManuallyCloseable {
      * @return Table name.
      */
     String name();
+
+    /**
+     * Extracts an identifier of a partition from a given row.
+     *
+     * @param row A row to extract partition from.
+     * @return An identifier of a partition the row belongs to.
+     */
+    int partitionId(BinaryRowEx row);
 
     /**
      * Asynchronously gets a row with same key columns values as given one from the table.
@@ -367,27 +376,6 @@ public interface InternalTable extends ManuallyCloseable {
      * that reactively notifies about partition rows.
      *
      * @param partId The partition.
-     * @param tx The transaction.
-     * @param indexId Index id.
-     * @param key Key to search.
-     * @param columnsToInclude Row projection.
-     * @return {@link Publisher} that reactively notifies about partition rows.
-     * @deprecated IGNITE-17952 Use {@link #lookup(int, UUID, PrimaryReplica, UUID, BinaryTuple, BitSet)} instead.
-     */
-    @Deprecated
-    Publisher<BinaryRow> lookup(
-            int partId,
-            @Nullable InternalTransaction tx,
-            @NotNull UUID indexId,
-            BinaryTuple key,
-            @Nullable BitSet columnsToInclude
-    );
-
-    /**
-     * Lookup rows corresponding to the given key given partition index, providing {@link Publisher}
-     * that reactively notifies about partition rows.
-     *
-     * @param partId The partition.
      * @param txId Transaction id.
      * @param recipient Primary replica that will handle given get request.
      * @param indexId Index id.
@@ -460,4 +448,18 @@ public interface InternalTable extends ManuallyCloseable {
      */
     @Override
     void close();
+
+    /**
+     * Returns the partition safe time tracker, {@code null} means not added.
+     *
+     * @param partitionId Partition ID.
+     */
+    @Nullable PendingComparableValuesTracker<HybridTimestamp> getPartitionSafeTimeTracker(int partitionId);
+
+    /**
+     * Returns the partition storage index tracker, {@code null} means not added.
+     *
+     * @param partitionId Partition ID.
+     */
+    @Nullable PendingComparableValuesTracker<Long> getPartitionStorageIndexTracker(int partitionId);
 }

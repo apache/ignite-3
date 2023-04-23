@@ -42,7 +42,6 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
 import org.apache.ignite.internal.configuration.NodeConfigCreateException;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
 import org.apache.ignite.internal.future.InFlightFutures;
@@ -88,10 +87,10 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     /**
      * Constructor.
      *
-     * @param configuration Node bootstrap configuration.
+     * @param configPath Path to node bootstrap configuration file.
      */
-    public LocalFileConfigurationStorage(NodeBootstrapConfiguration configuration) {
-        this.configPath = configuration.configPath();
+    public LocalFileConfigurationStorage(Path configPath) {
+        this.configPath = configPath;
         tempConfigPath = configPath.resolveSibling(configPath.getFileName() + ".tmp");
         checkAndRestoreConfigFile();
     }
@@ -135,7 +134,8 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                 return CompletableFuture.completedFuture(false);
             }
             checkAndRestoreConfigFile();
-            saveValues(newValues);
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19152
+            //saveValues(newValues);
             latest.putAll(newValues);
             lastRevision++;
             runAsync(() -> lsnrRef.get().onEntriesChanged(new Data(newValues, lastRevision)));
@@ -206,10 +206,10 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
             return value;
         }));
         Config other = ConfigFactory.parseMap(map);
-        Config newConfig = parseConfigOptions().withFallback(other).resolve();
+        Config newConfig = other.withFallback(parseConfigOptions()).resolve();
         return newConfig.isEmpty()
                 ? ""
-                : newConfig.root().render(ConfigRenderOptions.concise().setFormatted(true));
+                : newConfig.root().render(ConfigRenderOptions.concise().setFormatted(true).setJson(false));
     }
 
     private Config parseConfigOptions() {
@@ -218,10 +218,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                 ConfigParseOptions.defaults().setAllowMissing(false));
     }
 
-    /**
-     * Checking that configuration file is still existed and restore
-     * it in case when it deleted with latest applied state.
-     */
+    /** Check that configuration file still exists and restore it with latest applied state in case it was deleted. */
     private void checkAndRestoreConfigFile() {
         if (!configPath.toFile().exists()) {
             try {

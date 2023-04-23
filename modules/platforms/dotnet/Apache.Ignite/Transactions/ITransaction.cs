@@ -28,6 +28,11 @@ namespace Apache.Ignite.Transactions
     public interface ITransaction : IAsyncDisposable
     {
         /// <summary>
+        /// Gets a value indicating whether this transaction is read-only.
+        /// </summary>
+        bool IsReadOnly { get; }
+
+        /// <summary>
         /// Commits the transaction.
         /// </summary>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>

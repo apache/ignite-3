@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import org.apache.ignite.internal.util.Cursor;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Tree index interface.
@@ -34,5 +35,5 @@ public interface TreeIndex<R> {
      * @param upperInclude Inclusive upper bound.
      * @return Cursor over the rows within bounds.
      */
-    Cursor<R> find(R lower, R upper, boolean lowerInclude, boolean upperInclude);
+    Cursor<R> find(@Nullable R lower, @Nullable R upper, boolean lowerInclude, boolean upperInclude);
 }

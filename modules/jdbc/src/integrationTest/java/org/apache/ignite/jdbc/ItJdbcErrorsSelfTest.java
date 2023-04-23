@@ -64,19 +64,19 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
         conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
 
         try (Statement stmt = conn.createStatement()) {
-            stmt.execute(
+            stmt.executeUpdate(
                     "CREATE TABLE CITIES ("
                             + "ID   INT PRIMARY KEY,"
                             + "NAME VARCHAR)"
             );
 
-            SQLException ex = assertThrows(SQLException.class, () -> stmt.execute("non sql stuff"));
+            SQLException ex = assertThrows(SQLException.class, () -> stmt.executeUpdate("non sql stuff"));
 
             assertTrue(ex.getMessage().contains("Failed to parse query"));
         }
 
         try (Statement stmt = conn.createStatement()) {
-            stmt.execute(
+            stmt.executeUpdate(
                     "CREATE TABLE ACCOUNTS ("
                             + "    ACCOUNT_ID INT PRIMARY KEY,"
                             + "    CITY_ID    INT,"
@@ -85,7 +85,10 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
                             + "    BALANCE    DOUBLE)"
             );
 
-            SQLException ex = assertThrows(SQLException.class, () -> stmt.execute("CREATE TABLE ACCOUNTS (ACCOUNT_ID INT PRIMARY KEY)"));
+            SQLException ex = assertThrows(
+                    SQLException.class,
+                    () -> stmt.executeUpdate("CREATE TABLE ACCOUNTS (ACCOUNT_ID INT PRIMARY KEY)")
+            );
 
             assertTrue(ex.getMessage().contains("Table already exists"));
         }
@@ -134,6 +137,27 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
 
             assertTrue(e.getMessage() != null
                             && e.getMessage().contains("Unknown target column 'ID1'"),
+                    "Unexpected error message: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Test error code when trying to execute DDL query within a transaction.
+     *
+     * @throws SQLException if failed.
+     */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18985")
+    @Test
+    public void testDdlWithDisabledAutoCommit() throws SQLException {
+        conn.setAutoCommit(false);
+
+        try (Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate("CREATE TABLE test2 (id int primary key, val varchar)");
+
+            fail("SQLException is expected");
+        } catch (SQLException e) {
+            assertTrue(e.getMessage() != null
+                            && e.getMessage().contains("DDL doesn't support transactions."),
                     "Unexpected error message: " + e.getMessage());
         }
     }

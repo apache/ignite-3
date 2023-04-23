@@ -18,19 +18,13 @@
 package org.apache.ignite.internal.rest.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
-import org.apache.ignite.internal.network.configuration.KeyStoreConfigurationSchema;
-import org.apache.ignite.internal.network.configuration.KeyStoreConfigurationValidator;
+import org.apache.ignite.internal.network.configuration.AbstractSslConfigurationSchema;
 
 /** REST SSL configuration. */
 @Config
-public class RestSslConfigurationSchema {
-
-    /** Whether SSL is enabled. */
-    @Value(hasDefault = true)
-    public final boolean enabled = false;
+public class RestSslConfigurationSchema extends AbstractSslConfigurationSchema {
 
     /** SSL port. */
     @Range(min = 1024, max = 0xFFFF)
@@ -41,9 +35,4 @@ public class RestSslConfigurationSchema {
     @Range(min = 0)
     @Value(hasDefault = true)
     public final int portRange = 100;
-
-    /** SSL keystore. */
-    @KeyStoreConfigurationValidator
-    @ConfigValue
-    public KeyStoreConfigurationSchema keyStore;
 }

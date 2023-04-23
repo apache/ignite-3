@@ -34,21 +34,23 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.stream.Stream;
+import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
 import javax.net.ssl.TrustManagerFactory;
+import org.apache.ignite.internal.IgniteIntegrationTest;
+import org.apache.ignite.internal.rest.RestNode;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Tests for the REST SSL configuration. */
-@ExtendWith(WorkDirectoryExtension.class)
-public class ItRestSslTest {
+public class ItRestSslTest extends IgniteIntegrationTest {
 
     /** HTTP port of the test node. */
     private static final int httpPort = 10300;
@@ -62,21 +64,37 @@ public class ItRestSslTest {
     /** Trust store password. */
     private static final String trustStorePassword = "changeit";
 
+    /** Key store path. */
+    private static final String keyStorePath = "ssl/keystore.p12";
+
+    /** Key store password. */
+    private static final String keyStorePassword = "changeit";
+
     /** Path to the working directory. */
     @WorkDirectory
     private static Path workDir;
 
-    /** HTTP client that is expected to be defined in subclasses. */
+    /** HTTP client. */
     private static HttpClient client;
 
-    /** SSL HTTP client that is expected to be defined in subclasses. */
+    /** SSL HTTP client. */
     private static HttpClient sslClient;
+
+    /** SSL HTTP client with client auth. */
+    private static HttpClient sslClientWithClientAuth;
+
+    /** SSL HTTP client with custom cipher. */
+    private static HttpClient sslClientWithCustomCipher;
 
     private static RestNode httpNode;
 
     private static RestNode httpsNode;
 
     private static RestNode dualProtocolNode;
+
+    private static RestNode httpsWithClientAuthNode;
+
+    private static RestNode httpsWithCustomCipherNode;
 
     @BeforeAll
     static void beforeAll(TestInfo testInfo) throws Exception {
@@ -88,15 +106,76 @@ public class ItRestSslTest {
                 .sslContext(sslContext())
                 .build();
 
-        httpNode = new RestNode(workDir, testNodeName(testInfo, 3344), 3344, 10300, 10400, false, false);
-        httpsNode = new RestNode(workDir, testNodeName(testInfo, 3345), 3345, 10301, 10401, true, false);
-        dualProtocolNode = new RestNode(workDir, testNodeName(testInfo, 3346), 3346, 10302, 10402, true, true);
-        Stream.of(httpNode, httpsNode, dualProtocolNode)
+        sslClientWithClientAuth = HttpClient.newBuilder()
+                .sslContext(sslContextWithClientAuth())
+                .build();
+
+        SSLContext sslContext = sslContext();
+        SSLParameters sslParameters = sslContext.getDefaultSSLParameters();
+        sslParameters.setCipherSuites(new String[]{"TLS_DHE_RSA_WITH_AES_128_CBC_SHA"});
+        sslClientWithCustomCipher = HttpClient.newBuilder()
+                .sslContext(sslContext)
+                .sslParameters(sslParameters)
+                .build();
+
+        httpNode = RestNode.builder()
+                .workDir(workDir)
+                .name(testNodeName(testInfo, 3344))
+                .networkPort(3344)
+                .httpPort(10300)
+                .httpsPort(10400)
+                .sslEnabled(false)
+                .dualProtocol(false)
+                .build();
+
+        httpsNode = RestNode.builder()
+                .workDir(workDir)
+                .name(testNodeName(testInfo, 3345))
+                .networkPort(3345)
+                .httpPort(10301)
+                .httpsPort(10401)
+                .sslEnabled(true)
+                .dualProtocol(false)
+                .build();
+
+        dualProtocolNode = RestNode.builder()
+                .workDir(workDir)
+                .name(testNodeName(testInfo, 3346))
+                .networkPort(3346)
+                .httpPort(10302)
+                .httpsPort(10402)
+                .sslEnabled(true)
+                .dualProtocol(true)
+                .build();
+
+        httpsWithClientAuthNode = RestNode.builder()
+                .workDir(workDir)
+                .name(testNodeName(testInfo, 3347))
+                .networkPort(3347)
+                .httpPort(10303)
+                .httpsPort(10403)
+                .sslEnabled(true)
+                .sslClientAuthEnabled(true)
+                .dualProtocol(false)
+                .build();
+
+        httpsWithCustomCipherNode = RestNode.builder()
+                .workDir(workDir)
+                .name(testNodeName(testInfo, 3348))
+                .networkPort(3348)
+                .httpPort(10304)
+                .httpsPort(10404)
+                .sslEnabled(true)
+                .dualProtocol(false)
+                .ciphers("TLS_AES_256_GCM_SHA384")
+                .build();
+
+        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode, httpsWithCustomCipherNode).parallel()
                 .forEach(RestNode::start);
     }
 
     @Test
-    void httpsProtocol() throws IOException, InterruptedException {
+    void httpsProtocol() throws Exception {
         // When GET /management/v1/configuration/node
         URI uri = URI.create(httpsNode.httpsAddress() + "/management/v1/configuration/node");
         HttpRequest request = HttpRequest.newBuilder(uri).build();
@@ -107,7 +186,7 @@ public class ItRestSslTest {
     }
 
     @Test
-    void httpProtocol(TestInfo testInfo) throws IOException, InterruptedException {
+    void httpProtocol(TestInfo testInfo) throws Exception {
         // When GET /management/v1/configuration/node
         URI uri = URI.create(httpNode.httpAddress() + "/management/v1/configuration/node");
         HttpRequest request = HttpRequest.newBuilder(uri).build();
@@ -118,7 +197,7 @@ public class ItRestSslTest {
     }
 
     @Test
-    void dualProtocol() throws IOException, InterruptedException {
+    void dualProtocol() throws Exception {
         // When GET /management/v1/configuration/node
         URI httpUri = URI.create(dualProtocolNode.httpAddress() + "/management/v1/configuration/node");
         HttpRequest httpRequest = HttpRequest.newBuilder(httpUri).build();
@@ -143,11 +222,10 @@ public class ItRestSslTest {
 
         // Then IOException
         assertThrows(IOException.class, () -> client.send(request, BodyHandlers.ofString()));
-
     }
 
     @Test
-    void httpProtocolNotSslClient() throws IOException, InterruptedException {
+    void httpProtocolNotSslClient() {
         // When GET /management/v1/configuration/node
         URI uri = URI.create(httpsNode.httpAddress() + "/management/v1/configuration/node");
         HttpRequest request = HttpRequest.newBuilder(uri).build();
@@ -156,20 +234,86 @@ public class ItRestSslTest {
         assertThrows(IOException.class, () -> client.send(request, BodyHandlers.ofString()));
     }
 
+    @Test
+    void httpsWithClientAuthProtocol(TestInfo testInfo) throws Exception {
+        // When GET /management/v1/configuration/node
+        URI uri = URI.create(httpsWithClientAuthNode.httpsAddress() + "/management/v1/configuration/node");
+        HttpRequest request = HttpRequest.newBuilder(uri).build();
+
+        // Then response code is 200
+        HttpResponse<String> response = sslClientWithClientAuth.send(request, BodyHandlers.ofString());
+        assertEquals(200, response.statusCode());
+    }
+
+    @Test
+    void httpsWithClientAuthProtocolButClientWithoutAuth(TestInfo testInfo) {
+        // When GET /management/v1/configuration/node
+        URI uri = URI.create(httpsWithClientAuthNode.httpsAddress() + "/management/v1/configuration/node");
+        HttpRequest request = HttpRequest.newBuilder(uri).build();
+
+        // Expect IOException for SSL client that does not configure client auth
+        assertThrows(IOException.class, () -> sslClient.send(request, BodyHandlers.ofString()));
+    }
+
+    void httpsWithCustomCipher(TestInfo testInfo) throws Exception {
+        // When GET /management/v1/configuration/node
+        URI uri = URI.create(httpsWithCustomCipherNode.httpsAddress() + "/management/v1/configuration/node");
+        HttpRequest request = HttpRequest.newBuilder(uri).build();
+
+        // Then response code is 200
+        HttpResponse<String> response = sslClient.send(request, BodyHandlers.ofString());
+        assertEquals(200, response.statusCode());
+    }
+
+    @Test
+    void httpsWithCustomCipherButClientWithIncompatibleCipher(TestInfo testInfo) {
+        // When GET /management/v1/configuration/node
+        URI uri = URI.create(httpsWithCustomCipherNode.httpsAddress() + "/management/v1/configuration/node");
+        HttpRequest request = HttpRequest.newBuilder(uri).build();
+
+        // Expect IOException for SSL client that configures incompatible cipher
+        assertThrows(IOException.class, () -> sslClientWithCustomCipher.send(request, BodyHandlers.ofString()));
+    }
+
     @AfterAll
     static void afterAll() {
-        Stream.of(httpNode, httpsNode, dualProtocolNode)
+        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode, httpsWithCustomCipherNode)
+                .parallel()
                 .forEach(RestNode::stop);
     }
 
-    private static SSLContext sslContext()
-            throws CertificateException, KeyStoreException, IOException, NoSuchAlgorithmException, KeyManagementException {
-        String path = ItRestSslTest.class.getClassLoader().getResource(trustStorePath).getPath();
+    private static SSLContext sslContext() throws CertificateException, KeyStoreException, IOException,
+            NoSuchAlgorithmException, KeyManagementException {
+
+        String tsPath = ItRestSslTest.class.getClassLoader().getResource(trustStorePath).getPath();
+
+        KeyStore trustStore = KeyStore.getInstance(new File(tsPath), trustStorePassword.toCharArray());
         TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-        KeyStore keyStore = KeyStore.getInstance(new File(path), trustStorePassword.toCharArray());
-        trustManagerFactory.init(keyStore);
+        trustManagerFactory.init(trustStore);
+
         SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(null, trustManagerFactory.getTrustManagers(), new SecureRandom());
+
+        return sslContext;
+    }
+
+    private static SSLContext sslContextWithClientAuth() throws CertificateException, KeyStoreException, IOException,
+            NoSuchAlgorithmException, KeyManagementException, UnrecoverableKeyException {
+
+        String tsPath = ItRestSslTest.class.getClassLoader().getResource(trustStorePath).getPath();
+        String ksPath = ItRestSslTest.class.getClassLoader().getResource(keyStorePath).getPath();
+
+        KeyStore trustStore = KeyStore.getInstance(new File(tsPath), trustStorePassword.toCharArray());
+        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        trustManagerFactory.init(trustStore);
+
+        KeyStore keyStore = KeyStore.getInstance(new File(ksPath), keyStorePassword.toCharArray());
+        KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        keyManagerFactory.init(keyStore, keyStorePassword.toCharArray());
+
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), new SecureRandom());
+
         return sslContext;
     }
 }

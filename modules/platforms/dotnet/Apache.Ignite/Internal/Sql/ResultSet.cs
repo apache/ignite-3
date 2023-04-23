@@ -230,6 +230,15 @@ namespace Apache.Ignite.Internal.Sql
             return EnumerateRows().GetAsyncEnumerator(cancellationToken);
         }
 
+        /// <inheritdoc/>
+        public override string ToString() =>
+            new IgniteToStringBuilder(GetType())
+                .Append(HasRowSet)
+                .Append(AffectedRows)
+                .Append(WasApplied)
+                .Append(Metadata)
+                .Build();
+
         /// <summary>
         /// Enumerates ResultSet pages.
         /// </summary>
@@ -283,7 +292,7 @@ namespace Apache.Ignite.Internal.Sql
 
                 var name = reader.ReadString();
                 var nullable = reader.ReadBoolean();
-                var type = (SqlColumnType)reader.ReadInt32();
+                var type = (ColumnType)reader.ReadInt32();
                 var scale = reader.ReadInt32();
                 var precision = reader.ReadInt32();
 

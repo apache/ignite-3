@@ -112,7 +112,8 @@ public partial class LinqTests : IgniteTestsBase
                 new LocalDateTime(2022, 12, 19, 11, i + 1),
                 Instant.FromUnixTimeSeconds(i + 1),
                 new byte[] { 1, 2 },
-                i + 7.7m);
+                i + 7.7m,
+                new Guid(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, (byte)(i + 1)));
 
             await PocoAllColumnsSqlNullableView.UpsertAsync(null, pocoAllColumns);
         }
@@ -259,7 +260,6 @@ public partial class LinqTests : IgniteTestsBase
     }
 
     [Test]
-    [Ignore("IGNITE-18120 Allow arbitrary MemberInit projections in LINQ")]
     public void TestSelectComputedColumnIntoPoco()
     {
         var res = PocoView.AsQueryable()
@@ -350,7 +350,6 @@ public partial class LinqTests : IgniteTestsBase
     }
 
     [Test]
-    [Ignore("IGNITE-18311")]
     public void TestOrderBySkipTakeBeforeSelect()
     {
         var query = PocoView.AsQueryable()
@@ -365,8 +364,7 @@ public partial class LinqTests : IgniteTestsBase
 
         StringAssert.Contains(
             "select _T0.KEY from (" +
-            "select _T1.KEY, _T1.VAL " +
-            "from PUBLIC.TBL1 as _T1 " +
+            "select * from PUBLIC.TBL1 as _T1 " +
             "order by _T1.KEY desc " +
             "limit ? offset ?) as _T0",
             query.ToString());
@@ -409,7 +407,7 @@ public partial class LinqTests : IgniteTestsBase
         CollectionAssert.AreEquivalent(new[] { "v-2", "v-4" }, res);
 
         StringAssert.Contains(
-            "select _T0.VAL from PUBLIC.TBL1 as _T0 where (_T0.KEY IN (?, ?)), Parameters=4, 2",
+            "select _T0.VAL from PUBLIC.TBL1 as _T0 where (_T0.KEY IN (?, ?)), Parameters = [ 4, 2 ]",
             query.ToString());
     }
 
@@ -585,6 +583,7 @@ public partial class LinqTests : IgniteTestsBase
         Assert.AreEqual(new LocalDateTime(2022, 12, 19, 11, 1), res[0].DateTime);
         Assert.AreEqual(Instant.FromUnixTimeSeconds(1), res[0].Timestamp);
         Assert.AreEqual(new byte[] { 1, 2 }, res[0].Blob);
+        Assert.AreEqual(new Guid(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1), res[0].Uuid);
     }
 
     [Test]
@@ -607,6 +606,7 @@ public partial class LinqTests : IgniteTestsBase
         Assert.AreEqual(new LocalDateTime(2022, 12, 19, 11, 1), res[0].DateTime);
         Assert.AreEqual(Instant.FromUnixTimeSeconds(1), res[0].Timestamp);
         Assert.AreEqual(new byte[] { 1, 2 }, res[0].Blob);
+        Assert.AreEqual(new Guid(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1), res[0].Uuid);
     }
 
     [Test]
@@ -630,6 +630,7 @@ public partial class LinqTests : IgniteTestsBase
         Assert.IsNull(res[0].DateTime);
         Assert.IsNull(res[0].Timestamp);
         Assert.IsNull(res[0].Blob);
+        Assert.IsNull(res[0].Uuid);
     }
 
     [Test]
@@ -669,7 +670,7 @@ public partial class LinqTests : IgniteTestsBase
             .Select(x => new { x.Key, Res = x.Val });
 
         StringAssert.Contains(
-            "select _T0.KEY, _T0.VAL from PUBLIC.TBL_INT32 as _T0 where (cast(_T0.VAL as int) IS NOT DISTINCT FROM ?), Parameters=3",
+            "select _T0.KEY, _T0.VAL from PUBLIC.TBL_INT32 as _T0 where (cast(_T0.VAL as int) IS NOT DISTINCT FROM ?), Parameters = [ 300 ]",
             query.ToString());
 
         var res = query.ToList();

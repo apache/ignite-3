@@ -26,11 +26,11 @@ class PlainTableRendererTest {
 
     @Test
     void testRender() {
-        String[] header = new String[]{"id", "name", "address"};
-        Object[] row1 = new Object[]{1, "John", null};
-        Object[] row2 = new Object[]{2, "Jessica", "any address"};
-        Object[][] content = new Object[][]{row1, row2};
-        String render = new PlainTableRenderer().render(header, content);
+        String[] header = {"id", "name", "address"};
+        Object[] row1 = {1, "John", null};
+        Object[] row2 = {2, "Jessica", "any address"};
+        Object[][] content = {row1, row2};
+        String render = PlainTableRenderer.render(header, content);
         String[] renderedRows = render.split(System.lineSeparator());
         assertAll(
                 () -> assertEquals(3, renderedRows.length),

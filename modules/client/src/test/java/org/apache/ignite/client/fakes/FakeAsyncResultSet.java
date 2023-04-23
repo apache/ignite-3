@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.client.sql.ClientSqlRow;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -60,6 +59,8 @@ public class FakeAsyncResultSet implements AsyncResultSet {
 
     private final List<ColumnMetadata> columns;
 
+    private final boolean hasMorePages;
+
     /**
      * Constructor.
      *
@@ -76,6 +77,8 @@ public class FakeAsyncResultSet implements AsyncResultSet {
         this.transaction = transaction;
         this.statement = statement;
         this.arguments = arguments;
+
+        hasMorePages = session.property("hasMorePages") != null;
 
         if ("SELECT PROPS".equals(statement.query())) {
             rows = new ArrayList<>();
@@ -199,7 +202,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public boolean hasMorePages() {
-        return false;
+        return hasMorePages;
     }
 
     /** {@inheritDoc} */
@@ -210,7 +213,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
 
     @NotNull
     private SqlRow getRow(Object... vals) {
-        return new ClientSqlRow(List.of(vals), metadata());
+        return new FakeSqlRow(List.of(vals), metadata());
     }
 
     private static class ColumnOrigin implements ColumnMetadata.ColumnOrigin {

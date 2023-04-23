@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * FragmentPlan.
@@ -45,8 +47,8 @@ public class FragmentPlan implements QueryPlan {
 
     /** {@inheritDoc} */
     @Override
-    public Type type() {
-        return Type.FRAGMENT;
+    public @Nullable SqlQueryType type() {
+        return null;
     }
 
     /** {@inheritDoc} */

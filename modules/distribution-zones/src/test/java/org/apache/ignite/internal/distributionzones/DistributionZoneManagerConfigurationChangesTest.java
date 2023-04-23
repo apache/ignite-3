@@ -18,76 +18,55 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZone;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZonesChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
-import org.apache.ignite.configuration.NamedConfigurationTree;
-import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.command.GetAllCommand;
-import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
-import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
-import org.apache.ignite.internal.metastorage.dsl.Iif;
-import org.apache.ignite.internal.metastorage.impl.EntryImpl;
+import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
-import org.apache.ignite.internal.raft.Command;
-import org.apache.ignite.internal.raft.ReadCommand;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.schema.configuration.TableChange;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests distribution zones configuration changes and reaction to that changes.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstractTest {
     private static final String ZONE_NAME = "zone1";
 
@@ -101,43 +80,45 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     private ConfigurationManager clusterCfgMgr;
 
-    @Mock
-    private LogicalTopologyServiceImpl logicalTopologyService;
-
     private VaultManager vaultMgr;
 
+    private StandaloneMetaStorageManager metaStorageManager;
+
+    @InjectConfiguration
+    private TablesConfiguration tablesConfiguration;
+
     @BeforeEach
-    public void setUp() {
+    public void setUp() throws Exception {
         clusterCfgMgr = new ConfigurationManager(
                 List.of(DistributionZonesConfiguration.KEY),
                 Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
-                List.of()
+                List.of(TestPersistStorageConfigurationSchema.class)
         );
 
         DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
                 .getConfiguration(DistributionZonesConfiguration.KEY);
 
-        MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
+        // Mock logical topology for distribution zone.
+        vaultMgr = new VaultManager(new InMemoryVaultService());
+        assertThat(vaultMgr.put(zonesLogicalTopologyKey(), toBytes(nodes)), willCompleteSuccessfully());
+        assertThat(vaultMgr.put(zonesLogicalTopologyVersionKey(), longToBytes(0)), willCompleteSuccessfully());
 
-        logicalTopologyService = mock(LogicalTopologyServiceImpl.class);
+        LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
 
-        vaultMgr = mock(VaultManager.class);
+        Set<LogicalNode> logicalTopology = nodes.stream()
+                .map(n -> new LogicalNode(n, n, new NetworkAddress(n, 10_000)))
+                .collect(toSet());
 
-        when(vaultMgr.get(any())).thenReturn(completedFuture(null));
+        when(logicalTopologyService.logicalTopologyOnLeader())
+                .thenReturn(completedFuture(new LogicalTopologySnapshot(0, logicalTopology)));
 
-        TablesConfiguration tablesConfiguration = mock(TablesConfiguration.class);
+        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
 
-        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = mock(NamedConfigurationTree.class);
+        metaStorageManager = StandaloneMetaStorageManager.create(vaultMgr, keyValueStorage);
 
-        when(tablesConfiguration.tables()).thenReturn(tables);
-
-        NamedListView<TableView> value = mock(NamedListView.class);
-
-        when(tables.value()).thenReturn(value);
-
-        when(value.namedListKeys()).thenReturn(new ArrayList<>());
+        metaStorageManager.put(zonesLogicalTopologyVersionKey(), longToBytes(0));
 
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
@@ -145,150 +126,25 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
                 metaStorageManager,
                 logicalTopologyService,
                 vaultMgr,
-                "node"
+                "test"
         );
 
+        vaultMgr.start();
         clusterCfgMgr.start();
-
-        doNothing().when(logicalTopologyService).addEventListener(any());
-
-        when(logicalTopologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(new LogicalTopologySnapshot(1, Set.of())));
-
-        mockVaultZonesLogicalTopologyKey(nodes);
-
+        metaStorageManager.start();
         distributionZoneManager.start();
 
-        AtomicLong raftIndex = new AtomicLong();
+        metaStorageManager.deployWatches();
 
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
-
-        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage);
-
-        RaftGroupService metaStorageService = mock(RaftGroupService.class);
-
-        // Delegate directly to listener.
-        lenient().doAnswer(
-                invocationClose -> {
-                    Command cmd = invocationClose.getArgument(0);
-
-                    long commandIndex = raftIndex.incrementAndGet();
-
-                    CompletableFuture<Serializable> res = new CompletableFuture<>();
-
-                    CommandClosure<WriteCommand> clo = new CommandClosure<>() {
-                        /** {@inheritDoc} */
-                        @Override
-                        public long index() {
-                            return commandIndex;
-                        }
-
-                        /** {@inheritDoc} */
-                        @Override
-                        public WriteCommand command() {
-                            return (WriteCommand) cmd;
-                        }
-
-                        /** {@inheritDoc} */
-                        @Override
-                        public void result(@Nullable Serializable r) {
-                            if (r instanceof Throwable) {
-                                res.completeExceptionally((Throwable) r);
-                            } else {
-                                res.complete(r);
-                            }
-                        }
-                    };
-
-                    try {
-                        metaStorageListener.onWrite(List.of(clo).iterator());
-                    } catch (Throwable e) {
-                        res.completeExceptionally(new IgniteInternalException(e));
-                    }
-
-                    return res;
-                }
-        ).when(metaStorageService).run(any(WriteCommand.class));
-
-        lenient().doAnswer(
-                invocationClose -> {
-                    Command cmd = invocationClose.getArgument(0);
-
-                    long commandIndex = raftIndex.incrementAndGet();
-
-                    CompletableFuture<Serializable> res = new CompletableFuture<>();
-
-                    CommandClosure<ReadCommand> clo = new CommandClosure<>() {
-                        /** {@inheritDoc} */
-                        @Override
-                        public long index() {
-                            return commandIndex;
-                        }
-
-                        /** {@inheritDoc} */
-                        @Override
-                        public ReadCommand command() {
-                            return (ReadCommand) cmd;
-                        }
-
-                        /** {@inheritDoc} */
-                        @Override
-                        public void result(@Nullable Serializable r) {
-                            if (r instanceof Throwable) {
-                                res.completeExceptionally((Throwable) r);
-                            } else {
-                                res.complete(r);
-                            }
-                        }
-                    };
-
-                    try {
-                        metaStorageListener.onRead(List.of(clo).iterator());
-                    } catch (Throwable e) {
-                        res.completeExceptionally(new IgniteInternalException(e));
-                    }
-
-                    return res;
-                }
-        ).when(metaStorageService).run(any(ReadCommand.class));
-
-        MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
-
-        lenient().doAnswer(invocationClose -> {
-            Iif iif = invocationClose.getArgument(0);
-
-            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).build();
-
-            return metaStorageService.run(multiInvokeCommand);
-        }).when(metaStorageManager).invoke(any());
-
-        lenient().doAnswer(invocationClose -> {
-            Set<ByteArray> keysSet = invocationClose.getArgument(0);
-
-            GetAllCommand getAllCommand = commandsFactory.getAllCommand().keys(
-                    keysSet.stream().map(ByteArray::bytes).collect(Collectors.toList())
-            ).revision(0).build();
-
-            return metaStorageService.<List<Entry>>run(getAllCommand).thenApply(entries -> {
-                Map<ByteArray, Entry> res = new HashMap<>();
-
-                for (Entry e : entries) {
-                    ByteArray key = new ByteArray(e.key());
-
-                    res.put(key, new EntryImpl(key.bytes(), e.value(), e.revision(), e.updateCounter()));
-                }
-
-                return res;
-            });
-        }).when(metaStorageManager).getAll(any());
+        clearInvocations(keyValueStorage);
     }
 
     @AfterEach
     public void tearDown() throws Exception {
         distributionZoneManager.stop();
-
+        metaStorageManager.stop();
         clusterCfgMgr.stop();
-
-        keyValueStorage.close();
+        vaultMgr.stop();
     }
 
     @Test
@@ -336,8 +192,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
-
         assertZonesChangeTriggerKey(100, 1, keyValueStorage);
 
         assertDataNodesForZone(1, null, keyValueStorage);
@@ -353,15 +207,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         distributionZoneManager.dropZone(ZONE_NAME).get();
 
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
-
         assertDataNodesForZone(1, nodes, keyValueStorage);
-    }
-
-    private void mockVaultZonesLogicalTopologyKey(Set<String> nodes) {
-        byte[] newLogicalTopology = toBytes(nodes);
-
-        when(vaultMgr.get(zonesLogicalTopologyKey()))
-                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), newLogicalTopology)));
     }
 }

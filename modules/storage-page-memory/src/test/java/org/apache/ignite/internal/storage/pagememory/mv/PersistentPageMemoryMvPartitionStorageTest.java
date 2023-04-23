@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -25,12 +24,9 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 
 import java.nio.file.Path;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -81,12 +77,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
     @Test
     void groupConfigIsPersisted() throws Exception {
-        RaftGroupConfiguration originalConfig = new RaftGroupConfiguration(
-                List.of("peer1", "peer2"),
-                List.of("old-peer1", "old-peer2"),
-                List.of("learner1", "learner2"),
-                List.of("old-learner1", "old-learner2")
-        );
+        byte[] originalConfig = {1, 2, 3};
 
         storage.runConsistently(() -> {
             storage.committedGroupConfiguration(originalConfig);
@@ -96,23 +87,14 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         restartStorage();
 
-        RaftGroupConfiguration readConfig = storage.committedGroupConfiguration();
+        byte[] readConfig = storage.committedGroupConfiguration();
 
         assertThat(readConfig, is(equalTo(originalConfig)));
     }
 
     @Test
     void groupConfigWhichDoesNotFitInOnePageIsPersisted() throws Exception {
-        List<String> oneMbOfPeers = IntStream.range(0, 100_000)
-                .mapToObj(n -> String.format("peer%06d", n))
-                .collect(toList());
-
-        RaftGroupConfiguration originalConfig = new RaftGroupConfiguration(
-                oneMbOfPeers,
-                List.of("old-peer1", "old-peer2"),
-                List.of("learner1", "learner2"),
-                List.of("old-learner1", "old-learner2")
-        );
+        byte[] originalConfig = configThatDoesNotFitInOnePage();
 
         storage.runConsistently(() -> {
             storage.committedGroupConfiguration(originalConfig);
@@ -122,25 +104,26 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         restartStorage();
 
-        RaftGroupConfiguration readConfig = storage.committedGroupConfiguration();
+        byte[] readConfig = storage.committedGroupConfiguration();
 
         assertThat(readConfig, is(equalTo(originalConfig)));
     }
 
+    private static byte[] configThatDoesNotFitInOnePage() {
+        byte[] originalconfig = new byte[1_000_000];
+
+        for (int i = 0; i < originalconfig.length; i++) {
+            originalconfig[i] = (byte) (i % 100);
+        }
+
+        return originalconfig;
+    }
+
     @Test
     void groupConfigShorteningWorksCorrectly() throws Exception {
-        List<String> oneMbOfPeers = IntStream.range(0, 100_000)
-                .mapToObj(n -> String.format("peer%06d", n))
-                .collect(toList());
+        byte[] originalConfigOfMoreThanOnePage = configThatDoesNotFitInOnePage();
 
-        assertThat(oneMbOfPeers.size() * oneMbOfPeers.get(0).length(), is(greaterThan(5 * pageSize())));
-
-        RaftGroupConfiguration originalConfigOfMoreThanOnePage = new RaftGroupConfiguration(
-                oneMbOfPeers,
-                List.of("old-peer1", "old-peer2"),
-                List.of("learner1", "learner2"),
-                List.of("old-learner1", "old-learner2")
-        );
+        assertThat(originalConfigOfMoreThanOnePage.length, is(greaterThan(5 * pageSize())));
 
         storage.runConsistently(() -> {
             storage.committedGroupConfiguration(originalConfigOfMoreThanOnePage);
@@ -148,12 +131,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
             return null;
         });
 
-        RaftGroupConfiguration configWhichFitsInOnePage = new RaftGroupConfiguration(
-                List.of("peer1", "peer2"),
-                List.of("old-peer1", "old-peer2"),
-                List.of("learner1", "learner2"),
-                List.of("old-learner1", "old-learner2")
-        );
+        byte[] configWhichFitsInOnePage = {1, 2, 3};
 
         storage.runConsistently(() -> {
             storage.committedGroupConfiguration(configWhichFitsInOnePage);
@@ -163,7 +141,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         restartStorage();
 
-        RaftGroupConfiguration readConfig = storage.committedGroupConfiguration();
+        byte[] readConfig = storage.committedGroupConfiguration();
 
         assertThat(readConfig, is(equalTo(configWhichFitsInOnePage)));
     }

@@ -291,4 +291,10 @@ public class KeyValueViewPocoTests : IgniteTestsBase
         Assert.IsTrue(res4.HasValue);
         Assert.AreEqual("11", res4.Value.Val);
     }
+
+    [Test]
+    public void TestToString()
+    {
+        StringAssert.StartsWith("KeyValueView`2[Poco, Poco] { Table = Table { Name = TBL1, Id =", KvView.ToString());
+    }
 }

@@ -17,71 +17,25 @@
 
 package org.apache.ignite.internal.cli.core.call;
 
-import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.nio.charset.Charset;
-import java.util.function.Supplier;
-import org.apache.ignite.internal.cli.core.decorator.Decorator;
-import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.internal.cli.core.exception.ExceptionHandler;
-import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
-import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
-import org.apache.ignite.internal.cli.core.exception.handler.DefaultExceptionHandlers;
-import org.apache.ignite.internal.cli.decorators.DefaultDecorator;
-import org.apache.ignite.internal.cli.logger.CliLoggers;
+import java.util.function.Function;
 
-/**
- * Call execution pipeline.
- *
- * @param <I> Call input type.
- * @param <T> Call output's body type.
- */
-public class CallExecutionPipeline<I extends CallInput, T> {
-    /** Call to execute. */
-    private final Call<I, T> call;
-
-    /** Writer for execution output. */
-    private final PrintWriter output;
-
-    /** Writer for error execution output. */
-    private final PrintWriter errOutput;
-
-    /** Decorator that decorates call's output. */
-    private final Decorator<T, TerminalOutput> decorator;
-
-    /** Handlers for any exceptions. */
-    private final ExceptionHandlers exceptionHandlers;
-
-    /** Provider for call's input. */
-    private final Supplier<I> inputProvider;
-
-    /** If {@code true}, debug output will be printed to console. */
-    private final boolean verbose;
-
-    private CallExecutionPipeline(Call<I, T> call,
-            PrintWriter output,
-            PrintWriter errOutput,
-            ExceptionHandlers exceptionHandlers,
-            Decorator<T, TerminalOutput> decorator,
-            Supplier<I> inputProvider,
-            boolean verbose
-    ) {
-        this.call = call;
-        this.output = output;
-        this.exceptionHandlers = exceptionHandlers;
-        this.errOutput = errOutput;
-        this.decorator = decorator;
-        this.inputProvider = inputProvider;
-        this.verbose = verbose;
-    }
-
+/** Pipeline that executes a call. */
+@FunctionalInterface
+public interface CallExecutionPipeline<I extends CallInput, T> {
     /**
      * Builder helper method.
      *
      * @return builder for {@link CallExecutionPipeline}.
      */
-    public static <I extends CallInput, T> CallExecutionPipelineBuilder<I, T> builder(Call<I, T> call) {
+    static <I extends CallInput, T> CallExecutionPipelineBuilder<I, T> builder(Call<I, T> call) {
         return new CallExecutionPipelineBuilder<>(call);
+    }
+
+    /** Builder helper method. */
+    static <I extends CallInput, T> AsyncCallExecutionPipelineBuilder<I, T> asyncBuilder(
+            Function<ProgressTracker, AsyncCall<I, T>> callFactory
+    ) {
+        return new AsyncCallExecutionPipelineBuilder<>(callFactory);
     }
 
     /**
@@ -89,110 +43,5 @@ public class CallExecutionPipeline<I extends CallInput, T> {
      *
      * @return exit code.
      */
-    public int runPipeline() {
-        try {
-            if (verbose) {
-                CliLoggers.startOutputRedirect(errOutput);
-            }
-            return runPipelineInternal();
-        } finally {
-            if (verbose) {
-                CliLoggers.stopOutputRedirect();
-            }
-        }
-    }
-
-    private int runPipelineInternal() {
-        I callInput = inputProvider.get();
-
-        CallOutput<T> callOutput = call.execute(callInput);
-
-        if (callOutput.hasError()) {
-            return exceptionHandlers.handleException(ExceptionWriter.fromPrintWriter(errOutput), callOutput.errorCause());
-        }
-
-        if (!callOutput.isEmpty()) {
-            TerminalOutput decoratedOutput = decorator.decorate(callOutput.body());
-            output.println(decoratedOutput.toTerminalString());
-        }
-        return 0;
-    }
-
-    /** Builder for {@link CallExecutionPipeline}. */
-    public static class CallExecutionPipelineBuilder<I extends CallInput, T> {
-
-        private final Call<I, T> call;
-
-        private final ExceptionHandlers exceptionHandlers = new DefaultExceptionHandlers();
-
-        private Supplier<I> inputProvider;
-
-        private PrintWriter output = wrapOutputStream(System.out);
-
-        private PrintWriter errOutput = wrapOutputStream(System.err);
-
-        private Decorator<T, TerminalOutput> decorator = new DefaultDecorator<>();
-
-        private boolean verbose;
-
-        public CallExecutionPipelineBuilder(Call<I, T> call) {
-            this.call = call;
-        }
-
-        public CallExecutionPipelineBuilder<I, T> inputProvider(Supplier<I> inputProvider) {
-            this.inputProvider = inputProvider;
-            return this;
-        }
-
-        public CallExecutionPipelineBuilder<I, T> output(PrintWriter output) {
-            this.output = output;
-            return this;
-        }
-
-        public CallExecutionPipelineBuilder<I, T> output(OutputStream output) {
-            return output(wrapOutputStream(output));
-        }
-
-        public CallExecutionPipelineBuilder<I, T> errOutput(PrintWriter errOutput) {
-            this.errOutput = errOutput;
-            return this;
-        }
-
-        public CallExecutionPipelineBuilder<I, T> errOutput(OutputStream output) {
-            return errOutput(wrapOutputStream(output));
-        }
-
-        public CallExecutionPipelineBuilder<I, T> exceptionHandler(ExceptionHandler<?> exceptionHandler) {
-            exceptionHandlers.addExceptionHandler(exceptionHandler);
-            return this;
-        }
-
-        public CallExecutionPipelineBuilder<I, T> exceptionHandlers(ExceptionHandlers exceptionHandlers) {
-            this.exceptionHandlers.addExceptionHandlers(exceptionHandlers);
-            return this;
-        }
-
-        public CallExecutionPipelineBuilder<I, T> decorator(Decorator<T, TerminalOutput> decorator) {
-            this.decorator = decorator;
-            return this;
-        }
-
-        public CallExecutionPipelineBuilder<I, T> verbose(boolean verbose) {
-            this.verbose = verbose;
-            return this;
-        }
-
-        public CallExecutionPipeline<I, T> build() {
-            return new CallExecutionPipeline<>(call, output, errOutput, exceptionHandlers, decorator, inputProvider, verbose);
-        }
-
-        private static PrintWriter wrapOutputStream(OutputStream output) {
-            return new PrintWriter(output, true, getStdoutEncoding());
-        }
-
-        private static Charset getStdoutEncoding() {
-            String encoding = System.getProperty("sun.stdout.encoding");
-            return encoding != null ? Charset.forName(encoding) : Charset.defaultCharset();
-        }
-    }
+    int runPipeline();
 }

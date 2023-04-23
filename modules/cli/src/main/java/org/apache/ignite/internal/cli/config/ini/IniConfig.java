@@ -57,6 +57,13 @@ public class IniConfig implements Config {
         saveAction.run();
     }
 
+    @Override
+    public String removeProperty(String key) {
+        String removedProperty = section.removeProperty(key);
+        saveAction.run();
+        return removedProperty;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void setProperties(Map<String, String> values) {

@@ -30,9 +30,9 @@ import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.metastorage.impl.ItMetaStorageServiceTest.ServerConditionMatcher.cond;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToValue;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -53,6 +53,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -60,15 +61,14 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
@@ -87,9 +87,9 @@ import org.apache.ignite.internal.metastorage.server.OrCondition;
 import org.apache.ignite.internal.metastorage.server.RevisionCondition;
 import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
-import org.apache.ignite.internal.metastorage.server.raft.MetaStorageLearnerListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -97,7 +97,6 @@ import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -106,7 +105,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -177,6 +175,8 @@ public class ItMetaStorageServiceTest {
 
         private final KeyValueStorage mockStorage;
 
+        private final ClusterTimeImpl clusterTime;
+
         private RaftGroupService metaStorageRaftService;
 
         private MetaStorageService metaStorageService;
@@ -184,12 +184,16 @@ public class ItMetaStorageServiceTest {
         Node(ClusterService clusterService, RaftConfiguration raftConfiguration, Path dataPath) {
             this.clusterService = clusterService;
 
+            HybridClock clock = new HybridClockImpl();
+
             this.raftManager = new Loza(
                     clusterService,
                     raftConfiguration,
                     dataPath.resolve(name()),
-                    new HybridClockImpl()
+                    clock
             );
+
+            this.clusterTime = new ClusterTimeImpl(new IgniteSpinBusyLock(), clock);
 
             this.mockStorage = mock(KeyValueStorage.class);
         }
@@ -204,13 +208,16 @@ public class ItMetaStorageServiceTest {
 
             metaStorageRaftService = raftService.join();
 
-            ClusterNode node = clusterService.topologyService().localMember();
-
-            metaStorageService = new MetaStorageServiceImpl(metaStorageRaftService, new IgniteSpinBusyLock(), node);
+            metaStorageService = new MetaStorageServiceImpl(
+                    clusterService.nodeName(),
+                    metaStorageRaftService,
+                    new IgniteSpinBusyLock(),
+                    clusterTime
+            );
         }
 
         String name() {
-            return clusterService.localConfiguration().getName();
+            return clusterService.nodeName();
         }
 
         private CompletableFuture<RaftGroupService> startRaftService(PeersAndLearners configuration) {
@@ -222,7 +229,7 @@ public class ItMetaStorageServiceTest {
 
             assert peer != null;
 
-            RaftGroupListener listener = isLearner ? new MetaStorageLearnerListener(mockStorage) : new MetaStorageListener(mockStorage);
+            var listener = new MetaStorageListener(mockStorage, clusterTime);
 
             var raftNodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, peer);
 
@@ -574,7 +581,6 @@ public class ItMetaStorageServiceTest {
 
     /**
      * Tests {@link MetaStorageService#range(ByteArray, ByteArray, long)}} with not null keyTo and explicit revUpperBound.
-     *
      */
     @Test
     public void testRangeWithKeyToAndUpperBound() {
@@ -586,11 +592,11 @@ public class ItMetaStorageServiceTest {
 
         long expRevUpperBound = 10;
 
-        when(node.mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes(), expRevUpperBound, false)).thenReturn(mock(Cursor.class));
+        when(node.mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes(), expRevUpperBound)).thenReturn(mock(Cursor.class));
 
-        node.metaStorageService.range(expKeyFrom, expKeyTo, expRevUpperBound).subscribe(mock(Subscriber.class));
+        node.metaStorageService.range(expKeyFrom, expKeyTo, expRevUpperBound).subscribe(singleElementSubscriber());
 
-        verify(node.mockStorage, timeout(10_000)).range(expKeyFrom.bytes(), expKeyTo.bytes(), expRevUpperBound, false);
+        verify(node.mockStorage, timeout(10_000)).range(expKeyFrom.bytes(), expKeyTo.bytes(), expRevUpperBound);
     }
 
     /**
@@ -605,11 +611,11 @@ public class ItMetaStorageServiceTest {
 
         ByteArray expKeyTo = new ByteArray(new byte[]{3});
 
-        when(node.mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes(), false)).thenReturn(mock(Cursor.class));
+        when(node.mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes())).thenReturn(mock(Cursor.class));
 
-        node.metaStorageService.range(expKeyFrom, expKeyTo, false).subscribe(mock(Subscriber.class));
+        node.metaStorageService.range(expKeyFrom, expKeyTo, false).subscribe(singleElementSubscriber());
 
-        verify(node.mockStorage, timeout(10_000)).range(expKeyFrom.bytes(), expKeyTo.bytes(), false);
+        verify(node.mockStorage, timeout(10_000)).range(expKeyFrom.bytes(), expKeyTo.bytes());
     }
 
     /**
@@ -622,11 +628,11 @@ public class ItMetaStorageServiceTest {
 
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
-        when(node.mockStorage.range(expKeyFrom.bytes(), null, false)).thenReturn(mock(Cursor.class));
+        when(node.mockStorage.range(expKeyFrom.bytes(), null)).thenReturn(mock(Cursor.class));
 
-        node.metaStorageService.range(expKeyFrom, null, false).subscribe(mock(Subscriber.class));
+        node.metaStorageService.range(expKeyFrom, null, false).subscribe(singleElementSubscriber());
 
-        verify(node.mockStorage, timeout(10_000)).range(expKeyFrom.bytes(), null, false);
+        verify(node.mockStorage, timeout(10_000)).range(expKeyFrom.bytes(), null);
     }
 
     /**
@@ -636,14 +642,8 @@ public class ItMetaStorageServiceTest {
     public void testRangeNext() {
         Node node = startNodes(1).get(0);
 
-        when(node.mockStorage.range(EXPECTED_RESULT_ENTRY.key(), null, false)).thenAnswer(invocation -> {
-            var cursor = mock(Cursor.class);
-
-            when(cursor.hasNext()).thenReturn(true);
-            when(cursor.next()).thenReturn(EXPECTED_RESULT_ENTRY);
-
-            return cursor;
-        });
+        when(node.mockStorage.range(EXPECTED_RESULT_ENTRY.key(), null))
+                .thenReturn(Cursor.fromIterable(List.of(EXPECTED_RESULT_ENTRY)));
 
         CompletableFuture<Entry> expectedEntriesFuture =
                 subscribeToValue(node.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null));
@@ -658,55 +658,19 @@ public class ItMetaStorageServiceTest {
     public void testRangeNextNoSuchElementException() {
         Node node = startNodes(1).get(0);
 
-        when(node.mockStorage.range(EXPECTED_RESULT_ENTRY.key(), null, false)).thenAnswer(invocation -> {
-            var cursor = mock(Cursor.class);
+        when(node.mockStorage.range(EXPECTED_RESULT_ENTRY.key(), null)).thenAnswer(invocation -> {
+            var it = mock(Iterator.class);
 
-            when(cursor.hasNext()).thenReturn(true);
-            when(cursor.next()).thenThrow(new NoSuchElementException());
+            when(it.hasNext()).thenReturn(true);
+            when(it.next()).thenThrow(new NoSuchElementException());
 
-            return cursor;
+            return Cursor.fromBareIterator(it);
         });
 
         CompletableFuture<List<Entry>> future =
                 subscribeToList(node.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null));
 
-        assertThat(future, willFailFast(NoSuchElementException.class));
-    }
-
-    /**
-     * Tests {@link MetaStorageService#range(ByteArray, ByteArray, long)}} close.
-     *
-     */
-    @Test
-    public void testRangeClose() {
-        Node node = startNodes(1).get(0);
-
-        ByteArray expKeyFrom = new ByteArray(new byte[]{1});
-
-        Cursor<Entry> cursorMock = mock(Cursor.class);
-
-        when(node.mockStorage.range(expKeyFrom.bytes(), null, false)).thenReturn(cursorMock);
-
-        node.metaStorageService.range(expKeyFrom, null).subscribe(new Subscriber<>() {
-            @Override
-            public void onSubscribe(Subscription subscription) {
-                subscription.cancel();
-            }
-
-            @Override
-            public void onNext(Entry item) {
-            }
-
-            @Override
-            public void onError(Throwable throwable) {
-            }
-
-            @Override
-            public void onComplete() {
-            }
-        });
-
-        verify(cursorMock, timeout(10_000)).close();
+        assertThat(future, willThrowFast(NoSuchElementException.class));
     }
 
     @Test
@@ -831,7 +795,7 @@ public class ItMetaStorageServiceTest {
     /**
      * Tests {@link MetaStorageService#get(ByteArray)}.
      */
-    @Disabled // TODO: IGNITE-14693 Add tests for exception handling logic.
+    @Disabled("IGNITE-14693 Add tests for exception handling logic.")
     @Test
     public void testGetThatThrowsCompactedException() {
         Node node = startNodes(1).get(0);
@@ -844,7 +808,7 @@ public class ItMetaStorageServiceTest {
     /**
      * Tests {@link MetaStorageService#get(ByteArray)}.
      */
-    @Disabled // TODO: IGNITE-14693 Add tests for exception handling logic.
+    @Disabled("IGNITE-14693 Add tests for exception handling logic.")
     @Test
     public void testGetThatThrowsOperationTimeoutException() {
         Node node = startNodes(1).get(0);
@@ -854,98 +818,39 @@ public class ItMetaStorageServiceTest {
         assertThrows(OperationTimeoutException.class, () -> node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())).get());
     }
 
-    /**
-     * Tests {@link MetaStorageService#closeCursors(String)}.
-     */
-    @Test
-    public void testCursorsCleanup() throws InterruptedException {
-        startNodes(2);
-
-        Node leader = nodes.get(0);
-        Node learner = nodes.get(1);
-
-        when(leader.mockStorage.range(EXPECTED_RESULT_ENTRY.key(), null, false)).thenAnswer(invocation -> {
-            var cursor = mock(Cursor.class);
-
-            when(cursor.hasNext()).thenReturn(true);
-            when(cursor.next()).thenReturn(EXPECTED_RESULT_ENTRY);
-
-            return cursor;
-        });
-
-        var subscriptionLatch = new CountDownLatch(3);
-        var closeCursorLatch = new CountDownLatch(1);
-
-        class MockSubscriber implements Subscriber<Entry> {
-            private final CompletableFuture<Entry> result = new CompletableFuture<>();
-
+    private static Subscriber<Entry> singleElementSubscriber() {
+        return new Subscriber<>() {
             @Override
             public void onSubscribe(Subscription subscription) {
-                subscriptionLatch.countDown();
-
-                try {
-                    assertTrue(closeCursorLatch.await(10, TimeUnit.SECONDS));
-                } catch (Throwable e) {
-                    onError(e);
-                }
-
                 subscription.request(1);
             }
 
             @Override
             public void onNext(Entry item) {
-                result.complete(item);
             }
 
             @Override
             public void onError(Throwable throwable) {
-                result.completeExceptionally(throwable);
             }
 
             @Override
             public void onComplete() {
-                result.completeExceptionally(new AssertionError("No items produced"));
             }
-        }
-
-        var node0Subscriber0 = new MockSubscriber();
-        var node0Subscriber1 = new MockSubscriber();
-
-        leader.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null).subscribe(node0Subscriber0);
-        leader.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null).subscribe(node0Subscriber1);
-
-        var node1Subscriber0 = new MockSubscriber();
-
-        learner.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null).subscribe(node1Subscriber0);
-
-        // Wait for all cursors to be registered on the server side.
-        assertTrue(subscriptionLatch.await(10, TimeUnit.SECONDS));
-
-        String leaderId = leader.clusterService.topologyService().localMember().id();
-
-        CompletableFuture<Void> closeCursorsFuture = leader.metaStorageService.closeCursors(leaderId);
-
-        assertThat(closeCursorsFuture, willCompleteSuccessfully());
-
-        closeCursorLatch.countDown();
-
-        assertThat(node0Subscriber0.result, willFailFast(NoSuchElementException.class));
-        assertThat(node0Subscriber1.result, willFailFast(NoSuchElementException.class));
-        assertThat(node1Subscriber0.result, willBe(EXPECTED_RESULT_ENTRY));
+        };
     }
 
     /**
      * Matcher for {@link Condition}.
      */
-    protected static class ServerConditionMatcher extends TypeSafeMatcher<org.apache.ignite.internal.metastorage.server.Condition> {
+    static class ServerConditionMatcher extends TypeSafeMatcher<org.apache.ignite.internal.metastorage.server.Condition> {
 
         private final org.apache.ignite.internal.metastorage.server.Condition condition;
 
-        public ServerConditionMatcher(org.apache.ignite.internal.metastorage.server.Condition condition) {
+        private ServerConditionMatcher(org.apache.ignite.internal.metastorage.server.Condition condition) {
             this.condition = condition;
         }
 
-        public static ServerConditionMatcher cond(org.apache.ignite.internal.metastorage.server.Condition condition) {
+        static ServerConditionMatcher cond(org.apache.ignite.internal.metastorage.server.Condition condition) {
             return new ServerConditionMatcher(condition);
         }
 
@@ -985,7 +890,6 @@ public class ItMetaStorageServiceTest {
             } else {
                 throw new IllegalArgumentException("Unknown condition type " + cond.getClass().getSimpleName());
             }
-
         }
     }
 }

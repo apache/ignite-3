@@ -38,21 +38,22 @@ void ignite_client::start_async(ignite_client_configuration configuration, std::
 ignite_client ignite_client::start(ignite_client_configuration configuration, std::chrono::milliseconds timeout) {
     auto impl = std::make_shared<detail::ignite_client_impl>(std::move(configuration));
 
-    auto promise = std::make_shared<std::promise<void>>();
+    auto promise = std::make_shared<std::promise<ignite_result<void>>>();
     auto future = promise->get_future();
 
-    impl->start([impl, promise](ignite_result<void> res) mutable {
-        if (!res) {
-            impl->stop();
-            promise->set_exception(std::make_exception_ptr(res.error()));
-        } else
-            promise->set_value();
-    });
+    impl->start(result_promise_setter(promise));
 
     auto status = future.wait_for(timeout);
     if (status == std::future_status::timeout) {
         impl->stop();
         throw ignite_error("Can not establish connection within timeout");
+    }
+
+    assert(status == std::future_status::ready);
+    auto res = future.get();
+    if (res.has_error()) {
+        impl->stop();
+        throw ignite_error(res.error());
     }
 
     return ignite_client(std::move(impl));
@@ -74,8 +75,21 @@ sql ignite_client::get_sql() const noexcept {
     return sql(impl().get_sql_impl());
 }
 
+compute ignite_client::get_compute() const noexcept {
+    return compute(impl().get_compute_impl());
+}
+
 transactions ignite_client::get_transactions() const noexcept {
     return transactions(impl().get_transactions_impl());
+}
+
+void ignite_client::get_cluster_nodes_async(ignite_callback<std::vector<cluster_node>> callback) {
+    return impl().get_cluster_nodes_async(std::move(callback));
+}
+
+std::vector<cluster_node> ignite_client::get_cluster_nodes() {
+    return sync<std::vector<cluster_node>>(
+        [this](auto callback) mutable { get_cluster_nodes_async(std::move(callback)); });
 }
 
 detail::ignite_client_impl &ignite_client::impl() noexcept {
