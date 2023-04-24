@@ -29,6 +29,7 @@
 #include <memory>
 #include <msgpack.h>
 #include <string_view>
+#include <map>
 
 namespace ignite::protocol {
 
@@ -127,6 +128,19 @@ public:
      * Write empty map.
      */
     void write_map_empty() { msgpack_pack_map(m_packer.get(), 0); }
+
+    /**
+     * Write map.
+     *
+     * @param values Map.
+     */
+    void write_map(const std::map<std::string, std::string> &values) {
+        msgpack_pack_map(m_packer.get(), values.size());
+        for (const auto &pair : values) {
+            msgpack_pack_str_with_body(m_packer.get(), pair.first.data(), pair.first.size());
+            msgpack_pack_str_with_body(m_packer.get(), pair.second.data(), pair.second.size());
+        }
+    }
 
     /**
      * Write bitset.

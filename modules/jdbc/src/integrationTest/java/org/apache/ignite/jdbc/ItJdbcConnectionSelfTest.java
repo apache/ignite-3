@@ -94,7 +94,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     }
 
     @SuppressWarnings({"EmptyTryBlock", "unused"})
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15611")
     @Test
     public void testDefaultsIpv6() throws Exception {
         var url = "jdbc:ignite:thin://[::1]:10800";

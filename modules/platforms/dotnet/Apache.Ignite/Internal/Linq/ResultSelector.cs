@@ -87,7 +87,7 @@ internal static class ResultSelector
                     static k => EmitMemberInitReader<T>(k.Target, k.Columns, k.Options));
         }
 
-        if (columns.Count == 1 && (typeof(T).ToSqlColumnType() is not null || typeof(T).IsEnum))
+        if (columns.Count == 1 && (typeof(T).ToColumnType() is not null || typeof(T).IsEnum))
         {
             var singleColumnCacheKey = new ResultSelectorCacheKey<Type>(typeof(T), columns, options);
 
@@ -354,7 +354,7 @@ internal static class ResultSelector
         il.Emit(OpCodes.Ldarg_1); // Reader.
         il.Emit(OpCodes.Ldc_I4, index); // Index.
 
-        if (col.Type == SqlColumnType.Decimal)
+        if (col.Type == ColumnType.Decimal)
         {
             il.Emit(OpCodes.Ldc_I4, col.Scale);
         }
@@ -388,7 +388,7 @@ internal static class ResultSelector
         il.Emit(OpCodes.Ldarg_1); // Reader.
         il.Emit(OpCodes.Ldc_I4, colIndex); // Index.
 
-        if (col.Type == SqlColumnType.Decimal)
+        if (col.Type == ColumnType.Decimal)
         {
             il.Emit(OpCodes.Ldc_I4, col.Scale);
         }

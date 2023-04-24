@@ -52,7 +52,9 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.IgniteClientAuthenticator;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.client.HostAndPortRange;
 import org.apache.ignite.internal.client.TcpIgniteClient;
@@ -180,6 +182,7 @@ public class JdbcConnection implements Connection {
                     .reconnectThrottlingPeriod(reconnectThrottlingPeriod)
                     .reconnectThrottlingRetries(reconnectThrottlingRetries)
                     .ssl(extractSslConfiguration(connProps))
+                    .authenticator(extractAuthenticationConfiguration(connProps))
                     .build());
 
         } catch (Exception e) {
@@ -211,7 +214,7 @@ public class JdbcConnection implements Connection {
         holdability = HOLD_CURSORS_OVER_COMMIT;
     }
 
-    private @Nullable SslConfiguration extractSslConfiguration(ConnectionProperties connProps) {
+    private static @Nullable SslConfiguration extractSslConfiguration(ConnectionProperties connProps) {
         if (connProps.isSslEnabled()) {
             return SslConfiguration.builder()
                     .enabled(true)
@@ -223,6 +226,19 @@ public class JdbcConnection implements Connection {
                     .keyStoreType(connProps.getKeyStoreType())
                     .keyStorePath(connProps.getKeyStorePath())
                     .keyStorePassword(connProps.getKeyStorePassword())
+                    .build();
+        } else {
+            return null;
+        }
+    }
+
+    private static @Nullable IgniteClientAuthenticator extractAuthenticationConfiguration(ConnectionProperties connProps) {
+        String basicAuthenticationUsername = connProps.getBasicAuthenticationUsername();
+        String basicAuthenticationPassword = connProps.getBasicAuthenticationPassword();
+        if (basicAuthenticationUsername != null && basicAuthenticationPassword != null) {
+            return BasicAuthenticator.builder()
+                    .username(basicAuthenticationUsername)
+                    .password(basicAuthenticationPassword)
                     .build();
         } else {
             return null;

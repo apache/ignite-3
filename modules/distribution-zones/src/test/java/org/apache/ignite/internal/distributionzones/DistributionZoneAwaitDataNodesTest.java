@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.emptySet;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
@@ -27,6 +26,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
@@ -34,151 +34,46 @@ import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
-import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfigurationSchema;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneWasRemovedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
-import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests awaiting data nodes algorithm in distribution zone manager in case when
- * {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleUp}
- * or {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleDown} are immediate.
+ * {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleUp} or
+ * {@link DistributionZoneConfigurationSchema#dataNodesAutoAdjustScaleDown} are immediate.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
+public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneManagerTest {
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneAwaitDataNodesTest.class);
 
-    private MetaStorageManager metaStorageManager;
-
-    private DistributionZoneManager distributionZoneManager;
-
-    private LogicalTopology logicalTopology;
-
-    private ClusterStateStorage clusterStateStorage;
-
-    private ConfigurationManager clusterCfgMgr;
-
-    private ClusterManagementGroupManager cmgManager;
-
-    private VaultManager vaultManager;
-
-    @InjectConfiguration
-    private TablesConfiguration tablesConfiguration;
-
-    @InjectConfiguration
-    private DistributionZonesConfiguration zonesConfiguration;
-
-    private WatchListener topologyWatchListener;
-
-    private WatchListener dataNodesWatchListener;
-
-    private SimpleInMemoryKeyValueStorage keyValueStorage;
-
-    private final List<IgniteComponent> components = new ArrayList<>();
-
-    @BeforeEach
-    void setUp() throws Exception {
-        vaultManager = new VaultManager(new InMemoryVaultService());
-
-        assertThat(vaultManager.put(zonesLogicalTopologyKey(), null), willCompleteSuccessfully());
-        assertThat(vaultManager.put(zonesLogicalTopologyVersionKey(), longToBytes(0)), willCompleteSuccessfully());
-
-        components.add(vaultManager);
-
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
-
-        metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, keyValueStorage);
-
-        components.add(metaStorageManager);
-
-        cmgManager = mock(ClusterManagementGroupManager.class);
-
-        clusterStateStorage = new TestClusterStateStorage();
-
-        components.add(clusterStateStorage);
-
-        logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
-
-        distributionZoneManager = new DistributionZoneManager(
-                zonesConfiguration,
-                tablesConfiguration,
-                metaStorageManager,
-                new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
-                vaultManager,
-                "test"
-        );
-
-        mockCmgLocalNodes();
-
-        // Not adding 'distributionZoneManager' on purpose, it's started manually.
-        components.forEach(IgniteComponent::start);
-
-        metaStorageManager.deployWatches();
-    }
-
-    @AfterEach
-    public void tearDown() throws Exception {
-        components.add(distributionZoneManager);
-
-        Collections.reverse(components);
-
-        IgniteUtils.closeAll(components.stream().map(c -> c::beforeNodeStop));
-        IgniteUtils.closeAll(components.stream().map(c -> c::stop));
-    }
-
     /**
-     * This test invokes {@link DistributionZoneManager#topologyVersionedDataNodes(int, long)} with default and non-default zone id
-     * and different logical topology versions.
-     * Simulates new logical topology with new nodes and with removed nodes. Check that data nodes futures are completed in right order.
+     * This test invokes {@link DistributionZoneManager#topologyVersionedDataNodes(int, long)} with default and non-default zone id and
+     * different logical topology versions. Simulates new logical topology with new nodes and with removed nodes. Check that data nodes
+     * futures are completed in right order.
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19288")
     @Test
     void testSeveralScaleUpAndSeveralScaleDownThenScaleUpAndScaleDown() throws Exception {
-        startZoneManager(0);
+        startZoneManager();
 
         distributionZoneManager.createZone(
                         new DistributionZoneConfigurationParameters.Builder("zone0")
@@ -225,7 +120,6 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
         assertEquals(threeNodes, dataNodesUpFut7.get(3, SECONDS));
         assertFalse(dataNodesUpFut3.isDone());
 
-
         LOG.info("Topology with removed nodes.");
 
         CompletableFuture<Set<String>> dataNodesDownFut0 = distributionZoneManager.topologyVersionedDataNodes(DEFAULT_ZONE_ID, 4);
@@ -269,7 +163,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testScaleUpAndThenScaleDown() throws Exception {
-        startZoneManager(0);
+        startZoneManager();
 
         CompletableFuture<Set<String>> dataNodesFut = distributionZoneManager.topologyVersionedDataNodes(DEFAULT_ZONE_ID, 5);
 
@@ -302,7 +196,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
      */
     @Test
     void testAwaitingScaleUpOnly() throws Exception {
-        startZoneManager(0);
+        startZoneManager();
 
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                         .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE).dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE).build())
@@ -337,12 +231,12 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
     /**
      * Test checks that data nodes futures are completed on topology with added and removed nodes for the zone with
-     * dataNodesAutoAdjustScaleUp is non-zero and dataNodesAutoAdjustScaleDown is immediate. And checks that other zones
-     * non-zero timers doesn't affect.
+     * dataNodesAutoAdjustScaleUp is non-zero and dataNodesAutoAdjustScaleDown is immediate. And checks that other zones non-zero timers
+     * doesn't affect.
      */
     @Test
     void testAwaitingScaleDownOnly() throws Exception {
-        startZoneManager(0);
+        startZoneManager();
 
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                         .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE).dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE).build())
@@ -415,12 +309,12 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
     }
 
     /**
-     * Test checks that data nodes futures are completed immediately for the zone with
-     * dataNodesAutoAdjustScaleUp is non-zero and dataNodesAutoAdjustScaleDown is non-zero.
+     * Test checks that data nodes futures are completed immediately for the zone with dataNodesAutoAdjustScaleUp is non-zero and
+     * dataNodesAutoAdjustScaleDown is non-zero.
      */
     @Test
     void testWithOutAwaiting() throws Exception {
-        startZoneManager(0);
+        startZoneManager();
 
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                         .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE).dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE).build())
@@ -448,13 +342,12 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
     }
 
     /**
-     * Test checks that data nodes futures are completed exceptionally if the zone was removed while
-     * data nodes awaiting.
+     * Test checks that data nodes futures are completed exceptionally if the zone was removed while data nodes awaiting.
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testRemoveZoneWhileAwaitingDataNodes() throws Exception {
-        startZoneManager(0);
+        startZoneManager();
 
         distributionZoneManager.createZone(
                         new DistributionZoneConfigurationParameters.Builder("zone0")
@@ -486,13 +379,13 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
     }
 
     /**
-     * Test checks that data nodes futures are completed with old data nodes if dataNodesAutoAdjustScaleUp
-     * and dataNodesAutoAdjustScaleDown timer increased to non-zero value.
+     * Test checks that data nodes futures are completed with old data nodes if dataNodesAutoAdjustScaleUp and dataNodesAutoAdjustScaleDown
+     * timer increased to non-zero value.
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testScaleUpScaleDownAreChangedWhileAwaitingDataNodes() throws Exception {
-        startZoneManager(0);
+        startZoneManager();
 
         Set<String> nodes0 = Set.of("node0", "node1");
 
@@ -536,23 +429,35 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
         valEntries.put(zonesLogicalTopologyKey(), toBytes(dataNodes));
         valEntries.put(zonesLogicalTopologyVersionKey(), longToBytes(3));
 
-        vaultManager.putAll(valEntries);
+        assertThat(vaultMgr.putAll(valEntries), willCompleteSuccessfully());
 
-        Collection<LogicalNode> nodes = new ArrayList<>();
+        topology.putNode(new LogicalNode(new ClusterNode("node0", "node0", new NetworkAddress("local", 1))));
+        topology.putNode(new LogicalNode(new ClusterNode("node1", "node1", new NetworkAddress("local", 1))));
 
-        nodes.add(new LogicalNode(new ClusterNode("node0", "node0", new NetworkAddress("local", 1))));
-        nodes.add(new LogicalNode(new ClusterNode("node1", "node1", new NetworkAddress("local", 1))));
-
-        when(cmgManager.logicalTopology()).thenReturn(completedFuture(new LogicalTopologySnapshot(3, nodes)));
-
-        startZoneManager(10);
+        startZoneManager();
 
         assertEquals(dataNodes, distributionZoneManager.topologyVersionedDataNodes(DEFAULT_ZONE_ID, 2)
                 .get(3, SECONDS));
     }
 
-    private void startZoneManager(long revision) throws Exception {
-        vaultManager.put(new ByteArray("applied_revision"), longToBytes(revision)).get();
+    private void startZoneManager() throws Exception {
+        // Watches are deployed before distributionZoneManager start in order to update Meta Storage revision before
+        // distributionZoneManager's recovery.
+        metaStorageManager.deployWatches();
+
+        // Bump Meta Storage applied revision by modifying a fake key. DistributionZoneManager breaks on start if Vault is not empty, but
+        // Meta Storage revision is equal to 0.
+        var fakeKey = new ByteArray("foobar");
+
+        CompletableFuture<Boolean> invokeFuture = metaStorageManager.invoke(
+                Conditions.notExists(fakeKey),
+                Operations.put(fakeKey, fakeKey.bytes()),
+                Operations.noop()
+        );
+
+        assertThat(invokeFuture, willBe(true));
+
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() > 0, 10_000));
 
         distributionZoneManager.start();
 
@@ -574,9 +479,5 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
         );
 
         assertThat(invokeFuture, willBe(true));
-    }
-
-    private void mockCmgLocalNodes() {
-        when(cmgManager.logicalTopology()).thenReturn(completedFuture(logicalTopology.getLogicalTopology()));
     }
 }

@@ -129,7 +129,7 @@ public class CmgMessageGroup {
         /**
          * Message type of {@link BasicAuthenticationProvider}.
          */
-        int BASIC_AUTH_PROVIDER = 64;
+        int BASIC_AUTHENTICATION_PROVIDER = 64;
 
         /**
          * Message type of {@link UpdateClusterStateCommand}.

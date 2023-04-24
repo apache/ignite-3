@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.internal.cli.commands.cliconfig.profile.CliConfigProfileCreateCommand;
-import org.apache.ignite.internal.cli.config.ProfileNotFoundException;
+import org.apache.ignite.internal.cli.config.exception.ProfileNotFoundException;
 import org.junit.jupiter.api.Test;
 
 class CliConfigProfileCreateCommandTest extends CliConfigCommandTestBase {

@@ -292,7 +292,7 @@ namespace Apache.Ignite.Internal.Sql
 
                 var name = reader.ReadString();
                 var nullable = reader.ReadBoolean();
-                var type = (SqlColumnType)reader.ReadInt32();
+                var type = (ColumnType)reader.ReadInt32();
                 var scale = reader.ReadInt32();
                 var precision = reader.ReadInt32();
 
