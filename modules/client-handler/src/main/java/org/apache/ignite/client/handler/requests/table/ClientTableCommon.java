@@ -217,26 +217,32 @@ public class ClientTableCommon {
      * @param tuples         Tuples.
      * @param part           Which part of tuple to write.
      * @param schemaRegistry The registry.
-     * @param skipHeader     Whether to skip the tuple header.
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuplesNullable(
             ClientMessagePacker packer,
             Collection<Tuple> tuples,
             TuplePart part,
-            SchemaRegistry schemaRegistry,
-            boolean skipHeader
+            SchemaRegistry schemaRegistry
     ) {
         if (tuples == null || tuples.isEmpty()) {
-            packer.packNil();
+            packer.packInt(schemaRegistry.lastSchemaVersion());
+            packer.packArrayHeader(0);
 
             return;
         }
 
-        SchemaDescriptor schema = schemaRegistry.schema();
+        Integer schemaVer = null;
 
-        packer.packInt(schema.version());
-        packer.packInt(tuples.size());
+        for (Tuple tuple : tuples) {
+            if (tuple != null) {
+                schemaVer = ((SchemaAware) tuple).schema().version();
+                break;
+            }
+        }
+
+        packer.packInt(schemaVer == null ? schemaRegistry.lastSchemaVersion() : schemaVer);
+        packer.packArrayHeader(tuples.size());
 
         for (Tuple tuple : tuples) {
             if (tuple == null) {
@@ -244,10 +250,10 @@ public class ClientTableCommon {
                 continue;
             }
 
-            assert schema.version() == ((SchemaAware) tuple).schema().version();
+            assert schemaVer.equals(((SchemaAware) tuple).schema().version()) : "All tuples must have the same schema version";
 
             packer.packBoolean(true);
-            writeTuple(packer, tuple, skipHeader, part);
+            writeTuple(packer, tuple, true, part);
         }
     }
 
