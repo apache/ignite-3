@@ -497,7 +497,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     }
 
     private HashMap<K, V> readGetAllResponse(ClientSchema schema, ClientMessageUnpacker in) {
-        var cnt = in.unpackInt();
+        var cnt = in.unpackArrayHeader();
 
         var res = new LinkedHashMap<K, V>(cnt);
 

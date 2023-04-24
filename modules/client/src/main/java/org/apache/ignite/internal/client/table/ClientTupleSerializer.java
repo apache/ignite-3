@@ -267,7 +267,7 @@ public class ClientTupleSerializer {
      * @return Tuple pairs.
      */
     static Map<Tuple, Tuple> readKvTuplesNullable(ClientSchema schema, ClientMessageUnpacker in) {
-        var cnt = in.unpackInt();
+        var cnt = in.unpackArrayHeader();
         Map<Tuple, Tuple> res = new HashMap<>(cnt);
 
         for (int i = 0; i < cnt; i++) {
