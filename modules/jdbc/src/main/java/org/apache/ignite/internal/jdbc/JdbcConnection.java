@@ -127,13 +127,21 @@ public class JdbcConnection implements Connection {
         this.connProps = props;
         this.handler = handler;
 
-        JdbcConnectResult result = handler.connect().join();
+        try {
+            JdbcConnectResult result = handler.connect().get();
 
-        if (!result.hasResults()) {
-            throw IgniteQueryErrorCode.createJdbcSqlException(result.err(), result.status());
+            if (!result.hasResults()) {
+                throw IgniteQueryErrorCode.createJdbcSqlException(result.err(), result.status());
+            }
+
+            connectionId = result.connectionId();
+        } catch (InterruptedException e) {
+            throw new SQLException("Thread was interrupted.", e);
+        } catch (ExecutionException e) {
+            throw new SQLException("Failed to initialize connection.", e);
+        } catch (CancellationException e) {
+            throw new SQLException("Connection initialization canceled.", e);
         }
-
-        connectionId = result.connectionId();
 
         autoCommit = true;
 
@@ -180,13 +188,21 @@ public class JdbcConnection implements Connection {
 
         this.handler = new JdbcClientQueryEventHandler(client);
 
-        JdbcConnectResult result = handler.connect().join();
+        try {
+            JdbcConnectResult result = handler.connect().get();
 
-        if (!result.hasResults()) {
-            throw IgniteQueryErrorCode.createJdbcSqlException(result.err(), result.status());
+            if (!result.hasResults()) {
+                throw IgniteQueryErrorCode.createJdbcSqlException(result.err(), result.status());
+            }
+
+            connectionId = result.connectionId();
+        } catch (InterruptedException e) {
+            throw new SQLException("Thread was interrupted.", e);
+        } catch (ExecutionException e) {
+            throw new SQLException("Failed to initialize connection.", e);
+        } catch (CancellationException e) {
+            throw new SQLException("Connection initialization canceled.", e);
         }
-
-        connectionId = result.connectionId();
 
         txIsolation = Connection.TRANSACTION_NONE;
 
@@ -389,7 +405,7 @@ public class JdbcConnection implements Connection {
             if (res.status() != Response.STATUS_SUCCESS) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
             }
-        }catch (CancellationException e) {
+        } catch (CancellationException e) {
             throw new SQLException("Request to " + (commit ? "commit" : "rollback") + " the transaction has been canceled.", e);
         } catch (ExecutionException e) {
             throw new SQLException("The transaction " + (commit ? "commit" : "rollback") + " request failed.", e);
