@@ -201,8 +201,7 @@ public class ClientTableCommon {
                 schemaVer = tupleSchemaVer;
                 packer.packInt(tupleSchemaVer);
                 packer.packArrayHeader(tuples.size());
-            }
-            else {
+            } else {
                 assert schemaVer.equals(tupleSchemaVer) : "All tuples must have the same schema version";
             }
 
