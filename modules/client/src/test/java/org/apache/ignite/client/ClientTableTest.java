@@ -32,6 +32,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.concurrent.Callable;
+import java.util.function.Consumer;
 import org.apache.commons.math3.stat.inference.TestUtils;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
@@ -135,19 +137,9 @@ public class ClientTableTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testGetReturningNullWithUnknownSchemaRequestsNewSchema() throws InterruptedException {
-        // TODO: Test upsert as well.
-        var table = defaultTable();
-        var recView = table.recordView();
-
-        Tuple tuple = tuple(12345L);
-        recView.get(null, tuple);
-
-        FakeSchemaRegistry.setLastVer(2);
-        recView.get(null, tuple);
-
-        Map<Integer, Object> schemas = IgniteTestUtils.getFieldValue(table, "schemas");
-        assertTrue(waitForCondition(() -> schemas.get(2) != null, 1000));
+    public void testWithoutTupleResultRequestsNewSchemaWhenAvailable() throws Exception {
+        checkSchemaUpdate(recordView -> recordView.get(null, tuple(12345L)));
+        checkSchemaUpdate(recordView -> recordView.upsert(null, tuple(12345L)));
     }
 
     @Test
@@ -420,5 +412,24 @@ public class ClientTableTest extends AbstractClientTableTest {
 
         assertThat(ex.getMessage(), containsString("Table does not exist: "));
         assertEquals(TABLE_ID_NOT_FOUND_ERR, ex.code());
+    }
+
+    private void checkSchemaUpdate(Consumer<RecordView<Tuple>> consumer) throws Exception {
+        try (var client2 = startClient()) {
+            var table = client2.tables().table(defaultTable().name());
+            Map<Integer, Object> schemas = IgniteTestUtils.getFieldValue(table, "schemas");
+            var recView = table.recordView();
+
+            assertEquals(0, schemas.size());
+
+            FakeSchemaRegistry.setLastVer(1);
+            consumer.accept(recView);
+            assertNull(schemas.get(2));
+
+            FakeSchemaRegistry.setLastVer(2);
+            consumer.accept(recView);
+
+            assertTrue(waitForCondition(() -> schemas.get(2) != null, 1000));
+        }
     }
 }
