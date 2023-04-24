@@ -58,19 +58,15 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="buf">Buffer.</param>
         /// <param name="schema">Schema or null when there is no value.</param>
         /// <returns>Resulting record with key and value parts.</returns>
-        public Option<T> ReadValue(PooledBuffer buf, Schema? schema)
+        public Option<T> ReadValue(PooledBuffer buf, Schema schema)
         {
-            if (schema == null)
-            {
-                // Null schema means null record.
-                return default;
-            }
-
-            // Skip schema version.
             var r = buf.GetReader();
-            r.Skip();
 
-            return Option.Some(_handler.Read(ref r, schema));
+            r.Skip(); // Skip schema version.
+
+            return r.TryReadNil()
+                ? default
+                : Option.Some(_handler.Read(ref r, schema));
         }
 
         /// <summary>
@@ -136,7 +132,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var r = buf.GetReader();
             r.Skip();
 
-            var count = r.ReadInt32();
+            var count = r.ReadArrayHeader();
             var res = resultFactory(count);
 
             for (var i = 0; i < count; i++)
