@@ -159,15 +159,13 @@ public class ClientTableCommon {
      * @param packer         Packer.
      * @param tuples         Tuples.
      * @param schemaRegistry The registry.
-     * @param skipHeader     Whether to skip the tuple header.
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuples(
             ClientMessagePacker packer,
             Collection<Tuple> tuples,
-            SchemaRegistry schemaRegistry,
-            boolean skipHeader) {
-        writeTuples(packer, tuples, TuplePart.KEY_AND_VAL, schemaRegistry, skipHeader);
+            SchemaRegistry schemaRegistry) {
+        writeTuples(packer, tuples, TuplePart.KEY_AND_VAL, schemaRegistry);
     }
 
     /**
@@ -177,32 +175,38 @@ public class ClientTableCommon {
      * @param tuples         Tuples.
      * @param part           Which part of tuple to write.
      * @param schemaRegistry The registry.
-     * @param skipHeader     Whether to skip the tuple header.
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuples(
             ClientMessagePacker packer,
             Collection<Tuple> tuples,
             TuplePart part,
-            SchemaRegistry schemaRegistry,
-            boolean skipHeader
+            SchemaRegistry schemaRegistry
     ) {
         if (tuples == null || tuples.isEmpty()) {
-            packer.packNil();
+            packer.packInt(schemaRegistry.lastSchemaVersion());
+            packer.packArrayHeader(0);
 
             return;
         }
 
-        SchemaDescriptor schema = schemaRegistry.schema();
-
-        packer.packInt(schema.version());
-        packer.packInt(tuples.size());
+        Integer schemaVer = null;
 
         for (Tuple tuple : tuples) {
             assert tuple != null;
-            assert schema.version() == ((SchemaAware) tuple).schema().version();
 
-            writeTuple(packer, tuple, skipHeader, part);
+            var tupleSchemaVer = ((SchemaAware) tuple).schema().version();
+
+            if (schemaVer == null) {
+                schemaVer = tupleSchemaVer;
+                packer.packInt(tupleSchemaVer);
+                packer.packArrayHeader(tuples.size());
+            }
+            else {
+                assert schemaVer.equals(tupleSchemaVer) : "All tuples must have the same schema version";
+            }
+
+            writeTuple(packer, tuple, true, part);
         }
     }
 
