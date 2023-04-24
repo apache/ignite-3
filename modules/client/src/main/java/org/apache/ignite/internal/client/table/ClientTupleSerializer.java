@@ -288,7 +288,7 @@ public class ClientTupleSerializer {
     }
 
     static Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
-        var cnt = in.unpackInt();
+        var cnt = in.unpackArrayHeader();
         var res = new ArrayList<Tuple>(cnt);
 
         for (int i = 0; i < cnt; i++) {
@@ -299,7 +299,7 @@ public class ClientTupleSerializer {
     }
 
     static Collection<Tuple> readTuplesNullable(ClientSchema schema, ClientMessageUnpacker in) {
-        var cnt = in.unpackInt();
+        var cnt = in.unpackArrayHeader();
         var res = new ArrayList<Tuple>(cnt);
 
         for (int i = 0; i < cnt; i++) {
