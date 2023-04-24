@@ -328,7 +328,10 @@ public class ClientTable implements Table {
 
                     return ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
-                            r -> reader.apply(r.in()),
+                            r -> {
+                                // TODO: Require schema as the first result.
+                                return reader.apply(r.in());
+                            },
                             null,
                             preferredNodeId);
                 });
