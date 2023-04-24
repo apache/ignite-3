@@ -78,7 +78,7 @@ class ConfigManagerTest {
 
     @Test
     public void testRemoveProperty() {
-        File tempFile = TestConfigManagerHelper.createSectionWithDefaultProfile();
+        File tempFile = TestConfigManagerHelper.createSectionWithDefaultProfileConfig();
         File tempSecretFile = TestConfigManagerHelper.createEmptySecretConfig();
         IniConfigManager configManager = new IniConfigManager(tempFile, tempSecretFile);
 
