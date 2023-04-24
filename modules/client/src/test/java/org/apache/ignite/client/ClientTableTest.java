@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -29,9 +30,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import org.apache.commons.math3.stat.inference.TestUtils;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -128,6 +132,22 @@ public class ClientTableTest extends AbstractClientTableTest {
             assertEquals(DEFAULT_NAME, resTuple.stringValue("name"));
             assertEquals(DEFAULT_ID, resTuple.longValue("id"));
         }
+    }
+
+    @Test
+    public void testGetReturningNullWithUnknownSchemaRequestsNewSchema() throws InterruptedException {
+        // TODO: Test upsert as well.
+        var table = defaultTable();
+        var recView = table.recordView();
+
+        Tuple tuple = tuple(12345L);
+        recView.get(null, tuple);
+
+        FakeSchemaRegistry.setLastVer(2);
+        recView.get(null, tuple);
+
+        Map<Integer, Object> schemas = IgniteTestUtils.getFieldValue(table, "schemas");
+        assertTrue(waitForCondition(() -> schemas.get(2) != null, 1000));
     }
 
     @Test
