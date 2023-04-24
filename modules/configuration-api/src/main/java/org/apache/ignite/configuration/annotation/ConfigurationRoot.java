@@ -34,7 +34,6 @@ import java.lang.annotation.Target;
  * <li>View - an immutable object to view the config tree</li>
  * </ul>
  *
- * <h2 class="header">Example</h2>
  * Here is how to create a root configuration schema:
  * <pre><code>
  * {@literal @}ConfigurationRoot(rootName = "a.b", type = ConfigurationType.LOCAL)
