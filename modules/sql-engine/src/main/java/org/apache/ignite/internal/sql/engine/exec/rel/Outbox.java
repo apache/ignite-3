@@ -239,14 +239,6 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         exchange.sendError(context().originatingNodeName(), queryId(), fragmentId(), err);
     }
 
-    private void sendInboxClose(String nodeName) {
-        try {
-            exchange.closeInbox(nodeName, queryId(), targetFragmentId, exchangeId);
-        } catch (IgniteInternalCheckedException e) {
-            LOG.info("Unable to send cancel message", e);
-        }
-    }
-
     private void flush() throws Exception {
         while (!inBuf.isEmpty()) {
             checkState();

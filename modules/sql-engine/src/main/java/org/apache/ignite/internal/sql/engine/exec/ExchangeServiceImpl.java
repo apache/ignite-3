@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -29,7 +27,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
-import org.apache.ignite.internal.sql.engine.message.InboxCloseMessage;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryBatchMessage;
 import org.apache.ignite.internal.sql.engine.message.QueryBatchRequestMessage;
@@ -69,7 +66,6 @@ public class ExchangeServiceImpl implements ExchangeService {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        messageService.register((n, m) -> onMessage(n, (InboxCloseMessage) m), SqlQueryMessageGroup.INBOX_CLOSE_MESSAGE);
         messageService.register((n, m) -> onMessage(n, (QueryBatchRequestMessage) m), SqlQueryMessageGroup.QUERY_BATCH_REQUEST);
         messageService.register((n, m) -> onMessage(n, (QueryBatchMessage) m), SqlQueryMessageGroup.QUERY_BATCH_MESSAGE);
     }
@@ -109,30 +105,6 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public void closeQuery(String nodeName, UUID qryId) throws IgniteInternalCheckedException {
-        messageService.send(
-                nodeName,
-                FACTORY.queryCloseMessage()
-                        .queryId(qryId)
-                        .build()
-        );
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void closeInbox(String nodeName, UUID qryId, long fragmentId, long exchangeId) throws IgniteInternalCheckedException {
-        messageService.send(
-                nodeName,
-                FACTORY.inboxCloseMessage()
-                        .queryId(qryId)
-                        .fragmentId(fragmentId)
-                        .exchangeId(exchangeId)
-                        .build()
-        );
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void sendError(String nodeName, UUID qryId, long fragmentId, Throwable err) throws IgniteInternalCheckedException {
         messageService.send(
                 nodeName,
@@ -142,25 +114,6 @@ public class ExchangeServiceImpl implements ExchangeService {
                         .error(err)
                         .build()
         );
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean alive(String nodeName) {
-        return messageService.alive(nodeName);
-    }
-
-    private void onMessage(String nodeName, InboxCloseMessage msg) {
-        Collection<Inbox<?>> inboxes = mailboxRegistry.inboxes(msg.queryId(), msg.fragmentId(), msg.exchangeId());
-
-        if (!nullOrEmpty(inboxes)) {
-            for (Inbox<?> inbox : inboxes) {
-                inbox.context().execute(inbox::close, inbox::onError);
-            }
-        } else if (LOG.isDebugEnabled()) {
-            LOG.debug("Stale inbox cancel message received [nodeName={}, queryId={}, fragmentId={}, exchangeId={}]",
-                    nodeName, msg.queryId(), msg.fragmentId(), msg.exchangeId());
-        }
     }
 
     private void onMessage(String nodeName, QueryBatchRequestMessage msg) {

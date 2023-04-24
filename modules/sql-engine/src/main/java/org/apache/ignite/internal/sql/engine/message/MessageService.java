@@ -35,14 +35,6 @@ public interface MessageService extends LifecycleAware {
     void send(String nodeName, NetworkMessage msg) throws IgniteInternalCheckedException;
 
     /**
-     * Checks whether a node with given ID is alive.
-     *
-     * @param nodeName Node consistent ID.
-     * @return {@code True} if node is alive.
-     */
-    boolean alive(String nodeName);
-
-    /**
      * Registers a listener for messages of a given type.
      *
      * @param lsnr Listener.

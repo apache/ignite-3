@@ -485,7 +485,6 @@ public class ExecutionServiceImplTest {
                 mock(DdlCommandHandler.class),
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
-                exchangeService,
                 ctx -> node.implementor(ctx, mailboxRegistry, exchangeService)
         );
 
@@ -538,7 +537,6 @@ public class ExecutionServiceImplTest {
         class TestNode {
             private final Map<Short, MessageListener> msgListeners = new ConcurrentHashMap<>();
             private final Queue<RunnableX> pending = new LinkedBlockingQueue<>();
-            private volatile boolean dead = false;
             private volatile List<Object[]> dataset = List.of();
             private volatile MessageInterceptor interceptor = null;
 
@@ -550,14 +548,6 @@ public class ExecutionServiceImplTest {
             public TestNode(String nodeName, QueryTaskExecutor taskExecutor) {
                 this.nodeName = nodeName;
                 this.taskExecutor = taskExecutor;
-            }
-
-            public void dead(boolean dead) {
-                this.dead = dead;
-            }
-
-            public boolean dead() {
-                return dead;
             }
 
             public void dataset(List<Object[]> dataset) {
@@ -601,12 +591,6 @@ public class ExecutionServiceImplTest {
                         TestNode node = nodes.get(nodeName);
 
                         node.onReceive(TestNode.this.nodeName, msg);
-                    }
-
-                    /** {@inheritDoc} */
-                    @Override
-                    public boolean alive(String nodeName) {
-                        return !nodes.get(nodeName).dead();
                     }
 
                     /** {@inheritDoc} */

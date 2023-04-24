@@ -121,12 +121,6 @@ public class MessageServiceImpl implements MessageService {
         assert old == null : old;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public boolean alive(String nodeName) {
-        return topSrvc.getByConsistentId(nodeName) != null;
-    }
-
     private void onMessage(String consistentId, NetworkMessage msg) {
         if (msg instanceof ExecutionContextAwareMessage) {
             ExecutionContextAwareMessage msg0 = (ExecutionContextAwareMessage) msg;

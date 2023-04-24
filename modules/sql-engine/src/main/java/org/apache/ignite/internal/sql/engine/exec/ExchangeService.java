@@ -55,24 +55,6 @@ public interface ExchangeService extends LifecycleAware {
             @Nullable SharedState state) throws IgniteInternalCheckedException;
 
     /**
-     * Sends cancel request.
-     *
-     * @param nodeName Target node consistent ID.
-     * @param qryId Query ID.
-     * @param fragmentId Target fragment ID.
-     * @param exchangeId Exchange ID.
-     */
-    void closeInbox(String nodeName, UUID qryId, long fragmentId, long exchangeId) throws IgniteInternalCheckedException;
-
-    /**
-     * Sends cancel request.
-     *
-     * @param nodeName Target node consistent ID.
-     * @param qryId Query ID.
-     */
-    void closeQuery(String nodeName, UUID qryId) throws IgniteInternalCheckedException;
-
-    /**
      * Send error.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
@@ -83,13 +65,4 @@ public interface ExchangeService extends LifecycleAware {
      * @throws IgniteInternalCheckedException On error marshaling or send ErrorMessage.
      */
     void sendError(String nodeName, UUID qryId, long fragmentId, Throwable err) throws IgniteInternalCheckedException;
-
-    /**
-     * Alive.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @param nodeName Target node consistent ID.
-     * @return {@code true} if node is alive, {@code false} otherwise.
-     */
-    boolean alive(String nodeName);
 }

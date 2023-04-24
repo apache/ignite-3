@@ -174,10 +174,6 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
     private void push() throws Exception {
         if (remoteSources == null) {
-            for (String node : srcNodeNames) {
-                checkNode(node);
-            }
-
             remoteSources = new ArrayList<>(srcNodeNames.size());
 
             for (String nodeName : srcNodeNames) {
@@ -354,12 +350,6 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         checkState();
 
         if (perNodeBuffers.get(nodeName).check() != State.END) {
-            throw new IgniteInternalCheckedException(NODE_LEFT_ERR, "Failed to execute query, node left [nodeName=" + nodeName + ']');
-        }
-    }
-
-    private void checkNode(String nodeName) throws IgniteInternalCheckedException {
-        if (!exchange.alive(nodeName)) {
             throw new IgniteInternalCheckedException(NODE_LEFT_ERR, "Failed to execute query, node left [nodeName=" + nodeName + ']');
         }
     }
