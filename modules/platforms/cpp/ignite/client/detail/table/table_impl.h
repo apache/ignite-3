@@ -347,7 +347,7 @@ private:
     std::shared_ptr<schema> get_schema(protocol::reader &reader) {
         auto schema_version = reader.read_object<std::int32_t>();
 
-        return get_schema(schema_version.value());
+        return get_schema(schema_version);
     }
 
     /**

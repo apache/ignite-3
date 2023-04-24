@@ -100,14 +100,14 @@ ignite_tuple read_tuple(protocol::reader &reader, const schema *sch, bool key_on
  * @return Tuples.
  */
 std::vector<std::optional<ignite_tuple>> read_tuples_opt(protocol::reader &reader, const schema *sch, bool key_only) {
-    if (!sch)
+    if (reader.try_read_nil())
         return {};
 
-    auto count = reader.read_int32();
+    auto count = reader.read_array_size();
     std::vector<std::optional<ignite_tuple>> res;
     res.reserve(std::size_t(count));
 
-    for (std::int32_t i = 0; i < count; ++i) {
+    for (std::uint32_t i = 0; i < count; ++i) {
         auto exists = reader.read_bool();
         if (!exists)
             res.emplace_back(std::nullopt);
