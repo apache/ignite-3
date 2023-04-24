@@ -306,26 +306,6 @@ public class ClientTable implements Table {
      * @param opCode Op code.
      * @param writer Writer.
      * @param reader Reader.
-     * @param <T> Result type.
-     * @return Future representing pending completion of the operation.
-     */
-    public <T> CompletableFuture<T> doSchemaOutOpAsync(
-            int opCode,
-            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
-            Function<ClientMessageUnpacker, T> reader) {
-        return getLatestSchema()
-                .thenCompose(schema ->
-                        ch.serviceAsync(opCode,
-                                w -> writer.accept(schema, w),
-                                r -> reader.apply(r.in())));
-    }
-
-    /**
-     * Performs a schema-based operation.
-     *
-     * @param opCode Op code.
-     * @param writer Writer.
-     * @param reader Reader.
      * @param provider Partition awareness provider.
      * @param <T> Result type.
      * @return Future representing pending completion of the operation.

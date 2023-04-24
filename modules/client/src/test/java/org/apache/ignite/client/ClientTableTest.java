@@ -138,11 +138,13 @@ public class ClientTableTest extends AbstractClientTableTest {
 
     @Test
     public void testOperationWithNullTupleResultRequestsNewSchemaWhenAvailable() throws Exception {
+        // TODO: All operations
         checkSchemaUpdate(recordView -> recordView.get(null, tuple(12345L)));
     }
 
     @Test
     public void testOperationWithoutTupleResultRequestsNewSchemaWhenAvailable() throws Exception {
+        // TODO: All operations
         checkSchemaUpdate(recordView -> recordView.upsert(null, tuple(12345L)));
     }
 
