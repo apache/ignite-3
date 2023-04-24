@@ -551,7 +551,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return completedFuture(null);
         }
 
-        return raftClient.run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTime(hybridTimestamp(hybridClock.now())).build());
+        return raftClient.run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTimeLong(hybridClock.nowLong()).build());
     }
 
     /**
@@ -2147,20 +2147,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private String partitionRaftGroupName(UUID tblId, int partition) {
         return tblId + "_part_" + partition;
-    }
-
-    /**
-     * Method to convert from {@link HybridTimestamp} object to NetworkMessage-based {@link HybridTimestampMessage} object.
-     *
-     * @param tmstmp {@link HybridTimestamp} object to convert to {@link HybridTimestampMessage}.
-     * @return {@link HybridTimestampMessage} object obtained from {@link HybridTimestamp}.
-     */
-    public static @Nullable HybridTimestampMessage hybridTimestamp(HybridTimestamp tmstmp) {
-        return tmstmp != null ? REPLICA_MESSAGES_FACTORY.hybridTimestampMessage()
-                .physical(tmstmp.getPhysical())
-                .logical(tmstmp.getLogical())
-                .build()
-                : null;
     }
 
     /**

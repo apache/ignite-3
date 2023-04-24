@@ -36,7 +36,7 @@ public class HybridTimestamps {
      * @param pageAddr Address where page data starts.
      * @param offset Offset to the timestamp value relative to pageAddr.
      */
-    static @Nullable HybridTimestamp readTimestamp(long pageAddr, int offset) {
+    public static @Nullable HybridTimestamp readTimestamp(long pageAddr, int offset) {
         long time = getLong(pageAddr, offset);
 
         return HybridTimestamp.of(time);

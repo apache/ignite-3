@@ -21,6 +21,7 @@ import static java.lang.Math.addExact;
 
 import java.io.Serializable;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A hybrid timestamp that combines physical clock and logical clock.
@@ -219,6 +220,6 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      * Returns a new hybrid timestamp with incremented physical component.
      */
     public HybridTimestamp addPhysicalTime(long mills) {
-        return new HybridTimestamp(physical + mills, logical);
+        return new HybridTimestamp(addExact(getPhysical(), mills), getLogical());
     }
 }

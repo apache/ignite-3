@@ -62,8 +62,6 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.CommittedConfiguration;
-import org.apache.ignite.internal.replicator.command.HybridTimestampMessage;
-import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommandBuilder;
@@ -865,13 +863,13 @@ public class PartitionCommandListenerTest {
             }).when(clo).result(any());
         }));
 
-        HybridTimestamp now = hybridClock.now();
+        long commitTimestamp = hybridClock.nowLong();
 
         txIds.forEach(txId -> invokeBatchedCommand(
                 msgFactory.txCleanupCommand()
                         .txId(txId)
                         .commit(true)
-                        .commitTimestampLong(now)
+                        .commitTimestampLong(commitTimestamp)
                         .safeTimeLong(hybridClock.nowLong())
                         .build()));
     }

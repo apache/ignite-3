@@ -57,7 +57,7 @@ public class HybridClockImpl implements HybridClock {
      * @param initialTime Initial time.
      */
     public HybridClockImpl(HybridTimestamp initialTime) {
-        this.latestTime = initialTime;
+        this.latestTime = HybridTimestamp.nullableLongTime(initialTime);
     }
 
     private static long currentTime() {
