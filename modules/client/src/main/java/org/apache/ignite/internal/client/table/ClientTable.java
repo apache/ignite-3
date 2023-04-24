@@ -153,6 +153,7 @@ public class ClientTable implements Table {
     }
 
     private CompletableFuture<ClientSchema> loadSchema(@Nullable Integer ver) {
+        // TODO IGNITE-19354 Same schema version is retrieved multiple times in concurrent scenarios
         return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
             w.out().packUuid(id);
 
