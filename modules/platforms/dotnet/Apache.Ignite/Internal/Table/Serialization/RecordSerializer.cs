@@ -100,7 +100,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var r = buf.GetReader();
             r.Skip();
 
-            var count = r.ReadInt32();
+            var count = r.ReadArrayHeader();
             var res = resultFactory(count);
 
             for (var i = 0; i < count; i++)
