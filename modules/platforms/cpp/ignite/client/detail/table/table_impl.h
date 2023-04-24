@@ -345,12 +345,9 @@ private:
      * @param reader Reader to use.
      */
     std::shared_ptr<schema> get_schema(protocol::reader &reader) {
-        auto schema_version = reader.read_object_nullable<std::int32_t>();
-        std::shared_ptr<schema> sch;
-        if (schema_version)
-            sch = get_schema(schema_version.value());
+        auto schema_version = reader.read_object<std::int32_t>();
 
-        return sch;
+        return get_schema(schema_version.value());
     }
 
     /**
