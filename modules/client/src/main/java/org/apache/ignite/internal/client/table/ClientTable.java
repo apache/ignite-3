@@ -359,11 +359,12 @@ public class ClientTable implements Table {
             BiFunction<ClientSchema, ClientMessageUnpacker, T> fn,
             @Nullable T defaultValue
     ) {
+        var schemaVer = in.unpackInt();
+
         if (in.tryUnpackNil()) {
+            // TODO: Load schema if not known in background?
             return defaultValue;
         }
-
-        var schemaVer = in.unpackInt();
 
         var resSchema = schemaVer == knownSchema.version() ? knownSchema : schemas.get(schemaVer);
 

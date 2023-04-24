@@ -106,13 +106,12 @@ public class ClientTableCommon {
      */
     public static void writeTupleOrNil(ClientMessagePacker packer, Tuple tuple, TuplePart part, SchemaRegistry schemaRegistry) {
         if (tuple == null) {
-            packer.packBoolean(false); // No value: write latest schema version to keep the client in sync.
             packer.packInt(schemaRegistry.lastSchemaVersion());
+            packer.packNil();
 
             return;
         }
 
-        packer.packBoolean(true); // Value is present: schema version will be written by writeTuple().
         writeTuple(packer, tuple, false, part);
     }
 
