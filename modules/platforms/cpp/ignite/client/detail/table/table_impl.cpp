@@ -127,14 +127,14 @@ std::vector<std::optional<ignite_tuple>> read_tuples_opt(protocol::reader &reade
  * @return Tuples.
  */
 std::vector<ignite_tuple> read_tuples(protocol::reader &reader, const schema *sch, bool key_only) {
-    if (!sch)
+    if (reader.try_read_nil())
         return {};
 
-    auto count = reader.read_int32();
+    auto count = reader.read_array_size();
     std::vector<ignite_tuple> res;
     res.reserve(std::size_t(count));
 
-    for (std::int32_t i = 0; i < count; ++i)
+    for (std::uint32_t i = 0; i < count; ++i)
         res.emplace_back(read_tuple(reader, sch, key_only));
 
     return res;
