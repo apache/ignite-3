@@ -134,6 +134,7 @@ std::vector<ignite_tuple> read_tuples(protocol::reader &reader, const schema *sc
     std::vector<ignite_tuple> res;
     res.reserve(std::size_t(count));
 
+    // TODO: read_array_raw?
     for (std::uint32_t i = 0; i < count; ++i)
         res.emplace_back(read_tuple(reader, sch, key_only));
 
