@@ -109,30 +109,6 @@ public class LockByRowIdTest {
         lockByRowId.lock(rowId);
     }
 
-//    @Test
-//    void testReleaseAllLocksByCurrentThread() {
-//        RowId rowId0 = new RowId(0);
-//        RowId rowId1 = new RowId(0);
-//
-//        lockByRowId.lock(rowId0);
-//
-//        lockByRowId.lock(rowId1);
-//        lockByRowId.lock(rowId1);
-//
-//        CompletableFuture<?> acquireLockFuture = runAsync(() -> {
-//            lockByRowId.lock(rowId0);
-//            lockByRowId.lock(rowId1);
-//
-//            lockByRowId.releaseAllLockByCurrentThread();
-//        });
-//
-//        assertThat(acquireLockFuture, willTimeoutFast());
-//
-//        lockByRowId.releaseAllLockByCurrentThread();
-//
-//        assertThat(acquireLockFuture, willCompleteSuccessfully());
-//    }
-
     private <T> T inLock(RowId rowId, Supplier<T> action) {
         lockByRowId.lock(rowId);
 
