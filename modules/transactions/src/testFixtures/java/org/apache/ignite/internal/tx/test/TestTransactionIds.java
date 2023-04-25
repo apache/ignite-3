@@ -20,7 +20,7 @@ package org.apache.ignite.internal.tx.test;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.tx.TransactionIds;
+import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 
 /**
  * Contains methods to generate transaction IDs for the cases when the clock and nodeId might be hard-coded
@@ -33,12 +33,14 @@ public class TestTransactionIds {
     /** Hard-coded node ID. */
     private static final int SOLE_NODE_ID = 0xdeadbeef;
 
+    private static final TransactionIdGenerator TRANSACTION_ID_GENERATOR = new TransactionIdGenerator(SOLE_NODE_ID);
+
     /**
      * Generates new transaction ID using the global clock and hard-coded node ID.
      *
      * @return New transaction ID.
      */
     public static UUID newTransactionId() {
-        return TransactionIds.transactionId(GLOBAL_CLOCK.now(), SOLE_NODE_ID);
+        return TRANSACTION_ID_GENERATOR.transactionIdFor(GLOBAL_CLOCK.now());
     }
 }
