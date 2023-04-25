@@ -155,28 +155,16 @@ namespace Apache.Ignite.Internal.Table
         /// </summary>
         /// <param name="buf">Buffer.</param>
         /// <returns>Schema or null.</returns>
-        internal async ValueTask<Schema?> ReadSchemaAsync(PooledBuffer buf)
+        internal async ValueTask<Schema> ReadSchemaAsync(PooledBuffer buf)
         {
-            var ver = ReadSchemaVersion(buf);
+            var ver = buf.GetReader().ReadInt32();
 
-            if (ver == null)
-            {
-                return null;
-            }
-
-            if (_schemas.TryGetValue(ver.Value, out var res))
+            if (_schemas.TryGetValue(ver, out var res))
             {
                 return res;
             }
 
             return await LoadSchemaAsync(ver).ConfigureAwait(false);
-
-            static int? ReadSchemaVersion(PooledBuffer buf)
-            {
-                var reader = buf.GetReader();
-
-                return reader.ReadInt32Nullable();
-            }
         }
 
         /// <summary>

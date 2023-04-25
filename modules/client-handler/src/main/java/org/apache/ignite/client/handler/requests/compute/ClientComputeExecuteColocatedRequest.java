@@ -51,6 +51,9 @@ public class ClientComputeExecuteColocatedRequest {
         String jobClassName = in.unpackString();
         Object[] args = unpackArgs(in);
 
-        return compute.executeColocated(table.name(), keyTuple, jobClassName, args).thenAccept(out::packObjectAsBinaryTuple);
+        return compute.executeColocated(table.name(), keyTuple, jobClassName, args).thenAccept(val -> {
+            out.packInt(table.schemaView().lastSchemaVersion());
+            out.packObjectAsBinaryTuple(val);
+        });
     }
 }

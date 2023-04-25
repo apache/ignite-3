@@ -23,6 +23,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.table.manager.IgniteTables;
 
@@ -34,12 +35,14 @@ public class ClientTupleUpsertRequest {
      * Processes the request.
      *
      * @param in        Unpacker.
+     * @param out       Packer.
      * @param tables    Ignite tables.
      * @param resources Resource registry.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
+            ClientMessagePacker out,
             IgniteTables tables,
             ClientResourceRegistry resources
     ) {
@@ -47,6 +50,6 @@ public class ClientTupleUpsertRequest {
         var tx = readTx(in, resources);
         var tuple = readTuple(in, table, false);
 
-        return table.recordView().upsertAsync(tx, tuple);
+        return table.recordView().upsertAsync(tx, tuple).thenAccept(v -> out.packInt(table.schemaView().lastSchemaVersion()));
     }
 }

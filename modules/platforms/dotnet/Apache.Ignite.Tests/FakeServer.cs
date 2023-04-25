@@ -563,19 +563,22 @@ namespace Apache.Ignite.Tests
                         case ClientOp.TupleDelete:
                         case ClientOp.TupleDeleteExact:
                         case ClientOp.TupleContainsKey:
-                            Send(handler, requestId, new[] { MessagePackCode.True }.AsMemory());
+                            Send(handler, requestId, new byte[] { 1, MessagePackCode.True }.AsMemory());
                             continue;
 
                         case ClientOp.TupleGet:
-                        case ClientOp.TupleGetAll:
                         case ClientOp.TupleGetAndDelete:
                         case ClientOp.TupleGetAndReplace:
                         case ClientOp.TupleGetAndUpsert:
+                            Send(handler, requestId, new byte[] { 1, MessagePackCode.Nil }.AsMemory());
+                            continue;
+
+                        case ClientOp.TupleGetAll:
                         case ClientOp.TupleInsertAll:
                         case ClientOp.TupleUpsertAll:
                         case ClientOp.TupleDeleteAll:
                         case ClientOp.TupleDeleteAllExact:
-                            Send(handler, requestId, new[] { MessagePackCode.Nil }.AsMemory());
+                            Send(handler, requestId, new byte[] { 1, 0 }.AsMemory());
                             continue;
 
                         case ClientOp.TxBegin:
@@ -609,7 +612,7 @@ namespace Apache.Ignite.Tests
                             continue;
 
                         case ClientOp.ComputeExecuteColocated:
-                            Send(handler, requestId, new[] { MessagePackCode.Nil }.AsMemory());
+                            Send(handler, requestId, new byte[] { 1, MessagePackCode.Nil }.AsMemory());
                             continue;
                     }
 
