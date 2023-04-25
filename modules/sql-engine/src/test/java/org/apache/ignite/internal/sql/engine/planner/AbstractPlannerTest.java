@@ -359,12 +359,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         return physicalPlan(ctx, null);
     }
 
-    protected IgniteRel physicalPlan(PlanningContext ctx,@Nullable RelOptListener listener) throws Exception {
+    protected IgniteRel physicalPlan(PlanningContext ctx, @Nullable RelOptListener listener) throws Exception {
         try (IgnitePlanner planner = ctx.planner()) {
             assertNotNull(planner);
             assertNotNull(ctx.query());
 
-            if(listener != null) {
+            if (listener != null) {
                 planner.addListener(listener);
             }
 
