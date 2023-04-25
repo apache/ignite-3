@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.internal.sql.engine.datatypes.varbinary;
 
 import java.nio.charset.Charset;
@@ -19,14 +36,20 @@ public final class VarBinary implements NativeTypeWrapper<VarBinary> {
         this.bytes = bytes;
     }
 
-    /** Creates a var binary object from the given bytes array*/
+
+    /** Creates a var binary object from the given bytes array. */
     public static VarBinary fromBytes(byte[] bytes) {
         return new VarBinary(bytes);
     }
 
-    /** Creates a var binary object from UTF-8 bytes obtained from the given string. */
+    /** Creates a varbinary object from UTF-8 bytes of the given string. */
     public static VarBinary fromUtf8String(String string) {
         return new VarBinary(string.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /** Creates a var binary object from the given bytes array. */
+    public static VarBinary varBinary(byte[] bytes) {
+        return new VarBinary(bytes);
     }
 
     /** Converts this var binary object ot a java string of the given {@link Charset}. */

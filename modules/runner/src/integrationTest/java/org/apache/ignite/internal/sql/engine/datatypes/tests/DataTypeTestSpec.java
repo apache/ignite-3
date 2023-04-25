@@ -41,20 +41,14 @@ public abstract class DataTypeTestSpec<T extends Comparable<T>> {
 
     private final String typeName;
 
-    protected final List<T> values;
-
     private final Class<?> storageType;
 
     /** Constructor. */
-    public DataTypeTestSpec(ColumnType columnType, String typeName, @SuppressWarnings("unused") Class<T> javaType, T[] values) {
+    public DataTypeTestSpec(ColumnType columnType, String typeName, @SuppressWarnings("unused") Class<T> javaType) {
         // java type is only used for generics.
         this.columnType = columnType;
         this.typeName = typeName;
         this.storageType = ColumnType.columnTypeToClass(columnType);
-        if (values.length != 3) {
-            throw new IllegalArgumentException("Expected exactly 3 values but got: " + Arrays.toString(values));
-        }
-        this.values = List.of(values);
     }
 
     /** {@link ColumnType}. */

@@ -81,10 +81,8 @@ public class TestTypeArgumentsTest {
 
     private static final class TestType extends DataTypeTestSpec<String> {
 
-        private static final String[] VALUES = {"1", "2", "3"};
-
         TestType() {
-            super(ColumnType.INT8, "TestType", String.class, VALUES);
+            super(ColumnType.INT8, "TestType", String.class);
         }
 
         @Override
@@ -114,9 +112,11 @@ public class TestTypeArgumentsTest {
 
         @Override
         public TestDataSamples<String> createSamples(IgniteTypeFactory typeFactory) {
+            List<String> values = List.of("1", "2", "3");
+
             return TestDataSamples.<String>builder()
-                    .add(List.of(VALUES), SqlTypeName.INTEGER, String::valueOf)
-                    .add(List.of(VALUES), SqlTypeName.BIGINT, String::valueOf)
+                    .add(values, SqlTypeName.INTEGER, String::valueOf)
+                    .add(values, SqlTypeName.BIGINT, String::valueOf)
                     .build();
         }
     }

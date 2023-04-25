@@ -1,10 +1,24 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.internal.sql.engine.datatypes.varbinary;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.apache.ignite.internal.sql.engine.datatypes.varbinary.VarBinary.varBinary;
 
-import java.util.List;
-import java.util.Objects;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseExpressionDataTypeTest;
@@ -17,10 +31,36 @@ import org.junit.jupiter.api.Test;
  */
 public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBinary> {
 
-    /** bit-string literal. */
+    /** Bit-string literal. */
     @Test
     public void testBitStringLiteral() {
-        checkQuery("SELECT x'010203'").returns(VarBinary.fromBytes(new byte[]{1, 2, 3}));
+        checkQuery("SELECT x'010203'")
+                .returns(varBinary(new byte[]{1, 2, 3}))
+                .check();
+    }
+
+    /** {@code POSITION} expression. */
+    @Test
+    public void testPositionExpression() {
+        checkQuery("SELECT POSITION (x'02' IN x'010203')")
+                .returns(2)
+                .check();
+    }
+
+    /** {@code POSITION} expression. */
+    @Test
+    public void testPositionExpressionWithDynamicParams() {
+        checkQuery("SELECT POSITION (x'02' IN x'010203')")
+                .returns(2)
+                .check();
+    }
+
+    /** {@code POSITION} expression. */
+    @Test
+    public void testPositionExpressionWithDynamicParams2() {
+        checkQuery("SELECT POSITION (? IN x'010203')")
+                .returns(2)
+                .check();
     }
 
     /**
@@ -41,15 +81,15 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
                 .check();
 
         checkQuery("SELECT CAST(X'ffffff' AS VARBINARY(2))")
-                .returns((VarBinary.fromBytes(new byte[]{(byte) 0xfff, (byte) 0xff})))
+                .returns((varBinary(new byte[]{(byte) 0xfff, (byte) 0xff})))
                 .check();
 
         checkQuery("SELECT CAST(X'ffffff' AS VARBINARY(100))")
-                .returns((VarBinary.fromBytes(new byte[]{(byte) 0xfff, (byte) 0xff, (byte) 0xff})))
+                .returns((varBinary(new byte[]{(byte) 0xfff, (byte) 0xff, (byte) 0xff})))
                 .check();
 
         checkQuery("SELECT CAST(X'ffffff' AS VARBINARY)")
-                .returns((VarBinary.fromBytes(new byte[]{(byte) 0xfff, (byte) 0xff, (byte) 0xff})))
+                .returns((varBinary(new byte[]{(byte) 0xfff, (byte) 0xff, (byte) 0xff})))
                 .check();
     }
 
@@ -64,17 +104,17 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
 
         checkQuery("SELECT CAST(? AS VARBINARY(2))")
                 .withParam(param)
-                .returns(VarBinary.fromBytes(result))
+                .returns(varBinary(result))
                 .check();
 
         checkQuery("SELECT CAST(? AS VARBINARY(100))")
                 .withParam(param)
-                .returns(VarBinary.fromBytes(param))
+                .returns(varBinary(param))
                 .check();
 
         checkQuery("SELECT CAST(? AS VARBINARY)")
                 .withParam(param)
-                .returns(VarBinary.fromBytes(param))
+                .returns(varBinary(param))
                 .check();
     }
 
@@ -83,11 +123,10 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
     @Test
     public void testConcat() {
         runSql("INSERT INTO t VALUES (1, x'010203')");
-        List<List<Object>> res = runSql("SELECT test_key || x'040506' FROM t");
 
-        assertEquals(1, res.size());
-        assertEquals(1, res.get(0).size());
-        assertTrue(Objects.deepEquals(new byte[]{1, 2, 3, 4, 5, 6}, res.get(0).get(0)));
+        checkQuery("SELECT test_key || x'040506' FROM t")
+                .returns(varBinary(new byte[]{1, 2, 3, 4, 5, 6}))
+                .check();
     }
 
     /** Concatenation with dynamic parameter */
@@ -96,20 +135,20 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
         runSql("INSERT INTO t VALUES (1, x'010203')");
 
         checkQuery("SELECT test_key || ? FROM t WHERE id = 1")
-                .withParam(VarBinary.fromBytes(new byte[]{4, 5, 6}))
-                .returns(VarBinary.fromBytes(new byte[]{1, 2, 3, 4, 5, 6}))
+                .withParam(varBinary(new byte[]{4, 5, 6}))
+                .returns(varBinary(new byte[]{1, 2, 3, 4, 5, 6}))
                 .check();
     }
 
     /** Concatenation of dynamic parameters. */
     @Test
     public void testConcatBetweenDynamicParameters() {
-        VarBinary v1 = VarBinary.fromBytes(new byte[]{1, 2, 3});
-        VarBinary v2 = VarBinary.fromBytes(new byte[]{4, 5, 6});
+        VarBinary v1 = varBinary(new byte[]{1, 2, 3});
+        VarBinary v2 = varBinary(new byte[]{4, 5, 6});
 
         checkQuery("SELECT ? || ?")
                 .withParams(v1, v2)
-                .returns(VarBinary.fromBytes(new byte[]{1, 2, 3, 4, 5, 6}))
+                .returns(varBinary(new byte[]{1, 2, 3, 4, 5, 6}))
                 .check();
     }
 

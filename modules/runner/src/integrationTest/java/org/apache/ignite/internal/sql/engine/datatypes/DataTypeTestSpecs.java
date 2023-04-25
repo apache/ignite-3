@@ -17,15 +17,18 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes;
 
+import static org.apache.ignite.internal.sql.engine.datatypes.varbinary.VarBinary.fromUtf8String;
+import static org.apache.ignite.internal.sql.engine.datatypes.varbinary.VarBinary.varBinary;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import com.google.common.io.BaseEncoding;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.UUID;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.sql.engine.datatypes.varbinary.VarBinary;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.TestDataSamples;
+import org.apache.ignite.internal.sql.engine.datatypes.varbinary.VarBinary;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.sql.ColumnType;
@@ -39,7 +42,7 @@ public final class DataTypeTestSpecs {
      * Test type spec for {@link UuidType UUID} data type.
      */
     public static final DataTypeTestSpec<UUID> UUID_TYPE = new DataTypeTestSpec<>(
-            ColumnType.UUID, UuidType.NAME, UUID.class, new UUID[]{new UUID(1, 1), new UUID(2, 1), new UUID(3, 1)}) {
+            ColumnType.UUID, UuidType.NAME, UUID.class) {
 
         @Override
         public boolean hasLiterals() {
@@ -68,6 +71,7 @@ public final class DataTypeTestSpecs {
 
         @Override
         public TestDataSamples<UUID> createSamples(IgniteTypeFactory typeFactory) {
+            List<UUID> values = List.of(new UUID(1, 1), new UUID(2, 1), new UUID(3, 1));
             TestDataSamples.Builder<UUID> samples = TestDataSamples.builder();
 
             samples.add(values, SqlTypeName.VARCHAR, String::valueOf);
@@ -81,7 +85,7 @@ public final class DataTypeTestSpecs {
      * Test type spec for {@link SqlTypeName#VARBINARY} data type.
      */
     public static final DataTypeTestSpec<VarBinary> VARBINARY_TYPE = new DataTypeTestSpec<>(
-            ColumnType.BYTE_ARRAY, "VARBINARY", VarBinary.class, new VarBinary[] {varBinary("1"), varBinary("2"), varBinary("3")}) {
+            ColumnType.BYTE_ARRAY, "VARBINARY", VarBinary.class) {
 
         /** {@inheritDoc} */
         @Override
@@ -109,24 +113,23 @@ public final class DataTypeTestSpecs {
         /** {@inheritDoc} */
         @Override
         public VarBinary wrapIfNecessary(Object storageValue) {
-            return VarBinary.fromBytes((byte[]) storageValue);
+            return varBinary((byte[]) storageValue);
         }
 
         /** {@inheritDoc} */
         @Override
         public TestDataSamples<VarBinary> createSamples(IgniteTypeFactory typeFactory) {
+            List<VarBinary> values = List.of(
+                    fromUtf8String("1"), fromUtf8String("2"), fromUtf8String("3"));
+
             TestDataSamples.Builder<VarBinary> samples = TestDataSamples.builder();
 
             samples.add(values, SqlTypeName.VARCHAR, b -> b.toString(StandardCharsets.UTF_8));
-            samples.add(values, SqlTypeName.CHAR,  b -> b.toString(StandardCharsets.UTF_8));
+            samples.add(values, SqlTypeName.CHAR, b -> b.toString(StandardCharsets.UTF_8));
 
             return samples.build();
         }
     };
-
-    private static VarBinary varBinary(String val) {
-        return VarBinary.fromBytes(val.getBytes(StandardCharsets.UTF_8));
-    }
 
     private DataTypeTestSpecs() {
 
