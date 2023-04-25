@@ -40,6 +40,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -65,7 +66,7 @@ public class PartitionGcOnWriteConcurrentTest {
         doAnswer(invocation -> {
             WriteClosure<?> cls = invocation.getArgument(0);
 
-            return cls.execute(null);
+            return cls.execute(mock(Locker.class));
         }).when(storage).runConsistently(any());
 
         when(storage.pollForVacuum(any())).thenReturn(null);
