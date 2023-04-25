@@ -17,6 +17,7 @@
 
 package org.apache.ignite.network.scalecube;
 
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -24,6 +25,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -35,13 +37,13 @@ import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
@@ -51,6 +53,7 @@ import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.DefaultMessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NodeFinder;
@@ -321,6 +324,69 @@ class ItScaleCubeNetworkMessagingTest {
     }
 
     /**
+     * Tests sending and receiving messages.
+     *
+     * @throws Exception in case of errors.
+     */
+    @Test
+    public void nodeCannotReuseOldId(TestInfo testInfo) throws Exception {
+        testCluster = new Cluster(3, testInfo);
+
+        testCluster.startAwait();
+
+        String outcastName = testCluster.members.get(testCluster.members.size() - 1).nodeName();
+
+        knockOutNode(outcastName);
+
+        CountDownLatch appeared = reanimateNode(outcastName);
+
+        assertFalse(appeared.await(3, TimeUnit.SECONDS), "Node reappeared");
+    }
+
+    private void knockOutNode(String outcastName) throws InterruptedException {
+        CountDownLatch disappeared = new CountDownLatch(1);
+
+        testCluster.members.get(0).topologyService().addEventHandler(new TopologyEventHandler() {
+            @Override
+            public void onDisappeared(ClusterNode member) {
+                if (Objects.equals(member.name(), outcastName)) {
+                    disappeared.countDown();
+                }
+            }
+        });
+
+        testCluster.members.stream()
+                .filter(service -> !outcastName.equals(service.nodeName()))
+                .forEach(service -> {
+                    DefaultMessagingService messagingService = (DefaultMessagingService) service.messagingService();
+                    messagingService.dropMessages((recipientConsistentId, message) -> outcastName.equals(recipientConsistentId));
+                });
+
+        assertTrue(disappeared.await(10, TimeUnit.SECONDS), "Node did not disappear in time");
+    }
+
+    private CountDownLatch reanimateNode(String outcastName) {
+        CountDownLatch appeared = new CountDownLatch(1);
+
+        testCluster.members.get(0).topologyService().addEventHandler(new TopologyEventHandler() {
+            @Override
+            public void onAppeared(ClusterNode member) {
+                if (Objects.equals(member.name(), outcastName)) {
+                    appeared.countDown();
+                }
+            }
+        });
+
+        testCluster.members.stream()
+                .filter(service -> !outcastName.equals(service.nodeName()))
+                .forEach(service -> {
+                    DefaultMessagingService messagingService = (DefaultMessagingService) service.messagingService();
+                    messagingService.stopDroppingMessages();
+                });
+        return appeared;
+    }
+
+    /**
      * Tests shutdown.
      *
      * @param testInfo Test info.
@@ -420,7 +486,7 @@ class ItScaleCubeNetworkMessagingTest {
 
             members = addresses.stream()
                     .map(addr -> startNode(testInfo, addr, isInitial.getAndSet(false)))
-                    .collect(Collectors.toUnmodifiableList());
+                    .collect(toUnmodifiableList());
         }
 
         /**
