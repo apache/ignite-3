@@ -1,0 +1,134 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.sql.engine.datatypes;
+
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
+
+import com.google.common.io.BaseEncoding;
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.engine.datatypes.varbinary.VarBinary;
+import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
+import org.apache.ignite.internal.sql.engine.datatypes.tests.TestDataSamples;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.sql.ColumnType;
+
+/**
+ * Defines {@link DataTypeTestSpec test specs} for data types.
+ */
+public final class DataTypeTestSpecs {
+
+    /**
+     * Test type spec for {@link UuidType UUID} data type.
+     */
+    public static final DataTypeTestSpec<UUID> UUID_TYPE = new DataTypeTestSpec<>(
+            ColumnType.UUID, UuidType.NAME, UUID.class, new UUID[]{new UUID(1, 1), new UUID(2, 1), new UUID(3, 1)}) {
+
+        @Override
+        public boolean hasLiterals() {
+            return false;
+        }
+
+        @Override
+        public String toLiteral(UUID value) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String toValueExpr(UUID value) {
+            return format("'{}'::UUID", value);
+        }
+
+        @Override
+        public String toStringValue(UUID value) {
+            return value.toString();
+        }
+
+        @Override
+        public UUID wrapIfNecessary(Object storageValue) {
+            return (UUID) storageValue;
+        }
+
+        @Override
+        public TestDataSamples<UUID> createSamples(IgniteTypeFactory typeFactory) {
+            TestDataSamples.Builder<UUID> samples = TestDataSamples.builder();
+
+            samples.add(values, SqlTypeName.VARCHAR, String::valueOf);
+            samples.add(values, SqlTypeName.CHAR, String::valueOf);
+
+            return samples.build();
+        }
+    };
+
+    /**
+     * Test type spec for {@link SqlTypeName#VARBINARY} data type.
+     */
+    public static final DataTypeTestSpec<VarBinary> VARBINARY_TYPE = new DataTypeTestSpec<>(
+            ColumnType.BYTE_ARRAY, "VARBINARY", VarBinary.class, new VarBinary[] {varBinary("1"), varBinary("2"), varBinary("3")}) {
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean hasLiterals() {
+            return true;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String toLiteral(VarBinary value) {
+            return format("x'{}'", BaseEncoding.base16().encode(value.get()));
+        }
+
+        @Override
+        public String toValueExpr(VarBinary value) {
+            return format("'{}'::VARBINARY", value.toString(StandardCharsets.UTF_8));
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String toStringValue(VarBinary value) {
+            return value.toString(StandardCharsets.UTF_8);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public VarBinary wrapIfNecessary(Object storageValue) {
+            return VarBinary.fromBytes((byte[]) storageValue);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public TestDataSamples<VarBinary> createSamples(IgniteTypeFactory typeFactory) {
+            TestDataSamples.Builder<VarBinary> samples = TestDataSamples.builder();
+
+            samples.add(values, SqlTypeName.VARCHAR, b -> b.toString(StandardCharsets.UTF_8));
+            samples.add(values, SqlTypeName.CHAR,  b -> b.toString(StandardCharsets.UTF_8));
+
+            return samples.build();
+        }
+    };
+
+    private static VarBinary varBinary(String val) {
+        return VarBinary.fromBytes(val.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private DataTypeTestSpecs() {
+
+    }
+}

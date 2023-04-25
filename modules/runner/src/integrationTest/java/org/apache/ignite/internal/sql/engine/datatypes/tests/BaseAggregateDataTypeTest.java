@@ -33,7 +33,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  *
  * @param <T> A storage type for a custom data type.
  */
-public abstract class BaseAggregateCustomDataTypeTest<T extends Comparable<T>> extends BaseCustomDataTypeTest<T> {
+public abstract class BaseAggregateDataTypeTest<T extends Comparable<T>> extends BaseDataTypeTest<T> {
 
     /** {@code COUNT} aggregate function. */
     @Test
@@ -137,12 +137,7 @@ public abstract class BaseAggregateCustomDataTypeTest<T extends Comparable<T>> e
         assertEquals(1, rows.size());
 
         List<Object> row = rows.get(0);
-        assertThat(values, hasItem((T) row.get(0)));
-    }
-
-    private void insertValues() {
-        runSql("INSERT INTO t VALUES(1, $0)");
-        runSql("INSERT INTO t VALUES(2, $1)");
-        runSql("INSERT INTO t VALUES(3, $2)");
+        T firstValue = testTypeSpec.wrapIfNecessary(row.get(0));
+        assertThat(values, hasItem(firstValue));
     }
 }

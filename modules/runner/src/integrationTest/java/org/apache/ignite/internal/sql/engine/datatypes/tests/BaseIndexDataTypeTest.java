@@ -23,7 +23,6 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -33,8 +32,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  *
  * @param <T> A storage type for a custom data type.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-19128")
-public abstract class BaseIndexCustomDataTypeTest<T extends Comparable<T>> extends BaseCustomDataTypeTest<T> {
+public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends BaseDataTypeTest<T> {
 
     @BeforeAll
     public void addIndexSimpleIndex() throws InterruptedException {
@@ -142,10 +140,15 @@ public abstract class BaseIndexCustomDataTypeTest<T extends Comparable<T>> exten
     public void testRangeLookUpBetween() {
         Assumptions.assumeTrue(testTypeSpec.hasLiterals(), "BETWEEN only works for types that has literals");
 
-        T value2 = values.get(1);
+        T value0 = values.get(0);
+        T value1 = values.get(1);
+        String lit0 = testTypeSpec.toLiteral(value0);
+        String lit1 = testTypeSpec.toLiteral(value1);
 
-        checkQuery("SELECT * FROM t WHERE test_key > BETWEEN $0_lit AND $2_lit ORDER BY id")
-                .returns(2, value2)
+        String query = format("SELECT * FROM t WHERE test_key BETWEEN {} AND {} ORDER BY id", lit0, lit1);
+        checkQuery(query)
+                .returns(1, value0)
+                .returns(2, value1)
                 .check();
     }
 

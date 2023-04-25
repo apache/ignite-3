@@ -36,7 +36,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  *
  * @param <T> A storage type for a custom data type.
  */
-public abstract class BaseExpressionCustomDataTypeTest<T extends Comparable<T>> extends BaseCustomDataTypeTest<T> {
+public abstract class BaseExpressionDataTypeTest<T extends Comparable<T>> extends BaseDataTypeTest<T> {
 
     /**
      * Binary comparison operator tests.
@@ -216,12 +216,11 @@ public abstract class BaseExpressionCustomDataTypeTest<T extends Comparable<T>> 
                 .check();
     }
 
-    /** Custom data type from string. **/
-    @ParameterizedTest
-    @MethodSource("convertedFrom")
-    public void testCastFrom(TestTypeArguments<T> arguments) {
-        String stringValue = arguments.stringValue(0);
-        T value = arguments.value(0);
+    /** Data type from string. **/
+    @Test
+    public void testCastFromFromString() {
+        T value = dataSamples.values().get(0);
+        String stringValue =testTypeSpec.toStringValue(value);
 
         checkQuery(format("SELECT CAST('{}' AS <type>)", stringValue)).returns(value).check();
 
@@ -273,8 +272,8 @@ public abstract class BaseExpressionCustomDataTypeTest<T extends Comparable<T>> 
         T value = values.get(0);
         String typeName = testTypeSpec.typeName();
 
-        checkQuery("SELECT typeof(CAST(? as <type>))").withParams(value.toString()).returns(typeName).check();
         checkQuery("SELECT typeof(?)").withParams(value).returns(typeName).check();
+        checkQuery("SELECT typeof(CAST(? as <type>))").withParams(value).returns(typeName).check();
 
         // https://issues.apache.org/jira/browse/IGNITE-18761
         // TypeOf can short-circuit only when its argument is a constant expression.

@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.transform;
 
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -275,7 +276,14 @@ public class TypeUtils {
         } else if (storageType == Period.class) {
             return (int) ((Period) val).toTotalMonths();
         } else if (storageType == byte[].class) {
-            return new ByteString((byte[]) val);
+            if (val instanceof String) {
+                return new ByteString(((String) val).getBytes(StandardCharsets.UTF_8));
+            } else if (val instanceof byte[]) {
+                return new ByteString((byte[]) val);
+            } else {
+                assert val instanceof ByteString : "Expected ByteString but got " + val + "<" + val.getClass().getTypeName() + ">";
+                return val;
+            }
         } else if (val instanceof Number && storageType != val.getClass()) {
             // For dynamic parameters we don't know exact parameter type in compile time. To avoid casting errors in
             // runtime we should convert parameter value to expected type.

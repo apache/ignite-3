@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -52,9 +53,11 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
+import org.apache.ignite.internal.sql.engine.util.NativeTypeWrapper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
@@ -425,7 +428,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     protected static List<List<Object>> sql(@Nullable Transaction tx, String sql, Object... args) {
-        var queryEngine = ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
+        var queryEngine = new TestQueryProcessor(CLUSTER_NODES.get(0));
 
         SessionId sessionId = queryEngine.createSession(PropertiesHelper.emptyHolder());
 

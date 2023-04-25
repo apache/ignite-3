@@ -17,15 +17,25 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
+import java.util.Arrays;
 import java.util.List;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
+import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.NativeTypeWrapper;
 import org.apache.ignite.sql.ColumnType;
 
 /**
- * {@link IgniteCustomTypeSpec} + its values + convenient methods.
+ * {@code DataTypeTestSpec} describes a data type, provides convenient methods to test.
+ *
+ * <ul>
+ *     <li>If {@code storageType} is not {@link Comparable} must use provide implementation of
+ *     {@link NativeTypeWrapper} and use it instead of their storage type.</li>
+ *     <li>If type has SQL literal {@link #hasLiterals()} should return {@code true}
+ *     and {@link #toLiteral(Comparable)} must convert values into corresponding literals.</li>
+ * </ul>
+ * <p>.
  */
-public abstract class CustomDataTypeTestSpec<T extends Comparable<T>> {
+public abstract class DataTypeTestSpec<T extends Comparable<T>> {
 
     private final ColumnType columnType;
 
@@ -36,11 +46,15 @@ public abstract class CustomDataTypeTestSpec<T extends Comparable<T>> {
     private final Class<?> storageType;
 
     /** Constructor. */
-    public CustomDataTypeTestSpec(ColumnType columnType, String typeName, Class<T> javaType, T[] values) {
+    public DataTypeTestSpec(ColumnType columnType, String typeName, @SuppressWarnings("unused") Class<T> javaType, T[] values) {
+        // java type is only used for generics.
         this.columnType = columnType;
         this.typeName = typeName;
-        this.values = List.of(values);
         this.storageType = ColumnType.columnTypeToClass(columnType);
+        if (values.length != 3) {
+            throw new IllegalArgumentException("Expected exactly 3 values but got: " + Arrays.toString(values));
+        }
+        this.values = List.of(values);
     }
 
     /** {@link ColumnType}. */
@@ -65,6 +79,7 @@ public abstract class CustomDataTypeTestSpec<T extends Comparable<T>> {
 
     /**
      * Produces a SQL literal for the given value.
+     * Such literals can be used in queries as {@code $N_lit}, where {@code N} is zero-based.
      *
      * @param value A value.
      * @return An SQL literal for the given value.
@@ -73,15 +88,28 @@ public abstract class CustomDataTypeTestSpec<T extends Comparable<T>> {
     public abstract String toLiteral(T value);
 
     /**
-     * Produces an expression that is used to replace placeholder values ({@code $N}). If a type has its own SQL literals, implementation of
-     * this method must call {@link #toLiteral(T)}.
+     * Produces an SQL expression that produces the given value.
+     * Such expressions can be used in queries as {@code $N}, where {@code N} is zero-bases.
      *
      * @param value A value.
      * @return an SQL expression.
      */
     public abstract String toValueExpr(T value);
 
+    /**
+     * Converts the given value to its string representation.
+     * This value is used by {@link TestTypeArguments#stringValue(int)}.
+     *
+     * @param value A value.
+     * @return A string representation of the given value.
+     */
     public abstract String toStringValue(T value);
+
+    /**
+     * Wraps original {@link NativeType} into a {@link NativeTypeWrapper comparable wrapper}.
+     * If storage type of this data type is {@link Comparable} then this method must return {@code null}.
+     * */
+    public abstract T wrapIfNecessary(Object storageValue);
 
     /** Creates {@link TestDataSamples test samples} for the given type. */
     public abstract TestDataSamples<T> createSamples(IgniteTypeFactory typeFactory);

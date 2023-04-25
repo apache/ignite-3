@@ -28,7 +28,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Test cases for custom data type in {@code WHERE} clause of a query.
  */
-public abstract class BaseQueryCustomDataTypeTest<T extends Comparable<T>> extends BaseCustomDataTypeTest<T> {
+public abstract class BaseQueryDataTypeTest<T extends Comparable<T>> extends BaseDataTypeTest<T> {
 
     /** No predicate. */
     @Test

@@ -30,7 +30,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Provides method for generating arguments for {@link BaseCustomDataTypeTest custom data type tests}.
+ * Provides method for generating arguments for {@link BaseDataTypeTest custom data type tests}.
  *
  * @param <T> A storage type for a custom data type.
  */
@@ -40,7 +40,8 @@ public final class TestTypeArguments<T extends Comparable<T>> {
 
     private final String label;
 
-    TestTypeArguments(Argument<T>... args) {
+    @SafeVarargs
+    private TestTypeArguments(Argument<T>... args) {
         this(List.of(args), null);
     }
 
@@ -114,7 +115,9 @@ public final class TestTypeArguments<T extends Comparable<T>> {
         return arg.valueExpr();
     }
 
-    /** Returns string representation of the i-th argument. **/
+    /**
+     * Returns string representation of the i-th argument.
+     */
     public String stringValue(int i) {
         Argument<T> arg = getArg(i);
         return arg.stringValue();
@@ -155,7 +158,7 @@ public final class TestTypeArguments<T extends Comparable<T>> {
      *     V     | R_type2  | R2       |
      * </pre>
      */
-    public static <T extends Comparable<T>> Stream<TestTypeArguments<T>> unary(CustomDataTypeTestSpec<T> testTypeSpec,
+    public static <T extends Comparable<T>> Stream<TestTypeArguments<T>> unary(DataTypeTestSpec<T> testTypeSpec,
             TestDataSamples<T> samples, T value) {
 
         List<TestTypeArguments<T>> result = new ArrayList<>();
@@ -197,7 +200,7 @@ public final class TestTypeArguments<T extends Comparable<T>> {
      * </pre>
      */
     public static <T extends Comparable<T>> Stream<TestTypeArguments<T>> binary(
-            CustomDataTypeTestSpec<T> typeSpec, TestDataSamples<T> samples, T lhs, T rhs) {
+            DataTypeTestSpec<T> typeSpec, TestDataSamples<T> samples, T lhs, T rhs) {
 
         Map<SqlTypeName, Object> value1s = samples.get(lhs);
         Map<SqlTypeName, Object> value2s = samples.get(rhs);
@@ -256,7 +259,7 @@ public final class TestTypeArguments<T extends Comparable<T>> {
      * </pre>
      */
     @SafeVarargs
-    public static <T extends Comparable<T>> Stream<TestTypeArguments<T>> nary(CustomDataTypeTestSpec<T> typeSpec,
+    public static <T extends Comparable<T>> Stream<TestTypeArguments<T>> nary(DataTypeTestSpec<T> typeSpec,
             TestDataSamples<T> samples, T lhs, T... rhs) {
 
         if (rhs.length < 1) {
@@ -383,7 +386,7 @@ public final class TestTypeArguments<T extends Comparable<T>> {
     }
 
 
-    private static <T extends Comparable<T>> Argument<T> createArgument(CustomDataTypeTestSpec<T> testTypeSpec,
+    private static <T extends Comparable<T>> Argument<T> createArgument(DataTypeTestSpec<T> testTypeSpec,
             String typeName, T value, Object argument) {
 
         String valueExpr;

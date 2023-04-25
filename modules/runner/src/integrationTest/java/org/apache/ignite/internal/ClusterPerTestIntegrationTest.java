@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromC
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -32,6 +33,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -199,7 +201,7 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
     }
 
     protected final List<List<Object>> executeSql(String sql, Object... args) {
-        QueryProcessor qryProc = node(0).queryEngine();
+        QueryProcessor qryProc = new TestQueryProcessor(node(0));
         SessionId sessionId = qryProc.createSession(PropertiesHelper.emptyHolder());
         QueryContext context = QueryContext.create(SqlQueryType.ALL);
 

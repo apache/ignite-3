@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
  *
  * @param <T> A storage type for a custom data type.
  */
-public abstract class BaseSetOpCustomDataTypeTest<T extends Comparable<T>> extends BaseCustomDataTypeTest<T> {
+public abstract class BaseSetOpDataTypeTest<T extends Comparable<T>> extends BaseDataTypeTest<T> {
 
     /**
      * {@code UNION} operator.
@@ -147,15 +147,5 @@ public abstract class BaseSetOpCustomDataTypeTest<T extends Comparable<T>> exten
         checkQuery(exceptAll)
                 .returns(2, value2)
                 .check();
-    }
-
-    private void insertValues() {
-        T value1 = values.get(0);
-        T value2 = values.get(1);
-        T value3 = values.get(2);
-
-        runSql("INSERT INTO t VALUES(1, ?)", value1);
-        runSql("INSERT INTO t VALUES(2, ?)", value2);
-        runSql("INSERT INTO t VALUES(3, ?)", value3);
     }
 }
