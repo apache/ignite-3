@@ -15,17 +15,12 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_ODBC_SYSTEM_ODBC_CONSTANTS
-#define _IGNITE_ODBC_SYSTEM_ODBC_CONSTANTS
+#pragma once
 
 #ifdef _WIN32
 
 #define _WINSOCKAPI_
 #include <Windows.h>
-
-#ifdef min
-#   undef min
-#endif // min
 
 #endif //_WIN32
 
@@ -33,9 +28,3 @@
 
 #include <sqlext.h>
 #include <odbcinst.h>
-
-#ifndef UNREFERENCED_PARAMETER
-#define UNREFERENCED_PARAMETER(x) (void)(x)
-#endif // UNREFERENCED_PARAMETER
-
-#endif //_IGNITE_ODBC_SYSTEM_ODBC_CONSTANTS

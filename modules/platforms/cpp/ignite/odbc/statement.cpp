@@ -986,7 +986,7 @@ namespace ignite
 
         SqlResult::Type Statement::InternalFetchScroll(int16_t orientation, int64_t offset)
         {
-            UNREFERENCED_PARAMETER(offset);
+            UNUSED_VALUE offset;
 
             if (orientation != SQL_FETCH_NEXT)
             {
