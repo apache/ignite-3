@@ -1353,15 +1353,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             Consumer<TableChange> tableInitChange
     ) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
-
         tableAsyncInternal(name)
                 .thenAccept(tbl -> {
                     if (tbl != null) {
                         tblFut.completeExceptionally(new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name));
                     } else {
-                        distributionZoneManager.zoneIdAsyncInternal(zoneName).thenAccept(zoneId -> {
+                        distributionZoneManager.zoneIdAsyncInternal(zoneName).handle((zoneId, ex) -> {
                             if (zoneId == null) {
                                 tblFut.completeExceptionally(new DistributionZoneNotFoundException(zoneName));
+                            } else if (ex != null) {
+                                tblFut.completeExceptionally(ex);
                             } else {
                                 cmgMgr.logicalTopology()
                                         .handle((cmgTopology, e) -> {
@@ -1389,6 +1390,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             return null;
                                         });
                             }
+
+                            return null;
                         });
                     }
                 });

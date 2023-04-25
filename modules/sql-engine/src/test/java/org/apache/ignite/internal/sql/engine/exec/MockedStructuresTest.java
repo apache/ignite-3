@@ -34,7 +34,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -123,6 +122,12 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** Node name. */
     private static final String NODE_NAME = "node1";
 
+    /** Node name. */
+    private static final String ZONE_NAME = "zone1";
+
+    /** Node name. */
+    private static final int ZONE_ID = 1;
+
     /** Empty logical topology snapshot. */
     private static final LogicalTopologySnapshot logicalTopologySnapshot = new LogicalTopologySnapshot(0, emptySet());
 
@@ -172,7 +177,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TablesConfiguration tblsCfg;
 
-    @InjectConfiguration("mock.distributionZones.zone123{dataStorage.name = " + ENGINE_NAME + ", zoneId = 1}")
+    @InjectConfiguration("mock.distributionZones." + ZONE_NAME + "{dataStorage.name = " + ENGINE_NAME + ", zoneId = 1}")
     private DistributionZonesConfiguration dstZnsCfg;
 
     TableManager tblManager;
@@ -269,6 +274,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         when(distributionZoneManager.getZoneId(DEFAULT_ZONE_NAME)).thenReturn(0);
         when(distributionZoneManager.zoneIdAsyncInternal(DEFAULT_ZONE_NAME)).thenReturn(completedFuture(0));
+
+        when(distributionZoneManager.getZoneId(ZONE_NAME)).thenReturn(ZONE_ID);
+        when(distributionZoneManager.zoneIdAsyncInternal(ZONE_NAME)).thenReturn(completedFuture(ZONE_ID));
+
         when(distributionZoneManager.topologyVersionedDataNodes(anyInt(), anyLong())).thenReturn(completedFuture(emptySet()));
 
         tblManager = mockManagers();
@@ -331,7 +340,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         String curMethodName = getCurrentMethodName();
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                + "with primary_zone='zone123'", curMethodName);
+                + "with primary_zone='%s'", curMethodName, ZONE_NAME);
 
         readFirst(queryProc.querySingleAsync(sessionId, context, newTblSql));
 
@@ -344,19 +353,22 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 () -> readFirst(finalQueryProc.querySingleAsync(sessionId, context, finalNewTblSql1)));
 
         String finalNewTblSql2 = String.format("CREATE TABLE \"PUBLIC\".%s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                + "with primary_zone='zone123'", curMethodName);
+                + "with primary_zone='%s'", curMethodName, ZONE_NAME);
 
         assertThrows(TableAlreadyExistsException.class,
                 () -> readFirst(finalQueryProc.querySingleAsync(sessionId, context, finalNewTblSql2)));
 
         assertThrows(SqlException.class, () -> readFirst(finalQueryProc.querySingleAsync(sessionId, context,
-                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,primary_zone='zone123'")));
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,primary_zone='"
+                        + ZONE_NAME + "'")));
 
         assertThrows(SqlException.class, () -> readFirst(finalQueryProc.querySingleAsync(sessionId, context,
-                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas__wrong=1,primary_zone='zone123'")));
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas__wrong=1,primary_zone='"
+                        + ZONE_NAME + "'")));
 
         assertThrows(SqlException.class, () -> readFirst(finalQueryProc.querySingleAsync(sessionId, context,
-                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with primary_zone__wrong='zone123'")));
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with primary_zone__wrong='"
+                        + ZONE_NAME + "'")));
 
         newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))",
                 " IF NOT EXISTS " + curMethodName);
@@ -376,8 +388,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         SessionId sessionId = queryProc.createSession(PropertiesHelper.emptyHolder());
         QueryContext context = QueryContext.create(SqlQueryType.ALL);
 
-        String zoneName = "zone123";
-
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) ",
                  tableName);
 
@@ -387,13 +397,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         readFirst(queryProc.querySingleAsync(sessionId, context, "DROP TABLE " + tableName));
 
-        int zoneId = dstZnsCfg.distributionZones().get(zoneName).zoneId().value();
-
-        when(distributionZoneManager.getZoneId(zoneName)).thenReturn(zoneId);
-        when(distributionZoneManager.zoneIdAsyncInternal(zoneName)).thenReturn(completedFuture(zoneId));
+        int zoneId = dstZnsCfg.distributionZones().get(ZONE_NAME).zoneId().value();
 
         newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                + "with primary_zone='%s'", tableName, zoneName);
+                + "with primary_zone='%s'", tableName, ZONE_NAME);
 
         readFirst(queryProc.querySingleAsync(sessionId, context, newTblSql));
 
@@ -403,11 +410,15 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         log.info("Creating a table with a non-existent distribution zone.");
 
+        String nonExistZone = "none-exist-zone";
+
+        when(distributionZoneManager.zoneIdAsyncInternal(nonExistZone)).thenReturn(completedFuture(null));
+
         Exception exception = assertThrows(
                 IgniteException.class,
                 () -> readFirst(queryProc.querySingleAsync(sessionId, context,
                         String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                                + "with primary_zone='%s'", tableName, "none-exist-zone")))
+                                + "with primary_zone='%s'", tableName, nonExistZone)))
         );
 
         assertInstanceOf(DistributionZoneNotFoundException.class, exception.getCause());
@@ -502,8 +513,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 sessionId,
                 context,
                 String.format(
-                        "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with primary_zone='zone123'",
-                        method + 4
+                        "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with primary_zone='%s'",
+                        method + 4,
+                        ZONE_NAME
                 )
         )));
 

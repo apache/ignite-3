@@ -271,7 +271,11 @@ public class TableManagerTest extends IgniteAbstractTest {
         distributionZoneManager = mock(DistributionZoneManager.class);
 
         when(distributionZoneManager.getZoneId(DEFAULT_ZONE_NAME)).thenReturn(DEFAULT_ZONE_ID);
+        when(distributionZoneManager.zoneIdAsyncInternal(DEFAULT_ZONE_NAME)).thenReturn(completedFuture(DEFAULT_ZONE_ID));
+
         when(distributionZoneManager.getZoneId(ZONE_NAME)).thenReturn(ZONE_ID);
+        when(distributionZoneManager.zoneIdAsyncInternal(ZONE_NAME)).thenReturn(completedFuture(ZONE_ID));
+
         when(distributionZoneManager.topologyVersionedDataNodes(anyInt(), anyLong())).thenReturn(completedFuture(emptySet()));
 
         tblManagerFut = new CompletableFuture<>();
@@ -815,6 +819,8 @@ public class TableManagerTest extends IgniteAbstractTest {
         });
 
         createDistributionZone();
+
+        System.out.println("before createTableAsync");
 
         CompletableFuture<Table> tbl2Fut = tableManager.createTableAsync(tableDefinition.name(), ZONE_NAME,
                 tblCh -> SchemaConfigurationConverter.convert(tableDefinition, tblCh)
