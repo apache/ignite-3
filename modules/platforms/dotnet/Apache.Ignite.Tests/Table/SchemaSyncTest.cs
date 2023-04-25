@@ -64,6 +64,7 @@ public class SchemaSyncTest : IgniteTestsBase
             },
             async view =>
             {
+                // TODO: Wait for schema to be loaded in the background, then check the value.
                 await view.UpsertAsync(null, new IgniteTuple { ["id"] = 1, ["val2"] = 4 });
             });
 
