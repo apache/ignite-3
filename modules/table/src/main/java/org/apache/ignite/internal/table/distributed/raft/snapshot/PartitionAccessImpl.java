@@ -121,7 +121,9 @@ public class PartitionAccessImpl implements PartitionAccess {
     public void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
 
-        mvPartitionStorage.runConsistently(() -> {
+        mvPartitionStorage.runConsistently(locker -> {
+            locker.lock(rowId);
+
             mvPartitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
 
             storageUpdateHandler.addToIndexes(row, rowId);
@@ -134,7 +136,9 @@ public class PartitionAccessImpl implements PartitionAccess {
     public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
 
-        mvPartitionStorage.runConsistently(() -> {
+        mvPartitionStorage.runConsistently(locker -> {
+            locker.lock(rowId);
+
             mvPartitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
 
             storageUpdateHandler.addToIndexes(row, rowId);

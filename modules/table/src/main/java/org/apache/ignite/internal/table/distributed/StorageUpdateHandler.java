@@ -119,11 +119,13 @@ public class StorageUpdateHandler {
             @Nullable Consumer<RowId> onReplication,
             @Nullable HybridTimestamp lowWatermark
     ) {
-        storage.runConsistently(() -> {
+        storage.runConsistently(locker -> {
             BinaryRow row = rowBuffer != null ? new ByteBufferRow(rowBuffer) : null;
             RowId rowId = new RowId(partitionId, rowUuid);
             UUID commitTblId = commitPartitionId.tableId();
             int commitPartId = commitPartitionId.partitionId();
+
+            locker.lock(rowId);
 
             BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
@@ -178,7 +180,7 @@ public class StorageUpdateHandler {
             @Nullable Consumer<Collection<RowId>> onReplication,
             @Nullable HybridTimestamp lowWatermark
     ) {
-        storage.runConsistently(() -> {
+        storage.runConsistently(locker -> {
             UUID commitTblId = commitPartitionId.tableId();
             int commitPartId = commitPartitionId.partitionId();
 
@@ -188,6 +190,8 @@ public class StorageUpdateHandler {
                 for (Map.Entry<UUID, ByteBuffer> entry : rowsToUpdate.entrySet()) {
                     RowId rowId = new RowId(partitionId, entry.getKey());
                     BinaryRow row = entry.getValue() != null ? new ByteBufferRow(entry.getValue()) : null;
+
+                    locker.lock(rowId);
 
                     BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
@@ -256,7 +260,7 @@ public class StorageUpdateHandler {
      * @param onReplication On replication callback.
      */
     public void handleTransactionAbortion(Set<RowId> pendingRowIds, Runnable onReplication) {
-        storage.runConsistently(() -> {
+        storage.runConsistently(locker -> {
             for (RowId rowId : pendingRowIds) {
                 try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
                     if (!cursor.hasNext()) {
@@ -346,7 +350,7 @@ public class StorageUpdateHandler {
      * @see MvPartitionStorage#pollForVacuum(HybridTimestamp)
      */
     public boolean vacuum(HybridTimestamp lowWatermark) {
-        return storage.runConsistently(() -> internalVacuum(lowWatermark));
+        return storage.runConsistently(locker -> internalVacuum(lowWatermark));
     }
 
     /**
@@ -358,7 +362,7 @@ public class StorageUpdateHandler {
      */
     void vacuumBatch(HybridTimestamp lowWatermark, int count) {
         for (int i = 0; i < count; i++) {
-            if (!storage.runConsistently(() -> internalVacuum(lowWatermark))) {
+            if (!storage.runConsistently(locker -> internalVacuum(lowWatermark))) {
                 break;
             }
         }

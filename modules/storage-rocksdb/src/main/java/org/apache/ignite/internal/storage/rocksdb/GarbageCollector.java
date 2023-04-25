@@ -32,9 +32,10 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ROW
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDB;
@@ -153,12 +154,51 @@ class GarbageCollector {
     /**
      * Polls an element for vacuum. See {@link org.apache.ignite.internal.storage.MvPartitionStorage#pollForVacuum(HybridTimestamp)}.
      *
+     * @param lowWatermark Low watermark.
+     * @return Garbage collected element descriptor.
+     * @throws RocksDBException If failed to collect the garbage.
+     */
+    @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
+        // We retrieve the first element of the GC queue and seek for it in the data CF.
+        // However, the element that we need to garbage collect is the next (older one) element.
+        // First we check if there's anything to garbage collect. If the element is a tombstone we remove it.
+        // If the next element exists, that should be the element that we want to garbage collect.
+        try (
+                RocksIterator foo = db.newIterator(gcQueueCf, helper.upperBoundReadOpts);
+                RocksIterator gcIt = helper.wrapIterator(foo, gcQueueCf)
+        ) {
+            gcIt.seek(helper.partitionStartPrefix());
+
+            if (invalid(gcIt)) {
+                // GC queue is empty.
+                return null;
+            }
+
+            ByteBuffer gcKeyBuffer = readGcKey(foo);
+
+            GcRowVersion gcRowVersion = toGcRowVersion(gcKeyBuffer);
+
+            if (gcRowVersion.getTimestamp().compareTo(lowWatermark) > 0) {
+                // No elements to garbage collect.
+                return null;
+            }
+
+            return gcRowVersion;
+        }
+    }
+
+
+    /**
+     * Polls an element for vacuum. See {@link org.apache.ignite.internal.storage.MvPartitionStorage#pollForVacuum(HybridTimestamp)}.
+     *
      * @param batch Write batch.
      * @param lowWatermark Low watermark.
      * @return Garbage collected element.
      * @throws RocksDBException If failed to collect the garbage.
      */
-    @Nullable BinaryRowAndRowId pollForVacuum(WriteBatchWithIndex batch, HybridTimestamp lowWatermark) throws RocksDBException {
+    @Nullable BinaryRow vacuum(WriteBatchWithIndex batch, GcEntry entry) throws RocksDBException {
+        assert entry instanceof GcRowVersion;
+
         ColumnFamilyHandle partCf = helper.partCf;
 
         // We retrieve the first element of the GC queue and seek for it in the data CF.
@@ -177,45 +217,18 @@ class GarbageCollector {
 
             GcRowVersion gcRowVersion = toGcRowVersion(gcKeyBuffer);
 
-            while (true) {
-                if (gcRowVersion.getRowTimestamp().compareTo(lowWatermark) > 0) {
-                    // No elements to garbage collect.
-                    return null;
-                }
-
-                // If no one has processed the head of the gc queue in parallel, then we must release the lock after write batch in
-                // WriteClosure#execute of MvPartitionStorage#runConsistently so that the indexes can be deleted consistently.
-                helper.lockByRowId.acquireLock(gcRowVersion.getRowId());
-
-                // We must refresh the iterator to try to read the head of the gc queue again and if someone deleted it in parallel,
-                // then read the new head of the queue.
-                refreshGcIterator(gcIt, gcKeyBuffer);
-
-                if (invalid(gcIt)) {
-                    // GC queue is empty.
-                    return null;
-                }
-
-                gcKeyBuffer = readGcKey(gcIt);
-
-                GcRowVersion oldGcRowVersion = gcRowVersion;
-
-                gcRowVersion = toGcRowVersion(gcKeyBuffer);
-
-                // Someone has processed the element in parallel, so we need to take a new head of the queue.
-                if (!gcRowVersion.equals(oldGcRowVersion)) {
-                    helper.lockByRowId.releaseLock(oldGcRowVersion.getRowId());
-
-                    continue;
-                }
-
-                break;
+            // Someone has processed the element in parallel, so we need to take a new head of the queue.
+            if (!gcRowVersion.equals(entry)) {
+                return null;
             }
 
             // Delete element from the GC queue.
             batch.delete(gcQueueCf, gcKeyBuffer);
 
-            try (RocksIterator it = db.newIterator(partCf, helper.upperBoundReadOpts)) {
+            try (
+                    RocksIterator foo = db.newIterator(partCf, helper.upperBoundReadOpts);
+                    RocksIterator it = helper.wrapIterator(foo, partCf)
+            ) {
                 // Process the element in data cf that triggered the addition to the GC queue.
                 boolean proceed = checkHasNewerRowAndRemoveTombstone(it, batch, gcRowVersion);
 
@@ -238,12 +251,11 @@ class GarbageCollector {
                 assert valueBytes.length > 0; // Can't be a tombstone.
 
                 var row = new ByteBufferRow(ByteBuffer.wrap(valueBytes).order(TABLE_ROW_BYTE_ORDER));
-                BinaryRowAndRowId retVal = new BinaryRowAndRowId(row, gcRowVersion.getRowId());
 
                 // Delete the row from the data cf.
                 batch.delete(partCf, dataKey);
 
-                return retVal;
+                return row;
             }
         }
     }
@@ -271,7 +283,7 @@ class GarbageCollector {
         ColumnFamilyHandle partCf = helper.partCf;
 
         // Set up the data key.
-        helper.putDataKey(dataKeyBuffer, gcRowVersion.getRowId(), gcRowVersion.getRowTimestamp());
+        helper.putDataKey(dataKeyBuffer, gcRowVersion.getRowId(), gcRowVersion.getTimestamp());
 
         // Seek to the row id and timestamp from the GC queue.
         // Note that it doesn't mean that the element in this iterator has matching row id or even partition id.

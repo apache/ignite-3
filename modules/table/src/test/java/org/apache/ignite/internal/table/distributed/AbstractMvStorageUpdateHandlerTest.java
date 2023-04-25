@@ -138,7 +138,7 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
     }
 
     private static void addWriteCommitted(PartitionDataStorage storage, RowId rowId, @Nullable BinaryRow row, HybridTimestamp timestamp) {
-        storage.runConsistently(() -> {
+        storage.runConsistently(locker -> {
             storage.addWrite(rowId, row, UUID.randomUUID(), UUID.randomUUID(), PARTITION_ID);
 
             storage.commitWrite(rowId, timestamp);

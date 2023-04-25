@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -54,7 +55,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     @SuppressWarnings("PublicInnerClass")
     @FunctionalInterface
     interface WriteClosure<V> {
-        V execute() throws StorageException;
+        V execute(Locker locker) throws StorageException;
     }
 
     /**
@@ -67,6 +68,12 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @throws StorageException If failed to write data to the storage.
      */
     <V> V runConsistently(WriteClosure<V> closure) throws StorageException;
+
+    interface Locker {
+        void lock(RowId rowId);
+
+        boolean tryLock(RowId rowId);
+    }
 
     /**
      * Flushes current state of the data or <i>the state from the nearest future</i> to the storage. It means that the future can be
@@ -226,9 +233,39 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      *      {@code null} if there's no such value.
      * @throws StorageException If failed to poll element for vacuum.
      */
+    //TODO Move to tests.
+    @Deprecated
     default @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
-        throw new UnsupportedOperationException("pollForVacuum");
+        while (true) {
+            BinaryRowAndRowId binaryRowAndRowId = runConsistently(locker -> {
+                GcEntry gcEntry = peek(lowWatermark);
+
+                if (gcEntry == null) {
+                    return null;
+                }
+
+                if (!locker.tryLock(gcEntry.getRowId())) {
+                    return new BinaryRowAndRowId(null, gcEntry.getRowId());
+                }
+
+                return new BinaryRowAndRowId(vacuum(gcEntry), gcEntry.getRowId());
+            });
+
+            if (binaryRowAndRowId == null) {
+                return null;
+            }
+
+            if (binaryRowAndRowId.binaryRow() == null) {
+                continue;
+            }
+
+            return binaryRowAndRowId;
+        }
     }
+
+    @Nullable GcEntry peek(HybridTimestamp lowWatermark);
+
+    @Nullable BinaryRow vacuum(GcEntry entry);
 
     /**
      * Returns rows count belongs to current storage.

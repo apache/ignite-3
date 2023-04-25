@@ -65,7 +65,7 @@ public class PartitionGcOnWriteConcurrentTest {
         doAnswer(invocation -> {
             WriteClosure<?> cls = invocation.getArgument(0);
 
-            return cls.execute();
+            return cls.execute(null);
         }).when(storage).runConsistently(any());
 
         when(storage.pollForVacuum(any())).thenReturn(null);

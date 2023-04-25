@@ -318,7 +318,7 @@ public class IncomingSnapshotCopierTest {
     ) {
         assertEquals(0, rowIds.size() % 2, "size=" + rowIds.size());
 
-        storage.runConsistently(() -> {
+        storage.runConsistently(locker -> {
             for (int i = 0; i < rowIds.size(); i++) {
                 if (i % 2 == 0) {
                     // Writes committed version.

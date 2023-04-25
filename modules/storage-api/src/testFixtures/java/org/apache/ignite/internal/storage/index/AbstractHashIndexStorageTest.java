@@ -259,7 +259,7 @@ public abstract class AbstractHashIndexStorageTest {
     }
 
     protected void put(IndexRow row) {
-        partitionStorage.runConsistently(() -> {
+        partitionStorage.runConsistently(locker -> {
             indexStorage.put(row);
 
             return null;
@@ -267,7 +267,7 @@ public abstract class AbstractHashIndexStorageTest {
     }
 
     private void remove(IndexRow row) {
-        partitionStorage.runConsistently(() -> {
+        partitionStorage.runConsistently(locker -> {
             indexStorage.remove(row);
 
             return null;

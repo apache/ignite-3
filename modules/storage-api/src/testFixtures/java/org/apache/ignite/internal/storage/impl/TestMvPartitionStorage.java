@@ -30,7 +30,6 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -39,7 +38,9 @@ import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
-import org.apache.ignite.internal.storage.util.ReentrantLockByRowId;
+import org.apache.ignite.internal.storage.gc.GcEntry;
+import org.apache.ignite.internal.storage.util.LockByRowId;
+import org.apache.ignite.internal.storage.util.SharedLocker;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -66,13 +67,13 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private volatile boolean rebalance;
 
-    final ReentrantLockByRowId lockByRowId = new ReentrantLockByRowId();
+    final LockByRowId lockByRowId = new LockByRowId();
 
     public TestMvPartitionStorage(int partitionId) {
         this.partitionId = partitionId;
     }
 
-    private static class VersionChain {
+    private static class VersionChain implements GcEntry {
         final RowId rowId;
         final @Nullable BinaryRow row;
         final @Nullable HybridTimestamp ts;
@@ -105,16 +106,42 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         boolean isWriteIntent() {
             return ts == null && txId != null;
         }
+
+        @Override
+        public RowId getRowId() {
+            return rowId;
+        }
+
+        @Override
+        public HybridTimestamp getTimestamp() {
+            assert ts != null : "Method should only be invoked for instances with non-null timestamps.";
+
+            return ts;
+        }
     }
+
+    private static final ThreadLocal<SharedLocker> THREAD_LOCAL_LOCKER = new ThreadLocal<>();
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
         checkStorageClosed();
 
-        try {
-            return closure.execute();
-        } finally {
-            lockByRowId.releaseAllLockByCurrentThread();
+        SharedLocker locker = THREAD_LOCAL_LOCKER.get();
+
+        if (locker != null) {
+            return closure.execute(locker);
+        } else {
+            locker = new SharedLocker(lockByRowId);
+
+            THREAD_LOCAL_LOCKER.set(locker);
+
+            try {
+                return closure.execute(locker);
+            } finally {
+                THREAD_LOCAL_LOCKER.set(null);
+
+                locker.releaseAll();
+            }
         }
     }
 
@@ -492,7 +519,22 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public synchronized @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+    public synchronized @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
+        try {
+            VersionChain versionChain = gcQueue.first();
+
+            if (versionChain.ts.compareTo(lowWatermark) > 0) {
+                return null;
+            }
+
+            return versionChain;
+        } catch (NoSuchElementException e) {
+            return null;
+        }
+    }
+
+    @Override
+    public synchronized @Nullable BinaryRow vacuum(GcEntry entry) {
         checkStorageClosedOrInProcessOfRebalance();
 
         Iterator<VersionChain> it = gcQueue.iterator();
@@ -503,15 +545,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         VersionChain dequeuedVersionChain = it.next();
 
-        if (dequeuedVersionChain.ts.compareTo(lowWatermark) > 0) {
+        if (dequeuedVersionChain != entry) {
             return null;
         }
 
         RowId rowId = dequeuedVersionChain.rowId;
-
-        // We must release the lock after executing WriteClosure#execute in MvPartitionStorage#runConsistently so that the indexes can be
-        // deleted consistently.
-        lockByRowId.acquireLock(rowId);
 
         VersionChain versionChainToRemove = dequeuedVersionChain.next;
         assert versionChainToRemove != null;
@@ -539,7 +577,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             });
         }
 
-        return new BinaryRowAndRowId(versionChainToRemove.row, rowId);
+        return versionChainToRemove.row;
     }
 
     @Override

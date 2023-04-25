@@ -47,6 +47,7 @@ import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIn
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
+import org.apache.ignite.internal.storage.util.SharedLocker;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -139,14 +140,26 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            checkpointTimeoutLock.checkpointReadLock();
+            SharedLocker locker = THREAD_LOCAL_LOCKER.get();
 
-            try {
-                return closure.execute();
-            } finally {
-                updateVersionChainLockByRowId.releaseAllLockByCurrentThread();
+            if (locker != null) {
+                return closure.execute(locker);
+            } else {
+                locker = new SharedLocker(lockByRowId);
 
-                checkpointTimeoutLock.checkpointReadUnlock();
+                checkpointTimeoutLock.checkpointReadLock();
+
+                THREAD_LOCAL_LOCKER.set(locker);
+
+                try {
+                    return closure.execute(locker);
+                } finally {
+                    THREAD_LOCAL_LOCKER.set(null);
+
+                    locker.releaseAll();
+
+                    checkpointTimeoutLock.checkpointReadUnlock();
+                }
             }
         });
     }
@@ -284,12 +297,12 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public PageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
-        return runConsistently(() -> super.getOrCreateHashIndex(indexId));
+        return runConsistently(locker -> super.getOrCreateHashIndex(indexId));
     }
 
     @Override
     public PageMemorySortedIndexStorage getOrCreateSortedIndex(UUID indexId) {
-        return runConsistently(() -> super.getOrCreateSortedIndex(indexId));
+        return runConsistently(locker -> super.getOrCreateSortedIndex(indexId));
     }
 
     @Override

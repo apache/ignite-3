@@ -104,7 +104,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     private void insertOneRow(MvPartitionStorage partitionStorage) {
         BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
 
-        partitionStorage.runConsistently(() -> {
+        partitionStorage.runConsistently(locker -> {
             partitionStorage.addWriteCommitted(new RowId(PARTITION_ID), binaryRow, clock.now());
 
             return null;

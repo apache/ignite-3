@@ -39,6 +39,7 @@ import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIn
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
+import org.apache.ignite.internal.storage.util.SharedLocker;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -98,10 +99,22 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            try {
-                return closure.execute();
-            } finally {
-                updateVersionChainLockByRowId.releaseAllLockByCurrentThread();
+            SharedLocker locker = THREAD_LOCAL_LOCKER.get();
+
+            if (locker != null) {
+                return closure.execute(locker);
+            } else {
+                locker = new SharedLocker(lockByRowId);
+
+                THREAD_LOCAL_LOCKER.set(locker);
+
+                try {
+                    return closure.execute(locker);
+                } finally {
+                    THREAD_LOCAL_LOCKER.set(null);
+
+                    locker.releaseAll();
+                }
             }
         });
     }

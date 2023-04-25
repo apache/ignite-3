@@ -324,7 +324,10 @@ public class PartitionListener implements RaftGroupListener {
         Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, Collections.emptySet());
 
         if (cmd.commit()) {
-            storage.runConsistently(() -> {
+            storage.runConsistently(locker -> {
+                //TODO Split & sort.
+                pendingRowIds.forEach(locker::lock);
+
                 pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp().asHybridTimestamp()));
 
                 txsPendingRowIds.remove(txId);
@@ -358,7 +361,7 @@ public class PartitionListener implements RaftGroupListener {
 
         // We MUST bump information about last updated index+term.
         // See a comment in #onWrite() for explanation.
-        storage.runConsistently(() -> {
+        storage.runConsistently(locker -> {
             storage.lastApplied(commandIndex, commandTerm);
 
             return null;
@@ -378,7 +381,7 @@ public class PartitionListener implements RaftGroupListener {
         storage.acquirePartitionSnapshotsReadLock();
 
         try {
-            storage.runConsistently(() -> {
+            storage.runConsistently(locker -> {
                 storage.committedGroupConfiguration(
                         new RaftGroupConfiguration(config.peers(), config.learners(), config.oldPeers(), config.oldLearners())
                 );
@@ -408,7 +411,7 @@ public class PartitionListener implements RaftGroupListener {
         long maxLastAppliedIndex = Math.max(storage.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
         long maxLastAppliedTerm = Math.max(storage.lastAppliedTerm(), txStateStorage.lastAppliedTerm());
 
-        storage.runConsistently(() -> {
+        storage.runConsistently(locker -> {
             storage.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm);
 
             return null;
@@ -451,7 +454,10 @@ public class PartitionListener implements RaftGroupListener {
             return;
         }
 
-        storage.runConsistently(() -> {
+        storage.runConsistently(locker -> {
+            //TODO Assert order?
+            cmd.rowIds().stream().map(uuid -> new RowId(cmd.tablePartitionId().partitionId(), uuid)).forEach(locker::lock);
+
             storageUpdateHandler.buildIndex(cmd.indexId(), cmd.rowIds(), cmd.finish());
 
             storage.lastApplied(commandIndex, commandTerm);

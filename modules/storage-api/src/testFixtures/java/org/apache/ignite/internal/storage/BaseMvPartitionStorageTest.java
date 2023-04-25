@@ -127,16 +127,9 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
      * Inserts a row inside of consistency closure.
      */
     protected RowId insert(@Nullable BinaryRow binaryRow, UUID txId) {
-        return insert(binaryRow, txId, null);
-    }
+        RowId rowId = new RowId(PARTITION_ID);
 
-    /**
-     * Inserts a row inside of consistency closure.
-     */
-    protected RowId insert(@Nullable BinaryRow binaryRow, UUID txId, @Nullable UUID explicitRowId) {
-        RowId rowId = explicitRowId == null ? new RowId(PARTITION_ID) : new RowId(PARTITION_ID, explicitRowId);
-
-        storage.runConsistently(() -> storage.addWrite(rowId, binaryRow, txId, UUID.randomUUID(), 0));
+        addWrite(rowId, binaryRow, txId);
 
         return rowId;
     }
@@ -145,14 +138,20 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
      * Adds/updates a write-intent inside of consistency closure.
      */
     protected BinaryRow addWrite(RowId rowId, @Nullable BinaryRow binaryRow, UUID txId) {
-        return storage.runConsistently(() -> storage.addWrite(rowId, binaryRow, txId, COMMIT_TABLE_ID, PARTITION_ID));
+        return storage.runConsistently(locker -> {
+            locker.lock(rowId);
+
+            return storage.addWrite(rowId, binaryRow, txId, COMMIT_TABLE_ID, PARTITION_ID);
+        });
     }
 
     /**
      * Commits write-intent inside of consistency closure.
      */
     protected void commitWrite(RowId rowId, HybridTimestamp tsExact) {
-        storage.runConsistently(() -> {
+        storage.runConsistently(locker -> {
+            locker.lock(rowId);
+
             storage.commitWrite(rowId, tsExact);
 
             return null;
@@ -164,7 +163,9 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
      * and immediately committed with {@link MvPartitionStorage#commitWrite(RowId, HybridTimestamp)}.
      */
     protected void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) {
-        storage.runConsistently(() -> {
+        storage.runConsistently(locker -> {
+            locker.lock(rowId);
+
             storage.addWriteCommitted(rowId, row, commitTimestamp);
 
             return null;
@@ -184,10 +185,15 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
      * Aborts write-intent inside of consistency closure.
      */
     protected BinaryRow abortWrite(RowId rowId) {
-        return storage.runConsistently(() -> storage.abortWrite(rowId));
+        return storage.runConsistently(locker -> {
+            locker.lock(rowId);
+
+            return storage.abortWrite(rowId);
+        });
     }
 
     protected BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
-        return storage.runConsistently(() -> storage.pollForVacuum(lowWatermark));
+        //TODO Remove? Fix?
+        return storage.runConsistently(locker -> storage.pollForVacuum(lowWatermark));
     }
 }

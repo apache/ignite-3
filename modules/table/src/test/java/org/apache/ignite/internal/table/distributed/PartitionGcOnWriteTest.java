@@ -146,7 +146,7 @@ public class PartitionGcOnWriteTest extends BaseMvStoragesTest {
     }
 
     private void commitWrite(RowId rowId) {
-        storage.runConsistently(() -> {
+        storage.runConsistently(locker -> {
             storage.commitWrite(rowId, clock.now());
 
             return null;
