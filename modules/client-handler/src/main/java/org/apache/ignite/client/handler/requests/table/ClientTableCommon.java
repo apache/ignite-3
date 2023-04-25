@@ -20,25 +20,16 @@ package org.apache.ignite.client.handler.requests.table;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
-import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -467,90 +458,5 @@ public class ClientTableCommon {
         }
 
         return 0;
-    }
-
-    private static void writeColumnValue(BinaryTupleBuilder builder, Tuple tuple, Column col) {
-        var val = tuple.valueOrDefault(col.name(), null);
-
-        if (val == null) {
-            builder.appendNull();
-            return;
-        }
-
-        switch (col.type().spec()) {
-            case INT8:
-                builder.appendByte((byte) val);
-                break;
-
-            case INT16:
-                builder.appendShort((short) val);
-                break;
-
-            case INT32:
-                builder.appendInt((int) val);
-                break;
-
-            case INT64:
-                builder.appendLong((long) val);
-                break;
-
-            case FLOAT:
-                builder.appendFloat((float) val);
-                break;
-
-            case DOUBLE:
-                builder.appendDouble((double) val);
-                break;
-
-            case DECIMAL:
-                builder.appendDecimalNotNull((BigDecimal) val, getDecimalScale(col.type()));
-                break;
-
-            case NUMBER:
-                builder.appendNumberNotNull((BigInteger) val);
-                break;
-
-            case UUID:
-                builder.appendUuidNotNull((UUID) val);
-                break;
-
-            case STRING:
-                builder.appendStringNotNull((String) val);
-                break;
-
-            case BYTES:
-                builder.appendBytesNotNull((byte[]) val);
-                break;
-
-            case BITMASK:
-                builder.appendBitmaskNotNull((BitSet) val);
-                break;
-
-            case DATE:
-                builder.appendDateNotNull((LocalDate) val);
-                break;
-
-            case TIME:
-                builder.appendTimeNotNull((LocalTime) val);
-                break;
-
-            case DATETIME:
-                builder.appendDateTimeNotNull((LocalDateTime) val);
-                break;
-
-            case TIMESTAMP:
-                builder.appendTimestampNotNull((Instant) val);
-                break;
-
-            default:
-                throw new IgniteException(PROTOCOL_ERR, "Data type not supported: " + col.type());
-        }
-    }
-
-    private static int columnCount(SchemaDescriptor schema, TuplePart part) {
-        switch (part) {
-            case KEY: return schema.keyColumns().length();
-            default: return schema.length();
-        }
     }
 }
