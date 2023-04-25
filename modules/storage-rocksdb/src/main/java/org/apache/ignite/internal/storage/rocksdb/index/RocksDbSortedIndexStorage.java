@@ -74,7 +74,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
      *
      * @param descriptor Sorted Index descriptor.
      * @param indexCf Column family that stores the index data.
-     * @param partitionStorage Partition storage of the corresponding index.
+     * @param helper Partition data helper.
      * @param indexMetaStorage Index meta storage.
      */
     public RocksDbSortedIndexStorage(

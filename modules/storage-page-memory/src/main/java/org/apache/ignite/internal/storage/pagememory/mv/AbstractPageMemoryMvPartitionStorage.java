@@ -70,8 +70,8 @@ import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTre
 import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcRowVersion;
+import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.storage.util.LockByRowId;
-import org.apache.ignite.internal.storage.util.SharedLocker;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -133,7 +133,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     /** Version chain update lock by row ID. */
     protected final LockByRowId lockByRowId = new LockByRowId();
 
-    protected static final ThreadLocal<SharedLocker> THREAD_LOCAL_LOCKER = new ThreadLocal<>();
+    protected static final ThreadLocal<LocalLocker> THREAD_LOCAL_LOCKER = new ThreadLocal<>();
 
     /**
      * Constructor.
@@ -320,7 +320,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     private static boolean rowIsLocked(RowId rowId) {
-        SharedLocker locker = THREAD_LOCAL_LOCKER.get();
+        LocalLocker locker = THREAD_LOCAL_LOCKER.get();
 
         return locker != null && locker.isLocked(rowId);
     }

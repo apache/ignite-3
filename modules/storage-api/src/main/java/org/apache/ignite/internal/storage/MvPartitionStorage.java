@@ -59,6 +59,17 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     }
 
     /**
+     * Parameter type for {@link WriteClosure#execute(Locker)}. Used to lock row IDs before updating the data. All acquired locks are
+     * released automatically after {@code execute} call is completed.
+     */
+    @SuppressWarnings("PublicInnerClass")
+    interface Locker {
+        void lock(RowId rowId);
+
+        boolean tryLock(RowId rowId);
+    }
+
+    /**
      * Executes {@link WriteClosure} atomically, meaning that partial result of an incomplete closure will never be written to the
      * physical device, thus guaranteeing data consistency after restart. Simply runs the closure in case of a volatile storage.
      *
@@ -68,12 +79,6 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @throws StorageException If failed to write data to the storage.
      */
     <V> V runConsistently(WriteClosure<V> closure) throws StorageException;
-
-    interface Locker {
-        void lock(RowId rowId);
-
-        boolean tryLock(RowId rowId);
-    }
 
     /**
      * Flushes current state of the data or <i>the state from the nearest future</i> to the storage. It means that the future can be

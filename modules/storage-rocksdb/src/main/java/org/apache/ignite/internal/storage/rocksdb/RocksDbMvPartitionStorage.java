@@ -67,7 +67,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
-import org.apache.ignite.internal.storage.util.SharedLocker;
+import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -220,7 +220,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             return closure.execute(state.locker);
         } else {
             return busy(() -> {
-                SharedLocker locker = new SharedLocker(helper.lockByRowId);
+                LocalLocker locker = new LocalLocker(helper.lockByRowId);
 
                 try (var writeBatch = new WriteBatchWithIndex()) {
                     THREAD_LOCAL_STATE.set(new ThreadLocalState(writeBatch, locker));
@@ -244,7 +244,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     } catch (RocksDBException e) {
                         throw new StorageException("Unable to apply a write batch to RocksDB instance.", e);
                     } finally {
-                        locker.releaseAll();
+                        locker.unlockAll();
                     }
                 } finally {
                     THREAD_LOCAL_STATE.set(null);

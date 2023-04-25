@@ -164,13 +164,16 @@ public class PartitionDataHelper implements ManuallyCloseable {
      * Returns a WriteBatch that can be used by the affiliated storage implementation (like indices) to maintain consistency when run
      * inside the {@link MvPartitionStorage#runConsistently} method.
      */
-    public static @Nullable WriteBatchWithIndex currentWriteBatch() {
+    static @Nullable WriteBatchWithIndex currentWriteBatch() {
         ThreadLocalState state = THREAD_LOCAL_STATE.get();
 
         return state == null ? null : state.batch;
     }
 
-    public WriteBatchWithIndex requireWriteBatch() {
+    /**
+     * Same as {@link #currentWriteBatch()}, with the exception that the resulting write batch is not expected to be null.
+     */
+    public static WriteBatchWithIndex requireWriteBatch() {
         ThreadLocalState state = THREAD_LOCAL_STATE.get();
 
         assert state != null : "Attempting to write data outside of data access closure.";

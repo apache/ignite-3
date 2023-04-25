@@ -262,6 +262,8 @@ public class StorageUpdateHandler {
     public void handleTransactionAbortion(Set<RowId> pendingRowIds, Runnable onReplication) {
         storage.runConsistently(locker -> {
             for (RowId rowId : pendingRowIds) {
+                locker.lock(rowId);
+
                 try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
                     if (!cursor.hasNext()) {
                         continue;

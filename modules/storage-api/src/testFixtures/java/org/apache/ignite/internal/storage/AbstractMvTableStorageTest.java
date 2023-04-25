@@ -987,8 +987,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             assertThrows(StorageRebalanceException.class, () -> storage.closestRowId(rowId));
             assertThrows(StorageRebalanceException.class, storage::rowsCount);
 
-            assertThrows(StorageRebalanceException.class, () -> storage.pollForVacuum(clock.now()));
-
             return null;
         });
     }

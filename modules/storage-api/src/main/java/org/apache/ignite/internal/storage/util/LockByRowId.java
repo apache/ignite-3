@@ -54,38 +54,11 @@ public class LockByRowId {
     }
 
     /**
-     * Releases the lock by row ID.
+     * Tries to acquire the lock by row ID.
      *
      * @param rowId Row ID.
-     * @throws IllegalStateException If the lock could not be found by row ID.
-     * @throws IllegalMonitorStateException If the current thread does not hold this lock.
+     * @return {@code true} if lock has been acquired successfully.
      */
-    public void unlockAll(RowId rowId) {
-        LockHolder<ReentrantLock> lockHolder = lockHolderByRowId.get(rowId);
-
-        if (lockHolder == null) {
-            throw new IllegalStateException("Could not find lock by row ID: " + rowId);
-        }
-
-        ReentrantLock lock = lockHolder.getLock();
-
-        lock.unlock();
-
-        lockHolderByRowId.compute(rowId, (id, holder) -> {
-            assert holder != null;
-
-            return holder.decrementHolders() ? null : holder;
-        });
-    }
-
-    /**
-     * Releases all locks {@link #lock(RowId) acquired} by the current thread if exists.
-     *
-     * <p>Order of releasing the locks is not defined, each lock will be released with all re-entries.
-     */
-    public void releaseAllLockByCurrentThread() {
-    }
-
     public boolean tryLock(RowId rowId) {
         boolean[] result = {false};
 
@@ -108,5 +81,30 @@ public class LockByRowId {
         });
 
         return result[0];
+    }
+
+    /**
+     * Releases the lock by row ID.
+     *
+     * @param rowId Row ID.
+     * @throws IllegalStateException If the lock could not be found by row ID.
+     * @throws IllegalMonitorStateException If the current thread does not hold this lock.
+     */
+    public void unlockAll(RowId rowId) {
+        LockHolder<ReentrantLock> lockHolder = lockHolderByRowId.get(rowId);
+
+        if (lockHolder == null) {
+            throw new IllegalStateException("Could not find lock by row ID: " + rowId);
+        }
+
+        ReentrantLock lock = lockHolder.getLock();
+
+        lock.unlock();
+
+        lockHolderByRowId.compute(rowId, (id, holder) -> {
+            assert holder != null;
+
+            return holder.decrementHolders() ? null : holder;
+        });
     }
 }

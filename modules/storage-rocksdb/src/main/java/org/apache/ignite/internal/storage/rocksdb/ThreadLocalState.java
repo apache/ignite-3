@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import org.apache.ignite.internal.storage.util.SharedLocker;
+import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.rocksdb.WriteBatchWithIndex;
 
 class ThreadLocalState {
     public final WriteBatchWithIndex batch;
 
-    public final SharedLocker locker;
+    public final LocalLocker locker;
 
-    public ThreadLocalState(WriteBatchWithIndex batch, SharedLocker locker) {
+    public ThreadLocalState(WriteBatchWithIndex batch, LocalLocker locker) {
         this.batch = batch;
         this.locker = locker;
     }

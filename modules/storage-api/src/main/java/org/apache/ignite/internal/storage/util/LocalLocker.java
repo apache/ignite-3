@@ -22,13 +22,22 @@ import java.util.Set;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.RowId;
 
-public class SharedLocker implements Locker {
+/**
+ * Default {@link Locker} implementation, that collects all locked row IDs in a private, non-thread-local, collection..
+ */
+public class LocalLocker implements Locker {
+    /** {@link LockByRowId} instance, shared between threads. */
     private final LockByRowId locks;
 
-    // Not thread-local!
+    /** {@code RowId} or {@code Set<RowId>} that describes a set of row IDs, locked by current thread. */
     private Object locked;
 
-    public SharedLocker(LockByRowId locks) {
+    /**
+     * Constructor.
+     *
+     * @param locks Shared instance.
+     */
+    public LocalLocker(LockByRowId locks) {
         this.locks = locks;
     }
 
@@ -54,7 +63,12 @@ public class SharedLocker implements Locker {
         return rowId == locked || (locked instanceof Set) && ((Set<?>) locked).contains(rowId);
     }
 
-    public void releaseAll() {
+    /**
+     * Releases all locks, held by the current thread.
+     *
+     * <p>Order of releasing the locks is not defined, each lock will be released with all re-entries.
+     */
+    public void unlockAll() {
         if (locked instanceof RowId) {
             locks.unlockAll((RowId) locked);
         } else if (locked != null) {

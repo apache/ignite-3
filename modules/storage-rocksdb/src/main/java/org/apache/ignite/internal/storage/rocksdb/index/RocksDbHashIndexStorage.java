@@ -79,7 +79,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
      *
      * @param descriptor Index descriptor.
      * @param indexCf Column family that stores the index data.
-     * @param partitionStorage Partition storage of the partition that is being indexed (needed for consistency guarantees).
+     * @param helper Partition data helper.
      * @param indexMetaStorage Index meta storage.
      */
     public RocksDbHashIndexStorage(

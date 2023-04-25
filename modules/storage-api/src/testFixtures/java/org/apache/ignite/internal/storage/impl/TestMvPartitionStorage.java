@@ -39,8 +39,8 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
+import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.storage.util.LockByRowId;
-import org.apache.ignite.internal.storage.util.SharedLocker;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -120,18 +120,18 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
-    private static final ThreadLocal<SharedLocker> THREAD_LOCAL_LOCKER = new ThreadLocal<>();
+    private static final ThreadLocal<LocalLocker> THREAD_LOCAL_LOCKER = new ThreadLocal<>();
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
         checkStorageClosed();
 
-        SharedLocker locker = THREAD_LOCAL_LOCKER.get();
+        LocalLocker locker = THREAD_LOCAL_LOCKER.get();
 
         if (locker != null) {
             return closure.execute(locker);
         } else {
-            locker = new SharedLocker(lockByRowId);
+            locker = new LocalLocker(lockByRowId);
 
             THREAD_LOCAL_LOCKER.set(locker);
 
@@ -140,7 +140,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             } finally {
                 THREAD_LOCAL_LOCKER.set(null);
 
-                locker.releaseAll();
+                locker.unlockAll();
             }
         }
     }
