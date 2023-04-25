@@ -28,9 +28,9 @@ import java.util.UUID;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.TestDataSamples;
-import org.apache.ignite.internal.sql.engine.util.VarBinary;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.internal.sql.engine.util.VarBinary;
 import org.apache.ignite.sql.ColumnType;
 
 /**
