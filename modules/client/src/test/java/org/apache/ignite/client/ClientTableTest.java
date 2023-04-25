@@ -136,19 +136,24 @@ public class ClientTableTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testOperationWithNullTupleResultRequestsNewSchemaWhenAvailable() throws Exception {
-        // TODO: All operations
-        checkSchemaUpdate(recordView -> recordView.get(null, tuple(12345L)));
-    }
-
-    @Test
-    public void testOperationWithoutTupleResultRequestsNewSchemaWhenAvailable() throws Exception {
-        // TODO: All operations
+    public void testOperationWithoutTupleResultRequestsNewSchema() throws Exception {
         AtomicLong idGen = new AtomicLong(1000L);
 
+        checkSchemaUpdate(recordView -> recordView.get(null, tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.getAll(null, List.of(tuple(idGen.incrementAndGet()))));
         checkSchemaUpdate(recordView -> recordView.upsert(null, tuple(idGen.incrementAndGet())));
         checkSchemaUpdate(recordView -> recordView.upsertAll(null, List.of(tuple(idGen.incrementAndGet()))));
         checkSchemaUpdate(recordView -> recordView.getAndUpsert(null, tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.insert(null, tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.insertAll(null, List.of(tuple(idGen.incrementAndGet()))));
+        checkSchemaUpdate(recordView -> recordView.replace(null, tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.replace(null, tuple(idGen.incrementAndGet()), tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.getAndReplace(null, tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.delete(null, tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.deleteExact(null, tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.getAndDelete(null, tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.deleteAll(null, List.of(tuple(idGen.incrementAndGet()))));
+        checkSchemaUpdate(recordView -> recordView.deleteAllExact(null, List.of(tuple(idGen.incrementAndGet()))));
     }
 
     @Test
