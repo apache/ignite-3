@@ -379,17 +379,18 @@ internal ref struct MsgPackReader
     /// <summary>
     /// Reads <see cref="ColumnType"/> and value.
     /// </summary>
+    /// <typeparam name="T">Value type.</typeparam>
     /// <returns>Value.</returns>
-    public object? ReadObjectFromBinaryTuple()
+    public T? ReadObjectFromBinaryTuple<T>()
     {
         if (TryReadNil())
         {
-            return null;
+            return default;
         }
 
         var tuple = new BinaryTupleReader(ReadBinary(), 3);
 
-        return tuple.GetObject(0);
+        return tuple.GetObject<T>(0);
     }
 
     private static InvalidDataException GetInvalidCodeException(string expected, byte code) =>

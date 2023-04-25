@@ -54,7 +54,7 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
             var column = columns[index];
 
             var tuple = index < schema.KeyColumnCount ? keyTuple : valTuple;
-            tuple[column.Name] = tupleReader.GetObject(index, column.Type, column.Scale);
+            tuple[column.Name] = tupleReader.GetObject<object?>(index, column.Type);
         }
 
         return new(keyTuple, valTuple);

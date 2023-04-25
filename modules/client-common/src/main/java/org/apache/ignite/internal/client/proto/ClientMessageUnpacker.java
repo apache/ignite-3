@@ -20,11 +20,14 @@ package org.apache.ignite.internal.client.proto;
 import static org.msgpack.core.MessagePack.Code;
 
 import io.netty.buffer.ByteBuf;
+import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.BitSet;
 import java.util.UUID;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.Mapper;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.msgpack.core.ExtensionTypeHeader;
@@ -772,6 +775,10 @@ public class ClientMessageUnpacker implements AutoCloseable {
      * @return Object array.
      */
     public Object[] unpackObjectArrayFromBinaryTuple() {
+        return unpackObjectArrayFromBinaryTuple(i -> null);
+    }
+
+    public Object[] unpackObjectArrayFromBinaryTuple(Mapper mapper) {
         assert refCnt > 0 : "Unpacker is closed";
 
         if (tryUnpackNil()) {
@@ -788,10 +795,11 @@ public class ClientMessageUnpacker implements AutoCloseable {
         var reader = new BinaryTupleReader(size * 3, readBinaryUnsafe());
 
         for (int i = 0; i < size; i++) {
-            args[i] = ClientBinaryTupleUtils.readObject(reader, i * 3);
+            args[i] = ClientBinaryTupleUtils.readObject(reader, i * 3, mapper.arg(i));
         }
 
         return args;
+
     }
 
     /**

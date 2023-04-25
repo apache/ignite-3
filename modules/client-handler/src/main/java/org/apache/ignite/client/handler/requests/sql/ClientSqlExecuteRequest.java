@@ -162,7 +162,7 @@ public class ClientSqlExecuteRequest {
         var reader = new BinaryTupleReader(propCount * 4, in.readBinaryUnsafe());
 
         for (int i = 0; i < propCount; i++) {
-            sessionBuilder.property(reader.stringValue(i * 4), ClientBinaryTupleUtils.readObject(reader, i * 4 + 1));
+            sessionBuilder.property(reader.stringValue(i * 4), ClientBinaryTupleUtils.readObject(reader, i * 5 + 1));
         }
 
         return sessionBuilder.build();

@@ -17,12 +17,17 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ArgMapper;
+import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.Mapper;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteException;
@@ -59,7 +64,7 @@ public class ClientComputeExecuteRequest {
         List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
         String jobClassName = in.unpackString();
 
-        Object[] args = unpackArgs(in);
+        Object[] args = unpackArgs(in, jobClassName);
 
         return compute.execute(Set.of(node), deploymentUnits, jobClassName, args).thenAccept(out::packObjectAsBinaryTuple);
     }
@@ -70,8 +75,22 @@ public class ClientComputeExecuteRequest {
      * @param in Unpacker.
      * @return Args array.
      */
-    static Object[] unpackArgs(ClientMessageUnpacker in) {
-        return in.unpackObjectArrayFromBinaryTuple();
+    static Object[] unpackArgs(ClientMessageUnpacker in, String jobClassName) {
+        try {
+            Class<?> clazz = Class.forName(jobClassName);
+            if (clazz.isAnnotationPresent(ArgMapper.class)) {
+                ArgMapper argMapper = clazz.getAnnotation(ArgMapper.class);
+                Class<? extends Mapper> mapperClass = argMapper.mapper();
+                Constructor<? extends Mapper> declaredConstructor = mapperClass.getDeclaredConstructor();
+                declaredConstructor.setAccessible(true);
+                Mapper mapper = declaredConstructor.newInstance();
+                return in.unpackObjectArrayFromBinaryTuple(mapper);
+            }
+            return in.unpackObjectArrayFromBinaryTuple();
+        } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException
+                 | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**

@@ -83,6 +83,9 @@ namespace Apache.Ignite.Sql
         Duration = 17,
 
         /** Number. */
-        Number = 18
+        Number = 18,
+
+        /** Null. */
+        Null = 19
     }
 }

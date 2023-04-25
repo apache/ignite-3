@@ -53,7 +53,7 @@ public class ClientComputeExecuteColocatedRequest {
 
             List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
             String jobClassName = in.unpackString();
-            Object[] args = unpackArgs(in);
+            Object[] args = unpackArgs(in, jobClassName);
 
             return compute.executeColocated(table.name(), keyTuple, deploymentUnits, jobClassName, args).thenAccept(val -> {
                 out.packInt(table.schemaView().lastSchemaVersion());

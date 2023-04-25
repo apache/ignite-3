@@ -17,18 +17,13 @@
 
 package org.apache.ignite.compute;
 
-/**
- * A Compute job that may be executed on a single Ignite node, on several nodes, or on the entire cluster.
- *
- * @param <R> Job result type.
- */
-public interface ComputeJob<R> {
-    /**
-     * Executes the job on an Ignite node.
-     *
-     * @param context  The execution context.
-     * @param args     Job arguments.
-     * @return Job result.
-     */
-    R execute(JobExecutionContext context, Object... args);
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Target({ElementType.TYPE, ElementType.FIELD})
+@Retention(RetentionPolicy.RUNTIME)
+public @interface ArgMapper {
+    Class<? extends Mapper> mapper();
 }

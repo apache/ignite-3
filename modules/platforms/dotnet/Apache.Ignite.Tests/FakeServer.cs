@@ -401,9 +401,8 @@ namespace Apache.Ignite.Tests
 
                 var name = propTuple.GetString(idx);
                 var type = (ColumnType)propTuple.GetInt(idx + 1);
-                var scale = propTuple.GetInt(idx + 2);
 
-                props[name] = propTuple.GetObject(idx + 3, type, scale);
+                props[name] = propTuple.GetObject<object?>(idx + 2, type);
             }
 
             var sql = reader.ReadString();

@@ -30,23 +30,20 @@ import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleFormatException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.serialization.UserObjectSerializer;
+import org.apache.ignite.serialization.UserObjectSerializerWrapper;
 import org.apache.ignite.sql.ColumnType;
 
 /**
  * Client binary tuple utils.
  */
 public class ClientBinaryTupleUtils {
+    private static final UserObjectSerializer marshaller = new UserObjectSerializerWrapper();
 
-    /**
-     * Reads an object from binary tuple at the specified index.
-     *
-     * @param reader Binary tuple reader.
-     * @param index  Starting index in the binary tuple.
-     * @return Object.
-     */
-    public static Object readObject(BinaryTupleReader reader, int index) {
+    public static Object readObject(BinaryTupleReader reader, int index, Class<?> classType) {
         if (reader.hasNullValue(index)) {
             return null;
         }
@@ -84,8 +81,15 @@ public class ClientBinaryTupleUtils {
                 return reader.stringValue(valIdx);
 
             case BYTE_ARRAY:
-                return reader.bytesValue(valIdx);
+                try {
+                    reader.intValue(index + 1);
+                    return reader.bytesValue(valIdx);
+                } catch (BinaryTupleFormatException e) {
+                    String className = reader.stringValue(index + 1);
+                    byte[] bytes = reader.bytesValue(index + 2);
 
+                    return marshaller.deserialize(bytes, classType);
+                }
             case BITMASK:
                 return reader.bitmaskValue(valIdx);
 
@@ -119,6 +123,17 @@ public class ClientBinaryTupleUtils {
     }
 
     /**
+     * Reads an object from binary tuple at the specified index.
+     *
+     * @param reader Binary tuple reader.
+     * @param index  Starting index in the binary tuple.
+     * @return Object.
+     */
+    public static Object readObject(BinaryTupleReader reader, int index) {
+        return readObject(reader, index, null);
+    }
+
+    /**
      * Writes an object with type info to the binary tuple.
      *
      * @param builder Builder.
@@ -128,6 +143,7 @@ public class ClientBinaryTupleUtils {
         if (obj == null) {
             builder.appendNull(); // Type.
             builder.appendNull(); // Scale.
+            builder.appendNull(); // Value.
             builder.appendNull(); // Value.
         } else if (obj instanceof Boolean) {
             appendTypeAndScale(builder, ColumnType.BOOLEAN);
@@ -188,7 +204,10 @@ public class ClientBinaryTupleUtils {
             appendTypeAndScale(builder, ColumnType.PERIOD);
             builder.appendPeriod((Period) obj);
         } else {
-            throw unsupportedTypeException(obj.getClass());
+            builder.appendInt(ColumnType.BYTE_ARRAY.ordinal());
+            String className = obj.getClass().getName();
+            builder.appendStringNotNull(className);
+            builder.appendBytes(marshaller.serialize(obj));
         }
     }
 

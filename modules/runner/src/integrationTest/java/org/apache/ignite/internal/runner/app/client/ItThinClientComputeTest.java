@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Instant;
@@ -38,6 +39,7 @@ import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +48,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.compute.ArgMapper;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecutionContext;
@@ -239,6 +243,30 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     @Test
+    public void test() {
+        IgniteClient client = client();
+
+        ArgClass arg1 = new ArgClass();
+        arg1.setId("id1");
+        arg1.setMap(Map.of("key1", "value1"));
+
+        ArgClass arg2 = new ArgClass();
+        arg2.setId("id2");
+        arg2.setMap(Map.of("key2", "value2"));
+
+        ArgClass arg3 = new ArgClass();
+        arg3.setId("id3");
+        arg3.setMap(Map.of("key3", "value3"));
+
+        PojoClass pojo = client.compute()
+                .<PojoClass>execute(Set.of(node(0)), List.of(), PojoClassJob.class.getCanonicalName(), arg1, arg2, arg3).join();
+
+        assertEquals("id1id2id3", pojo.id);
+        assertEquals(Map.of("key1", "value1", "key2", "value2", "key3", "value3"),
+                pojo.map);
+    }
+
+    @Test
     void testAllSupportedArgTypes() {
         testEchoArg(Byte.MAX_VALUE);
         testEchoArg(Short.MAX_VALUE);
@@ -331,6 +359,79 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     public static class CustomException extends IgniteException {
         public CustomException(UUID traceId, int code, String message, Throwable cause) {
             super(traceId, code, message, cause);
+        }
+    }
+
+    @ArgMapper(mapper = PojoJobArgMapper.class)
+    private static class PojoClassJob implements ComputeJob<PojoClass> {
+        @Override
+        public PojoClass execute(JobExecutionContext context, Object... args) {
+            StringBuilder id = new StringBuilder();
+            Map<String, String> map = new HashMap<>();
+            for (Object arg : args) {
+                ArgClass argCast = (ArgClass) arg;
+                id.append(argCast.id);
+                map.putAll(argCast.map);
+            }
+            return new PojoClass(id.toString(), map);
+        }
+    }
+
+    private static class PojoJobArgMapper implements org.apache.ignite.compute.Mapper {
+        @Override
+        public Class<?> arg(int i) {
+            return ArgClass.class;
+        }
+    }
+
+    private static class PojoClass {
+        private String id;
+        private Map<String, String> map;
+
+        public PojoClass() {
+            this(null, null);
+        }
+
+        public PojoClass(String id, Map<String, String> map) {
+            this.id = id;
+            this.map = map;
+        }
+
+        public String getId() {
+            return id;
+        }
+
+        public Map<String, String> getMap() {
+            return map;
+        }
+
+        public void setId(String id) {
+            this.id = id;
+        }
+
+        public void setMap(Map<String, String> map) {
+            this.map = map;
+        }
+    }
+
+    private static class ArgClass {
+        private String id;
+        private Map<String, String> map;
+
+        public String getId() {
+            return id;
+        }
+
+        public void setMap(Map<String, String> map) {
+            this.map = map;
+        }
+
+        public void setId(String id) {
+            this.id = id;
+        }
+
+        public Map<String, String> getMap() {
+            return map;
         }
     }
 }
