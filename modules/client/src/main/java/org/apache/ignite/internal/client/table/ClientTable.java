@@ -255,28 +255,6 @@ public class ClientTable implements Table {
     <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
-            BiFunction<ClientSchema, ClientMessageUnpacker, T> reader
-    ) {
-        return doSchemaOutInOpAsync(opCode, writer, reader, null);
-    }
-
-    <T> CompletableFuture<T> doSchemaOutInOpAsync(
-            int opCode,
-            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
-            BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
-            @Nullable T defaultValue
-    ) {
-        return getLatestSchema()
-                .thenCompose(schema ->
-                        ch.serviceAsync(opCode,
-                                w -> writer.accept(schema, w),
-                                r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue)))
-                .thenCompose(t -> loadSchemaAndReadData(t, reader));
-    }
-
-    <T> CompletableFuture<T> doSchemaOutInOpAsync(
-            int opCode,
-            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
             @Nullable T defaultValue,
             @Nullable PartitionAwarenessProvider provider
