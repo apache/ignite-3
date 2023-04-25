@@ -21,7 +21,6 @@
 #include "ignite/client/detail/utils.h"
 #include "ignite/client/table/table.h"
 
-#include "ignite/common/bits.h"
 #include "ignite/common/ignite_error.h"
 #include "ignite/protocol/bitset_span.h"
 #include "ignite/protocol/reader.h"
@@ -217,7 +216,7 @@ void table_impl::contains_async(transaction *tx, const ignite_tuple &key, ignite
             };
 
             auto reader_func = [](protocol::reader &reader) -> bool {
-                auto schemaVer = reader.read_int32(); // Skip schema version.
+                (void) reader.read_int32(); // Skip schema version.
 
                 return reader.read_bool();
             };
@@ -312,7 +311,7 @@ void table_impl::insert_async(transaction *tx, const ignite_tuple &record, ignit
             };
 
             auto reader_func = [](protocol::reader &reader) -> bool {
-                auto schemaVer = reader.read_int32(); // Skip schema version.
+                (void) reader.read_int32(); // Skip schema version.
 
                 return reader.read_bool();
             };
@@ -354,7 +353,7 @@ void table_impl::replace_async(transaction *tx, const ignite_tuple &record, igni
             };
 
             auto reader_func = [](protocol::reader &reader) -> bool {
-                auto schemaVer = reader.read_int32(); // Skip schema version.
+                (void) reader.read_int32(); // Skip schema version.
 
                 return reader.read_bool();
             };
@@ -376,7 +375,7 @@ void table_impl::replace_async(
             };
 
             auto reader_func = [](protocol::reader &reader) -> bool {
-                auto schemaVer = reader.read_int32(); // Skip schema version.
+                (void) reader.read_int32(); // Skip schema version.
 
                 return reader.read_bool();
             };
@@ -421,7 +420,7 @@ void table_impl::remove_async(transaction *tx, const ignite_tuple &key, ignite_c
             };
 
             auto reader_func = [](protocol::reader &reader) -> bool {
-                auto schemaVer = reader.read_int32(); // Skip schema version.
+                (void) reader.read_int32(); // Skip schema version.
 
                 return reader.read_bool();
             };
@@ -441,7 +440,7 @@ void table_impl::remove_exact_async(transaction *tx, const ignite_tuple &record,
             };
 
             auto reader_func = [](protocol::reader &reader) -> bool {
-                auto schemaVer = reader.read_int32(); // Skip schema version.
+                (void) reader.read_int32(); // Skip schema version.
 
                 return reader.read_bool();
             };
