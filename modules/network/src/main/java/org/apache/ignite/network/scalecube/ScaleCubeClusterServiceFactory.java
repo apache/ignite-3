@@ -26,7 +26,6 @@ import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.cluster.metadata.MetadataCodec;
 import io.scalecube.net.Address;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -105,14 +104,12 @@ public class ScaleCubeClusterServiceFactory {
             public void start() {
                 var serializationService = new SerializationService(serializationRegistry, userObjectSerialization);
 
-                UUID launchId = UUID.randomUUID();
-
                 NetworkView configView = networkConfiguration.value();
 
                 connectionMgr = new ConnectionManager(
                         configView,
                         serializationService,
-                        launchId,
+                        () -> cluster.member().id(),
                         consistentId,
                         nettyBootstrapFactory
                 );

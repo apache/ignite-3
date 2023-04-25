@@ -25,13 +25,13 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -84,8 +84,8 @@ public class ConnectionManager {
     /** Node consistent id. */
     private final String consistentId;
 
-    /** Node launch id. As opposed to {@link #consistentId}, this identifier changes between restarts. */
-    private final UUID launchId;
+    /** Supplies node launch id. As opposed to {@link #consistentId}, this identifier changes between restarts. */
+    private final Supplier<String> launchIdSupplier;
 
     /** Factory producing {@link RecoveryClientHandshakeManager} instances. */
     private final RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory;
@@ -107,21 +107,21 @@ public class ConnectionManager {
      *
      * @param networkConfiguration          Network configuration.
      * @param serializationService          Serialization service.
-     * @param launchId                      Launch id of this node.
+     * @param launchIdSupplier              Supplier of launch id of this node.
      * @param consistentId                  Consistent id of this node.
      * @param bootstrapFactory              Bootstrap factory.
      */
     public ConnectionManager(
             NetworkView networkConfiguration,
             SerializationService serializationService,
-            UUID launchId,
+            Supplier<String> launchIdSupplier,
             String consistentId,
             NettyBootstrapFactory bootstrapFactory
     ) {
         this(
                 networkConfiguration,
                 serializationService,
-                launchId,
+                launchIdSupplier,
                 consistentId,
                 bootstrapFactory,
                 new DefaultRecoveryClientHandshakeManagerFactory()
@@ -133,7 +133,7 @@ public class ConnectionManager {
      *
      * @param networkConfiguration          Network configuration.
      * @param serializationService          Serialization service.
-     * @param launchId                      Launch id of this node.
+     * @param launchIdSupplier              Supplier of launch id of this node.
      * @param consistentId                  Consistent id of this node.
      * @param bootstrapFactory              Bootstrap factory.
      * @param clientHandshakeManagerFactory Factory for {@link RecoveryClientHandshakeManager} instances.
@@ -141,13 +141,13 @@ public class ConnectionManager {
     public ConnectionManager(
             NetworkView networkConfiguration,
             SerializationService serializationService,
-            UUID launchId,
+            Supplier<String> launchIdSupplier,
             String consistentId,
             NettyBootstrapFactory bootstrapFactory,
             RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory
     ) {
         this.serializationService = serializationService;
-        this.launchId = launchId;
+        this.launchIdSupplier = launchIdSupplier;
         this.consistentId = consistentId;
         this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
         this.networkConfiguration = networkConfiguration;
@@ -335,7 +335,7 @@ public class ConnectionManager {
 
     private HandshakeManager createClientHandshakeManager(short connectionId) {
         return clientHandshakeManagerFactory.create(
-                launchId,
+                launchIdSupplier,
                 consistentId,
                 connectionId,
                 descriptorProvider
@@ -343,7 +343,7 @@ public class ConnectionManager {
     }
 
     private HandshakeManager createServerHandshakeManager() {
-        return new RecoveryServerHandshakeManager(launchId, consistentId, FACTORY, descriptorProvider);
+        return new RecoveryServerHandshakeManager(launchIdSupplier, consistentId, FACTORY, descriptorProvider);
     }
 
     /**
@@ -385,12 +385,12 @@ public class ConnectionManager {
      */
     private static class DefaultRecoveryClientHandshakeManagerFactory implements RecoveryClientHandshakeManagerFactory {
         @Override
-        public RecoveryClientHandshakeManager create(UUID launchId,
+        public RecoveryClientHandshakeManager create(Supplier<String> launchIdSupplier,
                 String consistentId,
                 short connectionId,
                 RecoveryDescriptorProvider recoveryDescriptorProvider
         ) {
-            return new RecoveryClientHandshakeManager(launchId, consistentId, connectionId, recoveryDescriptorProvider);
+            return new RecoveryClientHandshakeManager(launchIdSupplier, consistentId, connectionId, recoveryDescriptorProvider);
         }
     }
 }

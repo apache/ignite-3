@@ -33,9 +33,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -101,7 +101,7 @@ class DefaultMessagingServiceTest {
     );
 
     @BeforeEach
-    void setUp() throws InterruptedException, ExecutionException {
+    void setUp() {
         lenient().when(topologyService.getByConsistentId(eq(senderNode.name()))).thenReturn(senderNode);
     }
 
@@ -290,10 +290,11 @@ class DefaultMessagingServiceTest {
         NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfig, eventLoopGroupNamePrefix);
         bootstrapFactory.start();
 
+        UUID launchId = UUID.randomUUID();
         ConnectionManager connectionManager = new ConnectionManager(
                 networkConfig.value(),
                 serializationService,
-                UUID.randomUUID(),
+                launchId::toString,
                 node.name(),
                 bootstrapFactory,
                 clientHandshakeManagerFactoryAdding(beforeHandshake)
@@ -309,11 +310,11 @@ class DefaultMessagingServiceTest {
         return new RecoveryClientHandshakeManagerFactory() {
             @Override
             public RecoveryClientHandshakeManager create(
-                    UUID launchId,
+                    Supplier<String> launchIdSupplier,
                     String consistentId,
                     short connectionId,
                     RecoveryDescriptorProvider recoveryDescriptorProvider) {
-                return new RecoveryClientHandshakeManager(launchId, consistentId, connectionId, recoveryDescriptorProvider) {
+                return new RecoveryClientHandshakeManager(launchIdSupplier, consistentId, connectionId, recoveryDescriptorProvider) {
                     @Override
                     protected void finishHandshake() {
                         beforeHandshake.run();

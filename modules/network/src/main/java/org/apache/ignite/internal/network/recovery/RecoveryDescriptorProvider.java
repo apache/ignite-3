@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.network.recovery;
 
-import java.util.UUID;
-
 /**
  * Interface that provides recovery descriptors for channels between two nodes.
  */
@@ -32,5 +30,5 @@ public interface RecoveryDescriptorProvider {
      * @param inbound {@code true} if the connection is inbound, {@code false} otherwise.
      * @return Recovery descriptor.
      */
-    RecoveryDescriptor getRecoveryDescriptor(String consistentId, UUID launchId, short connectionIndex, boolean inbound);
+    RecoveryDescriptor getRecoveryDescriptor(String consistentId, String launchId, short connectionIndex, boolean inbound);
 }
