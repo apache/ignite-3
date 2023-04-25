@@ -250,6 +250,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         final FirstSnapshotLoadDone done = new FirstSnapshotLoadDone(reader);
         Requires.requireTrue(this.fsmCaller.onSnapshotLoad(done));
         try {
+            // TODO: IGNITE-19363 We want to avoid deadlock for now, but this is an ad-hoc decision.
             if (!node.getNodeId().getGroupId().contains("part")) {
                 done.waitForRun();
             } else {

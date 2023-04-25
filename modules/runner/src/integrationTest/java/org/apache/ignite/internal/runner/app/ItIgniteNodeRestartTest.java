@@ -871,16 +871,34 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     public void nodeWithDataTest() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
-        createTableWithData(List.of(ignite), TABLE_NAME, 1, 100);
+        createTableWithData(List.of(ignite), TABLE_NAME, 1);
+
+        stopNode(0);
+
+        ignite = startNode(0);
+
+        checkTableWithData(ignite, TABLE_NAME);
+    }
+
+    /**
+     * Restarts the node which stores some data.
+     */
+    @Test
+    public void nodeWithDataAndIndexRebuildTest() throws InterruptedException {
+        IgniteImpl ignite = startNode(0);
+
+        createTableWithData(List.of(ignite), TABLE_NAME, 1, 20);
 
         TableImpl table = (TableImpl) ignite.tables().table(TABLE_NAME);
 
         InternalTableImpl internalTable = (InternalTableImpl) table.internalTable();
 
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 20; i++) {
+            // Flush data on disk, so that we will have a snapshot to read on restart.
             internalTable.storage().getMvPartition(i).flush().join();
         }
 
+        // Add more data, so that on restart there will be a index rebuilding operation.
         try (Session session = ignite.sql().createSession()) {
             for (int i = 0; i < 100; i++) {
                 session.execute(null, "INSERT INTO " + TABLE_NAME + "(id, name) VALUES (?, ?)",
@@ -896,6 +914,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         table = (TableImpl) ignite.tables().table(TABLE_NAME);
 
+        // Check data that was added after flush.
         for (int i = 0; i < 100; i++) {
             Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i + 500));
 
