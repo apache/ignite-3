@@ -44,6 +44,8 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
@@ -112,10 +114,10 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
         }
 
         JdbcBatchPreparedStmntRequest req
-                = new JdbcBatchPreparedStmntRequest(conn.getSchema(), sql, batchedArgs);
+                = new JdbcBatchPreparedStmntRequest(conn.getSchema(), sql, batchedArgs, conn.getAutoCommit());
 
         try {
-            JdbcBatchExecuteResult res = conn.handler().batchPrepStatementAsync(conn.connectionId(), req).join();
+            JdbcBatchExecuteResult res = conn.handler().batchPrepStatementAsync(conn.connectionId(), req).get();
 
             if (!res.hasResults()) {
                 throw new BatchUpdateException(res.err(),
@@ -125,6 +127,12 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
             }
 
             return res.updateCounts();
+        } catch (InterruptedException e) {
+            throw new SQLException("Thread was interrupted.", e);
+        } catch (ExecutionException e) {
+            throw new SQLException("Batch request failed.", e);
+        } catch (CancellationException e) {
+            throw new SQLException("Batch request canceled.", SqlStateCode.QUERY_CANCELLED);
         } finally {
             batchedArgs = null;
         }

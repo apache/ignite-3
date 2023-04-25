@@ -26,6 +26,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -243,7 +244,36 @@ public abstract class QueryChecker {
         );
     }
 
-    private final String originalQuery;
+    /**
+     * Allows to parameterize an SQL query string.
+     */
+    public interface QueryTemplate {
+
+        /** Template that always returns original query. **/
+        static QueryTemplate returnOriginalQuery(String query) {
+            return new QueryTemplate() {
+                @Override
+                public String originalQueryString() {
+                    return query;
+                }
+
+                @Override
+                public String createQuery() {
+                    return query;
+                }
+            };
+        }
+
+        /** Returns the original query string. **/
+        String originalQueryString();
+
+        /**
+         * Produces an SQL query from the original query string.
+         */
+        String createQuery();
+    }
+
+    private final QueryTemplate queryTemplate;
 
     private final ArrayList<Matcher<String>> planMatchers = new ArrayList<>();
 
@@ -272,8 +302,18 @@ public abstract class QueryChecker {
      * @param qry Query.
      */
     public QueryChecker(Transaction tx, String qry) {
+        this(tx, QueryTemplate.returnOriginalQuery(qry));
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param tx Transaction.
+     * @param queryTemplate A query template.
+     */
+    public QueryChecker(Transaction tx, QueryTemplate queryTemplate) {
         this.tx = tx;
-        this.originalQuery = qry;
+        this.queryTemplate = new AddDisabledRulesTemplate(queryTemplate, disabledRules);
     }
 
     /**
@@ -292,6 +332,7 @@ public abstract class QueryChecker {
      *
      * @return This.
      */
+    @SuppressWarnings("rawtypes")
     public QueryChecker withParams(Object... params) {
         // let's interpret null array as simple single null.
         if (params == null) {
@@ -418,14 +459,8 @@ public abstract class QueryChecker {
 
         QueryContext context = QueryContext.create(SqlQueryType.ALL, tx);
 
-        String qry = originalQuery;
+        String qry = queryTemplate.createQuery();
 
-        if (!disabledRules.isEmpty()) {
-            assert SELECT_QRY_CHECK.matcher(qry).matches() : "SELECT query was expected: " + originalQuery;
-
-            qry = SELECT_REGEXP.matcher(qry).replaceAll("select "
-                    + Hints.DISABLE_RULE.toHint(disabledRules.toArray(ArrayUtils.STRING_EMPTY_ARRAY)));
-        }
         try {
 
             if (!CollectionUtils.nullOrEmpty(planMatchers) || exactPlan != null) {
@@ -446,11 +481,12 @@ public abstract class QueryChecker {
                 if (exactPlan != null) {
                     assertEquals(exactPlan, actualPlan);
                 }
-
             }
             // Check result.
             CompletableFuture<AsyncSqlCursor<List<Object>>> cursors = qryProc.querySingleAsync(sessionId, context, qry, params);
             AsyncSqlCursor<List<Object>> cur = await(cursors);
+
+            checkMetadata(cur);
 
             if (expectedColumnNames != null) {
                 List<String> colNames = cur.metadata().columns().stream()
@@ -509,6 +545,10 @@ public abstract class QueryChecker {
 
     protected abstract QueryProcessor getEngine();
 
+    protected void checkMetadata(AsyncSqlCursor<?> cursor) {
+
+    }
+
     /**
      * Check collections equals (ordered).
      *
@@ -524,16 +564,56 @@ public abstract class QueryChecker {
         int idx = 0;
 
         while (it1.hasNext()) {
-            Object item1 = it1.next();
-            Object item2 = it2.next();
+            Object expItem = it1.next();
+            Object actualItem = it2.next();
 
-            if (item1 instanceof Collection && item2 instanceof Collection) {
-                assertEqualsCollections((Collection<?>) item1, (Collection<?>) item2);
-            } else if (!Objects.deepEquals(item1, item2)) {
-                fail("Collections are not equal (position " + idx + "):\nExpected: " + exp + "\nActual:   " + act);
+            if (expItem instanceof Collection && actualItem instanceof Collection) {
+                assertEqualsCollections((Collection<?>) expItem, (Collection<?>) actualItem);
+            } else if (!Objects.deepEquals(expItem, actualItem)) {
+                String expectedStr = displayValue(expItem, true);
+                String actualStr = displayValue(actualItem, true);
+
+                fail("Collections are not equal (position " + idx + "):\nExpected: " + expectedStr + "\nActual:   " + actualStr);
             }
 
             idx++;
+        }
+    }
+
+    /**
+     * Converts the given value to a test-output friendly representation that includes type information.
+     */
+    private static String displayValue(Object value, boolean includeType) {
+        if (value == null) {
+            return "<null>";
+        } else if (value.getClass().isArray()) {
+            Class<?> componentType = value.getClass().getComponentType();
+            StringBuilder sb = new StringBuilder();
+
+            // Always include array element type in the output.
+            sb.append(componentType);
+            sb.append("[");
+
+            // Include element type for Object[] arrays.
+            boolean includeElementType = componentType == Object.class;
+
+            int length = Array.getLength(value);
+            for (int i = 0; i < length; i++) {
+                Object item = Array.get(value, i);
+                if (i > 0) {
+                    sb.append(", ");
+                }
+                sb.append(displayValue(item, includeElementType));
+            }
+
+            sb.append("]");
+            return sb.toString();
+        } else {
+            if (includeType) {
+                return value + " <" + value.getClass() + ">";
+            } else {
+                return value.toString();
+            }
         }
     }
 
@@ -583,6 +663,42 @@ public abstract class QueryChecker {
             }
 
             return 0;
+        }
+    }
+
+    /**
+     * Updates an SQL query string to include hints for the optimizer to disable certain rules.
+     */
+    private static final class AddDisabledRulesTemplate implements QueryTemplate {
+
+        private final QueryTemplate input;
+
+        private final List<String> disabledRules;
+
+        private AddDisabledRulesTemplate(QueryTemplate input, List<String> disabledRules) {
+            this.input = input;
+            this.disabledRules = disabledRules;
+        }
+
+        @Override
+        public String originalQueryString() {
+            return input.originalQueryString();
+        }
+
+        @Override
+        public String createQuery() {
+            String qry = input.createQuery();
+
+            if (!disabledRules.isEmpty()) {
+                String originalQuery = input.originalQueryString();
+
+                assert qry.matches("(?i)^select .*") : "SELECT query was expected: " + originalQuery + ". Updated: " + qry;
+
+                return qry.replaceAll("(?i)^select", "select "
+                        + disabledRules.stream().collect(Collectors.joining("','", "/*+ DISABLE_RULE('", "') */")));
+            } else {
+                return qry;
+            }
         }
     }
 }
