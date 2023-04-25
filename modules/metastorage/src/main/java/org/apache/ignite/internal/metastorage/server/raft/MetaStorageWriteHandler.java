@@ -25,7 +25,6 @@ import org.apache.ignite.internal.metastorage.command.GetAndPutCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndRemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndRemoveCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
-import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.command.PutAllCommand;
@@ -58,7 +57,6 @@ import org.apache.ignite.internal.raft.service.CommandClosure;
  * Class containing some common logic for Meta Storage Raft group listeners.
  */
 class MetaStorageWriteHandler {
-    private static final MetaStorageCommandsFactory META_STORAGE_COMMANDS_FACTORY = new MetaStorageCommandsFactory();
     private final KeyValueStorage storage;
     private final ClusterTimeImpl clusterTime;
 
