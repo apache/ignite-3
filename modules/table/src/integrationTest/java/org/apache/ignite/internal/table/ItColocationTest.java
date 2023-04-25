@@ -219,9 +219,9 @@ public class ItColocationTest {
                                         .partitionId(commitPartId.partitionId())
                                         .build()
                         )
-                        .rowUuid(TestTransactionIds.newTransactionId())
+                        .rowUuid(UUID.randomUUID())
                         .rowBuffer(((ReadWriteSingleRowReplicaRequest) request).binaryRow().byteBuffer())
-                        .txId(UUID.randomUUID())
+                        .txId(TestTransactionIds.newTransactionId())
                         .build());
             }
         });

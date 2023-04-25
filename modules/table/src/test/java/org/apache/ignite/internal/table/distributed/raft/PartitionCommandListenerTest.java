@@ -850,7 +850,7 @@ public class PartitionCommandListenerTest {
                             .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                     .tableId(txId)
                                     .partitionId(PARTITION_ID).build())
-                            .rowUuid(TestTransactionIds.newTransactionId())
+                            .rowUuid(UUID.randomUUID())
                             .rowBuffer(row.byteBuffer())
                             .txId(txId)
                             .safeTime(hybridTimestamp(hybridClock.now()))

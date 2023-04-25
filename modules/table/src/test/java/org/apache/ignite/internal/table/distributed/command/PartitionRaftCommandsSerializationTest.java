@@ -105,8 +105,8 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                         .partitionId(1)
                         .build()
                 )
-                .rowUuid(TestTransactionIds.newTransactionId())
-                .txId(UUID.randomUUID())
+                .rowUuid(UUID.randomUUID())
+                .txId(TestTransactionIds.newTransactionId())
                 .build();
 
         UpdateCommand readCmd = copyCommand(cmd);
