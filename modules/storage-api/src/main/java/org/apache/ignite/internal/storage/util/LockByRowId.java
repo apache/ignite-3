@@ -101,6 +101,8 @@ public class LockByRowId {
 
         lock.unlock();
 
+        assert !lock.isHeldByCurrentThread();
+
         lockHolderByRowId.compute(rowId, (id, holder) -> {
             assert holder != null;
 

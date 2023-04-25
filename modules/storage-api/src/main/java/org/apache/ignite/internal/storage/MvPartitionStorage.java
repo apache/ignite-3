@@ -230,6 +230,25 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     @Nullable RowId closestRowId(RowId lowerBound) throws StorageException;
 
     /**
+     * Returns the head of GC queue.
+     *
+     * @param lowWatermark Upper bound for commit timestamp of GC entry.
+     * @return Queue head or {@code null} if there are no entries below passed low watermark.
+     */
+    @Nullable GcEntry peek(HybridTimestamp lowWatermark);
+
+    /**
+     * Delete GC entry from the GC queue and corresponding version chain. Row ID of the entry must be locked to call this method.
+     *
+     * @param entry Entry, previously returned by {@link #peek(HybridTimestamp)}.
+     * @return Polled binary row, or {@code null} if the entry has already been deleted by another thread.
+     *
+     * @see Locker#lock(RowId)
+     * @see Locker#tryLock(RowId)
+     */
+    @Nullable BinaryRow vacuum(GcEntry entry);
+
+    /**
      * Polls the oldest row in the partition, removing it at the same time.
      *
      * @param lowWatermark A time threshold for the row. Only rows that have versions with timestamp higher or equal to the watermark
@@ -267,10 +286,6 @@ public interface MvPartitionStorage extends ManuallyCloseable {
             return binaryRowAndRowId;
         }
     }
-
-    @Nullable GcEntry peek(HybridTimestamp lowWatermark);
-
-    @Nullable BinaryRow vacuum(GcEntry entry);
 
     /**
      * Returns rows count belongs to current storage.

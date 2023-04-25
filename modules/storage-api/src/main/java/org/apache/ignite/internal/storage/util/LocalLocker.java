@@ -60,6 +60,9 @@ public class LocalLocker implements Locker {
         return false;
     }
 
+    /**
+     * Returns {@code true} if passed row ID is currently locked.
+     */
     public boolean isLocked(RowId rowId) {
         return Objects.equals(rowId, locked) || (locked instanceof Set) && ((Set<?>) locked).contains(rowId);
     }

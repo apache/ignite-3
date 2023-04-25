@@ -48,6 +48,9 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of MV partition storage.
  */
 public class TestMvPartitionStorage implements MvPartitionStorage {
+    /** Preserved {@link LocalLocker} instance to allow nested calls of {@link #runConsistently(WriteClosure)}. */
+    private static final ThreadLocal<LocalLocker> THREAD_LOCAL_LOCKER = new ThreadLocal<>();
+
     private final ConcurrentNavigableMap<RowId, VersionChain> map = new ConcurrentSkipListMap<>();
 
     private final NavigableSet<VersionChain> gcQueue = new ConcurrentSkipListSet<>(
@@ -119,8 +122,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             return ts;
         }
     }
-
-    private static final ThreadLocal<LocalLocker> THREAD_LOCAL_LOCKER = new ThreadLocal<>();
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
