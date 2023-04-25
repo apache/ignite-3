@@ -206,7 +206,7 @@ public class IgniteImpl implements Ignite {
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
 
-    // TODO: IGNITE-16985 Design table management flow
+    // TODO: IGNITE-18856 Switch primary replica calls from Raft leader to primary replica
     // /** Placement driver manager. */
     //private final PlacementDriverManager placementDriverMgr;
 
@@ -405,7 +405,7 @@ public class IgniteImpl implements Ignite {
                 raftGroupEventsClientListener
         );
 
-        // TODO: IGNITE-16985 Design table management flow
+        // TODO: IGNITE-18856 Switch primary replica calls from Raft leader to primary replica
         // placementDriverMgr = new PlacementDriverManager(
         //         metaStorageMgr,
         //         vaultMgr,

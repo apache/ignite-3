@@ -229,7 +229,7 @@ public class PlacementDriverManager implements IgniteComponent {
      * Takes over active actor of placement driver group.
      */
     private void takeOverActiveActor() {
-        LOG.info("Active actor is starting.");
+        LOG.info("Placement driver active actor is starting.");
 
         isActiveActor = true;
 
@@ -241,7 +241,7 @@ public class PlacementDriverManager implements IgniteComponent {
      * Steps down as active actor.
      */
     private void stepDownActiveActor() {
-        LOG.info("Active actor is stopping.");
+        LOG.info("Placement driver active actor is stopping.");
 
         isActiveActor = false;
 
