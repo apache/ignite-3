@@ -338,7 +338,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     protected IgniteRel physicalPlan(
             String sql,
             IgniteSchema publicSchema,
-            RelOptListener listener,
+            @Nullable RelOptListener listener,
             String... disabledRules) throws Exception {
         return physicalPlan(sql, Collections.singleton(publicSchema), null, List.of(), listener, disabledRules);
     }
@@ -348,7 +348,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             Collection<IgniteSchema> schemas,
             HintStrategyTable hintStrategies,
             List<Object> params,
-            RelOptListener listener,
+            @Nullable RelOptListener listener,
             String... disabledRules
     ) throws Exception {
         PlanningContext planningContext = plannerCtx(sql, schemas, hintStrategies, params, disabledRules);
@@ -359,12 +359,14 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         return physicalPlan(ctx, null);
     }
 
-    protected IgniteRel physicalPlan(PlanningContext ctx, RelOptListener listener) throws Exception {
+    protected IgniteRel physicalPlan(PlanningContext ctx,@Nullable RelOptListener listener) throws Exception {
         try (IgnitePlanner planner = ctx.planner()) {
             assertNotNull(planner);
             assertNotNull(ctx.query());
 
-            planner.addListener(listener);
+            if(listener != null) {
+                planner.addListener(listener);
+            }
 
             return physicalPlan(planner, ctx.query());
         }
