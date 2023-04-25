@@ -169,7 +169,7 @@ public class ClientRecordSerializer<R> {
     }
 
     Collection<R> readRecs(ClientSchema schema, ClientMessageUnpacker in, boolean nullable, TuplePart part) {
-        var cnt = in.unpackArrayHeader();
+        var cnt = in.unpackInt();
 
         if (cnt == 0) {
             return Collections.emptyList();

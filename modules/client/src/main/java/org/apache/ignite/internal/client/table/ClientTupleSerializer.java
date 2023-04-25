@@ -267,7 +267,7 @@ public class ClientTupleSerializer {
      * @return Tuple pairs.
      */
     static Map<Tuple, Tuple> readKvTuplesNullable(ClientSchema schema, ClientMessageUnpacker in) {
-        var cnt = in.unpackArrayHeader();
+        var cnt = in.unpackInt();
         Map<Tuple, Tuple> res = new HashMap<>(cnt);
 
         for (int i = 0; i < cnt; i++) {
@@ -288,7 +288,7 @@ public class ClientTupleSerializer {
     }
 
     static Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
-        var cnt = in.unpackArrayHeader();
+        var cnt = in.unpackInt();
         var res = new ArrayList<Tuple>(cnt);
 
         for (int i = 0; i < cnt; i++) {
@@ -299,7 +299,7 @@ public class ClientTupleSerializer {
     }
 
     static Collection<Tuple> readTuplesNullable(ClientSchema schema, ClientMessageUnpacker in) {
-        var cnt = in.unpackArrayHeader();
+        var cnt = in.unpackInt();
         var res = new ArrayList<Tuple>(cnt);
 
         for (int i = 0; i < cnt; i++) {

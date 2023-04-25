@@ -175,7 +175,7 @@ public class ClientTableCommon {
     ) {
         if (tuples == null || tuples.isEmpty()) {
             packer.packInt(schemaRegistry.lastSchemaVersion());
-            packer.packArrayHeader(0);
+            packer.packInt(0);
 
             return;
         }
@@ -190,7 +190,7 @@ public class ClientTableCommon {
             if (schemaVer == null) {
                 schemaVer = tupleSchemaVer;
                 packer.packInt(tupleSchemaVer);
-                packer.packArrayHeader(tuples.size());
+                packer.packInt(tuples.size());
             } else {
                 assert schemaVer.equals(tupleSchemaVer) : "All tuples must have the same schema version";
             }
@@ -216,7 +216,7 @@ public class ClientTableCommon {
     ) {
         if (tuples == null || tuples.isEmpty()) {
             packer.packInt(schemaRegistry.lastSchemaVersion());
-            packer.packArrayHeader(0);
+            packer.packInt(0);
 
             return;
         }
@@ -231,7 +231,7 @@ public class ClientTableCommon {
         }
 
         packer.packInt(schemaVer == null ? schemaRegistry.lastSchemaVersion() : schemaVer);
-        packer.packArrayHeader(tuples.size());
+        packer.packInt(tuples.size());
 
         for (Tuple tuple : tuples) {
             if (tuple == null) {
