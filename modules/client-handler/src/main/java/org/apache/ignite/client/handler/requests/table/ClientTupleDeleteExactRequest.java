@@ -51,8 +51,8 @@ public class ClientTupleDeleteExactRequest {
         var tuple = readTuple(in, table, false);
 
         return table.recordView().deleteExactAsync(tx, tuple).thenAccept(res -> {
-            out.packBoolean(res);
             out.packInt(table.schemaView().lastSchemaVersion());
+            out.packBoolean(res);
         });
     }
 }
