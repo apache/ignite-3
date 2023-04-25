@@ -114,7 +114,7 @@ void compute_impl::execute_colocated_async(std::string_view table_name, const ig
                     };
 
                     auto reader_func = [](protocol::reader &reader) -> std::optional<primitive> {
-                        auto schemaVer = reader.read_int32(); // Skip schema version.
+                        (void) reader.read_int32(); // Skip schema version.
 
                         if (reader.try_read_nil())
                             return std::nullopt;
