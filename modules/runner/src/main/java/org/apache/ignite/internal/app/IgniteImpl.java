@@ -120,6 +120,7 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -352,7 +353,8 @@ public class IgniteImpl implements Ignite {
 
         ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), clock);
 
-        txManager = new TxManagerImpl(replicaSvc, lockMgr, clock);
+        // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
+        txManager = new TxManagerImpl(replicaSvc, lockMgr, clock, new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()));
 
         // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
         clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH));
