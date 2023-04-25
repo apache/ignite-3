@@ -33,19 +33,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import java.util.function.BiFunction;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -63,11 +59,10 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
+import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
@@ -82,12 +77,12 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -133,7 +128,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
     private TestInfo testInfo;
 
     /** This closure handles {@link LeaseGrantedMessage} to check the placement driver manager behavior. */
-    private BiConsumer<LeaseGrantedMessage, String> leaseGrantHandler;
+    private BiFunction<LeaseGrantedMessage, String, LeaseGrantedMessageResponse> leaseGrantHandler;
 
     @BeforeEach
     public void beforeTest(TestInfo testInfo) throws NodeStoppingException {
@@ -155,27 +150,12 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         clusterService = ClusterServiceTestUtils.clusterService(testInfo, PORT, nodeFinder);
         anotherClusterService = ClusterServiceTestUtils.clusterService(testInfo, PORT + 1, nodeFinder);
 
-        anotherClusterService.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, (msg, sender, correlationId) -> {
-            assert msg instanceof LeaseGrantedMessage : "Message type is unexpected [type=" + msg.getClass().getSimpleName() + ']';
+        anotherClusterService.messagingService().addMessageHandler(
+                PlacementDriverMessageGroup.class,
+                leaseGrantMessageHandler(anotherNodeName)
+        );
 
-            log.info("Lease is being granted [actor={}, recipient={}, force={}]", sender, anotherNodeName,
-                    ((LeaseGrantedMessage) msg).force());
-
-            if (leaseGrantHandler != null) {
-                leaseGrantHandler.accept((LeaseGrantedMessage) msg, sender);
-            }
-        });
-
-        clusterService.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, (msg, sender, correlationId) -> {
-            assert msg instanceof LeaseGrantedMessage : "Message type is unexpected [type=" + msg.getClass().getSimpleName() + ']';
-
-            log.info("Lease is being granted [actor={}, recipient={}, force={}]", sender, nodeName,
-                    ((LeaseGrantedMessage) msg).force());
-
-            if (leaseGrantHandler != null) {
-                leaseGrantHandler.accept((LeaseGrantedMessage) msg, sender);
-            }
-        });
+        clusterService.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, leaseGrantMessageHandler(nodeName));
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
@@ -218,11 +198,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
                 vaultManager,
                 MetastorageGroupId.INSTANCE,
                 clusterService,
-                () -> completedFuture(peersAndLearners(
-                        new HashMap<>(Map.of(new NetworkAddress("localhost", PORT), clusterService)),
-                        addr -> true,
-                        1)
-                        .peers().stream().map(Peer::consistentId).collect(toSet())),
+                () -> cmgManager.metaStorageNodes(),
                 logicalTopologyService,
                 raftManager,
                 topologyAwareRaftGroupServiceFactory,
@@ -239,6 +215,36 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         placementDriverManager.start();
 
         metaStorageManager.deployWatches();
+    }
+
+    /**
+     * Handles a lease grant message.
+     *
+     * @param handlerNode Node which will handles the message.
+     * @return Response message.
+     */
+    private NetworkMessageHandler leaseGrantMessageHandler(String handlerNode) {
+        return (msg, sender, correlationId) -> {
+            assert msg instanceof LeaseGrantedMessage : "Message type is unexpected [type=" + msg.getClass().getSimpleName() + ']';
+
+            log.info("Lease is being granted [actor={}, recipient={}, force={}]", sender, handlerNode,
+                    ((LeaseGrantedMessage) msg).force());
+
+            LeaseGrantedMessageResponse resp = null;
+
+            if (leaseGrantHandler != null) {
+                resp = leaseGrantHandler.apply((LeaseGrantedMessage) msg, handlerNode);
+            }
+
+            if (resp == null) {
+                resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
+                        .groupId(((LeaseGrantedMessage) msg).groupId())
+                        .accepted(true)
+                        .build();
+            }
+
+            clusterService.messagingService().respond(sender, resp, correlationId);
+        };
     }
 
     @AfterEach
@@ -259,30 +265,6 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         anotherClusterService.stop();
         clusterService.stop();
         vaultManager.stop();
-    }
-
-    private static PeersAndLearners peersAndLearners(
-            HashMap<NetworkAddress, ClusterService> clusterServices,
-            Predicate<NetworkAddress> isServerAddress,
-            int nodes
-    ) {
-        return PeersAndLearners.fromConsistentIds(
-                getNetworkAddresses(nodes).stream().filter(isServerAddress)
-                        .map(netAddr -> clusterServices.get(netAddr).topologyService().localMember().name()).collect(
-                                toSet()));
-    }
-
-    /**
-     * Generates a node address for each node.
-     *
-     * @param nodes Node count.
-     * @return List on network addresses.
-     */
-    private static List<NetworkAddress> getNetworkAddresses(int nodes) {
-        List<NetworkAddress> addresses = IntStream.range(PORT, PORT + nodes)
-                .mapToObj(port -> new NetworkAddress("localhost", port))
-                .collect(Collectors.toList());
-        return addresses;
     }
 
     @Test
@@ -350,7 +332,6 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("IGNITE-18958 Implement handling of lease grant responses on placement driver side")
     public void testLeaseAccepted() throws Exception {
         TablePartitionId grpPart0 = createTableAssignment();
 
@@ -358,9 +339,8 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("IGNITE-18958 Implement handling of lease grant responses on placement driver side")
     public void testLeaseForceAccepted() throws Exception {
-        leaseGrantHandler = (req, sender) ->
+        leaseGrantHandler = (req, handler) ->
                 PLACEMENT_DRIVER_MESSAGES_FACTORY
                         .leaseGrantedMessageResponse()
                         .accepted(req.force())
@@ -375,7 +355,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
     public void testExceptionOnAcceptance() throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
 
-        leaseGrantHandler = (req, sender) -> {
+        leaseGrantHandler = (req, handler) -> {
             latch.countDown();
 
             throw new RuntimeException("test");
@@ -393,14 +373,25 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("IGNITE-18958 Implement handling of lease grant responses on placement driver side")
     public void testRedirectionAcceptance() throws Exception {
-        leaseGrantHandler = (req, sender) ->
-                PLACEMENT_DRIVER_MESSAGES_FACTORY
+        AtomicReference<String> redirect = new AtomicReference<>();
+
+        leaseGrantHandler = (req, handler) -> {
+            if (redirect.get() == null) {
+                redirect.set(handler.equals(nodeName) ? anotherNodeName : nodeName);
+
+                return PLACEMENT_DRIVER_MESSAGES_FACTORY
                         .leaseGrantedMessageResponse()
                         .accepted(false)
-                        .redirectProposal(anotherNodeName)
+                        .redirectProposal(redirect.get())
                         .build();
+            } else {
+                return PLACEMENT_DRIVER_MESSAGES_FACTORY
+                        .leaseGrantedMessageResponse()
+                        .accepted(redirect.get().equals(handler))
+                        .build();
+            }
+        };
 
         TablePartitionId grpPart0 = createTableAssignment();
 
@@ -423,8 +414,10 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
     public void testLeaseMatchGrantMessage() throws Exception {
         var leaseGrantReqRef = new AtomicReference<LeaseGrantedMessage>();
 
-        leaseGrantHandler = (req, sender) -> {
+        leaseGrantHandler = (req, handler) -> {
             leaseGrantReqRef.set(req);
+
+            return null;
         };
 
         TablePartitionId grpPart0 = createTableAssignment();
@@ -434,7 +427,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> leaseGrantReqRef.get() != null, 10_000));
 
         assertEquals(leaseGrantReqRef.get().leaseStartTime(), lease.getStartTime());
-        assertEquals(leaseGrantReqRef.get().leaseExpirationTime(), lease.getExpirationTime());
+        assertTrue(leaseGrantReqRef.get().leaseExpirationTime().compareTo(lease.getExpirationTime()) >= 0);
     }
 
     /**
@@ -523,18 +516,32 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
     protected static class LogicalTopologyServiceTestImpl implements LogicalTopologyService {
         private final ClusterService clusterService;
 
+        private List<LogicalTopologyEventListener> listeners;
+
         public LogicalTopologyServiceTestImpl(ClusterService clusterService) {
             this.clusterService = clusterService;
+            this.listeners = new ArrayList<>();
         }
 
         @Override
         public void addEventListener(LogicalTopologyEventListener listener) {
-
+            this.listeners.add(listener);
         }
 
         @Override
         public void removeEventListener(LogicalTopologyEventListener listener) {
+            this.listeners.remove(listener);
+        }
 
+        /**
+         * Updates logical topology to the physical one.
+         */
+        public void updateTopology() {
+            if (listeners != null) {
+                var top = clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet());
+
+                listeners.forEach(lnsr -> lnsr.onTopologyLeap(new LogicalTopologySnapshot(2, top)));
+            }
         }
 
         @Override

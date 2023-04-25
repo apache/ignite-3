@@ -599,6 +599,40 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         }
     }
 
+    /**
+     * DDL is non-transactional.
+     */
+    @Test
+    public void ddlInTransaction() {
+        Session ses = igniteSql().createSession();
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        {
+            Transaction tx = igniteTx().begin();
+            try {
+                assertThrowsWithCause(() -> await(ses.executeAsync(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")),
+                        SqlException.class,
+                        "DDL doesn't support transactions."
+                );
+            } finally {
+                tx.rollback();
+            }
+        }
+        {
+            Transaction tx = igniteTx().begin();
+            AsyncResultSet<SqlRow> res = await(ses.executeAsync(tx, "INSERT INTO TEST VALUES (?, ?)", -1, -1));
+            assertEquals(1, res.affectedRows());
+
+            assertThrowsWithCause(() -> await(ses.executeAsync(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")),
+                    SqlException.class,
+                    "DDL doesn't support transactions."
+            );
+            tx.commit();
+
+            assertEquals(1, sql("SELECT ID FROM TEST WHERE ID = -1").size());
+        }
+    }
+
     @Test
     public void closeSession() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");

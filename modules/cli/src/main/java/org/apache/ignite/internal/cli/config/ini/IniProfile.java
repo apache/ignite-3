@@ -62,31 +62,24 @@ public class IniProfile implements Profile {
     /** {@inheritDoc} */
     @Override
     public String getProperty(String key) {
-        if (CliConfigKeys.secretConfigKeys().contains(key)) {
-            return secretConfig.getProperty(key);
-        } else {
-            return config.getProperty(key);
-        }
+        return getConfig(key).getProperty(key);
     }
 
     /** {@inheritDoc} */
     @Override
     public String getProperty(String key, String defaultValue) {
-        if (CliConfigKeys.secretConfigKeys().contains(key)) {
-            return secretConfig.getProperty(key, defaultValue);
-        } else {
-            return config.getProperty(key, defaultValue);
-        }
+        return getConfig(key).getProperty(key, defaultValue);
     }
 
     /** {@inheritDoc} */
     @Override
     public void setProperty(String key, String value) {
-        if (CliConfigKeys.secretConfigKeys().contains(key)) {
-            secretConfig.setProperty(key, value);
-        } else {
-            config.setProperty(key, value);
-        }
+        getConfig(key).setProperty(key, value);
+    }
+
+    @Override
+    public String removeProperty(String key) {
+        return getConfig(key).removeProperty(key);
     }
 
     /** {@inheritDoc} */
@@ -105,5 +98,9 @@ public class IniProfile implements Profile {
         if (secretConfigValues != null) {
             secretConfig.setProperties(secretConfigValues);
         }
+    }
+
+    private IniConfig getConfig(String key) {
+        return CliConfigKeys.secretConfigKeys().contains(key) ? secretConfig : config;
     }
 }

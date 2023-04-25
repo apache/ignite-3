@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.Collections.emptySet;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
@@ -87,10 +88,12 @@ import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.utils.RebalanceUtil;
+import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -139,7 +142,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
                 Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
-                List.of()
+                List.of(PersistentPageMemoryDataStorageConfigurationSchema.class)
         );
 
         MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
@@ -234,6 +237,11 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
             return ret;
         });
 
+        VaultManager vaultManager = mock(VaultManager.class);
+
+        when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
+        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
+
         tableManager = new TableManager(
                 "node1",
                 (x) -> {},
@@ -254,7 +262,8 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
                 null,
                 null,
                 mock(OutgoingSnapshotsManager.class),
-                mock(TopologyAwareRaftGroupServiceFactory.class)
+                mock(TopologyAwareRaftGroupServiceFactory.class),
+                vaultManager
         );
     }
 

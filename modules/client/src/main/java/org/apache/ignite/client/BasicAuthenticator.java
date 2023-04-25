@@ -61,7 +61,7 @@ public class BasicAuthenticator implements IgniteClientAuthenticator {
     /**
      * Builder.
      */
-    static class Builder {
+    public static class Builder {
         private String username;
         private String password;
 

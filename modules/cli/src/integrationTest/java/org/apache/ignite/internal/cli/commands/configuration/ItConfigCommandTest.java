@@ -47,7 +47,7 @@ class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
     @DisplayName("Should update config with hocon format when valid cluster-endpoint-url is given")
     void addConfigKeyValue() {
         // When update default data storage to rocksdb
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL, "{table: {defaultDataStorage: rocksdb}}");
+        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL, "{zone: {defaultDataStorage: rocksdb}}");
 
         // Then
         assertAll(
@@ -96,7 +96,7 @@ class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
     @DisplayName("Should update config with key-value format when valid cluster-endpoint-url is given")
     void updateConfigWithSpecifiedPath() {
         // When update default data storage to rocksdb
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL, "table.defaultDataStorage=rocksdb");
+        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL, "zone.defaultDataStorage=rocksdb");
 
         // Then
         assertAll(

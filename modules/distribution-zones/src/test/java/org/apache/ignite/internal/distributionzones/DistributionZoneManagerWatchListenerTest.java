@@ -17,193 +17,44 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneLogicalTopologyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZone;
-import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.mockMetaStorageListener;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.configuration.NamedConfigurationTree;
-import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
-import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.EntryEvent;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.metastorage.impl.EntryImpl;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
-import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.schema.configuration.TableChange;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.vault.VaultEntry;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ByteArray;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.metastorage.dsl.Conditions;
+import org.apache.ignite.internal.metastorage.dsl.Operations;
+import org.apache.ignite.lang.NodeStoppingException;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests distribution zones logical topology changes and reaction to that changes.
  */
 //TODO: IGNITE-18564 Add tests with not default distribution zones, when distributionZones.change.trigger per zone will be created.
-public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest {
-    private DistributionZoneManager distributionZoneManager;
-
-    private SimpleInMemoryKeyValueStorage keyValueStorage;
-
-    private ConfigurationManager clusterCfgMgr;
-
-    private LogicalTopology topology;
-
-    private ClusterStateStorage clusterStateStorage;
-
-    private VaultManager vaultMgr;
-
-    private MetaStorageManager metaStorageManager;
-
-    private WatchListener topologyWatchListener;
-
-    private DistributionZonesConfiguration zonesConfiguration;
-
-    private ClusterManagementGroupManager cmgManager;
-
-    private RaftGroupService metaStorageService;
-
-    @BeforeEach
-    public void setUp() {
-        clusterCfgMgr = new ConfigurationManager(
-                List.of(DistributionZonesConfiguration.KEY),
-                Set.of(),
-                new TestConfigurationStorage(DISTRIBUTED),
-                List.of(),
-                List.of()
-        );
-
-        zonesConfiguration = clusterCfgMgr.configurationRegistry()
-                .getConfiguration(DistributionZonesConfiguration.KEY);
-
-        metaStorageManager = mock(MetaStorageManager.class);
-
-        cmgManager = mock(ClusterManagementGroupManager.class);
-
-        clusterStateStorage = new TestClusterStateStorage();
-
-        topology = new LogicalTopologyImpl(clusterStateStorage);
-
-        LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(topology, cmgManager);
-
-        vaultMgr = mock(VaultManager.class);
-
-        TablesConfiguration tablesConfiguration = mock(TablesConfiguration.class);
-
-        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = mock(NamedConfigurationTree.class);
-
-        when(tablesConfiguration.tables()).thenReturn(tables);
-
-        NamedListView<TableView> value = mock(NamedListView.class);
-
-        when(tables.value()).thenReturn(value);
-
-        when(value.namedListKeys()).thenReturn(new ArrayList<>());
-
-        distributionZoneManager = new DistributionZoneManager(
-                zonesConfiguration,
-                tablesConfiguration,
-                metaStorageManager,
-                logicalTopologyService,
-                vaultMgr,
-                "node"
-        );
-
-        clusterCfgMgr.start();
-
-        mockVaultAppliedRevision(1);
-
-        when(vaultMgr.get(zonesLogicalTopologyKey())).thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), null)));
-
-        when(vaultMgr.get(zonesLogicalTopologyVersionKey()))
-                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyVersionKey(), longToBytes(0))));
-
-        when(vaultMgr.put(any(), any())).thenReturn(completedFuture(null));
-
-        doAnswer(invocation -> {
-            ByteArray key = invocation.getArgument(0);
-
-            WatchListener watchListener = invocation.getArgument(1);
-
-            if (Arrays.equals(key.bytes(), zoneLogicalTopologyPrefix().bytes())) {
-                topologyWatchListener = watchListener;
-            }
-
-            return null;
-        }).when(metaStorageManager).registerPrefixWatch(any(), any());
-
-        AtomicLong raftIndex = new AtomicLong();
-
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
-
-        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, mock(ClusterTimeImpl.class));
-
-        metaStorageService = mock(RaftGroupService.class);
-
-        mockMetaStorageListener(raftIndex, metaStorageListener, metaStorageService, metaStorageManager);
-    }
-
-    @AfterEach
-    public void tearDown() throws Exception {
-        vaultMgr.stop();
-
-        distributionZoneManager.stop();
-
-        clusterCfgMgr.stop();
-
-        keyValueStorage.close();
-    }
-
+public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZoneManagerTest {
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testDataNodesOfDefaultZoneUpdatedOnWatchListenerEvent() throws Exception {
-        mockVaultZonesLogicalTopologyKey(Set.of());
+        startDistributionZoneManager();
 
-        mockCmgLocalNodes();
-
-        distributionZoneManager.start();
+        // First invoke happens on distributionZoneManager start.
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
 
         distributionZoneManager.alterZone(
                 DEFAULT_ZONE_NAME,
@@ -216,8 +67,9 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         Set<String> nodes = Set.of("node1", "node2");
 
-        watchListenerOnUpdate(nodes, 2);
+        setLogicalTopologyInMetaStorage(nodes);
 
+        // saveDataNodesToMetaStorageOnScaleUp
         verify(keyValueStorage, timeout(1000).times(3)).invoke(any());
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, nodes, keyValueStorage);
@@ -226,7 +78,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         nodes = Set.of("node1", "node3");
 
-        watchListenerOnUpdate(nodes, 3);
+        setLogicalTopologyInMetaStorage(nodes);
 
         verify(keyValueStorage, timeout(1000).times(4)).invoke(any());
 
@@ -239,7 +91,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         nodes = Collections.emptySet();
 
-        watchListenerOnUpdate(nodes, 4);
+        setLogicalTopologyInMetaStorage(nodes);
 
         verify(keyValueStorage, timeout(1000).times(4)).invoke(any());
 
@@ -253,9 +105,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     void testStaleWatchEvent() throws Exception {
         mockVaultZonesLogicalTopologyKey(Set.of());
 
-        mockCmgLocalNodes();
-
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         distributionZoneManager.alterZone(
                 DEFAULT_ZONE_NAME,
@@ -268,7 +118,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         Set<String> nodes = Set.of("node1", "node2");
 
-        watchListenerOnUpdate(nodes, revision);
+        setLogicalTopologyInMetaStorage(nodes);
 
         // two invokes on start, and invoke for update scale up won't be triggered, because revision == zoneScaleUpChangeTriggerKey
         verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
@@ -286,26 +136,18 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         mockVaultZonesLogicalTopologyKey(nodes);
 
-        mockVaultAppliedRevision(revision);
-
-        mockCmgLocalNodes();
-
         distributionZoneManager.start();
 
-        verify(metaStorageManager, timeout(1000).times(2)).invoke(any());
+        verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, null, keyValueStorage);
     }
 
     @Test
     void testDataNodesUpdatedOnZoneManagerStart() throws InterruptedException {
-        mockVaultAppliedRevision(2);
-
         Set<String> nodes = Set.of("node1", "node2");
 
         mockVaultZonesLogicalTopologyKey(nodes);
-
-        mockCmgLocalNodes();
 
         distributionZoneManager.start();
 
@@ -316,11 +158,6 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
     @Test
     void testLogicalTopologyIsNullOnZoneManagerStart1() {
-        mockCmgLocalNodes();
-
-        when(vaultMgr.get(zonesLogicalTopologyKey()))
-                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), null)));
-
         distributionZoneManager.start();
 
         // 1 invoke because only invoke to zones logical topology happens
@@ -333,30 +170,22 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     private void mockVaultZonesLogicalTopologyKey(Set<String> nodes) {
         byte[] newLogicalTopology = toBytes(nodes);
 
-        when(vaultMgr.get(zonesLogicalTopologyKey()))
-                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), newLogicalTopology)));
+        assertThat(vaultMgr.put(zonesLogicalTopologyKey(), newLogicalTopology), willCompleteSuccessfully());
     }
 
-    private void watchListenerOnUpdate(Set<String> nodes, long rev) {
-        byte[] newTopology = toBytes(nodes);
-        byte[] newTopVer = longToBytes(1L);
+    private void setLogicalTopologyInMetaStorage(Set<String> nodes) {
+        CompletableFuture<Boolean> invokeFuture = metaStorageManager.invoke(
+                Conditions.exists(zonesLogicalTopologyKey()),
+                Operations.put(zonesLogicalTopologyKey(), toBytes(nodes)),
+                Operations.noop()
+        );
 
-        Entry topology = new EntryImpl(zonesLogicalTopologyKey().bytes(), newTopology, rev, 1);
-        Entry topVer = new EntryImpl(zonesLogicalTopologyVersionKey().bytes(), newTopVer, rev, 1);
-
-        EntryEvent topologyEvent = new EntryEvent(null, topology);
-        EntryEvent topVerEvent = new EntryEvent(null, topVer);
-
-        WatchEvent evt = new WatchEvent(List.of(topologyEvent, topVerEvent), rev);
-
-        topologyWatchListener.onUpdate(evt);
+        assertThat(invokeFuture, willBe(true));
     }
 
-    private void mockVaultAppliedRevision(long revision) {
-        when(metaStorageManager.appliedRevision()).thenReturn(revision);
-    }
+    private void startDistributionZoneManager() throws NodeStoppingException {
+        distributionZoneManager.start();
 
-    private void mockCmgLocalNodes() {
-        when(cmgManager.logicalTopology()).thenReturn(completedFuture(topology.getLogicalTopology()));
+        metaStorageManager.deployWatches();
     }
 }

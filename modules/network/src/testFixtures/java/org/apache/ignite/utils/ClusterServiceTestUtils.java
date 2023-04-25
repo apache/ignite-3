@@ -77,6 +77,18 @@ public class ClusterServiceTestUtils {
     public static ClusterService clusterService(TestInfo testInfo, int port, NodeFinder nodeFinder) {
         String nodeName = testNodeName(testInfo, port);
 
+        return clusterService(nodeName, port, nodeFinder);
+    }
+
+    /**
+     * Creates a cluster service with predefined name.
+     *
+     * @param nodeName Node name.
+     * @param port Local port.
+     * @param nodeFinder Node finder.
+     * @return Cluster service instance.
+     */
+    public static ClusterService clusterService(String nodeName, int port, NodeFinder nodeFinder) {
         ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
                 Collections.singleton(NetworkConfiguration.KEY),
                 Set.of(),

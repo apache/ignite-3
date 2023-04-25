@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableMap;
-import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 
 import java.lang.reflect.Field;
 import java.nio.file.Path;
@@ -35,7 +34,6 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,8 +47,8 @@ public class DataStorageModules {
     /**
      * Constructor.
      *
-     * <p>Modules are expected to have a unique {@link DataStorageModule#name} not equal to {@link
-     * UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} and equal to {@link DataStorageConfigurationSchema#name schema name}.
+     * <p>Modules are expected to have a unique {@link DataStorageModule#name}
+     * equal to {@link DataStorageConfigurationSchema#name schema name}.
      *
      * @param dataStorageModules Data storage modules.
      * @throws IllegalStateException If the module is not correct.
@@ -66,14 +64,6 @@ public class DataStorageModules {
                         "Duplicate name [name=%s, factories=%s]",
                         name,
                         List.of(modules.get(name), module)
-                ));
-            }
-
-            if (name.equals(UNKNOWN_DATA_STORAGE)) {
-                throw new IllegalStateException(String.format(
-                        "Invalid name [name=%s, factory=%s]",
-                        name,
-                        module
                 ));
             }
 
@@ -117,7 +107,6 @@ public class DataStorageModules {
     public Map<String, Map<String, Class<?>>> collectSchemasFields(Collection<Class<?>> polymorphicSchemaExtensions) {
         Map<String, Class<? extends DataStorageConfigurationSchema>> schemas = polymorphicSchemaExtensions.stream()
                 .filter(DataStorageConfigurationSchema.class::isAssignableFrom)
-                .filter(not(UnknownDataStorageConfigurationSchema.class::isAssignableFrom))
                 .collect(toUnmodifiableMap(
                         schemaCls -> schemaName((Class<? extends DataStorageConfigurationSchema>) schemaCls),
                         schemaCls -> (Class<? extends DataStorageConfigurationSchema>) schemaCls

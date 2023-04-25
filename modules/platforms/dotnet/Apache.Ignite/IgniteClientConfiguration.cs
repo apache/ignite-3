@@ -87,6 +87,7 @@ namespace Apache.Ignite
             HeartbeatInterval = other.HeartbeatInterval;
             ReconnectInterval = other.ReconnectInterval;
             SslStreamFactory = other.SslStreamFactory;
+            Authenticator = other.Authenticator;
         }
 
         /// <summary>
@@ -169,5 +170,12 @@ namespace Apache.Ignite
         /// See <see cref="SslStreamFactory"/>.
         /// </summary>
         public ISslStreamFactory? SslStreamFactory { get; set; }
+
+        /// <summary>
+        /// Gets or sets the authenticator. When null, no authentication is performed.
+        /// <para />
+        /// See <see cref="BasicAuthenticator"/>.
+        /// </summary>
+        public IAuthenticator? Authenticator { get; set; }
     }
 }

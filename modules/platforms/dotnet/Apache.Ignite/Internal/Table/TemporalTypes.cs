@@ -18,7 +18,7 @@
 namespace Apache.Ignite.Internal.Table;
 
 using System;
-using Proto;
+using Ignite.Sql;
 
 /// <summary>
 /// Temporal type utils.
@@ -26,7 +26,7 @@ using Proto;
 internal static class TemporalTypes
 {
     /// <summary>
-    /// Max <see cref="ClientDataType.Time"/> type precision.
+    /// Max <see cref="ColumnType.Time"/> type precision.
     /// </summary>
     public const int MaxTimePrecision = 9;
 

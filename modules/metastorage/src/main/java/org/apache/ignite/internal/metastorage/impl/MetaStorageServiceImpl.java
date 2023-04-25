@@ -32,6 +32,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndPutAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndPutCommand;
@@ -52,14 +53,12 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
-import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -68,10 +67,10 @@ import org.jetbrains.annotations.Nullable;
 public class MetaStorageServiceImpl implements MetaStorageService {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageService.class);
 
-    private final MetaStorageServiceContext context;
+    /** Default batch size that is requested from the remote server. */
+    public static final int BATCH_SIZE = 1000;
 
-    /** Local node. */
-    private final ClusterNode localNode;
+    private final MetaStorageServiceContext context;
 
     private final ClusterTime clusterTime;
 
@@ -79,31 +78,31 @@ public class MetaStorageServiceImpl implements MetaStorageService {
      * Constructor.
      *
      * @param metaStorageRaftGrpSvc Meta storage raft group service.
-     * @param localNode Local node.
      */
-    public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGrpSvc, IgniteSpinBusyLock busyLock, ClusterNode localNode,
-            ClusterTime clusterTime) {
+    public MetaStorageServiceImpl(
+            String nodeName,
+            RaftGroupService metaStorageRaftGrpSvc,
+            IgniteSpinBusyLock busyLock,
+            ClusterTime clusterTime
+    ) {
         this.context = new MetaStorageServiceContext(
                 metaStorageRaftGrpSvc,
                 new MetaStorageCommandsFactory(),
                 // TODO: Extract the pool size into configuration, see https://issues.apache.org/jira/browse/IGNITE-18735
-                Executors.newFixedThreadPool(5, NamedThreadFactory.create(localNode.name(), "metastorage-publisher", LOG)),
+                Executors.newFixedThreadPool(5, NamedThreadFactory.create(nodeName, "metastorage-publisher", LOG)),
                 busyLock
         );
 
-        this.localNode = localNode;
         this.clusterTime = clusterTime;
     }
 
-    RaftGroupService raftGroupService() {
+    public RaftGroupService raftGroupService() {
         return context.raftService();
     }
 
     @Override
     public CompletableFuture<Entry> get(ByteArray key) {
-        GetCommand getCommand = context.commandsFactory().getCommand().key(key.bytes()).build();
-
-        return context.raftService().run(getCommand);
+        return get(key, MetaStorageManager.LATEST_REVISION);
     }
 
     @Override
@@ -115,10 +114,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys) {
-        GetAllCommand getAllCommand = getAllCommand(context.commandsFactory(), keys, 0);
-
-        return context.raftService().<List<Entry>>run(getAllCommand)
-                .thenApply(MetaStorageServiceImpl::multipleEntryResult);
+        return getAll(keys, MetaStorageManager.LATEST_REVISION);
     }
 
     @Override
@@ -240,7 +236,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     @Override
     public Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones) {
-        return range(keyFrom, keyTo, -1, includeTombstones);
+        return range(keyFrom, keyTo, MetaStorageManager.LATEST_REVISION, includeTombstones);
     }
 
     @Override
@@ -250,29 +246,29 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             long revUpperBound,
             boolean includeTombstones
     ) {
-        Function<IgniteUuid, WriteCommand> createRangeCommand = cursorId -> context.commandsFactory().createRangeCursorCommand()
+        Function<byte[], ReadCommand> getRangeCommand = prevKey -> context.commandsFactory().getRangeCommand()
                 .keyFrom(keyFrom.bytes())
                 .keyTo(keyTo == null ? null : keyTo.bytes())
                 .revUpperBound(revUpperBound)
-                .requesterNodeId(localNode.id())
-                .cursorId(cursorId)
                 .includeTombstones(includeTombstones)
+                .previousKey(prevKey)
+                .batchSize(BATCH_SIZE)
                 .build();
 
-        return new CursorPublisher(context, createRangeCommand);
+        return new CursorPublisher(context, getRangeCommand);
     }
 
     @Override
     public Publisher<Entry> prefix(ByteArray prefix, long revUpperBound) {
-        Function<IgniteUuid, WriteCommand> createPrefixCommand = cursorId -> context.commandsFactory().createPrefixCursorCommand()
+        Function<byte[], ReadCommand> getPrefixCommand = prevKey -> context.commandsFactory().getPrefixCommand()
                 .prefix(prefix.bytes())
                 .revUpperBound(revUpperBound)
-                .requesterNodeId(localNode.id())
-                .cursorId(cursorId)
                 .includeTombstones(false)
+                .previousKey(prevKey)
+                .batchSize(BATCH_SIZE)
                 .build();
 
-        return new CursorPublisher(context, createPrefixCommand);
+        return new CursorPublisher(context, getPrefixCommand);
     }
 
     /**
@@ -294,11 +290,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     @Override
     public CompletableFuture<Void> compact() {
         throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public CompletableFuture<Void> closeCursors(String nodeId) {
-        return context.raftService().run(context.commandsFactory().closeAllCursorsCommand().nodeId(nodeId).build());
     }
 
     @Override

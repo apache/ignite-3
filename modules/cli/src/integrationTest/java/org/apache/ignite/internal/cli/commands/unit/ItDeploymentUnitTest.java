@@ -24,10 +24,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Integration test for deployment commands. */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-19139")
 public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBase {
 
     private String testFile;

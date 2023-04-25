@@ -63,7 +63,7 @@ class ItConnectToClusterTest extends ItConnectToClusterTestBase {
         assertThat(promptBefore).isEqualTo("[disconnected]> ");
 
         // And last connected URL is not equal to the default URL
-        configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlNonDefault());
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlNonDefaultConfig());
         stateConfigProvider.config = TestStateConfigHelper.createLastConnectedDefault();
 
         // And answer to both questions is "y"

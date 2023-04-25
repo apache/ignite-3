@@ -107,8 +107,6 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
 
     /**
      * Returns a new hybrid timestamp with incremented logical component.
-     *
-     * @return The hybrid timestamp.
      */
     public HybridTimestamp addTicks(int ticks) {
         return new HybridTimestamp(physical, this.logical + ticks);
@@ -186,5 +184,12 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     @Override
     public String toString() {
         return S.toString(HybridTimestamp.class, this);
+    }
+
+    /**
+     * Returns a new hybrid timestamp with incremented physical component.
+     */
+    public HybridTimestamp addPhysicalTime(long mills) {
+        return new HybridTimestamp(physical + mills, logical);
     }
 }

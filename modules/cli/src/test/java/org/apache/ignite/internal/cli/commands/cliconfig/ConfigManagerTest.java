@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 class ConfigManagerTest {
     @Test
     public void testSaveLoadConfig() {
-        File tempFile = TestConfigManagerHelper.createSectionWithDefaultProfile();
+        File tempFile = TestConfigManagerHelper.createSectionWithDefaultProfileConfig();
         File tempSecretFile = TestConfigManagerHelper.createEmptySecretConfig();
         IniConfigManager configManager = new IniConfigManager(tempFile, tempSecretFile);
 
@@ -38,7 +38,7 @@ class ConfigManagerTest {
 
     @Test
     public void testLoadConfigWithoutDefaultProfile() {
-        File tempFile = TestConfigManagerHelper.createSectionWithoutDefaultProfile();
+        File tempFile = TestConfigManagerHelper.createSectionWithoutDefaultProfileConfig();
         File tempSecretFile = TestConfigManagerHelper.createEmptySecretConfig();
         IniConfigManager configManager = new IniConfigManager(tempFile, tempSecretFile);
 
@@ -58,7 +58,7 @@ class ConfigManagerTest {
 
     @Test
     public void testRemoveConfigFileOnRuntime() {
-        File tempFile = TestConfigManagerHelper.createSectionWithDefaultProfile();
+        File tempFile = TestConfigManagerHelper.createSectionWithDefaultProfileConfig();
         File tempSecretFile = TestConfigManagerHelper.createEmptySecretConfig();
         IniConfigManager configManager = new IniConfigManager(tempFile, tempSecretFile);
 
@@ -74,5 +74,17 @@ class ConfigManagerTest {
         assertThat(tempFile.exists()).isTrue();
         assertThat(configManager.getCurrentProfile().getProperty("test")).isEqualTo("testValue");
         assertThat(configManager.getCurrentProfile().getName()).isEqualTo("database");
+    }
+
+    @Test
+    public void testRemoveProperty() {
+        File tempFile = TestConfigManagerHelper.createSectionWithDefaultProfileConfig();
+        File tempSecretFile = TestConfigManagerHelper.createEmptySecretConfig();
+        IniConfigManager configManager = new IniConfigManager(tempFile, tempSecretFile);
+
+        assertThat(configManager.removeProperty("server", configManager.getCurrentProfile().getName())).isEqualTo("127.0.0.1");
+
+        assertThat(tempFile.exists()).isTrue();
+        assertThat(configManager.getCurrentProfile().getProperty("server")).isNull();
     }
 }

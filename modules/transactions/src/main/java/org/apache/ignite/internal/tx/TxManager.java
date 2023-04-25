@@ -24,7 +24,9 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -46,6 +48,8 @@ public interface TxManager extends IgniteComponent {
      * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
      *      Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
      * @return The started transaction.
+     * @throws IgniteInternalException with {@link Transactions#TX_READ_ONLY_TOO_OLD_ERR} if transaction much older than the data available
+     *      in the tables.
      */
     InternalTransaction begin(boolean readOnly);
 
@@ -124,4 +128,14 @@ public interface TxManager extends IgniteComponent {
      */
     @TestOnly
     int finished();
+
+    /**
+     * Updates the low watermark, the value is expected to only increase.
+     *
+     * <p>All new read-only transactions will need to be created with a read time greater than this value.
+     *
+     * @param newLowWatermark New low watermark.
+     * @return Future of all read-only transactions with read timestamp less or equals the given new low watermark.
+     */
+    CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark);
 }

@@ -17,15 +17,12 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.lang.IgniteUuidGenerator;
+import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.lang.NodeStoppingException;
 
 /**
@@ -34,11 +31,9 @@ import org.apache.ignite.lang.NodeStoppingException;
  * @see CursorSubscription
  */
 class CursorPublisher implements Publisher<Entry> {
-    private static final IgniteUuidGenerator UUID_GENERATOR = new IgniteUuidGenerator(UUID.randomUUID(), 0);
-
     private final MetaStorageServiceContext context;
 
-    private final Function<IgniteUuid, WriteCommand> createCursorSupplier;
+    private final Function<byte[], ReadCommand> nextBatchCommandSupplier;
 
     private final AtomicBoolean subscriptionGuard = new AtomicBoolean();
 
@@ -46,11 +41,12 @@ class CursorPublisher implements Publisher<Entry> {
      * Creates a new publisher instance.
      *
      * @param context Context.
-     * @param createCursorSupplier Factory that creates a remote Meta Storage cursor (provided with a cursor ID).
+     * @param nextBatchCommandSupplier Factory that creates a command for retrieving the next batch of values provided with the last
+     *         processed key for pagination purposes.
      */
-    CursorPublisher(MetaStorageServiceContext context, Function<IgniteUuid, WriteCommand> createCursorSupplier) {
+    CursorPublisher(MetaStorageServiceContext context, Function<byte[], ReadCommand> nextBatchCommandSupplier) {
         this.context = context;
-        this.createCursorSupplier = createCursorSupplier;
+        this.nextBatchCommandSupplier = nextBatchCommandSupplier;
     }
 
     @Override
@@ -66,30 +62,9 @@ class CursorPublisher implements Publisher<Entry> {
         }
 
         try {
-            IgniteUuid cursorId = UUID_GENERATOR.randomUuid();
+            var subscription = new CursorSubscription(context, nextBatchCommandSupplier, subscriber);
 
-            WriteCommand createCursorCommand = createCursorSupplier.apply(cursorId);
-
-            context.raftService().run(createCursorCommand)
-                    .whenCompleteAsync((v, e) -> {
-                        if (!context.busyLock().enterBusy()) {
-                            subscriber.onError(new NodeStoppingException());
-
-                            return;
-                        }
-
-                        try {
-                            if (e == null) {
-                                var subscription = new CursorSubscription(context, cursorId, subscriber);
-
-                                subscriber.onSubscribe(subscription);
-                            } else {
-                                subscriber.onError(e);
-                            }
-                        } finally {
-                            context.busyLock().leaveBusy();
-                        }
-                    }, context.executorService());
+            subscriber.onSubscribe(subscription);
         } finally {
             context.busyLock().leaveBusy();
         }

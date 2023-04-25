@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.table;
 
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.client.proto.ClientColumnTypeConverter;
 import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.NotNull;
@@ -61,7 +60,7 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
     protected ColumnType schemaColumnType(int columnIndex) {
         ClientColumn column = schema.columns()[columnIndex];
 
-        return ClientColumnTypeConverter.clientDataTypeToSqlColumnType(column.type());
+        return column.type();
     }
 
     @Override
