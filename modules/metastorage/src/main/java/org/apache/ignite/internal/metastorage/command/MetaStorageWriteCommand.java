@@ -48,16 +48,16 @@ public interface MetaStorageWriteCommand extends WriteCommand {
     long safeTimeLong();
 
     /**
-     * Convenient getter for {@link #safeTimeLong()}.
-     */
-    default HybridTimestamp safeTime() {
-        return HybridTimestamp.of(safeTimeLong());
-    }
-
-    /**
      * Setter for the safeTime field.
      */
     default void safeTimeLong(long safeTime) {
         // No-op.
+    }
+
+    /**
+     * Convenient getter for {@link #safeTimeLong()}.
+     */
+    default HybridTimestamp safeTime() {
+        return HybridTimestamp.of(safeTimeLong());
     }
 }
