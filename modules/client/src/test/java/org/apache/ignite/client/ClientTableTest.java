@@ -32,6 +32,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
@@ -143,7 +144,11 @@ public class ClientTableTest extends AbstractClientTableTest {
     @Test
     public void testOperationWithoutTupleResultRequestsNewSchemaWhenAvailable() throws Exception {
         // TODO: All operations
-        checkSchemaUpdate(recordView -> recordView.upsert(null, tuple(12345L)));
+        AtomicLong idGen = new AtomicLong(1000L);
+
+        checkSchemaUpdate(recordView -> recordView.upsert(null, tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.upsertAll(null, List.of(tuple(idGen.incrementAndGet()))));
+        checkSchemaUpdate(recordView -> recordView.getAndUpsert(null, tuple(idGen.incrementAndGet())));
     }
 
     @Test
