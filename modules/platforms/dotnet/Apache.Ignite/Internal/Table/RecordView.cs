@@ -110,7 +110,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleContainsKey, transaction, key, keyOnly: true).ConfigureAwait(false);
-            return resBuf.GetReader().ReadBoolean();
+            return ReadSchemaAndBoolean(resBuf);
         }
 
         /// <inheritdoc/>
@@ -214,7 +214,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleInsert, transaction, record).ConfigureAwait(false);
-            return resBuf.GetReader().ReadBoolean();
+            return ReadSchemaAndBoolean(resBuf);
         }
 
         /// <inheritdoc/>
@@ -256,7 +256,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleReplace, transaction, record).ConfigureAwait(false);
-            return resBuf.GetReader().ReadBoolean();
+            return ReadSchemaAndBoolean(resBuf);
         }
 
         /// <inheritdoc/>
@@ -272,7 +272,7 @@ namespace Apache.Ignite.Internal.Table
             var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
 
             using var resBuf = await DoOutInOpAsync(ClientOp.TupleReplaceExact, tx, writer, preferredNode).ConfigureAwait(false);
-            return resBuf.GetReader().ReadBoolean();
+            return ReadSchemaAndBoolean(resBuf);
         }
 
         /// <inheritdoc/>
@@ -292,7 +292,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleDelete, transaction, key, keyOnly: true).ConfigureAwait(false);
-            return resBuf.GetReader().ReadBoolean();
+            return ReadSchemaAndBoolean(resBuf);
         }
 
         /// <inheritdoc/>
@@ -301,7 +301,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleDeleteExact, transaction, record).ConfigureAwait(false);
-            return resBuf.GetReader().ReadBoolean();
+            return ReadSchemaAndBoolean(resBuf);
         }
 
         /// <inheritdoc/>
@@ -396,6 +396,16 @@ namespace Apache.Ignite.Internal.Table
                 keyOnly: !exact,
                 resultFactory: resultFactory,
                 addAction: addAction);
+        }
+
+        private static bool ReadSchemaAndBoolean(PooledBuffer buf)
+        {
+            var reader = buf.GetReader();
+
+            // TODO IGNITE-19242: Retrieve new schema when necessary.
+            _ = reader.ReadInt32();
+
+            return reader.ReadBoolean();
         }
 
         private async Task<PooledBuffer> DoOutInOpAsync(
