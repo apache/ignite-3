@@ -668,7 +668,6 @@ public abstract class QueryChecker {
      * Updates an SQL query string to include hints for the optimizer to disable certain rules.
      */
     private static final class AddDisabledRulesTemplate implements QueryTemplate {
-        private static final Pattern SELECT_REGEXP = Pattern.compile("(?i)^select");
         private static final Pattern SELECT_QRY_CHECK = Pattern.compile("(?i)^select .*");
 
         private final QueryTemplate input;
@@ -694,8 +693,8 @@ public abstract class QueryChecker {
 
                 assert SELECT_QRY_CHECK.matcher(qry).matches() : "SELECT query was expected: " + originalQuery + ". Updated: " + qry;
 
-                return SELECT_REGEXP.matcher(qry).replaceAll("select "
-                        + Hints.DISABLE_RULE.toHint(disabledRules.toArray(ArrayUtils.STRING_EMPTY_ARRAY)));
+                return qry.replaceAll("(?i)^select", "select " +
+                        Hints.DISABLE_RULE.toHint(disabledRules.toArray(ArrayUtils.STRING_EMPTY_ARRAY)));
             } else {
                 return qry;
             }

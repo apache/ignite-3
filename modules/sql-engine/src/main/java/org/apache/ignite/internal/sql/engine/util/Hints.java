@@ -112,7 +112,7 @@ public enum Hints {
      * @return String representation of a hint.
      */
     public String toHint() {
-        return "/*+ " + name() + " /*";
+        return "/*+ " + name() + " */";
     }
 
     /**
@@ -122,7 +122,7 @@ public enum Hints {
      */
     public String toHint(String... params) {
         assert paramSupport;
-        StringJoiner joiner = new StringJoiner(",", "/*+ " + name() + "(", ") /*");
+        StringJoiner joiner = new StringJoiner(",", "/*+ " + name() + "(", ") */");
         Arrays.stream(params).forEach(p -> joiner.add("'" + p + "'"));
 
         return joiner.toString();
