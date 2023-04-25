@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
-import static java.util.stream.Collectors.toList;
-
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -314,7 +312,7 @@ public class OutgoingSnapshot {
 
     @Nullable
     private SnapshotMvDataResponse.ResponseEntry rowEntry(RowId rowId) {
-        List<ReadResult> rowVersionsN2O = readRowVersionsN2O(rowId);
+        List<ReadResult> rowVersionsN2O = partition.getAllRowVersions(rowId);
 
         if (rowVersionsN2O.isEmpty()) {
             return null;
@@ -349,12 +347,6 @@ public class OutgoingSnapshot {
                 .commitTableId(commitTableId)
                 .commitPartitionId(commitPartitionId)
                 .build();
-    }
-
-    private List<ReadResult> readRowVersionsN2O(RowId rowId) {
-        try (Cursor<ReadResult> versions = partition.getAllRowVersions(rowId)) {
-            return versions.stream().collect(toList());
-        }
     }
 
     /**

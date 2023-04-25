@@ -456,7 +456,7 @@ public class PartitionListener implements RaftGroupListener {
 
         storage.runConsistently(locker -> {
             //TODO Assert order?
-            cmd.rowIds().stream().map(uuid -> new RowId(cmd.tablePartitionId().partitionId(), uuid)).forEach(locker::lock);
+            cmd.rowIds().stream().map(uuid -> new RowId(storageUpdateHandler.partitionId(), uuid)).forEach(locker::lock);
 
             storageUpdateHandler.buildIndex(cmd.indexId(), cmd.rowIds(), cmd.finish());
 

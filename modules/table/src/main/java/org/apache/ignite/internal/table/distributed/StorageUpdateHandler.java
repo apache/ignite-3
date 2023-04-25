@@ -82,6 +82,13 @@ public class StorageUpdateHandler {
     }
 
     /**
+     * Returns partition ID of the storage.
+     */
+    public int partitionId() {
+        return partitionId;
+    }
+
+    /**
      * Handles single update.
      *
      * @param txId Transaction id.

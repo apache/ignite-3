@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.util;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.RowId;
@@ -60,7 +61,7 @@ public class LocalLocker implements Locker {
     }
 
     public boolean isLocked(RowId rowId) {
-        return rowId == locked || (locked instanceof Set) && ((Set<?>) locked).contains(rowId);
+        return Objects.equals(rowId, locked) || (locked instanceof Set) && ((Set<?>) locked).contains(rowId);
     }
 
     /**

@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import static java.util.stream.Collectors.toList;
+
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -106,8 +109,16 @@ public class PartitionAccessImpl implements PartitionAccess {
     }
 
     @Override
-    public Cursor<ReadResult> getAllRowVersions(RowId rowId) {
-        return getMvPartitionStorage(partitionId()).scanVersions(rowId);
+    public List<ReadResult> getAllRowVersions(RowId rowId) {
+        MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
+
+        return mvPartitionStorage.runConsistently(locker -> {
+            locker.lock(rowId);
+
+            try (Cursor<ReadResult> cursor = mvPartitionStorage.scanVersions(rowId)) {
+                return cursor.stream().collect(toList());
+            }
+        });
     }
 
     @Override
