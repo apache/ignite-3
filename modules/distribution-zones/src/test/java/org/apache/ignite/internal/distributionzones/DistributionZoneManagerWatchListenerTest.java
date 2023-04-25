@@ -40,7 +40,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -132,7 +131,7 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
     }
 
     @Test
-    void testStaleVaultRevisionOnZoneManagerStart() throws InterruptedException {
+    void testStaleVaultRevisionOnZoneManagerStart() throws Exception {
         long revision = 100;
 
         keyValueStorage.put(zonesChangeTriggerKey(DEFAULT_ZONE_ID).bytes(), longToBytes(revision));
@@ -141,7 +140,7 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
 
         mockVaultZonesLogicalTopologyKey(nodes);
 
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
 
@@ -149,12 +148,12 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
     }
 
     @Test
-    void testDataNodesUpdatedOnZoneManagerStart() throws InterruptedException {
+    void testDataNodesUpdatedOnZoneManagerStart() throws Exception {
         Set<String> nodes = Set.of("node1", "node2");
 
         mockVaultZonesLogicalTopologyKey(nodes);
 
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
 
@@ -188,9 +187,9 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
         assertThat(invokeFuture, willBe(true));
     }
 
-    private void startDistributionZoneManager() throws NodeStoppingException {
-        distributionZoneManager.start();
+    private void startDistributionZoneManager() throws Exception {
+        deployWatchesAndUpdateMetaStorageRevision();
 
-        metaStorageManager.deployWatches();
+        distributionZoneManager.start();
     }
 }

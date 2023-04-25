@@ -1184,6 +1184,8 @@ public class DistributionZoneManager implements IgniteComponent {
             VaultEntry topologyEntry = vaultMgr.get(zonesLogicalTopologyKey()).join();
 
             if (topologyEntry != null && topologyEntry.value() != null) {
+                assert  appliedRevision > 0 : "The meta storage last applied revision is 0 but the logical topology is not null.";
+
                 logicalTopology = fromBytes(topologyEntry.value());
 
                 // init keys and data nodes for default zone

@@ -62,7 +62,6 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -1379,10 +1378,10 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         ));
     }
 
-    private void startDistributionZoneManager() throws NodeStoppingException {
-        distributionZoneManager.start();
+    private void startDistributionZoneManager() throws Exception {
+        deployWatchesAndUpdateMetaStorageRevision();
 
-        metaStorageManager.deployWatches();
+        distributionZoneManager.start();
     }
 
     private void setLogicalTopologyInMetaStorage(Set<String> nodes) {
