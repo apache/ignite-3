@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
@@ -29,8 +31,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.NoSuchElementException;
 import java.util.OptionalLong;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
@@ -54,11 +56,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     /** Lexicographical comparator. */
     private static final Comparator<byte[]> CMP = Arrays::compareUnsigned;
-
-    /**
-     * Special value for revision number which means that operation should be applied to the latest revision of an entry.
-     */
-    private static final long LATEST_REV = -1;
 
     /** Keys index. Value is the list of all revisions under which entry corresponding to the key was modified. */
     private NavigableMap<byte[], List<Long>> keysIdx = new TreeMap<>(CMP);
@@ -85,13 +82,11 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         this.watchProcessor = new WatchProcessor(nodeName, this::get);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() {
         // no-op
     }
 
-    /** {@inheritDoc} */
     @Override
     public long revision() {
         synchronized (mux) {
@@ -99,7 +94,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public long updateCounter() {
         synchronized (mux) {
@@ -107,7 +101,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void put(byte[] key, byte[] value) {
         synchronized (mux) {
@@ -125,7 +118,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         notifyWatches();
     }
 
-    /** {@inheritDoc} */
     @Override
     public Entry getAndPut(byte[] key, byte[] bytes) {
         synchronized (mux) {
@@ -140,7 +132,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void putAll(List<byte[]> keys, List<byte[]> values) {
         synchronized (mux) {
@@ -150,7 +141,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public Collection<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values) {
         Collection<Entry> res;
@@ -166,15 +156,13 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         return res;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Entry get(byte[] key) {
         synchronized (mux) {
-            return doGet(key, LATEST_REV);
+            return doGet(key, rev);
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public Entry get(byte[] key, long revUpperBound) {
         synchronized (mux) {
@@ -182,19 +170,20 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public Collection<Entry> getAll(List<byte[]> keys) {
-        return doGetAll(keys, LATEST_REV);
+        synchronized (mux) {
+            return doGetAll(keys, rev);
+        }
     }
 
-    /** {@inheritDoc} */
     @Override
     public Collection<Entry> getAll(List<byte[]> keys, long revUpperBound) {
-        return doGetAll(keys, revUpperBound);
+        synchronized (mux) {
+            return doGetAll(keys, revUpperBound);
+        }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void remove(byte[] key) {
         synchronized (mux) {
@@ -206,11 +195,10 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public Entry getAndRemove(byte[] key) {
         synchronized (mux) {
-            Entry e = doGet(key, LATEST_REV);
+            Entry e = doGet(key, rev);
 
             if (e.empty() || e.tombstone()) {
                 return e;
@@ -220,7 +208,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void removeAll(List<byte[]> keys) {
         synchronized (mux) {
@@ -231,7 +218,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             List<byte[]> vals = new ArrayList<>(keys.size());
 
             for (byte[] key : keys) {
-                Entry e = doGet(key, LATEST_REV);
+                Entry e = doGet(key, rev);
 
                 if (e.empty() || e.tombstone()) {
                     continue;
@@ -246,7 +233,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public Collection<Entry> getAndRemoveAll(List<byte[]> keys) {
         Collection<Entry> res = new ArrayList<>(keys.size());
@@ -259,7 +245,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             List<byte[]> vals = new ArrayList<>(keys.size());
 
             for (byte[] key : keys) {
-                Entry e = doGet(key, LATEST_REV);
+                Entry e = doGet(key, rev);
 
                 res.add(e);
 
@@ -278,7 +264,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         return res;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure) {
         synchronized (mux) {
@@ -371,35 +356,37 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, boolean includeTombstones) {
-        long currentRevision;
-
+    public Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo) {
         synchronized (mux) {
-            currentRevision = rev;
+            return range(keyFrom, keyTo, rev);
         }
-
-        return range(keyFrom, keyTo, currentRevision, includeTombstones);
     }
 
     @Override
-    public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound, boolean includeTombstones) {
-        return new RangeCursor(keyFrom, keyTo, revUpperBound, includeTombstones);
-    }
-
-    @Override
-    public Cursor<Entry> prefix(byte[] prefix, boolean includeTombstones) {
-        long currentRevision;
-
+    public Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo, long revUpperBound) {
         synchronized (mux) {
-            currentRevision = rev;
-        }
+            SortedMap<byte[], List<Long>> subMap = keyTo == null
+                    ? keysIdx.tailMap(keyFrom)
+                    : keysIdx.subMap(keyFrom, keyTo);
 
-        return prefix(prefix, currentRevision, includeTombstones);
+            return subMap.entrySet().stream()
+                    .map(e -> {
+                        long targetRevision = maxRevision(e.getValue(), revUpperBound);
+
+                        if (targetRevision == -1) {
+                            return EntryImpl.empty(e.getKey());
+                        }
+
+                        return doGetValue(e.getKey(), targetRevision);
+                    })
+                    .filter(e -> !e.empty())
+                    .collect(collectingAndThen(toList(), Cursor::fromIterable));
+        }
     }
 
     @Override
-    public Cursor<Entry> prefix(byte[] prefix, long revUpperBound, boolean includeTombstones) {
-        return new RangeCursor(prefix, incrementPrefix(prefix), revUpperBound, includeTombstones);
+    public byte @Nullable [] nextKey(byte[] key) {
+        return incrementPrefix(key);
     }
 
     @Override
@@ -412,11 +399,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                 : k -> CMP.compare(keyFrom, k) <= 0 && CMP.compare(keyTo, k) > 0;
 
         watchProcessor.addWatch(new Watch(rev, listener, rangePredicate));
-    }
-
-    @Override
-    public void watchPrefix(byte[] prefix, long rev, WatchListener listener) {
-        watchRange(prefix, incrementPrefix(prefix), rev, listener);
     }
 
     @Override
@@ -521,7 +503,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     private boolean doRemove(byte[] key, long curRev) {
-        Entry e = doGet(key, LATEST_REV);
+        Entry e = doGet(key, curRev);
 
         if (e.empty() || e.tombstone()) {
             return false;
@@ -559,21 +541,19 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     private Collection<Entry> doGetAll(List<byte[]> keys, long rev) {
         assert keys != null : "keys list can't be null.";
         assert !keys.isEmpty() : "keys list can't be empty.";
-        assert rev > 0 || rev == LATEST_REV : "Revision must be positive or " + LATEST_REV + '.';
+        assert rev >= 0;
 
         Collection<Entry> res = new ArrayList<>(keys.size());
 
-        synchronized (mux) {
-            for (byte[] key : keys) {
-                res.add(doGet(key, rev));
-            }
+        for (byte[] key : keys) {
+            res.add(doGet(key, rev));
         }
 
         return res;
     }
 
     private Entry doGet(byte[] key, long revUpperBound) {
-        assert revUpperBound >= LATEST_REV : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
+        assert revUpperBound >= 0 : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
 
         List<Long> revs = keysIdx.get(key);
 
@@ -581,13 +561,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             return EntryImpl.empty(key);
         }
 
-        long lastRev;
-
-        if (revUpperBound == LATEST_REV) {
-            lastRev = lastRevision(revs);
-        } else {
-            lastRev = maxRevision(revs, revUpperBound);
-        }
+        long lastRev = maxRevision(revs, revUpperBound);
 
         // lastRev can be -1 if maxRevision return -1.
         if (lastRev == -1) {
@@ -714,120 +688,5 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         res.add(val);
 
         return res;
-    }
-
-    /**
-     * Extension of {@link Cursor}.
-     */
-    private class RangeCursor implements Cursor<Entry> {
-        private final byte[] keyFrom;
-
-        private final byte @Nullable [] keyTo;
-
-        private final long rev;
-
-        @Nullable
-        private Entry nextRetEntry;
-
-        private byte[] lastRetKey;
-
-        private final boolean includeTombstones;
-
-        private boolean finished;
-
-        RangeCursor(byte[] keyFrom, byte @Nullable [] keyTo, long rev, boolean includeTombstones) {
-            this.keyFrom = keyFrom;
-            this.keyTo = keyTo;
-            this.rev = rev;
-            this.includeTombstones = includeTombstones;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean hasNext() {
-            synchronized (mux) {
-                while (true) {
-                    if (finished) {
-                        return false;
-                    }
-
-                    if (nextRetEntry != null) {
-                        return true;
-                    }
-
-                    byte[] key = lastRetKey;
-
-                    while (!finished || nextRetEntry == null) {
-                        Map.Entry<byte[], List<Long>> e =
-                                key == null ? keysIdx.ceilingEntry(keyFrom) : keysIdx.higherEntry(key);
-
-                        if (e == null) {
-                            finished = true;
-
-                            break;
-                        }
-
-                        key = e.getKey();
-
-                        if (keyTo != null && CMP.compare(key, keyTo) >= 0) {
-                            finished = true;
-
-                            break;
-                        }
-
-                        List<Long> revs = e.getValue();
-
-                        assert revs != null && !revs.isEmpty() :
-                                "Revisions should not be empty or null: [revs=" + revs + ']';
-
-                        long lastRev = maxRevision(revs, rev);
-
-                        if (lastRev == -1) {
-                            continue;
-                        }
-
-                        Entry entry = doGetValue(key, lastRev);
-
-                        if (!entry.tombstone() || includeTombstones) {
-                            assert !entry.empty() : "Iterator should not return empty entry.";
-
-                            nextRetEntry = entry;
-
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Entry next() {
-            synchronized (mux) {
-                while (true) {
-                    if (finished) {
-                        throw new NoSuchElementException();
-                    }
-
-                    if (nextRetEntry != null) {
-                        Entry e = nextRetEntry;
-
-                        nextRetEntry = null;
-
-                        lastRetKey = e.key();
-
-                        return e;
-                    } else {
-                        hasNext();
-                    }
-                }
-            }
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void close() {
-            // No-op.
-        }
     }
 }

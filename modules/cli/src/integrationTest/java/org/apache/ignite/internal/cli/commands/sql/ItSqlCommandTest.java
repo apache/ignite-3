@@ -20,28 +20,13 @@ package org.apache.ignite.internal.cli.commands.sql;
 import static org.apache.ignite.internal.cli.core.exception.handler.SqlExceptionHandler.CLIENT_CONNECTION_FAILED_MESSAGE;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Tests for {@link SqlCommand}.
  */
-class ItSqlCommandTest extends CliCommandTestInitializedIntegrationBase {
-    @BeforeEach
-    @Override
-    public void setUp(TestInfo testInfo) throws Exception {
-        super.setUp(testInfo);
-        createAndPopulateTable();
-    }
-
-    @AfterEach
-    void tearDown() {
-        dropAllTables();
-    }
+class ItSqlCommandTest extends CliSqlCommandTestBase {
 
     @Test
     @DisplayName("Should throw error if executed with non-existing file")
@@ -92,14 +77,14 @@ class ItSqlCommandTest extends CliCommandTestInitializedIntegrationBase {
     }
 
     @Test
-    @DisplayName("Should display readable error when wrong engine is given on CREATE TABLE")
+    @DisplayName("Should display readable error when wrong option is given on CREATE TABLE")
     void incorrectEngineOnCreate() {
-        execute("sql", "create table mytable1(i int, j int, primary key (i)) with engine='nusuch'", "--jdbc-url", JDBC_URL);
+        execute("sql", "create table mytable1(i int, j int, primary key (i)) with notexist='nusuch'", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Unexpected table option [option=ENGINE")
+                () -> assertErrOutputContains("Unexpected table option [option=NOTEXIST")
         );
     }
 

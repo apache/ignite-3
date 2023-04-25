@@ -65,7 +65,6 @@ import org.apache.ignite.internal.cli.commands.unit.UnitStatusCommand;
 import org.apache.ignite.internal.cli.commands.unit.UnitStatusReplCommand;
 import org.apache.ignite.internal.cli.commands.unit.UnitUndeployCommand;
 import org.apache.ignite.internal.cli.commands.unit.UnitUndeployReplCommand;
-import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
@@ -104,7 +103,7 @@ public class UrlOptionsNegativeTest {
     NodeNameRegistry nodeNameRegistry;
 
     private void setUp(Class<?> cmdClass) {
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithDefaultProfile());
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createSectionWithDefaultProfileConfig());
         MicronautFactory factory = new MicronautFactory(context);
         cmd = new CommandLine(cmdClass, factory)
                 .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
@@ -287,7 +286,7 @@ public class UrlOptionsNegativeTest {
 
     @Test
     void testConnectCommandWithoutParametersWithEmptyConfig() {
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createEmptyConfig());
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createEmptyConfig());
         setUp(ConnectReplCommand.class);
         cmd.execute();
 

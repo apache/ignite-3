@@ -106,7 +106,7 @@ public class TxLocalTest extends TxAbstractTest {
         tables.put(table2.groupId(), table2);
     }
 
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15928")
     @Override
     public void testScan() throws InterruptedException {
         // TODO asch IGNITE-15928 implement local scan

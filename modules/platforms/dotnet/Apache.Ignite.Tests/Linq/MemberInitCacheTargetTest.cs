@@ -106,6 +106,8 @@ public class MemberInitCacheTargetTest
             // No-op.
         }
 
+        // ReSharper disable once UnusedMember.Local
+        // ReSharper disable once UnusedParameter.Local
         public TestClass(int i)
         {
             // No-op.

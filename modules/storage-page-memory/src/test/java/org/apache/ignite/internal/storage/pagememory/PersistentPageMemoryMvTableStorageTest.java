@@ -44,11 +44,9 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
             Path workDir,
             @InjectConfiguration
             PersistentPageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration(
-                    "mock.tables.foo{dataStorage.name = " + PersistentPageMemoryStorageEngine.ENGINE_NAME + "}"
-            )
+            @InjectConfiguration("mock.tables.foo {}")
             TablesConfiguration tablesConfig,
-            @InjectConfiguration("mock.partitions = 512")
+            @InjectConfiguration("mock { partitions = 512, dataStorage.name = " + PersistentPageMemoryStorageEngine.ENGINE_NAME + " }")
             DistributionZoneConfiguration distributionZoneConfiguration
 
     ) {

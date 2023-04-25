@@ -33,14 +33,16 @@ class CliConfigShowCommandTest extends CliConfigCommandTestBase {
     void noKey() {
         execute();
 
-        String expectedResult = "[database]" + System.lineSeparator()
-                + "server=127.0.0.1" + System.lineSeparator()
-                + "port=8080" + System.lineSeparator()
-                + "file=\"apache.ignite\"" + System.lineSeparator();
+        String[] expectedResult = {
+                "[database]" + System.lineSeparator(),
+                "server=127.0.0.1" + System.lineSeparator(),
+                "port=8080" + System.lineSeparator(),
+                "file=\"apache.ignite\"" + System.lineSeparator()
+        };
 
         assertAll(
                 this::assertExitCodeIsZero,
-                () -> assertOutputIs(expectedResult),
+                () -> assertOutputContains(expectedResult),
                 this::assertErrOutputIsEmpty
         );
     }

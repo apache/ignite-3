@@ -79,7 +79,7 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
         TableConfiguration tableConfig = tablesConfig.tables().get("foo");
 
         assertThat(
-                tableConfig.dataStorage().change(dataStorageChange -> dataStorageChange.convert(storageEngine.name())),
+                distributionZoneConfig.dataStorage().change(dataStorageChange -> dataStorageChange.convert(storageEngine.name())),
                 willCompleteSuccessfully()
         );
 
@@ -95,7 +95,7 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
                 PARTITION_ID,
                 partitionDataStorage,
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
-                tableConfig.dataStorage()
+                distributionZoneConfig.dataStorage()
         );
     }
 

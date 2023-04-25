@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage;
 import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
@@ -55,7 +55,7 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
 
     protected @InjectConfiguration("mock.tables.foo = {}") TablesConfiguration tablesCfg;
 
-    protected @InjectConfiguration DistributionZonesConfiguration distributionZonesConfiguration;
+    protected @InjectConfiguration DistributionZoneConfiguration distributionZoneCfg;
 
     protected StorageEngine engine;
 
@@ -80,9 +80,10 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
 
         engine.start();
 
-        tableCfg.dataStorage().change(ds -> ds.convert(engine.name())).join();
+        distributionZoneCfg.dataStorage()
+                .change(ds -> ds.convert(engine.name())).join();
 
-        table = engine.createMvTable(tableCfg, tablesCfg, distributionZonesConfiguration.defaultDistributionZone());
+        table = engine.createMvTable(tableCfg, tablesCfg, distributionZoneCfg);
 
         table.start();
 

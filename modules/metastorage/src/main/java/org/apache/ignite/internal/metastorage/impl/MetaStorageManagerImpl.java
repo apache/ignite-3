@@ -35,6 +35,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -47,9 +48,10 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.raft.MetaStorageLearnerListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
@@ -63,7 +65,6 @@ import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -110,6 +111,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /** Prevents double stopping of the component. */
     private final AtomicBoolean isStopped = new AtomicBoolean();
 
+    private final ClusterTimeImpl clusterTime;
+
     private volatile long appliedRevision;
 
     /**
@@ -121,6 +124,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      * @param logicalTopologyService Logical topology service.
      * @param raftMgr Raft manager.
      * @param storage Storage. This component owns this resource and will manage its lifecycle.
+     * @param clock A hybrid logical clock.
      */
     public MetaStorageManagerImpl(
             VaultManager vaultMgr,
@@ -128,7 +132,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             ClusterManagementGroupManager cmgMgr,
             LogicalTopologyService logicalTopologyService,
             RaftManager raftMgr,
-            KeyValueStorage storage
+            KeyValueStorage storage,
+            HybridClock clock
     ) {
         this.vaultMgr = vaultMgr;
         this.clusterService = clusterService;
@@ -136,12 +141,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         this.cmgMgr = cmgMgr;
         this.logicalTopologyService = logicalTopologyService;
         this.storage = storage;
+        this.clusterTime = new ClusterTimeImpl(busyLock, clock);
     }
 
     private CompletableFuture<MetaStorageServiceImpl> initializeMetaStorage(Set<String> metaStorageNodes) {
-        ClusterNode thisNode = clusterService.topologyService().localMember();
-
-        String thisNodeName = thisNode.name();
+        String thisNodeName = clusterService.nodeName();
 
         CompletableFuture<RaftGroupService> raftServiceFuture;
 
@@ -159,8 +163,14 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 raftServiceFuture = raftMgr.startRaftGroupNode(
                         new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                         configuration,
-                        new MetaStorageListener(storage),
-                        new MetaStorageRaftGroupEventsListener(busyLock, clusterService, logicalTopologyService, metaStorageSvcFut),
+                        new MetaStorageListener(storage, clusterTime),
+                        new MetaStorageRaftGroupEventsListener(
+                                busyLock,
+                                clusterService,
+                                logicalTopologyService,
+                                metaStorageSvcFut,
+                                clusterTime
+                        ),
                         ownFsmCallerExecutorDisruptorConfig
                 );
             } else {
@@ -173,7 +183,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 raftServiceFuture = raftMgr.startRaftGroupNode(
                         new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                         configuration,
-                        new MetaStorageLearnerListener(storage),
+                        new MetaStorageListener(storage, clusterTime),
                         RaftGroupEventsListener.noopLsnr,
                         ownFsmCallerExecutorDisruptorConfig
                 );
@@ -182,7 +192,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             return CompletableFuture.failedFuture(e);
         }
 
-        return raftServiceFuture.thenApply(raftService -> new MetaStorageServiceImpl(raftService, busyLock, thisNode));
+        return raftServiceFuture.thenApply(raftService -> new MetaStorageServiceImpl(thisNodeName, raftService, busyLock, clusterTime));
     }
 
     @Override
@@ -230,6 +240,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         busyLock.block();
 
+        clusterTime.stopLeaderTimer();
+
         cancelOrConsume(metaStorageSvcFut, MetaStorageServiceImpl::close);
 
         IgniteUtils.closeAll(
@@ -245,7 +257,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     @Override
     public void registerPrefixWatch(ByteArray key, WatchListener listener) {
-        storage.watchPrefix(key.bytes(), appliedRevision() + 1, listener);
+        storage.watchRange(key.bytes(), storage.nextKey(key.bytes()), appliedRevision() + 1, listener);
     }
 
     @Override
@@ -550,7 +562,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     @Override
     public Publisher<Entry> prefix(ByteArray keyPrefix) {
-        return prefix(keyPrefix, -1);
+        return prefix(keyPrefix, MetaStorageManager.LATEST_REVISION);
     }
 
     @Override
@@ -612,6 +624,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    @TestOnly
+    ClusterTime clusterTime() {
+        return clusterTime;
     }
 
     @TestOnly

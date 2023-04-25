@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cli.call.unit;
 import static org.apache.ignite.internal.cli.call.unit.DeployUndeployTestSupport.createEmptyFileIn;
 import static org.apache.ignite.internal.cli.call.unit.DeployUndeployTestSupport.get;
 import static org.apache.ignite.internal.cli.call.unit.DeployUndeployTestSupport.tracker;
+import static org.apache.ignite.rest.client.model.DeploymentStatus.DEPLOYED;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import jakarta.inject.Inject;
@@ -186,5 +187,28 @@ public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBas
         // Then
         assertThat(output.hasError()).isTrue();
         assertThat(output.errorCause()).isInstanceOf(IgniteCliApiException.class);
+    }
+
+    @Test
+    @DisplayName("Should return unit status after unit deploy")
+    void deployStatusCheck() {
+        // When deploy unit
+        CallOutput<String> deployOutput = get(
+                deployUnitCallFactory.create(tracker()).execute(deployInput("test.id", "1.1.0"))
+        );
+
+        // Then
+        assertThat(deployOutput.hasError()).isFalse();
+        assertThat(deployOutput.body()).isEqualTo(MessageUiComponent.from(UiElements.done()).render());
+        // And list is not empty
+        List<UnitStatusRecord> unisStatuses = listUnitCall.execute(urlInput).body();
+        assertThat(unisStatuses.size()).isEqualTo(1);
+        assertThat(unisStatuses.get(0).versionToDeploymentInfo().size()).isEqualTo(1);
+        assertThat(unisStatuses.get(0).versionToDeploymentInfo().get("1.1.0"))
+                .isNotNull()
+                .matches(deploymentInfo -> deploymentInfo.getStatus() == DEPLOYED);
+
+        // And status is not empty
+        assertThat(unitStatusCall.execute(statusInput("test.id"))).isNotNull();
     }
 }

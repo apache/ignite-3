@@ -170,12 +170,10 @@ public class ExchangeServiceImpl implements ExchangeService {
             try {
                 SharedState state = msg.sharedState();
                 if (state != null) {
-                    outbox.context().sharedState(state);
-
-                    outbox.rewind();
+                    outbox.onRewindRequest(nodeName, state, msg.amountOfBatches());
+                } else {
+                    outbox.onRequest(nodeName, msg.amountOfBatches());
                 }
-
-                outbox.onRequest(nodeName, msg.amountOfBatches());
             } catch (Throwable e) {
                 outbox.onError(e);
 

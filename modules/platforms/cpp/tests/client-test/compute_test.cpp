@@ -40,10 +40,6 @@ protected:
         m_client = ignite_client::start(cfg, std::chrono::seconds(30));
     }
 
-    void TearDown() override {
-        // remove all
-    }
-
     /**
      * Get specific node.
      * @param id Node id.

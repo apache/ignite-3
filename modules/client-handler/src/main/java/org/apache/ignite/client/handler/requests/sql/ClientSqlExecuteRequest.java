@@ -31,7 +31,6 @@ import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
-import org.apache.ignite.internal.client.proto.ClientColumnTypeConverter;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -194,7 +193,7 @@ public class ClientSqlExecuteRequest {
 
             out.packString(col.name());
             out.packBoolean(col.nullable());
-            out.packInt(ClientColumnTypeConverter.columnTypeToOrdinal(col.type()));
+            out.packInt(col.type().ordinal());
             out.packInt(col.scale());
             out.packInt(col.precision());
 

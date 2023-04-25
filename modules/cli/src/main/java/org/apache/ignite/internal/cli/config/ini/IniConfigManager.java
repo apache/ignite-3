@@ -17,9 +17,14 @@
 
 package org.apache.ignite.internal.cli.config.ini;
 
-import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_LOGIN;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.CLUSTER_URL;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_CLIENT_AUTH;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_KEY_STORE_PASSWORD;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_KEY_STORE_PATH;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_TRUST_STORE_PASSWORD;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_TRUST_STORE_PATH;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_URL;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE_PATH;
@@ -29,13 +34,19 @@ import static org.apache.ignite.internal.cli.config.ConfigConstants.CURRENT_PROF
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Collection;
 import java.util.NoSuchElementException;
-import org.apache.ignite.internal.cli.config.ConfigInitializationException;
+import java.util.Set;
 import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.Profile;
-import org.apache.ignite.internal.cli.config.ProfileNotFoundException;
+import org.apache.ignite.internal.cli.config.exception.ConfigInitializationException;
+import org.apache.ignite.internal.cli.config.exception.ProfileNotFoundException;
+import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
+import org.apache.ignite.internal.cli.util.OperatingSystem;
 import org.apache.ignite.internal.logger.IgniteLogger;
 
 /**
@@ -48,24 +59,57 @@ public class IniConfigManager implements ConfigManager {
 
     private final IniFile configFile;
 
+    private final IniFile secretConfigFile;
+
     private String currentProfileName;
 
     /**
      * Constructor.
      *
-     * @param file ini file.
+     * @param configFile ini file.
+     * @param secretConfigFile secret ini file.
      */
-    public IniConfigManager(File file) {
+    public IniConfigManager(File configFile, File secretConfigFile) {
+        this.configFile = configFile(configFile);
+        this.secretConfigFile = secretConfigFile(secretConfigFile);
+        this.currentProfileName = findCurrentProfileName(this.configFile);
+    }
+
+    private IniFile configFile(File file) {
         IniFile configFile;
         try {
             configFile = new IniFile(file);
             findCurrentProfileName(configFile);
         } catch (IOException | NoSuchElementException e) {
             LOG.warn("User config is corrupted or doesn't exist.", e);
-            configFile = createDefaultConfig(file);
+            try {
+                configFile = createDefaultConfig(file);
+            } catch (Exception ex) {
+                throw new IgniteCliException("Couldn't create default config", ex);
+            }
         }
-        this.configFile = configFile;
-        this.currentProfileName = findCurrentProfileName(configFile);
+        return configFile;
+    }
+
+    private IniFile secretConfigFile(File file) {
+        IniFile configFile;
+        try {
+            if (OperatingSystem.current() != OperatingSystem.WINDOWS) {
+                Set<PosixFilePermission> posixFilePermissions = Files.getPosixFilePermissions(file.toPath());
+                if (!secretPermission().equals(posixFilePermissions)) {
+                    throw new IgniteCliException("The secret configuration file must have 700 permissions");
+                }
+            }
+            configFile = new IniFile(file);
+        } catch (IOException e) {
+            LOG.warn("User secret config is corrupted or doesn't exist.", e);
+            try {
+                configFile = createDefaultSecretConfig(file);
+            } catch (Exception ex) {
+                throw new IgniteCliException("Couldn't create secret default config", ex);
+            }
+        }
+        return configFile;
     }
 
     private static String findCurrentProfileName(IniFile configFile) {
@@ -91,12 +135,25 @@ public class IniConfigManager implements ConfigManager {
         if (section == null) {
             throw new ProfileNotFoundException(profile);
         }
-        return new IniProfile(section, configFile::store);
+
+        IniSection secretSection = secretConfigFile.getSection(profile) == null
+                ? secretConfigFile.createSection(profile)
+                : secretConfigFile.getSection(profile);
+
+        IniConfig config = new IniConfig(section, configFile::store);
+        IniConfig secretConfig = new IniConfig(secretSection, secretConfigFile::store);
+        return new IniProfile(section.getName(), config, secretConfig);
     }
 
     @Override
     public Profile createProfile(String profileName) {
-        return new IniProfile(configFile.createSection(profileName), configFile::store);
+        IniSection section = configFile.createSection(profileName);
+        IniSection secretSection = secretConfigFile.createSection(profileName);
+
+        IniConfig config = new IniConfig(section, configFile::store);
+        IniConfig secretConfig = new IniConfig(secretSection, secretConfigFile::store);
+
+        return new IniProfile(profileName, config, secretConfig);
     }
 
     @Override
@@ -125,16 +182,45 @@ public class IniConfigManager implements ConfigManager {
             IniSection defaultSection = ini.createSection(DEFAULT_PROFILE_NAME);
             defaultSection.setProperty(CLUSTER_URL.value(), "http://localhost:10300");
             defaultSection.setProperty(JDBC_URL.value(), "jdbc:ignite:thin://127.0.0.1:10800");
+            ini.store();
+            return ini;
+        } catch (IOException e) {
+            throw new ConfigInitializationException(file.getAbsolutePath(), e);
+        }
+    }
+
+    private static IniFile createDefaultSecretConfig(File file) {
+        try {
+            file.getParentFile().mkdirs();
+            file.delete();
+
+            if (OperatingSystem.current() == OperatingSystem.WINDOWS) {
+                Files.createFile(file.toPath());
+            } else {
+                Files.createFile(file.toPath(), PosixFilePermissions.asFileAttribute(secretPermission()));
+            }
+
+            IniFile ini = new IniFile(file);
+            IniSection defaultSection = ini.createSection(DEFAULT_PROFILE_NAME);
             defaultSection.setProperty(REST_KEY_STORE_PATH.value(), "");
             defaultSection.setProperty(REST_KEY_STORE_PASSWORD.value(), "");
             defaultSection.setProperty(REST_TRUST_STORE_PATH.value(), "");
             defaultSection.setProperty(REST_TRUST_STORE_PASSWORD.value(), "");
-            defaultSection.setProperty(BASIC_AUTHENTICATION_LOGIN.value(), "");
+            defaultSection.setProperty(JDBC_KEY_STORE_PATH.value(), "");
+            defaultSection.setProperty(JDBC_KEY_STORE_PASSWORD.value(), "");
+            defaultSection.setProperty(JDBC_TRUST_STORE_PATH.value(), "");
+            defaultSection.setProperty(JDBC_TRUST_STORE_PASSWORD.value(), "");
+            defaultSection.setProperty(JDBC_CLIENT_AUTH.value(), "");
+            defaultSection.setProperty(BASIC_AUTHENTICATION_USERNAME.value(), "");
             defaultSection.setProperty(BASIC_AUTHENTICATION_PASSWORD.value(), "");
             ini.store();
             return ini;
         } catch (IOException e) {
             throw new ConfigInitializationException(file.getAbsolutePath(), e);
         }
+    }
+
+    private static Set<PosixFilePermission> secretPermission() {
+        return Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE);
     }
 }

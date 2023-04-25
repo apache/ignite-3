@@ -98,7 +98,7 @@ public class InitParametersBuilder {
      * @param authenticationConfig Authentication configuration.
      * @return {@code this} for chaining.
      */
-    public InitParametersBuilder restAuthenticationConfig(AuthenticationConfig authenticationConfig) {
+    public InitParametersBuilder authenticationConfig(AuthenticationConfig authenticationConfig) {
         if (authenticationConfig == null) {
             throw new IllegalArgumentException("Authentication config cannot be null.");
         }

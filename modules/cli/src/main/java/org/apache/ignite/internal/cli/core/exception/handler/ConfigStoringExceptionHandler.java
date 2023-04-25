@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cli.core.exception.handler;
 
-import org.apache.ignite.internal.cli.config.ConfigStoringException;
+import org.apache.ignite.internal.cli.config.exception.ConfigStoringException;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.internal.cli.core.style.component.ErrorUiComponent;

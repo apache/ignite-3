@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage.configuration;
 
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.mockValidationContext;
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.validate;
-import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -62,7 +61,6 @@ public class ExistingDataStorageValidatorTest {
                 createMockedStorageEngineFactory(dataStorage2)
         ));
 
-        validate(validator, annotation, mockValidationContext(UNKNOWN_DATA_STORAGE, UNKNOWN_DATA_STORAGE));
         validate(validator, annotation, mockValidationContext(dataStorage1, dataStorage1));
         validate(validator, annotation, mockValidationContext(dataStorage2, dataStorage2));
     }

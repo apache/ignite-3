@@ -45,28 +45,6 @@ public class RocksUtils {
     }
 
     /**
-     * Iterates over the given iterator testing key-value pairs with the given predicate and checks the iterator's status afterwards.
-     *
-     * @param iterator Iterator.
-     * @param consumer Consumer of key-value pairs.
-     * @return {@code true} if a matching key-value pair has been found, {@code false} otherwise.
-     * @throws RocksDBException If failed.
-     */
-    public static boolean find(RocksIterator iterator, RocksBiPredicate consumer) throws RocksDBException {
-        for (; iterator.isValid(); iterator.next()) {
-            boolean result = consumer.test(iterator.key(), iterator.value());
-
-            if (result) {
-                return true;
-            }
-        }
-
-        checkIterator(iterator);
-
-        return false;
-    }
-
-    /**
      * Checks the status of the iterator and throws an exception if it is not correct.
      *
      * <p>Check the status first. This operation is guaranteed to throw if an internal error has occurred during the iteration. Otherwise,

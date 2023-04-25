@@ -18,9 +18,10 @@
 package org.apache.ignite.internal.deployunit;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
-import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
-import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.OBSOLETE;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.REMOVING;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -121,7 +122,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         Objects.requireNonNull(version);
         Objects.requireNonNull(deploymentUnit);
 
-        UnitMeta meta = new UnitMeta(id, version, deploymentUnit.name(), DeploymentStatus.UPLOADING, Collections.emptyList());
+        UnitMeta meta = new UnitMeta(id, version, deploymentUnit.name(), UPLOADING, Collections.emptyList());
 
         byte[] unitContent;
         try {

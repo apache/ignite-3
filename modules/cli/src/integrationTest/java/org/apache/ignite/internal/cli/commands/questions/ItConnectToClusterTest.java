@@ -24,7 +24,6 @@ import java.io.IOException;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.TestStateConfigHelper;
-import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -64,7 +63,7 @@ class ItConnectToClusterTest extends ItConnectToClusterTestBase {
         assertThat(promptBefore).isEqualTo("[disconnected]> ");
 
         // And last connected URL is not equal to the default URL
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createClusterUrlNonDefault());
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlNonDefaultConfig());
         stateConfigProvider.config = TestStateConfigHelper.createLastConnectedDefault();
 
         // And answer to both questions is "y"

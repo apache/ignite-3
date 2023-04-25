@@ -261,7 +261,7 @@ namespace Apache.Ignite.Tests
                 var idx = i * 4;
 
                 var name = propTuple.GetString(idx);
-                var type = (ClientDataType)propTuple.GetInt(idx + 1);
+                var type = (ColumnType)propTuple.GetInt(idx + 1);
                 var scale = propTuple.GetInt(idx + 2);
 
                 props[name] = propTuple.GetObject(idx + 3, type, scale);
@@ -292,7 +292,7 @@ namespace Apache.Ignite.Tests
                 writer.WriteArrayHeader(6); // Column props.
                 writer.Write("NAME"); // Column name.
                 writer.Write(false); // Nullable.
-                writer.Write((int)SqlColumnType.String);
+                writer.Write((int)ColumnType.String);
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
                 writer.Write(false); // No origin.
@@ -300,7 +300,7 @@ namespace Apache.Ignite.Tests
                 writer.WriteArrayHeader(6); // Column props.
                 writer.Write("VAL"); // Column name.
                 writer.Write(false); // Nullable.
-                writer.Write((int)SqlColumnType.String);
+                writer.Write((int)ColumnType.String);
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
                 writer.Write(false); // No origin.
@@ -325,7 +325,7 @@ namespace Apache.Ignite.Tests
                 writer.WriteArrayHeader(6); // Column props.
                 writer.Write("ID"); // Column name.
                 writer.Write(false); // Nullable.
-                writer.Write((int)SqlColumnType.Int32);
+                writer.Write((int)ColumnType.Int32);
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
                 writer.Write(false); // No origin.
@@ -356,7 +356,7 @@ namespace Apache.Ignite.Tests
                 writer.WriteArrayHeader(1); // Columns.
                 writer.WriteArrayHeader(7); // Column props.
                 writer.Write("ID");
-                writer.Write((int)ClientDataType.Int32);
+                writer.Write((int)ColumnType.Int32);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
                 writer.Write(true); // Colocation.
@@ -369,7 +369,7 @@ namespace Apache.Ignite.Tests
 
                 writer.WriteArrayHeader(7); // Column props.
                 writer.Write("IdStr");
-                writer.Write((int)ClientDataType.String);
+                writer.Write((int)ColumnType.String);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
                 writer.Write(true); // Colocation.
@@ -378,7 +378,7 @@ namespace Apache.Ignite.Tests
 
                 writer.WriteArrayHeader(7); // Column props.
                 writer.Write("IdGuid");
-                writer.Write((int)ClientDataType.Uuid);
+                writer.Write((int)ColumnType.Uuid);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
                 writer.Write(true); // Colocation.
@@ -391,7 +391,7 @@ namespace Apache.Ignite.Tests
 
                 writer.WriteArrayHeader(7); // Column props.
                 writer.Write("IdStr");
-                writer.Write((int)ClientDataType.String);
+                writer.Write((int)ColumnType.String);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
                 writer.Write(true); // Colocation.
@@ -400,7 +400,7 @@ namespace Apache.Ignite.Tests
 
                 writer.WriteArrayHeader(7); // Column props.
                 writer.Write("IdGuid");
-                writer.Write((int)ClientDataType.Uuid);
+                writer.Write((int)ColumnType.Uuid);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
                 writer.Write(false); // Colocation.
