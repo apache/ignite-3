@@ -51,8 +51,8 @@ public class ClientTupleDeleteRequest {
         var tuple = readTuple(in, table, true);
 
         return table.recordView().deleteAsync(tx, tuple).thenAccept(res -> {
-            out.packBoolean(res);
             out.packInt(table.schemaView().lastSchemaVersion());
+            out.packBoolean(res);
         });
     }
 }
