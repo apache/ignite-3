@@ -250,7 +250,11 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         final FirstSnapshotLoadDone done = new FirstSnapshotLoadDone(reader);
         Requires.requireTrue(this.fsmCaller.onSnapshotLoad(done));
         try {
-            done.waitForRun();
+            if (!node.getNodeId().getGroupId().contains("part")) {
+                done.waitForRun();
+            } else {
+                done.status = new Status();
+            }
         }
         catch (final InterruptedException e) {
             LOG.warn("Wait for FirstSnapshotLoadDone run is interrupted.");
