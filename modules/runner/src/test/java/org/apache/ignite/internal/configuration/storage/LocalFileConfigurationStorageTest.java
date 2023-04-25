@@ -416,7 +416,7 @@ public class LocalFileConfigurationStorageTest {
         Files.write(getConfigFile(), content.getBytes(StandardCharsets.UTF_8));
 
         // Expect
-        assertThat(storage.readDataOnRecovery().get().values(), allOf(aMapWithSize(1)));
+        assertThat(storage.readDataOnRecovery().get().values(), aMapWithSize(1));
     }
 
     private String configFileContent() throws IOException {

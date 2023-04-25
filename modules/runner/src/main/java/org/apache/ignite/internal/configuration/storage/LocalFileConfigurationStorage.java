@@ -154,7 +154,11 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
     @Override
     public CompletableFuture<Serializable> readLatest(String key) {
-        return CompletableFuture.completedFuture(latest.get(key));
+        try {
+            return CompletableFuture.completedFuture(latest.get(key));
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 
     @Override
