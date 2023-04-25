@@ -398,12 +398,11 @@ namespace Apache.Ignite.Internal.Table
                 addAction: addAction);
         }
 
-        private static bool ReadSchemaAndBoolean(PooledBuffer buf)
+        private bool ReadSchemaAndBoolean(PooledBuffer buf)
         {
             var reader = buf.GetReader();
 
-            // TODO IGNITE-19242: Retrieve new schema when necessary.
-            _ = reader.ReadInt32();
+            _table.LoadSchemaInBackground(reader.ReadInt32());
 
             return reader.ReadBoolean();
         }

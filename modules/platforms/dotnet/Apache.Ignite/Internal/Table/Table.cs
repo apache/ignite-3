@@ -168,6 +168,18 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <summary>
+        /// Loads the specified schema in background, if it is not already cached.
+        /// </summary>
+        /// <param name="ver">Schema version.</param>
+        internal void LoadSchemaInBackground(int ver)
+        {
+            if (!_schemas.ContainsKey(ver))
+            {
+                _ = LoadSchemaAsync(ver);
+            }
+        }
+
+        /// <summary>
         /// Gets the latest schema.
         /// </summary>
         /// <returns>Schema.</returns>
@@ -253,6 +265,7 @@ namespace Apache.Ignite.Internal.Table
         /// <returns>Schema.</returns>
         private async Task<Schema> LoadSchemaAsync(int? version)
         {
+            // TODO IGNITE-19355 Same schema version is retrieved multiple times in concurrent scenarios
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
 

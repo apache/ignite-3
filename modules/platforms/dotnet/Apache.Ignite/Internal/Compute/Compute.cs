@@ -198,7 +198,7 @@ namespace Apache.Ignite.Internal.Compute
                     using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode)
                         .ConfigureAwait(false);
 
-                    return Read(res);
+                    return Read(res, table);
                 }
                 catch (IgniteException e) when (e.Code == ErrorGroups.Client.TableIdNotFound)
                 {
@@ -224,12 +224,11 @@ namespace Apache.Ignite.Internal.Compute
                 return colocationHash;
             }
 
-            static T Read(in PooledBuffer buf)
+            static T Read(in PooledBuffer buf, Table table)
             {
                 var reader = buf.GetReader();
 
-                // TODO IGNITE-19242: Retrieve new schema when necessary.
-                _ = reader.ReadInt32();
+                table.LoadSchemaInBackground(reader.ReadInt32());
 
                 return (T)reader.ReadObjectFromBinaryTuple()!;
             }
