@@ -25,6 +25,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
@@ -153,6 +154,21 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMetaAsync(JdbcMetaPrimaryKeysRequest req) {
         return client.sendRequestAsync(ClientOp.JDBC_PK_META, w -> req.writeBinary(w.out()), r -> {
             JdbcMetaPrimaryKeysResult res = new JdbcMetaPrimaryKeysResult();
+
+            res.readBinary(r.in());
+
+            return res;
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<JdbcFinishTxResult> finishTxAsync(long connectionId, boolean commit) {
+        return client.sendRequestAsync(ClientOp.JDBC_TX_FINISH, w -> {
+            w.out().packLong(connectionId);
+            w.out().packBoolean(commit);
+        }, r -> {
+            JdbcFinishTxResult res = new JdbcFinishTxResult();
 
             res.readBinary(r.in());
 

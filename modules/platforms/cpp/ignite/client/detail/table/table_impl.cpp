@@ -21,7 +21,6 @@
 #include "ignite/client/detail/utils.h"
 #include "ignite/client/table/table.h"
 
-#include "ignite/common/bits.h"
 #include "ignite/common/ignite_error.h"
 #include "ignite/protocol/bitset_span.h"
 #include "ignite/protocol/reader.h"
@@ -100,7 +99,7 @@ ignite_tuple read_tuple(protocol::reader &reader, const schema *sch, bool key_on
  * @return Tuples.
  */
 std::vector<std::optional<ignite_tuple>> read_tuples_opt(protocol::reader &reader, const schema *sch, bool key_only) {
-    if (!sch)
+    if (reader.try_read_nil())
         return {};
 
     auto count = reader.read_int32();
@@ -127,7 +126,7 @@ std::vector<std::optional<ignite_tuple>> read_tuples_opt(protocol::reader &reade
  * @return Tuples.
  */
 std::vector<ignite_tuple> read_tuples(protocol::reader &reader, const schema *sch, bool key_only) {
-    if (!sch)
+    if (reader.try_read_nil())
         return {};
 
     auto count = reader.read_int32();
@@ -194,7 +193,8 @@ void table_impl::get_async(
 
             auto reader_func = [self, key](protocol::reader &reader) -> std::optional<ignite_tuple> {
                 std::shared_ptr<schema> sch = self->get_schema(reader);
-                if (!sch)
+
+                if (reader.try_read_nil())
                     return std::nullopt;
 
                 return read_tuple(reader, sch.get());
@@ -215,7 +215,11 @@ void table_impl::contains_async(transaction *tx, const ignite_tuple &key, ignite
                 write_tuple(writer, sch, *key, true);
             };
 
-            auto reader_func = [](protocol::reader &reader) -> bool { return reader.read_bool(); };
+            auto reader_func = [](protocol::reader &reader) -> bool {
+                (void) reader.read_int32(); // Skip schema version.
+
+                return reader.read_bool();
+            };
 
             self->m_connection->perform_request<bool>(client_operation::TUPLE_CONTAINS_KEY, tx0.get(), writer_func,
                 std::move(reader_func), std::move(callback));
@@ -285,7 +289,8 @@ void table_impl::get_and_upsert_async(
 
             auto reader_func = [self, record](protocol::reader &reader) -> std::optional<ignite_tuple> {
                 std::shared_ptr<schema> sch = self->get_schema(reader);
-                if (!sch)
+
+                if (reader.try_read_nil())
                     return std::nullopt;
 
                 return read_tuple(reader, sch.get());
@@ -305,7 +310,11 @@ void table_impl::insert_async(transaction *tx, const ignite_tuple &record, ignit
                 write_tuple(writer, sch, record, false);
             };
 
-            auto reader_func = [](protocol::reader &reader) -> bool { return reader.read_bool(); };
+            auto reader_func = [](protocol::reader &reader) -> bool {
+                (void) reader.read_int32(); // Skip schema version.
+
+                return reader.read_bool();
+            };
 
             self->m_connection->perform_request<bool>(
                 client_operation::TUPLE_INSERT, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
@@ -343,7 +352,11 @@ void table_impl::replace_async(transaction *tx, const ignite_tuple &record, igni
                 write_tuple(writer, sch, record, false);
             };
 
-            auto reader_func = [](protocol::reader &reader) -> bool { return reader.read_bool(); };
+            auto reader_func = [](protocol::reader &reader) -> bool {
+                (void) reader.read_int32(); // Skip schema version.
+
+                return reader.read_bool();
+            };
 
             self->m_connection->perform_request<bool>(
                 client_operation::TUPLE_REPLACE, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
@@ -361,7 +374,11 @@ void table_impl::replace_async(
                 write_tuple(writer, sch, new_record, false);
             };
 
-            auto reader_func = [](protocol::reader &reader) -> bool { return reader.read_bool(); };
+            auto reader_func = [](protocol::reader &reader) -> bool {
+                (void) reader.read_int32(); // Skip schema version.
+
+                return reader.read_bool();
+            };
 
             self->m_connection->perform_request<bool>(client_operation::TUPLE_REPLACE_EXACT, tx0.get(), writer_func,
                 std::move(reader_func), std::move(callback));
@@ -381,7 +398,8 @@ void table_impl::get_and_replace_async(
 
             auto reader_func = [self, record](protocol::reader &reader) -> std::optional<ignite_tuple> {
                 std::shared_ptr<schema> sch = self->get_schema(reader);
-                if (!sch)
+
+                if (reader.try_read_nil())
                     return std::nullopt;
 
                 return read_tuple(reader, sch.get());
@@ -401,7 +419,11 @@ void table_impl::remove_async(transaction *tx, const ignite_tuple &key, ignite_c
                 write_tuple(writer, sch, record, true);
             };
 
-            auto reader_func = [](protocol::reader &reader) -> bool { return reader.read_bool(); };
+            auto reader_func = [](protocol::reader &reader) -> bool {
+                (void) reader.read_int32(); // Skip schema version.
+
+                return reader.read_bool();
+            };
 
             self->m_connection->perform_request<bool>(
                 client_operation::TUPLE_DELETE, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
@@ -417,7 +439,11 @@ void table_impl::remove_exact_async(transaction *tx, const ignite_tuple &record,
                 write_tuple(writer, sch, record, false);
             };
 
-            auto reader_func = [](protocol::reader &reader) -> bool { return reader.read_bool(); };
+            auto reader_func = [](protocol::reader &reader) -> bool {
+                (void) reader.read_int32(); // Skip schema version.
+
+                return reader.read_bool();
+            };
 
             self->m_connection->perform_request<bool>(client_operation::TUPLE_DELETE_EXACT, tx0.get(), writer_func,
                 std::move(reader_func), std::move(callback));
@@ -437,7 +463,8 @@ void table_impl::get_and_remove_async(
 
             auto reader_func = [self, record](protocol::reader &reader) -> std::optional<ignite_tuple> {
                 std::shared_ptr<schema> sch = self->get_schema(reader);
-                if (!sch)
+
+                if (reader.try_read_nil())
                     return std::nullopt;
 
                 return read_tuple(reader, sch.get());

@@ -39,6 +39,9 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
     /** Batch of query arguments. */
     private List<Object[]> args;
 
+    /** Flag indicating whether auto-commit mode is enabled. */
+    private boolean autoCommit;
+
     /**
      * Default constructor.
      */
@@ -51,14 +54,16 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
      * @param schemaName Schema name.
      * @param query Sql query string.
      * @param args Sql query arguments.
+     * @param autoCommit Flag indicating whether auto-commit mode is enabled.
      */
-    public JdbcBatchPreparedStmntRequest(String schemaName, String query, List<Object[]> args) {
+    public JdbcBatchPreparedStmntRequest(String schemaName, String query, List<Object[]> args, boolean autoCommit) {
         assert !StringUtil.isNullOrEmpty(query);
         assert !CollectionUtils.nullOrEmpty(args);
 
         this.query = query;
         this.args = args;
         this.schemaName = schemaName;
+        this.autoCommit = autoCommit;
     }
 
     /**
@@ -88,9 +93,19 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         return args;
     }
 
+    /**
+     * Get flag indicating whether auto-commit mode is enabled.
+     *
+     * @return {@code true} if auto-commit mode is enabled, {@code false} otherwise.
+     */
+    public boolean autoCommit() {
+        return autoCommit;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
+        packer.packBoolean(autoCommit);
         ClientMessageUtils.writeStringNullable(packer, schemaName);
 
         packer.packString(query);
@@ -104,6 +119,7 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
+        autoCommit = unpacker.unpackBoolean();
         schemaName = ClientMessageUtils.readStringNullable(unpacker);
 
         query = unpacker.unpackString();

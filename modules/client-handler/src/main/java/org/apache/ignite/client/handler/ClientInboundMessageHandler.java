@@ -46,6 +46,7 @@ import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcConnectRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcExecuteBatchRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcExecuteRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcFetchRequest;
+import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcFinishTxRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcPreparedStmntBatchRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcPrimaryKeyMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcQueryMetadataRequest;
@@ -123,7 +124,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /** Ignite tables API. */
     private final IgniteTablesInternal igniteTables;
 
-    /** Ignite tables API. */
+    /** Ignite transactions API. */
     private final IgniteTransactions igniteTransactions;
 
     /** JDBC Handler. */
@@ -172,7 +173,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      * Constructor.
      *
      * @param igniteTables Ignite tables API entry point.
-     * @param igniteTransactions Transactions API.
+     * @param igniteTransactions Ignite transactions API.
      * @param processor Sql query processor.
      * @param configuration Configuration.
      * @param compute Compute.
@@ -215,8 +216,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
 
-        jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources);
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
+        jdbcQueryEventHandler = 
+                new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources, igniteTransactions);
 
         this.partitionAssignmentsChangeListener = this::onPartitionAssignmentChanged;
         igniteTables.addAssignmentsChangeListener(partitionAssignmentsChangeListener);
@@ -504,13 +506,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTableGetRequest.process(in, out, igniteTables);
 
             case ClientOp.TUPLE_UPSERT:
-                return ClientTupleUpsertRequest.process(in, igniteTables, resources);
+                return ClientTupleUpsertRequest.process(in, out, igniteTables, resources);
 
             case ClientOp.TUPLE_GET:
                 return ClientTupleGetRequest.process(in, out, igniteTables, resources);
 
             case ClientOp.TUPLE_UPSERT_ALL:
-                return ClientTupleUpsertAllRequest.process(in, igniteTables, resources);
+                return ClientTupleUpsertAllRequest.process(in, out, igniteTables, resources);
 
             case ClientOp.TUPLE_GET_ALL:
                 return ClientTupleGetAllRequest.process(in, out, igniteTables, resources);
@@ -613,6 +615,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.PARTITION_ASSIGNMENT_GET:
                 return ClientTablePartitionAssignmentGetRequest.process(in, out, igniteTables);
+
+            case ClientOp.JDBC_TX_FINISH:
+                return ClientJdbcFinishTxRequest.process(in, out, jdbcQueryEventHandler);
 
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
