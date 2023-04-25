@@ -394,7 +394,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             return null;
         });
 
-//        Cursor<ReadResult> scanVersionsCursor = mvPartitionStorage.scanVersions(rowId);
         PartitionTimestampCursor scanTimestampCursor = mvPartitionStorage.scan(clock.now());
 
         Cursor<RowId> getFromHashIndexCursor = hashIndexStorage.get(hashIndexRow.indexColumns());
@@ -413,7 +412,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         checkStorageDestroyed(hashIndexStorage);
         checkStorageDestroyed(sortedIndexStorage);
 
-//        assertThrows(StorageClosedException.class, () -> getAll(scanVersionsCursor));
         assertThrows(StorageClosedException.class, () -> getAll(scanTimestampCursor));
 
         assertThrows(StorageClosedException.class, () -> getAll(getFromHashIndexCursor));
@@ -585,7 +583,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         fillStorages(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
 
-//        Cursor<ReadResult> scanVersionsCursor = mvPartitionStorage.scanVersions(rows.get(0).get1());
         PartitionTimestampCursor scanTimestampCursor = mvPartitionStorage.scan(clock.now());
 
         IndexRow hashIndexRow = indexRow(hashIndexStorage.indexDescriptor(), rows.get(0).get2(), rows.get(0).get1());
@@ -602,7 +599,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         checkStorageDestroyed(hashIndexStorage);
         checkStorageDestroyed(sortedIndexStorage);
 
-//        assertThrows(StorageClosedException.class, () -> getAll(scanVersionsCursor));
         assertThrows(StorageClosedException.class, () -> getAll(scanTimestampCursor));
 
         assertThrows(StorageClosedException.class, () -> getAll(getFromHashIndexCursor));
@@ -924,7 +920,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Let's open the cursors before start rebalance.
         IgniteTuple3<RowId, BinaryRow, HybridTimestamp> rowForCursors = rowsBeforeRebalanceStart.get(0);
 
-//        Cursor<?> mvPartitionStorageScanVersionsCursor = mvPartitionStorage.scanVersions(rowForCursors.get1());
         Cursor<?> mvPartitionStorageScanCursor = mvPartitionStorage.scan(rowForCursors.get3());
 
         IndexRow hashIndexRow = indexRow(hashIndexStorage.indexDescriptor(), rowForCursors.get2(), rowForCursors.get1());
@@ -951,7 +946,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         checkHashIndexStorageMethodsAfterStartRebalance(hashIndexStorage);
         checkSortedIndexStorageMethodsAfterStartRebalance(sortedIndexStorage);
 
-//        checkCursorAfterStartRebalance(mvPartitionStorageScanVersionsCursor);
         checkCursorAfterStartRebalance(mvPartitionStorageScanCursor);
 
         checkCursorAfterStartRebalance(hashIndexStorageGetCursor);
